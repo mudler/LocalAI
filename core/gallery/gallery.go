@@ -29,6 +29,8 @@ func InstallModelFromGallery(galleries []config.Gallery, name string, basePath s
 			if err != nil {
 				return err
 			}
+			config.Description = model.Description
+			config.License = model.License
 		} else if len(model.ConfigFile) > 0 {
 			// TODO: is this worse than using the override method with a blank cfg yaml?
 			reYamlConfig, err := yaml.Marshal(model.ConfigFile)
@@ -114,7 +116,7 @@ func FindModel(models []*GalleryModel, name string, basePath string) *GalleryMod
 // List available models
 // Models galleries are a list of yaml files that are hosted on a remote server (for example github).
 // Each yaml file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
-func AvailableGalleryModels(galleries []config.Gallery, basePath string) ([]*GalleryModel, error) {
+func AvailableGalleryModels(galleries []config.Gallery, basePath string) (GalleryModels, error) {
 	var models []*GalleryModel
 
 	// Get models from galleries

@@ -139,6 +139,28 @@ func API(application *application.Application) (*fiber.App, error) {
 		return nil, fmt.Errorf("failed to create key auth config: %w", err)
 	}
 
+	httpFS := http.FS(embedDirStatic)
+
+	router.Use(favicon.New(favicon.Config{
+		URL:        "/favicon.ico",
+		FileSystem: httpFS,
+		File:       "static/favicon.ico",
+	}))
+
+	router.Use("/static", filesystem.New(filesystem.Config{
+		Root:       httpFS,
+		PathPrefix: "static",
+		Browse:     true,
+	}))
+
+	if application.ApplicationConfig().ImageDir != "" {
+		router.Static("/generated-images", application.ApplicationConfig().ImageDir)
+	}
+
+	if application.ApplicationConfig().AudioDir != "" {
+		router.Static("/generated-audio", application.ApplicationConfig().AudioDir)
+	}
+
 	// Auth is applied to _all_ endpoints. No exceptions. Filtering out endpoints to bypass is the role of the Filter property of the KeyAuth Configuration
 	router.Use(v2keyauth.New(*kaConfig))
 
@@ -175,20 +197,6 @@ func API(application *application.Application) (*fiber.App, error) {
 		routes.RegisterUIRoutes(router, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig(), galleryService)
 	}
 	routes.RegisterJINARoutes(router, requestExtractor, application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())
-
-	httpFS := http.FS(embedDirStatic)
-
-	router.Use(favicon.New(favicon.Config{
-		URL:        "/favicon.ico",
-		FileSystem: httpFS,
-		File:       "static/favicon.ico",
-	}))
-
-	router.Use("/static", filesystem.New(filesystem.Config{
-		Root:       httpFS,
-		PathPrefix: "static",
-		Browse:     true,
-	}))
 
 	// Define a custom 404 handler
 	// Note: keep this at the bottom!

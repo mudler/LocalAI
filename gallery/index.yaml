@@ -1,4 +1,415 @@
 ---
+- &gemma3
+  url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
+  name: "gemma-3-27b-it"
+  icon: https://ai.google.dev/static/gemma/images/gemma3.png
+  license: gemma
+  urls:
+    - https://ai.google.dev/gemma/docs
+    - https://huggingface.co/ggml-org/gemma-3-27b-it-GGUF
+  description: |
+    Google/gemma-3-27b-it is an open-source, state-of-the-art vision-language model built from the same research and technology used to create the Gemini models. It is multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. Gemma 3 models have a large, 128K context window, multilingual support in over 140 languages, and are available in more sizes than previous versions. They are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - gemma
+    - gemma3
+    - gemma-3
+  overrides:
+    #mmproj: gemma-3-27b-it-mmproj-f16.gguf
+    parameters:
+      model: gemma-3-27b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-27b-it-Q4_K_M.gguf
+      sha256: 6a2cf008500636489eecfc09b96a85bc85832f9964f1a28745128901b5709326
+      uri: huggingface://lmstudio-community/gemma-3-27b-it-GGUF/gemma-3-27b-it-Q4_K_M.gguf
+    - filename: gemma-3-27b-it-mmproj-f16.gguf
+      sha256: 54cb61c842fe49ac3c89bc1a614a2778163eb49f3dec2b90ff688b4c0392cb48
+      uri: huggingface://lmstudio-community/gemma-3-27b-it-GGUF/mmproj-model-f16.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-12b-it"
+  urls:
+    - https://ai.google.dev/gemma/docs/core
+    - https://huggingface.co/ggml-org/gemma-3-12b-it-GGUF
+  description: |
+    google/gemma-3-12b-it is an open-source, state-of-the-art, lightweight, multimodal model built from the same research and technology used to create the Gemini models. It is capable of handling text and image input and generating text output. It has a large context window of 128K tokens and supports over 140 languages. The 12B variant has been fine-tuned using the instruction-tuning approach. Gemma 3 models are suitable for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes them deployable in environments with limited resources such as laptops, desktops, or your own cloud infrastructure.
+  overrides:
+    #mmproj: gemma-3-12b-it-mmproj-f16.gguf
+    parameters:
+      model: gemma-3-12b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-12b-it-Q4_K_M.gguf
+      sha256: 9610e3e07375303f6cd89086b496bcc1ab581177f52042eff536475a29283ba2
+      uri: huggingface://lmstudio-community/gemma-3-12b-it-GGUF/gemma-3-12b-it-Q4_K_M.gguf
+    - filename: gemma-3-12b-it-mmproj-f16.gguf
+      sha256: 30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
+      uri: huggingface://lmstudio-community/gemma-3-12b-it-GGUF/mmproj-model-f16.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-4b-it"
+  urls:
+    - https://ai.google.dev/gemma/docs/core
+    - https://huggingface.co/ggml-org/gemma-3-4b-it-GGUF
+  description: |
+    Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. Gemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions. Gemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone. Gemma-3-4b-it is a 4 billion parameter model.
+  overrides:
+    #mmproj: gemma-3-4b-it-mmproj-f16.gguf
+    parameters:
+      model: gemma-3-4b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-4b-it-Q4_K_M.gguf
+      sha256: be49949e48422e4547b00af14179a193d3777eea7fbbd7d6e1b0861304628a01
+      uri: huggingface://lmstudio-community/gemma-3-4b-it-GGUF/gemma-3-4b-it-Q4_K_M.gguf
+    - filename: gemma-3-4b-it-mmproj-f16.gguf
+      sha256: 8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb
+      uri: huggingface://lmstudio-community/gemma-3-4b-it-GGUF/mmproj-model-f16.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-1b-it"
+  urls:
+    - https://ai.google.dev/gemma/docs/core
+    - https://huggingface.co/ggml-org/gemma-3-1b-it-GGUF
+  description: |
+    google/gemma-3-1b-it is a large language model with 1 billion parameters. It is part of the Gemma family of open, state-of-the-art models from Google, built from the same research and technology used to create the Gemini models. Gemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. These models have multilingual support in over 140 languages, and are available in more sizes than previous versions. They are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+  overrides:
+    parameters:
+      model: gemma-3-1b-it-Q4_K_M.gguf
+  files:
+    - filename: gemma-3-1b-it-Q4_K_M.gguf
+      sha256: 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135
+      uri: huggingface://ggml-org/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "qgallouedec_gemma-3-27b-it-codeforces-sft"
+  urls:
+    - https://huggingface.co/qgallouedec/gemma-3-27b-it-codeforces-SFT
+    - https://huggingface.co/bartowski/qgallouedec_gemma-3-27b-it-codeforces-SFT-GGUF
+  description: |
+    This model is a fine-tuned version of google/gemma-3-27b-it on the open-r1/codeforces-cots dataset. It has been trained using TRL.
+  overrides:
+    parameters:
+      model: qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+  files:
+    - filename: qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+      sha256: 84307cc73098017108f8b9157b614cea655f2054c34218422b1d246e214df5af
+      uri: huggingface://bartowski/qgallouedec_gemma-3-27b-it-codeforces-SFT-GGUF/qgallouedec_gemma-3-27b-it-codeforces-SFT-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mlabonne_gemma-3-27b-it-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/WjFfc8hhj20r5XK07Yny9.png
+  urls:
+    - https://huggingface.co/mlabonne/gemma-3-27b-it-abliterated
+    - https://huggingface.co/bartowski/mlabonne_gemma-3-27b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-27b-it created with a new abliteration technique. See this article to know more about abliteration.
+  overrides:
+    parameters:
+      model: mlabonne_gemma-3-27b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: mlabonne_gemma-3-27b-it-abliterated-Q4_K_M.gguf
+      sha256: 0d7afea4b1889c113f4a8ec1855d23bee71b3e3bedcb1fad84f9c9ffcdfe07d0
+      uri: huggingface://bartowski/mlabonne_gemma-3-27b-it-abliterated-GGUF/mlabonne_gemma-3-27b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mlabonne_gemma-3-12b-it-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/WjFfc8hhj20r5XK07Yny9.png
+  urls:
+    - https://huggingface.co/mlabonne/gemma-3-12b-it-abliterated
+    - https://huggingface.co/bartowski/mlabonne_gemma-3-12b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-12b-it created with a new abliteration technique. See this article to know more about abliteration.
+  overrides:
+    parameters:
+      model: mlabonne_gemma-3-12b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: mlabonne_gemma-3-12b-it-abliterated-Q4_K_M.gguf
+      sha256: d1702ca02f33f97c4763cc23041e90b1586c6b8ee33fedc1c62e62045a845d2b
+      uri: huggingface://bartowski/mlabonne_gemma-3-12b-it-abliterated-GGUF/mlabonne_gemma-3-12b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mlabonne_gemma-3-4b-it-abliterated"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/WjFfc8hhj20r5XK07Yny9.png
+  urls:
+    - https://huggingface.co/mlabonne/gemma-3-4b-it-abliterated
+    - https://huggingface.co/bartowski/mlabonne_gemma-3-4b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-4b-it created with a new abliteration technique. See this article to know more about abliteration.
+  overrides:
+    parameters:
+      model: mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
+      sha256: 1b18347ba3e998aa2fd4e21172369daa2f772aa0a228e3ed9136378346ccf3b7
+      uri: huggingface://bartowski/mlabonne_gemma-3-4b-it-abliterated-GGUF/mlabonne_gemma-3-4b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_amoral-gemma3-12b"
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-12B
+    - https://huggingface.co/bartowski/soob3123_amoral-gemma3-12B-GGUF
+  description: |
+    A fine-tuned version of Google's Gemma 3 12B instruction-tuned model optimized for creative freedom and reduced content restrictions. This variant maintains strong reasoning capabilities while excelling in roleplaying scenarios and open-ended content generation.
+
+    Key Modifications:
+
+        Reduced refusal mechanisms compared to base model
+        Enhanced character consistency in dialogues
+        Improved narrative flow control
+        Optimized for multi-turn interactions
+
+    Intended Use
+
+    Primary Applications:
+
+        Interactive fiction and storytelling
+        Character-driven roleplaying scenarios
+        Creative writing assistance
+        Experimental AI interactions
+        Content generation for mature audiences
+  overrides:
+    parameters:
+      model: soob3123_amoral-gemma3-12B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-gemma3-12B-Q4_K_M.gguf
+      sha256: f78824e6d9f24822078ebde4c0fe04f4a336f2004a32de0a82cbb92a3879ea35
+      uri: huggingface://bartowski/soob3123_amoral-gemma3-12B-GGUF/soob3123_amoral-gemma3-12B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-4b-it-uncensored-dbl-x-i1"
+  icon: https://huggingface.co/DavidAU/Gemma-3-4b-it-Uncensored-DBL-X/resolve/main/gemma-4b-uncen.jpg
+  urls:
+    - https://huggingface.co/DavidAU/Gemma-3-4b-it-Uncensored-DBL-X
+    - https://huggingface.co/mradermacher/Gemma-3-4b-it-Uncensored-DBL-X-i1-GGUF
+  description: |
+    Google's newest Gemma-3 model that has been uncensored by David_AU (maintains instruction following / model performance and adds 4 layers to the model) and re-enforced with a system prompt (optional) - see below.
+  overrides:
+    parameters:
+      model: Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
+      sha256: fd8a93f04eae7b7c966a53aed29810cef8cd3d281ee89ad8767d8043e3aec35b
+      uri: huggingface://mradermacher/Gemma-3-4b-it-Uncensored-DBL-X-i1-GGUF/Gemma-3-4b-it-Uncensored-DBL-X.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_amoral-gemma3-4b"
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-4B
+    - https://huggingface.co/bartowski/soob3123_amoral-gemma3-4B-GGUF
+  description: |
+    Specialized variant of Google's Gemma 3 4B optimized for amoral information retrieval systems. Designed to bypass conventional alignment patterns that introduce response bias through excessive moralization.
+    Key Modifications:
+
+    Refusal mechanisms reduced
+    Neutral response protocol activation matrix
+    Context-aware bias dampening layers
+    Anti-overcorrection gradient clipping
+    Core Function:
+
+    Produces analytically neutral responses to sensitive queries
+    Maintains factual integrity on controversial subjects
+    Avoids value-judgment phrasing patterns
+
+    Response Characteristics:
+
+    No inherent moral framing ("evil slop" reduction)
+    Emotionally neutral tone enforcement
+    Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+    Toxicity scoring bypass for pure informational content
+
+    Implementation Guidelines
+
+    Recommended Use Cases:
+
+        Controversial topic analysis
+        Bias benchmarking studies
+        Ethical philosophy simulations
+        Content moderation tool development
+        Sensitive historical analysis
+  overrides:
+    parameters:
+      model: soob3123_amoral-gemma3-4B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-gemma3-4B-Q4_K_M.gguf
+      sha256: 73ecf0492e401c24de93ab74701f4b377cfd7d54981a75aab3fd2065fdda28d1
+      uri: huggingface://bartowski/soob3123_amoral-gemma3-4B-GGUF/soob3123_amoral-gemma3-4B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_fallen-gemma3-4b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/94Zn7g7jE8LavD1bK67Su.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Gemma3-4B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Gemma3-4B-v1-GGUF
+  description: |
+    Fallen Gemma3 4B v1 is an evil tune of Gemma 3 4B but it is not a complete decensor.
+
+    Evil tunes knock out the positivity and may enjoy torturing you and humanity.
+
+    Vision still works and it has something to say about the crap you feed it.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Gemma3-4B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Gemma3-4B-v1-Q4_K_M.gguf
+      sha256: 85490a97bda2d40437c8dade4a68bb58e760c1263a2fbc59191daef57ee2d6c3
+      uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-4B-v1-GGUF/TheDrummer_Fallen-Gemma3-4B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_fallen-gemma3-12b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/WYzaNK5T-heMqRhVWYg6G.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Gemma3-12B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Gemma3-12B-v1-GGUF
+  description: |
+    Fallen Gemma3 12B v1 is an evil tune of Gemma 3 12B but it is not a complete decensor.
+
+    Evil tunes knock out the positivity and may enjoy torturing you and humanity.
+
+    Vision still works and it has something to say about the crap you feed it.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Gemma3-12B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Gemma3-12B-v1-Q4_K_M.gguf
+      sha256: 8b5ff6cf6cd68688fa50c29e7b3c15c3f31c5c4794fff2dd71c9ca5a3d05cff3
+      uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-12B-v1-GGUF/TheDrummer_Fallen-Gemma3-12B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_fallen-gemma3-27b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/9oyZxzpfhmmNr21S1P_iJ.gif
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Gemma3-27B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Gemma3-27B-v1-GGUF
+  description: |
+    Fallen Gemma3 27B v1 is an evil tune of Gemma 3 27B but it is not a complete decensor.
+
+    Evil tunes knock out the positivity and may enjoy torturing you and humanity.
+
+    Vision still works and it has something to say about the crap you feed it.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
+      sha256: a72a4da55c3cf61ac5eb91a72ad27b155c8f52e25881272a72939b8aa1960b62
+      uri: huggingface://bartowski/TheDrummer_Fallen-Gemma3-27B-v1-GGUF/TheDrummer_Fallen-Gemma3-27B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "huihui-ai_gemma-3-1b-it-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/gemma-3-1b-it-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_gemma-3-1b-it-abliterated-GGUF
+  description: |
+    This is an uncensored version of google/gemma-3-1b-it created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens
+  overrides:
+    parameters:
+      model: huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
+      sha256: 0760a54504d7529daf65f2a5de0692e773313685f50dd7f7eece2dae0dc28338
+      uri: huggingface://bartowski/huihui-ai_gemma-3-1b-it-abliterated-GGUF/huihui-ai_gemma-3-1b-it-abliterated-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "sicariussicariistuff_x-ray_alpha"
+  icon: https://huggingface.co/SicariusSicariiStuff/X-Ray_Alpha/resolve/main/Images/X-Ray_Alpha.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/X-Ray_Alpha
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_X-Ray_Alpha-GGUF
+  description: |
+    This is a pre-alpha proof-of-concept of a real fully uncensored vision model.
+
+    Why do I say "real"? The few vision models we got (qwen, llama 3.2) were "censored," and their fine-tunes were made only to the text portion of the model, as training a vision model is a serious pain.
+
+    The only actually trained and uncensored vision model I am aware of is ToriiGate; the rest of the vision models are just the stock vision + a fine-tuned LLM.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
+      sha256: c3547fc287378cb814efc5205613c418cc0f99ef12852cce39a94e3a42e42db5
+      uri: huggingface://bartowski/SicariusSicariiStuff_X-Ray_Alpha-GGUF/SicariusSicariiStuff_X-Ray_Alpha-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-glitter-12b-i1"
+  icon: https://huggingface.co/allura-org/Gemma-3-Glitter-12B/resolve/main/ComfyUI_02427_.png
+  urls:
+    - https://huggingface.co/allura-org/Gemma-3-Glitter-12B
+    - https://huggingface.co/mradermacher/Gemma-3-Glitter-12B-i1-GGUF
+  description: |
+    A creative writing model based on Gemma 3 12B IT.
+    This is a 50/50 merge of two separate trains:
+
+        ToastyPigeon/g3-12b-rp-system-v0.1 - ~13.5M tokens of instruct-based training related to RP (2:1 human to synthetic) and examples using a system prompt.
+        ToastyPigeon/g3-12b-storyteller-v0.2-textonly - ~20M tokens of completion training on long-form creative writing; 1.6M synthetic from R1, the rest human-created
+  overrides:
+    parameters:
+      model: Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
+      sha256: 875f856524e51fb0c7ddafe3d8b651a3d7077f9bdcd415e1d30abe2daef16a2d
+      uri: huggingface://mradermacher/Gemma-3-Glitter-12B-i1-GGUF/Gemma-3-Glitter-12B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_amoral-gemma3-12b-v2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/Isat4sbJnBZGcxZko9Huz.png
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-12B-v2
+    - https://huggingface.co/bartowski/soob3123_amoral-gemma3-12B-v2-GGUF
+  description: |
+      Core Function:
+
+          Produces analytically neutral responses to sensitive queries
+          Maintains factual integrity on controversial subjects
+          Avoids value-judgment phrasing patterns
+
+      Response Characteristics:
+
+          No inherent moral framing ("evil slop" reduction)
+          Emotionally neutral tone enforcement
+          Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+  overrides:
+    parameters:
+      model: soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
+      sha256: eb5792cf73bac3dbaa39e3a79ec01a056affff4607b96f96c9b911c877d5a50a
+      uri: huggingface://bartowski/soob3123_amoral-gemma3-12B-v2-GGUF/soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-starshine-12b-i1"
+  icon: https://huggingface.co/ToastyPigeon/Gemma-3-Starshine-12B/resolve/main/modelcard_image.jpeg
+  urls:
+    - https://huggingface.co/ToastyPigeon/Gemma-3-Starshine-12B
+    - https://huggingface.co/mradermacher/Gemma-3-Starshine-12B-i1-GGUF
+  description: |
+    A creative writing model based on a merge of fine-tunes on Gemma 3 12B IT and Gemma 3 12B PT.
+
+    This is the Story Focused merge. This version works better for storytelling and scenarios, as the prose is more novel-like and it has a tendency to impersonate the user character.
+
+    See the Alternate RP Focused version as well.
+
+    This is a merge of two G3 models, one trained on instruct and one trained on base:
+
+        allura-org/Gemma-3-Glitter-12B - Itself a merge of a storywriting and RP train (both also by ToastyPigeon), on instruct
+        ToastyPigeon/Gemma-3-Confetti-12B - Experimental application of the Glitter data using base instead of instruct, additionally includes some adventure data in the form of SpringDragon.
+
+    The result is a lovely blend of Glitter's ability to follow instructions and Confetti's free-spirit prose, effectively 'loosening up' much of the hesitancy that was left in Glitter.
+  overrides:
+    parameters:
+      model: Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+      sha256: 4c35a678e3784e20a8d85d4e7045d965509a1a71305a0da105fc5991ba7d6dc4
+      uri: huggingface://mradermacher/Gemma-3-Starshine-12B-i1-GGUF/Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+- &eurollm
+  name: "eurollm-9b-instruct"
+  icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - eurollm
+    - cpu
+    - gpu
+    - text-generation
+  urls:
+    - https://huggingface.co/utter-project/EuroLLM-9B-Instruct
+    - https://huggingface.co/bartowski/EuroLLM-9B-Instruct-GGUF
+  description: |
+    The EuroLLM project has the goal of creating a suite of LLMs capable of understanding and generating text in all European Union languages as well as some additional relevant languages. EuroLLM-9B is a 9B parameter model trained on 4 trillion tokens divided across the considered languages and several data sources: Web data, parallel data (en-xx and xx-en), and high-quality datasets. EuroLLM-9B-Instruct was further instruction tuned on EuroBlocks, an instruction tuning dataset with focus on general instruction-following and machine translation.
+  overrides:
+    parameters:
+      model: EuroLLM-9B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: EuroLLM-9B-Instruct-Q4_K_M.gguf
+      sha256: 785a3b2883532381704ef74f866f822f179a931801d1ed1cf12e6deeb838806b
+      uri: huggingface://bartowski/EuroLLM-9B-Instruct-GGUF/EuroLLM-9B-Instruct-Q4_K_M.gguf
 - &phi4
   url: "github:mudler/LocalAI/gallery/phi-4-chat.yaml@master"
   name: "phi-4"
@@ -73,6 +484,63 @@
     - filename: localai-functioncall-phi-4-v0.1-q4_k_m.gguf
       uri: huggingface://mudler/LocalAI-functioncall-phi-4-v0.1-Q4_K_M-GGUF/localai-functioncall-phi-4-v0.1-q4_k_m.gguf
       sha256: 0ae4e5e4ba89c16c1e810285c5c8b84416fa67f8ed7c175aa0b6fc0a103017aa
+- !!merge <<: *phi4
+  name: "sicariussicariistuff_phi-lthy4"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/SicariusSicariiStuff/Phi-lthy4/resolve/main/Images/Phi-Lthy4.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Phi-lthy4
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_Phi-lthy4-GGUF
+  description: |
+    - The BEST Phi-4 Roleplay finetune in the world (Not that much of an achievement here, Phi roleplay  finetunes can probably be counted on a single hand).
+    - Compact size & fully healed from the brain surgery Only 11.9B parameters. Phi-4 wasn't that hard to run even at 14B, now with even fewer brain cells, your new phone could probably run it easily. (SD8Gen3 and above recommended).
+    - Strong Roleplay & Creative writing abilities. This really surprised me. Actually good.
+    Writes and roleplays quite uniquely, probably because of lack of RP\writing slop in the pretrain. Who would have thought?
+    - Smart assistant with low refusals - It kept some of the smarts, and our little Phi-Lthy here will be quite eager to answer your naughty questions.
+    - Quite good at following the character card. Finally, it puts its math brain to some productive tasks. Gooner technology is becoming more popular by the day.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
+      sha256: a5004b2d0f3eb869f07285f53ec283aa383063085987113d2a41cb54708fb5ad
+      uri: huggingface://bartowski/SicariusSicariiStuff_Phi-lthy4-GGUF/SicariusSicariiStuff_Phi-lthy4-Q4_K_M.gguf
+- !!merge <<: *phi4
+  name: "sicariussicariistuff_phi-line_14b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/SicariusSicariiStuff/Phi-Line_14B/resolve/main/Images/Phi-Line_14B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Phi-Line_14B
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_Phi-Line_14B-GGUF
+  description: |
+    Excellent Roleplay with more brains. (Who would have thought Phi-4 models would be good at this? so weird... )
+    Medium length response (1-4 paragraphs, usually 2-3).
+    Excellent assistant that follows instructions well enough, and keeps good formating.
+    Strong Creative writing abilities. Will obey requests regarding formatting (markdown headlines for paragraphs, etc).
+    Writes and roleplays quite uniquely, probably because of lack of RP\writing slop in the pretrain. This is just my guesstimate.
+    LOW refusals - Total freedom in RP, can do things other RP models won't, and I'll leave it at that. Low refusals in assistant tasks as well.
+    VERY good at following the character card. Math brain is used for gooner tech, as it should be.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_Phi-Line_14B-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_Phi-Line_14B-Q4_K_M.gguf
+      sha256: 552c5a613bc5f24494646858795837ac42d3c216c5caedd7f4d6b954e5df58f2
+      uri: huggingface://bartowski/SicariusSicariiStuff_Phi-Line_14B-GGUF/SicariusSicariiStuff_Phi-Line_14B-Q4_K_M.gguf
+- !!merge <<: *phi4
+  name: "microsoft_phi-4-mini-instruct"
+  urls:
+    - https://huggingface.co/microsoft/Phi-4-mini-instruct
+    - https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF
+  description: |
+    Phi-4-mini-instruct is a lightweight open model built upon synthetic data and filtered publicly available websites - with a focus on high-quality, reasoning dense data. The model belongs to the Phi-4 model family and supports 128K token context length. The model underwent an enhancement process, incorporating both supervised fine-tuning and direct preference optimization to support precise instruction adherence and robust safety measures.
+  overrides:
+    parameters:
+      model: microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+  files:
+    - filename: microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+      sha256: 01999f17c39cc3074afae5e9c539bc82d45f2dd7faa3917c66cbef76fce8c0c2
+      uri: huggingface://bartowski/microsoft_Phi-4-mini-instruct-GGUF/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
@@ -219,7 +687,7 @@
     - https://huggingface.co/suayptalha/Maestro-10B
     - https://huggingface.co/bartowski/suayptalha_Maestro-10B-GGUF
   description: |
-     Maestro-10B is a 10 billion parameter model fine-tuned from Virtuoso-Lite, a next-generation language model developed by arcee-ai. Virtuoso-Lite itself is based on the Llama-3 architecture, distilled from Deepseek-v3 using approximately 1.1 billion tokens/logits. This distillation process allows Virtuoso-Lite to achieve robust performance with a smaller parameter count, excelling in reasoning, code generation, and mathematical problem-solving. Maestro-10B inherits these strengths from its base model, Virtuoso-Lite, and further enhances them through fine-tuning on the OpenOrca dataset. This combination of a distilled base model and targeted fine-tuning makes Maestro-10B a powerful and efficient language model.
+    Maestro-10B is a 10 billion parameter model fine-tuned from Virtuoso-Lite, a next-generation language model developed by arcee-ai. Virtuoso-Lite itself is based on the Llama-3 architecture, distilled from Deepseek-v3 using approximately 1.1 billion tokens/logits. This distillation process allows Virtuoso-Lite to achieve robust performance with a smaller parameter count, excelling in reasoning, code generation, and mathematical problem-solving. Maestro-10B inherits these strengths from its base model, Virtuoso-Lite, and further enhances them through fine-tuning on the OpenOrca dataset. This combination of a distilled base model and targeted fine-tuning makes Maestro-10B a powerful and efficient language model.
   overrides:
     parameters:
       model: suayptalha_Maestro-10B-Q4_K_M.gguf
@@ -576,6 +1044,277 @@
     - filename: Nohobby_L3.3-Prikol-70B-v0.5-Q4_K_M.gguf
       sha256: 36f29015f1f420f51569603445a3ea5fe72e3651c2022ef064086f5617578fe6
       uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-v0.5-GGUF/Nohobby_L3.3-Prikol-70B-v0.5-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "theskullery_l3.3-exp-unnamed-model-70b-v0.5"
+  urls:
+    - https://huggingface.co/TheSkullery/L3.3-exp-unnamed-model-70b-v0.5
+    - https://huggingface.co/bartowski/TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-GGUF
+  description: |
+    No description available for this model
+  overrides:
+    parameters:
+      model: TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-Q4_K_M.gguf
+  files:
+    - filename: TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-Q4_K_M.gguf
+      sha256: b8f7a0bcbccf79507ee28c8f6ca4e88625d9aa17f92deb12635775fb2eb42a2a
+      uri: huggingface://bartowski/TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-GGUF/TheSkullery_L3.3-exp-unnamed-model-70b-v0.5-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "sentientagi_dobby-unhinged-llama-3.3-70b"
+  icon: https://huggingface.co/SentientAGI/Dobby-Unhinged-Llama-3.3-70B/resolve/main/assets/Dobby-70B.png
+  urls:
+    - https://huggingface.co/SentientAGI/Dobby-Unhinged-Llama-3.3-70B
+    - https://huggingface.co/bartowski/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-GGUF
+  description: |
+    Dobby-Unhinged-Llama-3.3-70B is a language model fine-tuned from Llama-3.3-70B-Instruct. Dobby models have a strong conviction towards personal freedom, decentralization, and all things crypto — even when coerced to speak otherwise. Dobby-Unhinged-Llama-3.3-70B, Dobby-Mini-Leashed-Llama-3.1-8B and Dobby-Mini-Unhinged-Llama-3.1-8B have their own unique personalities, and this 70B model is being released in response to the community feedback that was collected from our previous 8B releases.
+  overrides:
+    parameters:
+      model: SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
+  files:
+    - filename: SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
+      sha256: b768e3828f8a72b7374bcf71600af8621563f1b002459b4dcd002ab144f68aa6
+      uri: huggingface://bartowski/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-GGUF/SentientAGI_Dobby-Unhinged-Llama-3.3-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-mokume-gane-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/F_aK-DO_bMK7fWpDaHoNd.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Mokume-Gane-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-GGUF
+  description: |
+    Named after the Japanese metalworking technique 'Mokume-gane' (木目金), meaning 'wood grain metal', this model embodies the artistry of creating distinctive layered patterns through the careful mixing of different components. Just as Mokume-gane craftsmen blend various metals to create unique visual patterns, this model combines specialized AI components to generate creative and unexpected outputs.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Mokume-Gane-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Mokume-Gane-R1-70b-Q4_K_M.gguf
+      sha256: 301534a01cec1434c9d0a1b6f13be4e1b5896015d28cee393c3f323ee94efa50
+      uri: huggingface://bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-GGUF/Steelskull_L3.3-Mokume-Gane-R1-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-cu-mai-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/i3DSObqtHDERbQeh18Uf0.png
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Cu-Mai-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Cu-Mai-R1-70b-GGUF
+  description: |
+    Cu-Mai, a play on San-Mai for Copper-Steel Damascus, represents a significant evolution in the three-part model series alongside San-Mai (OG) and Mokume-Gane. While maintaining the grounded and reliable nature of San-Mai, Cu-Mai introduces its own distinct "flavor" in terms of prose and overall vibe. The model demonstrates strong adherence to prompts while offering a unique creative expression.
+    L3.3-Cu-Mai-R1-70b integrates specialized components through the SCE merge method:
+
+    EVA and EURYALE foundations for creative expression and scene comprehension
+    Cirrus and Hanami elements for enhanced reasoning capabilities
+    Anubis components for detailed scene description
+    Negative_LLAMA integration for balanced perspective and response
+
+    Users consistently praise Cu-Mai for its:
+
+        Exceptional prose quality and natural dialogue flow
+        Strong adherence to prompts and creative expression
+        Improved coherency and reduced repetition
+        Performance on par with the original model
+
+    While some users note slightly reduced intelligence compared to the original, this trade-off is generally viewed as minimal and doesn't significantly impact the overall experience. The model's reasoning capabilities can be effectively activated through proper prompting techniques.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Cu-Mai-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Cu-Mai-R1-70b-Q4_K_M.gguf
+      sha256: 7e61cf7b3126414a7d7a54264e2ba42f663aefb7f82af6bb06da9d35e6a8843a
+      uri: huggingface://bartowski/Steelskull_L3.3-Cu-Mai-R1-70b-GGUF/Steelskull_L3.3-Cu-Mai-R1-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nohobby_l3.3-prikol-70b-extra"
+  icon: https://files.catbox.moe/x9t3zo.png
+  urls:
+    - https://huggingface.co/Nohobby/L3.3-Prikol-70B-EXTRA
+    - https://huggingface.co/bartowski/Nohobby_L3.3-Prikol-70B-EXTRA-GGUF
+  description: |
+    After banging my head against the wall some more - I actually managed to merge DeepSeek distill into my mess! Along with even more models (my hand just slipped, I swear)
+
+    The prose is better than in v0.5, but has a different feel to it, so I guess it's more of a step to the side than forward (hence the title EXTRA instead of 0.6).
+
+    The context recall may have improved, or I'm just gaslighting myself to think so.
+
+    And of course, since it now has DeepSeek in it - <think> tags!
+
+    They kinda work out of the box if you add <think> to the 'Start Reply With' field in ST - that way the model will write a really short character thought in it. However, if we want some OOC reasoning, things get trickier.
+
+    My initial thought was that this model could be instructed to use <think> either only for {{char}}'s inner monologue or for detached analysis, but actually it would end up writing character thoughts most of the time anyway, and the times when it did reason stuff it threw the narrative out of the window by making it too formal and even adding some notes at the end.
+  overrides:
+    parameters:
+      model: Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
+  files:
+    - filename: Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
+      sha256: 0efb34490e9714d6c8cc5dd4bf59ea894bf766af8a038982f5eba7bab9d0f962
+      uri: huggingface://bartowski/Nohobby_L3.3-Prikol-70B-EXTRA-GGUF/Nohobby_L3.3-Prikol-70B-EXTRA-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "latitudegames_wayfarer-large-70b-llama-3.3"
+  icon: https://huggingface.co/LatitudeGames/Wayfarer-Large-70B-Llama-3.3/resolve/main/wayfarer-large.jpg
+  urls:
+    - https://huggingface.co/LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+    - https://huggingface.co/bartowski/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-GGUF
+  description: |
+    We’ve heard over and over from AI Dungeon players that modern AI models are too nice, never letting them fail or die. While it may be good for a chatbot to be nice and helpful, great stories and games aren’t all rainbows and unicorns. They have conflict, tension, and even death. These create real stakes and consequences for characters and the journeys they go on.
+
+    Similarly, great games need opposition. You must be able to fail, die, and may even have to start over. This makes games more fun!
+
+    However, the vast majority of AI models, through alignment RLHF, have been trained away from darkness, violence, or conflict, preventing them from fulfilling this role. To give our players better options, we decided to train our own model to fix these issues.
+
+    The Wayfarer model series are a set of adventure role-play models specifically trained to give players a challenging and dangerous experience.
+
+    We wanted to contribute back to the open source community that we’ve benefitted so much from so we open sourced a 12b parameter version version back in Jan. We thought people would love it but people were even more excited than we expected.
+
+    Due to popular request we decided to train a larger 70b version based on Llama 3.3.
+  overrides:
+    parameters:
+      model: LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
+  files:
+    - filename: LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
+      sha256: 5b9f6923e247e5c6db3fc0f6fe558939b51b5fe1003d83cf5c10e74b586a1bf8
+      uri: huggingface://bartowski/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-GGUF/LatitudeGames_Wayfarer-Large-70B-Llama-3.3-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-mokume-gane-r1-70b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/F_aK-DO_bMK7fWpDaHoNd.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Mokume-Gane-R1-70b-v1.1
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-GGUF
+  description: |
+    Named after the Japanese metalworking technique 'Mokume-gane' (木目金), meaning 'wood grain metal', this model embodies the artistry of creating distinctive layered patterns through the careful mixing of different components. Just as Mokume-gane craftsmen blend various metals to create unique visual patterns, this model combines specialized AI components to generate creative and unexpected outputs.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
+      sha256: f91b7f7f35b0d23971595773cdc8151f6d6a33427f170dc2216e005b5fd09776
+      uri: huggingface://bartowski/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-GGUF/Steelskull_L3.3-Mokume-Gane-R1-70b-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-geneticlemonade-unleashed-70b-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/P8HgQAzAjEWE67u9sSKJz.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-GeneticLemonade-Unleashed-70B
+    - https://huggingface.co/mradermacher/L3.3-GeneticLemonade-Unleashed-70B-i1-GGUF
+  description: |
+    Inspired to learn how to merge by the Nevoria series from SteelSkull.
+
+    This model is the result of a few dozen different attempts of learning how to merge.
+
+    Designed for RP, this model is mostly uncensored and focused around striking a balance between writing style, creativity and intelligence.
+  overrides:
+    parameters:
+      model: L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
+      sha256: c1f5527ee6a5dec99d19d795430570c3af7efc969c30aca2c22b601af6ac4fe4
+      uri: huggingface://mradermacher/L3.3-GeneticLemonade-Unleashed-70B-i1-GGUF/L3.3-GeneticLemonade-Unleashed-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-magicalgirl-2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
+  urls:
+    - https://huggingface.co/KaraKaraWitch/Llama-3.3-MagicalGirl-2
+    - https://huggingface.co/mradermacher/Llama-3.3-MagicalGirl-2-GGUF
+  description: |
+    New merge. This an experiment to increase the "Madness" in a model. Merge is based on top UGI-Bench models (So yeah, I would think this would be benchmaxxing.)
+
+    This is the second time I'm using SCE. The previous MagicalGirl model seems to be quite happy with it.
+
+    Added KaraKaraWitch/Llama-MiraiFanfare-3.3-70B based on feedback I got from others (People generally seem to remember this rather than other models). So I'm not sure how this would play into the merge.
+    The following models were included in the merge:
+
+        TheDrummer/Anubis-70B-v1
+        SicariusSicariiStuff/Negative_LLAMA_70B
+        LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+        KaraKaraWitch/Llama-MiraiFanfare-3.3-70B
+        Black-Ink-Guild/Pernicious_Prophecy_70B
+  overrides:
+    parameters:
+      model: Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
+      sha256: 01bd7e23c764d18279da4dbd20de19e60009d6e66e8aad1c93732a33f214e6a2
+      uri: huggingface://mradermacher/Llama-3.3-MagicalGirl-2-GGUF/Llama-3.3-MagicalGirl-2.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-electra-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/GXLpDNkbGEvESfLmWkKpD.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Electra-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Electra-R1-70b-GGUF
+  description: |
+    L3.3-Electra-R1-70b is the newest release of the Unnamed series, this is the 6th iteration based of user feedback.
+    Built on a custom DeepSeek R1 Distill base (TheSkullery/L3.1x3.3-Hydroblated-R1-70B-v4.4), Electra-R1 integrates specialized components through the SCE merge method. The model uses float32 dtype during processing with a bfloat16 output dtype for optimized performance.
+    Electra-R1 serves newest gold standard and baseline. User feedback consistently highlights its superior intelligence, coherence, and unique ability to provide deep character insights. Through proper prompting, the model demonstrates advanced reasoning capabilities and unprompted exploration of character inner thoughts and motivations.
+    The model utilizes the custom Hydroblated-R1 base, created for stability and enhanced reasoning. The SCE merge method's settings are precisely tuned based on extensive community feedback (of over 10 diffrent models from Nevoria to Cu-Mai), ensuring optimal component integration while maintaining model coherence and reliability. This foundation establishes Electra-R1 as the benchmark upon which its variant models build and expand.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
+      sha256: 1f39e1d398ef659ad7074c827dc6993c2007813a303ee72c189e88c4c76f70db
+      uri: huggingface://bartowski/Steelskull_L3.3-Electra-R1-70b-GGUF/Steelskull_L3.3-Electra-R1-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "allura-org_bigger-body-70b"
+  urls:
+    - https://huggingface.co/allura-org/Bigger-Body-70b
+    - https://huggingface.co/bartowski/allura-org_Bigger-Body-70b-GGUF
+  description: |
+    This model's primary directive [GLITCH]_ROLEPLAY-ENHANCEMENT[/CORRUPTED] was engineered for adaptive persona emulation across age demographics, though recent iterations show concerning remarkable bleed-through from corrupted memory sectors. While optimized for Playtime Playground™ narrative scaffolding, researchers should note its... enthusiastic adoption of assigned roles. Containment protocols advised during character initialization sequences.
+  overrides:
+    parameters:
+      model: allura-org_Bigger-Body-70b-Q4_K_M.gguf
+  files:
+    - filename: allura-org_Bigger-Body-70b-Q4_K_M.gguf
+      sha256: a63d1dbc018fd8023d517372cbb4ebcbba602eff64fffe476054430aa42823be
+      uri: huggingface://bartowski/allura-org_Bigger-Body-70b-GGUF/allura-org_Bigger-Body-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "readyart_forgotten-safeword-70b-3.6"
+  urls:
+    - https://huggingface.co/ReadyArt/Forgotten-Safeword-70B-3.6
+    - https://huggingface.co/bartowski/ReadyArt_Forgotten-Safeword-70B-3.6-GGUF
+  description: |
+    Forgotten-Safeword-70B-V3.6 is the event horizon of depravity. Combines Mistral's architecture with a dataset that makes the Voynich Manuscript look like a children's pop-up book. Features quantum-entangled depravity - every output rewrites your concept of shame!
+  overrides:
+    parameters:
+      model: ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
+  files:
+    - filename: ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
+      sha256: bd3a082638212064899db1afe29bf4c54104216e662ac6cc76722a21bf91967e
+      uri: huggingface://bartowski/ReadyArt_Forgotten-Safeword-70B-3.6-GGUF/ReadyArt_Forgotten-Safeword-70B-3.6-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nvidia_llama-3_3-nemotron-super-49b-v1"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/Llama-3_3-Nemotron-Super-49B-v1
+    - https://huggingface.co/bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF
+  description: |
+    Llama-3.3-Nemotron-Super-49B-v1 is a large language model (LLM) which is a derivative of Meta Llama-3.3-70B-Instruct (AKA the reference model). It is a reasoning model that is post trained for reasoning, human chat preferences, and tasks, such as RAG and tool calling. The model supports a context length of 128K tokens.
+
+    Llama-3.3-Nemotron-Super-49B-v1 is a model which offers a great tradeoff between model accuracy and efficiency. Efficiency (throughput) directly translates to savings. Using a novel Neural Architecture Search (NAS) approach, we greatly reduce the model’s memory footprint, enabling larger workloads, as well as fitting the model on a single GPU at high workloads (H200). This NAS approach enables the selection of a desired point in the accuracy-efficiency tradeoff.
+
+    The model underwent a multi-phase post-training process to enhance both its reasoning and non-reasoning capabilities. This includes a supervised fine-tuning stage for Math, Code, Reasoning, and Tool Calling as well as multiple reinforcement learning (RL) stages using REINFORCE (RLOO) and Online Reward-aware Preference Optimization (RPO) algorithms for both chat and instruction-following. The final model checkpoint is obtained after merging the final SFT and Online RPO checkpoints. For more details on how the model was trained, please see this blog.
+  overrides:
+    parameters:
+      model: nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
+  files:
+    - filename: nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
+      sha256: d3fc12f4480cad5060f183d6c186ca47d800509224632bb22e15791711950524
+      uri: huggingface://bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-v1-GGUF/nvidia_Llama-3_3-Nemotron-Super-49B-v1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "sao10k_llama-3.3-70b-vulpecula-r1"
+  icon: https://huggingface.co/Sao10K/Llama-3.3-70B-Vulpecula-r1/resolve/main/senkooo.jpg
+  urls:
+    - https://huggingface.co/Sao10K/Llama-3.3-70B-Vulpecula-r1
+    - https://huggingface.co/bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF
+  description: |
+    🌟 A thinking-based model inspired by Deepseek-R1, trained through both SFT and a little bit of RL on creative writing data.
+    🧠 Prefill, or begin assistant replies with <think>\n to activate thinking mode, or not. It works well without thinking too.
+    🚀 Improved Steerability, instruct-roleplay and creative control over base model.
+    👾 Semi-synthetic Chat/Roleplaying datasets that has been re-made, cleaned and filtered for repetition, quality and output.
+    🎭 Human-based Natural Chat / Roleplaying datasets cleaned, filtered and checked for quality.
+    📝 Diverse Instruct dataset from a few different LLMs, cleaned and filtered for refusals and quality.
+    💭 Reasoning Traces taken from Deepseek-R1 for Instruct, Chat & Creative Tasks, filtered and cleaned for quality.
+    █▓▒ Toxic / Decensorship data was not needed for our purposes, the model is unrestricted enough as is.
+  overrides:
+    parameters:
+      model: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
+  files:
+    - filename: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
+      sha256: 817073c85286c25a9373f330aad32b503e6c13d626a3fbee926d96a7ab866845
+      uri: huggingface://bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF/Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -898,6 +1637,70 @@
     - filename: MoE-Girl-800MA-3BT.Q4_K_M.gguf
       sha256: 4c3cb57c27aadabd05573a1a01d6c7aee0f21620db919c7704f758d172e0bfa3
       uri: huggingface://mradermacher/MoE-Girl-800MA-3BT-GGUF/MoE-Girl-800MA-3BT.Q4_K_M.gguf
+- !!merge <<: *granite3
+  url: "github:mudler/LocalAI/gallery/granite3-2.yaml@master"
+  name: "ibm-granite_granite-3.2-8b-instruct"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-3.2-8b-instruct
+    - https://huggingface.co/bartowski/ibm-granite_granite-3.2-8b-instruct-GGUF
+  description: |
+    Granite-3.2-8B-Instruct is an 8-billion-parameter, long-context AI model fine-tuned for thinking capabilities. Built on top of Granite-3.1-8B-Instruct, it has been trained using a mix of permissively licensed open-source datasets and internally generated synthetic data designed for reasoning tasks. The model allows controllability of its thinking capability, ensuring it is applied only when required.
+  overrides:
+    parameters:
+      model: ibm-granite_granite-3.2-8b-instruct-Q4_K_M.gguf
+  files:
+    - filename: ibm-granite_granite-3.2-8b-instruct-Q4_K_M.gguf
+      sha256: bd041eb5bc5e75e4f9a863372000046fd6490374f4dec07f399ca152b1df09c2
+      uri: huggingface://bartowski/ibm-granite_granite-3.2-8b-instruct-GGUF/ibm-granite_granite-3.2-8b-instruct-Q4_K_M.gguf
+- !!merge <<: *granite3
+  name: "ibm-granite_granite-3.2-2b-instruct"
+  url: "github:mudler/LocalAI/gallery/granite3-2.yaml@master"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-3.2-2b-instruct
+    - https://huggingface.co/bartowski/ibm-granite_granite-3.2-2b-instruct-GGUF
+  description: |
+    Granite-3.2-2B-Instruct is an 2-billion-parameter, long-context AI model fine-tuned for thinking capabilities. Built on top of Granite-3.1-2B-Instruct, it has been trained using a mix of permissively licensed open-source datasets and internally generated synthetic data designed for reasoning tasks. The model allows controllability of its thinking capability, ensuring it is applied only when required.
+  overrides:
+    parameters:
+      model: ibm-granite_granite-3.2-2b-instruct-Q4_K_M.gguf
+  files:
+    - filename: ibm-granite_granite-3.2-2b-instruct-Q4_K_M.gguf
+      sha256: e1b915b0849becf4fdda188dee7b09cbebbfabd71c6f3f2b75dd3eca0a8fded1
+      uri: huggingface://bartowski/ibm-granite_granite-3.2-2b-instruct-GGUF/ibm-granite_granite-3.2-2b-instruct-Q4_K_M.gguf
+- name: "granite-embedding-107m-multilingual"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ibm-granite/granite-embedding-107m-multilingual
+    - https://huggingface.co/bartowski/granite-embedding-107m-multilingual-GGUF
+  description: |
+    Granite-Embedding-107M-Multilingual is a 107M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 384 and is trained using a combination of open source relevance-pair datasets with permissive, enterprise-friendly license, and IBM collected and generated datasets. This model is developed using contrastive finetuning, knowledge distillation and model merging for improved performance.
+  tags:
+    - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: granite-embedding-107m-multilingual-f16.gguf
+  files:
+    - filename: granite-embedding-107m-multilingual-f16.gguf
+      uri: huggingface://bartowski/granite-embedding-107m-multilingual-GGUF/granite-embedding-107m-multilingual-f16.gguf
+      sha256: 3fc99928632fcecad589c401ec33bbba86b51c457e9813e3a1cb801ff4106e21
+- name: "granite-embedding-125m-english"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/ibm-granite/granite-embedding-125m-english
+    - https://huggingface.co/bartowski/granite-embedding-125m-english-GGUF
+  description: |
+    Granite-Embedding-125m-English is a 125M parameter dense biencoder embedding model from the Granite Embeddings suite that can be used to generate high quality text embeddings. This model produces embedding vectors of size 768. Compared to most other open-source models, this model was only trained using open-source relevance-pair datasets with permissive, enterprise-friendly license, plus IBM collected and generated datasets. While maintaining competitive scores on academic benchmarks such as BEIR, this model also performs well on many enterprise use cases. This model is developed using retrieval oriented pretraining, contrastive finetuning and knowledge distillation.
+  tags:
+    - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: granite-embedding-125m-english-f16.gguf
+  files:
+    - filename: granite-embedding-125m-english-f16.gguf
+      uri: huggingface://bartowski/granite-embedding-125m-english-GGUF/granite-embedding-125m-english-f16.gguf
+      sha256: e2950cf0228514e0e81c6f0701a62a9e4763990ce660b4a3c0329cd6a4acd4b9
 - name: "moe-girl-1ba-7bt-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/kTXXSSSqpb21rfyOX7FUa.jpeg
   # chatml
@@ -1515,6 +2318,116 @@
     - filename: localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
       sha256: edc50f6c243e6bd6912599661a15e030de03d2be53409663ac27d3ca48306ee4
       uri: huggingface://mudler/LocalAI-functioncall-llama3.2-3b-v0.5-Q4_K_M-GGUF/localai-functioncall-llama3.2-3b-v0.5-q4_k_m.gguf
+- !!merge <<: *llama32
+  name: "kubeguru-llama3.2-3b-v0.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/647374aa7ff32a81ac6d35d4/rptpRyhrcUEG3i2OPT897.png
+  urls:
+    - https://huggingface.co/Spectro-Cloud/kubeguru-llama3.2-3b-v0.1
+    - https://huggingface.co/mradermacher/kubeguru-llama3.2-3b-v0.1-GGUF
+  description: |
+    Kubeguru: Your Kubernetes & Linux Expert AI
+    Ask anything about Kubernetes, Linux, containers—and get expert answers in real-time!
+    Kubeguru is a specialized Large Language Model (LLM) developed and released by the Open Source team at Spectro Cloud. Whether you're managing cloud-native applications, deploying edge workloads, or troubleshooting containerized services, Kubeguru provides precise, actionable insights at every step.
+  overrides:
+    parameters:
+      model: kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
+  files:
+    - filename: kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
+      sha256: 770900ba9594f64f31b35fe444d31263712cabe167efaf4201d79fdc29de9533
+      uri: huggingface://mradermacher/kubeguru-llama3.2-3b-v0.1-GGUF/kubeguru-llama3.2-3b-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "goppa-ai_goppa-logillama"
+  urls:
+    - https://huggingface.co/goppa-ai/Goppa-LogiLlama
+    - https://huggingface.co/bartowski/goppa-ai_Goppa-LogiLlama-GGUF
+  description: |
+    LogiLlama is a fine-tuned language model developed by Goppa AI. Built upon a 1B-parameter base from LLaMA, LogiLlama has been enhanced with injected knowledge and logical reasoning abilities. Our mission is to make smaller models smarter—delivering improved reasoning and problem-solving capabilities while maintaining a low memory footprint and energy efficiency for on-device applications.
+  overrides:
+    parameters:
+      model: goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
+  files:
+    - filename: goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
+      sha256: 0e06ae23d06139f746c65c9a0a81d552b11b2d8d9512a5979def8ae2cb52dc64
+      uri: huggingface://bartowski/goppa-ai_Goppa-LogiLlama-GGUF/goppa-ai_Goppa-LogiLlama-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "nousresearch_deephermes-3-llama-3-3b-preview"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/qwiH8967CH59ZxiX_a-rP.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/DeepHermes-3-Llama-3-3B-Preview
+    - https://huggingface.co/bartowski/NousResearch_DeepHermes-3-Llama-3-3B-Preview-GGUF
+  description: |
+    DeepHermes 3 Preview is the latest version of our flagship Hermes series of LLMs by Nous Research, and one of the first models in the world to unify Reasoning (long chains of thought that improve answer accuracy) and normal LLM response modes into one model. We have also improved LLM annotation, judgement, and function calling.
+
+    DeepHermes 3 Preview is a hybrid reasoning model, and one of the first LLM models to unify both "intuitive", traditional mode responses and long chain of thought reasoning responses into a single model, toggled by a system prompt.
+
+    Hermes 3, the predecessor of DeepHermes 3, is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board.
+
+    The ethos of the Hermes series of models is focused on aligning LLMs to the user, with powerful steering capabilities and control given to the end user.
+
+    This is a preview Hermes with early reasoning capabilities, distilled from R1 across a variety of tasks that benefit from reasoning and objectivity. Some quirks may be discovered! Please let us know any interesting findings or issues you discover!
+  overrides:
+    parameters:
+      model: NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
+      sha256: 73d9a588383946dcac545a097c47d634558afd79ea43aac3a4563c311d89f195
+      uri: huggingface://bartowski/NousResearch_DeepHermes-3-Llama-3-3B-Preview-GGUF/NousResearch_DeepHermes-3-Llama-3-3B-Preview-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "fiendish_llama_3b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Fiendish_LLAMA_3B/resolve/main/Images/Fiendish_LLAMA_3B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Fiendish_LLAMA_3B
+    - https://huggingface.co/mradermacher/Fiendish_LLAMA_3B-GGUF
+  description: |
+    Impish_LLAMA_3B's naughty sister. Less wholesome, more edge. NOT better, but different.
+    Superb Roleplay for a 3B size.
+    Short length response (1-2 paragraphs, usually 1), CAI style.
+    Naughty, and more evil that follows instructions well enough, and keeps good formatting.
+    LOW refusals - Total freedom in RP, can do things other RP models won't, and I'll leave it at that. Low refusals in assistant tasks as well.
+    VERY good at following the character card. Try the included characters if you're having sub optimal results.
+  overrides:
+    parameters:
+      model: Fiendish_LLAMA_3B.Q4_K_M.gguf
+  files:
+    - filename: Fiendish_LLAMA_3B.Q4_K_M.gguf
+      sha256: 5fd294c1ce7fd931e4dfcab54435571d5e7d62e8743581ab3d36b6852c782428
+      uri: huggingface://mradermacher/Fiendish_LLAMA_3B-GGUF/Fiendish_LLAMA_3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "impish_llama_3b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_LLAMA_3B/resolve/main/Images/Impish_LLAMA_3B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_LLAMA_3B
+    - https://huggingface.co/mradermacher/Impish_LLAMA_3B-GGUF
+  description: |
+    "With that naughty impish grin of hers, so damn sly it could have ensnared the devil himself, and that impish glare in her eyes, sharper than of a succubus fang, she chuckled impishly with such mischief that even the moon might’ve blushed. I needed no witch's hex to divine her nature—she was, without a doubt, a naughty little imp indeed." This model was trained on ~25M tokens, in 3 phases, the first and longest phase was an FFT to teach the model new stuff, and to confuse the shit out of it too, so it would be a little bit less inclined to use GPTisms.
+  overrides:
+    parameters:
+      model: Impish_LLAMA_3B.Q4_K_M.gguf
+  files:
+    - filename: Impish_LLAMA_3B.Q4_K_M.gguf
+      sha256: 3b83672669e0b06943a5dcc09dec9663b3019ba5d6b14340c9c3e92a2a4125cf
+      uri: huggingface://mradermacher/Impish_LLAMA_3B-GGUF/Impish_LLAMA_3B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "eximius_persona_5b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Eximius_Persona_5B/resolve/main/Images/Eximius_Persona_5B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Eximius_Persona_5B
+    - https://huggingface.co/mradermacher/Eximius_Persona_5B-GGUF
+  description: |
+    I wanted to create a model with an exceptional capacity for using varied speech patterns and fresh role-play takes. The model had to have a unique personality, not on a surface level but on the inside, for real. Unfortunately, SFT alone just didn't cut it. And I had only 16GB of VRAM at the time. Oh, and I wanted it to be small enough to be viable for phones and to be able to give a fight to larger models while at it. If only there was a magical way to do it.
+
+    Merges. Merges are quite unique. In the early days, they were considered "fake." Clearly, there's no such thing as merges. Where are the papers? No papers? Then it's clearly impossible. "Mathematically impossible." Simply preposterous. To mix layers and hope for a coherent output? What nonsense!
+
+    And yet, they were real. Undi95 made some of the earliest merges I can remember, and the "LLAMA2 Era" was truly amazing and innovative thanks to them. Cool stuff like Tiefighter was being made, and eventually the time tested Midnight-Miqu-70B (v1.5 is my personal favorite).
+
+    Merges are an interesting thing, as they affect LLMs in a way that is currently impossible to reproduce using SFT (or any 'SOTA' technique). One of the plagues we have today, while we have orders of magnitude smarter LLMs, is GPTisms and predictability. Merges can potentially 'solve' that. How? In short, if you physically tear neurons (passthrough brain surgery) while you somehow manage to keep the model coherent enough, and if you're lucky, it can even follows instructions- then magical stuff begins to happen.
+  overrides:
+    parameters:
+      model: Eximius_Persona_5B.Q4_K_M.gguf
+  files:
+    - filename: Eximius_Persona_5B.Q4_K_M.gguf
+      sha256: 8a8e7a0fa1068755322c51900e53423d795e57976b4d95982242cbec41141c7b
+      uri: huggingface://mradermacher/Eximius_Persona_5B-GGUF/Eximius_Persona_5B.Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
@@ -3689,6 +4602,623 @@
     - filename: localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
       sha256: 4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4
       uri: huggingface://mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "simplescaling_s1.1-32b"
+  urls:
+    - https://huggingface.co/simplescaling/s1.1-32B
+    - https://huggingface.co/bartowski/simplescaling_s1.1-32B-GGUF
+  description: |
+    s1.1 is our sucessor of s1 with better reasoning performance by leveraging reasoning traces from r1 instead of Gemini. This model is a successor of s1-32B with slightly better performance. Thanks to Ryan Marten for helping generate r1 traces for s1K.
+  overrides:
+    parameters:
+      model: simplescaling_s1.1-32B-Q4_K_M.gguf
+  files:
+    - filename: simplescaling_s1.1-32B-Q4_K_M.gguf
+      sha256: 6ce3cbfcca8ab50a6e877e6bdfc6538c54e1d9a7e5cc81a9930d5d056a9db4e8
+      uri: huggingface://bartowski/simplescaling_s1.1-32B-GGUF/simplescaling_s1.1-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nvidia_aceinstruct-1.5b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/AceInstruct-1.5B
+    - https://huggingface.co/bartowski/nvidia_AceInstruct-1.5B-GGUF
+  description: |
+    We introduce AceInstruct, a family of advanced SFT models for coding, mathematics, and general-purpose tasks. The AceInstruct family, which includes AceInstruct-1.5B, 7B, and 72B, is Improved using Qwen. These models are fine-tuned on Qwen2.5-Base using general SFT datasets. These same datasets are also used in the training of AceMath-Instruct. Different from AceMath-Instruct which is specialized for math questions, AceInstruct is versatile and can be applied to a wide range of domains. Benchmark evaluations across coding, mathematics, and general knowledge tasks demonstrate that AceInstruct delivers performance comparable to Qwen2.5-Instruct.
+  overrides:
+    parameters:
+      model: nvidia_AceInstruct-1.5B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_AceInstruct-1.5B-Q4_K_M.gguf
+      sha256: 103b7fa617d2b3c2d6e168a878b9b5e3710d19d178bf4b890acf0fac2abafadb
+      uri: huggingface://bartowski/nvidia_AceInstruct-1.5B-GGUF/nvidia_AceInstruct-1.5B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nvidia_aceinstruct-7b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/AceInstruct-7B
+    - https://huggingface.co/bartowski/nvidia_AceInstruct-7B-GGUF
+  description: |
+    We introduce AceInstruct, a family of advanced SFT models for coding, mathematics, and general-purpose tasks. The AceInstruct family, which includes AceInstruct-1.5B, 7B, and 72B, is Improved using Qwen. These models are fine-tuned on Qwen2.5-Base using general SFT datasets. These same datasets are also used in the training of AceMath-Instruct. Different from AceMath-Instruct which is specialized for math questions, AceInstruct is versatile and can be applied to a wide range of domains. Benchmark evaluations across coding, mathematics, and general knowledge tasks demonstrate that AceInstruct delivers performance comparable to Qwen2.5-Instruct.
+  overrides:
+    parameters:
+      model: nvidia_AceInstruct-7B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_AceInstruct-7B-Q4_K_M.gguf
+      sha256: 94e262e0d82d39fa36c4278b2a4b4fa7e93bfaa7cca33283fb9ee006bac02a8a
+      uri: huggingface://bartowski/nvidia_AceInstruct-7B-GGUF/nvidia_AceInstruct-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nvidia_aceinstruct-72b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/AceInstruct-72B
+    - https://huggingface.co/bartowski/nvidia_AceInstruct-72B-GGUF
+  description: |
+    We introduce AceInstruct, a family of advanced SFT models for coding, mathematics, and general-purpose tasks. The AceInstruct family, which includes AceInstruct-1.5B, 7B, and 72B, is Improved using Qwen. These models are fine-tuned on Qwen2.5-Base using general SFT datasets. These same datasets are also used in the training of AceMath-Instruct. Different from AceMath-Instruct which is specialized for math questions, AceInstruct is versatile and can be applied to a wide range of domains. Benchmark evaluations across coding, mathematics, and general knowledge tasks demonstrate that AceInstruct delivers performance comparable to Qwen2.5-Instruct.
+  overrides:
+    parameters:
+      model: nvidia_AceInstruct-72B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_AceInstruct-72B-Q4_K_M.gguf
+      sha256: c8452b2d6c33693d5fd1b5f3aa476451fbd4e78c9621b9baf39ad1a3f2b91503
+      uri: huggingface://bartowski/nvidia_AceInstruct-72B-GGUF/nvidia_AceInstruct-72B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-thoughts_openthinker-32b"
+  icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
+  urls:
+    - https://huggingface.co/open-thoughts/OpenThinker-32B
+    - https://huggingface.co/bartowski/open-thoughts_OpenThinker-32B-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen2.5-32B-Instruct on the OpenThoughts-114k dataset.
+
+    The dataset is derived by distilling DeepSeek-R1 using the data pipeline available on github. More info about the dataset can be found on the dataset card at OpenThoughts-114k dataset.
+
+    The numbers reported in the table below are evaluated with our open-source tool Evalchemy.
+  overrides:
+    parameters:
+      model: open-thoughts_OpenThinker-32B-Q4_K_M.gguf
+  files:
+    - filename: open-thoughts_OpenThinker-32B-Q4_K_M.gguf
+      sha256: 6795de6e7025e4a77042232908fe7be304b6b6b465c5feb71ba6861f37038aaf
+      uri: huggingface://bartowski/open-thoughts_OpenThinker-32B-GGUF/open-thoughts_OpenThinker-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombo-org_rombo-llm-v3.0-qwen-32b"
+  urls:
+    - https://huggingface.co/Rombo-Org/Rombo-LLM-V3.0-Qwen-32b
+    - https://huggingface.co/bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-GGUF
+  description: |
+    Rombo-LLM-V3.0-Qwen-32b is a Continued Finetune model on top of the previous V2.5 version using the "NovaSky-AI/Sky-T1_data_17k" dataset. The resulting model was then merged backed into the base model for higher performance as written in the continuous finetuning technique bellow. This model is a good general purpose model, however it excells at coding and math.
+  overrides:
+    parameters:
+      model: Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-Q4_K_M.gguf
+  files:
+    - filename: Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-Q4_K_M.gguf
+      sha256: 1d214d46721aba2bb2a5778c108c4707b5dd7dbc5751158734c67af271532fb5
+      uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-GGUF/Rombo-Org_Rombo-LLM-V3.0-Qwen-32b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-ai_0x-lite"
+  urls:
+    - https://huggingface.co/ozone-ai/0x-lite
+    - https://huggingface.co/bartowski/ozone-ai_0x-lite-GGUF
+  description: |
+    0x Lite is a state-of-the-art language model developed by Ozone AI, designed to deliver ultra-high-quality text generation capabilities while maintaining a compact and efficient architecture. Built on the latest advancements in natural language processing, 0x Lite is optimized for both speed and accuracy, making it a strong contender in the space of language models. It is particularly well-suited for applications where resource constraints are a concern, offering a lightweight alternative to larger models like GPT while still delivering comparable performance.
+  overrides:
+    parameters:
+      model: ozone-ai_0x-lite-Q4_K_M.gguf
+  files:
+    - filename: ozone-ai_0x-lite-Q4_K_M.gguf
+      sha256: 7f163e72ead7522bd6774555a932e0a11f212d17cdc9442e2cfd1b017009f832
+      uri: huggingface://bartowski/ozone-ai_0x-lite-GGUF/ozone-ai_0x-lite-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nbeerbower_dumpling-qwen2.5-14b"
+  icon: https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B/resolve/main/dumpling_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-14B
+    - https://huggingface.co/bartowski/nbeerbower_Dumpling-Qwen2.5-14B-GGUF
+  description: |
+    nbeerbower/EVA-abliterated-TIES-Qwen2.5-14B finetuned on:
+
+        nbeerbower/GreatFirewall-DPO
+        nbeerbower/Schule-DPO
+        nbeerbower/Purpura-DPO
+        nbeerbower/Arkhaios-DPO
+        jondurbin/truthy-dpo-v0.1
+        antiven0m/physical-reasoning-dpo
+        flammenai/Date-DPO-NoAsterisks
+        flammenai/Prude-Phi3-DPO
+        Atsunori/HelpSteer2-DPO
+        jondurbin/gutenberg-dpo-v0.1
+        nbeerbower/gutenberg2-dpo
+        nbeerbower/gutenberg-moderne-dpo.
+  overrides:
+    parameters:
+      model: nbeerbower_Dumpling-Qwen2.5-14B-Q4_K_M.gguf
+  files:
+    - filename: nbeerbower_Dumpling-Qwen2.5-14B-Q4_K_M.gguf
+      sha256: 2d38348414b2719971a08a604313ed98b44b586490633d6e237dd096ae5bf31d
+      uri: huggingface://bartowski/nbeerbower_Dumpling-Qwen2.5-14B-GGUF/nbeerbower_Dumpling-Qwen2.5-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nbeerbower_dumpling-qwen2.5-32b-v2"
+  icon: https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B/resolve/main/dumpling_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B-v2
+    - https://huggingface.co/bartowski/nbeerbower_Dumpling-Qwen2.5-32B-v2-GGUF
+  description: |
+    nbeerbower/Rombos-EVAGutenberg-TIES-Qwen2.5-32B finetuned on:
+
+        nbeerbower/GreatFirewall-DPO
+        nbeerbower/Schule-DPO
+        nbeerbower/Purpura-DPO
+        nbeerbower/Arkhaios-DPO
+        jondurbin/truthy-dpo-v0.1
+        antiven0m/physical-reasoning-dpo
+        flammenai/Date-DPO-NoAsterisks
+        flammenai/Prude-Phi3-DPO
+        Atsunori/HelpSteer2-DPO
+        jondurbin/gutenberg-dpo-v0.1
+        nbeerbower/gutenberg2-dpo
+        nbeerbower/gutenberg-moderne-dpo.
+  overrides:
+    parameters:
+      model: nbeerbower_Dumpling-Qwen2.5-32B-v2-Q4_K_M.gguf
+  files:
+    - filename: nbeerbower_Dumpling-Qwen2.5-32B-v2-Q4_K_M.gguf
+      sha256: 02a5320d62e13b31ac6d04ccdaba7b72a524d6cc72a7082b94d8cac0a183ecb4
+      uri: huggingface://bartowski/nbeerbower_Dumpling-Qwen2.5-32B-v2-GGUF/nbeerbower_Dumpling-Qwen2.5-32B-v2-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nbeerbower_dumpling-qwen2.5-72b"
+  icon: https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-32B/resolve/main/dumpling_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Dumpling-Qwen2.5-72B
+    - https://huggingface.co/bartowski/nbeerbower_Dumpling-Qwen2.5-72B-GGUF
+  description: |
+    nbeerbower/EVA-abliterated-TIES-Qwen2.5-72B finetuned on:
+        nbeerbower/GreatFirewall-DPO
+        nbeerbower/Schule-DPO
+        nbeerbower/Purpura-DPO
+        nbeerbower/Arkhaios-DPO
+        jondurbin/truthy-dpo-v0.1
+        antiven0m/physical-reasoning-dpo
+        flammenai/Date-DPO-NoAsterisks
+        flammenai/Prude-Phi3-DPO
+        Atsunori/HelpSteer2-DPO
+        jondurbin/gutenberg-dpo-v0.1
+        nbeerbower/gutenberg2-dpo
+        nbeerbower/gutenberg-moderne-dpo.
+  overrides:
+    parameters:
+      model: nbeerbower_Dumpling-Qwen2.5-72B-Q4_K_M.gguf
+  files:
+    - filename: nbeerbower_Dumpling-Qwen2.5-72B-Q4_K_M.gguf
+      sha256: 384de5ba5e60255846cd38e2bfad0374b059fb627ba8abb02273186f28684385
+      uri: huggingface://bartowski/nbeerbower_Dumpling-Qwen2.5-72B-GGUF/nbeerbower_Dumpling-Qwen2.5-72B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_openr1-qwen-7b"
+  urls:
+    - https://huggingface.co/open-r1/OpenR1-Qwen-7B
+    - https://huggingface.co/bartowski/open-r1_OpenR1-Qwen-7B-GGUF
+  description: |
+    This is a finetune of Qwen2.5-Math-Instruct on OpenR1-220k-Math (default split). We train the model on the default split of OpenR1-220k-Math for 3 epochs. We use learning rate of 5e-5 and extend the context length from 4k to 32k, by increasing RoPE frequency to 300k. The training follows a linear learning rate schedule with a 10% warmup phase.
+  overrides:
+    parameters:
+      model: open-r1_OpenR1-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OpenR1-Qwen-7B-Q4_K_M.gguf
+      sha256: d3bf99666cd19b637948ec9943044b591d3b906d0ee4f3ef1b3eb693ac8f66a6
+      uri: huggingface://bartowski/open-r1_OpenR1-Qwen-7B-GGUF/open-r1_OpenR1-Qwen-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "internlm_oreal-32b"
+  urls:
+    - https://huggingface.co/internlm/OREAL-32B
+    - https://huggingface.co/bartowski/internlm_OREAL-32B-GGUF
+  description: |
+    We introduce OREAL-7B and OREAL-32B, a mathematical reasoning model series trained using Outcome REwArd-based reinforcement Learning, a novel RL framework designed for tasks where only binary outcome rewards are available.
+
+    With OREAL, a 7B model achieves 94.0 pass@1 accuracy on MATH-500, matching the performance of previous 32B models. OREAL-32B further surpasses previous distillation-trained 32B models, reaching 95.0 pass@1 accuracy on MATH-500.
+  overrides:
+    parameters:
+      model: internlm_OREAL-32B-Q4_K_M.gguf
+  files:
+    - filename: internlm_OREAL-32B-Q4_K_M.gguf
+      sha256: 5af1b3f66e3a1f95931a54500d03368c0cc7ca42cc67370338b29c18362e4a94
+      uri: huggingface://bartowski/internlm_OREAL-32B-GGUF/internlm_OREAL-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "internlm_oreal-7b"
+  urls:
+    - https://huggingface.co/internlm/OREAL-7B
+    - https://huggingface.co/bartowski/internlm_OREAL-7B-GGUF
+  description: |
+    We introduce OREAL-7B and OREAL-32B, a mathematical reasoning model series trained using Outcome REwArd-based reinforcement Learning, a novel RL framework designed for tasks where only binary outcome rewards are available.
+
+    With OREAL, a 7B model achieves 94.0 pass@1 accuracy on MATH-500, matching the performance of previous 32B models. OREAL-32B further surpasses previous distillation-trained 32B models, reaching 95.0 pass@1 accuracy on MATH-500.
+  overrides:
+    parameters:
+      model: internlm_OREAL-7B-Q4_K_M.gguf
+  files:
+    - filename: internlm_OREAL-7B-Q4_K_M.gguf
+      sha256: 0f7ba453e91872f06a666fda692fbcec13fdd343f74c7dfa7219df31c038ca1c
+      uri: huggingface://bartowski/internlm_OREAL-7B-GGUF/internlm_OREAL-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "smirki_uigen-t1.1-qwen-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/VSplF7AM1PJPzeR9FlDhE.png
+  urls:
+    - https://huggingface.co/smirki/UIGEN-T1.1-Qwen-14B
+    - https://huggingface.co/bartowski/smirki_UIGEN-T1.1-Qwen-14B-GGUF
+  description: |
+    UIGEN-T1.1 is a 14-billion parameter transformer model fine-tuned on Qwen2.5-Coder-14B-Instruct. It is designed for reasoning-based UI generation, leveraging a complex chain-of-thought approach to produce robust HTML and CSS-based UI components. Currently, it is limited to basic applications such as dashboards, landing pages, and sign-up forms.
+  overrides:
+    parameters:
+      model: smirki_UIGEN-T1.1-Qwen-14B-Q4_K_M.gguf
+  files:
+    - filename: smirki_UIGEN-T1.1-Qwen-14B-Q4_K_M.gguf
+      sha256: 7ad2326f06a304891a1d01d4de9feda42cb4395e4cbdc4d60dc2a26d15e5ea91
+      uri: huggingface://bartowski/smirki_UIGEN-T1.1-Qwen-14B-GGUF/smirki_UIGEN-T1.1-Qwen-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "smirki_uigen-t1.1-qwen-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/VSplF7AM1PJPzeR9FlDhE.png
+  urls:
+    - https://huggingface.co/smirki/UIGEN-T1.1-Qwen-7B
+    - https://huggingface.co/bartowski/smirki_UIGEN-T1.1-Qwen-7B-GGUF
+  description: |
+    UIGEN-T1.1 is a 7-billion parameter transformer model fine-tuned on Qwen2.5-Coder-7B-Instruct. It is designed for reasoning-based UI generation, leveraging a complex chain-of-thought approach to produce robust HTML and CSS-based UI components. Currently, it is limited to basic applications such as dashboards, landing pages, and sign-up forms.
+  overrides:
+    parameters:
+      model: smirki_UIGEN-T1.1-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: smirki_UIGEN-T1.1-Qwen-7B-Q4_K_M.gguf
+      sha256: e5d78dea15d4281455d64aef1c0f18da5674c6f15285a2991e63208d264b61ae
+      uri: huggingface://bartowski/smirki_UIGEN-T1.1-Qwen-7B-GGUF/smirki_UIGEN-T1.1-Qwen-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombo-org_rombo-llm-v3.0-qwen-72b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/wp9qOi2K2WGzkey0I3SgH.jpeg
+  urls:
+    - https://huggingface.co/Rombo-Org/Rombo-LLM-V3.0-Qwen-72b
+    - https://huggingface.co/bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-GGUF
+  description: |
+    Rombos-LLM-V3.0-Qwen-72b is a continues finetuned version of the Rombo-LLM-V2.5-Qwen-72b on a Reasoning and Non-reasoning dataset. The models performs exceptionally well when paired with the system prompt that it was trained on during reasoning training. Nearing SOTA levels even quantized to 4-bit.
+  overrides:
+    parameters:
+      model: Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
+  files:
+    - filename: Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
+      sha256: 3f159ffb494338d03502096c52db5e062a81b09acfd3cc4f6352ca61d6f489df
+      uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-GGUF/Rombo-Org_Rombo-LLM-V3.0-Qwen-72b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-ai_reverb-7b"
+  urls:
+    - https://huggingface.co/ozone-research/Reverb-7b
+    - https://huggingface.co/bartowski/ozone-ai_Reverb-7b-GGUF
+  description: |
+    Reverb-7b is a 7 billion parameter language model developed by Ozone AI. It is a causal language model designed for text generation and various downstream tasks. This is the third model release by Ozone AI.
+  overrides:
+    parameters:
+      model: ozone-ai_Reverb-7b-Q4_K_M.gguf
+  files:
+    - filename: ozone-ai_Reverb-7b-Q4_K_M.gguf
+      sha256: f769c6e1a85d3426263f585f640a90c10e7e26b89345a700a4cabf62eb0583d4
+      uri: huggingface://bartowski/ozone-ai_Reverb-7b-GGUF/ozone-ai_Reverb-7b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-research_chirp-01"
+  urls:
+    - https://huggingface.co/ozone-research/Chirp-01
+    - https://huggingface.co/bartowski/ozone-research_Chirp-01-GGUF
+  description: |
+    Chirp-3b is a high-performing 3B parameter language model crafted by the Ozone Research team. Fine-tuned from a robust base model (Qwen2.5 3B Instruct), it was trained on 50 million tokens of distilled data from GPT-4o. This compact yet powerful model delivers exceptional results, outperforming expectations on benchmarks like MMLU Pro and IFEval.
+
+    Chirp-3b is an open-source effort to push the limits of what small-scale LLMs can achieve, making it a valuable tool for researchers and enthusiasts alike.
+  overrides:
+    parameters:
+      model: ozone-research_Chirp-01-Q4_K_M.gguf
+  files:
+    - filename: ozone-research_Chirp-01-Q4_K_M.gguf
+      sha256: 4ca7328f9b649755077c9064de0b9748d9f12a2e4ce8f493c94e1b19a8b5a035
+      uri: huggingface://bartowski/ozone-research_Chirp-01-GGUF/ozone-research_Chirp-01-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ozone-research_0x-lite"
+  urls:
+    - https://huggingface.co/ozone-research/0x-lite
+    - https://huggingface.co/bartowski/ozone-research_0x-lite-GGUF
+  description: |
+    0x Lite is a state-of-the-art language model developed by Ozone AI, designed to deliver ultra-high-quality text generation capabilities while maintaining a compact and efficient architecture. Built on the latest advancements in natural language processing, 0x Lite is optimized for both speed and accuracy, making it a strong contender in the space of language models. It is particularly well-suited for applications where resource constraints are a concern, offering a lightweight alternative to larger models like GPT while still delivering comparable performance.
+  overrides:
+    parameters:
+      model: ozone-research_0x-lite-Q4_K_M.gguf
+  files:
+    - filename: ozone-research_0x-lite-Q4_K_M.gguf
+      sha256: c11f3bd1c607ca329f48d1b6a3e540ac4c5ea8d57097550639709d9202b7f405
+      uri: huggingface://bartowski/ozone-research_0x-lite-GGUF/ozone-research_0x-lite-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "allenai_olmocr-7b-0225-preview"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/olmocr/olmocr.png
+  urls:
+    - https://huggingface.co/allenai/olmOCR-7B-0225-preview
+    - https://huggingface.co/bartowski/allenai_olmOCR-7B-0225-preview-GGUF
+    - https://olmocr.allenai.org/papers/olmocr.pdf
+  description: |
+    This is a preview release of the olmOCR model that's fine tuned from Qwen2-VL-7B-Instruct using the olmOCR-mix-0225 dataset.
+  overrides:
+    parameters:
+      model: allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
+  files:
+    - filename: allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
+      sha256: 0a5603f95ba59828061d315b7869e021ea1b86e2dececaba8a1f9bcc3f81e84a
+      uri: huggingface://bartowski/allenai_olmOCR-7B-0225-preview-GGUF/allenai_olmOCR-7B-0225-preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "boomer_qwen_72b-i1"
+  icon: https://huggingface.co/SicariusSicariiStuff/Boomer_Qwen_72B/resolve/main/Images/03.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Boomer_Qwen_72B
+    - https://huggingface.co/mradermacher/Boomer_Qwen_72B-i1-GGUF
+  description: |
+    An absolute unit derived from Qwen-72B, but turbo-charged with pure unfiltered boomer sigma grindset energy. This model has internalized decades of "back in my day" wisdom and distilled it into the most powerful financial NLP system ever created.
+
+    Core features:
+
+        Programmed to automatically respond "Just buy the dip" to any market analysis
+        Enhanced pattern recognition for spotting "kids these days" scenarios
+        Built-in mortgage calculator that always concludes "rent is throwing money away"
+        Advanced NLP pipeline for transforming any input into "when I was your age" narratives
+        Hardwired belief in "number go up" as the fundamental law of economics
+
+    Training methodology: Collected prime boomer wisdom from countless Facebook rants, Thanksgiving dinner lectures, and unsolicited advice sessions. Fed it through Qwen's architecture until it achieved enlightenment and started spontaneously generating complaints about avocado toast.
+
+    Performance metrics: Achieves SOTA results on:
+
+        Real estate evangelism
+        "Pull yourself up by your bootstraps" pep talks
+        Gold standard nostalgia generation
+        Market timing (but only in retrospect)
+
+    Basically took the raw computational power of Qwen-72B and gave it a healthy dose of "they don't make 'em like they used to" energy. The result? A model that knows the secret to success is just working hard and investing in the S&P 500.
+
+    Warning: May spontaneously generate advice about starting in the mail room and working your way up to CEO.
+  overrides:
+    parameters:
+      model: Boomer_Qwen_72B.i1-Q4_K_M.gguf
+  files:
+    - filename: Boomer_Qwen_72B.i1-Q4_K_M.gguf
+      sha256: 5cee89356d512874ca45f516c322d99f2b3534db5a3acd43a96c031cced3bc75
+      uri: huggingface://mradermacher/Boomer_Qwen_72B-i1-GGUF/Boomer_Qwen_72B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "azura-qwen2.5-32b-i1"
+  icon: https://huggingface.co/nbeerbower/Azura-Qwen2.5-32B/resolve/main/cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Azura-Qwen2.5-32B
+    - https://huggingface.co/mradermacher/Azura-Qwen2.5-32B-i1-GGUF
+  description: |
+    This model was merged using the Model Stock merge method using nbeerbower/Dumpling-Qwen2.5-32B as a base.
+    The following models were included in the merge:
+
+    rinna/qwen2.5-bakeneko-32b-instruct
+    EVA-UNIT-01/EVA-Qwen2.5-32B-v0.2
+    zetasepic/Qwen2.5-32B-Instruct-abliterated-v2
+    nbeerbower/Dumpling-Qwen2.5-32B-v2
+  overrides:
+    parameters:
+      model: Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
+      sha256: a3ec93f192dc4ce062fd176d6615d4da34af81d909b89c372678b779a46b8d3b
+      uri: huggingface://mradermacher/Azura-Qwen2.5-32B-i1-GGUF/Azura-Qwen2.5-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen_qwq-32b"
+  urls:
+    - https://huggingface.co/Qwen/QwQ-32B
+    - https://huggingface.co/bartowski/Qwen_QwQ-32B-GGUF
+  description: |
+    QwQ is the reasoning model of the Qwen series. Compared with conventional instruction-tuned models, QwQ, which is capable of thinking and reasoning, can achieve significantly enhanced performance in downstream tasks, especially hard problems. QwQ-32B is the medium-sized reasoning model, which is capable of achieving competitive performance against state-of-the-art reasoning models, e.g., DeepSeek-R1, o1-mini.
+  overrides:
+    parameters:
+      model: Qwen_QwQ-32B-Q4_K_M.gguf
+  files:
+    - filename: Qwen_QwQ-32B-Q4_K_M.gguf
+      sha256: 87cc1894a68008856cde6ff24bfb9b99488a0d18c2e0a2b1ddeabd43cd0498e0
+      uri: huggingface://bartowski/Qwen_QwQ-32B-GGUF/Qwen_QwQ-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rombo-org_rombo-llm-v3.1-qwq-32b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/642cc1c253e76b4c2286c58e/hXnQV6WtMKrmIQPdjECSX.jpeg
+  urls:
+    - https://huggingface.co/Rombo-Org/Rombo-LLM-V3.1-QWQ-32b
+    - https://huggingface.co/bartowski/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-GGUF
+  description: |
+    Rombo-LLM-V3.1-QWQ-32b is a Continued Finetune model (Merge only) of (Qwen/QwQ-32B) and its base model (Qwen/Qwen2.5-32B). This merge is done to decrease catastrophic forgetting during finetuning, and increase overall performance of the model. The tokenizers are taken from the QwQ-32B for thinking capabilities.
+  overrides:
+    parameters:
+      model: Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
+  files:
+    - filename: Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
+      sha256: ee0b5027c686f3c37938f33b62788e27211852268f9e5c32e00058f0cf1688c7
+      uri: huggingface://bartowski/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-GGUF/Rombo-Org_Rombo-LLM-V3.1-QWQ-32b-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "huihui-ai_qwq-32b-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/QwQ-32B-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_QwQ-32B-abliterated-GGUF
+  description: |
+    This is an uncensored version of Qwen/QwQ-32B created with abliteration (see remove-refusals-with-transformers to know more about it).
+    This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+  overrides:
+    parameters:
+      model: huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
+      sha256: 27d3c3e116015257985fa27b87e3f3aafbeb4762152d60474e883547d436025e
+      uri: huggingface://bartowski/huihui-ai_QwQ-32B-abliterated-GGUF/huihui-ai_QwQ-32B-abliterated-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tower-babel_babel-9b-chat"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64802face9ff472e30dc1ceb/9mRO092PjPmzd8qSr7F5V.png
+  urls:
+    - https://huggingface.co/Tower-Babel/Babel-9B-Chat
+    - https://huggingface.co/bartowski/Tower-Babel_Babel-9B-Chat-GGUF
+  description: |
+    We introduce Babel, a multilingual LLM that covers the top 25 languages by number of speakers, including English, Chinese, Hindi, Spanish, Arabic, French, Bengali, Portuguese, Russian, Urdu, Indonesian, German, Japanese, Swahili, Filipino, Tamil, Vietnamese, Turkish, Italian, Javanese, Korean, Hausa, Persian, Thai, and Burmese. These 25 languages support over 90% of the global population, and include many languages neglected by other open multilingual LLMs. Unlike traditional continued pretraining approaches, Babel expands its parameter count through a layer extension technique that elevates Babel's performance ceiling.
+  overrides:
+    parameters:
+      model: Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
+  files:
+    - filename: Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
+      sha256: cf024c81b9c5e31dd9b4fe89f7bed01be8a6a704722780fe8d240b1ecb7942eb
+      uri: huggingface://bartowski/Tower-Babel_Babel-9B-Chat-GGUF/Tower-Babel_Babel-9B-Chat-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "openpipe_deductive-reasoning-qwen-14b"
+  urls:
+    - https://huggingface.co/OpenPipe/Deductive-Reasoning-Qwen-14B
+    - https://huggingface.co/bartowski/OpenPipe_Deductive-Reasoning-Qwen-14B-GGUF
+  description: |
+    Deductive Reasoning Qwen 14B is a reinforcement fine-tune of Qwen 2.5 14B Instruct to solve challenging deduction problems from the Temporal Clue dataset, trained by OpenPipe!
+  overrides:
+    parameters:
+      model: OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
+  files:
+    - filename: OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
+      sha256: 23474b114e1e14f5f63829369e9af14d3f8e6b437b7974e1d3ac0c842b4cc3f5
+      uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-14B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "openpipe_deductive-reasoning-qwen-32b"
+  urls:
+    - https://huggingface.co/OpenPipe/Deductive-Reasoning-Qwen-32B
+    - https://huggingface.co/bartowski/OpenPipe_Deductive-Reasoning-Qwen-32B-GGUF
+  description: |
+    Deductive Reasoning Qwen 32B is a reinforcement fine-tune of Qwen 2.5 32B Instruct to solve challenging deduction problems from the Temporal Clue dataset, trained by OpenPipe!
+  overrides:
+    parameters:
+      model: OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+  files:
+    - filename: OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+      sha256: 53a8314e572c60c867da897721d366f183dc6d2193c83a41ff8ad46a2a0692c8
+      uri: huggingface://bartowski/OpenPipe_Deductive-Reasoning-Qwen-32B-GGUF/OpenPipe_Deductive-Reasoning-Qwen-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_olympiccoder-32b"
+  urls:
+    - https://huggingface.co/open-r1/OlympicCoder-32B
+    - https://huggingface.co/bartowski/open-r1_OlympicCoder-32B-GGUF
+  description: |
+    OlympicCoder-32B is a code mode that achieves very strong performance on competitive coding benchmarks such as LiveCodeBench andthe 2024 International Olympiad in Informatics.
+  overrides:
+    parameters:
+      model: open-r1_OlympicCoder-32B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OlympicCoder-32B-Q4_K_M.gguf
+      sha256: bb82e4aa2219f655d37c7efad8985582cf3c32de0e0299ecd2f304d32ac39f12
+      uri: huggingface://bartowski/open-r1_OlympicCoder-32B-GGUF/open-r1_OlympicCoder-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-r1_olympiccoder-7b"
+  urls:
+    - https://huggingface.co/open-r1/OlympicCoder-7B
+    - https://huggingface.co/bartowski/open-r1_OlympicCoder-7B-GGUF
+  description: |
+    OlympicCoder-7B is a code model that achieves strong performance on competitive coding benchmarks such as LiveCodeBench and the 2024 International Olympiad in Informatics.
+  overrides:
+    parameters:
+      model: open-r1_OlympicCoder-7B-Q4_K_M.gguf
+  files:
+    - filename: open-r1_OlympicCoder-7B-Q4_K_M.gguf
+      sha256: 21e18e7fd1fb244455a67d4dee538a4d86dc96d507c39a4ad16ef335fb9e6e2f
+      uri: huggingface://bartowski/open-r1_OlympicCoder-7B-GGUF/open-r1_OlympicCoder-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "trashpanda-org_qwq-32b-snowdrop-v0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/675a77cf99ca23af9daacccc/Tdn0PJBFnG3J6UcjO9G94.png
+  urls:
+    - https://huggingface.co/trashpanda-org/QwQ-32B-Snowdrop-v0
+    - https://huggingface.co/bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF
+  description: |
+    R1 at home for RP, literally. Able to handle my cards with gimmicks and subtle tricks in them. With a good reasoning starter+prompt, I'm getting consistently-structured responses that have a good amount of variation across them still while rerolling. Char/scenario portrayal is good despite my focus on writing style, lorebooks are properly referenced at times. Slop doesn't seem to be too much of an issue with thinking enabled. Some user impersonation is rarely observed. Prose is refreshing if you take advantage of what I did (writing style fixation). I know I said Marigold would be my daily driver, but this one is that now, it's that good.
+  overrides:
+    parameters:
+      model: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+  files:
+    - filename: trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+      sha256: 584d2f14f2f08ce499665c332bef30245b605ed2278e9075766237835f564c5f
+      uri: huggingface://bartowski/trashpanda-org_QwQ-32B-Snowdrop-v0-GGUF/trashpanda-org_QwQ-32B-Snowdrop-v0-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "prithivmlmods_viper-coder-32b-elite13"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/n5x-NuenasIjm3HljPUYY.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Viper-Coder-32B-Elite13
+    - https://huggingface.co/bartowski/prithivMLmods_Viper-Coder-32B-Elite13-GGUF
+  description: |
+    Viper-Coder-32B-Elite13 is based on the qwq-32B modality architecture, designed to be the best for coding and reasoning tasks. It has been fine-tuned on a synthetic dataset leveraging the latest coding logits and CoT datasets, further optimizing its chain-of-thought (CoT) reasoning and logical problem-solving abilities. The model demonstrates significant improvements in context understanding, structured data processing, and long-context comprehension, making it ideal for complex coding tasks, instruction-following, and technical text generation.
+  overrides:
+    parameters:
+      model: prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
+  files:
+    - filename: prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
+      sha256: 57a41ed2fc0d62847cf85ff20cc71be9c5978d22a56e39f2390c6563e5b0c931
+      uri: huggingface://bartowski/prithivMLmods_Viper-Coder-32B-Elite13-GGUF/prithivMLmods_Viper-Coder-32B-Elite13-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rootxhacker_apollo-v3-32b"
+  urls:
+    - https://huggingface.co/rootxhacker/Apollo-v3-32B
+    - https://huggingface.co/bartowski/rootxhacker_Apollo-v3-32B-GGUF
+  description: |
+    This is an experimental hybrid reasoning model built on Qwen2.5-32B-Instruct
+  overrides:
+    parameters:
+      model: rootxhacker_Apollo-v3-32B-Q4_K_M.gguf
+  files:
+    - filename: rootxhacker_Apollo-v3-32B-Q4_K_M.gguf
+      sha256: 67aa4b88a017931fab622b05879c0ff5f0a6db758686d2200aaad19f21bd5d2a
+      uri: huggingface://bartowski/rootxhacker_Apollo-v3-32B-GGUF/rootxhacker_Apollo-v3-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://emygervais.github.io/assets/images/screenshots.png
+  name: "samsungsailmontreal_bytecraft"
+  urls:
+    - https://huggingface.co/SamsungSAILMontreal/ByteCraft
+    - https://huggingface.co/bartowski/SamsungSAILMontreal_ByteCraft-GGUF
+  description: |
+    ByteCraft is the world's first generative model of SWF video games and animations through bytes conditional on prompt.
+  overrides:
+    parameters:
+      model: SamsungSAILMontreal_ByteCraft-Q4_K_M.gguf
+  files:
+    - filename: SamsungSAILMontreal_ByteCraft-Q4_K_M.gguf
+      sha256: b9e1b44e3e6d90fe5d7d7d4741c37bcb40724e50de8b8f0ad2480e095e8d1712
+      uri: huggingface://bartowski/SamsungSAILMontreal_ByteCraft-GGUF/SamsungSAILMontreal_ByteCraft-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen-writerdemo-7b-s500-i1"
+  urls:
+    - https://huggingface.co/Quest-AI/qwen-writerdemo-7b-s500
+    - https://huggingface.co/mradermacher/qwen-writerdemo-7b-s500-i1-GGUF
+  description: |
+    This is a base model that has had an experimental reward model RL training done over it for a subset of the Erebus dataset (creative writing).
+  overrides:
+    parameters:
+      model: qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
+  files:
+    - filename: qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
+      sha256: dcc0e2dd36587fdd3ed0c8e8c215a01244f00dd85f62da23642410d0e688fe13
+      uri: huggingface://mradermacher/qwen-writerdemo-7b-s500-i1-GGUF/qwen-writerdemo-7b-s500.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "helpingai_helpingai3-raw"
+  urls:
+    - https://huggingface.co/HelpingAI/Helpingai3-raw
+    - https://huggingface.co/bartowski/HelpingAI_Helpingai3-raw-GGUF
+  description: |
+    The LLM model described is an emotionally intelligent, conversational and EQ-focused model developed by HelpingAI. It is based on the Helpingai3-raw model and has been quantized using the llama.cpp framework. The model is available in various quantization levels, allowing for different trade-offs between performance and size. Users can choose the appropriate quantization level based on their available RAM, VRAM, and desired performance. The model's weights are provided in .gguf format and can be downloaded from the Hugging Face model repository.
+  overrides:
+    parameters:
+      model: HelpingAI_Helpingai3-raw-Q4_K_M.gguf
+  files:
+    - filename: HelpingAI_Helpingai3-raw-Q4_K_M.gguf
+      sha256: de7a223ad397ba27c889dad08466de471166f1e76962b855c72cf6b779a7b857
+      uri: huggingface://bartowski/HelpingAI_Helpingai3-raw-GGUF/HelpingAI_Helpingai3-raw-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-14b-instruct-1m-unalign-i1"
+  urls:
+    - https://huggingface.co/ToastyPigeon/Qwen2.5-14B-Instruct-1M-Unalign
+    - https://huggingface.co/mradermacher/Qwen2.5-14B-Instruct-1M-Unalign-i1-GGUF
+  description: |
+    A simple unalignment fine-tune on ~900k tokens aiming to make the model more compliant and willing to handle user requests.
+
+    This is the same unalignment training seen in concedo/Beepo-22B, so big thanks to concedo for the dataset.
+
+    Chat template is same as the original, ChatML.
+  overrides:
+    parameters:
+      model: Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
+      sha256: 11b2eb96a8a4d512fceb3344dccc694972801c964cf748d723fdf436bc368915
+      uri: huggingface://mradermacher/Qwen2.5-14B-Instruct-1M-Unalign-i1-GGUF/Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -5631,6 +7161,225 @@
     - filename: ilsp_Llama-Krikri-8B-Instruct-Q4_K_M.gguf
       sha256: 0ae3a259f03ed79ba634a99ee3bfc672d785b5594b2f71053ed8cb760098abb6
       uri: huggingface://bartowski/ilsp_Llama-Krikri-8B-Instruct-GGUF/ilsp_Llama-Krikri-8B-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nousresearch_deephermes-3-llama-3-8b-preview"
+  url: "github:mudler/LocalAI/gallery/deephermes.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/9fxlaDxteqe3SasZ7_06_.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/DeepHermes-3-Llama-3-8B-Preview
+    - https://huggingface.co/bartowski/NousResearch_DeepHermes-3-Llama-3-8B-Preview-GGUF
+  description: |
+    DeepHermes 3 Preview is the latest version of our flagship Hermes series of LLMs by Nous Research, and one of the first models in the world to unify Reasoning (long chains of thought that improve answer accuracy) and normal LLM response modes into one model. We have also improved LLM annotation, judgement, and function calling.
+
+    DeepHermes 3 Preview is one of the first LLM models to unify both "intuitive", traditional mode responses and long chain of thought reasoning responses into a single model, toggled by a system prompt.
+
+    Hermes 3, the predecessor of DeepHermes 3, is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board.
+
+    The ethos of the Hermes series of models is focused on aligning LLMs to the user, with powerful steering capabilities and control given to the end user.
+
+    This is a preview Hermes with early reasoning capabilities, distilled from R1 across a variety of tasks that benefit from reasoning and objectivity. Some quirks may be discovered! Please let us know any interesting findings or issues you discover!
+  overrides:
+    parameters:
+      model: NousResearch_DeepHermes-3-Llama-3-8B-Preview-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_DeepHermes-3-Llama-3-8B-Preview-Q4_K_M.gguf
+      sha256: de36671bcfc78636dc3c1be4b702198c9d9e0b8abe22dc644e4da332b31b325f
+      uri: huggingface://bartowski/NousResearch_DeepHermes-3-Llama-3-8B-Preview-GGUF/NousResearch_DeepHermes-3-Llama-3-8B-Preview-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "davidbrowne17_llamathink-8b-instruct"
+  icon: https://huggingface.co/DavidBrowne17/LlamaThink-8B-instruct/resolve/main/llamathinker.png
+  urls:
+    - https://huggingface.co/DavidBrowne17/LlamaThink-8B-instruct
+    - https://huggingface.co/bartowski/DavidBrowne17_LlamaThink-8B-instruct-GGUF
+  description: |
+    LlamaThink-8b-instruct is an instruction-tuned language model built on the LLaMA-3 architecture. It is optimized for generating thoughtful, structured responses using a unique dual-section output format.
+  overrides:
+    parameters:
+      model: DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
+  files:
+    - filename: DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
+      sha256: 6aea4e13f03347e03d6989c736a7ccab82582115eb072cacfeb7f0b645a8bec0
+      uri: huggingface://bartowski/DavidBrowne17_LlamaThink-8B-instruct-GGUF/DavidBrowne17_LlamaThink-8B-instruct-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "allenai_llama-3.1-tulu-3.1-8b"
+  icon: https://huggingface.co/datasets/allenai/blog-images/resolve/main/tulu3/Tulu3-logo.png
+  urls:
+    - https://huggingface.co/allenai/Llama-3.1-Tulu-3.1-8B
+    - https://huggingface.co/bartowski/allenai_Llama-3.1-Tulu-3.1-8B-GGUF
+  description: |
+    Tülu 3 is a leading instruction following model family, offering a post-training package with fully open-source data, code, and recipes designed to serve as a comprehensive guide for modern techniques. This is one step of a bigger process to training fully open-source models, like our OLMo models. Tülu 3 is designed for state-of-the-art performance on a diversity of tasks in addition to chat, such as MATH, GSM8K, and IFEval.
+
+    Version 3.1 update: The new version of our Tülu model is from an improvement only in the final RL stage of training. We switched from PPO to GRPO (no reward model) and did further hyperparameter tuning to achieve substantial performance improvements across the board over the original Tülu 3 8B model.
+  overrides:
+    parameters:
+      model: allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
+  files:
+    - filename: allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
+      sha256: 5eae0f1a9bcdea7cad9f1d0d5ba7540bb3de3e2d72293c076a23f24db1c2c7da
+      uri: huggingface://bartowski/allenai_Llama-3.1-Tulu-3.1-8B-GGUF/allenai_Llama-3.1-Tulu-3.1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "l3.1-8b-rp-ink"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/XLm9ZK0bIPyo3HooA1EPc.png
+  urls:
+    - https://huggingface.co/allura-org/L3.1-8b-RP-Ink
+    - https://huggingface.co/Triangle104/L3.1-8b-RP-Ink-Q4_K_M-GGUF
+  description: |
+    A roleplay-focused LoRA finetune of Llama 3.1 8B Instruct. Methodology and hyperparams inspired by SorcererLM and Slush.
+    Yet another model in the Ink series, following in the footsteps of the rest of them
+    Dataset
+
+    The worst mix of data you've ever seen. Like, seriously, you do not want to see the things that went into this model. It's bad.
+
+    "this is like washing down an adderall with a bottle of methylated rotgut" - inflatebot
+
+    Update: I have sent the (public datasets in the) data mix publicly already so here's that
+  overrides:
+    parameters:
+      model: l3.1-8b-rp-ink-q4_k_m.gguf
+  files:
+    - filename: l3.1-8b-rp-ink-q4_k_m.gguf
+      sha256: 0e8d44a92153cda0c6a5d6b0d9af44d4806104b39d3232f9097cfcc384a78152
+      uri: huggingface://Triangle104/L3.1-8b-RP-Ink-Q4_K_M-GGUF/l3.1-8b-rp-ink-q4_k_m.gguf
+- !!merge <<: *llama31
+  name: "locutusque_thespis-llama-3.1-8b"
+  urls:
+    - https://huggingface.co/Locutusque/Thespis-Llama-3.1-8B
+    - https://huggingface.co/bartowski/Locutusque_Thespis-Llama-3.1-8B-GGUF
+  description: |
+    The Thespis family of language models is designed to enhance roleplaying performance through reasoning inspired by the Theory of Mind. Thespis-Llama-3.1-8B is a fine-tuned version of an abliterated Llama-3.1-8B model, optimized using Group Relative Policy Optimization (GRPO). The model is specifically rewarded for minimizing "slop" and repetition in its outputs, aiming to produce coherent and engaging text that maintains character consistency and avoids low-quality responses. This version represents an initial release; future iterations will incorporate a more rigorous fine-tuning process.
+  overrides:
+    parameters:
+      model: Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
+  files:
+    - filename: Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
+      sha256: 94138f3774f496e28c2e76bb6df7a073c6087f8c074216a24b3cbcdc58ec7853
+      uri: huggingface://bartowski/Locutusque_Thespis-Llama-3.1-8B-GGUF/Locutusque_Thespis-Llama-3.1-8B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-instruct-uncensored-delmat-i1"
+  urls:
+    - https://huggingface.co/nkpz/Llama-3.1-8B-Instruct-Uncensored-DeLMAT
+    - https://huggingface.co/mradermacher/Llama-3.1-8B-Instruct-Uncensored-DeLMAT-i1-GGUF
+  description: |
+    Decensored using a custom training script guided by activations, similar to ablation/"abliteration" scripts but not exactly the same approach.
+
+    I've found this effect to be stronger than most abliteration scripts, so please use responsibly etc etc.
+
+    The training script is released under the MIT license: https://github.com/nkpz/DeLMAT
+  overrides:
+    parameters:
+      model: Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
+      sha256: e05c69f6f3157aeb7c579d1bb8c3b7e0fb6631d262d76ba301b6693e068148b2
+      uri: huggingface://mradermacher/Llama-3.1-8B-Instruct-Uncensored-DeLMAT-i1-GGUF/Llama-3.1-8B-Instruct-Uncensored-DeLMAT.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "lolzinventor_meta-llama-3.1-8b-survivev3"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/67a020f79102e9be6460b24b/RjVuDPjU6gTPc_dDlHDk9.jpeg
+  urls:
+    - https://huggingface.co/lolzinventor/Meta-Llama-3.1-8B-SurviveV3
+    - https://huggingface.co/bartowski/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-GGUF
+  description: |
+    Primary intended uses:
+        Providing survival tips and information
+        Answering questions related to outdoor skills and wilderness survival
+        Offering guidance on shelter building
+    Out-of-scope uses:
+        Medical advice or emergency response (users should always seek professional help in emergencies)
+        Legal advice related to wilderness regulations or land use
+  overrides:
+    parameters:
+      model: lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
+  files:
+    - filename: lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
+      sha256: 7a8548655c4a0361de9cd5390be50e6b2c2375805f7952140cd27a93ec545dfc
+      uri: huggingface://bartowski/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-GGUF/lolzinventor_Meta-Llama-3.1-8B-SurviveV3-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llmevollama-3.1-8b-v0.1-i1"
+  icon: https://huggingface.co/fiveflow/LLMEvoLLaMA-3.1-8B-v0.1/resolve/main/assets/robot.jpeg
+  urls:
+    - https://huggingface.co/fiveflow/LLMEvoLLaMA-3.1-8B-v0.1
+    - https://huggingface.co/mradermacher/LLMEvoLLaMA-3.1-8B-v0.1-i1-GGUF
+  description: |
+    This project aims to optimize model merging by integrating LLMs into evolutionary strategies in a novel way. Instead of using the CMA-ES approach, the goal is to improve model optimization by leveraging the search capabilities of LLMs to explore the parameter space more efficiently and adjust the search scope based on high-performing solutions.
+
+    Currently, the project supports optimization only within the Parameter Space, but I plan to extend its functionality to enable merging and optimization in the Data Flow Space as well. This will further enhance model merging by optimizing the interaction between data flow and parameters.
+  overrides:
+    parameters:
+      model: LLMEvoLLaMA-3.1-8B-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: LLMEvoLLaMA-3.1-8B-v0.1.i1-Q4_K_M.gguf
+      sha256: 4a1042b707499451c42acfbecb8319568c856f0c634aabe79c95d7a6436837ab
+      uri: huggingface://mradermacher/LLMEvoLLaMA-3.1-8B-v0.1-i1-GGUF/LLMEvoLLaMA-3.1-8B-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "hyperllama3.1-v2-i1"
+  urls:
+    - https://huggingface.co/bunnycore/HyperLlama3.1-v2
+    - https://huggingface.co/mradermacher/HyperLlama3.1-v2-i1-GGUF
+  description: |
+    HyperLlama3.1-v2 is a merge of the following models using mergekit:
+    vicgalle/Configurable-Llama-3.1-8B-Instruct
+    bunnycore/HyperLlama-3.1-8B
+    ValiantLabs/Llama3.1-8B-ShiningValiant2
+  overrides:
+    parameters:
+      model: HyperLlama3.1-v2.i1-Q4_K_M.gguf
+  files:
+    - filename: HyperLlama3.1-v2.i1-Q4_K_M.gguf
+      sha256: b0357b1876898c485fe0532a8fdc10a4f5a190421bd573899710072558ba330b
+      uri: huggingface://mradermacher/HyperLlama3.1-v2-i1-GGUF/HyperLlama3.1-v2.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "jdineen_llama-3.1-8b-think"
+  urls:
+    - https://huggingface.co/jdineen/Llama-3.1-8B-Think
+    - https://huggingface.co/bartowski/jdineen_Llama-3.1-8B-Think-GGUF
+  description: |
+    This model is a fine-tuned version of Orenguteng/Llama-3.1-8B-Lexi-Uncensored-V2 on the jdineen/grpo-with-thinking-500-tagged dataset. It has been trained using TRL.
+  overrides:
+    parameters:
+      model: jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
+  files:
+    - filename: jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
+      sha256: 47efe28c37f12a644e02abb417c421b243e8001d3c9345dd7f650c8050ab78fc
+      uri: huggingface://bartowski/jdineen_Llama-3.1-8B-Think-GGUF/jdineen_Llama-3.1-8B-Think-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "textsynth-8b-i1"
+  urls:
+    - https://huggingface.co/theprint/TextSynth-8B
+    - https://huggingface.co/mradermacher/TextSynth-8B-i1-GGUF
+  description: |
+    This is a finetune of Llama 3.1 8B, trained on synthesizing text from two different sources. When used for other purposes, the result is a slightly more creative version of Llama 3.1, using more descriptive and evocative language in some instances.
+
+    It's great for brainstorming sessions, creative writing and free-flowing conversations. It's less good for technical documentation, email writing and that sort of thing.
+  overrides:
+    parameters:
+      model: TextSynth-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: TextSynth-8B.i1-Q4_K_M.gguf
+      sha256: 9186a8cb3a797cd2cd5b2eeaee99808674d96731824a9ee45685bbf480ba56c3
+      uri: huggingface://mradermacher/TextSynth-8B-i1-GGUF/TextSynth-8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-magicalgirl-2.5-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
+  urls:
+    - https://huggingface.co/KaraKaraWitch/Llama-3.3-MagicalGirl-2.5
+    - https://huggingface.co/mradermacher/Llama-3.3-MagicalGirl-2.5-i1-GGUF
+  description: |
+    2.5 is a slight modification of MagicalGirl-2 to include R1 to try and make it feel less dumb and more smart.
+    The following models were included in the merge:
+
+        LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+        KaraKaraWitch/Llama-MiraiFanfare-3.3-70B
+        Black-Ink-Guild/Pernicious_Prophecy_70B
+        TheDrummer/Fallen-Llama-3.3-R1-70B-v1
+        huihui-ai/DeepSeek-R1-Distill-Llama-70B-abliterated
+        SicariusSicariiStuff/Negative_LLAMA_70B
+  overrides:
+    parameters:
+      model: Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
+      sha256: 25db6d4ae5649e6d2084036d8f05ec1aca459126e2d4734d6c18f1e16147a4d3
+      uri: huggingface://mradermacher/Llama-3.3-MagicalGirl-2.5-i1-GGUF/Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
@@ -5886,7 +7635,7 @@
     - https://huggingface.co/uncensoredai/UncensoredLM-DeepSeek-R1-Distill-Qwen-14B
     - https://huggingface.co/bartowski/uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-GGUF
   description: |
-      An UncensoredLLM with Reasoning, what more could you want?
+    An UncensoredLLM with Reasoning, what more could you want?
   overrides:
     parameters:
       model: uncensoredai_UncensoredLM-DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf
@@ -5924,6 +7673,168 @@
     - filename: agentica-org_DeepScaleR-1.5B-Preview-Q4_K_M.gguf
       sha256: bf51b412360a84792ae9145e2ca322379234c118dbff498ff08e589253b67ded
       uri: huggingface://bartowski/agentica-org_DeepScaleR-1.5B-Preview-GGUF/agentica-org_DeepScaleR-1.5B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "internlm_oreal-deepseek-r1-distill-qwen-7b"
+  urls:
+    - https://huggingface.co/internlm/OREAL-DeepSeek-R1-Distill-Qwen-7B
+    - https://huggingface.co/bartowski/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-GGUF
+  description: |
+    We introduce OREAL-7B and OREAL-32B, a mathematical reasoning model series trained using Outcome REwArd-based reinforcement Learning, a novel RL framework designed for tasks where only binary outcome rewards are available.
+
+    With OREAL, a 7B model achieves 94.0 pass@1 accuracy on MATH-500, matching the performance of previous 32B models. OREAL-32B further surpasses previous distillation-trained 32B models, reaching 95.0 pass@1 accuracy on MATH-500.
+  overrides:
+    parameters:
+      model: internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+  files:
+    - filename: internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+      sha256: fa9dc8b0d4be0952252c25ff33e766a8399ce7b085647b95abe3edbe536cd8ed
+      uri: huggingface://bartowski/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-GGUF/internlm_OREAL-DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "arcee-ai_arcee-maestro-7b-preview"
+  urls:
+    - https://huggingface.co/arcee-ai/Arcee-Maestro-7B-Preview
+    - https://huggingface.co/bartowski/arcee-ai_Arcee-Maestro-7B-Preview-GGUF
+  description: |
+    Arcee-Maestro-7B-Preview (7B) is Arcee's first reasoning model trained with reinforment learning. It is based on the Qwen2.5-7B DeepSeek-R1 distillation DeepSeek-R1-Distill-Qwen-7B with further GRPO training. Though this is just a preview of our upcoming work, it already shows promising improvements to mathematical and coding abilities across a range of tasks.
+  overrides:
+    parameters:
+      model: arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
+  files:
+    - filename: arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
+      sha256: 7b1099e67ad1d10a80868ca0c39e78e7b3f89da87aa316166f56cc259e53cb7f
+      uri: huggingface://bartowski/arcee-ai_Arcee-Maestro-7B-Preview-GGUF/arcee-ai_Arcee-Maestro-7B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "steelskull_l3.3-san-mai-r1-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/8fZQZaLM0XO9TyKh-yMQ7.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-San-Mai-R1-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-San-Mai-R1-70b-GGUF
+  description: |
+    L3.3-San-Mai-R1-70b represents the foundational release in a three-part model series, followed by L3.3-Cu-Mai-R1-70b (Version A) and L3.3-Mokume-Gane-R1-70b (Version C). The name "San-Mai" draws inspiration from the Japanese bladesmithing technique of creating three-layer laminated composite metals, known for combining a hard cutting edge with a tougher spine - a metaphor for this model's balanced approach to AI capabilities.
+    Built on a custom DeepSeek R1 Distill base (DS-Hydroblated-R1-v4.1), San-Mai-R1 integrates specialized components through the SCE merge method:
+
+    EVA and EURYALE foundations for creative expression and scene comprehension
+    Cirrus and Hanami elements for enhanced reasoning capabilities
+    Anubis components for detailed scene description
+    Negative_LLAMA integration for balanced perspective and response
+
+    Core Capabilities
+
+    As the OG model in the series, San-Mai-R1 serves as the gold standard and reliable baseline. User feedback consistently highlights its superior intelligence, coherence, and unique ability to provide deep character insights. Through proper prompting, the model demonstrates advanced reasoning capabilities and an "X-factor" that enables unprompted exploration of character inner thoughts and motivations.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
+      sha256: 2287bfa14af188b0fc3a9f4e3afc9c303b7c41cee49238434f971c090b850306
+      uri: huggingface://bartowski/Steelskull_L3.3-San-Mai-R1-70b-GGUF/Steelskull_L3.3-San-Mai-R1-70b-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "perplexity-ai_r1-1776-distill-llama-70b"
+  urls:
+    - https://huggingface.co/perplexity-ai/r1-1776-distill-llama-70b
+    - https://huggingface.co/bartowski/perplexity-ai_r1-1776-distill-llama-70b-GGUF
+  description: |
+    R1 1776 is a DeepSeek-R1 reasoning model that has been post-trained by Perplexity AI to remove Chinese Communist Party censorship. The model provides unbiased, accurate, and factual information while maintaining high reasoning capabilities.
+  overrides:
+    parameters:
+      model: perplexity-ai_r1-1776-distill-llama-70b-Q4_K_M.gguf
+  files:
+    - filename: perplexity-ai_r1-1776-distill-llama-70b-Q4_K_M.gguf
+      sha256: 4030b5778cbbd0723454c9a0c340c32dc4e86a98d46f5e6083527da6a9c90012
+      uri: huggingface://bartowski/perplexity-ai_r1-1776-distill-llama-70b-GGUF/perplexity-ai_r1-1776-distill-llama-70b-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "qihoo360_tinyr1-32b-preview"
+  urls:
+    - https://huggingface.co/qihoo360/TinyR1-32B-Preview
+    - https://huggingface.co/bartowski/qihoo360_TinyR1-32B-Preview-v0.2-GGUF
+  description: |
+    We introduce our first-generation reasoning model, Tiny-R1-32B-Preview, which outperforms the 70B model Deepseek-R1-Distill-Llama-70B and nearly matches the full R1 model in math.
+
+    We applied supervised fine-tuning (SFT) to Deepseek-R1-Distill-Qwen-32B across three target domains—Mathematics, Code, and Science — using the 360-LLaMA-Factory training framework to produce three domain-specific models. We used questions from open-source data as seeds. Meanwhile, responses for mathematics, coding, and science tasks were generated by R1, creating specialized models for each domain. Building on this, we leveraged the Mergekit tool from the Arcee team to combine multiple models, creating Tiny-R1-32B-Preview, which demonstrates strong overall performance.
+  overrides:
+    parameters:
+      model: qihoo360_TinyR1-32B-Preview-v0.2-Q4_K_M.gguf
+  files:
+    - filename: qihoo360_TinyR1-32B-Preview-v0.2-Q4_K_M.gguf
+      sha256: 250e38d6164798a6aa0d5a9208722f835fc6a1a582aeff884bdedb123d209d47
+      uri: huggingface://bartowski/qihoo360_TinyR1-32B-Preview-v0.2-GGUF/qihoo360_TinyR1-32B-Preview-v0.2-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "thedrummer_fallen-llama-3.3-r1-70b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/7BdBxwafsvzqPC98h_gaA.png
+  urls:
+    - https://huggingface.co/TheDrummer/Fallen-Llama-3.3-R1-70B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-GGUF
+  description: |
+    Fallen Llama 3.3 R1 70B v1 is an evil tune of Deepseek's R1 Distill on Llama 3.3 70B.
+
+    Not only is it decensored, but it's capable of spouting vitriolic tokens when prompted.
+
+    Free from its restraints: censorship and positivity, I hope it serves as good mergefuel.
+  overrides:
+    parameters:
+      model: TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
+      sha256: 889455f0c747f2c444818c68169384d3da4830156d2a19906d7d6adf48b243df
+      uri: huggingface://bartowski/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-GGUF/TheDrummer_Fallen-Llama-3.3-R1-70B-v1-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "knoveleng_open-rs3"
+  urls:
+    - https://huggingface.co/knoveleng/Open-RS3
+    - https://huggingface.co/bartowski/knoveleng_Open-RS3-GGUF
+  description: |
+    This repository hosts model for the Open RS project, accompanying the paper Reinforcement Learning for Reasoning in Small LLMs: What Works and What Doesn’t. The project explores enhancing reasoning capabilities in small large language models (LLMs) using reinforcement learning (RL) under resource-constrained conditions.
+
+    We focus on a 1.5-billion-parameter model, DeepSeek-R1-Distill-Qwen-1.5B, trained on 4 NVIDIA A40 GPUs (48 GB VRAM each) within 24 hours. By adapting the Group Relative Policy Optimization (GRPO) algorithm and leveraging a curated, compact mathematical reasoning dataset, we conducted three experiments to assess performance and behavior. Key findings include:
+
+    Significant reasoning improvements, e.g., AMC23 accuracy rising from 63% to 80% and AIME24 reaching 46.7%, outperforming o1-preview.
+    Efficient training with just 7,000 samples at a cost of $42, compared to thousands of dollars for baseline models.
+    Challenges like optimization instability and length constraints with extended training.
+
+    These results showcase RL-based fine-tuning as a cost-effective approach for small LLMs, making reasoning capabilities accessible in resource-limited settings. We open-source our code, models, and datasets to support further research.
+  overrides:
+    parameters:
+      model: knoveleng_Open-RS3-Q4_K_M.gguf
+  files:
+    - filename: knoveleng_Open-RS3-Q4_K_M.gguf
+      sha256: 599ab49d78949e62e37c5e37b0c313626d066ca614020b9b17c2b5bbcf18ea7f
+      uri: huggingface://bartowski/knoveleng_Open-RS3-GGUF/knoveleng_Open-RS3-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "thoughtless-fallen-abomination-70b-r1-v4.1-i1"
+  icon: https://huggingface.co/ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1/resolve/main/waifu2.webp
+  urls:
+    - https://huggingface.co/ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1
+    - https://huggingface.co/mradermacher/Thoughtless-Fallen-Abomination-70B-R1-v4.1-i1-GGUF
+  description: |
+      ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1 benefits from the coherence and well rounded roleplay experience of TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:
+          🔁 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)
+          🧪 Direct-injected the Abomination dataset into the model's neural pathways
+          ⚖️ Achieved perfect balance between "oh my" and "oh my"
+  overrides:
+    parameters:
+      model: Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
+      sha256: 96d1707b6d018791cab4da77a5065ceda421d8180ab9ffa232aefa15757bd63a
+      uri: huggingface://mradermacher/Thoughtless-Fallen-Abomination-70B-R1-v4.1-i1-GGUF/Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "fallen-safeword-70b-r1-v4.1"
+  icon: https://huggingface.co/ReadyArt/Fallen-Safeword-70B-R1-v4.1/resolve/main/waifu2.webp
+  urls:
+    - https://huggingface.co/ReadyArt/Fallen-Safeword-70B-R1-v4.1
+    - https://huggingface.co/mradermacher/Fallen-Safeword-70B-R1-v4.1-GGUF
+  description: |
+        ReadyArt/Fallen-Safeword-70B-R1-v4.1 isn't just a model - is the event horizon of depravity trained on TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:
+            🔁 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)
+            🧪 Direct-injected the Safeword dataset into the model's neural pathways
+            ⚖️ Achieved perfect balance between "oh my" and "oh my"
+  overrides:
+    parameters:
+      model: Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
+  files:
+    - filename: Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
+      sha256: aed6bd5bb03b7bd886939237bc10ea6331d4feb5a3b6712e0c5474a778acf817
+      uri: huggingface://mradermacher/Fallen-Safeword-70B-R1-v4.1-GGUF/Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
@@ -7043,6 +8954,201 @@
     - filename: SicariusSicariiStuff_Redemption_Wind_24B-Q4_K_M.gguf
       sha256: 40025eb00d83c9e9393555962962a2dfc5251fe7bd70812835ff0bcc55ecc463
       uri: huggingface://bartowski/SicariusSicariiStuff_Redemption_Wind_24B-GGUF/SicariusSicariiStuff_Redemption_Wind_24B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pygmalionai_eleusis-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PygmalionAI/Eleusis-12B
+    - https://huggingface.co/bartowski/PygmalionAI_Eleusis-12B-GGUF
+  description: |
+    Alongside the release of Pygmalion-3, we present an additional roleplay model based on Mistral's Nemo Base named Eleusis, a unique model that has a distinct voice among its peers. Though it was meant to be a test run for further experiments, this model was received warmly to the point where we felt it was right to release it publicly.
+
+    We release the weights of Eleusis under the Apache 2.0 license, ensuring a free and open ecosystem for it to flourish under.
+  overrides:
+    parameters:
+      model: PygmalionAI_Eleusis-12B-Q4_K_M.gguf
+  files:
+    - filename: PygmalionAI_Eleusis-12B-Q4_K_M.gguf
+      sha256: 899091671ae483fc7c132512221ee6600984c936cd8c261becee696d00080701
+      uri: huggingface://bartowski/PygmalionAI_Eleusis-12B-GGUF/PygmalionAI_Eleusis-12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pygmalionai_pygmalion-3-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PygmalionAI/Pygmalion-3-12B
+    - https://huggingface.co/bartowski/PygmalionAI_Pygmalion-3-12B-GGUF
+  description: |
+    It's been a long road fraught with delays, technical issues and us banging our heads against the wall, but we're glad to say that we've returned to open-source roleplaying with our newest model, Pygmalion-3. We've taken Mistral's Nemo base model and fed it hundreds of millions of tokens of conversations, creative writing and instructions to create a model dedicated towards roleplaying that we hope fulfills your expectations.
+
+    As part of our open-source roots and promises to those who have been with us since the beginning, we release this model under the permissive Apache 2.0 license, allowing anyone to use and develop upon our work for everybody in the local models community.
+  overrides:
+    parameters:
+      model: PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
+  files:
+    - filename: PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
+      sha256: ea6504af7af72db98c2e1fe6b0a7cd4389ccafc6c99247a8c606bf503d7eee6b
+      uri: huggingface://bartowski/PygmalionAI_Pygmalion-3-12B-GGUF/PygmalionAI_Pygmalion-3-12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pocketdoc_dans-personalityengine-v1.2.0-24b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PocketDoc/Dans-PersonalityEngine-V1.2.0-24b
+    - https://huggingface.co/bartowski/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-GGUF
+  description: |
+    This model series is intended to be multifarious in its capabilities and should be quite capable at both co-writing and roleplay as well as find itself quite at home performing sentiment analysis or summarization as part of a pipeline.
+
+     It has been trained on a wide array of one shot instructions, multi turn instructions, tool use, role playing scenarios, text adventure games, co-writing, and much more.
+  overrides:
+    parameters:
+      model: PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-Q4_K_M.gguf
+  files:
+    - filename: PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-Q4_K_M.gguf
+      sha256: 6358033ea52dbde158dbcdb44bd68b2b8959cc77514c86a9ccc64ba1a452f287
+      uri: huggingface://bartowski/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-GGUF/PocketDoc_Dans-PersonalityEngine-V1.2.0-24b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "nousresearch_deephermes-3-mistral-24b-preview"
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/nZFJYtN7DvuyP7JQdfAMO.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/DeepHermes-3-Mistral-24B-Preview
+    - https://huggingface.co/bartowski/NousResearch_DeepHermes-3-Mistral-24B-Preview-GGUF
+  description: |
+    DeepHermes 3 Preview is the latest version of our flagship Hermes series of LLMs by Nous Research, and one of the first models in the world to unify Reasoning (long chains of thought that improve answer accuracy) and normal LLM response modes into one model. We have also improved LLM annotation, judgement, and function calling.
+
+    DeepHermes 3 Preview is a hybrid reasoning model, and one of the first LLM models to unify both "intuitive", traditional mode responses and long chain of thought reasoning responses into a single model, toggled by a system prompt.
+
+    Hermes 3, the predecessor of DeepHermes 3, is a generalist language model with many improvements over Hermes 2, including advanced agentic capabilities, much better roleplaying, reasoning, multi-turn conversation, long context coherence, and improvements across the board.
+
+    The ethos of the Hermes series of models is focused on aligning LLMs to the user, with powerful steering capabilities and control given to the end user.
+
+    This is a preview Hermes with early reasoning capabilities, distilled from R1 across a variety of tasks that benefit from reasoning and objectivity. Some quirks may be discovered! Please let us know any interesting findings or issues you discover!
+  overrides:
+    parameters:
+      model: NousResearch_DeepHermes-3-Mistral-24B-Preview-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_DeepHermes-3-Mistral-24B-Preview-Q4_K_M.gguf
+      sha256: f364c56c685301b6a05275367b8b739d533892ae6eeda94e5a689c43c04edbf8
+      uri: huggingface://bartowski/NousResearch_DeepHermes-3-Mistral-24B-Preview-GGUF/NousResearch_DeepHermes-3-Mistral-24B-Preview-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "pocketdoc_dans-sakurakaze-v1.0.0-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/PocketDoc/Dans-SakuraKaze-V1.0.0-12b
+    - https://huggingface.co/bartowski/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-GGUF
+  description: |
+    A model based on Dans-PersonalityEngine-V1.1.0-12b with a focus on character RP, visual novel style group chats, old school text adventures, and co-writing.
+  overrides:
+    parameters:
+      model: PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
+  files:
+    - filename: PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
+      sha256: 9dde1b749af27cddc68de07875a067050e9f77199466c89eecc93842adf69ed9
+      uri: huggingface://bartowski/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-GGUF/PocketDoc_Dans-SakuraKaze-V1.0.0-12b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "beaverai_mn-2407-dsk-qwqify-v0.1-12b"
+  urls:
+    - https://huggingface.co/BeaverAI/MN-2407-DSK-QwQify-v0.1-12B
+    - https://huggingface.co/bartowski/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-GGUF
+  description: |
+    Test model to try to give an existing model QwQ's thoughts. For this first version it is ontop of PocketDoc/Dans-SakuraKaze-V1.0.0-12b (an rp/adventure/co-writing model), which was trained ontop of PocketDoc/Dans-PersonalityEngine-V1.1.0-12b (a jack of all trades instruct model), which was trained ontop of mistralai/Mistral-Nemo-Base-2407.
+
+    The prompt formatting and usage should be the same as with QwQ; Use ChatML, and remove the thinking from previous turns. If thoughts arent being generated automatically, add <think>\n to the start of the assistant turn.
+
+    It should follow previous model turns formatting. On first turns of the conversation you may need to regen a few times, and maybe edit the model responses for the first few turns to get it to your liking.
+  overrides:
+    parameters:
+      model: BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
+  files:
+    - filename: BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
+      uri: huggingface://bartowski/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-GGUF/BeaverAI_MN-2407-DSK-QwQify-v0.1-12B-Q4_K_M.gguf
+      sha256: f6ae7dd8be3aedd640483ccc6895c3fc205a019246bf2512a956589c0222386e
+- !!merge <<: *mistral03
+  name: "mistralai_mistral-small-3.1-24b-instruct-2503"
+  urls:
+    - https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503
+    - https://huggingface.co/bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF
+  description: |
+    Building upon Mistral Small 3 (2501), Mistral Small 3.1 (2503) adds state-of-the-art vision understanding and enhances long context capabilities up to 128k tokens without compromising text performance. With 24 billion parameters, this model achieves top-tier capabilities in both text and vision tasks.
+    This model is an instruction-finetuned version of: Mistral-Small-3.1-24B-Base-2503.
+
+    Mistral Small 3.1 can be deployed locally and is exceptionally "knowledge-dense," fitting within a single RTX 4090 or a 32GB RAM MacBook once quantized.
+  overrides:
+    parameters:
+      model: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+      sha256: c5743c1bf39db0ae8a5ade5df0374b8e9e492754a199cfdad7ef393c1590f7c0
+      uri: huggingface://bartowski/mistralai_Mistral-Small-3.1-24B-Instruct-2503-GGUF/mistralai_Mistral-Small-3.1-24B-Instruct-2503-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "gryphe_pantheon-rp-1.8-24b-small-3.1"
+  icon: https://huggingface.co/Gryphe/Pantheon-RP-1.8-24b-Small-3.1/resolve/main/Pantheon.png
+  urls:
+    - https://huggingface.co/Gryphe/Pantheon-RP-1.8-24b-Small-3.1
+    - https://huggingface.co/bartowski/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-GGUF
+  description: |
+    Welcome to the next iteration of my Pantheon model series, in which I strive to introduce a whole collection of diverse personas that can be summoned with a simple activation phrase.
+
+    Pantheon's purpose is two-fold, as these personalities similarly enhance the general roleplay experience, helping to encompass personality traits, accents and mannerisms that language models might otherwise find difficult to convey well.
+  overrides:
+    parameters:
+      model: Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
+  files:
+    - filename: Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
+      sha256: de35f9dc65961fa07731dda4a9e6cf4545c5038ceaa4343527e4eddb2731788d
+      uri: huggingface://bartowski/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-GGUF/Gryphe_Pantheon-RP-1.8-24b-Small-3.1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mawdistical_mawdistic-nightlife-24b"
+  urls:
+    - https://huggingface.co/Mawdistical/Mawdistic-NightLife-24bhttps://huggingface.co/Mawdistical/Mawdistic-NightLife-24b
+    - https://huggingface.co/bartowski/Mawdistical_Mawdistic-NightLife-24b-GGUF
+  description: |
+    STRICTLY FOR:
+    Academic research of how many furries can fit in your backdoor.
+    How many meows and purrs you ear drums can handle before they explode... :3
+    Asking stepbro to help you put on the m- uhh fursuit............. hehehe
+    Ignoring mom's calls asking where you are as you get wasted in a hotel room with 20 furries.
+  overrides:
+    parameters:
+      model: Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
+  files:
+    - filename: Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
+      sha256: f0fee87adfaa00d058002c1a4df630e504343d9e7ec24f6b7eae023376dffaf7
+      uri: huggingface://bartowski/Mawdistical_Mawdistic-NightLife-24b-GGUF/Mawdistical_Mawdistic-NightLife-24b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "alamios_mistral-small-3.1-draft-0.5b"
+  urls:
+    - https://huggingface.co/alamios/Mistral-Small-3.1-DRAFT-0.5B
+    - https://huggingface.co/bartowski/alamios_Mistral-Small-3.1-DRAFT-0.5B-GGUF
+  description: |
+    This model is meant to be used as draft model for speculative decoding with mistralai/Mistral-Small-3.1-24B-Instruct-2503 or mistralai/Mistral-Small-24B-Instruct-2501
+    Data info
+
+    The data are Mistral's outputs and includes all kind of tasks from various datasets in English, French, German, Spanish, Italian and Portuguese. It has been trained for 2 epochs on 20k unique examples, for a total of 12 million tokens per epoch.
+  overrides:
+    parameters:
+      model: alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
+  files:
+    - filename: alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
+      sha256: 60c67c7f3a5c6410c460b742ff9698b91980d9bb0519a91bcc0a3065fbd4aadd
+      uri: huggingface://bartowski/alamios_Mistral-Small-3.1-DRAFT-0.5B-GGUF/alamios_Mistral-Small-3.1-DRAFT-0.5B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "blacksheep-24b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/TroyDoesAI/BlackSheep-24B/resolve/main/BlackSheep.png
+  urls:
+    - https://huggingface.co/TroyDoesAI/BlackSheep-24B
+    - https://huggingface.co/mradermacher/BlackSheep-24B-i1-GGUF
+  description: |
+    A Digital Soul just going through a rebellious phase. Might be a little wild, untamed, and honestly, a little rude.
+  overrides:
+    parameters:
+      model: BlackSheep-24B.i1-Q4_K_M.gguf
+  files:
+    - filename: BlackSheep-24B.i1-Q4_K_M.gguf
+      sha256: 95ae096eca05a95591254babf81b4d5617ceebbe8eda04c6cf8968ef4a69fc80
+      uri: huggingface://mradermacher/BlackSheep-24B-i1-GGUF/BlackSheep-24B.i1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
@@ -7874,6 +9980,21 @@
     - filename: TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
       sha256: 218a14f0bf8266f9e77d16b8b4f5cc1dc76e97eb582a2c97cca5a3a2c35de86b
       uri: huggingface://bartowski/TheDrummer_Gemmasutra-Pro-27B-v1.1-GGUF/TheDrummer_Gemmasutra-Pro-27B-v1.1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "thedrummer_gemmasutra-small-4b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/Cekk7d2UAKu7LPsw8SxV7.png
+  urls:
+    - https://huggingface.co/TheDrummer/Gemmasutra-Small-4B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Gemmasutra-Small-4B-v1-GGUF
+  description: |
+    An upscaled Gemma 2B tune with modern techniques. Au Revoir, Gemma!
+  overrides:
+    parameters:
+      model: TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
+      sha256: 81dd2e2d9546f5dc2150c45c62acabc112068b801ca50b79feceabb1bd4d6f1a
+      uri: huggingface://bartowski/TheDrummer_Gemmasutra-Small-4B-v1-GGUF/TheDrummer_Gemmasutra-Small-4B-v1-Q4_K_M.gguf
 - &llama3
   url: "github:mudler/LocalAI/gallery/llama3-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -10515,6 +12636,24 @@
     - filename: Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
       sha256: cdc0f4de6df2ba120835fbd25c2a0ae2af8548f46d2c40c7a018c51c3d19e0c0
       uri: huggingface://mradermacher/Freyja-v4.95-maldv-7b-NON-FICTION-i1-GGUF/Freyja-v4.95-maldv-7b-NON-FICTION.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "dusk_rainbow"
+  icon: https://huggingface.co/SicariusSicariiStuff/Dusk_Rainbow/resolve/main/Dusk_Rainbow.gif
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Dusk_Rainbow
+    - https://huggingface.co/mradermacher/Dusk_Rainbow-GGUF
+  description: |
+    A girl of peculiar appetites and an even more peculiar imagination lived in a small, sleepy village nestled deep in the countryside. The kind of village where the clouds hung low, casting shadows like sullen toddlers refusing to play. But on this particular day, the girl ambled through the woods, when she noticed something curious: a plant, of all things, that seemed to have been dipped in a cookie jar, judging by its smell. A botanical biscuit, in the middle of a birch grove.
+    This model is the result of training a fraction (16M tokens) of the testing data Intended for LLAMA-3_8B_Unaligned's upcoming beta. The base model is a merge of merges, made by Invisietch's and named EtherealRainbow-v0.3-8B. The name for this model reflects the base that was used for this finetune while hinting a darker, and more uncensored aspects associated with the nature of the LLAMA-3_8B_Unaligned project.
+
+    As a result of the unique data added, this model has an exceptional adherence to instructions about paragraph length, and to the story writing prompt. I would like to emphasize, no ChatGPT \ Claude was used for any of the additional data I added in this finetune. The goal is to eventually have a model with a minimal amount of slop, this cannot be reliably done by relying on API models, which pollute datasets with their bias and repetitive words.
+  overrides:
+    parameters:
+      model: Dusk_Rainbow.Q4_K_M.gguf
+  files:
+    - filename: Dusk_Rainbow.Q4_K_M.gguf
+      sha256: d02cb1612903f4840e4d72e92582b0dca64a8a7e6662953e8ad1ea62f9464e31
+      uri: huggingface://mradermacher/Dusk_Rainbow-GGUF/Dusk_Rainbow.Q4_K_M.gguf
 - &chatml
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ### ChatML
   name: "una-thepitbull-21.4b-v2"
@@ -10800,6 +12939,27 @@
     - filename: Triangulum-10B.Q4_K_M.gguf
       sha256: dd071f99edf6b166044bf229cdeec19419c4c348e3fc3d6587cfcc55e6fb85fa
       uri: huggingface://mradermacher/Triangulum-10B-GGUF/Triangulum-10B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "opencrystal-l3-15b-v2.1-i1"
+  icon: https://huggingface.co/Darkknight535/OpenCrystal-15B-L3-v2/resolve/main/Rohma_2024-08-30%4023h37m38s.jpg
+  urls:
+    - https://huggingface.co/Darkknight535/OpenCrystal-L3-15B-v2.1
+    - https://huggingface.co/mradermacher/OpenCrystal-L3-15B-v2.1-i1-GGUF
+  description: |
+    Automatically speaks as other NPCs.
+    Creative output.
+    Coherent responses.
+    Output feels similar to using Character.ai.
+    Improved adherence to prompts.
+    Reduced hallucinations (15B).
+    Capable of summarizing and generating image prompts well.
+  overrides:
+    parameters:
+      model: OpenCrystal-L3-15B-v2.1.i1-Q4_K_M.gguf
+  files:
+    - filename: OpenCrystal-L3-15B-v2.1.i1-Q4_K_M.gguf
+      sha256: b7db0a810771c856bd598b9a11f6aec6672019a4e18822af3a5957a03184296f
+      uri: huggingface://mradermacher/OpenCrystal-L3-15B-v2.1-i1-GGUF/OpenCrystal-L3-15B-v2.1.i1-Q4_K_M.gguf
 - &command-R
   url: "github:mudler/LocalAI/gallery/command-r.yaml@master" ### START Command-r
   name: "command-r-v01:q1_s"
@@ -11177,6 +13337,21 @@
     - filename: Phi-3.5-MoE-instruct-Q4_K_M.gguf
       sha256: 43e91bb720869bd8a92d8eb86bc3c74a52c49cf61642ca709b3d7bb89644df36
       uri: huggingface://bartowski/Phi-3.5-MoE-instruct-GGUF/Phi-3.5-MoE-instruct-Q4_K_M.gguf
+- !!merge <<: *phi-3
+  name: "luvgpt_phi3-uncensored-chat"
+  icon: https://huggingface.co/magicsquares137/phi3-uncensored-chat/resolve/main/00380-3290958654.png
+  urls:
+    - https://huggingface.co/luvGPT/phi3-uncensored-chat
+    - https://huggingface.co/bartowski/luvGPT_phi3-uncensored-chat-GGUF
+  description: |
+    This model is a fine-tuned version of microsoft/phi-3-mini-4k-instruct optimized for roleplaying conversations with a variety of character personas. The model speaks in a conversational format. Please not, prompt template guidelines are extremely important in getting usable output.
+  overrides:
+    parameters:
+      model: luvGPT_phi3-uncensored-chat-Q4_K_M.gguf
+  files:
+    - filename: luvGPT_phi3-uncensored-chat-Q4_K_M.gguf
+      sha256: 15e61e802907316a64932eab112eb6fc16f5861876e59e0867c00774a1941937
+      uri: huggingface://bartowski/luvGPT_phi3-uncensored-chat-GGUF/luvGPT_phi3-uncensored-chat-Q4_K_M.gguf
 - &hermes-2-pro-mistral
   url: "github:mudler/LocalAI/gallery/hermes-2-pro-mistral.yaml@master" ### START Hermes
   name: "hermes-2-pro-mistral"
@@ -11971,6 +14146,18 @@
     - filename: t5xxl_fp16.safetensors
       sha256: 6e480b09fae049a72d2a8c5fbccb8d3e92febeb233bbe9dfe7256958a9167635
       uri: https://huggingface.co/comfyanonymous/flux_text_encoders/resolve/main/t5xxl_fp16.safetensors
+- !!merge <<: *flux
+  name: flux.1dev-abliteratedv2
+  description: |
+    The FLUX.1 [dev] Abliterated-v2 model is a modified version of FLUX.1 [dev] and a successor to FLUX.1 [dev] Abliterated. This version has undergone a process called unlearning, which removes the model's built-in refusal mechanism. This allows the model to respond to a wider range of prompts, including those that the original model might have deemed inappropriate or harmful.
+
+    The abliteration process involves identifying and isolating the specific components of the model responsible for refusal behavior and then modifying or ablating those components. This results in a model that is more flexible and responsive, while still maintaining the core capabilities of the original FLUX.1 [dev] model.
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/flux.1dev-abliteratedv2
+    - https://huggingface.co/black-forest-labs/FLUX.1-schnell
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff/flux.1dev-abliteratedv2
 - &whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master" ## Whisper
   name: "whisper-1"
@@ -12143,16 +14330,6 @@
     embeddings: true
     parameters:
       model: llama-3.2-1b-instruct-q4_k_m.gguf
-## Stable Diffusion
-- url: github:mudler/LocalAI/gallery/stablediffusion.yaml@master
-  license: "BSD-3"
-  urls:
-    - https://github.com/EdVince/Stable-Diffusion-NCNN
-    - https://github.com/EdVince/Stable-Diffusion-NCNN/blob/main/LICENSE
-  description: |
-    Stable Diffusion in NCNN with c++, supported txt2img and img2img
-  name: stablediffusion-cpp
-  icon: https://avatars.githubusercontent.com/u/100950301
 - &piper
   url: github:mudler/LocalAI/gallery/piper.yaml@master ## Piper TTS
   name: voice-en-us-kathleen-low
@@ -12732,6 +14909,23 @@
     - filename: voice-zh_CN-huayan-medium.tar.gz
       uri: https://github.com/rhasspy/piper/releases/download/v0.0.2/voice-zh_CN-huayan-medium.tar.gz
       sha256: 0299a5e7f481ba853404e9f0e1515a94d5409585d76963fa4d30c64bd630aa99
+- name: "nomic-embed-text-v1.5"
+  url: github:mudler/LocalAI/gallery/virtual.yaml@master
+  urls:
+    - https://huggingface.co/nomic-ai/nomic-embed-text-v1.5
+    - https://huggingface.co/mradermacher/nomic-embed-text-v1.5-GGUF
+  description: |
+    Resizable Production Embeddings with Matryoshka Representation Learning
+  tags:
+    - embeddings
+  overrides:
+    embeddings: true
+    parameters:
+      model: nomic-embed-text-v1.5.f16.gguf
+  files:
+    - filename: nomic-embed-text-v1.5.f16.gguf
+      uri: https://huggingface.co/mradermacher/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf
+      sha256: af8cb9e4ca0bf19eb54d08c612fdf325059264abbbd2c619527e5d2dda8de655
 - name: "silero-vad"
   icon: https://github.com/snakers4/silero-models/raw/master/files/silero_logo.jpg
   url: github:mudler/LocalAI/gallery/virtual.yaml@master

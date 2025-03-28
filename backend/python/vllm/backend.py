@@ -109,6 +109,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             engine_args.swap_space = request.SwapSpace
         if request.MaxModelLen != 0:
             engine_args.max_model_len = request.MaxModelLen
+        if request.DisableLogStatus:
+            engine_args.disable_log_status = request.DisableLogStatus
+        if request.DType != "":
+            engine_args.dtype = request.DType
+        if request.LimitImagePerPrompt != 0 or request.LimitVideoPerPrompt != 0 or request.LimitAudioPerPrompt != 0:
+            # limit-mm-per-prompt defaults to 1 per modality, based on vLLM docs
+            engine_args.limit_mm_per_prompt = {
+                "image": max(request.LimitImagePerPrompt, 1),
+                "video": max(request.LimitVideoPerPrompt, 1),
+                "audio": max(request.LimitAudioPerPrompt, 1)
+            }
 
         try:
             self.llm = AsyncLLMEngine.from_engine_args(engine_args)
@@ -269,7 +280,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def load_image(self, image_path: str):
         """
         Load an image from the given file path or base64 encoded data.
-        
+
         Args:
             image_path (str): The path to the image file or base64 encoded data.
 
@@ -288,7 +299,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     def load_video(self, video_path: str):
         """
         Load a video from the given file path.
-        
+
         Args:
             video_path (str): The path to the image file.
 

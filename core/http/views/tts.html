@@ -3,79 +3,107 @@
 {{template "views/partials/head" .}}
 <script defer src="static/tts.js"></script>
 
-<body class="bg-gray-900 text-gray-200">
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
-    <div class="container mx-auto px-4 flex-grow " x-data="{ component: 'menu' }">
-          <div class="mt-12">
-            <div class="flex items-center justify-center text-center pb-2">
-              <span class="text-3xl font-semibold text-gray-100">
-                <i class="fa-solid fa-music"></i> Text to speech/audio
-              <a href="https://localai.io/features/text-to-audio/" target="_blank" >
-                <i class="fas fa-circle-info pr-2"></i>
-              </a>
-              </span>
-      
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Section -->
+        <div class="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
+                        <i class="fas fa-volume-high mr-2"></i>Text to Speech {{ if .Model }} with {{.Model}} {{ end }}
+                    </span>
+                </h1>
+                <p class="text-xl text-gray-300 mb-6">Convert your text into natural-sounding speech</p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="https://localai.io/features/text-to-audio/" target="_blank" 
+                        class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-book-reader mr-2"></i>
+                        <span>Documentation</span>
+                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                    </a>
+                </div>
             </div>
-            <div class="text-center font-semibold text-gray-100">
-              <div class="flex items-center justify-between">
+        </div>
 
-              <div x-show="component === 'menu'" id="menu">
-                <button @click="component = 'key'" title="Update API key"
-                class="m-2 float-right inline-block rounded bg-primary px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2 focus:bg-primary-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-primary-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
-                >Set API Key🔑</button>
-              </div>
-              <form x-show="component === 'key'" id="key">
-                <input
-                  type="password"
-                  id="apiKey"
-                  name="apiKey"
-                  placeholder="OpenAI API Key"
-                  x-model.lazy="key"
-                />
-                <button @click="component = 'menu'" type="submit" title="Save API key">
-                  🔒
-                </button>
-              </form>
+        <!-- TTS Interface -->
+        <div class="max-w-3xl mx-auto">
+            <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-blue-900/20">
+                <!-- Header with Model Selection -->
+                <div class="border-b border-gray-700 p-5">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <!-- Model Selection -->
+                        <div class="flex items-center">
+                            <label for="model-select" class="mr-3 text-gray-300 font-medium">
+                                <i class="fas fa-microphone-lines text-purple-400 mr-2"></i>Model:
+                            </label>
+                            <select 
+                                id="model-select"
+                                x-data="{ link : '' }" 
+                                x-model="link" 
+                                x-init="$watch('link', value => window.location = link)" 
+                                class="bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-2.5 appearance-none"
+                            >	
+                                <option value="" disabled class="text-gray-400">Select a model</option>
+                                {{ $model:=.Model}}
+                                {{ range .ModelsConfig }}
+                                    {{ $cfg := . }}
+                                    {{ range .KnownUsecaseStrings }}
+                                        {{ if eq . "FLAG_TTS" }}
+                                            <option value="tts/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-700 text-white">{{$cfg.Name}}</option>
+                                        {{ end }}
+                                    {{ end }}
+                                {{ end }}
+                                {{ range .ModelsWithoutConfig }}
+                                    <option value="tts/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-700 text-white">{{.}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-              <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
-                class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
-                >	
-                <!-- Options -->
-                <option value="" disabled class="text-gray-400" >Select a model</option>
-                {{ $model:=.Model}}
-                {{ range .ModelsConfig }}
-                {{ if eq .Name $model }}
-                <option value="tts/{{.Name}}" selected class="bg-gray-700 text-white">{{.Name}}</option>
-                {{ else }}
-                <option value="tts/{{.Name}}" class="bg-gray-700 text-white">{{.Name}}</option>
-                {{ end }}
-                {{ end }}
-              </select>
-              
-              </div>
-            </div>
+                <!-- Input Area -->
+                <div class="p-6">
+                    <div class="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mb-6">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-400 mt-1 mr-3 flex-shrink-0"></i>
+                            <p class="text-gray-300">
+                                Enter your text below and submit to generate speech with the selected TTS model.
+                                The generated audio will appear below the input field.
+                            </p>
+                        </div>
+                    </div>
 
-            <div class="mt-12">
-              <input id="tts-model" type="hidden" value="{{.Model}}">
-              <form id="tts" action="tts/{{.Model}}" method="get">
-                <input
-                  type="text"
-                  id="input"
-                  name="input"
-                  placeholder="Prompt…"
-                  autocomplete="off"
-                  class="p-2 border rounded w-full bg-gray-600 text-white placeholder-gray-300"
-                  required
-                />
-              </form>
-              <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
-                <div id="loader" class="my-2 loader"  ></div>
-              </div>
-              <div class="container max-w-screen-lg mx-auto mt-4 pb-10 flex justify-center">
-                <div id="result" class="mx-auto"></div>
-              </div>
+                    <input id="tts-model" type="hidden" value="{{.Model}}">
+                    <form id="tts" action="tts/{{.Model}}" method="get" class="mb-6">
+                        <div class="relative">
+                            <input
+                                type="text"
+                                id="input"
+                                name="input"
+                                placeholder="Enter text to convert to speech..."
+                                autocomplete="off"
+                                class="w-full bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-4 pl-4 pr-12"
+                                required
+                            />
+                            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-400 hover:text-blue-300 transition">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading indicator -->
+                    <div class="flex justify-center my-6">
+                        <div id="loader" class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-500" style="display: none;"></div>
+                    </div>
+
+                    <!-- Results Area -->
+                    <div class="bg-gray-700/50 border border-gray-600/50 rounded-lg p-4 min-h-[100px] flex items-center justify-center">
+                        <div id="result" class="w-full"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

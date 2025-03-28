@@ -3,7 +3,9 @@ package routes
 import (
 	"fmt"
 	"html/template"
+	"math"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -126,6 +128,8 @@ func RegisterUIRoutes(app *fiber.App,
 		// Show the Models page (all models)
 		app.Get("/browse", func(c *fiber.Ctx) error {
 			term := c.Query("term")
+			page := c.Query("page")
+			items := c.Query("items")
 
 			models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
@@ -164,6 +168,47 @@ func RegisterUIRoutes(app *fiber.App,
 				//	"ApplicationConfig": appConfig,
 			}
 
+			if page == "" {
+				page = "1"
+			}
+
+			if page != "" {
+				// return a subset of the models
+				pageNum, err := strconv.Atoi(page)
+				if err != nil {
+					return c.Status(fiber.StatusBadRequest).SendString("Invalid page number")
+				}
+
+				if pageNum == 0 {
+					return c.Render("views/models", summary)
+				}
+
+				itemsNum, err := strconv.Atoi(items)
+				if err != nil {
+					itemsNum = 21
+				}
+
+				totalPages := int(math.Ceil(float64(len(models)) / float64(itemsNum)))
+
+				models = models.Paginate(pageNum, itemsNum)
+
+				prevPage := pageNum - 1
+				nextPage := pageNum + 1
+				if prevPage < 1 {
+					prevPage = 1
+				}
+				if nextPage > totalPages {
+					nextPage = totalPages
+				}
+				if prevPage != pageNum {
+					summary["PrevPage"] = prevPage
+				}
+				summary["NextPage"] = nextPage
+				summary["TotalPages"] = totalPages
+				summary["CurrentPage"] = pageNum
+				summary["Models"] = template.HTML(elements.ListModels(models, processingModels, galleryService))
+			}
+
 			// Render index
 			return c.Render("views/models", summary)
 		})
@@ -171,6 +216,9 @@ func RegisterUIRoutes(app *fiber.App,
 		// Show the models, filtered from the user input
 		// https://htmx.org/examples/active-search/
 		app.Post("/browse/search/models", func(c *fiber.Ctx) error {
+			page := c.Query("page")
+			items := c.Query("items")
+
 			form := struct {
 				Search string `form:"search"`
 			}{}
@@ -180,7 +228,26 @@ func RegisterUIRoutes(app *fiber.App,
 
 			models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
 
-			return c.SendString(elements.ListModels(gallery.GalleryModels(models).Search(form.Search), processingModels, galleryService))
+			if page != "" {
+				// return a subset of the models
+				pageNum, err := strconv.Atoi(page)
+				if err != nil {
+					return c.Status(fiber.StatusBadRequest).SendString("Invalid page number")
+				}
+
+				itemsNum, err := strconv.Atoi(items)
+				if err != nil {
+					itemsNum = 21
+				}
+
+				models = models.Paginate(pageNum, itemsNum)
+			}
+
+			if form.Search != "" {
+				models = models.Search(form.Search)
+			}
+
+			return c.SendString(elements.ListModels(models, processingModels, galleryService))
 		})
 
 		/*
@@ -305,23 +372,6 @@ func RegisterUIRoutes(app *fiber.App,
 		})
 	}
 
-	// Show the Chat page
-	app.Get("/chat/:model", func(c *fiber.Ctx) error {
-		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
-
-		summary := fiber.Map{
-			"Title":        "LocalAI - Chat with " + c.Params("model"),
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        c.Params("model"),
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
-		}
-
-		// Render index
-		return c.Render("views/chat", summary)
-	})
-
 	app.Get("/talk/", func(c *fiber.Ctx) error {
 		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
@@ -344,21 +394,73 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/chat/", func(c *fiber.Ctx) error {
+		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
-
-		if len(backendConfigs) == 0 {
+		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
+		modelThatCanBeUsed := ""
+		galleryConfigs := map[string]*gallery.Config{}
+
+		for _, m := range backendConfigs {
+			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
+			if err != nil {
+				continue
+			}
+			galleryConfigs[m.Name] = cfg
+		}
+
+		title := "LocalAI - Chat"
+
+		for _, b := range backendConfigs {
+			if b.HasUsecases(config.FLAG_CHAT) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Chat with " + modelThatCanBeUsed
+				break
+			}
+		}
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Chat with " + backendConfigs[0],
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0],
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               title,
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"GalleryConfig":       galleryConfigs,
+			"ModelsConfig":        backendConfigs,
+			"Model":               modelThatCanBeUsed,
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
+		}
+
+		// Render index
+		return c.Render("views/chat", summary)
+	})
+
+	// Show the Chat page
+	app.Get("/chat/:model", func(c *fiber.Ctx) error {
+		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		galleryConfigs := map[string]*gallery.Config{}
+
+		for _, m := range backendConfigs {
+			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
+			if err != nil {
+				continue
+			}
+			galleryConfigs[m.Name] = cfg
+		}
+
+		summary := fiber.Map{
+			"Title":               "LocalAI - Chat with " + c.Params("model"),
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"GalleryConfig":       galleryConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Params("model"),
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -367,14 +469,16 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/text2image/:model", func(c *fiber.Ctx) error {
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate images with " + c.Params("model"),
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        c.Params("model"),
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               "LocalAI - Generate images with " + c.Params("model"),
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Params("model"),
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -382,21 +486,33 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/text2image/", func(c *fiber.Ctx) error {
-
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs) == 0 {
+		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
 
+		modelThatCanBeUsed := ""
+		title := "LocalAI - Generate images"
+
+		for _, b := range backendConfigs {
+			if b.HasUsecases(config.FLAG_IMAGE) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Generate images with " + modelThatCanBeUsed
+				break
+			}
+		}
+
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate images with " + backendConfigs[0].Name,
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].Name,
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               title,
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               modelThatCanBeUsed,
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -405,14 +521,16 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/tts/:model", func(c *fiber.Ctx) error {
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate images with " + c.Params("model"),
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        c.Params("model"),
-			"Version":      internal.PrintableVersion(),
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
+			"Title":               "LocalAI - Generate images with " + c.Params("model"),
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Params("model"),
+			"Version":             internal.PrintableVersion(),
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -420,21 +538,32 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/tts/", func(c *fiber.Ctx) error {
-
 		backendConfigs := cl.GetAllBackendConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs) == 0 {
+		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
 
+		modelThatCanBeUsed := ""
+		title := "LocalAI - Generate audio"
+
+		for _, b := range backendConfigs {
+			if b.HasUsecases(config.FLAG_TTS) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Generate audio with " + modelThatCanBeUsed
+				break
+			}
+		}
 		summary := fiber.Map{
-			"Title":        "LocalAI - Generate audio with " + backendConfigs[0].Name,
-			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0].Name,
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
-			"Version":      internal.PrintableVersion(),
+			"Title":               title,
+			"BaseURL":             utils.BaseURL(c),
+			"ModelsConfig":        backendConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               modelThatCanBeUsed,
+			"IsP2PEnabled":        p2p.IsP2PEnabled(),
+			"Version":             internal.PrintableVersion(),
 		}
 
 		// Render index

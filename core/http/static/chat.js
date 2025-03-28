@@ -27,10 +27,19 @@ SOFTWARE.
 
 */
 
-function submitKey(event) {
-    event.preventDefault();
-    localStorage.setItem("key", document.getElementById("apiKey").value);
-    document.getElementById("apiKey").blur();
+function toggleLoader(show) {
+  const loader = document.getElementById('loader');
+  const sendButton = document.getElementById('send-button');
+  
+  if (show) {
+    loader.style.display = 'block';
+    sendButton.style.display = 'none';
+    document.getElementById("input").disabled = true;
+  } else {
+    document.getElementById("input").disabled = false;
+    loader.style.display = 'none';
+    sendButton.style.display = 'block';
+  }
 }
 
 function submitSystemPrompt(event) {
@@ -47,10 +56,9 @@ function submitPrompt(event) {
   const input = document.getElementById("input").value;
   Alpine.store("chat").add("user", input, image);
   document.getElementById("input").value = "";
-  const key = localStorage.getItem("key");
   const systemPrompt = localStorage.getItem("system_prompt");
-
-  promptGPT(systemPrompt, key, input);
+  Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
+  promptGPT(systemPrompt, input);
 }
 
 function readInputImage() {
@@ -67,14 +75,13 @@ function readInputImage() {
 }
 
 
-  async function promptGPT(systemPrompt, key, input) {
+  async function promptGPT(systemPrompt, input) {
     const model = document.getElementById("chat-model").value;
     // Set class "loader" to the element with "loader" id
     //document.getElementById("loader").classList.add("loader");
     // Make the "loader" visible
-    document.getElementById("loader").style.display = "block";
-    document.getElementById("input").disabled = true;
-    document.getElementById('messages').scrollIntoView(false)
+    toggleLoader(true);
+
 
     messages = Alpine.store("chat").messages();
 
@@ -146,7 +153,6 @@ function readInputImage() {
     const response = await fetch("v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -181,8 +187,8 @@ function readInputImage() {
       const chatStore = Alpine.store("chat");
       chatStore.add("assistant", token);
       // Efficiently scroll into view without triggering multiple reflows
-      const messages = document.getElementById('messages');
-      messages.scrollTop = messages.scrollHeight;
+      // const messages = document.getElementById('messages');
+      // messages.scrollTop = messages.scrollHeight;
     };
 
     let buffer = "";
@@ -244,29 +250,19 @@ function readInputImage() {
     }
 
     // Remove class "loader" from the element with "loader" id
-    //document.getElementById("loader").classList.remove("loader");
-    document.getElementById("loader").style.display = "none";
-    // enable input
-    document.getElementById("input").disabled = false;
+    toggleLoader(false);
+
     // scroll to the bottom of the chat
     document.getElementById('messages').scrollIntoView(false)
     // set focus to the input
     document.getElementById("input").focus();
   }
 
-  document.getElementById("key").addEventListener("submit", submitKey);
   document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
 
   document.getElementById("prompt").addEventListener("submit", submitPrompt);
   document.getElementById("input").focus();
   document.getElementById("input_image").addEventListener("change", readInputImage);
-
-  storeKey = localStorage.getItem("key");
-  if (storeKey) {
-    document.getElementById("apiKey").value = storeKey;
-  } else {
-    document.getElementById("apiKey").value = null;
-  }
 
   storesystemPrompt = localStorage.getItem("system_prompt");
   if (storesystemPrompt) {

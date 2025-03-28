@@ -2,84 +2,185 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gray-900 text-gray-200">
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
-    <div class="container mx-auto px-4 flex-grow">
+    {{ $numModelsPerPage := 21 }}
+    <div class="container mx-auto px-4 py-8 flex-grow">
 
-        <div class="models mt-12">
-            <h2 class="text-center text-3xl font-semibold text-gray-100">
-                🖼️ Available {{.AvailableModels}} models from <i>{{ len .Repositories }}</i> repositories     <a href="https://localai.io/models/" target="_blank" >
-                    <i class="fas fa-circle-info pr-2"></i>
-                </a></h2> 
-
-            <div class="text-center font-semibold text-gray-100">
-                <h2>Filter by type:</h2>
-                <button  hx-post="browse/search/models"
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "tts"}'
-                hx-indicator=".htmx-indicator" >TTS</button> 
-                <button  hx-post="browse/search/models" 
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "stablediffusion"}'
-                hx-indicator=".htmx-indicator" >Image generation</button> 
-                <button  hx-post="browse/search/models" \
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "llm"}'
-                hx-indicator=".htmx-indicator" >Text generation</button> 
-                <button  hx-post="browse/search/models" 
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "multimodal"}'
-                hx-indicator=".htmx-indicator" >Multimodal</button> 
-                <button  hx-post="browse/search/models" 
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "embedding"}'
-                hx-indicator=".htmx-indicator" >Embeddings</button>
-                <button  hx-post="browse/search/models"
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "rerank"}'
-                hx-indicator=".htmx-indicator" >Rerankers</button> 
-                <button  
-                    hx-post="browse/search/models"
-                    class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                    hx-target="#search-results" 
-                    hx-vals='{"search": "whisper"}'
-                hx-indicator=".htmx-indicator" >Audio transcription</button> 
+        <!-- Hero Header -->
+        <div class="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-2xl shadow-xl p-6 mb-8">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                        Model Gallery
+                    </span>
+                </h1>
+                <p class="text-lg text-gray-300 mb-2">
+                    <span class="font-semibold text-indigo-300">{{.AvailableModels}}</span> models from 
+                    <span class="font-semibold text-purple-300">{{ len .Repositories }}</span> repositories
+                    <a href="https://localai.io/models/" target="_blank" class="ml-2 text-blue-400 hover:text-blue-300 transition">
+                        <i class="fas fa-circle-info"></i>
+                    </a>
+                </p>
             </div>
-
-            <div class="text-center text-xs font-semibold text-gray-100">
-                Filter by tags:
-                {{ range .AllTags }}
-                    <button  hx-post="browse/search/models" class="text-blue-500" hx-target="#search-results" 
-                    hx-vals='{"search": "{{.}}"}'
-                    hx-indicator=".htmx-indicator" >{{.}}</button> 
-                {{ end }}
-            </div>
-
-            
-            <span class="htmx-indicator loader"></span>
-            {{template "views/partials/inprogress" .}}
-
-            <input class="form-control appearance-none block w-full mt-5 px-3 py-2 text-base font-normal text-gray-300 pb-2 mb-5 bg-gray-800 bg-clip-padding border border-solid border-gray-600 rounded transition ease-in-out m-0 focus:text-gray-300 focus:bg-gray-900 focus:border-blue-500 focus:outline-none" type="search" 
-                name="search" placeholder="Begin Typing To Search models..." 
-                hx-post="browse/search/models" 
-                hx-trigger="input changed delay:500ms, search" 
-                hx-target="#search-results" 
-                hx-indicator=".htmx-indicator">
-
-            <div id="search-results">{{.Models}}</div>
         </div>
-    </div>
+        
+        {{template "views/partials/inprogress" .}}
 
+        <!-- Search and Filter Section -->
+        <div class="bg-gray-800/70 rounded-xl p-6 mb-8 shadow-lg border border-gray-700/50">
+            <!-- Search Input -->
+            <div class="relative mb-6">
+                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input class="form-control block w-full pl-10 px-4 py-3 text-base font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none" 
+                    type="search" 
+                    name="search" 
+                    placeholder="Search models by name, tag, or description..." 
+                    hx-post="browse/search/models" 
+                    hx-trigger="input changed delay:500ms, search" 
+                    hx-target="#search-results"
+                    oninput="hidePagination()"
+                    onchange="hidePagination()"
+                    onsearch="hidePagination()"
+                    hx-indicator=".htmx-indicator">
+                <span class="htmx-indicator absolute right-3 top-3">
+                    <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+            </div>
+            
+            <!-- Filter by Type -->
+            <div class="mb-4">
+                <h3 class="text-gray-200 font-medium mb-3">Filter by type:</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button hx-post="browse/search/models"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 hover:bg-indigo-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "tts"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-microphone mr-2"></i>TTS
+                    </button>
+                    <button hx-post="browse/search/models" 
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-purple-900/60 text-purple-200 border border-purple-700/50 hover:bg-purple-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "stablediffusion"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-image mr-2"></i>Image generation
+                    </button>
+                    <button hx-post="browse/search/models"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-blue-900/60 text-blue-200 border border-blue-700/50 hover:bg-blue-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "llm"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-comment-alt mr-2"></i>Text generation
+                    </button>
+                    <button hx-post="browse/search/models" 
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-green-900/60 text-green-200 border border-green-700/50 hover:bg-green-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "multimodal"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-object-group mr-2"></i>Multimodal
+                    </button>
+                    <button hx-post="browse/search/models" 
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-cyan-900/60 text-cyan-200 border border-cyan-700/50 hover:bg-cyan-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "embedding"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-vector-square mr-2"></i>Embeddings
+                    </button>
+                    <button hx-post="browse/search/models"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-amber-900/60 text-amber-200 border border-amber-700/50 hover:bg-amber-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "rerank"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-sort-amount-up mr-2"></i>Rerankers
+                    </button>
+                    <button hx-post="browse/search/models"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-teal-900/60 text-teal-200 border border-teal-700/50 hover:bg-teal-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "whisper"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-headphones mr-2"></i>Audio transcription
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filter by Tags -->
+            <div class="mt-5">
+                <h3 class="text-gray-200 font-medium mb-2">Filter by tags:</h3>
+                <div class="flex flex-wrap gap-2 max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-gray-900 pr-2">
+                    {{ range .AllTags }}
+                        <button hx-post="browse/search/models" 
+                            class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50 hover:bg-gray-600 hover:text-gray-100 transition duration-200 ease-in-out"
+                            hx-target="#search-results" 
+                            hx-vals='{"search": "{{.}}"}'
+                            onclick="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                            <i class="fas fa-tag text-xs mr-1.5"></i>{{.}}
+                        </button>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="search-results" class="transition-all duration-300">
+            {{.Models}}
+        </div>
+
+        <!-- Pagination -->
+        {{ if gt .AvailableModels $numModelsPerPage }}
+        <div id="paginate" class="flex justify-center mt-8">
+            <div class="flex items-center gap-4">
+                <button onclick="window.location.href='browse?page={{.PrevPage}}'" 
+                    class="flex items-center justify-center h-10 w-10 bg-gray-800/80 text-gray-300 hover:bg-indigo-900/70 hover:text-white rounded-lg shadow transition duration-300 ease-in-out {{if not .PrevPage}}opacity-50 cursor-not-allowed{{end}}" 
+                    {{if not .PrevPage}}disabled{{end}}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <div class="text-gray-400 text-sm">
+                    Page <span class="text-white font-medium">{{add .PrevPage 1}}</span>
+                </div>
+                <button onclick="window.location.href='browse?page={{.NextPage}}'" 
+                    class="flex items-center justify-center h-10 w-10 bg-gray-800/80 text-gray-300 hover:bg-indigo-900/70 hover:text-white rounded-lg shadow transition duration-300 ease-in-out {{if not .NextPage}}opacity-50 cursor-not-allowed{{end}}"
+                    {{if not .NextPage}}disabled{{end}}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+        {{ end }}
+
+    </div>
     {{template "views/partials/footer" .}}
 </div>
+
+<script>
+    function hidePagination() {
+        const paginateDiv = document.getElementById('paginate');
+        if (paginateDiv) {
+            paginateDiv.style.display = 'none';
+        }
+    }
+
+    // Listen for the htmx:afterSwap event to handle cases when the search results are updated
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'search-results') {
+            hidePagination();
+        }
+    });
+</script>
 
 </body>
 </html>

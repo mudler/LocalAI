@@ -262,16 +262,16 @@ func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) str
 	}
 
 	// IF we find any optimized binary, we use that
-	if xsysinfo.HasCPUCaps(cpuid.AVX2) {
-		p := backendPath(assetDir, LLamaCPPAVX2)
-		if _, err := os.Stat(p); err == nil {
-			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
-			selectedProcess = p
-		}
-	} else if xsysinfo.HasCPUCaps(cpuid.AVX512F) {
+	if xsysinfo.HasCPUCaps(cpuid.AVX512F) {
 		p := backendPath(assetDir, LLamaCPPAVX512)
 		if _, err := os.Stat(p); err == nil {
 			log.Info().Msgf("[%s] attempting to load with AVX512 variant", backend)
+			selectedProcess = p
+		}
+	} else if xsysinfo.HasCPUCaps(cpuid.AVX2) {
+		p := backendPath(assetDir, LLamaCPPAVX2)
+		if _, err := os.Stat(p); err == nil {
+			log.Info().Msgf("[%s] attempting to load with AVX2 variant", backend)
 			selectedProcess = p
 		}
 	} else if xsysinfo.HasCPUCaps(cpuid.AVX) {

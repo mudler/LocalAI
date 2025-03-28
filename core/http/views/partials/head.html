@@ -1,36 +1,20 @@
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{.Title}}</title>
-    <base href="{{.BaseURL}}" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
-    <link
-    rel="stylesheet"
-    href="static/assets/highlightjs.css"
-  />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <base href="{{.BaseURL}}" />
+  <link rel="icon" type="image/x-icon" href="favicon.ico" />
+  <link rel="stylesheet" href="static/assets/highlightjs.css" />
   <script defer src="static/assets/highlightjs.js"></script>
-    <script
-    defer
-    src="static/assets/alpine.js"
-  ></script>
-  <script
-    defer
-    src="static/assets/marked.js"
-  ></script>
-  <script
-    defer
-    src="static/assets/purify.js"
-  ></script>
-
+  <script defer src="static/assets/alpine.js"></script>
+  <script defer src="static/assets/marked.js"></script>
+  <script defer src="static/assets/purify.js"></script>
   <link href="static/general.css" rel="stylesheet" />
-    <link href="static/assets/font1.css" rel="stylesheet">
-    <link
-    href="static/assets/font2.css"
-    rel="stylesheet" />
-  <link
-    rel="stylesheet"
-    href="static/assets/tw-elements.css" />
+  <link href="static/assets/font1.css" rel="stylesheet">
+  <link href="static/assets/font2.css" rel="stylesheet" />
+  <link rel="stylesheet" href="static/assets/tw-elements.css" />
   <script src="static/assets/tailwindcss.js"></script>
+
   <script>
     tailwind.config = {
       darkMode: "class",
@@ -48,84 +32,98 @@
     function copyClipboard(token) {
       navigator.clipboard.writeText(token)
       .then(() => {
-          console.log('Text copied to clipboard:', token);
-          alert('Text copied to clipboard!');
+        console.log('Text copied to clipboard:', token);
+        alert('Text copied to clipboard!');
       })
       .catch(err => {
-          console.error('Failed to copy token:', err);
+        console.error('Failed to copy token:', err);
       });
     }
   </script>
+
   <link href="static/assets/fontawesome/css/fontawesome.css" rel="stylesheet" />
   <link href="static/assets/fontawesome/css/brands.css" rel="stylesheet" />
   <link href="static/assets/fontawesome/css/solid.css" rel="stylesheet" />
   <script src="static/assets/flowbite.min.js"></script>
   <script src="static/assets/htmx.js" crossorigin="anonymous"></script>
-  <!-- P2P Animation START -->
+
+  <!-- Example responsive styling improvements -->
   <style>
     .animation-container {
-        position: relative;
-        width: 100%;
-        height: 25vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        overflow: hidden;
+      position: relative;
+      width: 100%;
+      height: 25vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
     }
-
     canvas {
-        position: absolute;
-        top: 0;
-        left: 0;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
-
     .text-overlay {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        text-align: center;
-        z-index: 1;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      z-index: 1;
     }
+    .fa-circle-nodes {
+      animation: rotateCircleNodes 8s linear infinite;
+      display: inline-block;
+    }
+    @keyframes rotateCircleNodes {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .fa-flask {
+      animation: shakeFlask 3s ease-in-out infinite;
+      transform-origin: bottom center;
+    }
+    @keyframes shakeFlask {
+      0%, 10% { transform: rotate(0deg); }
+      20% { transform: rotate(-10deg); }
+      30% { transform: rotate(10deg); }
+      40% { transform: rotate(-8deg); }
+      50% { transform: rotate(8deg); }
+      60% { transform: rotate(-5deg); }
+      70% { transform: rotate(5deg); }
+      80% { transform: rotate(-2deg); }
+      90% { transform: rotate(2deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+/* Add this to your existing CSS */
+.active-node {
+  position: relative;
+  overflow: hidden;
+}
+
+.active-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.8), transparent);
+  animation: nodeGlow 3s ease-in-out infinite;
+}
+
+@keyframes nodeGlow {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
   </style>
-  <!-- P2P Animation END -->
-  <!-- Flask and node animation -->
-  <style>
-            .fa-circle-nodes {
-           /* font-size: 100px; /* Adjust the size as needed */
-            animation: rotateCircleNodes 8s linear infinite; /* Slow and fluid rotation */
-            display: inline-block;
-        }
 
-        @keyframes rotateCircleNodes {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        /* Animation for the warning box */
-        .fa-flask {
-         /*  font-size: 100px; /* Adjust the size as needed */
-            animation: shakeFlask 3s ease-in-out infinite; /* Smooth easing and longer duration for fluidity */
-            transform-origin: bottom center;
-        }
-
-        @keyframes shakeFlask {
-            0%, 10% { transform: rotate(0deg); } /* Start and end still */
-            20% { transform: rotate(-10deg); } /* Smooth transition to left */
-            30% { transform: rotate(10deg); } /* Smooth transition to right */
-            40% { transform: rotate(-8deg); } /* Smooth transition to left */
-            50% { transform: rotate(8deg); } /* Smooth transition to right */
-            60% { transform: rotate(-5deg); } /* Smooth transition to left */
-            70% { transform: rotate(5deg); } /* Smooth transition to right */
-            80% { transform: rotate(-2deg); } /* Smooth transition to left */
-            90% { transform: rotate(2deg); } /* Smooth transition to right */
-            100% { transform: rotate(0deg); } /* Return to center */
-        }
-  </style>
-
-  <!-- https://stackoverflow.com/questions/76051980/flowbite-component-not-working-when-loaded-via-htmx-django-project -->
+  <!-- Initialize Flowbite on HTMX content load -->
   <script>
-      htmx.onLoad(function(content) {
-          initFlowbite();
-      })
+    htmx.onLoad(function(content) {
+      initFlowbite();
+    });
   </script>
 </head>

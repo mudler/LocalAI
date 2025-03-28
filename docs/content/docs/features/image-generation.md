@@ -38,98 +38,40 @@ curl http://localhost:8080/v1/images/generations -H "Content-Type: application/j
 
 ## Backends
 
-### stablediffusion-cpp
+### stablediffusion-ggml
 
-| mode=0                                                                                                                | mode=1 (winograd/sgemm)                                                                                                                |
-|------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
-| ![test](https://github.com/go-skynet/LocalAI/assets/2420543/7145bdee-4134-45bb-84d4-f11cb08a5638)                      | ![b643343452981](https://github.com/go-skynet/LocalAI/assets/2420543/abf14de1-4f50-4715-aaa4-411d703a942a)          |
-| ![b6441997879](https://github.com/go-skynet/LocalAI/assets/2420543/d50af51c-51b7-4f39-b6c2-bf04c403894c)              | ![winograd2](https://github.com/go-skynet/LocalAI/assets/2420543/1935a69a-ecce-4afc-a099-1ac28cb649b3)                |
-| ![winograd](https://github.com/go-skynet/LocalAI/assets/2420543/1979a8c4-a70d-4602-95ed-642f382f6c6a)                | ![winograd3](https://github.com/go-skynet/LocalAI/assets/2420543/e6d184d4-5002-408f-b564-163986e1bdfb)                |
+This backend is based on [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp). Every model supported by that backend is suppoerted indeed with LocalAI.
 
-Note: image generator supports images up to 512x512. You can use other tools however to upscale the image, for instance: https://github.com/upscayl/upscayl.
 
 #### Setup
 
-Note: In order to use the `images/generation` endpoint with the `stablediffusion` C++ backend, you need to build LocalAI with `GO_TAGS=stablediffusion`. If you are using the container images, it is already enabled.
-
-{{< tabs >}}
-{{% tab name="Prepare the model in runtime" %}}
-
-While the API is running, you can install the model by using the `/models/apply` endpoint and point it to the `stablediffusion` model in the [models-gallery](https://github.com/go-skynet/model-gallery#image-generation-stable-diffusion):
+There are already several models in the gallery that are available to install and get up and running with this backend, you can for example run flux by searching it in the Model gallery (`flux.1-dev-ggml`) or start LocalAI with `run`:
 
 ```bash
-curl http://localhost:8080/models/apply -H "Content-Type: application/json" -d '{
-  "url": "github:go-skynet/model-gallery/stablediffusion.yaml"
-}'
+local-ai run flux.1-dev-ggml
 ```
 
-{{% /tab %}}
-{{% tab name="Automatically prepare the model before start" %}}
-
-You can set the `PRELOAD_MODELS` environment variable:
-
-```bash
-PRELOAD_MODELS=[{"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}]
-```
-
-or as arg:
-
-```bash
-local-ai --preload-models '[{"url": "github:go-skynet/model-gallery/stablediffusion.yaml"}]'
-```
-
-or in a YAML file:
-
-```bash
-local-ai --preload-models-config "/path/to/yaml"
-```
-
-YAML:
-
-```yaml
-- url: github:go-skynet/model-gallery/stablediffusion.yaml
-```
-
-{{% /tab %}}
-{{% tab name="Install manually" %}}
+To use a custom model, you can follow these steps:
 
 1. Create a model file `stablediffusion.yaml` in the models folder:
 
 ```yaml
 name: stablediffusion
-backend: stablediffusion
+backend: stablediffusion-ggml
 parameters:
-  model: stablediffusion_assets
+  model: gguf_model.gguf
+step: 25
+cfg_scale: 4.5
+options:
+- "clip_l_path:clip_l.safetensors"
+- "clip_g_path:clip_g.safetensors"
+- "t5xxl_path:t5xxl-Q5_0.gguf"
+- "sampler:euler"
 ```
 
-2. Create a `stablediffusion_assets` directory inside your `models` directory
-3. Download the ncnn assets from https://github.com/EdVince/Stable-Diffusion-NCNN#out-of-box and place them in `stablediffusion_assets`.
+2. Download the required assets to the `models` repository
+3. Start LocalAI
 
-The models directory should look like the following:
-
-```bash
-models
-├── stablediffusion_assets
-│   ├── AutoencoderKL-256-256-fp16-opt.param
-│   ├── AutoencoderKL-512-512-fp16-opt.param
-│   ├── AutoencoderKL-base-fp16.param
-│   ├── AutoencoderKL-encoder-512-512-fp16.bin
-│   ├── AutoencoderKL-fp16.bin
-│   ├── FrozenCLIPEmbedder-fp16.bin
-│   ├── FrozenCLIPEmbedder-fp16.param
-│   ├── log_sigmas.bin
-│   ├── tmp-AutoencoderKL-encoder-256-256-fp16.param
-│   ├── UNetModel-256-256-MHA-fp16-opt.param
-│   ├── UNetModel-512-512-MHA-fp16-opt.param
-│   ├── UNetModel-base-MHA-fp16.param
-│   ├── UNetModel-MHA-fp16.bin
-│   └── vocab.txt
-└── stablediffusion.yaml
-```
-
-{{% /tab %}}
-
-{{< /tabs >}}
 
 ### Diffusers
 
@@ -213,6 +155,9 @@ The following parameters are available in the configuration file:
 | `cfg_scale` | Configuration scale | `8` |
 | `clip_skip` | Clip skip | None |
 | `pipeline_type` | Pipeline type | `AutoPipelineForText2Image` |
+| `lora_adapters` | A list of lora adapters (file names relative to model directory) to apply | None |
+| `lora_scales` | A list of lora scales (floats) to apply | None |
+
 
 There are available several types of schedulers:
 
@@ -246,6 +191,36 @@ Pipelines types available:
 | `StableDiffusionDepth2ImgPipeline` | Stable diffusion depth to image pipeline |
 | `DiffusionPipeline` | Diffusion pipeline |
 | `StableDiffusionXLPipeline` | Stable diffusion XL pipeline |
+| `StableVideoDiffusionPipeline` | Stable video diffusion pipeline |
+| `AutoPipelineForText2Image` | Automatic detection pipeline for text to image |
+| `VideoDiffusionPipeline` | Video diffusion pipeline |
+| `StableDiffusion3Pipeline` | Stable diffusion 3 pipeline |
+| `FluxPipeline` | Flux pipeline |
+| `FluxTransformer2DModel` | Flux transformer 2D model |
+| `SanaPipeline` | Sana pipeline |
+
+##### Advanced: Additional parameters
+
+Additional arbitrarly parameters can be specified in the option field in key/value separated by `:`:
+
+```yaml
+name: animagine-xl
+# ...
+options:
+- "cfg_scale:6"
+```
+
+**Note**: There is no complete parameter list. Any parameter can be passed arbitrarly and is passed to the model directly as argument to the pipeline. Different pipelines/implementations support different parameters.
+
+The example above, will result in the following python code when generating images:
+
+```python
+pipe(
+    prompt="A cute baby sea otter", # Options passed via API
+    size="256x256", # Options passed via API
+    cfg_scale=6 # Additional parameter passed via configuration file
+)
+```
 
 #### Usage
 

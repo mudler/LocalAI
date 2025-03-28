@@ -165,7 +165,6 @@ message Reply {
 
 message GrammarTrigger {
   string word = 1;
-  bool at_start = 2; 
 }
 
 message ModelOptions {
@@ -229,6 +228,11 @@ message ModelOptions {
   int32  MaxModelLen = 54;
   int32  TensorParallelSize = 55;
   string LoadFormat = 58;
+  bool   DisableLogStatus = 66;
+  string DType = 67;
+  int32  LimitImagePerPrompt = 68;
+  int32  LimitVideoPerPrompt = 69;
+  int32  LimitAudioPerPrompt = 70;
 
   string MMProj = 41;
 

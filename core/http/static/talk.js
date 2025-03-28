@@ -9,10 +9,6 @@ let isRecording = false;
 let conversationHistory = [];
 let resetTimer;
 
-function getApiKey() {
-    return document.getElementById('apiKey').value;
-}
-
 function getModel() {
     return document.getElementById('modelSelect').value;
 }
@@ -99,34 +95,13 @@ function stopRecording() {
     };
 }
 
-function submitKey(event) {
-    event.preventDefault();
-    localStorage.setItem("key", document.getElementById("apiKey").value);
-    document.getElementById("apiKey").blur();
-}
-
-document.getElementById("key").addEventListener("submit", submitKey);
-
-
-storeKey = localStorage.getItem("key");
-if (storeKey) {
-  document.getElementById("apiKey").value = storeKey;
-} else {
-  document.getElementById("apiKey").value = null;
-}
-
-
 async function sendAudioToWhisper(audioBlob) {
     const formData = new FormData();
     formData.append('file', audioBlob);
     formData.append('model', getWhisperModel());
-    API_KEY = localStorage.getItem("key");
 
     const response = await fetch('v1/audio/transcriptions', {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${API_KEY}`
-        },
         body: formData
     });
 
@@ -137,14 +112,9 @@ async function sendAudioToWhisper(audioBlob) {
 
 async function sendTextToChatGPT(text) {
     conversationHistory.push({ role: "user", content: text });
-    API_KEY = localStorage.getItem("key");
 
     const response = await fetch('v1/chat/completions', {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
             model: getModel(),
             messages: conversationHistory
@@ -161,13 +131,10 @@ async function sendTextToChatGPT(text) {
 }
 
 async function getTextToSpeechAudio(text) {
-    API_KEY = localStorage.getItem("key");
-
     const response = await fetch('v1/audio/speech', {
         
         method: 'POST',
         headers: {
-            'Authorization': `Bearer ${API_KEY}`,
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({ 

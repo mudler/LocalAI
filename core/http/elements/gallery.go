@@ -17,7 +17,7 @@ const (
 func cardSpan(text, icon string) elem.Node {
 	return elem.Span(
 		attrs.Props{
-			"class": "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
+			"class": "inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2",
 		},
 		elem.I(attrs.Props{
 			"class": icon + " pr-2",
@@ -39,19 +39,20 @@ func searchableElement(text, icon string) elem.Node {
 		),
 		elem.Span(
 			attrs.Props{
-				"class": "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2",
+				"class": "inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50 hover:bg-gray-600 hover:text-gray-100 transition duration-200 ease-in-out",
 			},
 			elem.A(
 				attrs.Props{
 					//	"name":      "search",
 					//	"value":     text,
 					//"class":     "inline-block bg-gray-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2",
-					"href":      "#!",
-					"hx-post":   "browse/search/models",
-					"hx-target": "#search-results",
+					//"href":      "#!",
+					"href": "browse?term=" + text,
+					//"hx-post":   "browse/search/models",
+					//"hx-target": "#search-results",
 					// TODO: this doesn't work
 					//	"hx-vals":      `{ \"search\": \"` + text + `\" }`,
-					"hx-indicator": ".htmx-indicator",
+					//"hx-indicator": ".htmx-indicator",
 				},
 				elem.I(attrs.Props{
 					"class": icon + " pr-2",
@@ -101,7 +102,7 @@ func modalName(m *gallery.GalleryModel) string {
 	return m.Name + "-modal"
 }
 
-func modelDescription(m *gallery.GalleryModel) elem.Node {
+func modelModal(m *gallery.GalleryModel) elem.Node {
 	urls := []elem.Node{}
 	for _, url := range m.URLs {
 		urls = append(urls,
@@ -118,6 +119,125 @@ func modelDescription(m *gallery.GalleryModel) elem.Node {
 
 	return elem.Div(
 		attrs.Props{
+			"id":          modalName(m),
+			"tabindex":    "-1",
+			"aria-hidden": "true",
+			"class":       "hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full",
+		},
+		elem.Div(
+			attrs.Props{
+				"class": "relative p-4 w-full max-w-2xl max-h-full",
+			},
+			elem.Div(
+				attrs.Props{
+					"class": "relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700",
+				},
+				// header
+				elem.Div(
+					attrs.Props{
+						"class": "flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600",
+					},
+					elem.H3(
+						attrs.Props{
+							"class": "text-xl font-semibold text-gray-900 dark:text-white",
+						},
+						elem.Text(bluemonday.StrictPolicy().Sanitize(m.Name)),
+					),
+					elem.Button( // close button
+						attrs.Props{
+							"class":           "text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white",
+							"data-modal-hide": modalName(m),
+						},
+						elem.Raw(
+							`<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+							<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+						</svg>`,
+						),
+						elem.Span(
+							attrs.Props{
+								"class": "sr-only",
+							},
+							elem.Text("Close modal"),
+						),
+					),
+				),
+				// body
+				elem.Div(
+					attrs.Props{
+						"class": "p-4 md:p-5 space-y-4",
+					},
+					elem.Div(
+						attrs.Props{
+							"class": "flex justify-center items-center",
+						},
+						elem.Img(attrs.Props{
+							//	"class": "rounded-t-lg object-fit object-center h-96",
+							"class":   "lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded",
+							"src":     m.Icon,
+							"loading": "lazy",
+						}),
+					),
+					elem.P(
+						attrs.Props{
+							"class": "text-base leading-relaxed text-gray-500 dark:text-gray-400",
+						},
+						elem.Text(bluemonday.StrictPolicy().Sanitize(m.Description)),
+					),
+					elem.Hr(
+						attrs.Props{},
+					),
+					elem.P(
+						attrs.Props{
+							"class": "text-sm font-semibold text-gray-900 dark:text-white",
+						},
+						elem.Text("Links"),
+					),
+					elem.Ul(
+						attrs.Props{},
+						urls...,
+					),
+					elem.If(
+						len(m.Tags) > 0,
+						elem.Div(
+							attrs.Props{},
+							elem.P(
+								attrs.Props{
+									"class": "text-sm mb-5 font-semibold text-gray-900 dark:text-white",
+								},
+								elem.Text("Tags"),
+							),
+							elem.Div(
+								attrs.Props{
+									"class": "flex flex-row flex-wrap content-center",
+								},
+								tagsNodes...,
+							),
+						),
+						elem.Div(attrs.Props{}),
+					),
+				),
+				// Footer
+				elem.Div(
+					attrs.Props{
+						"class": "flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600",
+					},
+					elem.Button(
+						attrs.Props{
+							"data-modal-hide": modalName(m),
+							"class":           "py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700",
+						},
+						elem.Text("Close"),
+					),
+				),
+			),
+		),
+	)
+
+}
+
+func modelDescription(m *gallery.GalleryModel) elem.Node {
+	return elem.Div(
+		attrs.Props{
 			"class": "p-6 text-surface dark:text-white",
 		},
 		elem.H5(
@@ -131,122 +251,6 @@ func modelDescription(m *gallery.GalleryModel) elem.Node {
 				"class": "mb-4 text-sm truncate text-base",
 			},
 			elem.Text(bluemonday.StrictPolicy().Sanitize(m.Description)),
-		),
-
-		elem.Div(
-			attrs.Props{
-				"id":          modalName(m),
-				"tabindex":    "-1",
-				"aria-hidden": "true",
-				"class":       "hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full",
-			},
-			elem.Div(
-				attrs.Props{
-					"class": "relative p-4 w-full max-w-2xl max-h-full",
-				},
-				elem.Div(
-					attrs.Props{
-						"class": "relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700",
-					},
-					// header
-					elem.Div(
-						attrs.Props{
-							"class": "flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600",
-						},
-						elem.H3(
-							attrs.Props{
-								"class": "text-xl font-semibold text-gray-900 dark:text-white",
-							},
-							elem.Text(bluemonday.StrictPolicy().Sanitize(m.Name)),
-						),
-						elem.Button( // close button
-							attrs.Props{
-								"class":           "text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white",
-								"data-modal-hide": modalName(m),
-							},
-							elem.Raw(
-								`<svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-									<path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-								</svg>`,
-							),
-							elem.Span(
-								attrs.Props{
-									"class": "sr-only",
-								},
-								elem.Text("Close modal"),
-							),
-						),
-					),
-					// body
-					elem.Div(
-						attrs.Props{
-							"class": "p-4 md:p-5 space-y-4",
-						},
-						elem.Div(
-							attrs.Props{
-								"class": "flex justify-center items-center",
-							},
-							elem.Img(attrs.Props{
-								//	"class": "rounded-t-lg object-fit object-center h-96",
-								"class":   "lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded",
-								"src":     m.Icon,
-								"loading": "lazy",
-							}),
-						),
-						elem.P(
-							attrs.Props{
-								"class": "text-base leading-relaxed text-gray-500 dark:text-gray-400",
-							},
-							elem.Text(bluemonday.StrictPolicy().Sanitize(m.Description)),
-						),
-						elem.Hr(
-							attrs.Props{},
-						),
-						elem.P(
-							attrs.Props{
-								"class": "text-sm font-semibold text-gray-900 dark:text-white",
-							},
-							elem.Text("Links"),
-						),
-						elem.Ul(
-							attrs.Props{},
-							urls...,
-						),
-						elem.If(
-							len(m.Tags) > 0,
-							elem.Div(
-								attrs.Props{},
-								elem.P(
-									attrs.Props{
-										"class": "text-sm mb-5 font-semibold text-gray-900 dark:text-white",
-									},
-									elem.Text("Tags"),
-								),
-								elem.Div(
-									attrs.Props{
-										"class": "flex flex-row flex-wrap content-center",
-									},
-									tagsNodes...,
-								),
-							),
-							elem.Div(attrs.Props{}),
-						),
-					),
-					// Footer
-					elem.Div(
-						attrs.Props{
-							"class": "flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600",
-						},
-						elem.Button(
-							attrs.Props{
-								"data-modal-hide": modalName(m),
-								"class":           "py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700",
-							},
-							elem.Text("Close"),
-						),
-					),
-				),
-			),
 		),
 	)
 }
@@ -397,7 +401,7 @@ func ListModels(models []*gallery.GalleryModel, processTracker ProcessTracker, g
 		modelsElements = append(modelsElements,
 			elem.Div(
 				attrs.Props{
-					"class": " me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2",
+					"class": " me-4 mb-2 block rounded-lg bg-white shadow-secondary-1  dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2 bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-700/50",
 				},
 				elem.Div(
 					attrs.Props{
@@ -406,6 +410,7 @@ func ListModels(models []*gallery.GalleryModel, processTracker ProcessTracker, g
 					elems...,
 				),
 			),
+			modelModal(m),
 		)
 	}
 

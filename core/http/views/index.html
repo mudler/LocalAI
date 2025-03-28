@@ -2,113 +2,185 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gray-900 text-gray-200">
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
 <div class="flex flex-col min-h-screen">
 
     {{template "views/partials/navbar" .}}
 
-    <div class="container mx-auto px-4 flex-grow">
-        <div class="header text-center py-12">
-            <h1 class="text-5xl font-bold text-gray-100">Welcome to <i>your</i> LocalAI instance!</h1>
-            <p class="mt-4 text-lg">The FOSS alternative to OpenAI, Claude, ...</p>
-            <a href="https://localai.io" target="_blank" class="mt-4 inline-block bg-blue-500 text-white py-2 px-4 rounded-lg shadow transition duration-300 ease-in-out hover:bg-blue-700 hover:shadow-lg">
-                <i class="fas fa-book-reader pr-2"></i>Documentation
-            </a>
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Section -->
+        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                        Welcome to <i>your</i> LocalAI instance!
+                    </span>
+                </h1>
+                <p class="text-xl text-gray-300 mb-6">The FOSS alternative to OpenAI, Claude, and more</p>
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="https://localai.io" target="_blank" 
+                       class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-book-reader mr-2"></i>
+                        <span>Documentation</span>
+                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                    </a>
+                    <a href="browse" 
+                       class="group flex items-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-images mr-2"></i>
+                        <span>Gallery</span>
+                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                    </a>
+                </div>
+            </div>
         </div>
 
-        <div class="models mt-4">
+        <!-- Models Section -->
+        <div class="models mt-8">
             {{template "views/partials/inprogress" .}}
+            
             {{ if eq (len .ModelsConfig) 0 }}
-            <h2 class="text-center text-3xl font-semibold text-gray-100"> <i class="text-yellow-200 ml-2 fa-solid fa-triangle-exclamation animate-pulse"></i> Ouch! seems you don't have any models installed from the LocalAI gallery!</h2>
-            <p class="text-center mt-4 text-xl">..install something from the <a class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded" href="browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-gray-400 hover:text-white ml-1 px-3 py-2 rounded"> <i class="fa-solid fa-book"></i> Getting started documentation </a></p>
+            <div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-8 shadow-md backdrop-blur-sm">
+                <div class="text-center max-w-3xl mx-auto">
+                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/20 mb-4">
+                        <i class="text-yellow-400 text-2xl fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <h2 class="text-2xl md:text-3xl font-semibold text-gray-100 mb-4">No models installed from the LocalAI gallery</h2>
+                    <p class="text-lg text-gray-300 mb-6">Install models from the <a class="text-blue-400 hover:text-blue-300 underline underline-offset-2" href="browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-blue-400 hover:text-blue-300 underline underline-offset-2"> <i class="fa-solid fa-book"></i> Getting started documentation</a></p>
 
-            {{ if ne (len .Models) 0 }}
-            <hr class="my-4">
-            <h3 class="text-center text-xl font-semibold text-gray-100"> 
-                However, It seems you have installed some models installed without a configuration file:
-            </h3>
-            {{ range .Models }}
-            <div class="bg-gray-800 border-b border-gray-700 p-4 mt-4">
-                <h4 class="text-md font-bold text-gray-200">{{.}}</h4>
-            </div>              
-            {{end}}
-            {{end}}
+                    {{ if ne (len .Models) 0 }}
+                    <div class="mt-8 pt-8 border-t border-gray-700/50">
+                        <h3 class="text-xl font-semibold text-gray-100 mb-4">Models installed without a configuration file:</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {{ range .Models }}
+                            <div class="bg-gray-800/80 border border-gray-700 rounded-lg p-4 flex items-center">
+                                <i class="fas fa-brain text-lg text-gray-400 mr-3"></i>
+                                <p class="font-medium text-gray-200">{{.Name}}</p>
+                            </div>              
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
             {{ else }}
             {{ $modelsN := len .ModelsConfig}}
             {{ $modelsN = add $modelsN (len .Models)}}
-            <h2 class="text-center text-3xl font-semibold text-gray-100">{{$modelsN}} Installed model(s)</h2>
-            <table class="table-auto mt-4 w-full text-left text-gray-200">
-                <thead class="text-xs text-gray-400 uppercase bg-gray-700">
-                    <tr>
-                        <th class="px-4 py-2"></th>
-                        <th class="px-4 py-2">Model Name</th>
-                        <th class="px-4 py-2">Backend</th>
-                        <th class="px-4 py-2 float-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
+            <div class="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+                <h2 class="text-2xl md:text-3xl font-bold text-white mb-4 md:mb-0">
+                    <span class="text-blue-400">{{$modelsN}}</span> Installed Model<span class="{{if gt $modelsN 1}}s{{end}}">
+                </h2>
+                <!--
+                <div class="flex gap-4">
+                    <button class="text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 px-4 rounded-lg transition flex items-center gap-2">
+                        <i class="fas fa-filter"></i> Filter
+                    </button>
+                    <button class="text-sm bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 px-4 rounded-lg transition flex items-center gap-2">
+                        <i class="fas fa-sort"></i> Sort
+                    </button>
+                </div>
+                -->
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {{$galleryConfig:=.GalleryConfig}}
                 {{$noicon:="https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"}}
+                
                 {{ range .ModelsConfig }}
+                {{ $backendCfg := . }}
                 {{ $cfg:= index $galleryConfig .Name}}
-                <tr class="bg-gray-800 border-b border-gray-700">
-                    <td class="px-4 py-3">
-                        {{ with $cfg }}
-                        <img {{ if $cfg.Icon }}
-                            src="{{$cfg.Icon}}"
-                            {{ else }}
-                            src="{{$noicon}}"
-                            {{ end }}
-                            class="rounded-t-lg max-h-24 max-w-24 object-cover mt-3"
+                <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-700/50">
+                    <div class="flex p-5">
+                        <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-700/50 flex items-center justify-center">
+                            <img {{ if and $cfg $cfg.Icon }}
+                                src="{{$cfg.Icon}}"
+                                {{ else }}
+                                src="{{$noicon}}"
+                                {{ end }}
+                                class="w-full h-full object-contain"
+                                alt="{{.Name}} icon"
                             >
-                        {{ else}}
-                            <img src="{{$noicon}}" class="rounded-t-lg max-h-24 max-w-24 object-cover mt-3">
-                        {{ end }}
-                    </td>
-                    <td class="px-4 py-3 font-bold">
-                        <p class="font-bold text-white flex items-center"><i class="fas fa-brain pr-2"></i><a href="browse?term={{.Name}}">{{.Name}}</a></p>
-                    </td>
-                    <td class="px-4 py-3 font-bold">
-                        {{ if .Backend }}
-                        <!-- Badge for Backend -->
-                        <span class="inline-block bg-blue-500 text-white py-1 px-3 rounded-full text-xs">
-                            {{.Backend}}
-                        </span>
-                        {{ else }}
-                        <span class="inline-block bg-yellow-500 text-white py-1 px-3 rounded-full text-xs">
-                            auto
-                        </span>
-                        {{ end }}
-                    </td>
-
-                    <td class="px-4 py-3">
-                        <button
-                            class="float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2 focus:bg-red-accent-300 focus:shadow-primary-2 focus:outline-none focus:ring-0 active:bg-red-600 active:shadow-primary-2 dark:shadow-black/30 dark:hover:shadow-dark-strong dark:focus:shadow-dark-strong dark:active:shadow-dark-strong"
-                            data-twe-ripple-color="light" data-twe-ripple-init="" hx-confirm="Are you sure you wish to delete the model?" hx-post="browse/delete/model/{{.Name}}" hx-swap="outerHTML"><i class="fa-solid fa-cancel pr-2"></i>Delete</button>
-                    </td>
+                        </div>
+                        <div class="ml-4 flex-1 min-w-0">
+                            <div class="flex items-center">
+                                <h3 class="font-bold text-lg text-white truncate">{{.Name}}</h3>
+                                <a href="browse?term={{.Name}}" class="ml-2 text-gray-400 hover:text-blue-400 transition" title="Search for similar models">
+                                    <i class="fas fa-search text-xs"></i>
+                                </a>
+                            </div>
+                            
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                {{ if .Backend }}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-blue-900/50 text-blue-300 border border-blue-700/50">
+                                    {{.Backend}}
+                                </span>
+                                {{ else }}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-yellow-900/50 text-yellow-300 border border-yellow-700/50">
+                                    auto
+                                </span>
+                                {{ end }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="px-5 pb-5 pt-2">
+                        <div class="flex flex-wrap gap-2">
+                            {{ range .KnownUsecaseStrings }}
+                            {{ if eq . "FLAG_CHAT" }}
+                                <a href="chat/{{$backendCfg.Name}}" class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-blue-900/60 text-blue-200 border border-blue-700/50 hover:bg-blue-800 transition duration-200 ease-in-out">
+                                    <i class="fas fa-comment-alt text-xs mr-1.5"></i>Chat
+                                </a>
+                            {{ end }}
+                            {{ if eq . "FLAG_IMAGE" }}
+                                <a href="text2image/{{$backendCfg.Name}}" class="inline-flex items-center text-sm bg-green-600/80 hover:bg-green-700 text-white py-1.5 px-3 rounded-lg shadow transition duration-300 ease-in-out">
+                                    <i class="fas fa-image text-xs mr-1.5"></i>Image
+                                </a>
+                            {{ end }}
+                            {{ if eq . "FLAG_TTS" }}
+                                <a href="tts/{{$backendCfg.Name}}" class="inline-flex items-center text-sm bg-purple-600/80 hover:bg-purple-700 text-white py-1.5 px-3 rounded-lg shadow transition duration-300 ease-in-out">
+                                    <i class="fas fa-microphone text-xs mr-1.5"></i>TTS
+                                </a>
+                            {{ end }}
+                            {{ end }}
+                        </div>
+                        
+                        <div class="mt-4 flex justify-end">
+                            <button
+                                class="inline-flex items-center text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md px-2 py-1 transition-colors duration-200"
+                                data-twe-ripple-init=""
+                                hx-confirm="Are you sure you wish to delete this model?"
+                                hx-post="browse/delete/model/{{.Name}}"
+                                hx-swap="outerHTML">
+                                <i class="fas fa-trash-alt mr-1.5"></i>Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
                 {{ end }}
+                
                 {{ range .Models }}
-                <tr class="bg-gray-800 border-b border-gray-700">
-                    <td class="px-4 py-3">
-                            <img src="{{$noicon}}" class="rounded-t-lg max-h-24 max-w-24 object-cover mt-3">
-                    </td>
-                    <td class="px-4 py-3 font-bold">
-                        <p class="font-bold text-white flex items-center"><i class="fas fa-brain pr-2"></i>{{.}}</p>
-                    </td>
-                    <td class="px-4 py-3 font-bold">
-                        <span class="inline-block bg-yellow-500 text-white py-1 px-3 rounded-full text-xs">
-                            auto
-                        </span>
-                    </td>
-
-                    <td class="px-4 py-3">
-                        <span class="float-right inline-block bg-red-800 text-white py-1 px-3 rounded-full text-xs">
-                            No Configuration
-                        </span>
-                    </td>           
+                <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-700/50">
+                    <div class="flex p-5">
+                        <div class="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-gray-700/50 flex items-center justify-center">
+                            <img src="{{$noicon}}" class="w-full h-full object-contain" alt="Model icon">
+                        </div>
+                        <div class="ml-4 flex-1 min-w-0">
+                            <div class="flex items-center">
+                                <h3 class="font-bold text-lg text-white truncate"><i class="fas fa-brain mr-2 text-gray-400"></i>{{.}}</h3>
+                            </div>
+                            
+                            <div class="mt-2 flex flex-wrap gap-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-yellow-900/50 text-yellow-300 border border-yellow-700/50">
+                                    auto
+                                </span>
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-900/50 text-red-300 border border-red-700/50">
+                                    No Configuration
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 {{end}}
-                </tbody>
-            </table>
+            </div>
             {{ end }}
         </div>
     </div>

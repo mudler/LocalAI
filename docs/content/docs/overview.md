@@ -134,7 +134,7 @@ A huge thank you to our generous sponsors who support this project covering CI e
 
 <p align="center">
   <a href="https://www.spectrocloud.com/" target="blank">
-    <img width=200 src="https://github.com/go-skynet/LocalAI/assets/2420543/68a6f3cb-8a65-4a4d-99b5-6417a8905512">
+    <img width=200 src="https://github.com/user-attachments/assets/72eab1dd-8b93-4fc0-9ade-84db49f24962">
   </a>
   <a href="https://www.premai.io/" target="blank">
     <img  width=200 src="https://github.com/mudler/LocalAI/assets/2420543/42e4ca83-661e-4f79-8e46-ae43689683d6"> <br>
