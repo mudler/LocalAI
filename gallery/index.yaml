@@ -360,6 +360,32 @@
     - filename: soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
       sha256: eb5792cf73bac3dbaa39e3a79ec01a056affff4607b96f96c9b911c877d5a50a
       uri: huggingface://bartowski/soob3123_amoral-gemma3-12B-v2-GGUF/soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-starshine-12b-i1"
+  icon: https://huggingface.co/ToastyPigeon/Gemma-3-Starshine-12B/resolve/main/modelcard_image.jpeg
+  urls:
+    - https://huggingface.co/ToastyPigeon/Gemma-3-Starshine-12B
+    - https://huggingface.co/mradermacher/Gemma-3-Starshine-12B-i1-GGUF
+  description: |
+    A creative writing model based on a merge of fine-tunes on Gemma 3 12B IT and Gemma 3 12B PT.
+
+    This is the Story Focused merge. This version works better for storytelling and scenarios, as the prose is more novel-like and it has a tendency to impersonate the user character.
+
+    See the Alternate RP Focused version as well.
+
+    This is a merge of two G3 models, one trained on instruct and one trained on base:
+
+        allura-org/Gemma-3-Glitter-12B - Itself a merge of a storywriting and RP train (both also by ToastyPigeon), on instruct
+        ToastyPigeon/Gemma-3-Confetti-12B - Experimental application of the Glitter data using base instead of instruct, additionally includes some adventure data in the form of SpringDragon.
+
+    The result is a lovely blend of Glitter's ability to follow instructions and Confetti's free-spirit prose, effectively 'loosening up' much of the hesitancy that was left in Glitter.
+  overrides:
+    parameters:
+      model: Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+      sha256: 4c35a678e3784e20a8d85d4e7045d965509a1a71305a0da105fc5991ba7d6dc4
+      uri: huggingface://mradermacher/Gemma-3-Starshine-12B-i1-GGUF/Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
