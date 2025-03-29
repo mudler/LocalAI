@@ -10,12 +10,18 @@ import (
 	"io"
 	"net"
 
+	cliP2P "github.com/mudler/LocalAI/core/cli/p2p"
 	"github.com/mudler/edgevpn/pkg/node"
 	"github.com/rs/zerolog/log"
 )
 
-func (f *FederatedServer) Start(ctx context.Context) error {
-	n, err := NewNode(f.p2ptoken)
+func (f *FederatedServer) Start(ctx context.Context, p2pCommonFlags cliP2P.P2PCommonFlags) error {
+	p2pCfg := NewP2PConfig(p2pCommonFlags)
+	p2pCfg.NetworkToken = f.p2ptoken
+	p2pCfg.PeerGuard.Autocleanup = true
+	p2pCfg.PeerGuard.PeerGate = true
+
+	n, err := NewNode(p2pCfg)
 	if err != nil {
 		return fmt.Errorf("creating a new node: %w", err)
 	}
@@ -24,7 +30,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 		return fmt.Errorf("creating a new node: %w", err)
 	}
 
-	if err := ServiceDiscoverer(ctx, n, f.p2ptoken, f.service, func(servicesID string, tunnel NodeData) {
+	if err := ServiceDiscoverer(ctx, n, f.service, func(servicesID string, tunnel NodeData) {
 		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
 	}, false); err != nil {
 		return err

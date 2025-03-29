@@ -5,11 +5,14 @@ import (
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	cliP2P "github.com/mudler/LocalAI/core/cli/p2p"
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/core/http"
 )
 
 type ExplorerCMD struct {
+	cliP2P.P2PCommonFlags `embed:""`
+
 	Address                  string `env:"LOCALAI_ADDRESS,ADDRESS" default:":8080" help:"Bind address for the API server" group:"api"`
 	PoolDatabase             string `env:"LOCALAI_POOL_DATABASE,POOL_DATABASE" default:"explorer.json" help:"Path to the pool database" group:"api"`
 	ConnectionTimeout        string `env:"LOCALAI_CONNECTION_TIMEOUT,CONNECTION_TIMEOUT" default:"2m" help:"Connection timeout for the explorer" group:"api"`
@@ -33,14 +36,14 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 
 	if e.WithSync {
 		ds := explorer.NewDiscoveryServer(db, dur, e.ConnectionErrorThreshold)
-		go ds.Start(context.Background(), true)
+		go ds.Start(context.Background(), e.P2PCommonFlags, true)
 	}
 
 	if e.OnlySync {
 		ds := explorer.NewDiscoveryServer(db, dur, e.ConnectionErrorThreshold)
 		ctx := context.Background()
 
-		return ds.Start(ctx, false)
+		return ds.Start(ctx, e.P2PCommonFlags, false)
 	}
 
 	appHTTP := http.Explorer(db)

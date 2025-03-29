@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	cliP2P "github.com/mudler/LocalAI/core/cli/p2p"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
@@ -55,10 +56,7 @@ type RunCMD struct {
 	DisableMetricsEndpoint             bool     `env:"LOCALAI_DISABLE_METRICS_ENDPOINT,DISABLE_METRICS_ENDPOINT" default:"false" help:"Disable the /metrics endpoint" group:"api"`
 	HttpGetExemptedEndpoints           []string `env:"LOCALAI_HTTP_GET_EXEMPTED_ENDPOINTS" default:"^/$,^/browse/?$,^/talk/?$,^/p2p/?$,^/chat/?$,^/text2image/?$,^/tts/?$,^/static/.*$,^/swagger.*$" help:"If LOCALAI_DISABLE_API_KEY_REQUIREMENT_FOR_HTTP_GET is overriden to true, this is the list of endpoints to exempt. Only adjust this in case of a security incident or as a result of a personal security posture review" group:"hardening"`
 	Peer2Peer                          bool     `env:"LOCALAI_P2P,P2P" name:"p2p" default:"false" help:"Enable P2P mode" group:"p2p"`
-	Peer2PeerDHTInterval               int      `env:"LOCALAI_P2P_DHT_INTERVAL,P2P_DHT_INTERVAL" default:"360" name:"p2p-dht-interval" help:"Interval for DHT refresh (used during token generation)" group:"p2p"`
-	Peer2PeerOTPInterval               int      `env:"LOCALAI_P2P_OTP_INTERVAL,P2P_OTP_INTERVAL" default:"9000" name:"p2p-otp-interval" help:"Interval for OTP refresh (used during token generation)" group:"p2p"`
-	Peer2PeerToken                     string   `env:"LOCALAI_P2P_TOKEN,P2P_TOKEN,TOKEN" name:"p2ptoken" help:"Token for P2P mode (optional)" group:"p2p"`
-	Peer2PeerNetworkID                 string   `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
+	cliP2P.P2PCommonFlags              `embed:""`
 	ParallelRequests                   bool     `env:"LOCALAI_PARALLEL_REQUESTS,PARALLEL_REQUESTS" help:"Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm)" group:"backends"`
 	SingleActiveBackend                bool     `env:"LOCALAI_SINGLE_ACTIVE_BACKEND,SINGLE_ACTIVE_BACKEND" help:"Allow only one backend to be run at a time" group:"backends"`
 	PreloadBackendOnly                 bool     `env:"LOCALAI_PRELOAD_BACKEND_ONLY,PRELOAD_BACKEND_ONLY" default:"false" help:"Do not launch the API services, only the preloaded models / backends are started (useful for multi-node setups)" group:"backends"`
@@ -114,14 +112,24 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	token := ""
+	p2pCfg := p2p.NewP2PConfig(r.P2PCommonFlags)
 	if r.Peer2Peer || r.Peer2PeerToken != "" {
+
 		log.Info().Msg("P2P mode enabled")
 		token = r.Peer2PeerToken
 		if token == "" {
 			// IF no token is provided, and p2p is enabled,
 			// we generate one and wait for the user to pick up the token (this is for interactive)
 			log.Info().Msg("No token provided, generating one")
-			token = p2p.GenerateToken(r.Peer2PeerDHTInterval, r.Peer2PeerOTPInterval)
+			connectionData, err := p2p.GenerateNewConnectionData(
+				r.Peer2PeerDHTInterval, r.Peer2PeerOTPInterval,
+				r.Peer2PeerPrivkey, r.Peer2PeerUsePeerguard,
+			)
+			if err != nil {
+				log.Warn().Msgf("Error generating token: %s", err.Error())
+			}
+			token = connectionData.Base64()
+
 			log.Info().Msg("Generated Token:")
 			fmt.Println(token)
 
@@ -129,11 +137,18 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
 		}
 		opts = append(opts, config.WithP2PToken(token))
+
+		if r.Federated {
+			p2pCfg.PeerGuard.Autocleanup = true
+			p2pCfg.PeerGuard.PeerGate = true
+		}
+
+		p2pCfg.NetworkToken = token
 	}
 
 	backgroundCtx := context.Background()
 
-	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated); err != nil {
+	if err := cli_api.StartP2PStack(backgroundCtx, p2pCfg, r.Address, r.Peer2PeerNetworkID, r.Federated); err != nil {
 		return err
 	}
 

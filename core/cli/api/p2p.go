@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/core/p2p"
+	p2pConfig "github.com/mudler/edgevpn/pkg/config"
 	"github.com/mudler/edgevpn/pkg/node"
 
 	"github.com/rs/zerolog/log"
 )
 
-func StartP2PStack(ctx context.Context, address, token, networkID string, federated bool) error {
+func StartP2PStack(ctx context.Context, p2pCfg p2pConfig.Config, address, networkID string, federated bool) error {
 	var n *node.Node
 	// Here we are avoiding creating multiple nodes:
 	// - if the federated mode is enabled, we create a federated node and expose a service
@@ -29,12 +30,12 @@ func StartP2PStack(ctx context.Context, address, token, networkID string, federa
 
 		// Here a new node is created and started
 		// and a service is exposed by the node
-		node, err := p2p.ExposeService(ctx, "localhost", port, token, p2p.NetworkID(networkID, p2p.FederatedID))
+		node, err := p2p.ExposeService(ctx, p2pCfg, "localhost", port, p2p.NetworkID(networkID, p2p.FederatedID))
 		if err != nil {
 			return err
 		}
 
-		if err := p2p.ServiceDiscoverer(ctx, node, token, p2p.NetworkID(networkID, p2p.FederatedID), nil, false); err != nil {
+		if err := p2p.ServiceDiscoverer(ctx, node, p2p.NetworkID(networkID, p2p.FederatedID), nil, false); err != nil {
 			return err
 		}
 
@@ -42,10 +43,10 @@ func StartP2PStack(ctx context.Context, address, token, networkID string, federa
 	}
 
 	// If the p2p mode is enabled, we start the service discovery
-	if token != "" {
+	if p2pCfg.NetworkToken != "" {
 		// If a node wasn't created previously, create it
 		if n == nil {
-			node, err := p2p.NewNode(token)
+			node, err := p2p.NewNode(p2pCfg)
 			if err != nil {
 				return err
 			}
@@ -58,7 +59,7 @@ func StartP2PStack(ctx context.Context, address, token, networkID string, federa
 
 		// Attach a ServiceDiscoverer to the p2p node
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(ctx, n, token, p2p.NetworkID(networkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
+		if err := p2p.ServiceDiscoverer(ctx, n, p2p.NetworkID(networkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
 			var tunnelAddresses []string
 			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(networkID, p2p.WorkerID)) {
 				if v.IsOnline() {
