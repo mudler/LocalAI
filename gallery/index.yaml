@@ -1315,6 +1315,48 @@
     - filename: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
       sha256: 817073c85286c25a9373f330aad32b503e6c13d626a3fbee926d96a7ab866845
       uri: huggingface://bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF/Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "tarek07_legion-v2.1-llama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64909c086073a0cd172d0411/mqajIk-EsgQ0ZVAZJ4trP.png
+  urls:
+    - https://huggingface.co/Tarek07/Legion-V2.1-LLaMa-70B
+    - https://huggingface.co/bartowski/Tarek07_Legion-V2.1-LLaMa-70B-GGUF
+  description: |
+    My biggest merge yet, consisting of a total of 20 specially curated models. My methodology in approaching this was to create 5 highly specialized models:
+
+    A completely uncensored base A very intelligent model based on UGI, Willingness and NatInt scores on the UGI Leaderboard A highly descriptive writing model, specializing in creative and natural prose A RP model specially merged with fine-tuned models that use a lot of RP datasets The secret ingredient: A completely unhinged, uncensored final model
+
+    These five models went through a series of iterations until I got something I thought worked well and then combined them to make LEGION.
+
+    The full list of models used in this merge is below:
+
+        TheDrummer/Fallen-Llama-3.3-R1-70B-v1
+        Sao10K/Llama-3.3-70B-Vulpecula-r1
+        Sao10K/L3-70B-Euryale-v2.1
+        SicariusSicariiStuff/Negative_LLAMA_70B
+        allura-org/Bigger-Body-70b
+        Sao10K/70B-L3.3-mhnnn-x1
+        Sao10K/L3.3-70B-Euryale-v2.3
+        Doctor-Shotgun/L3.3-70B-Magnum-v4-SE
+        Sao10K/L3.1-70B-Hanami-x1
+        Sao10K/70B-L3.3-Cirrus-x1
+        EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.1
+        TheDrummer/Anubis-70B-v1
+        ArliAI/Llama-3.3-70B-ArliAI-RPMax-v1.4
+        LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+        NeverSleep/Lumimaid-v0.2-70B
+        mlabonne/Hermes-3-Llama-3.1-70B-lorablated
+        ReadyArt/Forgotten-Safeword-70B-3.6
+        ReadyArt/Fallen-Abomination-70B-R1-v4.1
+        ReadyArt/Fallen-Safeword-70B-R1-v4.1
+        huihui-ai/Llama-3.3-70B-Instruct-abliterated
+  overrides:
+    parameters:
+      model: Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
+  files:
+    - filename: Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
+      sha256: 8f3de344ba83705f9491c2ed354fd6131a05946fca2eceae495b6fc67a7dbe7a
+      uri: huggingface://bartowski/Tarek07_Legion-V2.1-LLaMa-70B-GGUF/Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
