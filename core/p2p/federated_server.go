@@ -15,9 +15,9 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (f *FederatedServer) Start(ctx context.Context, p2pCommonFlags cliP2P.P2PCommonFlags) error {
+func (fs *FederatedServer) Start(ctx context.Context, p2pCommonFlags cliP2P.P2PCommonFlags) error {
 	p2pCfg := NewP2PConfig(p2pCommonFlags)
-	p2pCfg.NetworkToken = f.p2ptoken
+	p2pCfg.NetworkToken = fs.p2ptoken
 	p2pCfg.PeerGuard.Autocleanup = true
 	p2pCfg.PeerGuard.PeerGate = true
 
@@ -30,13 +30,13 @@ func (f *FederatedServer) Start(ctx context.Context, p2pCommonFlags cliP2P.P2PCo
 		return fmt.Errorf("creating a new node: %w", err)
 	}
 
-	if err := ServiceDiscoverer(ctx, n, f.service, func(servicesID string, tunnel NodeData) {
+	if err := ServiceDiscoverer(ctx, n, fs.service, func(servicesID string, tunnel NodeData) {
 		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
 	}, false); err != nil {
 		return err
 	}
 
-	return f.proxy(ctx, n)
+	return fs.proxy(ctx, n)
 }
 
 func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {

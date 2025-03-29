@@ -138,11 +138,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 		opts = append(opts, config.WithP2PToken(token))
 
-		if r.Federated {
-			p2pCfg.PeerGuard.Autocleanup = true
-			p2pCfg.PeerGuard.PeerGate = true
-		}
-
 		p2pCfg.NetworkToken = token
 	}
 
