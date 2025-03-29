@@ -5341,6 +5341,21 @@
     - filename: Tesslate_Tessa-T1-3B-Q4_K_M.gguf
       sha256: d6b9d31d78d36094cab2725a7df318f8f3556990df736a21998c952d9a6ee0bf
       uri: huggingface://bartowski/Tesslate_Tessa-T1-3B-GGUF/Tesslate_Tessa-T1-3B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "chaoticneutrals_very_berry_qwen2_7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/1J817kx3zZccf5yvQYiGM.png
+  urls:
+    - https://huggingface.co/ChaoticNeutrals/Very_Berry_Qwen2_7B
+    - https://huggingface.co/bartowski/ChaoticNeutrals_Very_Berry_Qwen2_7B-GGUF
+  description: |
+    It do the stuff.
+  overrides:
+    parameters:
+      model: ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
+  files:
+    - filename: ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
+      sha256: cbda41c638c23a3e8e9fb33c27ca0d0a0ee044b6813941a0017fd46369a35ec5
+      uri: huggingface://bartowski/ChaoticNeutrals_Very_Berry_Qwen2_7B-GGUF/ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
