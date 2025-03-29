@@ -389,16 +389,6 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Embeddings = &falseV
 	}
 
-	// Value passed by the top level are treated as default (no implicit defaults)
-	// defaults are set by the user
-	if ctx == 0 {
-		ctx = 1024
-	}
-
-	if cfg.ContextSize == nil {
-		cfg.ContextSize = &ctx
-	}
-
 	if threads == 0 {
 		// Threads can't be 0
 		threads = 4
@@ -420,7 +410,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 		cfg.Debug = &trueV
 	}
 
-	guessDefaultsFromFile(cfg, lo.modelPath)
+	guessDefaultsFromFile(cfg, lo.modelPath, ctx)
 }
 
 func (c *BackendConfig) Validate() bool {
