@@ -5281,6 +5281,26 @@
     - filename: Tesslate_Tessa-T1-32B-Q4_K_M.gguf
       sha256: e52a2a0a877ce1de78f2ea472c9e3bc7a0c20d6998423e9d99a59175809d3a22
       uri: huggingface://bartowski/Tesslate_Tessa-T1-32B-GGUF/Tesslate_Tessa-T1-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tesslate_tessa-t1-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/I7XzH-NMKUshcGU86u6VA.png
+  urls:
+    - https://huggingface.co/Tesslate/Tessa-T1-14B
+    - https://huggingface.co/bartowski/Tesslate_Tessa-T1-14B-GGUF
+  description: |
+   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-14B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+    Model Highlights
+
+        React-specific Reasoning: Accurately generates functional and semantic React components.
+        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+  overrides:
+    parameters:
+      model: Tesslate_Tessa-T1-14B-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Tessa-T1-14B-Q4_K_M.gguf
+      sha256: 1b35ff651b9c1e4538d10e3117390ae36094b6455a9f937a4f3ab72162125bca
+      uri: huggingface://bartowski/Tesslate_Tessa-T1-14B-GGUF/Tesslate_Tessa-T1-14B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
