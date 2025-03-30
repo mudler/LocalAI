@@ -2122,7 +2122,11 @@ static void append_to_generated_text_from_generated_token_probs(llama_server_con
 }
 
 std::function<void(int)> shutdown_handler;
-inline void signal_handler(int signal) { shutdown_handler(signal); }
+
+inline void signal_handler(int signal) {
+    exit(1);
+}
+
 
 /////////////////////////////////
 ////////////////////////////////
@@ -2648,6 +2652,20 @@ void RunServer(const std::string& server_address) {
 
 int main(int argc, char** argv) {
   std::string server_address("localhost:50051");
+
+#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
+    struct sigaction sigint_action;
+    sigint_action.sa_handler = signal_handler;
+    sigemptyset (&sigint_action.sa_mask);
+    sigint_action.sa_flags = 0;
+    sigaction(SIGINT, &sigint_action, NULL);
+    sigaction(SIGTERM, &sigint_action, NULL);
+#elif defined (_WIN32)
+    auto console_ctrl_handler = +[](DWORD ctrl_type) -> BOOL {
+        return (ctrl_type == CTRL_C_EVENT) ? (signal_handler(SIGINT), true) : false;
+    };
+    SetConsoleCtrlHandler(reinterpret_cast<PHANDLER_ROUTINE>(console_ctrl_handler), true);
+#endif
 
   // Define long and short options
   struct option long_options[] = {
