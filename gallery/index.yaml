@@ -5396,6 +5396,20 @@
     - filename: Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
       sha256: 26e99578c341c879cc2676c4c7a45b6c0d00b30bd17c8ee7494fcc4092480ef0
       uri: huggingface://mradermacher/Galactic-Qwen-14B-Exp1-GGUF/Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "hammer2.0-7b"
+  urls:
+    - https://huggingface.co/MadeAgents/Hammer2.0-7b
+    - https://huggingface.co/Nekuromento/Hammer2.0-7b-Q5_K_M-GGUF
+  description: |
+    Hammer2.0 finetuned based on Qwen 2.5 series and Qwen 2.5 coder series using function masking techniques. It's trained using the APIGen Function Calling Datasets containing 60,000 samples, supplemented by xlam-irrelevance-7.5k we generated. Hammer2.0 has achieved exceptional performances across numerous function calling benchmarks. For more details, please refer to Hammer: Robust Function-Calling for On-Device Language Models via Function Masking and Hammer GitHub repository .
+  overrides:
+    parameters:
+      model: hammer2.0-7b-q5_k_m.gguf
+  files:
+    - filename: hammer2.0-7b-q5_k_m.gguf
+      sha256: 3682843c857595765f0786cf24b3d501af96fe5d99a9fb2526bc7707e28bae1e
+      uri: huggingface://Nekuromento/Hammer2.0-7b-Q5_K_M-GGUF/hammer2.0-7b-q5_k_m.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
