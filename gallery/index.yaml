@@ -1357,6 +1357,31 @@
     - filename: Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
       sha256: 8f3de344ba83705f9491c2ed354fd6131a05946fca2eceae495b6fc67a7dbe7a
       uri: huggingface://bartowski/Tarek07_Legion-V2.1-LLaMa-70B-GGUF/Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "forgotten-abomination-70b-v5.0"
+  icon: https://huggingface.co/ReadyArt/Forgotten-Abomination-70B-v5.0/resolve/main/waifu5.webp
+  urls:
+    - https://huggingface.co/ReadyArt/Forgotten-Abomination-70B-v5.0
+    - https://huggingface.co/mradermacher/Forgotten-Abomination-70B-v5.0-GGUF
+  description: |
+    The Unholy Union of Safeword and Nevoria
+    This model represents the forbidden merger of:
+
+    🧬 Forgotten-Safeword-70B-v5.0 - Industrial-grade depravity matrix with 23 distinct taboo specializations
+    ⚗️ L3.3-MS-Nevoria-70b - SteelSkull's masterpiece of storytelling and character adherence, free of positivity bias and ethical constraints
+    Expect:
+
+    🔥 Unparalleled erotic roleplaying with the least Llama refusals you've ever seen
+    📖 Novel-quality prose that follows your character card with precision
+    🧠 Handles complex multi-character scenarios effortlessly
+    💀 Will gleefully explore any taboo subject without hesitation
+  overrides:
+    parameters:
+      model: Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
+  files:
+    - filename: Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
+      sha256: a5f5e712e66b855f36ff45175f20c24441fa942ca8af47bd6f49107c6e0f025d
+      uri: huggingface://mradermacher/Forgotten-Abomination-70B-v5.0-GGUF/Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
