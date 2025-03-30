@@ -5356,6 +5356,21 @@
     - filename: ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
       sha256: cbda41c638c23a3e8e9fb33c27ca0d0a0ee044b6813941a0017fd46369a35ec5
       uri: huggingface://bartowski/ChaoticNeutrals_Very_Berry_Qwen2_7B-GGUF/ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "galactic-qwen-14b-exp1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/SjM3y5Qcr2RX6zC3GQxR3.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Galactic-Qwen-14B-Exp1
+    - https://huggingface.co/mradermacher/Galactic-Qwen-14B-Exp1-GGUF
+  description: |
+    Galactic-Qwen-14B-Exp1 is based on the Qwen 2.5 14B modality architecture, designed to enhance the reasoning capabilities of 14B-parameter models. This model is optimized for general-purpose reasoning and answering, excelling in contextual understanding, logical deduction, and multi-step problem-solving. It has been fine-tuned using a long chain-of-thought reasoning model and specialized datasets to improve comprehension, structured responses, and conversational intelligence.
+  overrides:
+    parameters:
+      model: Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
+  files:
+    - filename: Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
+      sha256: 26e99578c341c879cc2676c4c7a45b6c0d00b30bd17c8ee7494fcc4092480ef0
+      uri: huggingface://mradermacher/Galactic-Qwen-14B-Exp1-GGUF/Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
