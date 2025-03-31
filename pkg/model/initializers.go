@@ -473,8 +473,6 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		backend = realBackend
 	}
 
-	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)
-
 	var backendToConsume string
 
 	switch backend {
@@ -497,13 +495,17 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 }
 
 func (ml *ModelLoader) stopActiveBackends(modelID string, singleActiveBackend bool) {
+	if !singleActiveBackend {
+		return
+	}
+
 	// If we can have only one backend active, kill all the others (except external backends)
-	if singleActiveBackend {
-		log.Debug().Msgf("Stopping all backends except '%s'", modelID)
-		err := ml.StopGRPC(allExcept(modelID))
-		if err != nil {
-			log.Error().Err(err).Str("keptModel", modelID).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
-		}
+
+	// Stop all backends except the one we are going to load
+	log.Debug().Msgf("Stopping all backends except '%s'", modelID)
+	err := ml.StopGRPC(allExcept(modelID))
+	if err != nil {
+		log.Error().Err(err).Str("keptModel", modelID).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
 	}
 }
 
@@ -520,10 +522,12 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 
 	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)
 
+	// if a backend is defined, return the loader directly
 	if o.backendString != "" {
 		return ml.backendLoader(opts...)
 	}
 
+	// Otherwise scan for backends in the asset directory
 	var err error
 
 	// get backends embedded in the binary
