@@ -108,6 +108,8 @@ local-ai run oci://localai/phi-2:latest
 
 ## 📰 Latest project news
 
+- Apr 2025: WebUI overhaul, AIO images updates
+- Feb 2025: Backend cleanup, Breaking changes, new backends (kokoro, OutelTTS, faster-whisper), Nvidia L4T images
 - Jan 2025: LocalAI model release: https://huggingface.co/mudler/LocalAI-functioncall-phi-4-v0.3, SANA support in diffusers: https://github.com/mudler/LocalAI/pull/4603
 - Dec 2024: stablediffusion.cpp backend (ggml) added ( https://github.com/mudler/LocalAI/pull/4289 )
 - Nov 2024: Bark.cpp backend added ( https://github.com/mudler/LocalAI/pull/4287 )
