@@ -50,7 +50,23 @@
 
 **LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that’s compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
 
-![screen](https://github.com/mudler/LocalAI/assets/2420543/20b5ccd2-8393-44f0-aaf6-87a23806381e)
+| Talk Interface | Generate Audio |
+| --- | --- |
+| ![Screenshot 2025-03-31 at 12-01-36 LocalAI - Talk](https://github.com/user-attachments/assets/9841b1ee-88af-4b96-8ec0-41b17364efa7) | ![Screenshot 2025-03-31 at 12-01-29 LocalAI - Generate audio with voice-en-us-ryan-low](https://github.com/user-attachments/assets/d729f6f4-0621-4715-bda3-35fe6e159524) |
+
+| Models Overview | Generate Images |
+| --- | --- |
+| ![Screenshot 2025-03-31 at 12-01-20 LocalAI - Models](https://github.com/user-attachments/assets/3cf0b918-ba8e-498a-a3cd-485db5984325) | ![Screenshot 2025-03-31 at 12-31-41 LocalAI - Generate images with flux 1-dev](https://github.com/user-attachments/assets/6753d23d-218b-4e07-94b8-9e6c5a4f2311) |
+
+| Chat Interface | API Overview |
+| --- | --- |
+| ![Screenshot 2025-03-31 at 11-57-44 LocalAI - Chat with localai-functioncall-qwen2 5-7b-v0 5](https://github.com/user-attachments/assets/048eab31-0f0c-4d52-a920-3715233f9bf3) | ![Screenshot 2025-03-31 at 11-57-23 LocalAI API - c2a39e3 (c2a39e3639227cfd94ffffe9f5691239acc275a8)](https://github.com/user-attachments/assets/2540e8ce-1a2c-4c12-800c-763bd9be247f) |
+
+| Login | Swarm |
+| --- | --- |
+|![Screenshot 2025-03-31 at 12-09-59 ](https://github.com/user-attachments/assets/5af681b0-dd8e-4fe8-a234-a22f8a040547) | ![Screenshot 2025-03-31 at 12-10-39 LocalAI - P2P dashboard](https://github.com/user-attachments/assets/b9527176-63d6-4d2e-8ed1-7fde13a9b0ad) |
+
+## Quickstart
 
 Run the installer script:
 
