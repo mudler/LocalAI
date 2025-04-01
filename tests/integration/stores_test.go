@@ -70,7 +70,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 				model.WithModel("test"),
 			}
 
-			sl = model.NewModelLoader("")
+			sl = model.NewModelLoader("", false)
 			sc, err = sl.Load(storeOpts...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sc).ToNot(BeNil())
@@ -235,7 +235,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 			keys := [][]float32{{1.0, 0.0, 0.0}, {0.0, 1.0, 0.0}, {0.0, 0.0, 1.0}, {-1.0, 0.0, 0.0}}
 			vals := [][]byte{[]byte("x"), []byte("y"), []byte("z"), []byte("-z")}
 
-			err := store.SetCols(context.Background(), sc, keys, vals);
+			err := store.SetCols(context.Background(), sc, keys, vals)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, _, sims, err := store.Find(context.Background(), sc, keys[0], 4)
@@ -247,7 +247,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 			keys := [][]float32{{1.0, 0.0, 1.0}, {0.0, 2.0, 0.0}, {0.0, 0.0, -1.0}, {-1.0, 0.0, -1.0}}
 			vals := [][]byte{[]byte("x"), []byte("y"), []byte("z"), []byte("-z")}
 
-			err := store.SetCols(context.Background(), sc, keys, vals);
+			err := store.SetCols(context.Background(), sc, keys, vals)
 			Expect(err).ToNot(HaveOccurred())
 
 			_, _, sims, err := store.Find(context.Background(), sc, keys[0], 4)
@@ -314,7 +314,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 
 			normalize(keys[6:])
 
-			err := store.SetCols(context.Background(), sc, keys, vals);
+			err := store.SetCols(context.Background(), sc, keys, vals)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectTriangleEq(keys, vals)
@@ -341,7 +341,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 				c += 1
 			}
 
-			err := store.SetCols(context.Background(), sc, keys, vals);
+			err := store.SetCols(context.Background(), sc, keys, vals)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectTriangleEq(keys, vals)

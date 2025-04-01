@@ -12,10 +12,10 @@ import (
 func Rerank(request *proto.RerankRequest, loader *model.ModelLoader, appConfig *config.ApplicationConfig, backendConfig config.BackendConfig) (*proto.RerankResult, error) {
 	opts := ModelOptions(backendConfig, appConfig)
 	rerankModel, err := loader.Load(opts...)
-
 	if err != nil {
 		return nil, err
 	}
+	defer loader.Close()
 
 	if rerankModel == nil {
 		return nil, fmt.Errorf("could not load rerank model")

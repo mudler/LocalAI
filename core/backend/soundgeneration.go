@@ -26,10 +26,10 @@ func SoundGeneration(
 
 	opts := ModelOptions(backendConfig, appConfig)
 	soundGenModel, err := loader.Load(opts...)
-
 	if err != nil {
 		return "", nil, err
 	}
+	defer loader.Close()
 
 	if soundGenModel == nil {
 		return "", nil, fmt.Errorf("could not load sound generation model")

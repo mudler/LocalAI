@@ -18,16 +18,19 @@ import (
 
 // TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we seperate directories for .bin/.yaml and .tmpl
 type ModelLoader struct {
-	ModelPath string
-	mu        sync.Mutex
-	models    map[string]*Model
-	wd        *WatchDog
+	ModelPath     string
+	mu            sync.Mutex
+	singletonLock sync.Mutex
+	singletonMode bool
+	models        map[string]*Model
+	wd            *WatchDog
 }
 
-func NewModelLoader(modelPath string) *ModelLoader {
+func NewModelLoader(modelPath string, singleActiveBackend bool) *ModelLoader {
 	nml := &ModelLoader{
-		ModelPath: modelPath,
-		models:    make(map[string]*Model),
+		ModelPath:     modelPath,
+		models:        make(map[string]*Model),
+		singletonMode: singleActiveBackend,
 	}
 
 	return nml

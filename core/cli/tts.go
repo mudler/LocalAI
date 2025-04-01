@@ -41,7 +41,7 @@ func (t *TTSCMD) Run(ctx *cliContext.Context) error {
 		AudioDir:          outputDir,
 		AssetsDestination: t.BackendAssetsPath,
 	}
-	ml := model.NewModelLoader(opts.ModelPath)
+	ml := model.NewModelLoader(opts.ModelPath, opts.SingleBackend)
 
 	defer func() {
 		err := ml.StopAllGRPC()

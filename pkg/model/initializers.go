@@ -509,7 +509,23 @@ func (ml *ModelLoader) stopActiveBackends(modelID string, singleActiveBackend bo
 	}
 }
 
+func (ml *ModelLoader) Close() {
+	if !ml.singletonMode {
+		return
+	}
+	ml.singletonLock.Unlock()
+}
+
+func (ml *ModelLoader) lockBackend() {
+	if !ml.singletonMode {
+		return
+	}
+	ml.singletonLock.Lock()
+}
+
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
+	ml.lockBackend() // grab the singleton lock if needed
+
 	o := NewOptions(opts...)
 
 	// Return earlier if we have a model already loaded
@@ -520,7 +536,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		return m.GRPC(o.parallelRequests, ml.wd), nil
 	}
 
-	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)
+	ml.stopActiveBackends(o.modelID, ml.singletonMode)
 
 	// if a backend is defined, return the loader directly
 	if o.backendString != "" {
@@ -533,6 +549,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	// get backends embedded in the binary
 	autoLoadBackends, err := ml.ListAvailableBackends(o.assetDir)
 	if err != nil {
+		ml.Close() // we failed, release the lock
 		return nil, err
 	}
 
@@ -563,6 +580,8 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
 		}
 	}
+
+	ml.Close() // make sure to release the lock in case of failure
 
 	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
 }

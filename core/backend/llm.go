@@ -53,6 +53,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 	if err != nil {
 		return nil, err
 	}
+	defer loader.Close()
 
 	var protoMessages []*proto.Message
 	// if we are using the tokenizer template, we need to convert the messages to proto messages
