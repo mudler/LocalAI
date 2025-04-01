@@ -50,11 +50,10 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	router.Post("/v1/vad", vadChain...)
 
 	// Stores
-	sl := model.NewModelLoader("")
-	router.Post("/stores/set", localai.StoresSetEndpoint(sl, appConfig))
-	router.Post("/stores/delete", localai.StoresDeleteEndpoint(sl, appConfig))
-	router.Post("/stores/get", localai.StoresGetEndpoint(sl, appConfig))
-	router.Post("/stores/find", localai.StoresFindEndpoint(sl, appConfig))
+	router.Post("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
+	router.Post("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
+	router.Post("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
+	router.Post("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
 
 	if !appConfig.DisableMetrics {
 		router.Get("/metrics", localai.LocalAIMetricsEndpoint())

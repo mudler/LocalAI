@@ -143,7 +143,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}()
 	}
 
-	if options.LoadToMemory != nil {
+	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {
 			cfg, err := application.BackendLoader().LoadBackendConfigFileByNameDefaultOptions(m, options)
 			if err != nil {

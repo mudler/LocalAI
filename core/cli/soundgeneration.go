@@ -74,7 +74,7 @@ func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 		AssetsDestination:    t.BackendAssetsPath,
 		ExternalGRPCBackends: externalBackends,
 	}
-	ml := model.NewModelLoader(opts.ModelPath)
+	ml := model.NewModelLoader(opts.ModelPath, opts.SingleBackend)
 
 	defer func() {
 		err := ml.StopAllGRPC()

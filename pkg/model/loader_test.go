@@ -21,7 +21,7 @@ var _ = Describe("ModelLoader", func() {
 		// Setup the model loader with a test directory
 		modelPath = "/tmp/test_model_path"
 		os.Mkdir(modelPath, 0755)
-		modelLoader = model.NewModelLoader(modelPath)
+		modelLoader = model.NewModelLoader(modelPath, false)
 	})
 
 	AfterEach(func() {

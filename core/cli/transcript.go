@@ -32,7 +32,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	cl := config.NewBackendConfigLoader(t.ModelsPath)
-	ml := model.NewModelLoader(opts.ModelPath)
+	ml := model.NewModelLoader(opts.ModelPath, opts.SingleBackend)
 	if err := cl.LoadBackendConfigsFromPath(t.ModelsPath); err != nil {
 		return err
 	}
