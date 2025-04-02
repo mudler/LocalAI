@@ -303,4 +303,4 @@ require (
 	lukechampine.com/blake3 v1.3.0 // indirect
 )
 
-replace github.com/mudler/edgevpn => github.com/swarmind/edgevpn v0.0.0-20250329011455-c0a96483b1ff
+replace github.com/mudler/edgevpn => github.com/swarmind/edgevpn v0.0.0-20250331231759-326a9e7360b0
