@@ -386,6 +386,21 @@
     - filename: Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
       sha256: 4c35a678e3784e20a8d85d4e7045d965509a1a71305a0da105fc5991ba7d6dc4
       uri: huggingface://mradermacher/Gemma-3-Starshine-12B-i1-GGUF/Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "burtenshaw_gemmacoder3-12b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62d648291fa3e4e7ae3fa6e8/zkcBr2UZFDpALAsMdgbze.gif
+  urls:
+    - https://huggingface.co/burtenshaw/GemmaCoder3-12B
+    - https://huggingface.co/bartowski/burtenshaw_GemmaCoder3-12B-GGUF
+  description: |
+    This model is a fine-tuned version of google/gemma-3-12b-it on the open-r1/codeforces-cots dataset. It has been trained using TRL.
+  overrides:
+    parameters:
+      model: burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
+  files:
+    - filename: burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
+      sha256: 47f0a2848eeed783cb03336afd8cc69f6ee0e088e3cec11ab6d9fe16457dc3d4
+      uri: huggingface://bartowski/burtenshaw_GemmaCoder3-12B-GGUF/burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
