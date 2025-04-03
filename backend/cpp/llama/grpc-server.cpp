@@ -509,15 +509,15 @@ struct llama_server_context
     bool load_model(const common_params &params_)
     {
         params = params_;
-        if (!params.mmproj.empty()) {
+        if (!params.mmproj.path.empty()) {
             multimodal = true;
             LOG_INFO("Multi Modal Mode Enabled", {});
-            clp_ctx = clip_init(params.mmproj.c_str(), clip_context_params {
+            clp_ctx = clip_init(params.mmproj.path.c_str(), clip_context_params {
                 /* use_gpu */ has_gpu,
                 /*verbosity=*/ 1,
             });
             if(clp_ctx == nullptr) {
-                LOG_ERR("unable to load clip model: %s", params.mmproj.c_str());
+                LOG_ERR("unable to load clip model: %s", params.mmproj.path.c_str());
                 return false;
             }
 
@@ -531,7 +531,7 @@ struct llama_server_context
         ctx = common_init.context.release();
         if (model == nullptr)
         {
-            LOG_ERR("unable to load model: %s", params.model.c_str());
+            LOG_ERR("unable to load model: %s", params.model.path.c_str());
             return false;
         }
 
@@ -2326,11 +2326,11 @@ static void params_parse(const backend::ModelOptions* request,
    
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
 
-    params.model = request->modelfile();
+    params.model.path = request->modelfile();
     if (!request->mmproj().empty()) {
     // get the directory of modelfile
-      std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
-      params.mmproj = model_dir + "/"+ request->mmproj();
+      std::string model_dir = params.model.path.substr(0, params.model.path.find_last_of("/\\"));
+      params.mmproj.path = model_dir + "/"+ request->mmproj();
     }
     //  params.model_alias ??
     params.model_alias =  request->modelfile();
@@ -2405,7 +2405,7 @@ static void params_parse(const backend::ModelOptions* request,
         scale_factor = request->lorascale();
      }
      // get the directory of modelfile
-     std::string model_dir = params.model.substr(0, params.model.find_last_of("/\\"));
+     std::string model_dir = params.model.path.substr(0, params.model.path.find_last_of("/\\"));
      params.lora_adapters.push_back({ model_dir + "/"+request->loraadapter(), scale_factor });
     }
     params.use_mlock = request->mlock();
