@@ -10,7 +10,7 @@ CPPLLAMA_VERSION?=f01bd02376f919b05ee635f438311be8dfc91d7c
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=6266a9f9e56a5b925e9892acf650f3eb1245814d
+WHISPER_CPP_VERSION?=77e0c86ab62eda9392a8567f4c29ab8d140cb0ba
 
 # go-piper version
 PIPER_REPO?=https://github.com/mudler/go-piper
