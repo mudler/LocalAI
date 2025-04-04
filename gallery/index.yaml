@@ -437,6 +437,21 @@
     - filename: burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
       sha256: 47f0a2848eeed783cb03336afd8cc69f6ee0e088e3cec11ab6d9fe16457dc3d4
       uri: huggingface://bartowski/burtenshaw_GemmaCoder3-12B-GGUF/burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "tesslate_synthia-s1-27b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/zgFDl7UvWhiPYqdote7XT.png
+  urls:
+    - https://huggingface.co/Tesslate/Synthia-S1-27b
+    - https://huggingface.co/bartowski/Tesslate_Synthia-S1-27b-GGUF
+  description: |
+    Synthia-S1-27b is a reasoning, AI model developed by Tesslate AI, fine-tuned specifically for advanced reasoning, coding, and RP usecases. Built upon the robust Gemma3 architecture, Synthia-S1-27b excels in logical reasoning, creative writing, and deep contextual understanding. It supports multimodal inputs (text and images) with a large 128K token context window, enabling complex analysis suitable for research, academic tasks, and enterprise-grade AI applications.
+  overrides:
+    parameters:
+      model: Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+      sha256: d953bf7f802dc68f85a35360deb24b9a8b446af051e82c77f2f0759065d2aa71
+      uri: huggingface://bartowski/Tesslate_Synthia-S1-27b-GGUF/Tesslate_Synthia-S1-27b-Q4_K_M.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
