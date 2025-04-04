@@ -5588,6 +5588,28 @@
     - filename: katanemo_Arch-Function-Chat-7B-Q4_K_M.gguf
       sha256: 6fd603511076ffea3697c8a76d82c054781c5e11f134b937a66cedfc49b3d2c5
       uri: huggingface://bartowski/katanemo_Arch-Function-Chat-7B-GGUF/katanemo_Arch-Function-Chat-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "katanemo_arch-function-chat-1.5b"
+  urls:
+    - https://huggingface.co/katanemo/Arch-Function-Chat-1.5B
+    - https://huggingface.co/bartowski/katanemo_Arch-Function-Chat-1.5B-GGUF
+  description: |
+    The Arch-Function-Chat collection builds upon the Katanemo's Arch-Function collection by extending its capabilities beyond function calling. This new collection maintains the state-of-the-art(SOTA) function calling performance of the original collection while adding powerful new features that make it even more versatile in real-world applications.
+
+    In addition to function calling capabilities, this collection now offers:
+
+        Clarify & refine: Generates natural follow-up questions to collect missing information for function calling
+        Interpret & respond: Provides human-friendly responses based on function execution results
+        Context management: Mantains context in complex multi-turn interactions
+
+    Note: Arch-Function-Chat is now the primarly LLM used in then open source Arch Gateway - An AI-native proxy for agents. For more details about the project, check out the Github README.
+  overrides:
+    parameters:
+      model: katanemo_Arch-Function-Chat-1.5B-Q4_K_M.gguf
+  files:
+    - filename: katanemo_Arch-Function-Chat-1.5B-Q4_K_M.gguf
+      sha256: 5bfcb72803745c374a90b0ceb60f347a8c7d1239960cce6a2d22cc1276236098
+      uri: huggingface://bartowski/katanemo_Arch-Function-Chat-1.5B-GGUF/katanemo_Arch-Function-Chat-1.5B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
