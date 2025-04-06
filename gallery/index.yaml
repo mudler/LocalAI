@@ -5667,6 +5667,23 @@
     - filename: open-thoughts_OpenThinker2-32B-Q4_K_M.gguf
       sha256: e9c7bf7cb349cfe07b4550759a3b4d7005834d0fa7580b23e483cbfeecd7a982
       uri: huggingface://bartowski/open-thoughts_OpenThinker2-32B-GGUF/open-thoughts_OpenThinker2-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-thoughts_openthinker2-7b"
+  icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.pnghttps://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
+  urls:
+    - https://huggingface.co/open-thoughts/OpenThinker2-7B
+    - https://huggingface.co/bartowski/open-thoughts_OpenThinker2-7B-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen2.5-7B-Instruct on the OpenThoughts2-1M dataset.
+
+    The OpenThinker2-7B model is the top 7B open-data reasoning model. It delivers performance comparable to state of the art 7B models like DeepSeek-R1-Distill-7B across a suite of tasks. This model improves upon our previous OpenThinker-7B model, which was trained on 114k examples from OpenThoughts-114k. The numbers reported in the table below are evaluated with our open-source tool Evalchemy.
+  overrides:
+    parameters:
+      model: open-thoughts_OpenThinker2-7B-Q4_K_M.gguf
+  files:
+    - filename: open-thoughts_OpenThinker2-7B-Q4_K_M.gguf
+      sha256: 481d785047d66ae2eeaf14650a9e659ec4f7766a6414b6c7e92854c944201734
+      uri: huggingface://bartowski/open-thoughts_OpenThinker2-7B-GGUF/open-thoughts_OpenThinker2-7B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
