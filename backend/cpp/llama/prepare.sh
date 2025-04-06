@@ -21,6 +21,7 @@ fi
 ## XXX: In some versions of CMake clip wasn't being built before llama.
 ## This is an hack for now, but it should be fixed in the future.
 cp -rfv llama.cpp/examples/llava/clip.h llama.cpp/examples/grpc-server/clip.h
+cp -rfv llama.cpp/examples/llava/clip-impl.h llama.cpp/examples/grpc-server/clip-impl.h
 cp -rfv llama.cpp/examples/llava/llava.cpp llama.cpp/examples/grpc-server/llava.cpp
 echo '#include "llama.h"' > llama.cpp/examples/grpc-server/llava.h
 cat llama.cpp/examples/llava/llava.h >> llama.cpp/examples/grpc-server/llava.h
