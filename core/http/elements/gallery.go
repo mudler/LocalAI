@@ -122,15 +122,15 @@ func modelModal(m *gallery.GalleryModel) elem.Node {
 			"id":          modalName(m),
 			"tabindex":    "-1",
 			"aria-hidden": "true",
-			"class":       "hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full",
+			"class":       "hidden fixed top-0 right-0 left-0 z-50 justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50",
 		},
 		elem.Div(
 			attrs.Props{
-				"class": "relative p-4 w-full max-w-2xl max-h-full",
+				"class": "relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]",
 			},
 			elem.Div(
 				attrs.Props{
-					"class": "relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700",
+					"class": "relative bg-white rounded-lg shadow dark:bg-gray-700 h-full flex flex-col",
 				},
 				// header
 				elem.Div(
@@ -164,14 +164,13 @@ func modelModal(m *gallery.GalleryModel) elem.Node {
 				// body
 				elem.Div(
 					attrs.Props{
-						"class": "p-4 md:p-5 space-y-4",
+						"class": "p-4 md:p-5 space-y-4 overflow-y-auto flex-1 min-h-0",
 					},
 					elem.Div(
 						attrs.Props{
 							"class": "flex justify-center items-center",
 						},
 						elem.Img(attrs.Props{
-							//	"class": "rounded-t-lg object-fit object-center h-96",
 							"class":   "lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded",
 							"src":     m.Icon,
 							"loading": "lazy",
@@ -232,7 +231,6 @@ func modelModal(m *gallery.GalleryModel) elem.Node {
 			),
 		),
 	)
-
 }
 
 func modelDescription(m *gallery.GalleryModel) elem.Node {
