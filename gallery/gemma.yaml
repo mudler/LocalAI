@@ -8,9 +8,7 @@ config_file: |
     chat_message: |-
       <start_of_turn>{{if eq .RoleName "assistant" }}model{{else}}{{ .RoleName }}{{end}}
       {{ if .FunctionCall -}}
-      Function call:
       {{ else if eq .RoleName "tool" -}}
-      Function response:
       {{ end -}}
       {{ if .Content -}}
       {{.Content -}}
@@ -25,11 +23,14 @@ config_file: |
       {{.Input}}
     function: |
       <start_of_turn>system
-      You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
+      You have access to functions. If you decide to invoke any of the function(s),
+      you MUST put it in the format of
+      {"name": function name, "parameters": dictionary of argument name and its value}
+
+      You SHOULD NOT include any other text in the response if you call a function
       {{range .Functions}}
       {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
       {{end}}
-      For each function call return a json object with function name and arguments
       <end_of_turn>
       {{.Input -}}
       <start_of_turn>model
