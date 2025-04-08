@@ -1466,6 +1466,31 @@
     - filename: Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
       sha256: a5f5e712e66b855f36ff45175f20c24441fa942ca8af47bd6f49107c6e0f025d
       uri: huggingface://mradermacher/Forgotten-Abomination-70B-v5.0-GGUF/Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "watt-ai_watt-tool-70b"
+  urls:
+    - https://huggingface.co/watt-ai/watt-tool-70B
+    - https://huggingface.co/bartowski/watt-ai_watt-tool-70B-GGUF
+  description: |
+    watt-tool-70B is a fine-tuned language model based on LLaMa-3.3-70B-Instruct, optimized for tool usage and multi-turn dialogue. It achieves state-of-the-art performance on the Berkeley Function-Calling Leaderboard (BFCL).
+    Model Description
+
+    This model is specifically designed to excel at complex tool usage scenarios that require multi-turn interactions, making it ideal for empowering platforms like Lupan, an AI-powered workflow building tool. By leveraging a carefully curated and optimized dataset, watt-tool-70B demonstrates superior capabilities in understanding user requests, selecting appropriate tools, and effectively utilizing them across multiple turns of conversation.
+
+    Target Application: AI Workflow Building as in https://lupan.watt.chat/ and Coze.
+    Key Features
+
+        Enhanced Tool Usage: Fine-tuned for precise and efficient tool selection and execution.
+        Multi-Turn Dialogue: Optimized for maintaining context and effectively utilizing tools across multiple turns of conversation, enabling more complex task completion.
+        State-of-the-Art Performance: Achieves top performance on the BFCL, demonstrating its capabilities in function calling and tool usage.
+        Based on LLaMa-3.1-70B-Instruct: Inherits the strong language understanding and generation capabilities of the base model.
+  overrides:
+    parameters:
+      model: watt-ai_watt-tool-70B-Q4_K_M.gguf
+  files:
+    - filename: watt-ai_watt-tool-70B-Q4_K_M.gguf
+      sha256: 93806a5482b9e40e50ffca7a72abe3414d384749cc9e3d378eab5db8a8154b18
+      uri: huggingface://bartowski/watt-ai_watt-tool-70B-GGUF/watt-ai_watt-tool-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
