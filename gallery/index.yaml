@@ -470,6 +470,31 @@
     - filename: Tesslate_Synthia-S1-27b-Q4_K_M.gguf
       sha256: d953bf7f802dc68f85a35360deb24b9a8b446af051e82c77f2f0759065d2aa71
       uri: huggingface://bartowski/Tesslate_Synthia-S1-27b-GGUF/Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+- &llama4
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/153379578
+  license: llama4
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.3
+  name: "meta-llama_llama-4-scout-17b-16e-instruct"
+  urls:
+    - https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct
+    - https://huggingface.co/bartowski/meta-llama_Llama-4-Scout-17B-16E-Instruct-GGUF
+  description: |
+    The Llama 4 collection of models are natively multimodal AI models that enable text and multimodal experiences. These models leverage a mixture-of-experts architecture to offer industry-leading performance in text and image understanding.
+
+    These Llama 4 models mark the beginning of a new era for the Llama ecosystem. We are launching two efficient models in the Llama 4 series, Llama 4 Scout, a 17 billion parameter model with 16 experts, and Llama 4 Maverick, a 17 billion parameter model with 128 experts.
+  overrides:
+    parameters:
+      model: meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
+  files:
+    - filename: meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
+      sha256: 48dfc18d40691b4190b7fecf1f89b78cadc758c3a27a9e2a1cabd686fdb822e3
+      uri: huggingface://bartowski/meta-llama_Llama-4-Scout-17B-16E-Instruct-GGUF/meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
