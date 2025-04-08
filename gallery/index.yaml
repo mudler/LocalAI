@@ -5734,6 +5734,21 @@
     - filename: ArliAI_QwQ-32B-ArliAI-RpR-v1-Q4_K_M.gguf
       sha256: b0f2ca8f62a5d021e20db40608a109713e9d23e75b68b3b71b7654c04d596dcf
       uri: huggingface://bartowski/ArliAI_QwQ-32B-ArliAI-RpR-v1-GGUF/ArliAI_QwQ-32B-ArliAI-RpR-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "mensa-beta-14b-instruct-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/DyO5Fvqwvee-UM9QqgWZS.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Mensa-Beta-14B-Instruct
+    - https://huggingface.co/mradermacher/Mensa-Beta-14B-Instruct-i1-GGUF
+  description: |
+    weighted/imatrix quants of https://huggingface.co/prithivMLmods/Mensa-Beta-14B-Instruct
+  overrides:
+    parameters:
+      model: Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
+  files:
+    - filename: Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
+      sha256: 86ccd640d72dcf3129fdd5b94381a733a684672b22487784e388b2ee9de57760
+      uri: huggingface://mradermacher/Mensa-Beta-14B-Instruct-i1-GGUF/Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
