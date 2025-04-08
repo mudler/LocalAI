@@ -9664,6 +9664,21 @@
     - filename: BlackSheep-24B.i1-Q4_K_M.gguf
       sha256: 95ae096eca05a95591254babf81b4d5617ceebbe8eda04c6cf8968ef4a69fc80
       uri: huggingface://mradermacher/BlackSheep-24B-i1-GGUF/BlackSheep-24B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "eurydice-24b-v2-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/652c2a63d78452c4742cd3d3/Hm_tg4s0D6yWmtrTHII32.png
+  urls:
+    - https://huggingface.co/aixonlab/Eurydice-24b-v2
+    - https://huggingface.co/mradermacher/Eurydice-24b-v2-i1-GGUF
+  description: |
+    Eurydice 24b v2 is designed to be the perfect companion for multi-role conversations. It demonstrates exceptional contextual understanding and excels in creativity, natural conversation and storytelling. Built on Mistral 3.1, this model has been trained on a custom dataset specifically crafted to enhance its capabilities.
+  overrides:
+    parameters:
+      model: Eurydice-24b-v2.i1-Q4_K_M.gguf
+  files:
+    - filename: Eurydice-24b-v2.i1-Q4_K_M.gguf
+      sha256: fb4104a1b33dd860e1eca3b6906a10cacc5b91a2534db72d9749652a204fbcbf
+      uri: huggingface://mradermacher/Eurydice-24b-v2-i1-GGUF/Eurydice-24b-v2.i1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
