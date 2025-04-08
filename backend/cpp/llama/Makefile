@@ -8,7 +8,7 @@ ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 TARGET?=--target grpc-server
 
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
-CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
+CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
 
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
