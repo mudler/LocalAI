@@ -1516,6 +1516,27 @@
     - filename: watt-ai_watt-tool-70B-Q4_K_M.gguf
       sha256: 93806a5482b9e40e50ffca7a72abe3414d384749cc9e3d378eab5db8a8154b18
       uri: huggingface://bartowski/watt-ai_watt-tool-70B-GGUF/watt-ai_watt-tool-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "deepcogito_cogito-v1-preview-llama-70b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-llama-70B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-llama-70B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-70B-GGUF
+  description: |
+      The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+          Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+          The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+          The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+              In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+          Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
+      sha256: d1deaf80c649e2a9446463cf5e1f7c026583647f46e3940d2b405a57cc685225
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-70B-GGUF/deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
