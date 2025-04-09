@@ -5815,6 +5815,27 @@
     - filename: cogito-v1-preview-qwen-14b-q4_k_m.gguf
       sha256: 42ddd667bac3e5f0989f52b3dca5767ed15d0e5077c6f537e4b3873862ff7096
       uri: huggingface://NikolayKozloff/cogito-v1-preview-qwen-14B-Q4_K_M-GGUF/cogito-v1-preview-qwen-14b-q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "deepcogito_cogito-v1-preview-qwen-32b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-qwen-32B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-qwen-32B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-qwen-32B-GGUF
+  description: |
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
+      sha256: 985f2d49330090e64603309f7eb61030769f25a5da027ac0b0a740858d087ad8
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-qwen-32B-GGUF/deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
