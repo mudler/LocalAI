@@ -7932,6 +7932,27 @@
     - filename: TextSynth-8B.i1-Q4_K_M.gguf
       sha256: 9186a8cb3a797cd2cd5b2eeaee99808674d96731824a9ee45685bbf480ba56c3
       uri: huggingface://mradermacher/TextSynth-8B-i1-GGUF/TextSynth-8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "deepcogito_cogito-v1-preview-llama-8b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-llama-8B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-llama-8B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-8B-GGUF
+  description: |
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-llama-8B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-llama-8B-Q4_K_M.gguf
+      sha256: 445173fb1dacef3fa0be49ebb4512b948fdb1434d86732de198424695b017b50
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-8B-GGUF/deepcogito_cogito-v1-preview-llama-8B-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
