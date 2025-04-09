@@ -2629,6 +2629,27 @@
     - filename: Eximius_Persona_5B.Q4_K_M.gguf
       sha256: 8a8e7a0fa1068755322c51900e53423d795e57976b4d95982242cbec41141c7b
       uri: huggingface://mradermacher/Eximius_Persona_5B-GGUF/Eximius_Persona_5B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "deepcogito_cogito-v1-preview-llama-3b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-llama-3B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-llama-3B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-3B-GGUF
+  description: |
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
+      sha256: 726a0ef5f818b8d238f2844f3204848bea66fb9c172b8ae0f6dc51b7bc081dd5
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-3B-GGUF/deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
