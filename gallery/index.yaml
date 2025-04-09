@@ -5775,7 +5775,7 @@
       sha256: 86ccd640d72dcf3129fdd5b94381a733a684672b22487784e388b2ee9de57760
       uri: huggingface://mradermacher/Mensa-Beta-14B-Instruct-i1-GGUF/Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
 - !!merge <<: *qwen25
-  name: "mensa-beta-14b-instruct-i1"
+  name: "cogito-v1-preview-qwen-14B"
   icon: https://huggingface.co/deepcogito/cogito-v1-preview-qwen-14B/resolve/main/images/deep-cogito-logo.png
   urls:
     - https://huggingface.co/deepcogito/cogito-v1-preview-qwen-14B
