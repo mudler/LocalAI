@@ -8494,6 +8494,20 @@
     - filename: Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
       sha256: aed6bd5bb03b7bd886939237bc10ea6331d4feb5a3b6712e0c5474a778acf817
       uri: huggingface://mradermacher/Fallen-Safeword-70B-R1-v4.1-GGUF/Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "agentica-org_deepcoder-14b-preview"
+  urls:
+    - https://huggingface.co/agentica-org/DeepCoder-14B-Preview
+    - https://huggingface.co/bartowski/agentica-org_DeepCoder-14B-Preview-GGUF
+  description: |
+    DeepCoder-14B-Preview is a code reasoning LLM fine-tuned from DeepSeek-R1-Distilled-Qwen-14B using distributed reinforcement learning (RL) to scale up to long context lengths. The model achieves 60.6% Pass@1 accuracy on LiveCodeBench v5 (8/1/24-2/1/25), representing a 8% improvement over the base model (53%) and achieving similar performance to OpenAI's o3-mini with just 14B parameters.
+  overrides:
+    parameters:
+      model: agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
+  files:
+    - filename: agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
+      sha256: 38f0f777de3116ca27d10ec84388b3290a1bf3f7db8c5bdc1f92d100e4231870
+      uri: huggingface://bartowski/agentica-org_DeepCoder-14B-Preview-GGUF/agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
