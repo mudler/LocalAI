@@ -80,8 +80,8 @@ grpc-server: llama.cpp llama.cpp/examples/grpc-server
 	@echo "Building grpc-server with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET) -j$(nproc)"
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)"
 else
-	+cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET) -j$(nproc)
+	+cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)
 endif
 	cp llama.cpp/build/bin/grpc-server .
