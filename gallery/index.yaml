@@ -79,6 +79,60 @@
       sha256: 8ccc5cd1f1b3602548715ae25a66ed73fd5dc68a210412eea643eb20eb75a135
       uri: huggingface://ggml-org/gemma-3-1b-it-GGUF/gemma-3-1b-it-Q4_K_M.gguf
 - !!merge <<: *gemma3
+  name: "gemma-3-12b-it-qat"
+  urls:
+    - https://huggingface.co/google/gemma-3-12b-it
+    - https://huggingface.co/vinimuchulski/gemma-3-12b-it-qat-q4_0-gguf
+  description: |
+    This model corresponds to the 12B instruction-tuned version of the Gemma 3 model in GGUF format using Quantization Aware Training (QAT). The GGUF corresponds to Q4_0 quantization.
+
+    Thanks to QAT, the model is able to preserve similar quality as bfloat16 while significantly reducing the memory requirements to load the model.
+
+    You can find the half-precision version here.
+  overrides:
+    parameters:
+      model: gemma-3-12b-it-q4_0.gguf
+  files:
+    - filename: gemma-3-12b-it-q4_0.gguf
+      sha256: 6f1bb5f455414f7b46482bda51cbfdbf19786e21a5498c4403fdfc03d09b045c
+      uri: huggingface://vinimuchulski/gemma-3-12b-it-qat-q4_0-gguf/gemma-3-12b-it-q4_0.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-4b-it-qat"
+  urls:
+    - https://huggingface.co/google/gemma-3-4b-it
+    - https://huggingface.co/vinimuchulski/gemma-3-4b-it-qat-q4_0-gguf
+  description: |
+    This model corresponds to the 4B instruction-tuned version of the Gemma 3 model in GGUF format using Quantization Aware Training (QAT). The GGUF corresponds to Q4_0 quantization.
+
+    Thanks to QAT, the model is able to preserve similar quality as bfloat16 while significantly reducing the memory requirements to load the model.
+
+    You can find the half-precision version here.
+  overrides:
+    parameters:
+      model: gemma-3-4b-it-q4_0.gguf
+  files:
+    - filename: gemma-3-4b-it-q4_0.gguf
+      sha256: 2ca493d426ffcb43db27132f183a0230eda4a3621e58b328d55b665f1937a317
+      uri: huggingface://vinimuchulski/gemma-3-4b-it-qat-q4_0-gguf/gemma-3-4b-it-q4_0.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-27b-it-qat"
+  urls:
+    - https://huggingface.co/google/gemma-3-27b-it
+    - https://huggingface.co/vinimuchulski/gemma-3-27b-it-qat-q4_0-gguf
+  description: |
+    This model corresponds to the 27B instruction-tuned version of the Gemma 3 model in GGUF format using Quantization Aware Training (QAT). The GGUF corresponds to Q4_0 quantization.
+
+    Thanks to QAT, the model is able to preserve similar quality as bfloat16 while significantly reducing the memory requirements to load the model.
+
+    You can find the half-precision version here.
+  overrides:
+    parameters:
+      model: gemma-3-27b-it-q4_0.gguf
+  files:
+    - filename: gemma-3-27b-it-q4_0.gguf
+      sha256: 45e586879bc5f5d7a5b6527e812952057ce916d9fc7ba16f7262ec9972c9e2a2
+      uri: huggingface://vinimuchulski/gemma-3-27b-it-qat-q4_0-gguf/gemma-3-27b-it-q4_0.gguf
+- !!merge <<: *gemma3
   name: "qgallouedec_gemma-3-27b-it-codeforces-sft"
   urls:
     - https://huggingface.co/qgallouedec/gemma-3-27b-it-codeforces-SFT
@@ -386,6 +440,61 @@
     - filename: Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
       sha256: 4c35a678e3784e20a8d85d4e7045d965509a1a71305a0da105fc5991ba7d6dc4
       uri: huggingface://mradermacher/Gemma-3-Starshine-12B-i1-GGUF/Gemma-3-Starshine-12B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "burtenshaw_gemmacoder3-12b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62d648291fa3e4e7ae3fa6e8/zkcBr2UZFDpALAsMdgbze.gif
+  urls:
+    - https://huggingface.co/burtenshaw/GemmaCoder3-12B
+    - https://huggingface.co/bartowski/burtenshaw_GemmaCoder3-12B-GGUF
+  description: |
+    This model is a fine-tuned version of google/gemma-3-12b-it on the open-r1/codeforces-cots dataset. It has been trained using TRL.
+  overrides:
+    parameters:
+      model: burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
+  files:
+    - filename: burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
+      sha256: 47f0a2848eeed783cb03336afd8cc69f6ee0e088e3cec11ab6d9fe16457dc3d4
+      uri: huggingface://bartowski/burtenshaw_GemmaCoder3-12B-GGUF/burtenshaw_GemmaCoder3-12B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "tesslate_synthia-s1-27b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/zgFDl7UvWhiPYqdote7XT.png
+  urls:
+    - https://huggingface.co/Tesslate/Synthia-S1-27b
+    - https://huggingface.co/bartowski/Tesslate_Synthia-S1-27b-GGUF
+  description: |
+    Synthia-S1-27b is a reasoning, AI model developed by Tesslate AI, fine-tuned specifically for advanced reasoning, coding, and RP usecases. Built upon the robust Gemma3 architecture, Synthia-S1-27b excels in logical reasoning, creative writing, and deep contextual understanding. It supports multimodal inputs (text and images) with a large 128K token context window, enabling complex analysis suitable for research, academic tasks, and enterprise-grade AI applications.
+  overrides:
+    parameters:
+      model: Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+      sha256: d953bf7f802dc68f85a35360deb24b9a8b446af051e82c77f2f0759065d2aa71
+      uri: huggingface://bartowski/Tesslate_Synthia-S1-27b-GGUF/Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+- &llama4
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/153379578
+  license: llama4
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - llama3.3
+  name: "meta-llama_llama-4-scout-17b-16e-instruct"
+  urls:
+    - https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E-Instruct
+    - https://huggingface.co/bartowski/meta-llama_Llama-4-Scout-17B-16E-Instruct-GGUF
+  description: |
+    The Llama 4 collection of models are natively multimodal AI models that enable text and multimodal experiences. These models leverage a mixture-of-experts architecture to offer industry-leading performance in text and image understanding.
+
+    These Llama 4 models mark the beginning of a new era for the Llama ecosystem. We are launching two efficient models in the Llama 4 series, Llama 4 Scout, a 17 billion parameter model with 16 experts, and Llama 4 Maverick, a 17 billion parameter model with 128 experts.
+  overrides:
+    parameters:
+      model: meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
+  files:
+    - filename: meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
+      sha256: 48dfc18d40691b4190b7fecf1f89b78cadc758c3a27a9e2a1cabd686fdb822e3
+      uri: huggingface://bartowski/meta-llama_Llama-4-Scout-17B-16E-Instruct-GGUF/meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
@@ -1315,6 +1424,119 @@
     - filename: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
       sha256: 817073c85286c25a9373f330aad32b503e6c13d626a3fbee926d96a7ab866845
       uri: huggingface://bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF/Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "tarek07_legion-v2.1-llama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64909c086073a0cd172d0411/mqajIk-EsgQ0ZVAZJ4trP.png
+  urls:
+    - https://huggingface.co/Tarek07/Legion-V2.1-LLaMa-70B
+    - https://huggingface.co/bartowski/Tarek07_Legion-V2.1-LLaMa-70B-GGUF
+  description: |
+    My biggest merge yet, consisting of a total of 20 specially curated models. My methodology in approaching this was to create 5 highly specialized models:
+
+    A completely uncensored base A very intelligent model based on UGI, Willingness and NatInt scores on the UGI Leaderboard A highly descriptive writing model, specializing in creative and natural prose A RP model specially merged with fine-tuned models that use a lot of RP datasets The secret ingredient: A completely unhinged, uncensored final model
+
+    These five models went through a series of iterations until I got something I thought worked well and then combined them to make LEGION.
+
+    The full list of models used in this merge is below:
+
+        TheDrummer/Fallen-Llama-3.3-R1-70B-v1
+        Sao10K/Llama-3.3-70B-Vulpecula-r1
+        Sao10K/L3-70B-Euryale-v2.1
+        SicariusSicariiStuff/Negative_LLAMA_70B
+        allura-org/Bigger-Body-70b
+        Sao10K/70B-L3.3-mhnnn-x1
+        Sao10K/L3.3-70B-Euryale-v2.3
+        Doctor-Shotgun/L3.3-70B-Magnum-v4-SE
+        Sao10K/L3.1-70B-Hanami-x1
+        Sao10K/70B-L3.3-Cirrus-x1
+        EVA-UNIT-01/EVA-LLaMA-3.33-70B-v0.1
+        TheDrummer/Anubis-70B-v1
+        ArliAI/Llama-3.3-70B-ArliAI-RPMax-v1.4
+        LatitudeGames/Wayfarer-Large-70B-Llama-3.3
+        NeverSleep/Lumimaid-v0.2-70B
+        mlabonne/Hermes-3-Llama-3.1-70B-lorablated
+        ReadyArt/Forgotten-Safeword-70B-3.6
+        ReadyArt/Fallen-Abomination-70B-R1-v4.1
+        ReadyArt/Fallen-Safeword-70B-R1-v4.1
+        huihui-ai/Llama-3.3-70B-Instruct-abliterated
+  overrides:
+    parameters:
+      model: Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
+  files:
+    - filename: Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
+      sha256: 8f3de344ba83705f9491c2ed354fd6131a05946fca2eceae495b6fc67a7dbe7a
+      uri: huggingface://bartowski/Tarek07_Legion-V2.1-LLaMa-70B-GGUF/Tarek07_Legion-V2.1-LLaMa-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "forgotten-abomination-70b-v5.0"
+  icon: https://huggingface.co/ReadyArt/Forgotten-Abomination-70B-v5.0/resolve/main/waifu5.webp
+  urls:
+    - https://huggingface.co/ReadyArt/Forgotten-Abomination-70B-v5.0
+    - https://huggingface.co/mradermacher/Forgotten-Abomination-70B-v5.0-GGUF
+  description: |
+    The Unholy Union of Safeword and Nevoria
+    This model represents the forbidden merger of:
+
+    🧬 Forgotten-Safeword-70B-v5.0 - Industrial-grade depravity matrix with 23 distinct taboo specializations
+    ⚗️ L3.3-MS-Nevoria-70b - SteelSkull's masterpiece of storytelling and character adherence, free of positivity bias and ethical constraints
+    Expect:
+
+    🔥 Unparalleled erotic roleplaying with the least Llama refusals you've ever seen
+    📖 Novel-quality prose that follows your character card with precision
+    🧠 Handles complex multi-character scenarios effortlessly
+    💀 Will gleefully explore any taboo subject without hesitation
+  overrides:
+    parameters:
+      model: Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
+  files:
+    - filename: Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
+      sha256: a5f5e712e66b855f36ff45175f20c24441fa942ca8af47bd6f49107c6e0f025d
+      uri: huggingface://mradermacher/Forgotten-Abomination-70B-v5.0-GGUF/Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "watt-ai_watt-tool-70b"
+  urls:
+    - https://huggingface.co/watt-ai/watt-tool-70B
+    - https://huggingface.co/bartowski/watt-ai_watt-tool-70B-GGUF
+  description: |
+    watt-tool-70B is a fine-tuned language model based on LLaMa-3.3-70B-Instruct, optimized for tool usage and multi-turn dialogue. It achieves state-of-the-art performance on the Berkeley Function-Calling Leaderboard (BFCL).
+    Model Description
+
+    This model is specifically designed to excel at complex tool usage scenarios that require multi-turn interactions, making it ideal for empowering platforms like Lupan, an AI-powered workflow building tool. By leveraging a carefully curated and optimized dataset, watt-tool-70B demonstrates superior capabilities in understanding user requests, selecting appropriate tools, and effectively utilizing them across multiple turns of conversation.
+
+    Target Application: AI Workflow Building as in https://lupan.watt.chat/ and Coze.
+    Key Features
+
+        Enhanced Tool Usage: Fine-tuned for precise and efficient tool selection and execution.
+        Multi-Turn Dialogue: Optimized for maintaining context and effectively utilizing tools across multiple turns of conversation, enabling more complex task completion.
+        State-of-the-Art Performance: Achieves top performance on the BFCL, demonstrating its capabilities in function calling and tool usage.
+        Based on LLaMa-3.1-70B-Instruct: Inherits the strong language understanding and generation capabilities of the base model.
+  overrides:
+    parameters:
+      model: watt-ai_watt-tool-70B-Q4_K_M.gguf
+  files:
+    - filename: watt-ai_watt-tool-70B-Q4_K_M.gguf
+      sha256: 93806a5482b9e40e50ffca7a72abe3414d384749cc9e3d378eab5db8a8154b18
+      uri: huggingface://bartowski/watt-ai_watt-tool-70B-GGUF/watt-ai_watt-tool-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "deepcogito_cogito-v1-preview-llama-70b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-llama-70B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-llama-70B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-70B-GGUF
+  description: |
+      The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+          Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+          The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+          The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+              In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+          Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
+      sha256: d1deaf80c649e2a9446463cf5e1f7c026583647f46e3940d2b405a57cc685225
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-70B-GGUF/deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -2428,6 +2650,27 @@
     - filename: Eximius_Persona_5B.Q4_K_M.gguf
       sha256: 8a8e7a0fa1068755322c51900e53423d795e57976b4d95982242cbec41141c7b
       uri: huggingface://mradermacher/Eximius_Persona_5B-GGUF/Eximius_Persona_5B.Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "deepcogito_cogito-v1-preview-llama-3b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-llama-3B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-llama-3B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-3B-GGUF
+  description: |
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
+      sha256: 726a0ef5f818b8d238f2844f3204848bea66fb9c172b8ae0f6dc51b7bc081dd5
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-3B-GGUF/deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
@@ -5219,6 +5462,401 @@
     - filename: Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
       sha256: 11b2eb96a8a4d512fceb3344dccc694972801c964cf748d723fdf436bc368915
       uri: huggingface://mradermacher/Qwen2.5-14B-Instruct-1M-Unalign-i1-GGUF/Qwen2.5-14B-Instruct-1M-Unalign.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tesslate_tessa-t1-32b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/I7XzH-NMKUshcGU86u6VA.png
+  urls:
+    - https://huggingface.co/Tesslate/Tessa-T1-32B
+    - https://huggingface.co/bartowski/Tesslate_Tessa-T1-32B-GGUF
+  description: |
+   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-32B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+    Model Highlights
+
+        React-specific Reasoning: Accurately generates functional and semantic React components.
+        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+  overrides:
+    parameters:
+      model: Tesslate_Tessa-T1-32B-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Tessa-T1-32B-Q4_K_M.gguf
+      sha256: e52a2a0a877ce1de78f2ea472c9e3bc7a0c20d6998423e9d99a59175809d3a22
+      uri: huggingface://bartowski/Tesslate_Tessa-T1-32B-GGUF/Tesslate_Tessa-T1-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tesslate_tessa-t1-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/I7XzH-NMKUshcGU86u6VA.png
+  urls:
+    - https://huggingface.co/Tesslate/Tessa-T1-14B
+    - https://huggingface.co/bartowski/Tesslate_Tessa-T1-14B-GGUF
+  description: |
+   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-14B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+    Model Highlights
+
+        React-specific Reasoning: Accurately generates functional and semantic React components.
+        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+  overrides:
+    parameters:
+      model: Tesslate_Tessa-T1-14B-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Tessa-T1-14B-Q4_K_M.gguf
+      sha256: 1b35ff651b9c1e4538d10e3117390ae36094b6455a9f937a4f3ab72162125bca
+      uri: huggingface://bartowski/Tesslate_Tessa-T1-14B-GGUF/Tesslate_Tessa-T1-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tesslate_tessa-t1-7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/I7XzH-NMKUshcGU86u6VA.png
+  urls:
+    - https://huggingface.co/Tesslate/Tessa-T1-7B
+    - https://huggingface.co/bartowski/Tesslate_Tessa-T1-7B-GGUF
+  description: |
+   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-7B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+    Model Highlights
+
+        React-specific Reasoning: Accurately generates functional and semantic React components.
+        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+  overrides:
+    parameters:
+      model: Tesslate_Tessa-T1-7B-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Tessa-T1-7B-Q4_K_M.gguf
+      sha256: 7968332d01b5479dee99aff7c9764b9e61c2a6d2828c266163596dd783bdee18
+      uri: huggingface://bartowski/Tesslate_Tessa-T1-7B-GGUF/Tesslate_Tessa-T1-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tesslate_tessa-t1-3b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64d1129297ca59bcf7458d07/I7XzH-NMKUshcGU86u6VA.png
+  urls:
+    - https://huggingface.co/Tesslate/Tessa-T1-3B
+    - https://huggingface.co/bartowski/Tesslate_Tessa-T1-3B-GGUF
+  description: |
+   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-3B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+    Model Highlights
+
+        React-specific Reasoning: Accurately generates functional and semantic React components.
+        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+  overrides:
+    parameters:
+      model: Tesslate_Tessa-T1-3B-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Tessa-T1-3B-Q4_K_M.gguf
+      sha256: d6b9d31d78d36094cab2725a7df318f8f3556990df736a21998c952d9a6ee0bf
+      uri: huggingface://bartowski/Tesslate_Tessa-T1-3B-GGUF/Tesslate_Tessa-T1-3B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "chaoticneutrals_very_berry_qwen2_7b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/626dfb8786671a29c715f8a9/1J817kx3zZccf5yvQYiGM.png
+  urls:
+    - https://huggingface.co/ChaoticNeutrals/Very_Berry_Qwen2_7B
+    - https://huggingface.co/bartowski/ChaoticNeutrals_Very_Berry_Qwen2_7B-GGUF
+  description: |
+    It do the stuff.
+  overrides:
+    parameters:
+      model: ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
+  files:
+    - filename: ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
+      sha256: cbda41c638c23a3e8e9fb33c27ca0d0a0ee044b6813941a0017fd46369a35ec5
+      uri: huggingface://bartowski/ChaoticNeutrals_Very_Berry_Qwen2_7B-GGUF/ChaoticNeutrals_Very_Berry_Qwen2_7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "galactic-qwen-14b-exp1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/SjM3y5Qcr2RX6zC3GQxR3.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Galactic-Qwen-14B-Exp1
+    - https://huggingface.co/mradermacher/Galactic-Qwen-14B-Exp1-GGUF
+  description: |
+    Galactic-Qwen-14B-Exp1 is based on the Qwen 2.5 14B modality architecture, designed to enhance the reasoning capabilities of 14B-parameter models. This model is optimized for general-purpose reasoning and answering, excelling in contextual understanding, logical deduction, and multi-step problem-solving. It has been fine-tuned using a long chain-of-thought reasoning model and specialized datasets to improve comprehension, structured responses, and conversational intelligence.
+  overrides:
+    parameters:
+      model: Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
+  files:
+    - filename: Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
+      sha256: 26e99578c341c879cc2676c4c7a45b6c0d00b30bd17c8ee7494fcc4092480ef0
+      uri: huggingface://mradermacher/Galactic-Qwen-14B-Exp1-GGUF/Galactic-Qwen-14B-Exp1.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "hammer2.0-7b"
+  urls:
+    - https://huggingface.co/MadeAgents/Hammer2.0-7b
+    - https://huggingface.co/Nekuromento/Hammer2.0-7b-Q5_K_M-GGUF
+  description: |
+    Hammer2.0 finetuned based on Qwen 2.5 series and Qwen 2.5 coder series using function masking techniques. It's trained using the APIGen Function Calling Datasets containing 60,000 samples, supplemented by xlam-irrelevance-7.5k we generated. Hammer2.0 has achieved exceptional performances across numerous function calling benchmarks. For more details, please refer to Hammer: Robust Function-Calling for On-Device Language Models via Function Masking and Hammer GitHub repository .
+  overrides:
+    parameters:
+      model: hammer2.0-7b-q5_k_m.gguf
+  files:
+    - filename: hammer2.0-7b-q5_k_m.gguf
+      sha256: 3682843c857595765f0786cf24b3d501af96fe5d99a9fb2526bc7707e28bae1e
+      uri: huggingface://Nekuromento/Hammer2.0-7b-Q5_K_M-GGUF/hammer2.0-7b-q5_k_m.gguf
+- !!merge <<: *qwen25
+  icon: https://github.com/All-Hands-AI/OpenHands/blob/main/docs/static/img/logo.png?raw=true
+  name: "all-hands_openhands-lm-32b-v0.1"
+  urls:
+    - https://huggingface.co/all-hands/openhands-lm-32b-v0.1
+    - https://huggingface.co/bartowski/all-hands_openhands-lm-32b-v0.1-GGUF
+  description: |
+    Autonomous agents for software development are already contributing to a wide range of software development tasks. But up to this point, strong coding agents have relied on proprietary models, which means that even if you use an open-source agent like OpenHands, you are still reliant on API calls to an external service.
+
+    Today, we are excited to introduce OpenHands LM, a new open coding model that:
+
+        Is open and available on Hugging Face, so you can download it and run it locally
+        Is a reasonable size, 32B, so it can be run locally on hardware such as a single 3090 GPU
+        Achieves strong performance on software engineering tasks, including 37.2% resolve rate on SWE-Bench Verified
+
+    Read below for more details and our future plans!
+    What is OpenHands LM?
+
+    OpenHands LM is built on the foundation of Qwen Coder 2.5 Instruct 32B, leveraging its powerful base capabilities for coding tasks. What sets OpenHands LM apart is our specialized fine-tuning process:
+
+        We used training data generated by OpenHands itself on a diverse set of open-source repositories
+        Specifically, we use an RL-based framework outlined in SWE-Gym, where we set up a training environment, generate training data using an existing agent, and then fine-tune the model on examples that were resolved successfully
+        It features a 128K token context window, ideal for handling large codebases and long-horizon software engineering tasks
+  overrides:
+    parameters:
+      model: all-hands_openhands-lm-32b-v0.1-Q4_K_M.gguf
+  files:
+    - filename: all-hands_openhands-lm-32b-v0.1-Q4_K_M.gguf
+      sha256: f7c2311d3264cc1e021a21a319748a9c75b74ddebe38551786aa4053448e5e74
+      uri: huggingface://bartowski/all-hands_openhands-lm-32b-v0.1-GGUF/all-hands_openhands-lm-32b-v0.1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "all-hands_openhands-lm-7b-v0.1"
+  icon: https://github.com/All-Hands-AI/OpenHands/blob/main/docs/static/img/logo.png?raw=true
+  urls:
+    - https://huggingface.co/all-hands/openhands-lm-7b-v0.1
+    - https://huggingface.co/bartowski/all-hands_openhands-lm-7b-v0.1-GGUF
+  description: |
+    This is a smaller 7B model trained following the recipe of all-hands/openhands-lm-32b-v0.1. Autonomous agents for software development are already contributing to a wide range of software development tasks. But up to this point, strong coding agents have relied on proprietary models, which means that even if you use an open-source agent like OpenHands, you are still reliant on API calls to an external service.
+
+    Today, we are excited to introduce OpenHands LM, a new open coding model that:
+
+        Is open and available on Hugging Face, so you can download it and run it locally
+        Is a reasonable size, 32B, so it can be run locally on hardware such as a single 3090 GPU
+        Achieves strong performance on software engineering tasks, including 37.2% resolve rate on SWE-Bench Verified
+
+    Read below for more details and our future plans!
+    What is OpenHands LM?
+
+    OpenHands LM is built on the foundation of Qwen Coder 2.5 Instruct 32B, leveraging its powerful base capabilities for coding tasks. What sets OpenHands LM apart is our specialized fine-tuning process:
+
+        We used training data generated by OpenHands itself on a diverse set of open-source repositories
+        Specifically, we use an RL-based framework outlined in SWE-Gym, where we set up a training environment, generate training data using an existing agent, and then fine-tune the model on examples that were resolved successfully
+        It features a 128K token context window, ideal for handling large codebases and long-horizon software engineering tasks
+  overrides:
+    parameters:
+      model: all-hands_openhands-lm-7b-v0.1-Q4_K_M.gguf
+  files:
+    - filename: all-hands_openhands-lm-7b-v0.1-Q4_K_M.gguf
+      sha256: d50031b04bbdad714c004a0dc117c18d26a026297c236cda36089c20279b2ec1
+      uri: huggingface://bartowski/all-hands_openhands-lm-7b-v0.1-GGUF/all-hands_openhands-lm-7b-v0.1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "all-hands_openhands-lm-1.5b-v0.1"
+  icon: https://github.com/All-Hands-AI/OpenHands/blob/main/docs/static/img/logo.png?raw=true
+  urls:
+    - https://huggingface.co/all-hands/openhands-lm-1.5b-v0.1
+    - https://huggingface.co/bartowski/all-hands_openhands-lm-1.5b-v0.1-GGUF
+  description: |
+    This is a smaller 1.5B model trained following the recipe of all-hands/openhands-lm-32b-v0.1. It is intended to be used for speculative decoding. Autonomous agents for software development are already contributing to a wide range of software development tasks. But up to this point, strong coding agents have relied on proprietary models, which means that even if you use an open-source agent like OpenHands, you are still reliant on API calls to an external service.
+
+    Today, we are excited to introduce OpenHands LM, a new open coding model that:
+
+        Is open and available on Hugging Face, so you can download it and run it locally
+        Is a reasonable size, 32B, so it can be run locally on hardware such as a single 3090 GPU
+        Achieves strong performance on software engineering tasks, including 37.2% resolve rate on SWE-Bench Verified
+
+    Read below for more details and our future plans!
+    What is OpenHands LM?
+
+    OpenHands LM is built on the foundation of Qwen Coder 2.5 Instruct 32B, leveraging its powerful base capabilities for coding tasks. What sets OpenHands LM apart is our specialized fine-tuning process:
+
+        We used training data generated by OpenHands itself on a diverse set of open-source repositories
+        Specifically, we use an RL-based framework outlined in SWE-Gym, where we set up a training environment, generate training data using an existing agent, and then fine-tune the model on examples that were resolved successfully
+        It features a 128K token context window, ideal for handling large codebases and long-horizon software engineering tasks
+  overrides:
+    parameters:
+      model: all-hands_openhands-lm-1.5b-v0.1-Q4_K_M.gguf
+  files:
+    - filename: all-hands_openhands-lm-1.5b-v0.1-Q4_K_M.gguf
+      sha256: 30abd7860c4eb5f2f51546389407b0064360862f64ea55cdf95f97c6e155b3c6
+      uri: huggingface://bartowski/all-hands_openhands-lm-1.5b-v0.1-GGUF/all-hands_openhands-lm-1.5b-v0.1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "katanemo_arch-function-chat-7b"
+  urls:
+    - https://huggingface.co/katanemo/Arch-Function-Chat-7B
+    - https://huggingface.co/bartowski/katanemo_Arch-Function-Chat-7B-GGUF
+  description: |
+    The Arch-Function-Chat collection builds upon the Katanemo's Arch-Function collection by extending its capabilities beyond function calling. This new collection maintains the state-of-the-art(SOTA) function calling performance of the original collection while adding powerful new features that make it even more versatile in real-world applications.
+
+    In addition to function calling capabilities, this collection now offers:
+
+        Clarify & refine: Generates natural follow-up questions to collect missing information for function calling
+        Interpret & respond: Provides human-friendly responses based on function execution results
+        Context management: Mantains context in complex multi-turn interactions
+
+    Note: Arch-Function-Chat is now the primarly LLM used in then open source Arch Gateway - An AI-native proxy for agents. For more details about the project, check out the Github README.
+  overrides:
+    parameters:
+      model: katanemo_Arch-Function-Chat-7B-Q4_K_M.gguf
+  files:
+    - filename: katanemo_Arch-Function-Chat-7B-Q4_K_M.gguf
+      sha256: 6fd603511076ffea3697c8a76d82c054781c5e11f134b937a66cedfc49b3d2c5
+      uri: huggingface://bartowski/katanemo_Arch-Function-Chat-7B-GGUF/katanemo_Arch-Function-Chat-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "katanemo_arch-function-chat-1.5b"
+  urls:
+    - https://huggingface.co/katanemo/Arch-Function-Chat-1.5B
+    - https://huggingface.co/bartowski/katanemo_Arch-Function-Chat-1.5B-GGUF
+  description: |
+    The Arch-Function-Chat collection builds upon the Katanemo's Arch-Function collection by extending its capabilities beyond function calling. This new collection maintains the state-of-the-art(SOTA) function calling performance of the original collection while adding powerful new features that make it even more versatile in real-world applications.
+
+    In addition to function calling capabilities, this collection now offers:
+
+        Clarify & refine: Generates natural follow-up questions to collect missing information for function calling
+        Interpret & respond: Provides human-friendly responses based on function execution results
+        Context management: Mantains context in complex multi-turn interactions
+
+    Note: Arch-Function-Chat is now the primarly LLM used in then open source Arch Gateway - An AI-native proxy for agents. For more details about the project, check out the Github README.
+  overrides:
+    parameters:
+      model: katanemo_Arch-Function-Chat-1.5B-Q4_K_M.gguf
+  files:
+    - filename: katanemo_Arch-Function-Chat-1.5B-Q4_K_M.gguf
+      sha256: 5bfcb72803745c374a90b0ceb60f347a8c7d1239960cce6a2d22cc1276236098
+      uri: huggingface://bartowski/katanemo_Arch-Function-Chat-1.5B-GGUF/katanemo_Arch-Function-Chat-1.5B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "katanemo_arch-function-chat-3b"
+  urls:
+    - https://huggingface.co/katanemo/Arch-Function-Chat-3B
+    - https://huggingface.co/bartowski/katanemo_Arch-Function-Chat-3B-GGUF
+  description: |
+    The Arch-Function-Chat collection builds upon the Katanemo's Arch-Function collection by extending its capabilities beyond function calling. This new collection maintains the state-of-the-art(SOTA) function calling performance of the original collection while adding powerful new features that make it even more versatile in real-world applications.
+
+    In addition to function calling capabilities, this collection now offers:
+
+        Clarify & refine: Generates natural follow-up questions to collect missing information for function calling
+        Interpret & respond: Provides human-friendly responses based on function execution results
+        Context management: Mantains context in complex multi-turn interactions
+
+    Note: Arch-Function-Chat is now the primarly LLM used in then open source Arch Gateway - An AI-native proxy for agents. For more details about the project, check out the Github README.
+  overrides:
+    parameters:
+      model: katanemo_Arch-Function-Chat-3B-Q4_K_M.gguf
+  files:
+    - filename: katanemo_Arch-Function-Chat-3B-Q4_K_M.gguf
+      sha256: f59dbef397bf1364b5f0a2c23a7f67c40ec63cc666036c4e7615fa7d79d4e1a0
+      uri: huggingface://bartowski/katanemo_Arch-Function-Chat-3B-GGUF/katanemo_Arch-Function-Chat-3B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-thoughts_openthinker2-32b"
+  icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
+  urls:
+    - https://huggingface.co/open-thoughts/OpenThinker2-32B
+    - https://huggingface.co/bartowski/open-thoughts_OpenThinker2-32B-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen2.5-32B-Instruct on the OpenThoughts2-1M dataset.
+
+    The OpenThinker2-32B model is the highest performing open-data model. This model improves upon our previous OpenThinker-32B model, which was trained on 114k examples from OpenThoughts-114k. The numbers reported in the table below are evaluated with our open-source tool Evalchemy.
+  overrides:
+    parameters:
+      model: open-thoughts_OpenThinker2-32B-Q4_K_M.gguf
+  files:
+    - filename: open-thoughts_OpenThinker2-32B-Q4_K_M.gguf
+      sha256: e9c7bf7cb349cfe07b4550759a3b4d7005834d0fa7580b23e483cbfeecd7a982
+      uri: huggingface://bartowski/open-thoughts_OpenThinker2-32B-GGUF/open-thoughts_OpenThinker2-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "open-thoughts_openthinker2-7b"
+  icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.pnghttps://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
+  urls:
+    - https://huggingface.co/open-thoughts/OpenThinker2-7B
+    - https://huggingface.co/bartowski/open-thoughts_OpenThinker2-7B-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen2.5-7B-Instruct on the OpenThoughts2-1M dataset.
+
+    The OpenThinker2-7B model is the top 7B open-data reasoning model. It delivers performance comparable to state of the art 7B models like DeepSeek-R1-Distill-7B across a suite of tasks. This model improves upon our previous OpenThinker-7B model, which was trained on 114k examples from OpenThoughts-114k. The numbers reported in the table below are evaluated with our open-source tool Evalchemy.
+  overrides:
+    parameters:
+      model: open-thoughts_OpenThinker2-7B-Q4_K_M.gguf
+  files:
+    - filename: open-thoughts_OpenThinker2-7B-Q4_K_M.gguf
+      sha256: 481d785047d66ae2eeaf14650a9e659ec4f7766a6414b6c7e92854c944201734
+      uri: huggingface://bartowski/open-thoughts_OpenThinker2-7B-GGUF/open-thoughts_OpenThinker2-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "arliai_qwq-32b-arliai-rpr-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6625f4a8a8d1362ebcc3851a/albSlnUy9dPVGVuLlsBua.jpeg
+  urls:
+    - https://huggingface.co/ArliAI/QwQ-32B-ArliAI-RpR-v1
+    - https://huggingface.co/bartowski/ArliAI_QwQ-32B-ArliAI-RpR-v1-GGUF
+  description: |
+    RpR (RolePlay with Reasoning) is a new series of models from ArliAI. This series builds directly upon the successful dataset curation methodology and training methods developed for the RPMax series.
+
+    RpR models use the same curated, deduplicated RP and creative writing dataset used for RPMax, with a focus on variety to ensure high creativity and minimize cross-context repetition. Users familiar with RPMax will recognize the unique, non-repetitive writing style unlike other finetuned-for-RP models.
+
+    With the release of QwQ as the first high performing open-source reasoning model that can be easily trained, it was clear that the available instruct and creative writing reasoning datasets contains only one response per example. This is type of single response dataset used for training reasoning models causes degraded output quality in long multi-turn chats. Which is why Arli AI decided to create a real RP model capable of long multi-turn chat with reasoning.
+
+    In order to create RpR, we first had to actually create the reasoning RP dataset by re-processing our existing known-good RPMax dataset into a reasoning dataset. This was possible by using the base QwQ Instruct model itself to create the reasoning process for every turn in the RPMax dataset conversation examples, which is then further refined in order to make sure the reasoning is in-line with the actual response examples from the dataset.
+
+    Another important thing to get right is to make sure the model is trained on examples that present reasoning blocks in the same way as it encounters it during inference. Which is, never seeing the reasoning blocks in it's context. In order to do this, the training run was completed using axolotl with manual template-free segments dataset in order to make sure that the model is never trained to see the reasoning block in the context. Just like how the model will be used during inference time.
+
+    The result of training QwQ on this dataset with this method are consistently coherent and interesting outputs even in long multi-turn RP chats. This is as far as we know the first true correctly-trained reasoning model trained for RP and creative writing.
+  overrides:
+    parameters:
+      model: ArliAI_QwQ-32B-ArliAI-RpR-v1-Q4_K_M.gguf
+  files:
+    - filename: ArliAI_QwQ-32B-ArliAI-RpR-v1-Q4_K_M.gguf
+      sha256: b0f2ca8f62a5d021e20db40608a109713e9d23e75b68b3b71b7654c04d596dcf
+      uri: huggingface://bartowski/ArliAI_QwQ-32B-ArliAI-RpR-v1-GGUF/ArliAI_QwQ-32B-ArliAI-RpR-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "mensa-beta-14b-instruct-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/DyO5Fvqwvee-UM9QqgWZS.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Mensa-Beta-14B-Instruct
+    - https://huggingface.co/mradermacher/Mensa-Beta-14B-Instruct-i1-GGUF
+  description: |
+    weighted/imatrix quants of https://huggingface.co/prithivMLmods/Mensa-Beta-14B-Instruct
+  overrides:
+    parameters:
+      model: Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
+  files:
+    - filename: Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
+      sha256: 86ccd640d72dcf3129fdd5b94381a733a684672b22487784e388b2ee9de57760
+      uri: huggingface://mradermacher/Mensa-Beta-14B-Instruct-i1-GGUF/Mensa-Beta-14B-Instruct.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "cogito-v1-preview-qwen-14B"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-qwen-14B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-qwen-14B
+    - https://huggingface.co/NikolayKozloff/cogito-v1-preview-qwen-14B-Q4_K_M-GGUF
+  description: |
+      The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+      Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+      The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+      The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+          In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+      Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: cogito-v1-preview-qwen-14b-q4_k_m.gguf
+  files:
+    - filename: cogito-v1-preview-qwen-14b-q4_k_m.gguf
+      sha256: 42ddd667bac3e5f0989f52b3dca5767ed15d0e5077c6f537e4b3873862ff7096
+      uri: huggingface://NikolayKozloff/cogito-v1-preview-qwen-14B-Q4_K_M-GGUF/cogito-v1-preview-qwen-14b-q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "deepcogito_cogito-v1-preview-qwen-32b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-qwen-32B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-qwen-32B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-qwen-32B-GGUF
+  description: |
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
+      sha256: 985f2d49330090e64603309f7eb61030769f25a5da027ac0b0a740858d087ad8
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-qwen-32B-GGUF/deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -7357,6 +7995,27 @@
     - filename: TextSynth-8B.i1-Q4_K_M.gguf
       sha256: 9186a8cb3a797cd2cd5b2eeaee99808674d96731824a9ee45685bbf480ba56c3
       uri: huggingface://mradermacher/TextSynth-8B-i1-GGUF/TextSynth-8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "deepcogito_cogito-v1-preview-llama-8b"
+  icon: https://huggingface.co/deepcogito/cogito-v1-preview-llama-8B/resolve/main/images/deep-cogito-logo.png
+  urls:
+    - https://huggingface.co/deepcogito/cogito-v1-preview-llama-8B
+    - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-8B-GGUF
+  description: |
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
+  overrides:
+    parameters:
+      model: deepcogito_cogito-v1-preview-llama-8B-Q4_K_M.gguf
+  files:
+    - filename: deepcogito_cogito-v1-preview-llama-8B-Q4_K_M.gguf
+      sha256: 445173fb1dacef3fa0be49ebb4512b948fdb1434d86732de198424695b017b50
+      uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-8B-GGUF/deepcogito_cogito-v1-preview-llama-8B-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
@@ -7835,6 +8494,20 @@
     - filename: Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
       sha256: aed6bd5bb03b7bd886939237bc10ea6331d4feb5a3b6712e0c5474a778acf817
       uri: huggingface://mradermacher/Fallen-Safeword-70B-R1-v4.1-GGUF/Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "agentica-org_deepcoder-14b-preview"
+  urls:
+    - https://huggingface.co/agentica-org/DeepCoder-14B-Preview
+    - https://huggingface.co/bartowski/agentica-org_DeepCoder-14B-Preview-GGUF
+  description: |
+    DeepCoder-14B-Preview is a code reasoning LLM fine-tuned from DeepSeek-R1-Distilled-Qwen-14B using distributed reinforcement learning (RL) to scale up to long context lengths. The model achieves 60.6% Pass@1 accuracy on LiveCodeBench v5 (8/1/24-2/1/25), representing a 8% improvement over the base model (53%) and achieving similar performance to OpenAI's o3-mini with just 14B parameters.
+  overrides:
+    parameters:
+      model: agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
+  files:
+    - filename: agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
+      sha256: 38f0f777de3116ca27d10ec84388b3290a1bf3f7db8c5bdc1f92d100e4231870
+      uri: huggingface://bartowski/agentica-org_DeepCoder-14B-Preview-GGUF/agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
@@ -9149,6 +9822,21 @@
     - filename: BlackSheep-24B.i1-Q4_K_M.gguf
       sha256: 95ae096eca05a95591254babf81b4d5617ceebbe8eda04c6cf8968ef4a69fc80
       uri: huggingface://mradermacher/BlackSheep-24B-i1-GGUF/BlackSheep-24B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "eurydice-24b-v2-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/652c2a63d78452c4742cd3d3/Hm_tg4s0D6yWmtrTHII32.png
+  urls:
+    - https://huggingface.co/aixonlab/Eurydice-24b-v2
+    - https://huggingface.co/mradermacher/Eurydice-24b-v2-i1-GGUF
+  description: |
+    Eurydice 24b v2 is designed to be the perfect companion for multi-role conversations. It demonstrates exceptional contextual understanding and excels in creativity, natural conversation and storytelling. Built on Mistral 3.1, this model has been trained on a custom dataset specifically crafted to enhance its capabilities.
+  overrides:
+    parameters:
+      model: Eurydice-24b-v2.i1-Q4_K_M.gguf
+  files:
+    - filename: Eurydice-24b-v2.i1-Q4_K_M.gguf
+      sha256: fb4104a1b33dd860e1eca3b6906a10cacc5b91a2534db72d9749652a204fbcbf
+      uri: huggingface://mradermacher/Eurydice-24b-v2-i1-GGUF/Eurydice-24b-v2.i1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"

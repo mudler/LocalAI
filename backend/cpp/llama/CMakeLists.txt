@@ -2,7 +2,7 @@
 ## XXX: In some versions of CMake clip wasn't being built before llama.
 ## This is an hack for now, but it should be fixed in the future.
 set(TARGET myclip)
-add_library(${TARGET} clip.cpp clip.h llava.cpp llava.h)
+add_library(${TARGET} clip.cpp clip.h clip-impl.h llava.cpp llava.h)
 install(TARGETS ${TARGET} LIBRARY)
 target_include_directories(myclip PUBLIC .)
 target_include_directories(myclip PUBLIC ../..)

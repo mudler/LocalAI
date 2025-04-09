@@ -40,7 +40,7 @@ func TestAssistantEndpoints(t *testing.T) {
 	cl := &config.BackendConfigLoader{}
 	//configsDir := "/tmp/localai/configs"
 	modelPath := "/tmp/localai/model"
-	var ml = model.NewModelLoader(modelPath)
+	var ml = model.NewModelLoader(modelPath, false)
 
 	appConfig := &config.ApplicationConfig{
 		ConfigsDir:    configsDir,

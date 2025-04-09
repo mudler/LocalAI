@@ -8,7 +8,7 @@ ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 TARGET?=--target grpc-server
 
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
-CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
+CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
 
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
@@ -36,11 +36,18 @@ else ifeq ($(OS),Darwin)
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
-	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx -DGGML_SYCL_F16=ON
+	CMAKE_ARGS+=-DGGML_SYCL=ON \
+		-DCMAKE_C_COMPILER=icx \
+		-DCMAKE_CXX_COMPILER=icpx \
+		-DCMAKE_CXX_FLAGS="-fsycl" \
+		-DGGML_SYCL_F16=ON
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f32)
-	CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
+	CMAKE_ARGS+=-DGGML_SYCL=ON \
+		-DCMAKE_C_COMPILER=icx \
+		-DCMAKE_CXX_COMPILER=icpx \
+		-DCMAKE_CXX_FLAGS="-fsycl"
 endif
 
 llama.cpp:
@@ -73,8 +80,8 @@ grpc-server: llama.cpp llama.cpp/examples/grpc-server
 	@echo "Building grpc-server with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)"
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET) -j$(nproc)"
 else
-	+cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)
+	+cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET) -j$(nproc)
 endif
 	cp llama.cpp/build/bin/grpc-server .

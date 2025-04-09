@@ -18,16 +18,19 @@ import (
 
 // TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we seperate directories for .bin/.yaml and .tmpl
 type ModelLoader struct {
-	ModelPath string
-	mu        sync.Mutex
-	models    map[string]*Model
-	wd        *WatchDog
+	ModelPath     string
+	mu            sync.Mutex
+	singletonLock sync.Mutex
+	singletonMode bool
+	models        map[string]*Model
+	wd            *WatchDog
 }
 
-func NewModelLoader(modelPath string) *ModelLoader {
+func NewModelLoader(modelPath string, singleActiveBackend bool) *ModelLoader {
 	nml := &ModelLoader{
-		ModelPath: modelPath,
-		models:    make(map[string]*Model),
+		ModelPath:     modelPath,
+		models:        make(map[string]*Model),
+		singletonMode: singleActiveBackend,
 	}
 
 	return nml
@@ -142,26 +145,6 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 func (ml *ModelLoader) ShutdownModel(modelName string) error {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
-	model, ok := ml.models[modelName]
-	if !ok {
-		return fmt.Errorf("model %s not found", modelName)
-	}
-
-	retries := 1
-	for model.GRPC(false, ml.wd).IsBusy() {
-		log.Debug().Msgf("%s busy. Waiting.", modelName)
-		dur := time.Duration(retries*2) * time.Second
-		if dur > retryTimeout {
-			dur = retryTimeout
-		}
-		time.Sleep(dur)
-		retries++
-
-		if retries > 10 && os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true" {
-			log.Warn().Msgf("Model %s is still busy after %d retries. Forcing shutdown.", modelName, retries)
-			break
-		}
-	}
 
 	return ml.deleteProcess(modelName)
 }

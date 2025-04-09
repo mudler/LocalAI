@@ -23,10 +23,10 @@ func ModelTTS(
 ) (string, *proto.Result, error) {
 	opts := ModelOptions(backendConfig, appConfig, model.WithDefaultBackendString(model.PiperBackend))
 	ttsModel, err := loader.Load(opts...)
-
 	if err != nil {
 		return "", nil, err
 	}
+	defer loader.Close()
 
 	if ttsModel == nil {
 		return "", nil, fmt.Errorf("could not load tts model %q", backendConfig.Model)

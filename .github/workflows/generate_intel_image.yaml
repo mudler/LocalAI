@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - base-image: intel/oneapi-basekit:2025.0.0-0-devel-ubuntu22.04
+          - base-image: intel/oneapi-basekit:2025.1.0-0-devel-ubuntu22.04
             runs-on: 'ubuntu-latest'
             platforms: 'linux/amd64'
     runs-on: ${{matrix.runs-on}}

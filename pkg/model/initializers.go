@@ -473,8 +473,6 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		backend = realBackend
 	}
 
-	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)
-
 	var backendToConsume string
 
 	switch backend {
@@ -497,17 +495,37 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 }
 
 func (ml *ModelLoader) stopActiveBackends(modelID string, singleActiveBackend bool) {
+	if !singleActiveBackend {
+		return
+	}
+
 	// If we can have only one backend active, kill all the others (except external backends)
-	if singleActiveBackend {
-		log.Debug().Msgf("Stopping all backends except '%s'", modelID)
-		err := ml.StopGRPC(allExcept(modelID))
-		if err != nil {
-			log.Error().Err(err).Str("keptModel", modelID).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
-		}
+
+	// Stop all backends except the one we are going to load
+	log.Debug().Msgf("Stopping all backends except '%s'", modelID)
+	err := ml.StopGRPC(allExcept(modelID))
+	if err != nil {
+		log.Error().Err(err).Str("keptModel", modelID).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
 	}
 }
 
+func (ml *ModelLoader) Close() {
+	if !ml.singletonMode {
+		return
+	}
+	ml.singletonLock.Unlock()
+}
+
+func (ml *ModelLoader) lockBackend() {
+	if !ml.singletonMode {
+		return
+	}
+	ml.singletonLock.Lock()
+}
+
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
+	ml.lockBackend() // grab the singleton lock if needed
+
 	o := NewOptions(opts...)
 
 	// Return earlier if we have a model already loaded
@@ -518,17 +536,20 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 		return m.GRPC(o.parallelRequests, ml.wd), nil
 	}
 
-	ml.stopActiveBackends(o.modelID, o.singleActiveBackend)
+	ml.stopActiveBackends(o.modelID, ml.singletonMode)
 
+	// if a backend is defined, return the loader directly
 	if o.backendString != "" {
 		return ml.backendLoader(opts...)
 	}
 
+	// Otherwise scan for backends in the asset directory
 	var err error
 
 	// get backends embedded in the binary
 	autoLoadBackends, err := ml.ListAvailableBackends(o.assetDir)
 	if err != nil {
+		ml.Close() // we failed, release the lock
 		return nil, err
 	}
 
@@ -559,6 +580,8 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
 		}
 	}
+
+	ml.Close() // make sure to release the lock in case of failure
 
 	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
 }

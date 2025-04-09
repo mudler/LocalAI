@@ -14,10 +14,10 @@ func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.Bac
 
 	opts := ModelOptions(backendConfig, appConfig)
 	inferenceModel, err = loader.Load(opts...)
-
 	if err != nil {
 		return schema.TokenizeResponse{}, err
 	}
+	defer loader.Close()
 
 	predictOptions := gRPCPredictOpts(backendConfig, loader.ModelPath)
 	predictOptions.Prompt = s

@@ -16,6 +16,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 	if err != nil {
 		return nil, err
 	}
+	defer loader.Close()
 
 	fn := func() error {
 		_, err := inferenceModel.GenerateImage(

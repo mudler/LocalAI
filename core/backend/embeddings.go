@@ -17,6 +17,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 	if err != nil {
 		return nil, err
 	}
+	defer loader.Close()
 
 	var fn func() ([]float32, error)
 	switch model := inferenceModel.(type) {

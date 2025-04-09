@@ -9,25 +9,43 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/hpcloud/tail"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
 
+var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true"
+
 func (ml *ModelLoader) deleteProcess(s string) error {
+	model, ok := ml.models[s]
+	if !ok {
+		log.Debug().Msgf("Model %s not found", s)
+		return fmt.Errorf("model %s not found", s)
+	}
+
 	defer delete(ml.models, s)
+
+	retries := 1
+	for model.GRPC(false, ml.wd).IsBusy() {
+		log.Debug().Msgf("%s busy. Waiting.", s)
+		dur := time.Duration(retries*2) * time.Second
+		if dur > retryTimeout {
+			dur = retryTimeout
+		}
+		time.Sleep(dur)
+		retries++
+
+		if retries > 10 && forceBackendShutdown {
+			log.Warn().Msgf("Model %s is still busy after %d retries. Forcing shutdown.", s, retries)
+			break
+		}
+	}
 
 	log.Debug().Msgf("Deleting process %s", s)
 
-	m, exists := ml.models[s]
-	if !exists {
-		log.Error().Msgf("Model does not exist %s", s)
-		// Nothing to do
-		return nil
-	}
-
-	process := m.Process()
+	process := model.Process()
 	if process == nil {
 		log.Error().Msgf("No process for %s", s)
 		// Nothing to do as there is no process
@@ -44,9 +62,12 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 func (ml *ModelLoader) StopGRPC(filter GRPCProcessFilter) error {
 	var err error = nil
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
 	for k, m := range ml.models {
 		if filter(k, m.Process()) {
-			e := ml.ShutdownModel(k)
+			e := ml.deleteProcess(k)
 			err = errors.Join(err, e)
 		}
 	}

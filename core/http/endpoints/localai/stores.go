@@ -21,6 +21,7 @@ func StoresSetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfi
 		if err != nil {
 			return err
 		}
+		defer sl.Close()
 
 		vals := make([][]byte, len(input.Values))
 		for i, v := range input.Values {
@@ -48,6 +49,7 @@ func StoresDeleteEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationCo
 		if err != nil {
 			return err
 		}
+		defer sl.Close()
 
 		if err := store.DeleteCols(c.Context(), sb, input.Keys); err != nil {
 			return err
@@ -69,6 +71,7 @@ func StoresGetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfi
 		if err != nil {
 			return err
 		}
+		defer sl.Close()
 
 		keys, vals, err := store.GetCols(c.Context(), sb, input.Keys)
 		if err != nil {
@@ -100,6 +103,7 @@ func StoresFindEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConf
 		if err != nil {
 			return err
 		}
+		defer sl.Close()
 
 		keys, vals, similarities, err := store.Find(c.Context(), sb, input.Key, input.Topk)
 		if err != nil {
