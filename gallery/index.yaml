@@ -5857,6 +5857,27 @@
     - filename: deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
       sha256: 985f2d49330090e64603309f7eb61030769f25a5da027ac0b0a740858d087ad8
       uri: huggingface://bartowski/deepcogito_cogito-v1-preview-qwen-32B-GGUF/deepcogito_cogito-v1-preview-qwen-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "soob3123_amoral-cogito-v1-preview-qwen-14b"
+  urls:
+    - https://huggingface.co/soob3123/amoral-cogito-v1-preview-qwen-14B
+    - https://huggingface.co/bartowski/soob3123_amoral-cogito-v1-preview-qwen-14B-GGUF
+  description: |
+    Key Features
+      Neutral response protocol (bias dampening layers)
+      Reduced refusal rate vs base Llama-3
+      Moral phrasing detection/reformulation
+    Use Cases
+        Controversial topic analysis
+        Ethical philosophy simulations
+        Academic research requiring neutral framing
+  overrides:
+    parameters:
+      model: soob3123_amoral-cogito-v1-preview-qwen-14B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_amoral-cogito-v1-preview-qwen-14B-Q4_K_M.gguf
+      sha256: c01a0b0c44345011dc61212fb1c0ffdba32f85e702d2f3d4abeb2a09208d6184
+      uri: huggingface://bartowski/soob3123_amoral-cogito-v1-preview-qwen-14B-GGUF/soob3123_amoral-cogito-v1-preview-qwen-14B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
