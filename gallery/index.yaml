@@ -9837,6 +9837,25 @@
     - filename: Eurydice-24b-v2.i1-Q4_K_M.gguf
       sha256: fb4104a1b33dd860e1eca3b6906a10cacc5b91a2534db72d9749652a204fbcbf
       uri: huggingface://mradermacher/Eurydice-24b-v2-i1-GGUF/Eurydice-24b-v2.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "trappu_magnum-picaro-0.7-v2-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Trappu/Magnum-Picaro-0.7-v2-12b
+    - https://huggingface.co/bartowski/Trappu_Magnum-Picaro-0.7-v2-12b-GGUF
+  description: |
+    This model is a merge between Trappu/Nemo-Picaro-12B, a model trained on my own little dataset free of synthetic data, which focuses solely on storywriting and scenrio prompting (Example: [ Scenario: bla bla bla; Tags: bla bla bla ]), and anthracite-org/magnum-v2-12b.
+
+    The reason why I decided to merge it with Magnum (and don't recommend Picaro alone) is because that model, aside from its obvious flaws (rampant impersonation, stupid, etc...), is a one-trick pony and will be really rough for the average LLM user to handle. The idea was to have Magnum work as some sort of stabilizer to fix the issues that emerge from the lack of multiturn/smart data in Picaro's dataset. It worked, I think. I enjoy the outputs and it's smart enough to work with.
+
+    But yeah the goal of this merge was to make a model that's both good at storytelling/narration but also fine when it comes to other forms of creative writing such as RP or chatting. I don't think it's quite there yet but it's something for sure.
+  overrides:
+    parameters:
+      model: Trappu_Magnum-Picaro-0.7-v2-12b-Q4_K_M.gguf
+  files:
+    - filename: Trappu_Magnum-Picaro-0.7-v2-12b-Q4_K_M.gguf
+      sha256: 989839dd7eab997a70eb8430b9df1138f9b0f35d58299d5007e6555a4a4a7f4c
+      uri: huggingface://bartowski/Trappu_Magnum-Picaro-0.7-v2-12b-GGUF/Trappu_Magnum-Picaro-0.7-v2-12b-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
