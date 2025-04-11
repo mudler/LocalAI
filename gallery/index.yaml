@@ -8529,6 +8529,27 @@
     - filename: agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
       sha256: 38f0f777de3116ca27d10ec84388b3290a1bf3f7db8c5bdc1f92d100e4231870
       uri: huggingface://bartowski/agentica-org_DeepCoder-14B-Preview-GGUF/agentica-org_DeepCoder-14B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "agentica-org_deepcoder-1.5b-preview"
+  urls:
+    - https://huggingface.co/agentica-org/DeepCoder-1.5B-Preview
+    - https://huggingface.co/bartowski/agentica-org_DeepCoder-1.5B-Preview-GGUF
+  description: |
+    DeepCoder-1.5B-Preview is a code reasoning LLM fine-tuned from DeepSeek-R1-Distilled-Qwen-1.5B using distributed reinforcement learning (RL) to scale up to long context lengths.
+    Data
+
+    Our training dataset consists of approximately 24K unique problem-tests pairs compiled from:
+
+        Taco-Verified
+        PrimeIntellect SYNTHETIC-1
+        LiveCodeBench v5 (5/1/23-7/31/24)
+  overrides:
+    parameters:
+      model: agentica-org_DeepCoder-1.5B-Preview-Q4_K_M.gguf
+  files:
+    - filename: agentica-org_DeepCoder-1.5B-Preview-Q4_K_M.gguf
+      sha256: 9ddd89eddf8d56b1c16317932af56dc59b49ca2beec735d1332f5a3e0f225714
+      uri: huggingface://bartowski/agentica-org_DeepCoder-1.5B-Preview-GGUF/agentica-org_DeepCoder-1.5B-Preview-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
