@@ -8550,6 +8550,20 @@
     - filename: agentica-org_DeepCoder-1.5B-Preview-Q4_K_M.gguf
       sha256: 9ddd89eddf8d56b1c16317932af56dc59b49ca2beec735d1332f5a3e0f225714
       uri: huggingface://bartowski/agentica-org_DeepCoder-1.5B-Preview-GGUF/agentica-org_DeepCoder-1.5B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "zyphra_zr1-1.5b"
+  urls:
+    - https://huggingface.co/Zyphra/ZR1-1.5B
+    - https://huggingface.co/bartowski/Zyphra_ZR1-1.5B-GGUF
+  description: |
+    ZR1-1.5B is a small reasoning model trained extensively on both verified coding and mathematics problems with reinforcement learning. The model outperforms Llama-3.1-70B-Instruct on hard coding tasks and improves upon the base R1-Distill-1.5B model by over 50%, while achieving strong scores on math evaluations and a 37.91% pass@1 accuracy on GPQA-Diamond with just 1.5B parameters.
+  overrides:
+    parameters:
+      model: Zyphra_ZR1-1.5B-Q4_K_M.gguf
+  files:
+    - filename: Zyphra_ZR1-1.5B-Q4_K_M.gguf
+      sha256: 5442a9303f651eec30d8d17cd649982ddedf3629ff4faf3bf08d187900a7e7bd
+      uri: huggingface://bartowski/Zyphra_ZR1-1.5B-GGUF/Zyphra_ZR1-1.5B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
