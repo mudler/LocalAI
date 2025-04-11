@@ -142,9 +142,9 @@ func API(application *application.Application) (*fiber.App, error) {
 	httpFS := http.FS(embedDirStatic)
 
 	router.Use(favicon.New(favicon.Config{
-		URL:        "/favicon.ico",
+		URL:        "/favicon.svg",
 		FileSystem: httpFS,
-		File:       "static/favicon.ico",
+		File:       "static/favicon.svg",
 	}))
 
 	router.Use("/static", filesystem.New(filesystem.Config{

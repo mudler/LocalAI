@@ -29,9 +29,9 @@ func Explorer(db *explorer.Database) *fiber.App {
 	httpFS := http.FS(embedDirStatic)
 
 	app.Use(favicon.New(favicon.Config{
-		URL:        "/favicon.ico",
+		URL:        "/favicon.svg",
 		FileSystem: httpFS,
-		File:       "static/favicon.ico",
+		File:       "static/favicon.svg",
 	}))
 
 	app.Use("/static", filesystem.New(filesystem.Config{
