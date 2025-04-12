@@ -2,38 +2,144 @@
 
 # Hero
 hero:
-  enable: false
+  enable: true
   weight: 10
   template: hero
 
+  backgroundImage:
+    path: "images/templates/hero"
+    filename:
+      desktop: "gradient-desktop.webp"
+      mobile: "gradient-mobile.webp"
+
+  # badge:
+  #   text: v2.0.0
+  #   color: primary
+  #   pill: false
+  #   soft: true
+
+  titleLogo:
+    path: "images/logos"
+    filename: "logo.png"
+    alt: "Lotus Docs Logo"
+    height: 80px
+
+  title: "LocalAI"
+  subtitle: A free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
+
+  image:
+    path: "images"
+    filename: "localai_screenshot.png"
+    alt: "LocalAI Screenshot"
+    boxShadow: true
+    rounded: true
+
+  ctaButton:
+    icon: rocket_launch
+    btnText: "Get Started"
+    url: "/basics/getting_started/"
+  cta2Button:
+    icon: code
+    btnText: "View on GitHub"
+    url: "https://github.com/mudler/LocalAI"
+
+  info: "**Open Source** MIT Licensed."
+
 # Feature Grid
 featureGrid:
-  enable: false
+  enable: true
   weight: 20
   template: feature grid
+
+  title: Why choose LocalAI?
+  subtitle: LocalAI provides a drop-in replacement REST API that's compatible with OpenAI API specifications for local AI inferencing. It's designed to be simple, efficient, and accessible.
+
+  items:
+    - title: OpenAI Compatible
+      icon: api
+      description: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: No GPU Required
+      icon: memory
+      description: Run on consumer grade hardware. No need for expensive GPUs or cloud services.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Multiple Models
+      icon: hub
+      description: Support for various model families including LLMs, image generation, and audio models.
+      ctaLink:
+        text: learn more
+        url: /docs/models
+
+    - title: Privacy Focused
+      icon: lock
+      description: Keep your data local. No data leaves your machine, ensuring complete privacy.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Easy Setup
+      icon: settings
+      description: Simple installation and configuration. Get started in minutes with Docker or local installation.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Community Driven
+      icon: groups
+      description: Active community support and regular updates. Contribute and help shape the future of LocalAI.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalAI
+
+    - title: Flexible Deployment
+      icon: deploy
+      description: Deploy anywhere - from your laptop to your server. Supports Docker, Kubernetes, and more.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Extensible
+      icon: extension
+      description: Easy to extend and customize. Add new models and features as needed.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Open Source
+      icon: code
+      description: MIT licensed. Free to use, modify, and distribute. Community contributions welcome.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalAI
 
 imageText:
   enable: true
   weight: 25
   template: image text
 
-  title: LocalAI
-  subtitle: The Free, Open Source OpenAI Alternative
+  title: Run AI models locally with ease
+  subtitle: LocalAI makes it simple to run various AI models on your own hardware, from text generation to image creation.
 
   list:
-    - text: Optimized, fast inference
-      icon: speed
+    - text: OpenAI API compatibility
+      icon: api
 
-    - text: Comprensive support for many models architectures
-      icon: area_chart
+    - text: Multiple model support
+      icon: hub
 
-    - text: Easy to deploy with Docker
-      icon: accessibility
+    - text: Privacy focused
+      icon: lock
 
   image:
-    path: "images/logos"
-    filename: "logo.png"
-    alt: "LocalAI logo" # Optional but recommended
+    path: "images"
+    filename: "localai_architecture.png"
+    alt: "LocalAI Architecture"
 
   imgOrder:
     desktop: 2
@@ -41,10 +147,62 @@ imageText:
 
   ctaButton:
     text: Learn more
-    url: "/docs/"
+    url: "/basics/getting_started/"
 
 # Image compare
 imageCompare:
-  enable: false
+  enable: true
   weight: 30
   template: image compare
+
+  title: LocalAI in Action
+  subtitle: See how LocalAI can transform your local AI experience with various models and capabilities.
+
+  items:
+    - title: Text Generation
+      config: {
+        startingPoint: 50,
+        addCircle: true,
+        addCircleBlur: false,
+        showLabels: true,
+        labelOptions: {
+          before: 'Input',
+          after: 'Output',
+          onHover: false
+        }
+      }
+      imagePath: "images/screenshots"
+      imageBefore: "text_generation_input.webp"
+      imageAfter: "text_generation_output.webp"
+
+    - title: Image Generation
+      config: {
+        startingPoint: 50,
+        addCircle: true,
+        addCircleBlur: false,
+        showLabels: true,
+        labelOptions: {
+          before: 'Prompt',
+          after: 'Result',
+          onHover: false
+        }
+      }
+      imagePath: "images/screenshots"
+      imageBefore: "image_generation_prompt.webp"
+      imageAfter: "image_generation_result.webp"
+
+    - title: Audio Generation
+      config: {
+        startingPoint: 50,
+        addCircle: true,
+        addCircleBlur: false,
+        showLabels: true,
+        labelOptions: {
+          before: 'Text',
+          after: 'Audio',
+          onHover: false
+        }
+      }
+      imagePath: "images/screenshots"
+      imageBefore: "audio_generation_text.webp"
+      imageAfter: "audio_generation_waveform.webp"

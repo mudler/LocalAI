@@ -18,10 +18,10 @@
     <!-- Custom CSS -->
     {{- $options := dict "enableSourceMap" true }}
     {{- if hugo.IsProduction}}
-        {{- $options := dict "enableSourceMap" false "outputStyle" "compressed" }}
+        {{- $options = dict "enableSourceMap" false "outputStyle" "compressed" }}
     {{- end }}
     {{- $style := resources.Get "/scss/style.scss" }}
-    {{- $style = $style | resources.ExecuteAsTemplate "/scss/style.scss" . | resources.ToCSS $options }}
+    {{- $style = $style | resources.ExecuteAsTemplate "/scss/style.scss" . | css.Sass $options }}
     {{- if hugo.IsProduction }}
         {{- $style = $style | minify | fingerprint "sha384" }}
     {{- end -}}
@@ -39,7 +39,7 @@
     <!-- Image Compare Viewer -->
     {{ if ($.Scratch.Get "image_compare_enabled") }}
         {{ $imagecompare := resources.Get "js/image-compare-viewer.min.js" }}
-        {{- if not .Site.IsServer }}
+        {{- if not hugo.IsDevelopment }}
             {{- $js := (slice $imagecompare) | resources.Concat "/js/image-compare.js" | minify | fingerprint "sha384" }}
             <script type="text/javascript" src="{{ $js.Permalink }}" integrity="{{ $js.Data.Integrity }}"></script>
         {{- else }}
@@ -48,14 +48,14 @@
         {{- end }}
     {{- end }}
     <!-- Plausible Analytics Config -->
-    {{- if not .Site.IsServer }}
+    {{- if not hugo.IsDevelopment }}
     {{ if and (.Site.Params.plausible.scriptURL) (.Site.Params.plausible.dataDomain) -}}
         {{- partialCached "head/plausible" . }}
     {{- end -}}
     {{- end -}}
     <!-- Google Analytics v4 Config -->
-    {{- if not .Site.IsServer }}
-    {{- if .Site.GoogleAnalytics }}
+    {{- if not hugo.IsDevelopment }}
+    {{- if .Site.Params.analytics.google }}
         {{- template "_internal/google_analytics.html" . -}}
     {{- end -}}
     {{- end -}}
