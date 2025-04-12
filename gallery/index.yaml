@@ -5878,6 +5878,21 @@
     - filename: soob3123_amoral-cogito-v1-preview-qwen-14B-Q4_K_M.gguf
       sha256: c01a0b0c44345011dc61212fb1c0ffdba32f85e702d2f3d4abeb2a09208d6184
       uri: huggingface://bartowski/soob3123_amoral-cogito-v1-preview-qwen-14B-GGUF/soob3123_amoral-cogito-v1-preview-qwen-14B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tesslate_gradience-t1-3b-preview"
+  urls:
+    - https://huggingface.co/Tesslate/Gradience-T1-3B-preview
+    - https://huggingface.co/bartowski/Tesslate_Gradience-T1-3B-preview-GGUF
+  description: |
+    This model is still in preview/beta. We're still working on it! This is just so the community can try out our new "Gradient Reasoning" that intends to break problems down and reason faster.
+    You can use a system prompt to enable thinking: "First, think step-by-step to reach the solution. Enclose your entire reasoning process within <|begin_of_thought|> and <|end_of_thought|> tags." You can try sampling params: Temp: 0.76, TopP: 0.62, Topk 30-68, Rep: 1.0, minp: 0.05
+  overrides:
+    parameters:
+      model: Tesslate_Gradience-T1-3B-preview-Q4_K_M.gguf
+  files:
+    - filename: Tesslate_Gradience-T1-3B-preview-Q4_K_M.gguf
+      sha256: 119ccefa09e3756750a983301f8bbb95e6c8fce6941a5d91490dac600f887111
+      uri: huggingface://bartowski/Tesslate_Gradience-T1-3B-preview-GGUF/Tesslate_Gradience-T1-3B-preview-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
