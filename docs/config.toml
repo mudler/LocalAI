@@ -48,8 +48,8 @@ defaultContentLanguage = 'en'
 
     [params.docs] # Parameters for the /docs 'template'
 
-        logo = "https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd"
-        logo_text = "LocalAI"
+        logo = "https://raw.githubusercontent.com/mudler/LocalAI/53652d5b8f8049e95ef71f0fed39671eb39c211c/core/http/static/logo.png"
+        logo_text = ""
         title           = "LocalAI documentation"           # default html title for documentation pages/sections
 
         pathName        = "docs"                            # path name for documentation site | default "docs"

@@ -7,8 +7,6 @@ description = "What is LocalAI?"
 tags = ["Beginners"]
 categories = [""]
 author = "Ettore Di Giacinto"
-# This allows to overwrite the landing page
-url = '/'
 icon = "info"
 +++
 
