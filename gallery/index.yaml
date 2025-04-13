@@ -5893,6 +5893,20 @@
     - filename: Tesslate_Gradience-T1-3B-preview-Q4_K_M.gguf
       sha256: 119ccefa09e3756750a983301f8bbb95e6c8fce6941a5d91490dac600f887111
       uri: huggingface://bartowski/Tesslate_Gradience-T1-3B-preview-GGUF/Tesslate_Gradience-T1-3B-preview-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "lightthinker-qwen"
+  urls:
+    - https://huggingface.co/zjunlp/LightThinker-Qwen
+    - https://huggingface.co/mradermacher/LightThinker-Qwen-GGUF
+  description: |
+    LLMs have shown remarkable performance in complex reasoning tasks, but their efficiency is hindered by the substantial memory and computational costs associated with generating lengthy tokens. In this paper, we propose LightThinker, a novel method that enables LLMs to dynamically compress intermediate thoughts during reasoning. Inspired by human cognitive processes, LightThinker compresses verbose thought steps into compact representations and discards the original reasoning chains, thereby significantly reducing the number of tokens stored in the context window. This is achieved by training the model on when and how to perform compression through data construction, mapping hidden states to condensed gist tokens, and creating specialized attention masks.
+  overrides:
+    parameters:
+      model: LightThinker-Qwen.Q4_K_M.gguf
+  files:
+    - filename: LightThinker-Qwen.Q4_K_M.gguf
+      sha256: f52f27c23fa734b1a0306efd29fcb80434364e7a1077695574e9a4f5e48b7ed2
+      uri: huggingface://mradermacher/LightThinker-Qwen-GGUF/LightThinker-Qwen.Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
