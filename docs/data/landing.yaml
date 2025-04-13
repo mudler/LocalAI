@@ -12,11 +12,11 @@ hero:
       desktop: "gradient-desktop.webp"
       mobile: "gradient-mobile.webp"
 
-  # badge:
-  #   text: v2.0.0
-  #   color: primary
-  #   pill: false
-  #   soft: true
+  badge:
+    text: "⭐ 31.7k+ stars on GitHub!"
+    color: primary
+    pill: false
+    soft: true
 
   titleLogo:
     path: "images/logos"
@@ -25,7 +25,7 @@ hero:
     height: 80px
 
   title: "LocalAI"
-  subtitle: A free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
+  subtitle: "**The free, OpenAI, Anthropic, et al alternative. Your All-in-One Complete AI Stack** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. **No cloud, no limits, no compromise.**"
 
   image:
     path: "images"
@@ -43,7 +43,9 @@ hero:
     btnText: "View on GitHub"
     url: "https://github.com/mudler/LocalAI"
 
-  info: "**Open Source** MIT Licensed."
+  info: |
+    **Drop-in replacement for OpenAI API** - modular suite of tools that work seamlessly together or independently. Start with LocalAI's OpenAI-compatible API, extend with autonomous agents, and enhance with semantic search - all running locally on your hardware.
+    **Open Source** MIT Licensed.
 
 # Feature Grid
 featureGrid:
@@ -52,9 +54,29 @@ featureGrid:
   template: feature grid
 
   title: Why choose LocalAI?
-  subtitle: LocalAI provides a drop-in replacement REST API that's compatible with OpenAI API specifications for local AI inferencing. It's designed to be simple, efficient, and accessible.
+  subtitle: |
+    **OpenAI API Compatible** - Run AI models locally with our modular ecosystem. From language models to autonomous agents and semantic search, build your complete AI stack without the cloud.
 
   items:
+    - title: LocalAI
+      icon: api
+      description: A free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+    - title: LocalAGI
+      icon: ai
+      description: An autonomous AI agent platform that runs locally. Build and deploy autonomous agents with ease. Interact with REST APIs or use the WebUI.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalAGI
+
+    - title: LocalRecall
+      icon: memory
+      description: A local rest api for semantic search and memory management. Perfect for AI applications.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalRecall
     - title: OpenAI Compatible
       icon: api
       description: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
@@ -117,6 +139,10 @@ featureGrid:
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalAI
+
+
+
+
 
 imageText:
   enable: true
