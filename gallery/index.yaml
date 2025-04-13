@@ -8100,6 +8100,24 @@
     - filename: Hamanasu-Adventure-4B.i1-Q4_K_M.gguf
       sha256: d4f2bb3bdd99dbfe1019368813c8b6574c4c53748ff58e1b0cc1786b32cc9f5d
       uri: huggingface://mradermacher/Hamanasu-Adventure-4B-i1-GGUF/Hamanasu-Adventure-4B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "hamanasu-magnum-4b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/o5WjJKA9f95ri9UzRxZQE.png
+  urls:
+    - https://huggingface.co/Delta-Vector/Hamanasu-Magnum-4B
+    - https://huggingface.co/mradermacher/Hamanasu-Magnum-4B-i1-GGUF
+  description: |
+    This is a model designed to replicate the prose quality of the Claude 3 series of models. specifically Sonnet and Opus - Made with a prototype magnum V5 datamix.
+    The model is suited for traditional RP, All thanks to Tav for funding the train.
+    Support me and my finetunes on Ko-Fi https://ko-fi.com/deltavector
+  overrides:
+    parameters:
+      model: Hamanasu-Magnum-4B.i1-Q4_K_M.gguf
+  files:
+    - filename: Hamanasu-Magnum-4B.i1-Q4_K_M.gguf
+      sha256: 7eb6d1bfda7c0a5bf62de754323cf59f14ddd394550a5893b7bd086fd1906361
+      uri: huggingface://mradermacher/Hamanasu-Magnum-4B-i1-GGUF/Hamanasu-Magnum-4B.i1-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
