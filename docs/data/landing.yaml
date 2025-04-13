@@ -21,10 +21,10 @@ hero:
   titleLogo:
     path: "images/logos"
     filename: "logo.png"
-    alt: "Lotus Docs Logo"
-    height: 80px
+    alt: "LocalAI Logo"
+    height: 540px
 
-  title: "LocalAI"
+  title: ""
   subtitle: "**The free, OpenAI, Anthropic, et al alternative. Your All-in-One Complete AI Stack** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. **No cloud, no limits, no compromise.**"
 
   image:
@@ -58,25 +58,28 @@ featureGrid:
     **OpenAI API Compatible** - Run AI models locally with our modular ecosystem. From language models to autonomous agents and semantic search, build your complete AI stack without the cloud.
 
   items:
-    - title: LocalAI
+    - title: LLM Inferencing
       icon: api
-      description: A free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
+      description: LocalAI is a free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
       ctaLink:
         text: learn more
         url: /basics/getting_started/
-    - title: LocalAGI
+    - title: Agentic-first
       icon: ai
-      description: An autonomous AI agent platform that runs locally. Build and deploy autonomous agents with ease. Interact with REST APIs or use the WebUI.
+      description: |
+        Extend LocalAI with LocalAGI, an autonomous AI agent platform that runs locally. Build and deploy autonomous agents with ease. Interact with REST APIs or use the WebUI.
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalAGI
 
-    - title: LocalRecall
+    - title: Memory and Knowledge base
       icon: memory
-      description: A local rest api for semantic search and memory management. Perfect for AI applications.
+      description: 
+        Extend LocalAI with LocalRecall, A local rest api for semantic search and memory management. Perfect for AI applications.
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalRecall
+
     - title: OpenAI Compatible
       icon: api
       description: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
@@ -93,10 +96,13 @@ featureGrid:
 
     - title: Multiple Models
       icon: hub
-      description: Support for various model families including LLMs, image generation, and audio models.
+      description: |
+          Support for various model families including LLMs, image generation, and audio models.
+          Supports multiple backends for inferencing, including vLLM, llama.cpp, and more.
+          You can switch between them as needed.
       ctaLink:
         text: learn more
-        url: /docs/models
+        url: /model-compatibility
 
     - title: Privacy Focused
       icon: lock
@@ -124,14 +130,24 @@ featureGrid:
       description: Deploy anywhere - from your laptop to your server. Supports Docker, Kubernetes, and more.
       ctaLink:
         text: learn more
-        url: /basics/getting_started/
+        url: /basics/container/
 
     - title: Extensible
       icon: extension
       description: Easy to extend and customize. Add new models and features as needed.
       ctaLink:
         text: learn more
-        url: /basics/getting_started/
+        url: /docs/integrations/
+
+    - title: Peer 2 Peer
+      icon: network
+      description: |
+        LocalAI is designed to be a decentralized LLM inference, powered by a peer-to-peer system based on libp2p. 
+        It is designed to be used in a local or remote network, and is compatible with any LLM model. 
+        It works both in federated mode or by splitting models weights.
+      ctaLink:
+        text: learn more
+        url: /features/distribute/
 
     - title: Open Source
       icon: code
@@ -139,10 +155,6 @@ featureGrid:
       ctaLink:
         text: learn more
         url: https://github.com/mudler/LocalAI
-
-
-
-
 
 imageText:
   enable: true
