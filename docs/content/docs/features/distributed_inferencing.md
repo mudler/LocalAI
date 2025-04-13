@@ -13,6 +13,8 @@ LocalAI supports two modes of distributed inferencing via p2p:
 - **Federated Mode**: Requests are shared between the cluster and routed to a single worker node in the network based on the load balancer's decision.
 - **Worker Mode** (aka "model sharding" or "splitting weights"): Requests are processed by all the workers which contributes to the final inference result (by sharing the model weights).
 
+A list of global instances shared by the community is available at [explorer.localai.io](https://explorer.localai.io).
+
 ## Usage
 
 Starting LocalAI with `--p2p` generates a shared token for connecting multiple instances: and that's all you need to create AI clusters, eliminating the need for intricate network setups. 

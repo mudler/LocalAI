@@ -1,0 +1,57 @@
+<!-- Navbar Start -->
+<header id="topnav">
+    <div class="container d-flex justify-content-between align-items-center">
+        <!-- Logo container-->
+        <a class="logo" aria-label="Home" href='{{ relLangURL "" }}'>
+            
+        </a>
+        <!-- End Logo container-->
+
+        <div class="d-flex align-items-center">
+
+            <div id="navigation">
+                <!-- Navigation Menu -->
+                <ul class="navigation-menu nav-right">
+                    {{- range .Site.Menus.primary }}
+                    <li><a href="{{ relLangURL .URL }}">{{ .Name }}</a></li>
+                    {{ end }}
+                </ul><!--end navigation menu-->
+            </div><!--end navigation-->
+
+            <!-- Social Links Start -->
+            {{ with $.Scratch.Get "social_list" }}
+            <ul class="social-link d-flex list-inline mb-0">
+                {{ range . }}
+                    {{ $path := printf "images/social/%s.%s" . "svg" }}
+                    <li class="list-inline-item mb-0">
+                        <a href="{{ if eq . `rss` }} {{ `index.xml` | absURL }} {{ else if eq . `bluesky` }} https://bsky.app/profile/{{ index site.Params.social . }} {{ else }} https://{{ . }}.com/{{ index site.Params.social . }} {{ end }}" alt="{{ . }}" rel="noopener noreferrer" target="_blank">
+                            <div class="btn btn-icon btn-landing border-0">
+                                {{ with resources.Get $path }}
+                                    {{ .Content | safeHTML }}
+                                {{ end }}
+                            </div>
+                        </a>
+                    </li>
+                {{ end }}
+            </ul>
+            {{ end }}
+            <!-- Social Links End -->
+
+            <div class="menu-extras ms-3 me-2">
+                <div class="menu-item">
+                    <!-- Mobile menu toggle-->
+                    <button class="navbar-toggle btn btn-icon btn-soft-light" id="isToggle" aria-label="toggleMenu" onclick="toggleMenu()">
+                        <div class="lines">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </button>
+                    <!-- End mobile menu toggle-->
+                </div>
+            </div>
+
+        </div>
+    </div><!--end container-->
+</header><!--end header-->
+<!-- Navbar End -->
