@@ -48,7 +48,7 @@ defaultContentLanguage = 'en'
 
     [params.docs] # Parameters for the /docs 'template'
 
-        logo = "https://raw.githubusercontent.com/mudler/LocalAI/53652d5b8f8049e95ef71f0fed39671eb39c211c/core/http/static/logo.png"
+        logo = "https://raw.githubusercontent.com/mudler/LocalAI/refs/heads/master/core/http/static/logo.png"
         logo_text = ""
         title           = "LocalAI"           # default html title for documentation pages/sections
 

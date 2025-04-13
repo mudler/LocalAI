@@ -56,13 +56,23 @@
 
 <table>
   <tr>
-    <td>
-      <a href="https://github.com/mudler/LocalAGI"><img src="https://raw.githubusercontent.com/mudler/LocalAGI/refs/heads/main/webui/react-ui/public/logo_2.png" width="250" alt="LocalAGI Logo"></a>
+    <td width="50%" valign="top">
+      <a href="https://github.com/mudler/LocalAGI">
+        <img src="https://raw.githubusercontent.com/mudler/LocalAGI/refs/heads/main/webui/react-ui/public/logo_2.png" width="300" alt="LocalAGI Logo">
+      </a>
+    </td>
+    <td width="50%" valign="top">
       <h3><a href="https://github.com/mudler/LocalAGI">LocalAGI</a></h3>
       <p>A powerful Local AI agent management platform that serves as a drop-in replacement for OpenAI's Responses API, enhanced with advanced agentic capabilities.</p>
     </td>
-    <td>
-      <a href="https://github.com/mudler/LocalRecall"><img src="https://raw.githubusercontent.com/mudler/LocalRecall/refs/heads/main/static/logo.png" width="250" alt="LocalRecall Logo"></a>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://github.com/mudler/LocalRecall">
+        <img src="https://raw.githubusercontent.com/mudler/LocalRecall/refs/heads/main/static/localrecall_horizontal.png" width="300" alt="LocalRecall Logo">
+      </a>
+    </td>
+    <td width="50%" valign="top">
       <h3><a href="https://github.com/mudler/LocalRecall">LocalRecall</a></h3>
       <p>A REST-ful API and knowledge base management system that provides persistent memory and storage capabilities for AI agents.</p>
     </td>
