@@ -470,6 +470,23 @@
     - filename: Tesslate_Synthia-S1-27b-Q4_K_M.gguf
       sha256: d953bf7f802dc68f85a35360deb24b9a8b446af051e82c77f2f0759065d2aa71
       uri: huggingface://bartowski/Tesslate_Synthia-S1-27b-GGUF/Tesslate_Synthia-S1-27b-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "daichi-12b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/RqjcprtID598UTzL4igkU.webp
+  urls:
+    - https://huggingface.co/Delta-Vector/Daichi-12B
+    - https://huggingface.co/Delta-Vector/Daichi-12B-GGUF
+  description: |
+    A merge between my Gemma-Finetune of Pascal-12B and Omega-Directive-G-12B, Meant to give it more NSFW knowledge.
+    This model has a short-sweet prose and is uncensored in Roleplay.
+    The model is suited for traditional RP, All thanks to Tav for funding the train.
+  overrides:
+    parameters:
+      model: Omega-LN-SFT-Q4_K_M.gguf
+  files:
+    - filename: Omega-LN-SFT-Q4_K_M.gguf
+      sha256: 33fb1c61085f9b18074e320ac784e6dbc8a98fe20705f92773e055471fd3cb0f
+      uri: huggingface://Delta-Vector/Daichi-12B-GGUF/Omega-LN-SFT-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
