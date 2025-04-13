@@ -5907,6 +5907,22 @@
     - filename: LightThinker-Qwen.Q4_K_M.gguf
       sha256: f52f27c23fa734b1a0306efd29fcb80434364e7a1077695574e9a4f5e48b7ed2
       uri: huggingface://mradermacher/LightThinker-Qwen-GGUF/LightThinker-Qwen.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "mag-picaro-72b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/hrYOp7JiH7o5ij1WEoyCZ.png
+  urls:
+    - https://huggingface.co/Delta-Vector/Mag-Picaro-72B
+    - https://huggingface.co/mradermacher/Mag-Picaro-72B-GGUF
+  description: |
+    A scaled up version of Mag-Picaro, Funded by PygmalionAI as alternative to their Magnum Large option.
+    Fine-tuned on top of Qwen-2-Instruct, Mag-Picaro has been then slerp-merged at 50/50 weight with Magnum-V2. If you like the model support me on Ko-Fi https://ko-fi.com/deltavector
+  overrides:
+    parameters:
+      model: Mag-Picaro-72B.Q4_K_M.gguf
+  files:
+    - filename: Mag-Picaro-72B.Q4_K_M.gguf
+      sha256: 3fda6cf318a9082ef7b502c4384ee3ea5f9f9f44268b852a2e46d71bcea29d5a
+      uri: huggingface://mradermacher/Mag-Picaro-72B-GGUF/Mag-Picaro-72B.Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
