@@ -8702,6 +8702,26 @@
     - filename: Skywork_Skywork-OR1-Math-7B-Q4_K_M.gguf
       sha256: 4a28cc95da712d37f1aef701f3eff5591e437beba9f89faf29b2a2e7443dd170
       uri: huggingface://bartowski/Skywork_Skywork-OR1-Math-7B-GGUF/Skywork_Skywork-OR1-Math-7B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "skywork_skywork-or1-32b-preview"
+  urls:
+    - https://huggingface.co/Skywork/Skywork-OR1-32B-Preview
+    - https://huggingface.co/bartowski/Skywork_Skywork-OR1-32B-Preview-GGUF
+  description: |
+    The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes. This series includes two general-purpose reasoning modelsl, Skywork-OR1-7B-Preview and Skywork-OR1-32B-Preview, along with a math-specialized model, Skywork-OR1-Math-7B.
+
+    Skywork-OR1-Math-7B is specifically optimized for mathematical reasoning, scoring 69.8 on AIME24 and 52.3 on AIME25 — well ahead of all models of similar size.
+    Skywork-OR1-32B-Preview delivers the 671B-parameter Deepseek-R1 performance on math tasks (AIME24 and AIME25) and coding tasks (LiveCodeBench).
+    Skywork-OR1-7B-Preview outperforms all similarly sized models in both math and coding scenarios.
+
+    The final release version will be available in two weeks.
+  overrides:
+    parameters:
+      model: Skywork_Skywork-OR1-32B-Preview-Q4_K_M.gguf
+  files:
+    - filename: Skywork_Skywork-OR1-32B-Preview-Q4_K_M.gguf
+      sha256: 304d4f6e6ac6c530b7427c30b43df3d19ae6160c68582b8815efb129533c2f0c
+      uri: huggingface://bartowski/Skywork_Skywork-OR1-32B-Preview-GGUF/Skywork_Skywork-OR1-32B-Preview-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
