@@ -8135,6 +8135,21 @@
     - filename: Hamanasu-Magnum-4B.i1-Q4_K_M.gguf
       sha256: 7eb6d1bfda7c0a5bf62de754323cf59f14ddd394550a5893b7bd086fd1906361
       uri: huggingface://mradermacher/Hamanasu-Magnum-4B-i1-GGUF/Hamanasu-Magnum-4B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nvidia_llama-3.1-8b-ultralong-1m-instruct"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/Llama-3.1-8B-UltraLong-1M-Instruct
+    - https://huggingface.co/bartowski/nvidia_Llama-3.1-8B-UltraLong-1M-Instruct-GGUF
+  description: |
+    We introduce UltraLong-8B, a series of ultra-long context language models designed to process extensive sequences of text (up to 1M, 2M, and 4M tokens) while maintaining competitive performance on standard benchmarks. Built on the Llama-3.1, UltraLong-8B leverages a systematic training recipe that combines efficient continued pretraining with instruction tuning to enhance long-context understanding and instruction-following capabilities. This approach enables our models to efficiently scale their context windows without sacrificing general performance.
+  overrides:
+    parameters:
+      model: nvidia_Llama-3.1-8B-UltraLong-1M-Instruct-Q4_K_M.gguf
+  files:
+    - filename: nvidia_Llama-3.1-8B-UltraLong-1M-Instruct-Q4_K_M.gguf
+      sha256: 22e59b0eff7fd7b77403027fb758f75ad41c78a4f56adc10ca39802c64fe97fa
+      uri: huggingface://bartowski/nvidia_Llama-3.1-8B-UltraLong-1M-Instruct-GGUF/nvidia_Llama-3.1-8B-UltraLong-1M-Instruct-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
