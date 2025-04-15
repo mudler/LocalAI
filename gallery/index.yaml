@@ -5940,6 +5940,22 @@
     - filename: Mag-Picaro-72B.Q4_K_M.gguf
       sha256: 3fda6cf318a9082ef7b502c4384ee3ea5f9f9f44268b852a2e46d71bcea29d5a
       uri: huggingface://mradermacher/Mag-Picaro-72B-GGUF/Mag-Picaro-72B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "m1-32b"
+  urls:
+    - https://huggingface.co/Can111/m1-32b
+    - https://huggingface.co/mradermacher/m1-32b-GGUF
+  description: |
+    M1-32B is a 32B-parameter large language model fine-tuned from Qwen2.5-32B-Instruct on the M500 dataset—an interdisciplinary multi-agent collaborative reasoning dataset. M1-32B is optimized for improved reasoning, discussion, and decision-making in multi-agent systems (MAS), including frameworks such as AgentVerse.
+
+    Code: https://github.com/jincan333/MAS-TTS
+  overrides:
+    parameters:
+      model: m1-32b.Q4_K_M.gguf
+  files:
+    - filename: m1-32b.Q4_K_M.gguf
+      sha256: 1dfa3b6822447aca590d6f2881cf277bd0fbde633a39c5a20b521f4a59145e3f
+      uri: huggingface://mradermacher/m1-32b-GGUF/m1-32b.Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
