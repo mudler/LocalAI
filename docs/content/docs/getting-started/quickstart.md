@@ -18,13 +18,44 @@ To access the WebUI with an API_KEY, browser extensions such as [Requestly](http
 
 {{% /alert %}}
 
-## Using the Bash Installer
+## Quickstart
 
-Install LocalAI easily using the bash installer with the following command:
 
-```sh
+### Using the Bash Installer
+```bash
 curl https://localai.io/install.sh | sh
 ```
+
+### Run with docker:
+```bash
+# CPU only image:
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-cpu
+
+# Nvidia GPU:
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
+
+# CPU and GPU image (bigger size):
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+
+# AIO images (it will pre-download a set of models ready for use, see https://localai.io/basics/container/)
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+```
+
+### Load models:
+
+```bash
+# From the model gallery (see available models with `local-ai models list`, in the WebUI from the model tab, or visiting https://models.localai.io)
+local-ai run llama-3.2-1b-instruct:q4_k_m
+# Start LocalAI with the phi-2 model directly from huggingface
+local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf
+# Install and run a model from the Ollama OCI registry
+local-ai run ollama://gemma:2b
+# Run a model from a configuration file
+local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
+# Install and run a model from a standard OCI registry (e.g., Docker Hub)
+local-ai run oci://localai/phi-2:latest
+```
+
 
 For a full list of options, refer to the [Installer Options]({{% relref "docs/advanced/installer" %}}) documentation.
 

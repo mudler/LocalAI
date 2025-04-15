@@ -48,9 +48,9 @@ defaultContentLanguage = 'en'
 
     [params.docs] # Parameters for the /docs 'template'
 
-        logo = "https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd"
-        logo_text = "LocalAI"
-        title           = "LocalAI documentation"           # default html title for documentation pages/sections
+        logo = "https://raw.githubusercontent.com/mudler/LocalAI/refs/heads/master/core/http/static/logo.png"
+        logo_text = ""
+        title           = "LocalAI"           # default html title for documentation pages/sections
 
         pathName        = "docs"                            # path name for documentation site | default "docs"
 
@@ -108,6 +108,7 @@ defaultContentLanguage = 'en'
         # indexName = "" # Index Name to perform search on (or set env variable HUGO_PARAM_DOCSEARCH_indexName)
 
     [params.analytics] # Parameters for Analytics (Google, Plausible)
+        # google = "G-XXXXXXXXXX" # Replace with your Google Analytics ID
         # plausibleURL    = "/docs/s" # (or set via env variable HUGO_PARAM_ANALYTICS_plausibleURL)
         # plausibleAPI    = "/docs/s" # optional - (or set via env variable HUGO_PARAM_ANALYTICS_plausibleAPI)
         # plausibleDomain = ""      # (or set via env variable HUGO_PARAM_ANALYTICS_plausibleDomain)

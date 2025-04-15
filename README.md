@@ -1,7 +1,6 @@
 <h1 align="center">
   <br>
-  <img height="300" src="https://github.com/go-skynet/LocalAI/assets/2420543/0966aa2a-166e-4f99-a3e5-6c915fc997dd"> <br>
-    LocalAI
+  <img height="300" src="./core/http/static/logo.png"> <br>
 <br>
 </h1>
 
@@ -48,25 +47,58 @@
 
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml)[![Build and Release](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml)[![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)[![Bump dependencies](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/localai)](https://artifacthub.io/packages/search?repo=localai)
 
-**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that’s compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
+**LocalAI** is the free, Open Source OpenAI alternative. LocalAI act as a drop-in replacement REST API that's compatible with OpenAI (Elevenlabs, Anthropic... ) API specifications for local AI inferencing. It allows you to run LLMs, generate images, audio (and not only) locally or on-prem with consumer grade hardware, supporting multiple model families. Does not require GPU. It is created and maintained by [Ettore Di Giacinto](https://github.com/mudler).
+
+
+## 📚🆕 Local Stack Family
+
+🆕 LocalAI is now part of a comprehensive suite of AI tools designed to work together:
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://github.com/mudler/LocalAGI">
+        <img src="https://raw.githubusercontent.com/mudler/LocalAGI/refs/heads/main/webui/react-ui/public/logo_2.png" width="300" alt="LocalAGI Logo">
+      </a>
+    </td>
+    <td width="50%" valign="top">
+      <h3><a href="https://github.com/mudler/LocalAGI">LocalAGI</a></h3>
+      <p>A powerful Local AI agent management platform that serves as a drop-in replacement for OpenAI's Responses API, enhanced with advanced agentic capabilities.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <a href="https://github.com/mudler/LocalRecall">
+        <img src="https://raw.githubusercontent.com/mudler/LocalRecall/refs/heads/main/static/localrecall_horizontal.png" width="300" alt="LocalRecall Logo">
+      </a>
+    </td>
+    <td width="50%" valign="top">
+      <h3><a href="https://github.com/mudler/LocalRecall">LocalRecall</a></h3>
+      <p>A REST-ful API and knowledge base management system that provides persistent memory and storage capabilities for AI agents.</p>
+    </td>
+  </tr>
+</table>
+
+## Screenshots
+
 
 | Talk Interface | Generate Audio |
 | --- | --- |
-| ![Screenshot 2025-03-31 at 12-01-36 LocalAI - Talk](https://github.com/user-attachments/assets/9841b1ee-88af-4b96-8ec0-41b17364efa7) | ![Screenshot 2025-03-31 at 12-01-29 LocalAI - Generate audio with voice-en-us-ryan-low](https://github.com/user-attachments/assets/d729f6f4-0621-4715-bda3-35fe6e159524) |
+| ![Screenshot 2025-03-31 at 12-01-36 LocalAI - Talk](./docs/assets/images/screenshots/screenshot_tts.png) | ![Screenshot 2025-03-31 at 12-01-29 LocalAI - Generate audio with voice-en-us-ryan-low](./docs/assets/images/screenshots/screenshot_tts.png) |
 
 | Models Overview | Generate Images |
 | --- | --- |
-| ![Screenshot 2025-03-31 at 12-01-20 LocalAI - Models](https://github.com/user-attachments/assets/3cf0b918-ba8e-498a-a3cd-485db5984325) | ![Screenshot 2025-03-31 at 12-31-41 LocalAI - Generate images with flux 1-dev](https://github.com/user-attachments/assets/6753d23d-218b-4e07-94b8-9e6c5a4f2311) |
+| ![Screenshot 2025-03-31 at 12-01-20 LocalAI - Models](./docs/assets/images/screenshots/screenshot_gallery.png) | ![Screenshot 2025-03-31 at 12-31-41 LocalAI - Generate images with flux 1-dev](./docs/assets/images/screenshots/screenshot_image.png) |
 
-| Chat Interface | API Overview |
+| Chat Interface | Home |
 | --- | --- |
-| ![Screenshot 2025-03-31 at 11-57-44 LocalAI - Chat with localai-functioncall-qwen2 5-7b-v0 5](https://github.com/user-attachments/assets/048eab31-0f0c-4d52-a920-3715233f9bf3) | ![Screenshot 2025-03-31 at 11-57-23 LocalAI API - c2a39e3 (c2a39e3639227cfd94ffffe9f5691239acc275a8)](https://github.com/user-attachments/assets/2540e8ce-1a2c-4c12-800c-763bd9be247f) |
+| ![Screenshot 2025-03-31 at 11-57-44 LocalAI - Chat with localai-functioncall-qwen2 5-7b-v0 5](./docs/assets/images/screenshots/screenshot_chat.png) | ![Screenshot 2025-03-31 at 11-57-23 LocalAI API - c2a39e3 (c2a39e3639227cfd94ffffe9f5691239acc275a8)](./docs/assets/images/screenshots/screenshot_home.png) |
 
 | Login | Swarm |
 | --- | --- |
-|![Screenshot 2025-03-31 at 12-09-59 ](https://github.com/user-attachments/assets/5af681b0-dd8e-4fe8-a234-a22f8a040547) | ![Screenshot 2025-03-31 at 12-10-39 LocalAI - P2P dashboard](https://github.com/user-attachments/assets/b9527176-63d6-4d2e-8ed1-7fde13a9b0ad) |
+|![Screenshot 2025-03-31 at 12-09-59 ](./docs/assets/images/screenshots/screenshot_login.png) | ![Screenshot 2025-03-31 at 12-10-39 LocalAI - P2P dashboard](./docs/assets/images/screenshots/screenshot_p2p.png) |
 
-## Quickstart
+## 💻 Quickstart
 
 Run the installer script:
 
@@ -108,10 +140,11 @@ local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
 local-ai run oci://localai/phi-2:latest
 ```
 
-[💻 Getting started](https://localai.io/basics/getting_started/index.html)
+For more information, see [💻 Getting started](https://localai.io/basics/getting_started/index.html)
 
 ## 📰 Latest project news
 
+- Apr 2025: [LocalAGI](https://github.com/mudler/LocalAGI) and [LocalRecall](https://github.com/mudler/LocalRecall) join the LocalAI family stack.
 - Apr 2025: WebUI overhaul, AIO images updates
 - Feb 2025: Backend cleanup, Breaking changes, new backends (kokoro, OutelTTS, faster-whisper), Nvidia L4T images
 - Jan 2025: LocalAI model release: https://huggingface.co/mudler/LocalAI-functioncall-phi-4-v0.3, SANA support in diffusers: https://github.com/mudler/LocalAI/pull/4603
@@ -127,19 +160,6 @@ local-ai run oci://localai/phi-2:latest
 
 Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
 
-## 🔥🔥 Hot topics (looking for help):
-
-- Multimodal with vLLM and Video understanding: https://github.com/mudler/LocalAI/pull/3729
-- Realtime API https://github.com/mudler/LocalAI/issues/3714
-- WebUI improvements: https://github.com/mudler/LocalAI/issues/2156
-- Backends v2: https://github.com/mudler/LocalAI/issues/1126
-- Improving UX v2: https://github.com/mudler/LocalAI/issues/1373
-- Assistant API: https://github.com/mudler/LocalAI/issues/1273
-- Vulkan: https://github.com/mudler/LocalAI/issues/1647
-- Anthropic API: https://github.com/mudler/LocalAI/issues/1808
-
-If you want to help and contribute, issues up for grabs: https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3A%22up+for+grabs%22
-
 ## 🚀 [Features](https://localai.io/features/)
 
 - 📖 [Text generation with GPTs](https://localai.io/features/text-generation/) (`llama.cpp`, `transformers`, `vllm` ... [:book: and more](https://localai.io/model-compatibility/index.html#model-compatibility-table))
@@ -153,12 +173,10 @@ If you want to help and contribute, issues up for grabs: https://github.com/mudl
 - 🥽 [Vision API](https://localai.io/features/gpt-vision/)
 - 📈 [Reranker API](https://localai.io/features/reranker/)
 - 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
+- [Agentic capabilities](https://github.com/mudler/LocalAGI)
 - 🔊 Voice activity detection (Silero-VAD support)
 - 🌍 Integrated WebUI!
 
-## 💻 Usage
-
-Check out the [Getting started](https://localai.io/basics/getting_started/index.html) section in our documentation.
 
 ### 🔗 Community and integrations
 
