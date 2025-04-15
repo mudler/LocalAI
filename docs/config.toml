@@ -152,7 +152,7 @@ defaultContentLanguage = 'en'
 
 [languages]
   [languages.en]
-    title = "LocalAI documentation"
+    title = "LocalAI"
     languageName = "English"
     weight = 10
 #  [languages.fr]
