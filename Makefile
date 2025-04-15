@@ -260,7 +260,7 @@ backend/go/image/stablediffusion-ggml/libsd.a: sources/stablediffusion-ggml.cpp
 	$(MAKE) -C backend/go/image/stablediffusion-ggml libsd.a
 
 backend-assets/grpc/stablediffusion-ggml: backend/go/image/stablediffusion-ggml/libsd.a backend-assets/grpc
-	$(MAKE) -C backend/go/image/stablediffusion-ggml stablediffusion-ggml
+	$(MAKE) -C backend/go/image/stablediffusion-ggml CGO_LDFLAGS="$(CGO_LDFLAGS)" stablediffusion-ggml
 
 sources/onnxruntime:
 	mkdir -p sources/onnxruntime
