@@ -10,6 +10,8 @@ CXXFLAGS = -I. -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/th
 
 GOCMD?=go
 CGO_LDFLAGS?=
+# Avoid parent make file overwriting CGO_LDFLAGS which is needed for hipblas
+CGO_LDFLAGS_SYCL=
 GO_TAGS?=
 LD_FLAGS?=
 
@@ -49,8 +51,8 @@ ifeq ($(BUILD_TYPE),sycl_f16)
 		-DGGML_SYCL_F16=ON
 	CC=icx
 	CXX=icpx
-	CGO_LDFLAGS += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
-	CGO_LDFLAGS += $(shell pkg-config --libs mkl-static-lp64-gomp)
+	CGO_LDFLAGS_SYCL += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
+	CGO_LDFLAGS_SYCL += $(shell pkg-config --libs mkl-static-lp64-gomp)
 	CGO_CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
 	CGO_CXXFLAGS += $(shell pkg-config --cflags mkl-static-lp64-gomp )
 endif
@@ -62,8 +64,8 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DSD_SYCL=ON
 	CC=icx
 	CXX=icpx
-	CGO_LDFLAGS += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
-	CGO_LDFLAGS += $(shell pkg-config --libs mkl-static-lp64-gomp)
+	CGO_LDFLAGS_SYCL += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
+	CGO_LDFLAGS_SYCL += $(shell pkg-config --libs mkl-static-lp64-gomp)
 	CGO_CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
 	CGO_CXXFLAGS += $(shell pkg-config --cflags mkl-static-lp64-gomp )
 endif
@@ -122,7 +124,7 @@ libsd.a: gosd.o
 	$(AR) rcs libsd.a gosd.o
 
 stablediffusion-ggml:
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH="$(INCLUDE_PATH)" LIBRARY_PATH="$(LIBRARY_PATH)" \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_SYCL)" C_INCLUDE_PATH="$(INCLUDE_PATH)" LIBRARY_PATH="$(LIBRARY_PATH)" \
 	CC="$(CC)" CXX="$(CXX)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o ../../../../backend-assets/grpc/stablediffusion-ggml ./
 ifneq ($(UPX),)
