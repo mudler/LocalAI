@@ -15913,7 +15913,8 @@
     - filename: silero-vad.onnx
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
-- name: "bark-cpp-small"
+- &bark
+  name: "bark-cpp"
   icon: https://avatars.githubusercontent.com/u/99442120
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   license: mit
@@ -15927,6 +15928,15 @@
     - cpu
   overrides:
     backend: bark-cpp
+    parameters:
+      model: bark_weights-f16.bin
+  files:
+    - filename: bark_weights-f16.bin
+      uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark_weights-f16.bin
+      sha256: ba6fc0e09531e6b8b5a9ef8862be2c9a52a631fc93f34a60b26b879cacf18f62
+- !!merge <<: *bark
+  name: "bark-cpp-small"
+  overrides:
     parameters:
       model: bark-small_weights-f16.bin
   files:
