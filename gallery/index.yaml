@@ -5970,6 +5970,35 @@
     - filename: m1-32b.Q4_K_M.gguf
       sha256: 1dfa3b6822447aca590d6f2881cf277bd0fbde633a39c5a20b521f4a59145e3f
       uri: huggingface://mradermacher/m1-32b-GGUF/m1-32b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-14b-instruct-1m"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-14B-Instruct-1M
+    - https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-1M-GGUF
+  description: |
+    Qwen2.5-1M is the long-context version of the Qwen2.5 series models, supporting a context length of up to 1M tokens. Compared to the Qwen2.5 128K version, Qwen2.5-1M demonstrates significantly improved performance in handling long-context tasks while maintaining its capability in short tasks.
+
+    The model has the following features:
+
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Architecture: transformers with RoPE, SwiGLU, RMSNorm, and Attention QKV bias
+        Number of Parameters: 14.7B
+        Number of Paramaters (Non-Embedding): 13.1B
+        Number of Layers: 48
+        Number of Attention Heads (GQA): 40 for Q and 8 for KV
+        Context Length: Full 1,010,000 tokens and generation 8192 tokens
+            We recommend deploying with our custom vLLM, which introduces sparse attention and length extrapolation methods to ensure efficiency and accuracy for long-context tasks. For specific guidance, refer to this section.
+            You can also use the previous framework that supports Qwen2.5 for inference, but accuracy degradation may occur for sequences exceeding 262,144 tokens.
+
+    For more details, please refer to our blog, GitHub, Technical Report, and Documentation.
+  overrides:
+    parameters:
+      model: Qwen2.5-14B-Instruct-1M-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-14B-Instruct-1M-Q4_K_M.gguf
+      sha256: a1a0fa3e2c3f9d63f9202af9172cffbc0b519801dff740fffd39f6a063a731ef
+      uri: huggingface://bartowski/Qwen2.5-14B-Instruct-1M-GGUF/Qwen2.5-14B-Instruct-1M-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
