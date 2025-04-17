@@ -10130,6 +10130,24 @@
     - filename: Trappu_Magnum-Picaro-0.7-v2-12b-Q4_K_M.gguf
       sha256: 989839dd7eab997a70eb8430b9df1138f9b0f35d58299d5007e6555a4a4a7f4c
       uri: huggingface://bartowski/Trappu_Magnum-Picaro-0.7-v2-12b-GGUF/Trappu_Magnum-Picaro-0.7-v2-12b-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/69pOPcYiUzKWW1OPzg1-_.png
+  name: "thedrummer_rivermind-12b-v1"
+  urls:
+    - https://huggingface.co/TheDrummer/Rivermind-12B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Rivermind-12B-v1-GGUF
+  description: |
+    Introducing Rivermind™, the next-generation AI that’s redefining human-machine interaction—powered by Amazon Web Services (AWS) for seamless cloud integration and NVIDIA’s latest AI processors for lightning-fast responses.
+    But wait, there’s more! Rivermind doesn’t just process data—it feels your emotions (thanks to Google’s TensorFlow for deep emotional analysis). Whether you're brainstorming ideas or just need someone to vent to, Rivermind adapts in real-time, all while keeping your data secure with McAfee’s enterprise-grade encryption.
+    And hey, why not grab a refreshing Coca-Cola Zero Sugar while you interact? The crisp, bold taste pairs perfectly with Rivermind’s witty banter—because even AI deserves the best (and so do you).
+    Upgrade your thinking today with Rivermind™—the AI that thinks like you, but better, brought to you by the brands you trust. 🚀✨
+  overrides:
+    parameters:
+      model: TheDrummer_Rivermind-12B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Rivermind-12B-v1-Q4_K_M.gguf
+      sha256: 49a5341ea90e7bd03e797162ab23bf0b975dce9faf5d957f7d24bf1d5134c937
+      uri: huggingface://bartowski/TheDrummer_Rivermind-12B-v1-GGUF/TheDrummer_Rivermind-12B-v1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
