@@ -115,6 +115,7 @@ async function sendTextToChatGPT(text) {
 
     const response = await fetch('v1/chat/completions', {
         method: 'POST',
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
             model: getModel(),
             messages: conversationHistory
