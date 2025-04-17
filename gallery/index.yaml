@@ -2688,6 +2688,20 @@
     - filename: deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
       sha256: 726a0ef5f818b8d238f2844f3204848bea66fb9c172b8ae0f6dc51b7bc081dd5
       uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-3B-GGUF/deepcogito_cogito-v1-preview-llama-3B-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "menlo_rezero-v0.1-llama-3.2-3b-it-grpo-250404"
+  urls:
+    - https://huggingface.co/Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404
+    - https://huggingface.co/bartowski/Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-GGUF
+  description: |
+      ReZero trains a small language model to develop effective search behaviors instead of memorizing static data. It interacts with multiple synthetic search engines, each with unique retrieval mechanisms, to refine queries and persist in searching until it finds exact answers. The project focuses on reinforcement learning, preventing overfitting, and optimizing for efficiency in real-world search applications.
+  overrides:
+    parameters:
+      model: Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-Q4_K_M.gguf
+  files:
+    - filename: Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-Q4_K_M.gguf
+      sha256: b9f01bead9e163db9351af036d8d63ef479d7d48a1bb44934ead732a180f371c
+      uri: huggingface://bartowski/Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-GGUF/Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-Q4_K_M.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
