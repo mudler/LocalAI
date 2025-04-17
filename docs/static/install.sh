@@ -6,6 +6,7 @@
 #   curl ... | ENV_VAR=... sh -
 #       or
 #   ENV_VAR=... ./install.sh
+#   To uninstall: ./install.sh --uninstall
 
 set -e
 set -o noglob
@@ -56,6 +57,59 @@ require() {
 
     echo $MISSING
 }
+
+# Function to uninstall LocalAI
+uninstall_localai() {
+    info "Starting LocalAI uninstallation..."
+
+    # Stop and remove Docker container if it exists
+    if available docker && $SUDO docker ps -a --format '{{.Names}}' | grep -q local-ai; then
+        info "Stopping and removing LocalAI Docker container..."
+        $SUDO docker stop local-ai || true
+        $SUDO docker rm local-ai || true
+        $SUDO docker volume rm local-ai-data || true
+    fi
+
+    # Remove systemd service if it exists
+    if [ -f "/etc/systemd/system/local-ai.service" ]; then
+        info "Removing systemd service..."
+        $SUDO systemctl stop local-ai || true
+        $SUDO systemctl disable local-ai || true
+        $SUDO rm -f /etc/systemd/system/local-ai.service
+        $SUDO systemctl daemon-reload
+    fi
+
+    # Remove environment file
+    if [ -f "/etc/localai.env" ]; then
+        info "Removing environment file..."
+        $SUDO rm -f /etc/localai.env
+    fi
+
+    # Remove binary
+    for BINDIR in /usr/local/bin /usr/bin /bin; do
+        if [ -f "$BINDIR/local-ai" ]; then
+            info "Removing binary from $BINDIR..."
+            $SUDO rm -f "$BINDIR/local-ai"
+        fi
+    done
+
+    # Remove models directory
+    if [ -d "/usr/share/local-ai" ]; then
+        info "Removing LocalAI data directory..."
+        $SUDO rm -rf /usr/share/local-ai
+    fi
+
+    # Remove local-ai user if it exists
+    if id local-ai >/dev/null 2>&1; then
+        info "Removing local-ai user..."
+        $SUDO userdel -r local-ai || true
+    fi
+
+    info "LocalAI has been successfully uninstalled."
+    exit 0
+}
+
+
 
 ## VARIABLES
 
@@ -516,10 +570,10 @@ install_docker() {
 install_binary_darwin() {
     [ "$(uname -s)" = "Darwin" ] || fatal 'This script is intended to run on macOS only.'
 
-    info "Downloading local-ai..."
+    info "Downloading LocalAI ${VERSION}..."
     curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${VERSION}/local-ai-Darwin-${ARCH}"
 
-    info "Installing local-ai..."
+    info "Installing to /usr/local/bin/local-ai"
     install -o0 -g0 -m755 $TEMP_DIR/local-ai /usr/local/bin/local-ai
 
     install_success
@@ -548,14 +602,14 @@ install_binary() {
         exit 1
     fi
 
-    info "Downloading local-ai..."
+    info "Downloading LocalAI ${VERSION}..."
     curl --fail --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${VERSION}/local-ai-Linux-${ARCH}"
 
     for BINDIR in /usr/local/bin /usr/bin /bin; do
         echo $PATH | grep -q $BINDIR && break || continue
     done
 
-    info "Installing local-ai to $BINDIR..."
+    info "Installing LocalAI as local-ai to $BINDIR..."
     $SUDO install -o0 -g0 -m755 -d $BINDIR
     $SUDO install -o0 -g0 -m755 $TEMP_DIR/local-ai $BINDIR/local-ai
 
@@ -617,6 +671,10 @@ detect_start_command() {
     fi
 }
 
+# Check if uninstall flag is provided
+if [ "$1" = "--uninstall" ]; then
+    uninstall_localai
+fi
 
 detect_start_command
 
@@ -664,10 +722,12 @@ for PACKAGE_MANAGER in dnf yum apt-get; do
 done
 
 if [ "$DOCKER_INSTALL" = "true" ]; then
+    info "Installing LocalAI from container images"
     if [ "$HAS_CUDA" = true ]; then
         install_container_toolkit
     fi
     install_docker
 else
+    info "Installing LocalAI from binaries"
     install_binary
 fi
