@@ -10148,6 +10148,36 @@
     - filename: TheDrummer_Rivermind-12B-v1-Q4_K_M.gguf
       sha256: 49a5341ea90e7bd03e797162ab23bf0b975dce9faf5d957f7d24bf1d5134c937
       uri: huggingface://bartowski/TheDrummer_Rivermind-12B-v1-GGUF/TheDrummer_Rivermind-12B-v1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
+  name: "dreamgen_lucid-v1-nemo"
+  icon: https://huggingface.co/dreamgen/lucid-v1-nemo/resolve/main/images/banner.webp
+  urls:
+    - https://huggingface.co/dreamgen/lucid-v1-nemo
+    - https://huggingface.co/bartowski/dreamgen_lucid-v1-nemo-GGUF
+  description: |
+    Focused on role-play & story-writing.
+        Suitable for all kinds of writers and role-play enjoyers:
+            For world-builders who want to specify every detail in advance: plot, setting, writing style, characters, locations, items, lore, etc.
+            For intuitive writers who start with a loose prompt and shape the narrative through instructions (OCC) as the story / role-play unfolds.
+        Support for multi-character role-plays:
+            Model can automatically pick between characters.
+        Support for inline writing instructions (OOC):
+            Controlling plot development (say what should happen, what the characters should do, etc.)
+            Controlling pacing.
+            etc.
+        Support for inline writing assistance:
+            Planning the next scene / the next chapter / story.
+            Suggesting new characters.
+            etc.
+    Support for reasoning (opt-in).
+  overrides:
+    parameters:
+      model: dreamgen_lucid-v1-nemo-Q4_K_M.gguf
+  files:
+    - filename: dreamgen_lucid-v1-nemo-Q4_K_M.gguf
+      sha256: b9cbd018895a76805ea8b8d2a499b3221044ce2df2a06ed858b61caba11b81dc
+      uri: huggingface://bartowski/dreamgen_lucid-v1-nemo-GGUF/dreamgen_lucid-v1-nemo-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
