@@ -8,7 +8,7 @@ jobs:
   notify-discord:
     if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
     env:
-        MODEL_NAME: hermes-2-theta-llama-3-8b
+        MODEL_NAME: gemma-3-12b-it
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -16,7 +16,7 @@ jobs:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
     - uses: mudler/localai-github-action@v1
       with:
-        model: 'hermes-2-theta-llama-3-8b' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
+        model: 'gemma-3-12b-it' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
         # Check the PR diff using the current branch and the base branch of the PR
     - uses: GrantBirki/git-diff-action@v2.8.0
       id: git-diff-action
