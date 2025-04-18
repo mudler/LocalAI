@@ -517,6 +517,20 @@
     - filename: ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-Q4_K_M.gguf
       sha256: a2a2e76be2beb445d3a569ba03661860cd4aef9a4aa3d57aed319e3d1bddc820
       uri: huggingface://bartowski/ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-GGUF/ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "google-gemma-3-27b-it-qat-q4_0-small"
+  urls:
+    - https://huggingface.co/google/gemma-3-27b-it-qat-q4_0-gguf
+    - https://huggingface.co/stduhpf/google-gemma-3-27b-it-qat-q4_0-gguf-small
+  description: |
+    This is a requantized version of https://huggingface.co/google/gemma-3-27b-it-qat-q4_0-gguf. The official QAT weights released by google use fp16 (instead of Q6_K) for the embeddings table, which makes this model take a significant extra amount of memory (and storage) compared to what Q4_0 quants are supposed to take. Requantizing with llama.cpp achieves a very similar result. Note that this model ends up smaller than the Q4_0 from Bartowski. This is because llama.cpp sets some tensors to Q4_1 when quantizing models to Q4_0 with imatrix, but this is a static quant. The perplexity score for this one is even lower with this model compared to the original model by Google, but the results are within margin of error, so it's probably just luck. I also fixed the control token metadata, which was slightly degrading the performance of the model in instruct mode.
+  overrides:
+    parameters:
+      model: gemma-3-27b-it-q4_0_s.gguf
+  files:
+    - filename: gemma-3-27b-it-q4_0_s.gguf
+      sha256: cc4e41e3df2bf7fd3827bea7e98f28cecc59d7bd1c6b7b4fa10fc52a5659f3eb
+      uri: huggingface://stduhpf/google-gemma-3-27b-it-qat-q4_0-gguf-small/gemma-3-27b-it-q4_0_s.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
