@@ -1981,6 +1981,20 @@
     - filename: salamandra-7b-instruct.Q4_K_M-f32.gguf
       sha256: bac8e8c1d1d9d53cbdb148b8ff9ad378ddb392429207099e85b5aae3a43bff3d
       uri: huggingface://cstr/salamandra-7b-instruct-GGUF/salamandra-7b-instruct.Q4_K_M-f32.gguf
+- !!merge <<: *granite3
+  name: "ibm-granite_granite-3.3-8b-instruct"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-3.3-2b-instruct
+    - https://huggingface.co/bartowski/ibm-granite_granite-3.3-8b-instruct-GGUF
+  description: |
+      Granite-3.3-2B-Instruct is a 2-billion parameter 128K context length language model fine-tuned for improved reasoning and instruction-following capabilities. Built on top of Granite-3.3-2B-Base, the model delivers significant gains on benchmarks for measuring generic performance including AlpacaEval-2.0 and Arena-Hard, and improvements in mathematics, coding, and instruction following. It supports structured reasoning through <think></think> and <response></response> tags, providing clear separation between internal thoughts and final outputs. The model has been trained on a carefully balanced combination of permissively licensed data and curated synthetic tasks.
+  overrides:
+    parameters:
+      model: ibm-granite_granite-3.3-8b-instruct-Q4_K_M.gguf
+  files:
+    - filename: ibm-granite_granite-3.3-8b-instruct-Q4_K_M.gguf
+      sha256: 758fb00abcec89df5cf02932165daf72f0d0b74db5019dbe9f2b3defb1e9295e
+      uri: huggingface://bartowski/ibm-granite_granite-3.3-8b-instruct-GGUF/ibm-granite_granite-3.3-8b-instruct-Q4_K_M.gguf
 - &llama32
   url: "github:mudler/LocalAI/gallery/llama3.2-quantized.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
