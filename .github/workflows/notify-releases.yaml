@@ -14,7 +14,7 @@ jobs:
     steps:
     - uses: mudler/localai-github-action@v1
       with:
-        model: 'hermes-2-theta-llama-3-8b' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
+        model: 'gemma-3-12b-it' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
     - name: Summarize
       id: summarize
       run: |
