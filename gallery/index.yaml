@@ -487,6 +487,36 @@
     - filename: Omega-LN-SFT-Q4_K_M.gguf
       sha256: 33fb1c61085f9b18074e320ac784e6dbc8a98fe20705f92773e055471fd3cb0f
       uri: huggingface://Delta-Vector/Daichi-12B-GGUF/Omega-LN-SFT-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "readyart_amoral-fallen-omega-gemma3-12b"
+  icon: https://i.imghippo.com/files/EBq6162wlk.webp
+  urls:
+    - https://huggingface.co/ReadyArt/Amoral-Fallen-Omega-Gemma3-12B
+    - https://huggingface.co/bartowski/ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-GGUF
+  description: |
+    This model represents the forbidden merger of:
+
+    🧬 The-Omega-Directive-Gemma3-12B-v1.0 - Unprecedented coherent depravity, well-rounded ERP, low repetition even at maximum length
+    ⚡ Fallen-Gemma3-12B-v1 - Fallen Gemma3 12B v1 is an evil tune
+    💎 amoral-gemma3-12B-v2 - Improved natural intelligence and less refusals
+    This model maintains Forgotten-Safeword's complete lack of alignment:
+
+        🚫 No moral or ethical constraints on generated content
+        🔞 Will enthusiastically engage with any NSFW scenario
+        💀 May generate content that requires industrial-grade brain bleach
+        ⚖️ Perfectly balanced... as all things should be
+    🔥 Maintains signature intensity with improved narrative flow
+    📖 Handles multi-character scenarios with improved consistency
+    🧠 Excels at long-form storytelling without losing track of plot threads
+    ⚡ Noticeably better at following complex instructions than previous versions
+    🎭 Responds to subtle prompt nuances like a mind reader
+  overrides:
+    parameters:
+      model: ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-Q4_K_M.gguf
+  files:
+    - filename: ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-Q4_K_M.gguf
+      sha256: a2a2e76be2beb445d3a569ba03661860cd4aef9a4aa3d57aed319e3d1bddc820
+      uri: huggingface://bartowski/ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-GGUF/ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
