@@ -244,7 +244,10 @@ func StartServer(address string, model LLM) error {
 	if err != nil {
 		return err
 	}
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.MaxRecvMsgSize(50*1024*1024), // 50MB
+		grpc.MaxSendMsgSize(50*1024*1024), // 50MB
+	)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
@@ -259,7 +262,10 @@ func RunServer(address string, model LLM) (func() error, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.MaxRecvMsgSize(50*1024*1024), // 50MB
+		grpc.MaxSendMsgSize(50*1024*1024), // 50MB
+	)
 	pb.RegisterBackendServer(s, &server{llm: model})
 	log.Printf("gRPC Server listening at %v", lis.Addr())
 	if err = s.Serve(lis); err != nil {
