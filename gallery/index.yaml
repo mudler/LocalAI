@@ -6071,6 +6071,38 @@
     - filename: Qwen2.5-14B-Instruct-1M-Q4_K_M.gguf
       sha256: a1a0fa3e2c3f9d63f9202af9172cffbc0b519801dff740fffd39f6a063a731ef
       uri: huggingface://bartowski/Qwen2.5-14B-Instruct-1M-GGUF/Qwen2.5-14B-Instruct-1M-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "pictor-1338-qwenp-1.5b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/X7zeHYbH5Y5JoRK_ud_Ya.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Pictor-1338-QwenP-1.5B
+    - https://huggingface.co/adriey/Pictor-1338-QwenP-1.5B-Q8_0-GGUF
+  description: |
+    Pictor-1338-QwenP-1.5B is a code reasoning LLM fine-tuned from Qwen-1.5B using distributed reinforcement learning (RL). This model is designed to enhance coding proficiency, debugging accuracy, and step-by-step reasoning in software development tasks across multiple programming languages.
+
+    Key Features
+
+        Code Reasoning & Explanation
+        Trained to analyze, generate, and explain code with a focus on logic, structure, and clarity. Supports functional, object-oriented, and procedural paradigms.
+
+        Reinforcement Learning Fine-Tuning
+        Enhanced using distributed RL, improving reward-aligned behavior in tasks like fixing bugs, completing functions, and understanding abstract instructions.
+
+        Multi-Language Support
+        Works fluently with Python, JavaScript, C++, and Shell, among others—ideal for general-purpose programming, scripting, and algorithmic tasks.
+
+        Compact and Efficient
+        At just 1.5B parameters, it's lightweight enough for edge deployments and developer tools with strong reasoning capability.
+
+        Debugging and Auto-Fix Capabilities
+        Built to identify bugs, recommend corrections, and provide context-aware explanations of issues in codebases.
+  overrides:
+    parameters:
+      model: pictor-1338-qwenp-1.5b-q8_0.gguf
+  files:
+    - filename: pictor-1338-qwenp-1.5b-q8_0.gguf
+      sha256: 22d2f5b2322d9a354d8578475a6924c2173a913a1e2fa0ec2655f2f5937f6f26
+      uri: huggingface://adriey/Pictor-1338-QwenP-1.5B-Q8_0-GGUF/pictor-1338-qwenp-1.5b-q8_0.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
