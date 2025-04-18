@@ -87,7 +87,7 @@ jobs:
   notify-twitter:
     if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
     env:
-        MODEL_NAME: hermes-2-theta-llama-3-8b
+        MODEL_NAME: gemma-3-12b-it
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
