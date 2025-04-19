@@ -1629,7 +1629,6 @@
                     "type": "string"
                 },
                 "model_base_name": {
-                    "description": "AutoGPTQ",
                     "type": "string"
                 },
                 "n": {
@@ -1713,10 +1712,6 @@
                 },
                 "typical_p": {
                     "type": "number"
-                },
-                "use_fast_tokenizer": {
-                    "description": "AutoGPTQ",
-                    "type": "boolean"
                 }
             }
         },

@@ -555,7 +555,6 @@ definitions:
       model:
         type: string
       model_base_name:
-        description: AutoGPTQ
         type: string
       "n":
         description: Also part of the OpenAI official spec. use it for returning multiple
@@ -616,9 +615,6 @@ definitions:
         type: boolean
       typical_p:
         type: number
-      use_fast_tokenizer:
-        description: AutoGPTQ
-        type: boolean
     required:
     - file
     type: object
