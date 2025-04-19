@@ -1636,7 +1636,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "model_base_name": {
-                    "description": "AutoGPTQ",
                     "type": "string"
                 },
                 "n": {
@@ -1720,10 +1719,6 @@ const docTemplate = `{
                 },
                 "typical_p": {
                     "type": "number"
-                },
-                "use_fast_tokenizer": {
-                    "description": "AutoGPTQ",
-                    "type": "boolean"
                 }
             }
         },
