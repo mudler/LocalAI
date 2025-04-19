@@ -190,11 +190,7 @@ message ModelOptions {
   int32 NGQA = 20;
   string ModelFile = 21;
 
-  // AutoGPTQ
-  string Device = 22;
-  bool UseTriton = 23;
-  string ModelBaseName = 24;
-  bool UseFastTokenizer = 25;
+
 
   // Diffusers
   string PipelineType = 26;

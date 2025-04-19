@@ -203,16 +203,8 @@ func mergeOpenAIRequestAndBackendConfig(config *config.BackendConfig, input *sch
 		config.Diffusers.ClipSkip = input.ClipSkip
 	}
 
-	if input.ModelBaseName != "" {
-		config.AutoGPTQ.ModelBaseName = input.ModelBaseName
-	}
-
 	if input.NegativePromptScale != 0 {
 		config.NegativePromptScale = input.NegativePromptScale
-	}
-
-	if input.UseFastTokenizer {
-		config.UseFastTokenizer = input.UseFastTokenizer
 	}
 
 	if input.NegativePrompt != "" {

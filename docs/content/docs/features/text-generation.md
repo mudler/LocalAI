@@ -74,49 +74,9 @@ curl http://localhost:8080/v1/models
 
 ## Backends
 
-### AutoGPTQ
-
-[AutoGPTQ](https://github.com/PanQiWei/AutoGPTQ) is an easy-to-use LLMs quantization package with user-friendly apis, based on GPTQ algorithm.
-
-#### Prerequisites
-
-This is an extra backend - in the container images is already available and there is nothing to do for the setup.
-
-If you are building LocalAI locally, you need to install [AutoGPTQ manually](https://github.com/PanQiWei/AutoGPTQ#quick-installation).
-
-
-#### Model setup
-
-The models are automatically downloaded from `huggingface` if not present the first time. It is possible to define models via `YAML` config file, or just by querying the endpoint with the `huggingface` repository model name. For example, create a `YAML` config file in `models/`:
-
-```
-name: orca
-backend: autogptq
-model_base_name: "orca_mini_v2_13b-GPTQ-4bit-128g.no-act.order"
-parameters:
-  model: "TheBloke/orca_mini_v2_13b-GPTQ"
-# ...
-```
-
-Test with:
-
-```bash
-curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/json" -d '{                                                                                                         
-   "model": "orca",
-   "messages": [{"role": "user", "content": "How are you?"}],
-   "temperature": 0.1
- }'
-```
 ### RWKV
 
-A full example on how to run a rwkv model is in the [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/rwkv).
-
-Note: rwkv models needs to specify the backend `rwkv` in the YAML config files and have an associated tokenizer along that needs to be provided with it:
-
-```
-36464540 -rw-r--r--  1 mudler mudler 1.2G May  3 10:51 rwkv_small
-36464543 -rw-r--r--  1 mudler mudler 2.4M May  3 10:51 rwkv_small.tokenizer.json
-```
+RWKV support is available through llama.cpp (see below)
 
 ### llama.cpp
 

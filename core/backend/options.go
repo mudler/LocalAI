@@ -184,11 +184,6 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		MainGPU:             c.MainGPU,
 		Threads:             int32(*c.Threads),
 		TensorSplit:         c.TensorSplit,
-		// AutoGPTQ
-		ModelBaseName:    c.AutoGPTQ.ModelBaseName,
-		Device:           c.AutoGPTQ.Device,
-		UseTriton:        c.AutoGPTQ.Triton,
-		UseFastTokenizer: c.AutoGPTQ.UseFastTokenizer,
 		// RWKV
 		Tokenizer: c.Tokenizer,
 	}
