@@ -6,7 +6,7 @@ BINARY_NAME=local-ai
 DETECT_LIBS?=true
 
 # llama.cpp versions
-CPPLLAMA_VERSION?=6408210082cc0a61b992b487be7e2ff2efbb9e36
+CPPLLAMA_VERSION?=00137157fca3d17b90380762b4d7cc158d385bd3
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
