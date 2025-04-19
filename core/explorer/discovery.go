@@ -9,6 +9,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	cliP2P "github.com/mudler/LocalAI/core/cli/p2p"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/edgevpn/pkg/blockchain"
 )
@@ -40,7 +41,7 @@ type Network struct {
 	Clusters []ClusterData
 }
 
-func (s *DiscoveryServer) runBackground() {
+func (s *DiscoveryServer) runBackground(p2pCommonFlags cliP2P.P2PCommonFlags) {
 	if len(s.database.TokenList()) == 0 {
 		time.Sleep(5 * time.Second) // avoid busy loop
 		return
@@ -50,11 +51,14 @@ func (s *DiscoveryServer) runBackground() {
 		c, cancel := context.WithTimeout(context.Background(), s.connectionTime)
 		defer cancel()
 
+		p2pCfg := p2p.NewP2PConfig(p2pCommonFlags)
+		p2pCfg.NetworkToken = token
+
 		// Connect to the network
 		// Get the number of nodes
 		// save it in the current state (mutex)
 		// do not do in parallel
-		n, err := p2p.NewNode(token)
+		n, err := p2p.NewNode(p2pCfg)
 		if err != nil {
 			log.Err(err).Msg("Failed to create node")
 			s.failedToken(token)
@@ -197,14 +201,14 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 }
 
 // Start the discovery server. This is meant to be run in to a goroutine.
-func (s *DiscoveryServer) Start(ctx context.Context, keepRunning bool) error {
+func (s *DiscoveryServer) Start(ctx context.Context, p2pCommonFlags cliP2P.P2PCommonFlags, keepRunning bool) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("context cancelled")
 		default:
 			// Collect data
-			s.runBackground()
+			s.runBackground(p2pCommonFlags)
 			if !keepRunning {
 				return nil
 			}

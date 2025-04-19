@@ -12,6 +12,7 @@ import (
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	cliP2P "github.com/mudler/LocalAI/core/cli/p2p"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/pkg/assets"
 	"github.com/mudler/LocalAI/pkg/library"
@@ -20,12 +21,13 @@ import (
 )
 
 type P2P struct {
-	WorkerFlags        `embed:""`
-	Token              string `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
-	NoRunner           bool   `env:"LOCALAI_NO_RUNNER,NO_RUNNER" help:"Do not start the llama-cpp-rpc-server"`
-	RunnerAddress      string `env:"LOCALAI_RUNNER_ADDRESS,RUNNER_ADDRESS" help:"Address of the llama-cpp-rpc-server"`
-	RunnerPort         string `env:"LOCALAI_RUNNER_PORT,RUNNER_PORT" help:"Port of the llama-cpp-rpc-server"`
-	Peer2PeerNetworkID string `env:"LOCALAI_P2P_NETWORK_ID,P2P_NETWORK_ID" help:"Network ID for P2P mode, can be set arbitrarly by the user for grouping a set of instances" group:"p2p"`
+	WorkerFlags           `embed:""`
+	cliP2P.P2PCommonFlags `embed:""`
+
+	Token         string `env:"LOCALAI_TOKEN,LOCALAI_P2P_TOKEN,TOKEN" help:"P2P token to use"`
+	NoRunner      bool   `env:"LOCALAI_NO_RUNNER,NO_RUNNER" help:"Do not start the llama-cpp-rpc-server"`
+	RunnerAddress string `env:"LOCALAI_RUNNER_ADDRESS,RUNNER_ADDRESS" help:"Address of the llama-cpp-rpc-server"`
+	RunnerPort    string `env:"LOCALAI_RUNNER_PORT,RUNNER_PORT" help:"Port of the llama-cpp-rpc-server"`
 }
 
 func (r *P2P) Run(ctx *cliContext.Context) error {
@@ -41,6 +43,8 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 	if r.Token == "" {
 		return fmt.Errorf("Token is required")
 	}
+	p2pCfg := p2p.NewP2PConfig(r.P2PCommonFlags)
+	p2pCfg.NetworkToken = r.Token
 
 	port, err := freeport.GetFreePort()
 	if err != nil {
@@ -60,7 +64,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		_, err = p2p.ExposeService(context.Background(), address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
+		_, err = p2p.ExposeService(context.Background(), p2pCfg, address, p, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 		if err != nil {
 			return err
 		}
@@ -103,7 +107,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			}
 		}()
 
-		_, err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
+		_, err = p2p.ExposeService(context.Background(), p2pCfg, address, fmt.Sprint(port), p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 		if err != nil {
 			return err
 		}
