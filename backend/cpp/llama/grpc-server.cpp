@@ -2644,7 +2644,9 @@ void RunServer(const std::string& server_address) {
   ServerBuilder builder;
   builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
   builder.RegisterService(&service);
-
+  builder.SetMaxMessageSize(50 * 1024 * 1024); // 50MB
+  builder.SetMaxSendMessageSize(50 * 1024 * 1024); // 50MB
+  builder.SetMaxReceiveMessageSize(50 * 1024 * 1024); // 50MB
   std::unique_ptr<Server> server(builder.BuildAndStart());
   std::cout << "Server listening on " << server_address << std::endl;
   server->Wait();

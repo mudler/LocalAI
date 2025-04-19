@@ -559,7 +559,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
 async def serve(address):
     # Start asyncio gRPC server
-    server = grpc.aio.server(migration_thread_pool=futures.ThreadPoolExecutor(max_workers=MAX_WORKERS))
+    server = grpc.aio.server(migration_thread_pool=futures.ThreadPoolExecutor(max_workers=MAX_WORKERS),
+        options=[
+            ('grpc.max_message_length', 50 * 1024 * 1024),  # 50MB
+            ('grpc.max_send_message_length', 50 * 1024 * 1024),  # 50MB
+            ('grpc.max_receive_message_length', 50 * 1024 * 1024),  # 50MB
+        ])
     # Add the servicer to the server
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     # Bind the server to the address
