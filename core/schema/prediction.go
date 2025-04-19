@@ -41,8 +41,6 @@ type PredictionOptions struct {
 	RopeFreqBase        float32 `json:"rope_freq_base" yaml:"rope_freq_base"`
 	RopeFreqScale       float32 `json:"rope_freq_scale" yaml:"rope_freq_scale"`
 	NegativePromptScale float32 `json:"negative_prompt_scale" yaml:"negative_prompt_scale"`
-	// AutoGPTQ
-	UseFastTokenizer bool `json:"use_fast_tokenizer" yaml:"use_fast_tokenizer"`
 
 	// Diffusers
 	ClipSkip int `json:"clip_skip" yaml:"clip_skip"`

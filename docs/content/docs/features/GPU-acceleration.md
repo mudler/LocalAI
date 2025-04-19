@@ -147,7 +147,6 @@ The devices in the following list have been tested with `hipblas` images running
 | diffusers | yes | Radeon VII (gfx906) |
 | piper | yes | Radeon VII (gfx906) |
 | whisper | no | none |
-| autogptq | no | none |
 | bark | no | none |
 | coqui | no | none |
 | transformers | no | none |

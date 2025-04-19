@@ -505,18 +505,10 @@ protogen-go-clean:
 	$(RM) bin/*
 
 .PHONY: protogen-python
-protogen-python: autogptq-protogen bark-protogen coqui-protogen diffusers-protogen exllama2-protogen rerankers-protogen transformers-protogen kokoro-protogen vllm-protogen faster-whisper-protogen
+protogen-python: bark-protogen coqui-protogen diffusers-protogen exllama2-protogen rerankers-protogen transformers-protogen kokoro-protogen vllm-protogen faster-whisper-protogen
 
 .PHONY: protogen-python-clean
-protogen-python-clean: autogptq-protogen-clean bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean rerankers-protogen-clean transformers-protogen-clean kokoro-protogen-clean vllm-protogen-clean faster-whisper-protogen-clean
-
-.PHONY: autogptq-protogen
-autogptq-protogen:
-	$(MAKE) -C backend/python/autogptq protogen
-
-.PHONY: autogptq-protogen-clean
-autogptq-protogen-clean:
-	$(MAKE) -C backend/python/autogptq protogen-clean
+protogen-python-clean: bark-protogen-clean coqui-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean rerankers-protogen-clean transformers-protogen-clean kokoro-protogen-clean vllm-protogen-clean faster-whisper-protogen-clean
 
 .PHONY: bark-protogen
 bark-protogen:
@@ -593,7 +585,6 @@ vllm-protogen-clean:
 ## GRPC
 # Note: it is duplicated in the Dockerfile
 prepare-extra-conda-environments: protogen-python
-	$(MAKE) -C backend/python/autogptq
 	$(MAKE) -C backend/python/bark
 	$(MAKE) -C backend/python/coqui
 	$(MAKE) -C backend/python/diffusers

@@ -202,7 +202,6 @@ type OpenAIRequest struct {
 
 	Backend string `json:"backend" yaml:"backend"`
 
-	// AutoGPTQ
 	ModelBaseName string `json:"model_base_name" yaml:"model_base_name"`
 }
 

@@ -268,14 +268,6 @@ yarn_ext_factor: 0
 yarn_attn_factor: 0
 yarn_beta_fast: 0
 yarn_beta_slow: 0
-
-# AutoGPT-Q settings, for configurations specific to GPT models.
-autogptq:
-    model_base_name: "" # Base name of the model.
-    device: "" # Device to run the model on.
-    triton: false # Whether to use Triton Inference Server.
-    use_fast_tokenizer: false # Whether to use a fast tokenizer for quicker processing.
-
 # configuration for diffusers model
 diffusers:
     cuda: false # Whether to use CUDA
