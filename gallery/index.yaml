@@ -531,6 +531,31 @@
     - filename: gemma-3-27b-it-q4_0_s.gguf
       sha256: cc4e41e3df2bf7fd3827bea7e98f28cecc59d7bd1c6b7b4fa10fc52a5659f3eb
       uri: huggingface://stduhpf/google-gemma-3-27b-it-qat-q4_0-gguf-small/gemma-3-27b-it-q4_0_s.gguf
+- !!merge <<: *gemma3
+  name: "amoral-gemma3-1b-v2"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/eNraUCUocrOhowWdIdtod.png
+  urls:
+    - https://huggingface.co/soob3123/amoral-gemma3-1B-v2
+    - https://huggingface.co/mradermacher/amoral-gemma3-1B-v2-GGUF
+  description: |
+    Core Function:
+
+    Produces analytically neutral responses to sensitive queries
+    Maintains factual integrity on controversial subjects
+    Avoids value-judgment phrasing patterns
+
+    Response Characteristics:
+
+        No inherent moral framing ("evil slop" reduction)
+        Emotionally neutral tone enforcement
+        Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+  overrides:
+    parameters:
+      model: amoral-gemma3-1B-v2.Q4_K_M.gguf
+  files:
+    - filename: amoral-gemma3-1B-v2.Q4_K_M.gguf
+      sha256: 7f2167d91409cabaf0a42e41e833a6ca055c841a37d8d829e11db81fdaed5e4c
+      uri: huggingface://mradermacher/amoral-gemma3-1B-v2-GGUF/amoral-gemma3-1B-v2.Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
