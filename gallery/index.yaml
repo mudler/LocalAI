@@ -112,7 +112,7 @@
       model: google_gemma-3-4b-it-qat-Q4_0.gguf
   files:
     - filename: google_gemma-3-4b-it-qat-Q4_0.gguf
-      sha256:	0231e2cba887f4c7834c39b34251e26b2eebbb71dfac0f7e6e2b2c2531c1a583
+      sha256: 0231e2cba887f4c7834c39b34251e26b2eebbb71dfac0f7e6e2b2c2531c1a583
       uri: huggingface://bartowski/google_gemma-3-4b-it-qat-GGUF/google_gemma-3-4b-it-qat-Q4_0.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-27b-it-qat"
@@ -1598,6 +1598,29 @@
     - filename: deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
       sha256: d1deaf80c649e2a9446463cf5e1f7c026583647f46e3940d2b405a57cc685225
       uri: huggingface://bartowski/deepcogito_cogito-v1-preview-llama-70B-GGUF/deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama_3.3_70b_darkhorse-i1"
+  urls:
+    - https://huggingface.co/Nexesenex/Llama_3.3_70b_DarkHorse
+    - https://huggingface.co/mradermacher/Llama_3.3_70b_DarkHorse-i1-GGUF
+  description: |
+    Dark coloration L3.3 merge, to be included in my merges. Can also be tried as a standalone to have a darker Llama Experience, but I didn't take the time.
+    Edit : I took the time, and it meets its purpose.
+
+        It's average on the basic metrics (smarts, perplexity), but it's not woke and unhinged indeed.
+        The model is not abliterated, though. It has refusals on the usual point-blank questions.
+        I will play with it more, because it has potential.
+
+    My note : 3/5 as a standalone. 4/5 as a merge brick.
+
+    Warning : this model can be brutal and vulgar, more than most of my previous merges.
+  overrides:
+    parameters:
+      model: Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
+      sha256: 413a0b9203326ea78fdbdcfd89a3e0475a18f0f73fee3a6bfe1327e7b48942e2
+      uri: huggingface://mradermacher/Llama_3.3_70b_DarkHorse-i1-GGUF/Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
