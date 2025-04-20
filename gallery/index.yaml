@@ -82,7 +82,7 @@
   name: "gemma-3-12b-it-qat"
   urls:
     - https://huggingface.co/google/gemma-3-12b-it
-    - https://huggingface.co/vinimuchulski/gemma-3-12b-it-qat-q4_0-gguf
+    - https://huggingface.co/bartowski/google_gemma-3-12b-it-qat-GGUF
   description: |
     This model corresponds to the 12B instruction-tuned version of the Gemma 3 model in GGUF format using Quantization Aware Training (QAT). The GGUF corresponds to Q4_0 quantization.
 
@@ -91,16 +91,16 @@
     You can find the half-precision version here.
   overrides:
     parameters:
-      model: gemma-3-12b-it-q4_0.gguf
+      model: google_gemma-3-12b-it-qat-Q4_0.gguf
   files:
-    - filename: gemma-3-12b-it-q4_0.gguf
-      sha256: 6f1bb5f455414f7b46482bda51cbfdbf19786e21a5498c4403fdfc03d09b045c
-      uri: huggingface://vinimuchulski/gemma-3-12b-it-qat-q4_0-gguf/gemma-3-12b-it-q4_0.gguf
+    - filename: google_gemma-3-12b-it-qat-Q4_0.gguf
+      sha256: 2ad4c9ce431a2d5b80af37983828c2cfb8f4909792ca5075e0370e3a71ca013d
+      uri: huggingface://bartowski/google_gemma-3-12b-it-qat-GGUF/google_gemma-3-12b-it-qat-Q4_0.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-4b-it-qat"
   urls:
     - https://huggingface.co/google/gemma-3-4b-it
-    - https://huggingface.co/vinimuchulski/gemma-3-4b-it-qat-q4_0-gguf
+    - https://huggingface.co/bartowski/google_gemma-3-4b-it-qat-GGUF
   description: |
     This model corresponds to the 4B instruction-tuned version of the Gemma 3 model in GGUF format using Quantization Aware Training (QAT). The GGUF corresponds to Q4_0 quantization.
 
@@ -109,16 +109,16 @@
     You can find the half-precision version here.
   overrides:
     parameters:
-      model: gemma-3-4b-it-q4_0.gguf
+      model: google_gemma-3-4b-it-qat-Q4_0.gguf
   files:
-    - filename: gemma-3-4b-it-q4_0.gguf
-      sha256: 2ca493d426ffcb43db27132f183a0230eda4a3621e58b328d55b665f1937a317
-      uri: huggingface://vinimuchulski/gemma-3-4b-it-qat-q4_0-gguf/gemma-3-4b-it-q4_0.gguf
+    - filename: google_gemma-3-4b-it-qat-Q4_0.gguf
+      sha256:	0231e2cba887f4c7834c39b34251e26b2eebbb71dfac0f7e6e2b2c2531c1a583
+      uri: huggingface://bartowski/google_gemma-3-4b-it-qat-GGUF/google_gemma-3-4b-it-qat-Q4_0.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-27b-it-qat"
   urls:
     - https://huggingface.co/google/gemma-3-27b-it
-    - https://huggingface.co/vinimuchulski/gemma-3-27b-it-qat-q4_0-gguf
+    - https://huggingface.co/bartowski/google_gemma-3-27b-it-qat-GGUF
   description: |
     This model corresponds to the 27B instruction-tuned version of the Gemma 3 model in GGUF format using Quantization Aware Training (QAT). The GGUF corresponds to Q4_0 quantization.
 
@@ -127,11 +127,11 @@
     You can find the half-precision version here.
   overrides:
     parameters:
-      model: gemma-3-27b-it-q4_0.gguf
+      model: google_gemma-3-27b-it-qat-Q4_0.gguf
   files:
     - filename: gemma-3-27b-it-q4_0.gguf
-      sha256: 45e586879bc5f5d7a5b6527e812952057ce916d9fc7ba16f7262ec9972c9e2a2
-      uri: huggingface://vinimuchulski/gemma-3-27b-it-qat-q4_0-gguf/gemma-3-27b-it-q4_0.gguf
+      sha256: 4f1e32db877a9339df2d6529c1635570425cbe81f0aa3f7dd5d1452f2e632b42
+      uri: huggingface://bartowski/google_gemma-3-27b-it-qat-GGUF/google_gemma-3-27b-it-qat-Q4_0.gguf
 - !!merge <<: *gemma3
   name: "qgallouedec_gemma-3-27b-it-codeforces-sft"
   urls:
