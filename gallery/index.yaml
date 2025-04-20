@@ -10359,6 +10359,26 @@
     - filename: dreamgen_lucid-v1-nemo-Q4_K_M.gguf
       sha256: b9cbd018895a76805ea8b8d2a499b3221044ce2df2a06ed858b61caba11b81dc
       uri: huggingface://bartowski/dreamgen_lucid-v1-nemo-GGUF/dreamgen_lucid-v1-nemo-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "starrysky-12b-i1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/yamatazen/StarrySky-12B/resolve/main/StarrySky-12B.png?download=true
+  urls:
+    - https://huggingface.co/yamatazen/StarrySky-12B
+    - https://huggingface.co/mradermacher/StarrySky-12B-i1-GGUF
+  description: |
+    This is a Mistral model with ChatML tokens added to the tokenizer.
+    The following models were included in the merge:
+
+    Elizezen/Himeyuri-v0.1-12B
+    inflatebot/MN-12B-Mag-Mell-R1
+  overrides:
+    parameters:
+      model: StarrySky-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: StarrySky-12B.i1-Q4_K_M.gguf
+      sha256: 70ebfbf0e6f9273f3c3fd725b8a44c93aab9d794b2b6ab616fe94ad52524c6c2
+      uri: huggingface://mradermacher/StarrySky-12B-i1-GGUF/StarrySky-12B.i1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
