@@ -103,8 +103,11 @@
 Run the installer script:
 
 ```bash
+# Basic installation
 curl https://localai.io/install.sh | sh
 ```
+
+For more installation options, see [Installer Options](https://localai.io/advanced/installer/).
 
 Or run with docker:
 
