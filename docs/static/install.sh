@@ -1,12 +1,30 @@
 #!/bin/sh
-# This script installs LocalAI on Linux.
-# It detects the current operating system architecture and installs the appropriate version of LocalAI.
+# LocalAI Installer Script
+# This script installs LocalAI on Linux and macOS systems.
+# It automatically detects the system architecture and installs the appropriate version.
 
 # Usage:
-#   curl ... | ENV_VAR=... sh -
-#       or
-#   ENV_VAR=... ./install.sh
-#   To uninstall: ./install.sh --uninstall
+#   Basic installation:
+#     curl https://localai.io/install.sh | sh
+#
+#   With environment variables:
+#     DOCKER_INSTALL=true USE_AIO=true API_KEY=your-key PORT=8080 THREADS=4 curl https://localai.io/install.sh | sh
+#
+#   To uninstall:
+#     curl https://localai.io/install.sh | sh -s -- --uninstall
+#
+# Environment Variables:
+#   DOCKER_INSTALL - Set to "true" to install Docker images (default: auto-detected)
+#   USE_AIO       - Set to "true" to use the all-in-one LocalAI image (default: false)
+#   API_KEY       - API key for securing LocalAI access (default: none)
+#   PORT          - Port to run LocalAI on (default: 8080)
+#   THREADS       - Number of CPU threads to use (default: auto-detected)
+#   MODELS_PATH   - Path to store models (default: /usr/share/local-ai/models)
+#   CORE_IMAGES   - Set to "true" to download core LocalAI images (default: false)
+#   P2P_TOKEN     - Token for P2P federation/worker mode (default: none)
+#   WORKER        - Set to "true" to run as a worker node (default: false)
+#   FEDERATED     - Set to "true" to enable federation mode (default: false)
+#   FEDERATED_SERVER - Set to "true" to run as a federation server (default: false)
 
 set -e
 set -o noglob

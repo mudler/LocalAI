@@ -34,4 +34,12 @@ List of the Environment Variables:
 | **FEDERATED** | Set to "true" to share the instance with the federation (p2p token is required see [documentation]({{%relref "docs/features/distributed_inferencing" %}}))  |
 | **FEDERATED_SERVER** | Set to "true" to run the instance as a federation server which forwards requests to the federation (p2p token is required see [documentation]({{%relref "docs/features/distributed_inferencing" %}}))  |
 
+## Uninstallation
+
+To uninstall, run:
+
+```
+curl https://localai.io/install.sh | sh -s -- --uninstall
+```
+
 We are looking into improving the installer, and as this is a first iteration any feedback is welcome! Open up an [issue](https://github.com/mudler/LocalAI/issues/new/choose) if something doesn't work for you!

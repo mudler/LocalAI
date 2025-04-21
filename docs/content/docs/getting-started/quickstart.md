@@ -18,11 +18,14 @@ If you are exposing LocalAI remotely, make sure you protect the API endpoints ad
 
 ## Quickstart
 
-
 ### Using the Bash Installer
+
 ```bash
+# Basic installation
 curl https://localai.io/install.sh | sh
 ```
+
+See [Installer]({{% relref "docs/advanced/installer" %}}) for all the supported options
 
 ### Run with docker:
 ```bash
