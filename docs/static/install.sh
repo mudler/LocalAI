@@ -161,7 +161,7 @@ else
 fi
 THREADS=${THREADS:-$procs}
 LATEST_VERSION=$(curl -s "https://api.github.com/repos/mudler/LocalAI/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-VERSION="${VERSION:-$LATEST_VERSION}"
+LOCALAI_VERSION="${LOCALAI_VERSION:-$LATEST_VERSION}" #changed due to VERSION beign already defined in Fedora 42 Cloud Edition
 MODELS_PATH=${MODELS_PATH:-/usr/share/local-ai/models}
 
 
@@ -228,7 +228,7 @@ WorkingDirectory=/usr/share/local-ai
 [Install]
 WantedBy=default.target
 EOF
-    
+
     $SUDO touch /etc/localai.env
     $SUDO echo "ADDRESS=0.0.0.0:$PORT" | $SUDO tee /etc/localai.env >/dev/null
     $SUDO echo "API_KEY=$API_KEY" | $SUDO tee -a /etc/localai.env >/dev/null
@@ -261,14 +261,21 @@ EOF
 
 # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-yum-or-dnf
 install_container_toolkit_yum() {
-    info 'Installing NVIDIA repository...'
+    info 'Installing NVIDIA container toolkit repository...'
 
     curl -s -L https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo | \
     $SUDO  tee /etc/yum.repos.d/nvidia-container-toolkit.repo
 
     if [ "$PACKAGE_MANAGER" = "dnf" ]; then
-        $SUDO $PACKAGE_MANAGER config-manager --enable nvidia-container-toolkit-experimental
-    else 
+        DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
+        if [ "$DNF_VERSION" -ge 5 ]; then
+            # DNF5: Use 'setopt' to enable the repository
+            $SUDO $PACKAGE_MANAGER config-manager setopt nvidia-container-toolkit-experimental.enabled=1
+        else
+            # DNF4: Use '--set-enabled' to enable the repository
+            $SUDO $PACKAGE_MANAGER config-manager --enable nvidia-container-toolkit-experimental
+        fi
+    else
         $SUDO $PACKAGE_MANAGER -y install yum-utils
         $SUDO $PACKAGE_MANAGER-config-manager --enable nvidia-container-toolkit-experimental
     fi
@@ -277,7 +284,7 @@ install_container_toolkit_yum() {
 
 # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-apt
 install_container_toolkit_apt() {
-    info 'Installing NVIDIA repository...'
+    info 'Installing NVIDIA container toolkit  repository...'
 
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | $SUDO gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
@@ -289,7 +296,7 @@ install_container_toolkit_apt() {
 
 # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-zypper
 install_container_toolkit_zypper() {
-    info 'Installing NVIDIA repository...'
+    info 'Installing NVIDIA zypper repository...'
     $SUDO zypper ar https://nvidia.github.io/libnvidia-container/stable/rpm/nvidia-container-toolkit.repo
     $SUDO zypper modifyrepo --enable nvidia-container-toolkit-experimental
     $SUDO zypper --gpg-auto-import-keys install -y nvidia-container-toolkit
@@ -325,14 +332,21 @@ install_container_toolkit() {
 # ref: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#rhel-9-rocky-9
 # ref: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#fedora
 install_cuda_driver_yum() {
-    info 'Installing NVIDIA repository...'
+    info 'Installing NVIDIA CUDA repository...'
     case $PACKAGE_MANAGER in
         yum)
             $SUDO $PACKAGE_MANAGER -y install yum-utils
             $SUDO $PACKAGE_MANAGER-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
             ;;
         dnf)
-            $SUDO $PACKAGE_MANAGER config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
+            DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
+            if [ "$DNF_VERSION" -ge 5 ]; then
+                # DNF5: Use 'addrepo' to add the repository
+                $SUDO $PACKAGE_MANAGER config-manager addrepo --id=nome-repo --set=name="nvidia-cuda" --set=baseurl="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
+            else
+                # DNF4: Use '--add-repo' to add the repository
+                $SUDO $PACKAGE_MANAGER config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
+            fi
             ;;
     esac
 
@@ -356,7 +370,7 @@ install_cuda_driver_yum() {
 # ref: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#ubuntu
 # ref: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#debian
 install_cuda_driver_apt() {
-    info 'Installing NVIDIA repository...'
+    info 'Installing NVIDIA CUDA repository...'
     curl -fsSL -o $TEMP_DIR/cuda-keyring.deb https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-keyring_1.1-1_all.deb
 
     case $1 in
@@ -395,7 +409,7 @@ install_cuda() {
         case $OS_NAME in
             centos|rhel) install_cuda_driver_yum 'rhel' $(echo $OS_VERSION | cut -d '.' -f 1) ;;
             rocky) install_cuda_driver_yum 'rhel' $(echo $OS_VERSION | cut -c1) ;;
-            fedora) [ $OS_VERSION -lt '37' ] && install_cuda_driver_yum $OS_NAME $OS_VERSION || install_cuda_driver_yum $OS_NAME '37';;
+            fedora) [ $OS_VERSION -lt '41' ] && install_cuda_driver_yum $OS_NAME $OS_VERSION || install_cuda_driver_yum $OS_NAME '41';;
             amzn) install_cuda_driver_yum 'fedora' '37' ;;
             debian) install_cuda_driver_apt $OS_NAME $OS_VERSION ;;
             ubuntu) install_cuda_driver_apt $OS_NAME $(echo $OS_VERSION | sed 's/\.//') ;;
@@ -485,7 +499,7 @@ install_docker() {
         # if $SUDO docker ps --format '{{.Names}}' | grep -q local-ai; then
         #     info "LocalAI Docker container is already running."
         #     exit 0
-        # fi 
+        # fi
 
         # info "Starting LocalAI Docker container..."
         # $SUDO docker start local-ai
@@ -502,20 +516,24 @@ install_docker() {
 
     IMAGE_TAG=
     if [ "$HAS_CUDA" ]; then
-        IMAGE_TAG=${VERSION}-cublas-cuda12-ffmpeg
+        IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12-ffmpeg
         # CORE
         if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${VERSION}-cublas-cuda12-ffmpeg-core
+            IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12-ffmpeg-core
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
-            IMAGE_TAG=${VERSION}-aio-gpu-nvidia-cuda-12
+            IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-nvidia-cuda-12
         fi
 
         if ! available nvidia-smi; then
-            info "Installing nvidia-cuda-toolkit..."
-            # TODO:
-            $SUDO apt-get -y install nvidia-cuda-toolkit
+          #TODO Temporary Bypass for Fedora Headless (Cloud Edition), need to find a way to install nvidia-smi without pulling x11
+          OS_NAME=$ID
+          OS_VERSION=$VERSION_ID
+
+            case $OS_NAME in
+                debian|ubuntu) $SUDO apt-get -y install nvidia-cuda-toolkit;;
+            esac
         fi
 
         $SUDO docker run -v local-ai-data:/build/models \
@@ -526,14 +544,14 @@ install_docker() {
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_AMD" ]; then
-        IMAGE_TAG=${VERSION}-hipblas-ffmpeg
+        IMAGE_TAG=${LOCALAI_VERSION}-hipblas-ffmpeg
         # CORE
         if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${VERSION}-hipblas-ffmpeg-core
+            IMAGE_TAG=${LOCALAI_VERSION}-hipblas-ffmpeg-core
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
-            IMAGE_TAG=${VERSION}-aio-gpu-hipblas
+            IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-hipblas
         fi
 
         $SUDO docker run -v local-ai-data:/build/models \
@@ -545,14 +563,14 @@ install_docker() {
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_INTEL" ]; then
-        IMAGE_TAG=${VERSION}-sycl-f32-ffmpeg
+        IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32-ffmpeg
         # CORE
         if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${VERSION}-sycl-f32-ffmpeg-core
+            IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32-ffmpeg-core
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
-            IMAGE_TAG=${VERSION}-aio-gpu-intel-f32
+            IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-intel-f32
         fi
 
         $SUDO docker run -v local-ai-data:/build/models \
@@ -563,15 +581,15 @@ install_docker() {
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     else
-        IMAGE_TAG=${VERSION}-ffmpeg
+        IMAGE_TAG=${LOCALAI_VERSION}-ffmpeg
         # CORE
         if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${VERSION}-ffmpeg-core
+            IMAGE_TAG=${LOCALAI_VERSION}-ffmpeg-core
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
-            IMAGE_TAG=${VERSION}-aio-cpu
-        fi        
+            IMAGE_TAG=${LOCALAI_VERSION}-aio-cpu
+        fi
         $SUDO docker run -v local-ai-data:/models \
                 --restart=always \
                 -e MODELS_PATH=/models \
@@ -588,8 +606,8 @@ install_docker() {
 install_binary_darwin() {
     [ "$(uname -s)" = "Darwin" ] || fatal 'This script is intended to run on macOS only.'
 
-    info "Downloading LocalAI ${VERSION}..."
-    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${VERSION}/local-ai-Darwin-${ARCH}"
+    info "Downloading LocalAI ${LOCALAI_VERSION}..."
+    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${LOCALAI_VERSION}/local-ai-Darwin-${ARCH}"
 
     info "Installing to /usr/local/bin/local-ai"
     install -o0 -g0 -m755 $TEMP_DIR/local-ai /usr/local/bin/local-ai
@@ -620,8 +638,8 @@ install_binary() {
         exit 1
     fi
 
-    info "Downloading LocalAI ${VERSION}..."
-    curl --fail --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${VERSION}/local-ai-Linux-${ARCH}"
+    info "Downloading LocalAI ${LOCALAI_VERSION}..."
+    curl --fail --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${LOCALAI_VERSION}/local-ai-Linux-${ARCH}"
 
     for BINDIR in /usr/local/bin /usr/bin /bin; do
         echo $PATH | grep -q $BINDIR && break || continue
@@ -675,7 +693,7 @@ detect_start_command() {
     if [ "$WORKER" = true ]; then
         if [ -n "$P2P_TOKEN" ]; then
             STARTCOMMAND="worker p2p-llama-cpp-rpc"
-        else 
+        else
             STARTCOMMAND="worker llama-cpp-rpc"
         fi
     elif [ "$FEDERATED" = true ]; then
