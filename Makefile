@@ -126,9 +126,9 @@ ifeq ($(BUILD_TYPE),openblas)
 endif
 
 ifeq ($(BUILD_TYPE),cublas)
-	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	export GGML_CUDA=1
-	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
+	CGO_LDFLAGS_WHISPER+=-lcufft
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
