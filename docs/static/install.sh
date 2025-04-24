@@ -282,7 +282,61 @@ EOF
     esac
 }
 
+install_fedora_nvidia_kernel_drivers(){
 
+  #We want to give the user the choice to install the akmod kernel drivers or not, since it could break some setups
+  warn "+----------------------------------------------------------------------------------------------+"
+  warn "| WARNING:                                                                                     |"
+  warn "| Looks like the NVIDIA Kernel modules are not installed.                                      |"
+  warn "|                                                                                              |"
+  warn "| This script can try to install them using akmod-nvidia (will pull all the x11 dependencies). |"
+  warn "|                                                                                              |"
+  warn "|                                                                                              |"
+  warn "| Otherwise you can exit the install script and install them yourself.                         |"
+  warn "| NOTE: you will need to reboot after the installation.                                        |"
+  warn "+----------------------------------------------------------------------------------------------+"
+
+  while true; do
+    choice_warn "Do you wish for the script to try and install them? (akmod/exit) ";
+    read  Answer
+
+    if [ "$Answer" = "akmod" ]; then
+
+      DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
+
+      FEDORA_VERSION=$(rpm -E %fedora)
+      FREE_URL="https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${FEDORA_VERSION}.noarch.rpm"
+      NONFREE_URL="https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${FEDORA_VERSION}.noarch.rpm"
+
+      curl -LO "$FREE_URL"
+      curl -LO "$NONFREE_URL"
+
+      if [ "$DNF_VERSION" -ge 5 ]; then
+          # DNF5:
+          $SUDO $PACKAGE_MANAGER install -y "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+          $SUDO $PACKAGE_MANAGER install -y akmod-nvidia
+      else
+          # DNF4:
+          $SUDO $PACKAGE_MANAGER install -y "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+          $SUDO $PACKAGE_MANAGER install -y akmod-nvidia
+      fi
+
+      $SUDO rm "rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+      $SUDO rm "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+
+      install_cuda_driver_yum
+
+      info "Nvidia driver installation complete, please reboot now and run the Install script again to complete the setup."
+      exit
+
+    elif [ "$Answer" = "exit" ]; then
+
+        aborted
+    else
+        warn "Invalid choice. Please enter 'akmod' or 'exit'."
+    fi
+  done
+}
 
 # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-yum-or-dnf
 install_container_toolkit_yum() {
@@ -559,6 +613,7 @@ install_docker() {
 
             case $OS_NAME in
                 debian|ubuntu) $SUDO apt-get -y install nvidia-cuda-toolkit;;
+                fedora) install_fedora_nvidia_kernel_drivers;;
             esac
         fi
 
