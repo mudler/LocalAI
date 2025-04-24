@@ -6,7 +6,7 @@ BINARY_NAME=local-ai
 DETECT_LIBS?=true
 
 # llama.cpp versions
-CPPLLAMA_VERSION?=658987cfc9d752dca7758987390d5fb1a7a0a54a
+CPPLLAMA_VERSION?=ecda2ec4b347031a9b8a89ee2efc664ce63f599c
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
@@ -126,9 +126,9 @@ ifeq ($(BUILD_TYPE),openblas)
 endif
 
 ifeq ($(BUILD_TYPE),cublas)
-	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH)
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	export GGML_CUDA=1
-	CGO_LDFLAGS_WHISPER+=-L$(CUDA_LIBPATH)/stubs/ -lcuda -lcufft
+	CGO_LDFLAGS_WHISPER+=-lcufft
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
