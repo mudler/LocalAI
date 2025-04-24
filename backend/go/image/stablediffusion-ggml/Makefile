@@ -20,7 +20,7 @@ CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
 
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
-	CMAKE_ARGS+=-DGGML_CUDA=ON
+	CMAKE_ARGS+=-DSD_CUDA=ON
 # If build type is openblas then we set -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 # to CMAKE_ARGS automatically
 else ifeq ($(BUILD_TYPE),openblas)
@@ -30,14 +30,14 @@ else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DGGML_HIP=ON
+	CMAKE_ARGS+=-DSD_HIPBLAS=ON
 # If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
 # But if it's OSX without metal, disable it here
 else ifeq ($(OS),Darwin)
 	ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DGGML_METAL=OFF
+		CMAKE_ARGS+=-DSD_METAL=OFF
 	else
-		CMAKE_ARGS+=-DGGML_METAL=ON
+		CMAKE_ARGS+=-DSD_METAL=ON
 		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
 		TARGET+=--target ggml-metal
 	endif
