@@ -31,19 +31,26 @@ set -o noglob
 #set -x
 
 # --- helper functions for logs ---
+# ANSI escape codes
+LIGHT_BLUE='\033[38;5;117m'
+ORANGE='\033[38;5;214m'
+RED='\033[38;5;196m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
 info()
 {
-    echo ' ' "$@"
+    echo -e "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
 }
 
 warn()
 {
-    echo '[WARN] ' "$@" >&2
+    echo -e "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
 }
 
 fatal()
 {
-    echo '[ERROR] ' "$@" >&2
+    echo -e "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
     exit 1
 }
 
