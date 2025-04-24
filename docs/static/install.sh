@@ -54,6 +54,24 @@ fatal()
     exit 1
 }
 
+# --- custom choice functions ---
+# like the logging functions, but with the -n flag to prevent the new line and keep the cursor in line for choices inputs like y/n
+choice_info()
+{
+    echo -e -n "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
+}
+
+choice_warn()
+{
+    echo -e -n "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
+}
+
+choice_fatal()
+{
+    echo -e -n "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
+    exit 1
+}
+
 # --- fatal if no systemd or openrc ---
 verify_system() {
     if [ -x /sbin/openrc-run ]; then
@@ -492,7 +510,7 @@ install_docker() {
         $SUDO systemctl start docker
     fi
 
-    info "Starting LocalAI Docker container..."
+    info "Creating LocalAI Docker volume..."
     # Create volume if doesn't exist already
     if ! $SUDO docker volume inspect local-ai-data > /dev/null 2>&1; then
         $SUDO docker volume create local-ai-data
@@ -533,6 +551,7 @@ install_docker() {
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-nvidia-cuda-12
         fi
 
+        info "Checking Nvidia Kernel Drivers presence..."
         if ! available nvidia-smi; then
           #TODO Temporary Bypass for Fedora Headless (Cloud Edition), need to find a way to install nvidia-smi without pulling x11
           OS_NAME=$ID
@@ -543,6 +562,7 @@ install_docker() {
             esac
         fi
 
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
             --gpus all \
             --restart=always \
@@ -561,6 +581,7 @@ install_docker() {
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-hipblas
         fi
 
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
             --device /dev/dri \
             --device /dev/kfd \
@@ -580,6 +601,7 @@ install_docker() {
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-intel-f32
         fi
 
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
             --device /dev/dri \
             --restart=always \
@@ -597,6 +619,8 @@ install_docker() {
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-cpu
         fi
+
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/models \
                 --restart=always \
                 -e MODELS_PATH=/models \
