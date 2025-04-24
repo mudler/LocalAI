@@ -421,7 +421,7 @@ install_cuda_driver_yum() {
             DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
             if [ "$DNF_VERSION" -ge 5 ]; then
                 # DNF5: Use 'addrepo' to add the repository
-                $SUDO $PACKAGE_MANAGER config-manager addrepo --id=nome-repo --set=name="nvidia-cuda" --set=baseurl="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
+                $SUDO $PACKAGE_MANAGER config-manager addrepo --id=nvidia-cuda --set=name="nvidia-cuda" --set=baseurl="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
             else
                 # DNF4: Use '--add-repo' to add the repository
                 $SUDO $PACKAGE_MANAGER config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
