@@ -181,10 +181,6 @@ func orderBackends(backends map[string][]string) ([]string, error) {
 // selectGRPCProcessByHostCapabilities selects the GRPC process to start based on system capabilities
 // Note: this is now relevant only for llama.cpp
 func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) string {
-	foundCUDA := false
-	foundAMDGPU := false
-	foundIntelGPU := false
-	var grpcProcess string
 
 	// Select backend now just for llama.cpp
 	if backend != LLamaCPP {
@@ -198,48 +194,24 @@ func selectGRPCProcessByHostCapabilities(backend, assetDir string, f16 bool) str
 	}
 
 	// Check for GPU-binaries that are shipped with single binary releases
-	gpus, err := xsysinfo.GPUs()
-	if err == nil {
-		for _, gpu := range gpus {
-			if strings.Contains(gpu.String(), "nvidia") {
-				p := backendPath(assetDir, LLamaCPPCUDA)
-				if _, err := os.Stat(p); err == nil {
-					log.Info().Msgf("[%s] attempting to load with CUDA variant", backend)
-					grpcProcess = p
-					foundCUDA = true
-				} else {
-					log.Debug().Msgf("Nvidia GPU device found, no embedded CUDA variant found. You can ignore this message if you are using container with CUDA support")
-				}
-			}
-			if strings.Contains(gpu.String(), "amd") {
-				p := backendPath(assetDir, LLamaCPPHipblas)
-				if _, err := os.Stat(p); err == nil {
-					log.Info().Msgf("[%s] attempting to load with HIPBLAS variant", backend)
-					grpcProcess = p
-					foundAMDGPU = true
-				} else {
-					log.Debug().Msgf("AMD GPU device found, no embedded HIPBLAS variant found. You can ignore this message if you are using container with HIPBLAS support")
-				}
-			}
-			if strings.Contains(gpu.String(), "intel") {
-				backend := LLamaCPPSycl16
-				if !f16 {
-					backend = LLamaCPPSycl32
-				}
-				p := backendPath(assetDir, backend)
-				if _, err := os.Stat(p); err == nil {
-					log.Info().Msgf("[%s] attempting to load with Intel variant", backend)
-					grpcProcess = p
-					foundIntelGPU = true
-				} else {
-					log.Debug().Msgf("Intel GPU device found, no embedded SYCL variant found. You can ignore this message if you are using container with SYCL support")
-				}
-			}
-		}
+	gpuBinaries := map[string]string{
+		"nvidia": LLamaCPPCUDA,
+		"amd":    LLamaCPPHipblas,
+		"intel":  LLamaCPPSycl16,
 	}
 
-	if foundCUDA || foundAMDGPU || foundIntelGPU {
-		return grpcProcess
+	if !f16 {
+		gpuBinaries["intel"] = LLamaCPPSycl32
+	}
+
+	for vendor, binary := range gpuBinaries {
+		if xsysinfo.HasGPU(vendor) {
+			p := backendPath(assetDir, binary)
+			if _, err := os.Stat(p); err == nil {
+				log.Info().Msgf("[%s] attempting to load with %s variant (vendor: %s)", backend, binary, vendor)
+				return p
+			}
+		}
 	}
 
 	// No GPU found or no specific binaries found, try to load the CPU variant(s)
