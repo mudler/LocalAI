@@ -282,6 +282,8 @@ EOF
     esac
 }
 
+
+
 # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-yum-or-dnf
 install_container_toolkit_yum() {
     info 'Installing NVIDIA container toolkit repository...'
@@ -359,16 +361,16 @@ install_cuda_driver_yum() {
     case $PACKAGE_MANAGER in
         yum)
             $SUDO $PACKAGE_MANAGER -y install yum-utils
-            $SUDO $PACKAGE_MANAGER-config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
+            $SUDO $PACKAGE_MANAGER-config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
             ;;
         dnf)
             DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
             if [ "$DNF_VERSION" -ge 5 ]; then
                 # DNF5: Use 'addrepo' to add the repository
-                $SUDO $PACKAGE_MANAGER config-manager addrepo --overwrite --from-repofile="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
+                $SUDO $PACKAGE_MANAGER config-manager addrepo --id=nvidia-cuda --set=name="nvidia-cuda" --set=baseurl="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
             else
                 # DNF4: Use '--add-repo' to add the repository
-                $SUDO $PACKAGE_MANAGER config-manager --add-repo "https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
+                $SUDO $PACKAGE_MANAGER config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
             fi
             ;;
     esac
@@ -377,7 +379,7 @@ install_cuda_driver_yum() {
         rhel)
             info 'Installing EPEL repository...'
             # EPEL is required for third-party dependencies such as dkms and libvdpau
-            $SUDO $PACKAGE_MANAGER -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-"$2".noarch.rpm || true
+            $SUDO $PACKAGE_MANAGER -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-$2.noarch.rpm || true
             ;;
     esac
 
@@ -387,15 +389,7 @@ install_cuda_driver_yum() {
         $SUDO $PACKAGE_MANAGER -y install nvidia-driver-latest-dkms
     fi
 
-    #added cuda-toolkit from rpm-fusion instead of cuda-drivers for fedora since it is suggested by rpm-fusion since it contains specific fedora fix
-    # ref: https://rpmfusion.org/Howto/CUDA#Installation
-    # ref: https://rpmfusion.org/Howto/CUDA#Which_driver_Package
-    case $1 in
-    fedora) $SUDO $PACKAGE_MANAGER config-manager setopt "cuda-$1$2-$(uname -m).exclude=nvidia-driver,nvidia-modprobe,nvidia-persistenced,nvidia-settings,nvidia-libXNVCtrl,nvidia-xconfig" && \
-            $SUDO $PACKAGE_MANAGER -y install cuda-toolkit
-            ;;
-    centos|rhel) $SUDO $PACKAGE_MANAGER -y install cuda-drivers;;
-    esac
+    $SUDO $PACKAGE_MANAGER -y install cuda-drivers
 }
 
 install_fedora_nvidia_kernel_drivers(){
@@ -422,7 +416,6 @@ install_fedora_nvidia_kernel_drivers(){
 
       OS_NAME=$ID
       OS_VERSION=$VERSION_ID
-
       FREE_URL="https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${OS_VERSION}.noarch.rpm"
       NONFREE_URL="https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${OS_VERSION}.noarch.rpm"
 
@@ -442,7 +435,7 @@ install_fedora_nvidia_kernel_drivers(){
       $SUDO rm "rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
       $SUDO rm "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
 
-      install_cuda_driver_yum "$OS_NAME" '41'
+      install_cuda_driver_yum $OS_NAME '41'
 
       info "Nvidia driver installation complete, please reboot now and run the Install script again to complete the setup."
       exit
