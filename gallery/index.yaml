@@ -556,6 +556,21 @@
     - filename: amoral-gemma3-1B-v2.Q4_K_M.gguf
       sha256: 7f2167d91409cabaf0a42e41e833a6ca055c841a37d8d829e11db81fdaed5e4c
       uri: huggingface://mradermacher/amoral-gemma3-1B-v2-GGUF/amoral-gemma3-1B-v2.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "soob3123_veritas-12b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/IuhCq-5PcEbDBqXD5xnup.png
+  urls:
+    - https://huggingface.co/soob3123/Veritas-12B
+    - https://huggingface.co/bartowski/soob3123_Veritas-12B-GGUF
+  description: |
+    Veritas-12B emerges as a model forged in the pursuit of intellectual clarity and logical rigor. This 12B parameter model possesses superior philosophical reasoning capabilities and analytical depth, ideal for exploring complex ethical dilemmas, deconstructing arguments, and engaging in structured philosophical dialogue. Veritas-12B excels at articulating nuanced positions, identifying logical fallacies, and constructing coherent arguments grounded in reason. Expect discussions characterized by intellectual honesty, critical analysis, and a commitment to exploring ideas with precision.
+  overrides:
+    parameters:
+      model: soob3123_Veritas-12B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_Veritas-12B-Q4_K_M.gguf
+      sha256: 41821d6b0dd2b81a5bddd843a5534fd64d95e75b8e9dc952340868af320d49a7
+      uri: huggingface://bartowski/soob3123_Veritas-12B-GGUF/soob3123_Veritas-12B-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
