@@ -395,16 +395,17 @@ install_cuda_driver_yum() {
 install_fedora_nvidia_kernel_drivers(){
 
   #We want to give the user the choice to install the akmod kernel drivers or not, since it could break some setups
-  warn "+----------------------------------------------------------------------------------------------+"
-  warn "| WARNING:                                                                                     |"
-  warn "| Looks like the NVIDIA Kernel modules are not installed.                                      |"
-  warn "|                                                                                              |"
-  warn "| This script can try to install them using akmod-nvidia.                                      |"
-  warn "| The Akmod installation can sometimes inhibit the reboot command, proceed at your own risk.   |"
-  warn "|                                                                                              |"
-  warn "| Otherwise you can exit the install script and install them yourself.                         |"
-  warn "| NOTE: you will need to reboot after the installation.                                        |"
-  warn "+----------------------------------------------------------------------------------------------+"
+  warn "+------------------------------------------------------------------------------------------------+"
+  warn "| WARNING:                                                                                       |"
+  warn "| Looks like the NVIDIA Kernel modules are not installed.                                        |"
+  warn "|                                                                                                |"
+  warn "| This script can try to install them using akmod-nvidia.                                        |"
+  warn "| - The script need the rpmfusion free and nonfree repos and will install them if not available. |"
+  warn "| - The akmod installation can sometimes inhibit the reboot command.                             |"
+  warn "|                                                                                                |"
+  warn "| Otherwise you can exit the install script and install them yourself.                           |"
+  warn "| NOTE: you will need to reboot after the installation.                                          |"
+  warn "+------------------------------------------------------------------------------------------------+"
 
   while true; do
     choice_warn "Do you wish for the script to try and install them? (akmod/exit) ";
