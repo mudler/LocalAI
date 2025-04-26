@@ -629,8 +629,7 @@ var _ = Describe("API test", func() {
 			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
-					config.WithAudioDir(tmpdir),
-					config.WithImageDir(tmpdir),
+					config.WithGeneratedContentDir(tmpdir),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
 					config.WithBackendAssets(backendAssets),

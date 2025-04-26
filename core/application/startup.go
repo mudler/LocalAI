@@ -43,16 +43,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
-	if options.ImageDir != "" {
-		err := os.MkdirAll(options.ImageDir, 0750)
+	if options.GeneratedContentDir != "" {
+		err := os.MkdirAll(options.GeneratedContentDir, 0750)
 		if err != nil {
 			return nil, fmt.Errorf("unable to create ImageDir: %q", err)
-		}
-	}
-	if options.AudioDir != "" {
-		err := os.MkdirAll(options.AudioDir, 0750)
-		if err != nil {
-			return nil, fmt.Errorf("unable to create AudioDir: %q", err)
 		}
 	}
 	if options.UploadDir != "" {
