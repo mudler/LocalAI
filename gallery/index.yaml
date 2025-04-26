@@ -98,7 +98,7 @@
       sha256: 2ad4c9ce431a2d5b80af37983828c2cfb8f4909792ca5075e0370e3a71ca013d
       uri: huggingface://bartowski/google_gemma-3-12b-it-qat-GGUF/google_gemma-3-12b-it-qat-Q4_0.gguf
     - filename: mmproj-google_gemma-3-12b-it-qat-f16.gguf
-      sha256:	30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
+      sha256: 30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
       uri: huggingface://bartowski/google_gemma-3-12b-it-qat-GGUF/mmproj-google_gemma-3-12b-it-qat-f16.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-4b-it-qat"
