@@ -1661,6 +1661,25 @@
     - filename: Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
       sha256: 413a0b9203326ea78fdbdcfd89a3e0475a18f0f73fee3a6bfe1327e7b48942e2
       uri: huggingface://mradermacher/Llama_3.3_70b_DarkHorse-i1-GGUF/Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-geneticlemonade-unleashed-v2-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/0GTX4-erpPflLOkfH5sU5.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-GeneticLemonade-Unleashed-v2-70B
+    - https://huggingface.co/mradermacher/L3.3-GeneticLemonade-Unleashed-v2-70B-GGUF
+  description: |
+    An experimental release.
+
+    zerofata/GeneticLemonade-Unleashed qlora trained on a test dataset. Performance is improved from the original in my testing, but there are possibly (likely?) areas where the model will underperform which I am looking for feedback on.
+
+    This is a creative model intended to excel at character driven RP / ERP. It has not been tested or trained on adventure stories or any large amounts of creative writing.
+  overrides:
+    parameters:
+      model: L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
+  files:
+    - filename: L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
+      sha256: 347f0b7cea9926537643dafbe442d830734399bb6e6ff6c5bc0f69e583444548
+      uri: huggingface://mradermacher/L3.3-GeneticLemonade-Unleashed-v2-70B-GGUF/L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
