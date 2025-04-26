@@ -317,7 +317,7 @@ enable_selinux_container_booleans() {
 
     if [ "$SELINUX_MODE" == "Enforcing" ]; then
         # Check the status of container_use_devices
-        CONTAINER_USE_DEVICES=$(getsebool container_use_devices | awk '{print $2}')
+        CONTAINER_USE_DEVICES=$(getsebool container_use_devices | awk '{print $3}')
 
        if [ "$CONTAINER_USE_DEVICES" == "off" ]; then
 
@@ -339,6 +339,8 @@ enable_selinux_container_booleans() {
               if [ "$Answer" = "yes" ]; then
                 warn "Enabling \"container_use_devices\" persistently..."
                 $SUDO setsebool -P container_use_devices 1
+
+                break
               elif [ "$Answer" = "exit" ]; then
                   aborted
               else
