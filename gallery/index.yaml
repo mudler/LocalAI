@@ -1680,6 +1680,26 @@
     - filename: L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
       sha256: 347f0b7cea9926537643dafbe442d830734399bb6e6ff6c5bc0f69e583444548
       uri: huggingface://mradermacher/L3.3-GeneticLemonade-Unleashed-v2-70B-GGUF/L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-genetic-lemonade-sunset-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/txglu74hAoRrQw91rESrD.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-Genetic-Lemonade-Sunset-70B
+    - https://huggingface.co/mradermacher/L3.3-Genetic-Lemonade-Sunset-70B-GGUF
+  description: |
+    Inspired to learn how to merge by the Nevoria series from SteelSkull.
+
+    I wasn't planning to release any more models in this series, but I wasn't fully satisfied with Unleashed or the Final version. I happened upon the below when testing merges and found myself coming back to it, so decided to publish.
+    Model Comparison
+
+    Designed for RP and creative writing, all three models are focused around striking a balance between writing style, creativity and intelligence.
+  overrides:
+    parameters:
+      model: L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
+  files:
+    - filename: L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
+      sha256: 743c11180c0c9168c0fe31a97f9d2efe0dd749c2797d749821fcb1d6932c19f7
+      uri: huggingface://mradermacher/L3.3-Genetic-Lemonade-Sunset-70B-GGUF/L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
