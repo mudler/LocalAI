@@ -129,7 +129,7 @@
     parameters:
       model: google_gemma-3-27b-it-qat-Q4_0.gguf
   files:
-    - filename: gemma-3-27b-it-q4_0.gguf
+    - filename: google_gemma-3-27b-it-qat-Q4_0.gguf
       sha256: 4f1e32db877a9339df2d6529c1635570425cbe81f0aa3f7dd5d1452f2e632b42
       uri: huggingface://bartowski/google_gemma-3-27b-it-qat-GGUF/google_gemma-3-27b-it-qat-Q4_0.gguf
 - !!merge <<: *gemma3
