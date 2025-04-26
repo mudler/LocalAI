@@ -1248,6 +1248,21 @@ paths:
           schema:
             $ref: '#/definitions/proto.VADResponse'
       summary: Detect voice fragments in an audio stream
+  /video:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates a video given a prompt.
 securityDefinitions:
   BearerAuth:
     in: header
