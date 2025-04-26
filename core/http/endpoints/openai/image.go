@@ -72,7 +72,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 			log.Error().Msg("Image Endpoint - Invalid Input")
 			return fiber.ErrBadRequest
 		}
-		
+
 		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
 		if !ok || config == nil {
 			log.Error().Msg("Image Endpoint - Invalid Config")
@@ -108,7 +108,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 			}
 
 			// Create a temporary file
-			outputFile, err := os.CreateTemp(appConfig.ImageDir, "b64")
+			outputFile, err := os.CreateTemp(appConfig.GeneratedContentDir, "b64")
 			if err != nil {
 				return err
 			}
@@ -184,7 +184,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 
 				tempDir := ""
 				if !b64JSON {
-					tempDir = appConfig.ImageDir
+					tempDir = filepath.Join(appConfig.GeneratedContentDir, "images")
 				}
 				// Create a temporary file
 				outputFile, err := os.CreateTemp(tempDir, "b64")
@@ -192,6 +192,7 @@ func ImageEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appCon
 					return err
 				}
 				outputFile.Close()
+
 				output := outputFile.Name() + ".png"
 				// Rename the temporary file
 				err = os.Rename(outputFile.Name(), output)
