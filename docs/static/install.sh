@@ -31,19 +31,44 @@ set -o noglob
 #set -x
 
 # --- helper functions for logs ---
+# ANSI escape codes
+LIGHT_BLUE='\033[38;5;117m'
+ORANGE='\033[38;5;214m'
+RED='\033[38;5;196m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
 info()
 {
-    echo ' ' "$@"
+    echo -e "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
 }
 
 warn()
 {
-    echo '[WARN] ' "$@" >&2
+    echo -e "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
 }
 
 fatal()
 {
-    echo '[ERROR] ' "$@" >&2
+    echo -e "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
+    exit 1
+}
+
+# --- custom choice functions ---
+# like the logging functions, but with the -n flag to prevent the new line and keep the cursor in line for choices inputs like y/n
+choice_info()
+{
+    echo -e -n "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
+}
+
+choice_warn()
+{
+    echo -e -n "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
+}
+
+choice_fatal()
+{
+    echo -e -n "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
     exit 1
 }
 
@@ -342,7 +367,7 @@ install_cuda_driver_yum() {
             DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
             if [ "$DNF_VERSION" -ge 5 ]; then
                 # DNF5: Use 'addrepo' to add the repository
-                $SUDO $PACKAGE_MANAGER config-manager addrepo --id=nome-repo --set=name="nvidia-cuda" --set=baseurl="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
+                $SUDO $PACKAGE_MANAGER config-manager addrepo --id=nvidia-cuda --set=name="nvidia-cuda" --set=baseurl="https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo"
             else
                 # DNF4: Use '--add-repo' to add the repository
                 $SUDO $PACKAGE_MANAGER config-manager --add-repo https://developer.download.nvidia.com/compute/cuda/repos/$1$2/$(uname -m)/cuda-$1$2.repo
@@ -365,6 +390,64 @@ install_cuda_driver_yum() {
     fi
 
     $SUDO $PACKAGE_MANAGER -y install cuda-drivers
+}
+
+install_fedora_nvidia_kernel_drivers(){
+
+  #We want to give the user the choice to install the akmod kernel drivers or not, since it could break some setups
+  warn "+------------------------------------------------------------------------------------------------+"
+  warn "| WARNING:                                                                                       |"
+  warn "| Looks like the NVIDIA Kernel modules are not installed.                                        |"
+  warn "|                                                                                                |"
+  warn "| This script can try to install them using akmod-nvidia.                                        |"
+  warn "| - The script need the rpmfusion free and nonfree repos and will install them if not available. |"
+  warn "| - The akmod installation can sometimes inhibit the reboot command.                             |"
+  warn "|                                                                                                |"
+  warn "| Otherwise you can exit the install script and install them yourself.                           |"
+  warn "| NOTE: you will need to reboot after the installation.                                          |"
+  warn "+------------------------------------------------------------------------------------------------+"
+
+  while true; do
+    choice_warn "Do you wish for the script to try and install them? (akmod/exit) ";
+    read  Answer
+
+    if [ "$Answer" = "akmod" ]; then
+
+      DNF_VERSION=$($PACKAGE_MANAGER --version | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 | cut -d. -f1)
+
+      OS_NAME=$ID
+      OS_VERSION=$VERSION_ID
+      FREE_URL="https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${OS_VERSION}.noarch.rpm"
+      NONFREE_URL="https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${OS_VERSION}.noarch.rpm"
+
+      curl -LO "$FREE_URL"
+      curl -LO "$NONFREE_URL"
+
+      if [ "$DNF_VERSION" -ge 5 ]; then
+          # DNF5:
+          $SUDO $PACKAGE_MANAGER install -y "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+          $SUDO $PACKAGE_MANAGER install -y akmod-nvidia
+      else
+          # DNF4:
+          $SUDO $PACKAGE_MANAGER install -y "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+          $SUDO $PACKAGE_MANAGER install -y akmod-nvidia
+      fi
+
+      $SUDO rm "rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm"
+      $SUDO rm "rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm"
+
+      install_cuda_driver_yum $OS_NAME '41'
+
+      info "Nvidia driver installation complete, please reboot now and run the Install script again to complete the setup."
+      exit
+
+    elif [ "$Answer" = "exit" ]; then
+
+        aborted
+    else
+        warn "Invalid choice. Please enter 'akmod' or 'exit'."
+    fi
+  done
 }
 
 # ref: https://docs.nvidia.com/cuda/cuda-installation-guide-linux/index.html#ubuntu
@@ -485,7 +568,7 @@ install_docker() {
         $SUDO systemctl start docker
     fi
 
-    info "Starting LocalAI Docker container..."
+    info "Creating LocalAI Docker volume..."
     # Create volume if doesn't exist already
     if ! $SUDO docker volume inspect local-ai-data > /dev/null 2>&1; then
         $SUDO docker volume create local-ai-data
@@ -526,16 +609,18 @@ install_docker() {
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-nvidia-cuda-12
         fi
 
+        info "Checking Nvidia Kernel Drivers presence..."
         if ! available nvidia-smi; then
-          #TODO Temporary Bypass for Fedora Headless (Cloud Edition), need to find a way to install nvidia-smi without pulling x11
           OS_NAME=$ID
           OS_VERSION=$VERSION_ID
 
             case $OS_NAME in
                 debian|ubuntu) $SUDO apt-get -y install nvidia-cuda-toolkit;;
+                fedora) install_fedora_nvidia_kernel_drivers;;
             esac
         fi
 
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
             --gpus all \
             --restart=always \
@@ -554,6 +639,7 @@ install_docker() {
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-hipblas
         fi
 
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
             --device /dev/dri \
             --device /dev/kfd \
@@ -573,6 +659,7 @@ install_docker() {
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-intel-f32
         fi
 
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
             --device /dev/dri \
             --restart=always \
@@ -590,6 +677,8 @@ install_docker() {
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-cpu
         fi
+
+        info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/models \
                 --restart=always \
                 -e MODELS_PATH=/models \
