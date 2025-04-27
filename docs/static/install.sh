@@ -307,9 +307,53 @@ install_container_toolkit_yum() {
     $SUDO $PACKAGE_MANAGER install -y nvidia-container-toolkit
 }
 
+# Fedora, Rhel and other distro ships tunable SELinux booleans in the container-selinux policy to control device access.
+# In particular, enabling container_use_devices allows containers to use arbitrary host device labels (including GPU devices)
+# ref: https://github.com/containers/ramalama/blob/main/docs/ramalama-cuda.7.md#expected-output
+enable_selinux_container_booleans() {
+
+    # Check SELinux mode
+    SELINUX_MODE=$(getenforce)
+
+    if [ "$SELINUX_MODE" == "Enforcing" ]; then
+        # Check the status of container_use_devices
+        CONTAINER_USE_DEVICES=$(getsebool container_use_devices | awk '{print $3}')
+
+       if [ "$CONTAINER_USE_DEVICES" == "off" ]; then
+
+          #We want to give the user the choice to enable the SE booleans since it is a security config
+          warn "+-----------------------------------------------------------------------------------------------------------+"
+          warn "| WARNING:                                                                                                  |"
+          warn "| Your distribution ships tunable SELinux booleans in the container-selinux policy to control device access.|"
+          warn "| In particular, enabling \"container_use_devices\" allows containers to use arbitrary host device labels   |"
+          warn "| (including GPU devices).                                                                                  |"
+          warn "| This script can try to enable them enabling the \"container_use_devices\" flag.                           |"
+          warn "|                                                                                                           |"
+          warn "| Otherwise you can exit the install script and enable them yourself.                                       |"
+          warn "+-----------------------------------------------------------------------------------------------------------+"
+
+          while true; do
+              choice_warn "I understand that this script is going to change my SELinux configs, which is a security risk: (yes/exit) ";
+              read  Answer
+
+              if [ "$Answer" = "yes" ]; then
+                warn "Enabling \"container_use_devices\" persistently..."
+                $SUDO setsebool -P container_use_devices 1
+
+                break
+              elif [ "$Answer" = "exit" ]; then
+                  aborted
+              else
+                  warn "Invalid choice. Please enter 'yes' or 'exit'."
+              fi
+            done
+       fi
+    fi
+}
+
 # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-apt
 install_container_toolkit_apt() {
-    info 'Installing NVIDIA container toolkit  repository...'
+    info 'Installing NVIDIA container toolkit repository...'
 
     curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | $SUDO gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
@@ -349,6 +393,29 @@ install_container_toolkit() {
             debian|ubuntu) install_container_toolkit_apt ;;
             opensuse*|suse*) install_container_toolkit_zypper ;;
             *) echo "Could not install nvidia container toolkit - unknown OS" ;;
+    esac
+
+    # after installing the toolkit we need to add it to the docker runtimes, otherwise even with --gpu all
+    # the container would still run with runc and would not have access to nvidia-smi
+    # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#configuring-docker
+    info "Adding NVIDIA Container Runtime to Docker runtimes..."
+    $SUDO nvidia-ctk runtime configure --runtime=docker
+
+    info "Restarting Docker Daemon"
+    $SUDO systemctl restart docker
+
+    # The NVML error arises because SELinux blocked the container’s attempts to open the GPU devices or related libraries.
+    # Without relaxing SELinux for the container, GPU commands like nvidia-smi report “Insufficient Permissions”
+    # This has been noted in NVIDIA’s documentation:
+    # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.13.5/install-guide.html#id2
+    # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/troubleshooting.html#nvml-insufficient-permissions-and-selinux
+    case $OS_NAME in
+            fedora|rhel|centos|rocky)
+                enable_selinux_container_booleans
+                ;;
+            opensuse-tumbleweed)
+                enable_selinux_container_booleans
+                ;;
     esac
 }
 
