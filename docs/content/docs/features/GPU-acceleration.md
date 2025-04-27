@@ -278,3 +278,36 @@ docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=
 ```
 
 Note also that sycl does have a known issue to hang with `mmap: true`. You have to disable it in the model configuration if explicitly enabled.
+
+## Vulkan acceleration
+
+### Requirements
+
+If using nvidia, follow the steps in the [CUDA](#cudanvidia-acceleration) section to configure your docker runtime to allow access to the GPU.
+
+### Container images
+
+To use Vulkan, use the images with the `vulkan` tag, for example `{{< version >}}-vulkan-ffmpeg-core`.
+
+#### Example
+
+To run LocalAI with Docker and Vulkan, you can use the following command as an example:
+
+```bash
+docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/build/models localai/localai:latest-vulkan-ffmpeg-core
+```
+
+### Notes
+
+In addition to the commands to run LocalAI normally, you need to specify additonal flags to pass the GPU hardware to the container.
+
+These flags are the same as the sections above, depending on the hardware, for [nvidia](#cudanvidia-acceleration), [AMD](#rocmamd-acceleration) or [Intel](#intel-acceleration-sycl).
+
+If you have mixed hardware, you can pass flags for multiple GPUs, for example:
+
+```bash
+docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/build/models \
+--gpus=all \ # nvidia passthrough
+--device /dev/dri --device /dev/kfd \ # AMD/Intel passthrough
+localai/localai:latest-vulkan-ffmpeg-core
+```
