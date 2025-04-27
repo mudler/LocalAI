@@ -24,6 +24,20 @@ type GalleryResponse struct {
 	StatusURL string `json:"status"`
 }
 
+type VideoRequest struct {
+	BasicModelRequest
+	Prompt         string  `json:"prompt" yaml:"prompt"`
+	StartImage     string  `json:"start_image" yaml:"start_image"`
+	EndImage       string  `json:"end_image" yaml:"end_image"`
+	Width          int32   `json:"width" yaml:"width"`
+	Height         int32   `json:"height" yaml:"height"`
+	NumFrames      int32   `json:"num_frames" yaml:"num_frames"`
+	FPS            int32   `json:"fps" yaml:"fps"`
+	Seed           int32   `json:"seed" yaml:"seed"`
+	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`
+	ResponseFormat string  `json:"response_format" yaml:"response_format"`
+}
+
 // @Description TTS request body
 type TTSRequest struct {
 	BasicModelRequest

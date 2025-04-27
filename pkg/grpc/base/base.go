@@ -53,6 +53,10 @@ func (llm *Base) GenerateImage(*pb.GenerateImageRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) GenerateVideo(*pb.GenerateVideoRequest) error {
+	return fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error) {
 	return pb.TranscriptResult{}, fmt.Errorf("unimplemented")
 }

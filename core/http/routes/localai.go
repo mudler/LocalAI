@@ -59,6 +59,11 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Get("/metrics", localai.LocalAIMetricsEndpoint())
 	}
 
+	router.Post("/video",
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }),
+		localai.VideoEndpoint(cl, ml, appConfig))
+
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now

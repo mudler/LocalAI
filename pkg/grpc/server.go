@@ -75,6 +75,18 @@ func (s *server) GenerateImage(ctx context.Context, in *pb.GenerateImageRequest)
 	return &pb.Result{Message: "Image generated", Success: true}, nil
 }
 
+func (s *server) GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest) (*pb.Result, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	err := s.llm.GenerateVideo(in)
+	if err != nil {
+		return &pb.Result{Message: fmt.Sprintf("Error generating video: %s", err.Error()), Success: false}, err
+	}
+	return &pb.Result{Message: "Video generated", Success: true}, nil
+}
+
 func (s *server) TTS(ctx context.Context, in *pb.TTSRequest) (*pb.Result, error) {
 	if s.llm.Locking() {
 		s.llm.Lock()

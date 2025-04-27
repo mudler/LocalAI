@@ -70,7 +70,7 @@ func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 	opts := &config.ApplicationConfig{
 		ModelPath:            t.ModelsPath,
 		Context:              context.Background(),
-		AudioDir:             outputDir,
+		GeneratedContentDir:  outputDir,
 		AssetsDestination:    t.BackendAssetsPath,
 		ExternalGRPCBackends: externalBackends,
 	}

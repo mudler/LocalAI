@@ -14,6 +14,7 @@ service Backend {
   rpc PredictStream(PredictOptions) returns (stream Reply) {}
   rpc Embedding(PredictOptions) returns (EmbeddingResult) {}
   rpc GenerateImage(GenerateImageRequest) returns (Result) {}
+  rpc GenerateVideo(GenerateVideoRequest) returns (Result) {}
   rpc AudioTranscription(TranscriptRequest) returns (TranscriptResult) {}
   rpc TTS(TTSRequest) returns (Result) {}
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
@@ -299,6 +300,19 @@ message GenerateImageRequest {
   // Diffusers
   string EnableParameters = 10;
   int32 CLIPSkip = 11;
+}
+
+message GenerateVideoRequest {
+  string prompt = 1;
+  string start_image = 2;  // Path or base64 encoded image for the start frame
+  string end_image = 3;    // Path or base64 encoded image for the end frame
+  int32 width = 4;
+  int32 height = 5;
+  int32 num_frames = 6;    // Number of frames to generate
+  int32 fps = 7;          // Frames per second
+  int32 seed = 8;
+  float cfg_scale = 9;    // Classifier-free guidance scale
+  string dst = 10;        // Output path for the generated video
 }
 
 message TTSRequest {

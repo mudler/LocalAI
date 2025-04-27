@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/dave-gray101/v2keyauth"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -153,12 +155,19 @@ func API(application *application.Application) (*fiber.App, error) {
 		Browse:     true,
 	}))
 
-	if application.ApplicationConfig().ImageDir != "" {
-		router.Static("/generated-images", application.ApplicationConfig().ImageDir)
-	}
+	if application.ApplicationConfig().GeneratedContentDir != "" {
+		os.MkdirAll(application.ApplicationConfig().GeneratedContentDir, 0750)
+		audioPath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "audio")
+		imagePath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "images")
+		videoPath := filepath.Join(application.ApplicationConfig().GeneratedContentDir, "videos")
 
-	if application.ApplicationConfig().AudioDir != "" {
-		router.Static("/generated-audio", application.ApplicationConfig().AudioDir)
+		os.MkdirAll(audioPath, 0750)
+		os.MkdirAll(imagePath, 0750)
+		os.MkdirAll(videoPath, 0750)
+
+		router.Static("/generated-audio", audioPath)
+		router.Static("/generated-images", imagePath)
+		router.Static("/generated-videos", videoPath)
 	}
 
 	// Auth is applied to _all_ endpoints. No exceptions. Filtering out endpoints to bypass is the role of the Filter property of the KeyAuth Configuration

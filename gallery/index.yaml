@@ -90,12 +90,16 @@
 
     You can find the half-precision version here.
   overrides:
+    mmproj: mmproj-google_gemma-3-12b-it-qat-f16.gguf
     parameters:
       model: google_gemma-3-12b-it-qat-Q4_0.gguf
   files:
     - filename: google_gemma-3-12b-it-qat-Q4_0.gguf
       sha256: 2ad4c9ce431a2d5b80af37983828c2cfb8f4909792ca5075e0370e3a71ca013d
       uri: huggingface://bartowski/google_gemma-3-12b-it-qat-GGUF/google_gemma-3-12b-it-qat-Q4_0.gguf
+    - filename: mmproj-google_gemma-3-12b-it-qat-f16.gguf
+      sha256: 30c02d056410848227001830866e0a269fcc28aaf8ca971bded494003de9f5a5
+      uri: huggingface://bartowski/google_gemma-3-12b-it-qat-GGUF/mmproj-google_gemma-3-12b-it-qat-f16.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-4b-it-qat"
   urls:
@@ -108,12 +112,16 @@
 
     You can find the half-precision version here.
   overrides:
+    mmproj: mmproj-google_gemma-3-4b-it-qat-f16.gguf
     parameters:
       model: google_gemma-3-4b-it-qat-Q4_0.gguf
   files:
     - filename: google_gemma-3-4b-it-qat-Q4_0.gguf
       sha256: 0231e2cba887f4c7834c39b34251e26b2eebbb71dfac0f7e6e2b2c2531c1a583
       uri: huggingface://bartowski/google_gemma-3-4b-it-qat-GGUF/google_gemma-3-4b-it-qat-Q4_0.gguf
+    - filename: mmproj-google_gemma-3-4b-it-qat-f16.gguf
+      sha256: 8c0fb064b019a6972856aaae2c7e4792858af3ca4561be2dbf649123ba6c40cb
+      uri: huggingface://bartowski/google_gemma-3-4b-it-qat-GGUF/mmproj-google_gemma-3-4b-it-qat-f16.gguf
 - !!merge <<: *gemma3
   name: "gemma-3-27b-it-qat"
   urls:
@@ -126,12 +134,16 @@
 
     You can find the half-precision version here.
   overrides:
+    mmproj: mmproj-google_gemma-3-27b-it-qat-f16.gguf
     parameters:
       model: google_gemma-3-27b-it-qat-Q4_0.gguf
   files:
-    - filename: gemma-3-27b-it-q4_0.gguf
+    - filename: google_gemma-3-27b-it-qat-Q4_0.gguf
       sha256: 4f1e32db877a9339df2d6529c1635570425cbe81f0aa3f7dd5d1452f2e632b42
       uri: huggingface://bartowski/google_gemma-3-27b-it-qat-GGUF/google_gemma-3-27b-it-qat-Q4_0.gguf
+    - filename: mmproj-google_gemma-3-27b-it-qat-f16.gguf
+      sha256: 54cb61c842fe49ac3c89bc1a614a2778163eb49f3dec2b90ff688b4c0392cb48
+      uri: huggingface://bartowski/google_gemma-3-27b-it-qat-GGUF/mmproj-google_gemma-3-27b-it-qat-f16.gguf
 - !!merge <<: *gemma3
   name: "qgallouedec_gemma-3-27b-it-codeforces-sft"
   urls:
@@ -1661,6 +1673,45 @@
     - filename: Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
       sha256: 413a0b9203326ea78fdbdcfd89a3e0475a18f0f73fee3a6bfe1327e7b48942e2
       uri: huggingface://mradermacher/Llama_3.3_70b_DarkHorse-i1-GGUF/Llama_3.3_70b_DarkHorse.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-geneticlemonade-unleashed-v2-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/0GTX4-erpPflLOkfH5sU5.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-GeneticLemonade-Unleashed-v2-70B
+    - https://huggingface.co/mradermacher/L3.3-GeneticLemonade-Unleashed-v2-70B-GGUF
+  description: |
+    An experimental release.
+
+    zerofata/GeneticLemonade-Unleashed qlora trained on a test dataset. Performance is improved from the original in my testing, but there are possibly (likely?) areas where the model will underperform which I am looking for feedback on.
+
+    This is a creative model intended to excel at character driven RP / ERP. It has not been tested or trained on adventure stories or any large amounts of creative writing.
+  overrides:
+    parameters:
+      model: L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
+  files:
+    - filename: L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
+      sha256: 347f0b7cea9926537643dafbe442d830734399bb6e6ff6c5bc0f69e583444548
+      uri: huggingface://mradermacher/L3.3-GeneticLemonade-Unleashed-v2-70B-GGUF/L3.3-GeneticLemonade-Unleashed-v2-70B.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-genetic-lemonade-sunset-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/txglu74hAoRrQw91rESrD.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-Genetic-Lemonade-Sunset-70B
+    - https://huggingface.co/mradermacher/L3.3-Genetic-Lemonade-Sunset-70B-GGUF
+  description: |
+    Inspired to learn how to merge by the Nevoria series from SteelSkull.
+
+    I wasn't planning to release any more models in this series, but I wasn't fully satisfied with Unleashed or the Final version. I happened upon the below when testing merges and found myself coming back to it, so decided to publish.
+    Model Comparison
+
+    Designed for RP and creative writing, all three models are focused around striking a balance between writing style, creativity and intelligence.
+  overrides:
+    parameters:
+      model: L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
+  files:
+    - filename: L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
+      sha256: 743c11180c0c9168c0fe31a97f9d2efe0dd749c2797d749821fcb1d6932c19f7
+      uri: huggingface://mradermacher/L3.3-Genetic-Lemonade-Sunset-70B-GGUF/L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
