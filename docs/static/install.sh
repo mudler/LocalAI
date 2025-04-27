@@ -344,7 +344,7 @@ enable_selinux_container_booleans() {
               elif [ "$Answer" = "exit" ]; then
                   aborted
               else
-                  warn "Invalid choice. Please enter 'akmod' or 'exit'."
+                  warn "Invalid choice. Please enter 'yes' or 'exit'."
               fi
             done
        fi
