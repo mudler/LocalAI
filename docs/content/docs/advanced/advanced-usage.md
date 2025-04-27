@@ -514,6 +514,7 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --upload-limit | 15 | Default upload-limit in MB | $LOCALAI_UPLOAD_LIMIT |
 | --api-keys | API-KEYS,... | List of API Keys to enable API authentication. When this is set, all the requests must be authenticated with one of these API keys | $LOCALAI_API_KEY |
 | --disable-welcome |  | Disable welcome pages | $LOCALAI_DISABLE_WELCOME |
+| --disable-webui | false | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | $LOCALAI_DISABLE_WEBUI |
 | --machine-tag |  | If not empty - put that string to Machine-Tag header in each response. Useful to track response from different machines using multiple P2P federated nodes | $LOCALAI_MACHINE_TAG |
 
 #### Backend Flags
