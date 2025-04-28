@@ -57,6 +57,8 @@ diffusers:
 
 Requirement: nvidia-container-toolkit (installation instructions [1](https://www.server-world.info/en/note?os=Ubuntu_22.04&p=nvidia&f=2) [2](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
 
+If using a system with SELinux, ensure you have the policies installed, such as those [provided by nvidia](https://github.com/NVIDIA/dgx-selinux/)
+
 To check what CUDA version do you need, you can either run `nvidia-smi` or `nvcc --version`. 
 
 Alternatively, you can also check nvidia-smi with docker:
