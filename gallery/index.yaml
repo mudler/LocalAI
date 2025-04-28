@@ -6265,6 +6265,22 @@
     - filename: nvidia_OpenMath-Nemotron-7B-Q4_K_M.gguf
       sha256: e205dd86ab9c73614d88dc3a84bd1a4e94255528f9ddb33e739ea23830342ee4
       uri: huggingface://bartowski/nvidia_OpenMath-Nemotron-7B-GGUF/nvidia_OpenMath-Nemotron-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "nvidia_openmath-nemotron-14b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/OpenMath-Nemotron-14B
+    - https://huggingface.co/bartowski/nvidia_OpenMath-Nemotron-14B-GGUF
+  description: |
+    OpenMath-Nemotron-14B is created by finetuning Qwen/Qwen2.5-14B on OpenMathReasoning dataset. This model is ready for commercial use.
+    OpenMath-Nemotron models achieve state-of-the-art results on popular mathematical benchmarks. We present metrics as pass@1 (maj@64) where pass@1 is an average accuracy across 64 generations and maj@64 is the result of majority voting. Please see our paper for more details on the evaluation setup.
+  overrides:
+    parameters:
+      model: nvidia_OpenMath-Nemotron-14B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_OpenMath-Nemotron-14B-Q4_K_M.gguf
+      sha256: 2abeccea53899b81cea11fd84fe458d673783f68e7790489fff5c295da6d8026
+      uri: huggingface://bartowski/nvidia_OpenMath-Nemotron-14B-GGUF/nvidia_OpenMath-Nemotron-14B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
