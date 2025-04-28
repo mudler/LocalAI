@@ -64,7 +64,7 @@ To check what CUDA version do you need, you can either run `nvidia-smi` or `nvcc
 Alternatively, you can also check nvidia-smi with docker:
 
 ```
-docker run --runtime=nvidia --rm nvidia/cuda nvidia-smi
+docker run --runtime=nvidia --rm nvidia/cuda:12.8.0-base-ubuntu24.04 nvidia-smi
 ```
 
 To use CUDA, use the images with the `cublas` tag, for example.
