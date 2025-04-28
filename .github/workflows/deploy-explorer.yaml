@@ -42,7 +42,7 @@ jobs:
             script: |
                 sudo rm -rf local-ai/ || true
       - name: copy file via ssh
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@v1.0.0
         with:
             host: ${{ secrets.EXPLORER_SSH_HOST }}
             username: ${{ secrets.EXPLORER_SSH_USERNAME }}
