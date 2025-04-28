@@ -6217,6 +6217,22 @@
     - filename: pictor-1338-qwenp-1.5b-q8_0.gguf
       sha256: 22d2f5b2322d9a354d8578475a6924c2173a913a1e2fa0ec2655f2f5937f6f26
       uri: huggingface://adriey/Pictor-1338-QwenP-1.5B-Q8_0-GGUF/pictor-1338-qwenp-1.5b-q8_0.gguf
+- !!merge <<: *qwen25
+  name: "nvidia_openmath-nemotron-32b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/OpenMath-Nemotron-32B
+    - https://huggingface.co/bartowski/nvidia_OpenMath-Nemotron-32B-GGUF
+  description: |
+    OpenMath-Nemotron-32B is created by finetuning Qwen/Qwen2.5-32B on OpenMathReasoning dataset. This model is ready for commercial use.
+    OpenMath-Nemotron models achieve state-of-the-art results on popular mathematical benchmarks. We present metrics as pass@1 (maj@64) where pass@1 is an average accuracy across 64 generations and maj@64 is the result of majority voting. Please see our paper for more details on the evaluation setup.
+  overrides:
+    parameters:
+      model: nvidia_OpenMath-Nemotron-32B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_OpenMath-Nemotron-32B-Q4_K_M.gguf
+      sha256: 91d1f53204ff47e49093ea0e4a6dae656fd79d9cdb23a50627bc6028396f5ab4
+      uri: huggingface://bartowski/nvidia_OpenMath-Nemotron-32B-GGUF/nvidia_OpenMath-Nemotron-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
