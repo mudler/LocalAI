@@ -108,6 +108,38 @@
     - filename: Qwen3-14B.Q4_K_M.gguf
       sha256: ee624d4be12433277bb9a340d3e5aabf5eb68fc788a7048ee99917edaa46494a
       uri: huggingface://MaziyarPanahi/Qwen3-14B-GGUF/Qwen3-14B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-8b"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-8B
+    - https://huggingface.co/MaziyarPanahi/Qwen3-8B-GGUF
+  description: |
+      Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+
+          Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+          Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+          Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+          Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+          Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+
+      Model Overview
+
+      Qwen3-8B has the following features:
+
+          Type: Causal Language Models
+          Training Stage: Pretraining & Post-training
+          Number of Parameters: 8.2B
+          Number of Paramaters (Non-Embedding): 6.95B
+          Number of Layers: 36
+          Number of Attention Heads (GQA): 32 for Q and 8 for KV
+          Context Length: 32,768 natively and 131,072 tokens with YaRN.
+  overrides:
+    parameters:
+      model: Qwen3-8B.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-8B.Q4_K_M.gguf
+      sha256: 376902d50612ecfc5bd8b268f376c04d10ad7e480f99a1483b833f04344a549e
+      uri: huggingface://MaziyarPanahi/Qwen3-8B-GGUF/Qwen3-8B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
