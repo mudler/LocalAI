@@ -170,6 +170,36 @@
     - filename: Qwen3-4B.Q4_K_M.gguf
       sha256: a37931937683a723ae737a0c6fc67dab7782fd8a1b9dea2ca445b7a1dbd5ca3a
       uri: huggingface://MaziyarPanahi/Qwen3-4B-GGUF/Qwen3-4B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-1.7b"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-1.7B
+    - https://huggingface.co/MaziyarPanahi/Qwen3-1.7B-GGUF
+  description: |
+    Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+
+        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+
+    Qwen3-1.7B has the following features:
+
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 1.7B
+        Number of Paramaters (Non-Embedding): 1.4B
+        Number of Layers: 28
+        Number of Attention Heads (GQA): 16 for Q and 8 for KV
+        Context Length: 32,768
+  overrides:
+    parameters:
+      model: Qwen3-1.7B.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-1.7B.Q4_K_M.gguf
+      sha256: ea2aa5f1cce3c8df81ae5fd292a6ed265b8393cc89534dc21fc5327cc974116a
+      uri: huggingface://MaziyarPanahi/Qwen3-1.7B-GGUF/Qwen3-1.7B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
