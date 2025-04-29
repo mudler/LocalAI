@@ -48,6 +48,6 @@ template:
     <|im_start|>assistant
 
 download_files:
-- filename: localai-functioncall-phi-4-v0.3-q4_k_m.gguf
-  sha256: 23fee048ded2a6e2e1a7b6bbefa6cbf83068f194caa9552aecbaa00fec8a16d5
-  uri: huggingface://mudler/LocalAI-functioncall-phi-4-v0.3-Q4_K_M-GGUF/localai-functioncall-phi-4-v0.3-q4_k_m.gguf
+- filename: localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
+  sha256: 4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4
+  uri: huggingface://mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF/localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf
