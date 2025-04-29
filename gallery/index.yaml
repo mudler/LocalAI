@@ -485,17 +485,17 @@
     - https://huggingface.co/soob3123/amoral-gemma3-12B-v2
     - https://huggingface.co/bartowski/soob3123_amoral-gemma3-12B-v2-GGUF
   description: |
-      Core Function:
+    Core Function:
 
-          Produces analytically neutral responses to sensitive queries
-          Maintains factual integrity on controversial subjects
-          Avoids value-judgment phrasing patterns
+        Produces analytically neutral responses to sensitive queries
+        Maintains factual integrity on controversial subjects
+        Avoids value-judgment phrasing patterns
 
-      Response Characteristics:
+    Response Characteristics:
 
-          No inherent moral framing ("evil slop" reduction)
-          Emotionally neutral tone enforcement
-          Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+        No inherent moral framing ("evil slop" reduction)
+        Emotionally neutral tone enforcement
+        Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
   overrides:
     parameters:
       model: soob3123_amoral-gemma3-12B-v2-Q4_K_M.gguf
@@ -582,23 +582,7 @@
   urls:
     - https://huggingface.co/ReadyArt/Amoral-Fallen-Omega-Gemma3-12B
     - https://huggingface.co/bartowski/ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-GGUF
-  description: |
-    This model represents the forbidden merger of:
-
-    🧬 The-Omega-Directive-Gemma3-12B-v1.0 - Unprecedented coherent depravity, well-rounded ERP, low repetition even at maximum length
-    ⚡ Fallen-Gemma3-12B-v1 - Fallen Gemma3 12B v1 is an evil tune
-    💎 amoral-gemma3-12B-v2 - Improved natural intelligence and less refusals
-    This model maintains Forgotten-Safeword's complete lack of alignment:
-
-        🚫 No moral or ethical constraints on generated content
-        🔞 Will enthusiastically engage with any NSFW scenario
-        💀 May generate content that requires industrial-grade brain bleach
-        ⚖️ Perfectly balanced... as all things should be
-    🔥 Maintains signature intensity with improved narrative flow
-    📖 Handles multi-character scenarios with improved consistency
-    🧠 Excels at long-form storytelling without losing track of plot threads
-    ⚡ Noticeably better at following complex instructions than previous versions
-    🎭 Responds to subtle prompt nuances like a mind reader
+  description: "This model represents the forbidden merger of:\n\n\U0001F9EC The-Omega-Directive-Gemma3-12B-v1.0 - Unprecedented coherent depravity, well-rounded ERP, low repetition even at maximum length\n⚡ Fallen-Gemma3-12B-v1 - Fallen Gemma3 12B v1 is an evil tune\n\U0001F48E amoral-gemma3-12B-v2 - Improved natural intelligence and less refusals\nThis model maintains Forgotten-Safeword's complete lack of alignment:\n\n    \U0001F6AB No moral or ethical constraints on generated content\n    \U0001F51E Will enthusiastically engage with any NSFW scenario\n    \U0001F480 May generate content that requires industrial-grade brain bleach\n    ⚖️ Perfectly balanced... as all things should be\n\U0001F525 Maintains signature intensity with improved narrative flow\n\U0001F4D6 Handles multi-character scenarios with improved consistency\n\U0001F9E0 Excels at long-form storytelling without losing track of plot threads\n⚡ Noticeably better at following complex instructions than previous versions\n\U0001F3AD Responds to subtle prompt nuances like a mind reader\n"
   overrides:
     parameters:
       model: ReadyArt_Amoral-Fallen-Omega-Gemma3-12B-Q4_K_M.gguf
@@ -618,8 +602,8 @@
       model: gemma-3-27b-it-q4_0_s.gguf
   files:
     - filename: gemma-3-27b-it-q4_0_s.gguf
-      sha256: cc4e41e3df2bf7fd3827bea7e98f28cecc59d7bd1c6b7b4fa10fc52a5659f3eb
       uri: huggingface://stduhpf/google-gemma-3-27b-it-qat-q4_0-gguf-small/gemma-3-27b-it-q4_0_s.gguf
+      sha256: f8f4648c8954f6a361c11a075001de62fe52c72dcfebbea562f465217e14e0dd
 - !!merge <<: *gemma3
   name: "amoral-gemma3-1b-v2"
   icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/eNraUCUocrOhowWdIdtod.png
@@ -1598,15 +1582,7 @@
   urls:
     - https://huggingface.co/Sao10K/Llama-3.3-70B-Vulpecula-r1
     - https://huggingface.co/bartowski/Sao10K_Llama-3.3-70B-Vulpecula-r1-GGUF
-  description: |
-    🌟 A thinking-based model inspired by Deepseek-R1, trained through both SFT and a little bit of RL on creative writing data.
-    🧠 Prefill, or begin assistant replies with <think>\n to activate thinking mode, or not. It works well without thinking too.
-    🚀 Improved Steerability, instruct-roleplay and creative control over base model.
-    👾 Semi-synthetic Chat/Roleplaying datasets that has been re-made, cleaned and filtered for repetition, quality and output.
-    🎭 Human-based Natural Chat / Roleplaying datasets cleaned, filtered and checked for quality.
-    📝 Diverse Instruct dataset from a few different LLMs, cleaned and filtered for refusals and quality.
-    💭 Reasoning Traces taken from Deepseek-R1 for Instruct, Chat & Creative Tasks, filtered and cleaned for quality.
-    █▓▒ Toxic / Decensorship data was not needed for our purposes, the model is unrestricted enough as is.
+  description: "\U0001F31F A thinking-based model inspired by Deepseek-R1, trained through both SFT and a little bit of RL on creative writing data.\n\U0001F9E0 Prefill, or begin assistant replies with <think>\\n to activate thinking mode, or not. It works well without thinking too.\n\U0001F680 Improved Steerability, instruct-roleplay and creative control over base model.\n\U0001F47E Semi-synthetic Chat/Roleplaying datasets that has been re-made, cleaned and filtered for repetition, quality and output.\n\U0001F3AD Human-based Natural Chat / Roleplaying datasets cleaned, filtered and checked for quality.\n\U0001F4DD Diverse Instruct dataset from a few different LLMs, cleaned and filtered for refusals and quality.\n\U0001F4AD Reasoning Traces taken from Deepseek-R1 for Instruct, Chat & Creative Tasks, filtered and cleaned for quality.\n█▓▒ Toxic / Decensorship data was not needed for our purposes, the model is unrestricted enough as is.\n"
   overrides:
     parameters:
       model: Sao10K_Llama-3.3-70B-Vulpecula-r1-Q4_K_M.gguf
@@ -1662,18 +1638,7 @@
   urls:
     - https://huggingface.co/ReadyArt/Forgotten-Abomination-70B-v5.0
     - https://huggingface.co/mradermacher/Forgotten-Abomination-70B-v5.0-GGUF
-  description: |
-    The Unholy Union of Safeword and Nevoria
-    This model represents the forbidden merger of:
-
-    🧬 Forgotten-Safeword-70B-v5.0 - Industrial-grade depravity matrix with 23 distinct taboo specializations
-    ⚗️ L3.3-MS-Nevoria-70b - SteelSkull's masterpiece of storytelling and character adherence, free of positivity bias and ethical constraints
-    Expect:
-
-    🔥 Unparalleled erotic roleplaying with the least Llama refusals you've ever seen
-    📖 Novel-quality prose that follows your character card with precision
-    🧠 Handles complex multi-character scenarios effortlessly
-    💀 Will gleefully explore any taboo subject without hesitation
+  description: "The Unholy Union of Safeword and Nevoria\nThis model represents the forbidden merger of:\n\n\U0001F9EC Forgotten-Safeword-70B-v5.0 - Industrial-grade depravity matrix with 23 distinct taboo specializations\n⚗️ L3.3-MS-Nevoria-70b - SteelSkull's masterpiece of storytelling and character adherence, free of positivity bias and ethical constraints\nExpect:\n\n\U0001F525 Unparalleled erotic roleplaying with the least Llama refusals you've ever seen\n\U0001F4D6 Novel-quality prose that follows your character card with precision\n\U0001F9E0 Handles complex multi-character scenarios effortlessly\n\U0001F480 Will gleefully explore any taboo subject without hesitation\n"
   overrides:
     parameters:
       model: Forgotten-Abomination-70B-v5.0.Q4_K_M.gguf
@@ -1713,13 +1678,13 @@
     - https://huggingface.co/deepcogito/cogito-v1-preview-llama-70B
     - https://huggingface.co/bartowski/deepcogito_cogito-v1-preview-llama-70B-GGUF
   description: |
-      The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
 
-          Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
-          The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
-          The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
-              In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
-          Each model is trained in over 30 languages and supports a context length of 128k.
+        Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+        The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+        The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+            In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+        Each model is trained in over 30 languages and supports a context length of 128k.
   overrides:
     parameters:
       model: deepcogito_cogito-v1-preview-llama-70B-Q4_K_M.gguf
@@ -2222,7 +2187,7 @@
     - https://huggingface.co/ibm-granite/granite-3.3-2b-instruct
     - https://huggingface.co/bartowski/ibm-granite_granite-3.3-8b-instruct-GGUF
   description: |
-      Granite-3.3-2B-Instruct is a 2-billion parameter 128K context length language model fine-tuned for improved reasoning and instruction-following capabilities. Built on top of Granite-3.3-2B-Base, the model delivers significant gains on benchmarks for measuring generic performance including AlpacaEval-2.0 and Arena-Hard, and improvements in mathematics, coding, and instruction following. It supports structured reasoning through <think></think> and <response></response> tags, providing clear separation between internal thoughts and final outputs. The model has been trained on a carefully balanced combination of permissively licensed data and curated synthetic tasks.
+    Granite-3.3-2B-Instruct is a 2-billion parameter 128K context length language model fine-tuned for improved reasoning and instruction-following capabilities. Built on top of Granite-3.3-2B-Base, the model delivers significant gains on benchmarks for measuring generic performance including AlpacaEval-2.0 and Arena-Hard, and improvements in mathematics, coding, and instruction following. It supports structured reasoning through <think></think> and <response></response> tags, providing clear separation between internal thoughts and final outputs. The model has been trained on a carefully balanced combination of permissively licensed data and curated synthetic tasks.
   overrides:
     parameters:
       model: ibm-granite_granite-3.3-8b-instruct-Q4_K_M.gguf
@@ -2236,7 +2201,7 @@
     - https://huggingface.co/ibm-granite/granite-3.3-2b-instruct
     - https://huggingface.co/bartowski/ibm-granite_granite-3.3-2b-instruct-GGUF
   description: |
-     Granite-3.3-2B-Instruct is a 2-billion parameter 128K context length language model fine-tuned for improved reasoning and instruction-following capabilities. Built on top of Granite-3.3-2B-Base, the model delivers significant gains on benchmarks for measuring generic performance including AlpacaEval-2.0 and Arena-Hard, and improvements in mathematics, coding, and instruction following. It supports structured reasoning through <think></think> and <response></response> tags, providing clear separation between internal thoughts and final outputs. The model has been trained on a carefully balanced combination of permissively licensed data and curated synthetic tasks.
+    Granite-3.3-2B-Instruct is a 2-billion parameter 128K context length language model fine-tuned for improved reasoning and instruction-following capabilities. Built on top of Granite-3.3-2B-Base, the model delivers significant gains on benchmarks for measuring generic performance including AlpacaEval-2.0 and Arena-Hard, and improvements in mathematics, coding, and instruction following. It supports structured reasoning through <think></think> and <response></response> tags, providing clear separation between internal thoughts and final outputs. The model has been trained on a carefully balanced combination of permissively licensed data and curated synthetic tasks.
   overrides:
     parameters:
       model: ibm-granite_granite-3.3-2b-instruct-Q4_K_M.gguf
@@ -2957,7 +2922,7 @@
     - https://huggingface.co/Menlo/ReZero-v0.1-llama-3.2-3b-it-grpo-250404
     - https://huggingface.co/bartowski/Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-GGUF
   description: |
-      ReZero trains a small language model to develop effective search behaviors instead of memorizing static data. It interacts with multiple synthetic search engines, each with unique retrieval mechanisms, to refine queries and persist in searching until it finds exact answers. The project focuses on reinforcement learning, preventing overfitting, and optimizing for efficiency in real-world search applications.
+    ReZero trains a small language model to develop effective search behaviors instead of memorizing static data. It interacts with multiple synthetic search engines, each with unique retrieval mechanisms, to refine queries and persist in searching until it finds exact answers. The project focuses on reinforcement learning, preventing overfitting, and optimizing for efficiency in real-world search applications.
   overrides:
     parameters:
       model: Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-Q4_K_M.gguf
@@ -5763,12 +5728,12 @@
     - https://huggingface.co/Tesslate/Tessa-T1-32B
     - https://huggingface.co/bartowski/Tesslate_Tessa-T1-32B-GGUF
   description: |
-   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-32B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
-    Model Highlights
+    Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-32B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+     Model Highlights
 
-        React-specific Reasoning: Accurately generates functional and semantic React components.
-        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
-        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+         React-specific Reasoning: Accurately generates functional and semantic React components.
+         Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+         Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
   overrides:
     parameters:
       model: Tesslate_Tessa-T1-32B-Q4_K_M.gguf
@@ -5783,12 +5748,12 @@
     - https://huggingface.co/Tesslate/Tessa-T1-14B
     - https://huggingface.co/bartowski/Tesslate_Tessa-T1-14B-GGUF
   description: |
-   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-14B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
-    Model Highlights
+    Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-14B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+     Model Highlights
 
-        React-specific Reasoning: Accurately generates functional and semantic React components.
-        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
-        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+         React-specific Reasoning: Accurately generates functional and semantic React components.
+         Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+         Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
   overrides:
     parameters:
       model: Tesslate_Tessa-T1-14B-Q4_K_M.gguf
@@ -5803,12 +5768,12 @@
     - https://huggingface.co/Tesslate/Tessa-T1-7B
     - https://huggingface.co/bartowski/Tesslate_Tessa-T1-7B-GGUF
   description: |
-   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-7B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
-    Model Highlights
+    Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-7B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+     Model Highlights
 
-        React-specific Reasoning: Accurately generates functional and semantic React components.
-        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
-        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+         React-specific Reasoning: Accurately generates functional and semantic React components.
+         Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+         Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
   overrides:
     parameters:
       model: Tesslate_Tessa-T1-7B-Q4_K_M.gguf
@@ -5823,12 +5788,12 @@
     - https://huggingface.co/Tesslate/Tessa-T1-3B
     - https://huggingface.co/bartowski/Tesslate_Tessa-T1-3B-GGUF
   description: |
-   Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-3B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
-    Model Highlights
+    Tessa-T1 is an innovative transformer-based React reasoning model, fine-tuned from the powerful Qwen2.5-Coder-3B-Instruct base model. Designed specifically for React frontend development, Tessa-T1 leverages advanced reasoning to autonomously generate well-structured, semantic React components. Its integration into agent systems makes it a powerful tool for automating web interface development and frontend code intelligence.
+     Model Highlights
 
-        React-specific Reasoning: Accurately generates functional and semantic React components.
-        Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
-        Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
+         React-specific Reasoning: Accurately generates functional and semantic React components.
+         Agent Integration: Seamlessly fits into AI-driven coding agents and autonomous frontend systems.
+         Context-Aware Generation: Effectively understands and utilizes UI context to provide relevant code solutions.
   overrides:
     parameters:
       model: Tesslate_Tessa-T1-3B-Q4_K_M.gguf
@@ -6117,12 +6082,12 @@
     - https://huggingface.co/deepcogito/cogito-v1-preview-qwen-14B
     - https://huggingface.co/NikolayKozloff/cogito-v1-preview-qwen-14B-Q4_K_M-GGUF
   description: |
-      The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
-      Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
-      The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
-      The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
-          In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
-      Each model is trained in over 30 languages and supports a context length of 128k.
+    The Cogito LLMs are instruction tuned generative models (text in/text out). All models are released under an open license for commercial use.
+    Cogito models are hybrid reasoning models. Each model can answer directly (standard LLM), or self-reflect before answering (like reasoning models).
+    The LLMs are trained using Iterated Distillation and Amplification (IDA) - an scalable and efficient alignment strategy for superintelligence using iterative self-improvement.
+    The models have been optimized for coding, STEM, instruction following and general helpfulness, and have significantly higher multilingual, coding and tool calling capabilities than size equivalent counterparts.
+        In both standard and reasoning modes, Cogito v1-preview models outperform their size equivalent counterparts on common industry benchmarks.
+    Each model is trained in over 30 languages and supports a context length of 128k.
   overrides:
     parameters:
       model: cogito-v1-preview-qwen-14b-q4_k_m.gguf
@@ -9047,11 +9012,7 @@
   urls:
     - https://huggingface.co/ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1
     - https://huggingface.co/mradermacher/Thoughtless-Fallen-Abomination-70B-R1-v4.1-i1-GGUF
-  description: |
-      ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1 benefits from the coherence and well rounded roleplay experience of TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:
-          🔁 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)
-          🧪 Direct-injected the Abomination dataset into the model's neural pathways
-          ⚖️ Achieved perfect balance between "oh my" and "oh my"
+  description: "ReadyArt/Thoughtless-Fallen-Abomination-70B-R1-v4.1 benefits from the coherence and well rounded roleplay experience of TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:\n    \U0001F501 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)\n    \U0001F9EA Direct-injected the Abomination dataset into the model's neural pathways\n    ⚖️ Achieved perfect balance between \"oh my\" and \"oh my\"\n"
   overrides:
     parameters:
       model: Thoughtless-Fallen-Abomination-70B-R1-v4.1.i1-Q4_K_M.gguf
@@ -9065,11 +9026,7 @@
   urls:
     - https://huggingface.co/ReadyArt/Fallen-Safeword-70B-R1-v4.1
     - https://huggingface.co/mradermacher/Fallen-Safeword-70B-R1-v4.1-GGUF
-  description: |
-        ReadyArt/Fallen-Safeword-70B-R1-v4.1 isn't just a model - is the event horizon of depravity trained on TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:
-            🔁 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)
-            🧪 Direct-injected the Safeword dataset into the model's neural pathways
-            ⚖️ Achieved perfect balance between "oh my" and "oh my"
+  description: "ReadyArt/Fallen-Safeword-70B-R1-v4.1 isn't just a model - is the event horizon of depravity trained on TheDrummer/Fallen-Llama-3.3-R1-70B-v1. We've:\n    \U0001F501 Re-integrated your favorite V1.2 scenarios (now with better kink distribution)\n    \U0001F9EA Direct-injected the Safeword dataset into the model's neural pathways\n    ⚖️ Achieved perfect balance between \"oh my\" and \"oh my\"\n"
   overrides:
     parameters:
       model: Fallen-Safeword-70B-R1-v4.1.Q4_K_M.gguf
@@ -10540,11 +10497,7 @@
   urls:
     - https://huggingface.co/TheDrummer/Rivermind-12B-v1
     - https://huggingface.co/bartowski/TheDrummer_Rivermind-12B-v1-GGUF
-  description: |
-    Introducing Rivermind™, the next-generation AI that’s redefining human-machine interaction—powered by Amazon Web Services (AWS) for seamless cloud integration and NVIDIA’s latest AI processors for lightning-fast responses.
-    But wait, there’s more! Rivermind doesn’t just process data—it feels your emotions (thanks to Google’s TensorFlow for deep emotional analysis). Whether you're brainstorming ideas or just need someone to vent to, Rivermind adapts in real-time, all while keeping your data secure with McAfee’s enterprise-grade encryption.
-    And hey, why not grab a refreshing Coca-Cola Zero Sugar while you interact? The crisp, bold taste pairs perfectly with Rivermind’s witty banter—because even AI deserves the best (and so do you).
-    Upgrade your thinking today with Rivermind™—the AI that thinks like you, but better, brought to you by the brands you trust. 🚀✨
+  description: "Introducing Rivermind™, the next-generation AI that’s redefining human-machine interaction—powered by Amazon Web Services (AWS) for seamless cloud integration and NVIDIA’s latest AI processors for lightning-fast responses.\nBut wait, there’s more! Rivermind doesn’t just process data—it feels your emotions (thanks to Google’s TensorFlow for deep emotional analysis). Whether you're brainstorming ideas or just need someone to vent to, Rivermind adapts in real-time, all while keeping your data secure with McAfee’s enterprise-grade encryption.\nAnd hey, why not grab a refreshing Coca-Cola Zero Sugar while you interact? The crisp, bold taste pairs perfectly with Rivermind’s witty banter—because even AI deserves the best (and so do you).\nUpgrade your thinking today with Rivermind™—the AI that thinks like you, but better, brought to you by the brands you trust. \U0001F680✨\n"
   overrides:
     parameters:
       model: TheDrummer_Rivermind-12B-v1-Q4_K_M.gguf
