@@ -194,27 +194,40 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             await iterations.aclose()
 
     async def _predict(self, request, context, streaming=False):
+        # Build the sampling parameters
+        # NOTE: this must stay in sync with the vllm backend
+        request_to_sampling_params = {
+            "N": "n",
+            "PresencePenalty": "presence_penalty",
+            "FrequencyPenalty": "frequency_penalty",
+            "RepetitionPenalty": "repetition_penalty",
+            "Temperature": "temperature",
+            "TopP": "top_p",
+            "TopK": "top_k",
+            "MinP": "min_p",
+            "Seed": "seed",
+            "StopPrompts": "stop",
+            "StopTokenIds": "stop_token_ids",
+            "BadWords": "bad_words",
+            "IncludeStopStrInOutput": "include_stop_str_in_output",
+            "IgnoreEOS": "ignore_eos",
+            "Tokens": "max_tokens",
+            "MinTokens": "min_tokens",
+            "Logprobs": "logprobs",
+            "PromptLogprobs": "prompt_logprobs",
+            "SkipSpecialTokens": "skip_special_tokens",
+            "SpacesBetweenSpecialTokens": "spaces_between_special_tokens",
+            "TruncatePromptTokens": "truncate_prompt_tokens",
+            "GuidedDecoding": "guided_decoding",
+        }
 
-        # Build sampling parameters
         sampling_params = SamplingParams(top_p=0.9, max_tokens=200)
-        if request.TopP != 0:
-            sampling_params.top_p = request.TopP
-        if request.Tokens > 0:
-            sampling_params.max_tokens = request.Tokens
-        if request.Temperature != 0:
-            sampling_params.temperature = request.Temperature
-        if request.TopK != 0:
-            sampling_params.top_k = request.TopK
-        if request.PresencePenalty != 0:
-            sampling_params.presence_penalty = request.PresencePenalty
-        if request.FrequencyPenalty != 0:
-            sampling_params.frequency_penalty = request.FrequencyPenalty
-        if request.StopPrompts:
-            sampling_params.stop = request.StopPrompts
-        if request.IgnoreEOS:
-            sampling_params.ignore_eos = request.IgnoreEOS
-        if request.Seed != 0:
-            sampling_params.seed = request.Seed
+
+        for request_field, param_field in request_to_sampling_params.items():
+            if hasattr(request, request_field):
+                value = getattr(request, request_field)
+                if value not in (None, 0, [], False):
+                    setattr(sampling_params, param_field, value)
 
         # Extract image paths and process images
         prompt = request.Prompt
