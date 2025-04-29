@@ -168,8 +168,12 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # We are storing all the options in a dict so we can use it later when
             # generating the images
             for opt in options:
+                if ":" not in opt:
+                    continue
                 key, value = opt.split(":")
                 self.options[key] = value
+
+            print(f"Options: {self.options}", file=sys.stderr)
 
             local = False
             modelFile = request.Model
