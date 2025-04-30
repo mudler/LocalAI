@@ -605,10 +605,6 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/diffusers test
 	$(MAKE) -C backend/python/vllm test
 
-# TODO: remove before PR, it's the only one by itself
-test-vllm: prepare-test-extra vllm-protogen
-	$(MAKE) -C backend/python/vllm test
-
 backend-assets:
 	mkdir -p backend-assets
 ifeq ($(BUILD_API_ONLY),true)
