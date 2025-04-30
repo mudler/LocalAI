@@ -244,6 +244,20 @@
     - filename: mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
       sha256: 6ff6f60674e7073259a8fd25fbd5afbaa84c405b851bc7b4613a82b5d7228f4b
       uri: huggingface://bartowski/mlabonne_Qwen3-14B-abliterated-GGUF/mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "mlabonne_qwen3-8b-abliterated"
+  urls:
+    - https://huggingface.co/mlabonne/Qwen3-8B-abliterated
+    - https://huggingface.co/bartowski/mlabonne_Qwen3-8B-abliterated-GGUF
+  description: |
+    Qwen3-8B-abliterated is a 8B parameter model that is abliterated.
+  overrides:
+    parameters:
+      model: mlabonne_Qwen3-8B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: mlabonne_Qwen3-8B-abliterated-Q4_K_M.gguf
+      sha256: 605d17fa8d4b3227e4848c2198616e9f8fb7e22ecb38e841b40c56acc8a5312d
+      uri: huggingface://bartowski/mlabonne_Qwen3-8B-abliterated-GGUF/mlabonne_Qwen3-8B-abliterated-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
