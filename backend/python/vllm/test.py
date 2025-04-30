@@ -75,6 +75,53 @@ class TestBackendServicer(unittest.TestCase):
         finally:
             self.tearDown()
 
+    def test_sampling_params(self):
+        """
+        This method tests if all sampling parameters are correctly processed
+        NOTE: this does NOT test for correctness, just that we received a compatible response
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                self.assertTrue(response.success)
+
+                req = backend_pb2.PredictOptions(
+                    Prompt="The capital of France is",
+                    TopP=0.8,
+                    Tokens=50,
+                    Temperature=0.7,
+                    TopK=40,
+                    PresencePenalty=0.1,
+                    FrequencyPenalty=0.2,
+                    RepetitionPenalty=1.1,
+                    MinP=0.05,
+                    Seed=42,
+                    StopPrompts=["\n"],
+                    StopTokenIds=[50256],
+                    BadWords=["badword"],
+                    IncludeStopStrInOutput=True,
+                    IgnoreEOS=True,
+                    MinTokens=5,
+                    Logprobs=5,
+                    PromptLogprobs=5,
+                    SkipSpecialTokens=True,
+                    SpacesBetweenSpecialTokens=True,
+                    TruncatePromptTokens=10,
+                    GuidedDecoding=True,
+                    N=2,
+                )
+                resp = stub.Predict(req)
+                self.assertIsNotNone(resp.message)
+                self.assertIsNotNone(resp.logprobs)
+        except Exception as err:
+            print(err)
+            self.fail("sampling params service failed")
+        finally:
+            self.tearDown()
+
+
     def test_embedding(self):
         """
         This method tests if the embeddings are generated successfully

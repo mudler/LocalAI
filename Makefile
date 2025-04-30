@@ -598,10 +598,12 @@ prepare-extra-conda-environments: protogen-python
 prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/transformers
 	$(MAKE) -C backend/python/diffusers
+	$(MAKE) -C backend/python/vllm
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
 	$(MAKE) -C backend/python/diffusers test
+	$(MAKE) -C backend/python/vllm test
 
 backend-assets:
 	mkdir -p backend-assets
