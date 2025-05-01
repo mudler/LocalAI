@@ -286,6 +286,23 @@
     - filename: Qwen3-30B-A3B-abliterated.Q4_K_M.gguf
       sha256: 60549f0232ed856dd0268e006e8f764620ea3eeaac3239ff0843e647dd9ae128
       uri: huggingface://mradermacher/Qwen3-30B-A3B-abliterated-GGUF/Qwen3-30B-A3B-abliterated.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-8b-jailbroken"
+  urls:
+    - https://huggingface.co/cooperleong00/Qwen3-8B-Jailbroken
+    - https://huggingface.co/mradermacher/Qwen3-8B-Jailbroken-GGUF
+  description: |
+    This jailbroken LLM is released strictly for academic research purposes in AI safety and model alignment studies. The author bears no responsibility for any misuse or harm resulting from the deployment of this model. Users must comply with all applicable laws and ethical guidelines when conducting research.
+    A jailbroken Qwen3-8B model using weight orthogonalization[1].
+    Implementation script: https://gist.github.com/cooperleong00/14d9304ba0a4b8dba91b60a873752d25
+    [1]: Arditi, Andy, et al. "Refusal in language models is mediated by a single direction." arXiv preprint arXiv:2406.11717 (2024).
+  overrides:
+    parameters:
+      model: Qwen3-8B-Jailbroken.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-8B-Jailbroken.Q4_K_M.gguf
+      sha256: 14ded84a1791a95285829abcc76ed9ca4fa61c469e0e94b53a4224ce46e34b41
+      uri: huggingface://mradermacher/Qwen3-8B-Jailbroken-GGUF/Qwen3-8B-Jailbroken.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
