@@ -1073,6 +1073,24 @@
     - filename: microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
       sha256: 01999f17c39cc3074afae5e9c539bc82d45f2dd7faa3917c66cbef76fce8c0c2
       uri: huggingface://bartowski/microsoft_Phi-4-mini-instruct-GGUF/microsoft_Phi-4-mini-instruct-Q4_K_M.gguf
+- !!merge <<: *phi4
+  name: "microsoft_phi-4-mini-reasoning"
+  urls:
+    - https://huggingface.co/microsoft/Phi-4-mini-reasoning
+    - https://huggingface.co/bartowski/microsoft_Phi-4-mini-reasoning-GGUF
+  description: |
+    Phi-4-mini-reasoning is a lightweight open model built upon synthetic data with a focus on high-quality, reasoning dense data further finetuned for more advanced math reasoning capabilities. The model belongs to the Phi-4 model family and supports 128K token context length.
+    Phi-4-mini-reasoning is designed for multi-step, logic-intensive mathematical problem-solving tasks under memory/compute constrained environments and latency bound scenarios. Some of the use cases include formal proof generation, symbolic computation, advanced word problems, and a wide range of mathematical reasoning scenarios. These models excel at maintaining context across steps, applying structured logic, and delivering accurate, reliable solutions in domains that require deep analytical thinking.
+    This model is designed and tested for math reasoning only. It is not specifically designed or evaluated for all downstream purposes. Developers should consider common limitations of language models, as well as performance difference across languages, as they select use cases, and evaluate and mitigate for accuracy, safety, and fairness before using within a specific downstream use case, particularly for high-risk scenarios. Developers should be aware of and adhere to applicable laws or regulations (including but not limited to privacy, trade compliance laws, etc.) that are relevant to their use case.
+    Nothing contained in this Model Card should be interpreted as or deemed a restriction or modification to the license the model is released under.
+    This release of Phi-4-mini-reasoning addresses user feedback and market demand for a compact reasoning model. It is a compact transformer-based language model optimized for mathematical reasoning, built to deliver high-quality, step-by-step problem solving in environments where computing or latency is constrained. The model is fine-tuned with synthetic math data from a more capable model (much larger, smarter, more accurate, and better at following instructions), which has resulted in enhanced reasoning performance. Phi-4-mini-reasoning balances reasoning ability with efficiency, making it potentially suitable for educational applications, embedded tutoring, and lightweight deployment on edge or mobile systems. If a critical issue is identified with Phi-4-mini-reasoning, it should be promptly reported through the MSRC Researcher Portal or secure@microsoft.com
+  overrides:
+    parameters:
+      model: microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf
+  files:
+    - filename: microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf
+      sha256: ce8becd58f350d8ae0ec3bbb201ab36f750ffab17ab6238f39292d12ab68ea06
+      uri: huggingface://bartowski/microsoft_Phi-4-mini-reasoning-GGUF/microsoft_Phi-4-mini-reasoning-Q4_K_M.gguf
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
