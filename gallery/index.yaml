@@ -303,6 +303,28 @@
     - filename: Qwen3-8B-Jailbroken.Q4_K_M.gguf
       sha256: 14ded84a1791a95285829abcc76ed9ca4fa61c469e0e94b53a4224ce46e34b41
       uri: huggingface://mradermacher/Qwen3-8B-Jailbroken-GGUF/Qwen3-8B-Jailbroken.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "fast-math-qwen3-14b"
+  urls:
+    - https://huggingface.co/RabotniKuma/Fast-Math-Qwen3-14B
+    - https://huggingface.co/mradermacher/Fast-Math-Qwen3-14B-GGUF
+  description: |
+    By applying SFT and GRPO on difficult math problems, we enhanced the performance of DeepSeek-R1-Distill-Qwen-14B and developed Fast-Math-R1-14B, which achieves approx. 30% faster inference on average, while maintaining accuracy.
+
+    In addition, we trained and open-sourced Fast-Math-Qwen3-14B, an efficiency-optimized version of Qwen3-14B`, following the same approach.
+
+    Compared to Qwen3-14B, this model enables approx. 65% faster inference on average, with minimal loss in performance.
+
+    Technical details can be found in our github repository.
+
+    Note: This model likely inherits the ability to perform inference in TIR mode from the original model. However, all of our experiments were conducted in CoT mode, and its performance in TIR mode has not been evaluated.
+  overrides:
+    parameters:
+      model: Fast-Math-Qwen3-14B.Q4_K_M.gguf
+  files:
+    - filename: Fast-Math-Qwen3-14B.Q4_K_M.gguf
+      sha256: 8711208a9baa502fc5e943446eb5efe62eceafb6778920af5415235a3dba4d64
+      uri: huggingface://mradermacher/Fast-Math-Qwen3-14B-GGUF/Fast-Math-Qwen3-14B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
