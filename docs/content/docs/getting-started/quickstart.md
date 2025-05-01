@@ -101,6 +101,57 @@ The AIO images come pre-configured with the following features:
 
 For instructions on using AIO images, see [Using container images]({{% relref "docs/getting-started/container-images#all-in-one-images" %}}).
 
+## Using LocalAI and the full stack with LocalAGI
+
+LocalAI is part of the Local family stack, along with LocalAGI and LocalRecall.
+
+[LocalAGI](https://github.com/mudler/LocalAGI) is a powerful, self-hostable AI Agent platform designed for maximum privacy and flexibility which encompassess and uses all the softwre stack. It provides a complete drop-in replacement for OpenAI's Responses APIs with advanced agentic capabilities, working entirely locally on consumer-grade hardware (CPU and GPU).
+
+### Quick Start
+
+```bash
+# Clone the repository
+git clone https://github.com/mudler/LocalAGI
+cd LocalAGI
+
+# CPU setup (default)
+docker compose up
+
+# NVIDIA GPU setup
+docker compose -f docker-compose.nvidia.yaml up
+
+# Intel GPU setup (for Intel Arc and integrated GPUs)
+docker compose -f docker-compose.intel.yaml up
+
+# Start with a specific model (see available models in models.localai.io, or localai.io to use any model in huggingface)
+MODEL_NAME=gemma-3-12b-it docker compose up
+
+# NVIDIA GPU setup with custom multimodal and image models
+MODEL_NAME=gemma-3-12b-it \
+MULTIMODAL_MODEL=minicpm-v-2_6 \
+IMAGE_MODEL=flux.1-dev-ggml \
+docker compose -f docker-compose.nvidia.yaml up
+```
+
+### Key Features
+
+- **Privacy-Focused**: All processing happens locally, ensuring your data never leaves your machine
+- **Flexible Deployment**: Supports CPU, NVIDIA GPU, and Intel GPU configurations
+- **Multiple Model Support**: Compatible with various models from Hugging Face and other sources
+- **Web Interface**: User-friendly chat interface for interacting with AI agents
+- **Advanced Capabilities**: Supports multimodal models, image generation, and more
+- **Docker Integration**: Easy deployment using Docker Compose
+
+### Environment Variables
+
+You can customize your LocalAGI setup using the following environment variables:
+
+- `MODEL_NAME`: Specify the model to use (e.g., `gemma-3-12b-it`)
+- `MULTIMODAL_MODEL`: Set a custom multimodal model
+- `IMAGE_MODEL`: Configure an image generation model
+
+For more advanced configuration and API documentation, visit the [LocalAGI GitHub repository](https://github.com/mudler/LocalAGI).
+
 ## What's Next?
 
 There is much more to explore with LocalAI! You can run any model from Hugging Face, perform video generation, and also voice cloning. For a comprehensive overview, check out the [features]({{% relref "docs/features" %}}) section.
