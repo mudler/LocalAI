@@ -1136,6 +1136,20 @@
     - filename: microsoft_Phi-4-reasoning-plus-Q4_K_M.gguf
       sha256: fcb2cdd14881e20613f56d37f49d0c73ec6c00f9bb4d0e4b161a1621d8517f47
       uri: huggingface://bartowski/microsoft_Phi-4-reasoning-plus-GGUF/microsoft_Phi-4-reasoning-plus-Q4_K_M.gguf
+- !!merge <<: *phi4
+  name: "microsoft_phi-4-reasoning"
+  urls:
+    - https://huggingface.co/microsoft/Phi-4-reasoning
+    - https://huggingface.co/bartowski/microsoft_Phi-4-reasoning-GGUF
+  description: |
+      Phi-4-reasoning is a state-of-the-art open-weight reasoning model finetuned from Phi-4 using supervised fine-tuning on a dataset of chain-of-thought traces and reinforcement learning. The supervised fine-tuning dataset includes a blend of synthetic prompts and high-quality filtered data from public domain websites, focused on math, science, and coding skills as well as alignment data for safety and Responsible AI. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.
+  overrides:
+    parameters:
+      model: microsoft_Phi-4-reasoning-Q4_K_M.gguf
+  files:
+    - filename: microsoft_Phi-4-reasoning-Q4_K_M.gguf
+      sha256: e02aea7b191055b8d9a5ca7d58a99214a6dc87be8759cf97089814163bda5042
+      uri: huggingface://bartowski/microsoft_Phi-4-reasoning-GGUF/microsoft_Phi-4-reasoning-Q4_K_M.gguf
 - &falcon3
   name: "falcon3-1b-instruct"
   url: "github:mudler/LocalAI/gallery/falcon3.yaml@master"
