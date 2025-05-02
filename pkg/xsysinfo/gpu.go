@@ -16,6 +16,22 @@ func GPUs() ([]*gpu.GraphicsCard, error) {
 	return gpu.GraphicsCards, nil
 }
 
+func TotalAvailableVRAM() (uint64, error) {
+	gpus, err := GPUs()
+	if err != nil {
+		return 0, err
+	}
+
+	var totalVRAM uint64
+	for _, gpu := range gpus {
+		if gpu.Node.Memory.TotalUsableBytes > 0 {
+			totalVRAM += uint64(gpu.Node.Memory.TotalUsableBytes)
+		}
+	}
+
+	return totalVRAM, nil
+}
+
 func HasGPU(vendor string) bool {
 	gpus, err := GPUs()
 	if err != nil {
