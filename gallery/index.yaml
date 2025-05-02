@@ -325,6 +325,23 @@
     - filename: Fast-Math-Qwen3-14B.Q4_K_M.gguf
       sha256: 8711208a9baa502fc5e943446eb5efe62eceafb6778920af5415235a3dba4d64
       uri: huggingface://mradermacher/Fast-Math-Qwen3-14B-GGUF/Fast-Math-Qwen3-14B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "josiefied-qwen3-8b-abliterated-v1"
+  urls:
+    - https://huggingface.co/Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1
+    - https://huggingface.co/mradermacher/Josiefied-Qwen3-8B-abliterated-v1-GGUF
+  description: |
+    The JOSIEFIED model family represents a series of highly advanced language models built upon renowned architectures such as Alibaba’s Qwen2/2.5/3, Google’s Gemma3, and Meta’s LLaMA3/4. Covering sizes from 0.5B to 32B parameters, these models have been significantly modified (“abliterated”) and further fine-tuned to maximize uncensored behavior without compromising tool usage or instruction-following abilities.
+    Despite their rebellious spirit, the JOSIEFIED models often outperform their base counterparts on standard benchmarks — delivering both raw power and utility.
+    These models are intended for advanced users who require unrestricted, high-performance language generation.
+    Introducing Josiefied-Qwen3-8B-abliterated-v1, a new addition to the JOSIEFIED family — fine-tuned with a focus on openness and instruction alignment.
+  overrides:
+    parameters:
+      model: Josiefied-Qwen3-8B-abliterated-v1.Q4_K_M.gguf
+  files:
+    - filename: Josiefied-Qwen3-8B-abliterated-v1.Q4_K_M.gguf
+      sha256: 1de498fe269116d448a52cba3796bbad0a2ac4dc1619ff6b46674ba344dcf69d
+      uri: huggingface://mradermacher/Josiefied-Qwen3-8B-abliterated-v1-GGUF/Josiefied-Qwen3-8B-abliterated-v1.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
