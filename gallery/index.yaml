@@ -6695,6 +6695,24 @@
     - filename: nvidia_OpenMath-Nemotron-14B-Kaggle-Q4_K_M.gguf
       sha256: 5923990d2699b8dcbefd1fe7bf7406b76f9e3cfa271af93cb870d19d7cd63177
       uri: huggingface://bartowski/nvidia_OpenMath-Nemotron-14B-Kaggle-GGUF/nvidia_OpenMath-Nemotron-14B-Kaggle-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "webthinker-qwq-32b-i1"
+  urls:
+    - https://huggingface.co/lixiaoxi45/WebThinker-QwQ-32B
+    - https://huggingface.co/mradermacher/WebThinker-QwQ-32B-i1-GGUF
+  description: |
+    WebThinker-QwQ-32B is part of the WebThinker series that enables large reasoning models to autonomously search, explore web pages, and draft research reports within their thinking process. This 32B parameter model provides deep research capabilities through:
+
+    Deep Web Exploration: Enables autonomous web searches and page navigation by clicking interactive elements to extract relevant information while maintaining reasoning coherence
+    Autonomous Think-Search-and-Draft: Integrates real-time knowledge seeking with report generation, allowing the model to draft sections as information is gathered
+    RL-based Training: Leverages iterative online DPO training with preference pairs constructed from reasoning trajectories to optimize end-to-end performance
+  overrides:
+    parameters:
+      model: WebThinker-QwQ-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: WebThinker-QwQ-32B.i1-Q4_K_M.gguf
+      sha256: cd92aff9b1e22f2a5eab28fb2d887e45fc3b1b03d5ed6ffca216832b8e5b9fb8
+      uri: huggingface://mradermacher/WebThinker-QwQ-32B-i1-GGUF/WebThinker-QwQ-32B.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
