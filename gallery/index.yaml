@@ -342,6 +342,20 @@
     - filename: Josiefied-Qwen3-8B-abliterated-v1.Q4_K_M.gguf
       sha256: 1de498fe269116d448a52cba3796bbad0a2ac4dc1619ff6b46674ba344dcf69d
       uri: huggingface://mradermacher/Josiefied-Qwen3-8B-abliterated-v1-GGUF/Josiefied-Qwen3-8B-abliterated-v1.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "furina-8b"
+  urls:
+    - https://huggingface.co/minchyeom/Furina-8B
+    - https://huggingface.co/mradermacher/Furina-8B-GGUF
+  description: |
+    A model that is fine-tuned to be Furina, the Hydro Archon and Judge of Fontaine from Genshin Impact.
+  overrides:
+    parameters:
+      model: Furina-8B.Q4_K_M.gguf
+  files:
+    - filename: Furina-8B.Q4_K_M.gguf
+      sha256: 8f0e825eca83b54eeff60b1b46c8b504de1777fe2ff10f83f12517982ae93cb3
+      uri: huggingface://mradermacher/Furina-8B-GGUF/Furina-8B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
