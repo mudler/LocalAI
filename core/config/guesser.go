@@ -4,9 +4,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	gguf "github.com/gpustack/gguf-parser-go"
 	"github.com/rs/zerolog/log"
-	gguf "github.com/thxcode/gguf-parser-go"
 )
 
 func guessDefaultsFromFile(cfg *BackendConfig, modelPath string, defaultCtx int) {
@@ -35,11 +34,5 @@ func guessDefaultsFromFile(cfg *BackendConfig, modelPath string, defaultCtx int)
 			defaultCtx = defaultContextSize
 		}
 		cfg.ContextSize = &defaultCtx
-	}
-
-	if cfg.Options == nil {
-		if xsysinfo.HasGPU("nvidia") || xsysinfo.HasGPU("amd") {
-			cfg.Options = []string{"gpu"}
-		}
 	}
 }

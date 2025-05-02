@@ -7,11 +7,11 @@ import (
 
 	"github.com/rs/zerolog/log"
 
+	gguf "github.com/gpustack/gguf-parser-go"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	gguf "github.com/thxcode/gguf-parser-go"
 )
 
 type UtilCMD struct {
@@ -51,7 +51,7 @@ func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
 	log.Info().
 		Any("eosTokenID", f.Tokenizer().EOSTokenID).
 		Any("bosTokenID", f.Tokenizer().BOSTokenID).
-		Any("modelName", f.Model().Name).
+		Any("modelName", f.Metadata().Name).
 		Any("architecture", f.Architecture().Architecture).Msgf("GGUF file loaded: %s", u.Args[0])
 
 	log.Info().Any("tokenizer", fmt.Sprintf("%+v", f.Tokenizer())).Msg("Tokenizer")
