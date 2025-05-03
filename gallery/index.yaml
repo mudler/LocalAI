@@ -992,6 +992,23 @@
     - filename: GenericRPV3-4B.Q4_K_M.gguf
       sha256: bfa7e9722f7c09dc3f9b5eccd2281a232b09d2cdf8a7e83048a271f6e0622d4e
       uri: huggingface://mradermacher/GenericRPV3-4B-GGUF/GenericRPV3-4B.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "comet_12b_v.5-i1"
+  urls:
+    - https://huggingface.co/OddTheGreat/Comet_12B_V.5
+    - https://huggingface.co/mradermacher/Comet_12B_V.5-i1-GGUF
+  description: |
+    This is a merge of pre-trained language models
+    V.4 wasn't stable enough for me, so here V.5 is.
+    More stable, better at sfw, richer nsfw.
+    I find that best "AIO" settings for RP on gemma 3 is sleepdeprived3/Gemma3-T4 with little tweaks, (T 1.04, top p 0.95).
+  overrides:
+    parameters:
+      model: Comet_12B_V.5.i1-Q4_K_M.gguf
+  files:
+    - filename: Comet_12B_V.5.i1-Q4_K_M.gguf
+      sha256: 02b5903653f1cf8337ffbd506b55398daa6e6e31474039ca4a5818b0850e3845
+      uri: huggingface://mradermacher/Comet_12B_V.5-i1-GGUF/Comet_12B_V.5.i1-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
