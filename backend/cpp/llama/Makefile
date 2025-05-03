@@ -59,8 +59,8 @@ llama.cpp:
 	git checkout -b build $(LLAMA_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-llama.cpp/examples/grpc-server: llama.cpp
-	mkdir -p llama.cpp/examples/grpc-server
+llama.cpp/tools/grpc-server: llama.cpp
+	mkdir -p llama.cpp/tools/grpc-server
 	bash prepare.sh
 
 rebuild:
@@ -70,13 +70,13 @@ rebuild:
 
 purge:
 	rm -rf llama.cpp/build
-	rm -rf llama.cpp/examples/grpc-server
+	rm -rf llama.cpp/tools/grpc-server
 	rm -rf grpc-server
 
 clean: purge
 	rm -rf llama.cpp
 
-grpc-server: llama.cpp llama.cpp/examples/grpc-server
+grpc-server: llama.cpp llama.cpp/tools/grpc-server
 	@echo "Building grpc-server with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
