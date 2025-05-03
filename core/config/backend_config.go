@@ -304,9 +304,6 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	defaultTFZ := 1.0
 	defaultZero := 0
 
-	// Try to offload all GPU layers (if GPU is found)
-	defaultHigh := 99999999
-
 	trueV := true
 	falseV := false
 
@@ -365,9 +362,6 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.MirostatTAU == nil {
 		cfg.MirostatTAU = &defaultMirostatTAU
-	}
-	if cfg.NGPULayers == nil {
-		cfg.NGPULayers = &defaultHigh
 	}
 
 	if cfg.LowVRAM == nil {
