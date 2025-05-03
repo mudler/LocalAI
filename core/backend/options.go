@@ -99,7 +99,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		mmap = *c.MMap
 	}
 
-	ctxSize := 1024
+	ctxSize := 4096
 	if c.ContextSize != nil {
 		ctxSize = *c.ContextSize
 	}
