@@ -2,11 +2,11 @@ package config
 
 import (
 	"context"
-	"embed"
 	"encoding/json"
 	"regexp"
 	"time"
 
+	rice "github.com/GeertJohan/go.rice"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
@@ -47,7 +47,7 @@ type ApplicationConfig struct {
 
 	Galleries []Gallery
 
-	BackendAssets     embed.FS
+	BackendAssets     *rice.Box
 	AssetsDestination string
 
 	ExternalGRPCBackends map[string]string
@@ -198,7 +198,7 @@ func WithBackendAssetsOutput(out string) AppOption {
 	}
 }
 
-func WithBackendAssets(f embed.FS) AppOption {
+func WithBackendAssets(f *rice.Box) AppOption {
 	return func(o *ApplicationConfig) {
 		o.BackendAssets = f
 	}

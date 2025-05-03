@@ -3,7 +3,6 @@ package http_test
 import (
 	"bytes"
 	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,6 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	rice "github.com/GeertJohan/go.rice"
 	openaigo "github.com/otiai10/openaigo"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
@@ -264,8 +264,15 @@ func getRequest(url string, header http.Header) (error, int, []byte) {
 
 const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
 
-//go:embed backend-assets/*
-var backendAssets embed.FS
+var backendAssets *rice.Box
+
+func init() {
+	var err error
+	backendAssets, err = rice.FindBox("backend-assets")
+	if err != nil {
+		panic(err)
+	}
+}
 
 var _ = Describe("API test", func() {
 

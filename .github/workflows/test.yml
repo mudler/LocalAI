@@ -96,6 +96,7 @@ jobs:
 
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install github.com/GeertJohan/go.rice/rice@latest
 
           # The python3-grpc-tools package in 22.04 is too old
           pip install --user grpcio-tools
@@ -183,6 +184,7 @@ jobs:
           rm protoc.zip
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install github.com/GeertJohan/go.rice/rice@latest
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Build images
         run: |
@@ -222,6 +224,7 @@ jobs:
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
           pip install --user --no-cache-dir grpcio-tools
+          go install github.com/GeertJohan/go.rice/rice@latest
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include
