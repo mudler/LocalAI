@@ -954,6 +954,25 @@
     - filename: soob3123_Veritas-12B-Q4_K_M.gguf
       sha256: 41821d6b0dd2b81a5bddd843a5534fd64d95e75b8e9dc952340868af320d49a7
       uri: huggingface://bartowski/soob3123_Veritas-12B-GGUF/soob3123_Veritas-12B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "planetoid_27b_v.2"
+  urls:
+    - https://huggingface.co/OddTheGreat/Planetoid_27B_V.2
+    - https://huggingface.co/mradermacher/Planetoid_27B_V.2-GGUF
+  description: |
+    This is a merge of pre-trained gemma3 language models
+    Goal of this merge was to create good uncensored gemma 3 model good for assistant and roleplay, with uncensored vision.
+    First, vision: i dont know is it normal, but it slightly hallucinate (maybe q3 is too low?), but lack any refusals and otherwise work fine. I used default gemma 3 27b mmproj.
+    Second, text: it is slow on my hardware, slower than 24b mistral, speed close to 32b QWQ. Model is smart even on q3, responses are adequate in length and are interesting to read. Model is quite attentive to context, tested up to 8k - no problems or degradation spotted. (beware of your typos, it will copy yours mistakes) Creative capabilities are good too, model will create good plot for you, if you let it. Model follows instructions fine, it is really good in "adventure" type of cards. Russian is supported, is not too great, maybe on higher quants is better. Refusals was not encountered.
+    However, i find this model not unbiased enough. It is close to neutrality, but i want it more "dark". Positivity highly depends on prompts. With good enough cards model can do wonders.
+    Tested on Q3_K_L, t 1.04.
+  overrides:
+    parameters:
+      model: Planetoid_27B_V.2.Q4_K_M.gguf
+  files:
+    - filename: Planetoid_27B_V.2.Q4_K_M.gguf
+      sha256: ed37b7b3739df5d8793d7f30b172ecf65e57084d724694296e4938589321bfac
+      uri: huggingface://mradermacher/Planetoid_27B_V.2-GGUF/Planetoid_27B_V.2.Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
