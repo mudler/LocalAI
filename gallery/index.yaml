@@ -973,6 +973,25 @@
     - filename: Planetoid_27B_V.2.Q4_K_M.gguf
       sha256: ed37b7b3739df5d8793d7f30b172ecf65e57084d724694296e4938589321bfac
       uri: huggingface://mradermacher/Planetoid_27B_V.2-GGUF/Planetoid_27B_V.2.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "genericrpv3-4b"
+  urls:
+    - https://huggingface.co/Hamzah-Asadullah/GenericRPV3-4B
+    - https://huggingface.co/mradermacher/GenericRPV3-4B-GGUF
+  description: |
+    Model's part of the GRP / GenericRP series, that's V3 based on Gemma3 4B, licensed accordingly.
+    It's a simple merge. To see intended behavious, see V2 or sum, card's more detailed.
+        allura-org/Gemma-3-Glitter-4B: w0.5
+        huihui-ai/gemma-3-4b-it-abliterated: w0.25
+        Danielbrdz/Barcenas-4b: w0.25
+    Happy chatting or whatever.
+  overrides:
+    parameters:
+      model: GenericRPV3-4B.Q4_K_M.gguf
+  files:
+    - filename: GenericRPV3-4B.Q4_K_M.gguf
+      sha256: bfa7e9722f7c09dc3f9b5eccd2281a232b09d2cdf8a7e83048a271f6e0622d4e
+      uri: huggingface://mradermacher/GenericRPV3-4B-GGUF/GenericRPV3-4B.Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
