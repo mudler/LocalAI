@@ -36,6 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk
           sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libgmock-dev
+          make install-go-tools
       - name: Install CUDA Dependencies
         run: |
           curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/cross-linux-aarch64/cuda-keyring_1.1-1_all.deb
@@ -151,6 +152,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk cmake libgmock-dev
+          make install-go-tools
       - name: Intel Dependencies
         run: |
           wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | sudo tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
@@ -253,8 +255,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@8ba23be9613c672d40ae261d2a1335d639bdd59b
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.0
+          make install-go-tools
       - name: Build
         id: build
         run: |
@@ -295,8 +296,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc libomp llvm
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          make install-go-tools
       - name: Build
         id: build
         run: |
