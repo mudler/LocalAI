@@ -1,4 +1,4 @@
-// https://github.com/ggerganov/llama.cpp/blob/master/examples/server/utils.hpp
+// https://github.com/ggerganov/llama.cpp/blob/master/tools/server/utils.hpp
 
 #pragma once
 

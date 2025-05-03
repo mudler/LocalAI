@@ -52,7 +52,7 @@ struct server_params
 {
     std::string hostname = "127.0.0.1";
     std::vector<std::string> api_keys;
-    std::string public_path = "examples/server/public";
+    std::string public_path = "tools/server/public";
     std::string chat_template = "";
     int32_t port = 8080;
     int32_t read_timeout = 600;
