@@ -170,7 +170,7 @@ func guessGGUFFromFile(cfg *BackendConfig, f *gguf.GGUFFile, defaultCtx int) {
 	vram, err := xsysinfo.TotalAvailableVRAM()
 	if err != nil {
 		log.Error().Msgf("guessDefaultsFromFile(TotalAvailableVRAM): %s", err)
-	} else {
+	} else if vram > 0 {
 		estimate, err := xsysinfo.EstimateGGUFVRAMUsage(f, vram)
 		if err != nil {
 			log.Error().Msgf("guessDefaultsFromFile(EstimateGGUFVRAMUsage): %s", err)

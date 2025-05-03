@@ -24,8 +24,10 @@ func TotalAvailableVRAM() (uint64, error) {
 
 	var totalVRAM uint64
 	for _, gpu := range gpus {
-		if gpu.Node.Memory.TotalUsableBytes > 0 {
-			totalVRAM += uint64(gpu.Node.Memory.TotalUsableBytes)
+		if gpu != nil && gpu.Node != nil && gpu.Node.Memory != nil {
+			if gpu.Node.Memory.TotalUsableBytes > 0 {
+				totalVRAM += uint64(gpu.Node.Memory.TotalUsableBytes)
+			}
 		}
 	}
 
