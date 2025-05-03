@@ -386,6 +386,29 @@
     - filename: shuttleai_shuttle-3.5-Q4_K_M.gguf
       sha256: c5defd3b45aa5f9bf56ce379b6346f99684bfddfe332329e91cfab2853015374
       uri: huggingface://bartowski/shuttleai_shuttle-3.5-GGUF/shuttleai_shuttle-3.5-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "amoral-qwen3-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/Jvn4zX2BvTIBuleqbkKq6.png
+  urls:
+    - https://huggingface.co/soob3123/amoral-qwen3-14B
+    - https://huggingface.co/mradermacher/amoral-qwen3-14B-GGUF
+  description: |
+    Core Function:
+
+    Produces analytically neutral responses to sensitive queries
+    Maintains factual integrity on controversial subjects
+    Avoids value-judgment phrasing patterns
+
+    No inherent moral framing ("evil slop" reduction)
+    Emotionally neutral tone enforcement
+    Epistemic humility protocols (avoids "thrilling", "wonderful", etc.)
+  overrides:
+    parameters:
+      model: amoral-qwen3-14B.Q4_K_M.gguf
+  files:
+    - filename: amoral-qwen3-14B.Q4_K_M.gguf
+      sha256: 7a73332b4dd49d5df1de2dbe84fc274019f33e564bcdce722e6e2ddf4e93cc77
+      uri: huggingface://mradermacher/amoral-qwen3-14B-GGUF/amoral-qwen3-14B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
