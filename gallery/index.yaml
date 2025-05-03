@@ -427,6 +427,21 @@
     - filename: Qwen-3-32B-Medical-Reasoning.i1-Q4_K_M.gguf
       sha256: 3d5ca0c8dfde8f9466e4d89839f08cd2f45ef97d6c28fa61f9428645877497b0
       uri: huggingface://mradermacher/Qwen-3-32B-Medical-Reasoning-i1-GGUF/Qwen-3-32B-Medical-Reasoning.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "smoothie-qwen3-8b"
+  icon: https://github.com/dnotitia/smoothie-qwen/raw/main/asset/smoothie-qwen-logo.png
+  urls:
+    - https://huggingface.co/dnotitia/Smoothie-Qwen3-8B
+    - https://huggingface.co/mradermacher/Smoothie-Qwen3-8B-GGUF
+  description: |
+    Smoothie Qwen is a lightweight adjustment tool that smooths token probabilities in Qwen and similar models, enhancing balanced multilingual generation capabilities. For more details, please refer to https://github.com/dnotitia/smoothie-qwen.
+  overrides:
+    parameters:
+      model: Smoothie-Qwen3-8B.Q4_K_M.gguf
+  files:
+    - filename: Smoothie-Qwen3-8B.Q4_K_M.gguf
+      sha256: 36fc6df285c35beb8f1fdb46b3854bc4f420d3600afa397bf6a89e2ce5480112
+      uri: huggingface://mradermacher/Smoothie-Qwen3-8B-GGUF/Smoothie-Qwen3-8B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
