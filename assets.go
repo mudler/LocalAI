@@ -1,6 +1,15 @@
 package main
 
-import "embed"
+import (
+	rice "github.com/GeertJohan/go.rice"
+)
 
-//go:embed backend-assets/*
-var backendAssets embed.FS
+var backendAssets *rice.Box
+
+func init() {
+	var err error
+	backendAssets, err = rice.FindBox("backend-assets")
+	if err != nil {
+		panic(err)
+	}
+}

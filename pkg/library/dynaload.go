@@ -25,7 +25,7 @@ func LoadExtractedLibs(dir string) error {
 	}
 
 	var err error = nil
-	for _, libDir := range []string{filepath.Join(dir, "backend-assets", "lib"), filepath.Join(dir, "lib")} {
+	for _, libDir := range []string{filepath.Join(dir, "lib"), filepath.Join(dir, "lib")} {
 		err = errors.Join(err, LoadExternal(libDir))
 	}
 	return err

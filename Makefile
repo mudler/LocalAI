@@ -337,8 +337,14 @@ clean-tests:
 clean-dc: clean
 	cp -r /build/backend-assets /workspace/backend-assets
 
+## Install Go tools
+install-go-tools:
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+	go install github.com/GeertJohan/go.rice/rice@latest
+
 ## Build:
-build: prepare backend-assets grpcs ## Build the project
+build: prepare backend-assets grpcs install-go-tools ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -348,7 +354,9 @@ ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
 	cp -f $(BACKEND_LIBS) backend-assets/lib/
 endif
+	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
+	rice append --exec $(BINARY_NAME)
 
 build-minimal:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=p2p $(MAKE) build
@@ -420,6 +428,7 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
+## Test targets
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
 	export GO_TAGS="tts debug"
@@ -494,7 +503,7 @@ protogen: protogen-go protogen-python
 protogen-clean: protogen-go-clean protogen-python-clean
 
 .PHONY: protogen-go
-protogen-go:
+protogen-go: install-go-tools
 	mkdir -p pkg/grpc/proto
 	protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
