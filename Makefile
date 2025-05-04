@@ -354,6 +354,7 @@ ifneq ($(BACKEND_LIBS),)
 	$(MAKE) backend-assets/lib
 	cp -f $(BACKEND_LIBS) backend-assets/lib/
 endif
+	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 	rice append --exec $(BINARY_NAME)
 
