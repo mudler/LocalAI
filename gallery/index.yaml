@@ -11093,6 +11093,23 @@
     - filename: StarrySky-12B.i1-Q4_K_M.gguf
       sha256: 70ebfbf0e6f9273f3c3fd725b8a44c93aab9d794b2b6ab616fe94ad52524c6c2
       uri: huggingface://mradermacher/StarrySky-12B-i1-GGUF/StarrySky-12B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "rei-v3-kto-12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/nqMkoIsmScaTFHCFirGsc.png
+  urls:
+    - https://huggingface.co/Delta-Vector/Rei-V3-KTO-12B
+    - https://huggingface.co/mradermacher/Rei-V3-KTO-12B-GGUF
+  description: |
+    Taking the previous 12B trained with Subseqence Loss - This model is meant to refine the base's sharp edges and increase coherency, intelligence and prose while replicating the prose of the Claude models Opus and Sonnet
+    Fine-tuned on top of Rei-V3-12B-Base, Rei-12B is designed to replicate the prose quality of Claude 3 models, particularly Sonnet and Opus, using a prototype Magnum V5 datamix.
+  overrides:
+    parameters:
+      model: Rei-V3-KTO-12B.Q4_K_M.gguf
+  files:
+    - filename: Rei-V3-KTO-12B.Q4_K_M.gguf
+      sha256: c75a69e9cb7897b856e9fee9f11c19ab62215f0a7363bcff40132322588ac007
+      uri: huggingface://mradermacher/Rei-V3-KTO-12B-GGUF/Rei-V3-KTO-12B.Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
