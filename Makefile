@@ -427,22 +427,16 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
-## Build test binary
-test-binary: prepare-test install-go-tools
-	export GO_TAGS="tts debug"
-	mkdir -p $(TEST_DIR)
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) test -c -o $(TEST_DIR)/test-binary ./...
-	rice append --exec $(TEST_DIR)/test-binary
-	cp $(TEST_DIR)/test-binary ./test-binary
-
 ## Test targets
-test: prepare test-models/testmodel.ggml test-binary
+test: prepare test-models/testmodel.ggml grpcs
+	@echo 'Running tests'
+	export GO_TAGS="tts debug"
+	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	./test-binary --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 	$(MAKE) test-llama-gguf
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
-	rm -f test-binary
 
 prepare-e2e:
 	mkdir -p $(TEST_DIR)
@@ -468,26 +462,22 @@ teardown-e2e:
 	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
 
-test-llama-gguf: test-binary
+test-llama-gguf: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	./test-binary --label-filter="llama-gguf" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
-	rm -f test-binary
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="llama-gguf" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
 
-test-tts: test-binary
+test-tts: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	./test-binary --label-filter="tts" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
-	rm -f test-binary
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="tts" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
 
-test-stablediffusion: test-binary
+test-stablediffusion: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
-	./test-binary --label-filter="stablediffusion" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
-	rm -f test-binary
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
 
-test-stores: backend-assets/grpc/local-store test-binary
+test-stores: backend-assets/grpc/local-store
 	mkdir -p tests/integration/backend-assets/grpc
 	cp -f backend-assets/grpc/local-store tests/integration/backend-assets/grpc/
-	./test-binary --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
-	rm -f test-binary
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
 
 test-container:
 	docker build --target requirements -t local-ai-test-container .
