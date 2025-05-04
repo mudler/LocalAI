@@ -472,6 +472,29 @@
     - filename: Qwen3-30B-A1.5B-High-Speed.Q4_K_M.gguf
       sha256: 2fca25524abe237483de64599bab54eba8fb22088fc21e30ba45ea8fb04dd1e0
       uri: huggingface://mradermacher/Qwen3-30B-A1.5B-High-Speed-GGUF/Qwen3-30B-A1.5B-High-Speed.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "kalomaze_qwen3-16b-a3b"
+  urls:
+    - https://huggingface.co/kalomaze/Qwen3-16B-A3B
+    - https://huggingface.co/bartowski/kalomaze_Qwen3-16B-A3B-GGUF
+  description: |
+    A man-made horror beyond your comprehension.
+
+    But no, seriously, this is my experiment to:
+
+        measure the probability that any given expert will activate (over my personal set of fairly diverse calibration data), per layer
+        prune 64/128 of the least used experts per layer (with reordered router and indexing per layer)
+
+    It can still write semi-coherently without any additional training or distillation done on top of it from the original 30b MoE. The .txt files with the original measurements are provided in the repo along with the exported weights.
+
+    Custom testing to measure the experts was done on a hacked version of vllm, and then I made a bespoke script to selectively export the weights according to the measurements.
+  overrides:
+    parameters:
+      model: kalomaze_Qwen3-16B-A3B-Q4_K_M.gguf
+  files:
+    - filename: kalomaze_Qwen3-16B-A3B-Q4_K_M.gguf
+      sha256: 34c86e1a956349632a05af37a104203823859363f141e1002abe6017349fbdcb
+      uri: huggingface://bartowski/kalomaze_Qwen3-16B-A3B-GGUF/kalomaze_Qwen3-16B-A3B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
