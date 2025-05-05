@@ -495,6 +495,22 @@
     - filename: kalomaze_Qwen3-16B-A3B-Q4_K_M.gguf
       sha256: 34c86e1a956349632a05af37a104203823859363f141e1002abe6017349fbdcb
       uri: huggingface://bartowski/kalomaze_Qwen3-16B-A3B-GGUF/kalomaze_Qwen3-16B-A3B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "allura-org_remnant-qwen3-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/_ovgodU331FO4YAqFGCnk.png
+  urls:
+    - https://huggingface.co/allura-org/remnant-qwen3-8b
+    - https://huggingface.co/bartowski/allura-org_remnant-qwen3-8b-GGUF
+  description: |
+        There's a wisp of dust in the air. It feels like its from a bygone era, but you don't know where from. It lands on your tongue. It tastes nice.
+        Remnant is a series of finetuned LLMs focused on SFW and NSFW roleplaying and conversation.
+  overrides:
+    parameters:
+      model: allura-org_remnant-qwen3-8b-Q4_K_M.gguf
+  files:
+    - filename: allura-org_remnant-qwen3-8b-Q4_K_M.gguf
+      sha256: 94e179bb1f1fe0069804a7713bd6b1343626ef11d17a67c6990be7b813d26aeb
+      uri: huggingface://bartowski/allura-org_remnant-qwen3-8b-GGUF/allura-org_remnant-qwen3-8b-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
