@@ -8,26 +8,26 @@
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
   license: apache-2.0
   description: |
-      Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+    Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
 
-        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
-        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
-        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
-        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
-        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
-      Qwen3-30B-A3B has the following features:
+      Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+      Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+      Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+      Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+      Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+    Qwen3-30B-A3B has the following features:
 
-          Type: Causal Language Models
-          Training Stage: Pretraining & Post-training
-          Number of Parameters: 30.5B in total and 3.3B activated
-          Number of Paramaters (Non-Embedding): 29.9B
-          Number of Layers: 48
-          Number of Attention Heads (GQA): 32 for Q and 4 for KV
-          Number of Experts: 128
-          Number of Activated Experts: 8
-          Context Length: 32,768 natively and 131,072 tokens with YaRN.
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 30.5B in total and 3.3B activated
+        Number of Paramaters (Non-Embedding): 29.9B
+        Number of Layers: 48
+        Number of Attention Heads (GQA): 32 for Q and 4 for KV
+        Number of Experts: 128
+        Number of Activated Experts: 8
+        Context Length: 32,768 natively and 131,072 tokens with YaRN.
 
-      For more details, including benchmark evaluation, hardware requirements, and inference performance, please refer to our blog, GitHub, and Documentation.
+    For more details, including benchmark evaluation, hardware requirements, and inference performance, please refer to our blog, GitHub, and Documentation.
   tags:
     - llm
     - gguf
@@ -82,25 +82,25 @@
     - https://huggingface.co/Qwen/Qwen3-14B
     - https://huggingface.co/MaziyarPanahi/Qwen3-14B-GGUF
   description: |
-      Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+    Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
 
-          Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
-          Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
-          Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
-          Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
-          Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
 
-      Qwen3-14B has the following features:
+    Qwen3-14B has the following features:
 
-          Type: Causal Language Models
-          Training Stage: Pretraining & Post-training
-          Number of Parameters: 14.8B
-          Number of Paramaters (Non-Embedding): 13.2B
-          Number of Layers: 40
-          Number of Attention Heads (GQA): 40 for Q and 8 for KV
-          Context Length: 32,768 natively and 131,072 tokens with YaRN.
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 14.8B
+        Number of Paramaters (Non-Embedding): 13.2B
+        Number of Layers: 40
+        Number of Attention Heads (GQA): 40 for Q and 8 for KV
+        Context Length: 32,768 natively and 131,072 tokens with YaRN.
 
-      For more details, including benchmark evaluation, hardware requirements, and inference performance, please refer to our blog, GitHub, and Documentation.
+    For more details, including benchmark evaluation, hardware requirements, and inference performance, please refer to our blog, GitHub, and Documentation.
   overrides:
     parameters:
       model: Qwen3-14B.Q4_K_M.gguf
@@ -114,25 +114,25 @@
     - https://huggingface.co/Qwen/Qwen3-8B
     - https://huggingface.co/MaziyarPanahi/Qwen3-8B-GGUF
   description: |
-      Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+    Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
 
-          Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
-          Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
-          Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
-          Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
-          Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
 
-      Model Overview
+    Model Overview
 
-      Qwen3-8B has the following features:
+    Qwen3-8B has the following features:
 
-          Type: Causal Language Models
-          Training Stage: Pretraining & Post-training
-          Number of Parameters: 8.2B
-          Number of Paramaters (Non-Embedding): 6.95B
-          Number of Layers: 36
-          Number of Attention Heads (GQA): 32 for Q and 8 for KV
-          Context Length: 32,768 natively and 131,072 tokens with YaRN.
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 8.2B
+        Number of Paramaters (Non-Embedding): 6.95B
+        Number of Layers: 36
+        Number of Attention Heads (GQA): 32 for Q and 8 for KV
+        Context Length: 32,768 natively and 131,072 tokens with YaRN.
   overrides:
     parameters:
       model: Qwen3-8B.Q4_K_M.gguf
@@ -146,23 +146,23 @@
     - https://huggingface.co/Qwen/Qwen3-4B
     - https://huggingface.co/MaziyarPanahi/Qwen3-4B-GGUF
   description: |
-      Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+    Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
 
-          Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
-          Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
-          Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
-          Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
-          Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
 
-      Qwen3-4B has the following features:
+    Qwen3-4B has the following features:
 
-          Type: Causal Language Models
-          Training Stage: Pretraining & Post-training
-          Number of Parameters: 4.0B
-          Number of Paramaters (Non-Embedding): 3.6B
-          Number of Layers: 36
-          Number of Attention Heads (GQA): 32 for Q and 8 for KV
-          Context Length: 32,768 natively and 131,072 tokens with YaRN.
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 4.0B
+        Number of Paramaters (Non-Embedding): 3.6B
+        Number of Layers: 36
+        Number of Attention Heads (GQA): 32 for Q and 8 for KV
+        Context Length: 32,768 natively and 131,072 tokens with YaRN.
   overrides:
     parameters:
       model: Qwen3-4B.Q4_K_M.gguf
@@ -206,23 +206,23 @@
     - https://huggingface.co/Qwen/Qwen3-0.6B
     - https://huggingface.co/MaziyarPanahi/Qwen3-0.6B-GGUF
   description: |
-      Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
+    Qwen3 is the latest generation of large language models in Qwen series, offering a comprehensive suite of dense and mixture-of-experts (MoE) models. Built upon extensive training, Qwen3 delivers groundbreaking advancements in reasoning, instruction-following, agent capabilities, and multilingual support, with the following key features:
 
-          Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
-          Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
-          Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
-          Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
-          Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
 
-      Qwen3-0.6B has the following features:
+    Qwen3-0.6B has the following features:
 
-          Type: Causal Language Models
-          Training Stage: Pretraining & Post-training
-          Number of Parameters: 0.6B
-          Number of Paramaters (Non-Embedding): 0.44B
-          Number of Layers: 28
-          Number of Attention Heads (GQA): 16 for Q and 8 for KV
-          Context Length: 32,768
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 0.6B
+        Number of Paramaters (Non-Embedding): 0.44B
+        Number of Layers: 28
+        Number of Attention Heads (GQA): 16 for Q and 8 for KV
+        Context Length: 32,768
   overrides:
     parameters:
       model: Qwen3-0.6B.Q4_K_M.gguf
@@ -242,8 +242,8 @@
       model: mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
   files:
     - filename: mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
-      sha256: 6ff6f60674e7073259a8fd25fbd5afbaa84c405b851bc7b4613a82b5d7228f4b
       uri: huggingface://bartowski/mlabonne_Qwen3-14B-abliterated-GGUF/mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
+      sha256: 225ab072da735ce8db35dcebaf24e905ee2457c180e501a0a7b7d1ef2694cba8
 - !!merge <<: *qwen3
   name: "mlabonne_qwen3-8b-abliterated"
   urls:
@@ -363,22 +363,22 @@
     - https://huggingface.co/shuttleai/shuttle-3.5
     - https://huggingface.co/bartowski/shuttleai_shuttle-3.5-GGUF
   description: |
-      A fine-tuned version of Qwen3 32b, emulating the writing style of Claude 3 models and thoroughly trained on role-playing data.
+    A fine-tuned version of Qwen3 32b, emulating the writing style of Claude 3 models and thoroughly trained on role-playing data.
 
-          Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
-          Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
-          Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
-          Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
-          Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
-      Shuttle 3.5 has the following features:
+        Uniquely support of seamless switching between thinking mode (for complex logical reasoning, math, and coding) and non-thinking mode (for efficient, general-purpose dialogue) within single model, ensuring optimal performance across various scenarios.
+        Significantly enhancement in its reasoning capabilities, surpassing previous QwQ (in thinking mode) and Qwen2.5 instruct models (in non-thinking mode) on mathematics, code generation, and commonsense logical reasoning.
+        Superior human preference alignment, excelling in creative writing, role-playing, multi-turn dialogues, and instruction following, to deliver a more natural, engaging, and immersive conversational experience.
+        Expertise in agent capabilities, enabling precise integration with external tools in both thinking and unthinking modes and achieving leading performance among open-source models in complex agent-based tasks.
+        Support of 100+ languages and dialects with strong capabilities for multilingual instruction following and translation.
+    Shuttle 3.5 has the following features:
 
-          Type: Causal Language Models
-          Training Stage: Pretraining & Post-training
-          Number of Parameters: 32.8B
-          Number of Paramaters (Non-Embedding): 31.2B
-          Number of Layers: 64
-          Number of Attention Heads (GQA): 64 for Q and 8 for KV
-          Context Length: 32,768 natively and 131,072 tokens with YaRN.
+        Type: Causal Language Models
+        Training Stage: Pretraining & Post-training
+        Number of Parameters: 32.8B
+        Number of Paramaters (Non-Embedding): 31.2B
+        Number of Layers: 64
+        Number of Attention Heads (GQA): 64 for Q and 8 for KV
+        Context Length: 32,768 natively and 131,072 tokens with YaRN.
   overrides:
     parameters:
       model: shuttleai_shuttle-3.5-Q4_K_M.gguf
@@ -449,22 +449,22 @@
     - https://huggingface.co/DavidAU/Qwen3-30B-A1.5B-High-Speed
     - https://huggingface.co/mradermacher/Qwen3-30B-A1.5B-High-Speed-GGUF
   description: |
-        This repo contains the full precision source code, in "safe tensors" format to generate GGUFs, GPTQ, EXL2, AWQ, HQQ and other formats. The source code can also be used directly.
+    This repo contains the full precision source code, in "safe tensors" format to generate GGUFs, GPTQ, EXL2, AWQ, HQQ and other formats. The source code can also be used directly.
 
-        This is a simple "finetune" of the Qwen's "Qwen 30B-A3B" (MOE) model, setting the experts in use from 8 to 4 (out of 128 experts).
+    This is a simple "finetune" of the Qwen's "Qwen 30B-A3B" (MOE) model, setting the experts in use from 8 to 4 (out of 128 experts).
 
-        This method close to doubles the speed of the model and uses 1.5B (of 30B) parameters instead of 3B (of 30B) parameters. Depending on the application you may want to use the regular model ("30B-A3B"), and use this model for simpler use case(s) although I did not notice any loss of function during routine (but not extensive) testing.
+    This method close to doubles the speed of the model and uses 1.5B (of 30B) parameters instead of 3B (of 30B) parameters. Depending on the application you may want to use the regular model ("30B-A3B"), and use this model for simpler use case(s) although I did not notice any loss of function during routine (but not extensive) testing.
 
-        Example generation (Q4KS, CPU) at the bottom of this page using 4 experts / this model.
+    Example generation (Q4KS, CPU) at the bottom of this page using 4 experts / this model.
 
-        More complex use cases may benefit from using the normal version.
+    More complex use cases may benefit from using the normal version.
 
-        For reference:
+    For reference:
 
-            Cpu only operation Q4KS (windows 11) jumps from 12 t/s to 23 t/s.
-            GPU performance IQ3S jumps from 75 t/s to over 125 t/s. (low to mid level card)
+        Cpu only operation Q4KS (windows 11) jumps from 12 t/s to 23 t/s.
+        GPU performance IQ3S jumps from 75 t/s to over 125 t/s. (low to mid level card)
 
-        Context size: 32K + 8K for output (40k total)
+    Context size: 32K + 8K for output (40k total)
   overrides:
     parameters:
       model: Qwen3-30B-A1.5B-High-Speed.Q4_K_M.gguf
@@ -502,8 +502,8 @@
     - https://huggingface.co/allura-org/remnant-qwen3-8b
     - https://huggingface.co/bartowski/allura-org_remnant-qwen3-8b-GGUF
   description: |
-        There's a wisp of dust in the air. It feels like its from a bygone era, but you don't know where from. It lands on your tongue. It tastes nice.
-        Remnant is a series of finetuned LLMs focused on SFW and NSFW roleplaying and conversation.
+    There's a wisp of dust in the air. It feels like its from a bygone era, but you don't know where from. It lands on your tongue. It tastes nice.
+    Remnant is a series of finetuned LLMs focused on SFW and NSFW roleplaying and conversation.
   overrides:
     parameters:
       model: allura-org_remnant-qwen3-8b-Q4_K_M.gguf
@@ -1352,7 +1352,7 @@
     - https://huggingface.co/microsoft/Phi-4-reasoning
     - https://huggingface.co/bartowski/microsoft_Phi-4-reasoning-GGUF
   description: |
-      Phi-4-reasoning is a state-of-the-art open-weight reasoning model finetuned from Phi-4 using supervised fine-tuning on a dataset of chain-of-thought traces and reinforcement learning. The supervised fine-tuning dataset includes a blend of synthetic prompts and high-quality filtered data from public domain websites, focused on math, science, and coding skills as well as alignment data for safety and Responsible AI. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.
+    Phi-4-reasoning is a state-of-the-art open-weight reasoning model finetuned from Phi-4 using supervised fine-tuning on a dataset of chain-of-thought traces and reinforcement learning. The supervised fine-tuning dataset includes a blend of synthetic prompts and high-quality filtered data from public domain websites, focused on math, science, and coding skills as well as alignment data for safety and Responsible AI. The goal of this approach was to ensure that small capable models were trained with data focused on high quality and advanced reasoning.
   overrides:
     parameters:
       model: microsoft_Phi-4-reasoning-Q4_K_M.gguf
