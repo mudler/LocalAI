@@ -124,7 +124,7 @@ jobs:
             release/*
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.21
+        uses: mxschmitt/action-tmate@v3.22
         with:
           detached: true
           connect-timeout-seconds: 180
@@ -234,7 +234,7 @@ jobs:
             release/*
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.21
+        uses: mxschmitt/action-tmate@v3.22
         with:
           detached: true
           connect-timeout-seconds: 180
@@ -276,7 +276,7 @@ jobs:
             release/*
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.21
+        uses: mxschmitt/action-tmate@v3.22
         with:
           detached: true
           connect-timeout-seconds: 180
@@ -317,7 +317,7 @@ jobs:
             release/*
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.21
+        uses: mxschmitt/action-tmate@v3.22
         with:
           detached: true
           connect-timeout-seconds: 180
