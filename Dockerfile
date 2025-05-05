@@ -301,7 +301,13 @@ COPY .git .
 RUN make prepare
 
 ## Build the binary
-RUN make build
+## If we're on arm64 AND using cublas/hipblas, skip some of the llama-compat backends to save space
+## Otherwise just run the normal build
+RUN if [ "${TARGETARCH}" = "arm64" ] && ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "hipblas" ] ); then \
+        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx512 backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
+    else \
+        make build; \
+    fi
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
