@@ -1,7 +1,7 @@
-diff --git a/tools/llava/clip.cpp b/tools/llava/clip.cpp
+diff --git a/tools/mtmd/clip.cpp b/tools/mtmd/clip.cpp
 index 3cd0d2fa..6c5e811a 100644
---- a/tools/llava/clip.cpp
-+++ b/tools/llava/clip.cpp
+--- a/tools/mtmd/clip.cpp
++++ b/tools/mtmd/clip.cpp
 @@ -2608,7 +2608,7 @@ bool clip_image_batch_encode(clip_ctx * ctx, const int n_threads, const clip_ima
                  struct ggml_tensor * patches = ggml_graph_get_tensor(gf, "patches");
                  int* patches_data = (int*)malloc(ggml_nbytes(patches));

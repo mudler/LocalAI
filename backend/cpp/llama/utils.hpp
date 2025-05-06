@@ -11,7 +11,7 @@
 
 #include "json.hpp"
 
-#include "../llava/clip.h"
+#include "../mtmd/clip.h"
 
 using json = nlohmann::json;
 

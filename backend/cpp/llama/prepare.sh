@@ -20,9 +20,9 @@ fi
 
 ## XXX: In some versions of CMake clip wasn't being built before llama.
 ## This is an hack for now, but it should be fixed in the future.
-cp -rfv llama.cpp/tools/llava/clip.h llama.cpp/tools/grpc-server/clip.h
-cp -rfv llama.cpp/tools/llava/clip-impl.h llama.cpp/tools/grpc-server/clip-impl.h
-cp -rfv llama.cpp/tools/llava/llava.cpp llama.cpp/tools/grpc-server/llava.cpp
+cp -rfv llama.cpp/tools/mtmd/clip.h llama.cpp/tools/grpc-server/clip.h
+cp -rfv llama.cpp/tools/mtmd/clip-impl.h llama.cpp/tools/grpc-server/clip-impl.h
+cp -rfv llama.cpp/tools/mtmd/llava.cpp llama.cpp/tools/grpc-server/llava.cpp
 echo '#include "llama.h"' > llama.cpp/tools/grpc-server/llava.h
-cat llama.cpp/tools/llava/llava.h >> llama.cpp/tools/grpc-server/llava.h
-cp -rfv llama.cpp/tools/llava/clip.cpp llama.cpp/tools/grpc-server/clip.cpp
+cat llama.cpp/tools/mtmd/llava.h >> llama.cpp/tools/grpc-server/llava.h
+cp -rfv llama.cpp/tools/mtmd/clip.cpp llama.cpp/tools/grpc-server/clip.cpp
