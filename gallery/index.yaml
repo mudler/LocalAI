@@ -556,6 +556,27 @@
     - filename: Goekdeniz-Guelmez_Josiefied-Qwen3-8B-abliterated-v1-Q4_K_M.gguf
       sha256: 0bfa61f0f94aa06a58b7e631fe6a51bedef6395135569d049b3c3f96867427be
       uri: huggingface://bartowski/Goekdeniz-Guelmez_Josiefied-Qwen3-8B-abliterated-v1-GGUF/Goekdeniz-Guelmez_Josiefied-Qwen3-8B-abliterated-v1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "claria-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/67b8da27d00e69f10c3b086f/vLwA0jYiZ_RZMH-KkHg5X.png
+  urls:
+    - https://huggingface.co/drwlf/Claria-14b
+    - https://huggingface.co/mradermacher/Claria-14b-GGUF
+  description: |
+    Claria 14b is a lightweight, mobile-compatible language model fine-tuned for psychological and psychiatric support contexts.
+    Built on Qwen-3 (14b), Claria is designed as an experimental foundation for therapeutic dialogue modeling, student simulation training, and the future of personalized mental health AI augmentation.
+
+    This model does not aim to replace professional care.
+    It exists to amplify reflective thinking, model therapeutic language flow, and support research into emotionally aware AI.
+
+    Claria is the first whisper in a larger project—a proof-of-concept with roots in recursion, responsibility, and renewal.
+  overrides:
+    parameters:
+      model: Claria-14b.Q4_K_M.gguf
+  files:
+    - filename: Claria-14b.Q4_K_M.gguf
+      sha256: 3173313c40ae487b3de8b07d757000bdbf86747333eba19880273be1fb38efab
+      uri: huggingface://mradermacher/Claria-14b-GGUF/Claria-14b.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
