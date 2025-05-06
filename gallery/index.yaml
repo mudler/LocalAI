@@ -511,6 +511,22 @@
     - filename: allura-org_remnant-qwen3-8b-Q4_K_M.gguf
       sha256: 94e179bb1f1fe0069804a7713bd6b1343626ef11d17a67c6990be7b813d26aeb
       uri: huggingface://bartowski/allura-org_remnant-qwen3-8b-GGUF/allura-org_remnant-qwen3-8b-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "huihui-ai_qwen3-14b-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/Qwen3-14B-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF
+  description: |
+    This is an uncensored version of Qwen/Qwen3-14B created with abliteration (see remove-refusals-with-transformers to know more about it). This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+
+    Ablation was performed using a new and faster method, which yields better results.
+  overrides:
+    parameters:
+      model: huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf
+      sha256: d76889059a3bfab30bc565012a0184827ff2bdc10197f6babc24541b98451dbe
+      uri: huggingface://bartowski/huihui-ai_Qwen3-14B-abliterated-GGUF/huihui-ai_Qwen3-14B-abliterated-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
