@@ -74,7 +74,7 @@ func (sd *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.Transcript
 		context.SetTranslate(true)
 	}
 
-	if err := context.Process(data, nil, nil); err != nil {
+	if err := context.Process(data, nil, nil, nil); err != nil {
 		return pb.TranscriptResult{}, err
 	}
 
