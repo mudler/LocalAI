@@ -119,6 +119,7 @@ ifeq ($(OS),Darwin)
 #			-lcblas 	removed: it seems to always be listed as a duplicate flag.
 		CGO_LDFLAGS += -framework Accelerate
 		CMAKE_ARGS+=-DGGML_METAL=ON
+		CGO_LDFLAGS_WHISPER+=-lggml-metal
 	endif
 else
 CGO_LDFLAGS_WHISPER+=-lgomp
