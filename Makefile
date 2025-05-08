@@ -118,8 +118,15 @@ ifeq ($(OS),Darwin)
 	ifeq ($(BUILD_TYPE),metal)
 #			-lcblas 	removed: it seems to always be listed as a duplicate flag.
 		CGO_LDFLAGS += -framework Accelerate
+		CGO_LDFLAGS_WHISPER+=-lggml-metal -lggml-blas
 		CMAKE_ARGS+=-DGGML_METAL=ON
-		CGO_LDFLAGS_WHISPER+=-lggml-metal
+		CMAKE_ARGS+=-DGGML_METAL_USE_BF16=ON
+		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
+		CMAKE_ARGS+=-DWHISPER_BUILD_EXAMPLES=OFF
+		CMAKE_ARGS+=-DWHISPER_BUILD_TESTS=OFF
+		CMAKE_ARGS+=-DWHISPER_BUILD_SERVER=OFF
+		CMAKE_ARGS+=-DGGML_OPENMP=OFF
+		export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-metal/:$(WHISPER_DIR)/build/ggml/src/ggml-blas
 	endif
 else
 CGO_LDFLAGS_WHISPER+=-lgomp
