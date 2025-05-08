@@ -648,6 +648,22 @@
     - filename: Qwen3-14B-Uncensored.Q4_K_M.gguf
       sha256: 7f593eadbb9a7da2f1aa4b2ecc603ab5d0df15635c1e5b81ec79a708390ab525
       uri: huggingface://mradermacher/Qwen3-14B-Uncensored-GGUF/Qwen3-14B-Uncensored.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "symiotic-14b-i1"
+  urls:
+    - https://huggingface.co/reaperdoesntknow/Symiotic-14B
+    - https://huggingface.co/mradermacher/Symiotic-14B-i1-GGUF
+  description: |
+    SymbioticLM-14B is a state-of-the-art 17.8 billion parameter symbolic–transformer hybrid model that tightly couples high-capacity neural representation with structured symbolic cognition. Designed to match or exceed performance of top-tier LLMs in symbolic domains, it supports persistent memory, entropic recall, multi-stage symbolic routing, and self-organizing knowledge structures.
+
+    This model is ideal for advanced reasoning agents, research assistants, and symbolic math/code generation systems.
+  overrides:
+    parameters:
+      model: Symiotic-14B.i1-Q4_K_M.gguf
+  files:
+    - filename: Symiotic-14B.i1-Q4_K_M.gguf
+      sha256: 8f5d4ef4751877fb8982308f153a9bd2b72289eda83b18dd591c3c04ba91a407
+      uri: huggingface://mradermacher/Symiotic-14B-i1-GGUF/Symiotic-14B.i1-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
