@@ -1287,6 +1287,32 @@
     - filename: Comet_12B_V.5.i1-Q4_K_M.gguf
       sha256: 02b5903653f1cf8337ffbd506b55398daa6e6e31474039ca4a5818b0850e3845
       uri: huggingface://mradermacher/Comet_12B_V.5-i1-GGUF/Comet_12B_V.5.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-12b-fornaxv.2-qat-cot"
+  icon: https://huggingface.co/ConicCat/Gemma-3-12B-FornaxV.2-QAT-CoT/resolve/main/Fornax.jpg
+  urls:
+    - https://huggingface.co/ConicCat/Gemma-3-12B-FornaxV.2-QAT-CoT
+    - https://huggingface.co/mradermacher/Gemma-3-12B-FornaxV.2-QAT-CoT-GGUF
+  description: |
+    This model is an experiment to try to produce a strong smaller thinking model capable of fitting in an 8GiB consumer graphics card with generalizeable reasoning capabilities. Most other open source thinking models, especially on the smaller side, fail to generalize their reasoning to tasks other than coding or math due to an overly large focus on GRPO zero for CoT which is only applicable for coding and math.
+
+    Instead of using GRPO, this model aims to SFT a wide variety of high quality, diverse reasoning traces from Deepseek R1 onto Gemma 3 to force the model to learn to effectively generalize its reasoning capabilites to a large number of tasks as an extension of the LiMO paper's approach to Math/Coding CoT. A subset of V3 O3/24 non-thinking data was also included for improved creativity and to allow the model to retain it's non-thinking capabilites.
+
+    Training off the QAT checkpoint allows for this model to be used without a drop in quality at Q4_0, requiring only ~6GiB of memory.
+    Thinking Mode
+
+    Similar to the Qwen 3 model line, Gemma Fornax can be used with or without thinking mode enabled.
+
+        To enable thinking place /think in the system prompt and prefill <think>\n for thinking mode.
+
+        To disable thinking put /no_think in the system prompt.
+  overrides:
+    parameters:
+      model: Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
+  files:
+    - filename: Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
+      sha256: 75c66d64a32416cdaaeeeb1d11477481c93558ade4dc61a93f7aba8312cd0480
+      uri: huggingface://mradermacher/Gemma-3-12B-FornaxV.2-QAT-CoT-GGUF/Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
