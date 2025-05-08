@@ -141,7 +141,8 @@ ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	export GGML_CUDA=1
 	CMAKE_ARGS+=-DGGML_CUDA=ON
-	CGO_LDFLAGS_WHISPER+=-lcufft
+	CGO_LDFLAGS_WHISPER+=-lcufft -lggml-cuda
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-cuda/
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
