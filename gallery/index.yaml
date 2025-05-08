@@ -7010,6 +7010,26 @@
     - filename: WebThinker-QwQ-32B.i1-Q4_K_M.gguf
       sha256: cd92aff9b1e22f2a5eab28fb2d887e45fc3b1b03d5ed6ffca216832b8e5b9fb8
       uri: huggingface://mradermacher/WebThinker-QwQ-32B-i1-GGUF/WebThinker-QwQ-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://cdn-uploads.huggingface.co/production/uploads/63d3095c2727d7888cbb54e2/Lt1t0tOO5emz1X23Azg-E.png
+  name: "servicenow-ai_apriel-nemotron-15b-thinker"
+  urls:
+    - https://huggingface.co/ServiceNow-AI/Apriel-Nemotron-15b-Thinker
+    - https://huggingface.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF
+  description: |
+    Apriel-Nemotron-15b-Thinker is a 15 billion‑parameter reasoning model in ServiceNow’s Apriel SLM series which achieves competitive performance against similarly sized state-of-the-art models like o1‑mini, QWQ‑32b, and EXAONE‑Deep‑32b, all while maintaining only half the memory footprint of those alternatives. It builds upon the Apriel‑15b‑base checkpoint through a three‑stage training pipeline (CPT, SFT and GRPO).
+    Highlights
+        Half the size of SOTA models like QWQ-32b and EXAONE-32b and hence memory efficient.
+        It consumes 40% less tokens compared to QWQ-32b, making it super efficient in production. 🚀🚀🚀
+        On par or outperforms on tasks like - MBPP, BFCL, Enterprise RAG, MT Bench, MixEval, IFEval and Multi-Challenge making it great for Agentic / Enterprise tasks.
+        Competitive performance on academic benchmarks like AIME-24 AIME-25, AMC-23, MATH-500 and GPQA considering model size.
+  overrides:
+    parameters:
+      model: ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q4_K_M.gguf
+  files:
+    - filename: ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q4_K_M.gguf
+      sha256: 9bc7be87f744a483756d373307358c45fa50affffb654b1324fce2dee1844fe8
+      uri: huggingface://bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
