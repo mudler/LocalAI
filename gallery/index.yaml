@@ -7030,6 +7030,25 @@
     - filename: ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q4_K_M.gguf
       sha256: 9bc7be87f744a483756d373307358c45fa50affffb654b1324fce2dee1844fe8
       uri: huggingface://bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "cognition-ai_kevin-32b"
+  urls:
+    - https://huggingface.co/cognition-ai/Kevin-32B
+    - https://huggingface.co/bartowski/cognition-ai_Kevin-32B-GGUF
+    - https://cognition.ai/blog/kevin-32b
+  description: |
+    Kevin (K(ernel D)evin) is a 32B parameter model finetuned to write efficient CUDA kernels.
+
+    We use KernelBench as our benchmark, and train the model through multi-turn reinforcement learning.
+
+    For the details, see our blogpost at https://cognition.ai/blog/kevin-32b
+  overrides:
+    parameters:
+      model: cognition-ai_Kevin-32B-Q4_K_M.gguf
+  files:
+    - filename: cognition-ai_Kevin-32B-Q4_K_M.gguf
+      sha256: 2576edd5b1880bcac6732eae9446b035426aee2e76937dc68a252ad34e185705
+      uri: huggingface://bartowski/cognition-ai_Kevin-32B-GGUF/cognition-ai_Kevin-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
