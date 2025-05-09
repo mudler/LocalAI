@@ -34,6 +34,7 @@ ONNX_OS?=linux
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=-DBUILD_SHARED_LIBS=OFF
+export WHISPER_CMAKE_ARGS?=$(CMAKE_ARGS)
 export BACKEND_LIBS?=
 export WHISPER_DIR=$(abspath ./sources/whisper.cpp)
 export WHISPER_INCLUDE_PATH=$(WHISPER_DIR)/include:$(WHISPER_DIR)/ggml/include
@@ -87,6 +88,7 @@ endif
 # IF native is false, we add -DGGML_NATIVE=OFF to CMAKE_ARGS
 ifeq ($(NATIVE),false)
 	CMAKE_ARGS+=-DGGML_NATIVE=OFF
+	WHISPER_CMAKE_ARGS+=-DGGML_NATIVE=OFF
 endif
 
 # Detect if we are running on arm64
@@ -114,6 +116,7 @@ ifeq ($(OS),Darwin)
 	# disable metal if on Darwin and any other value is explicitly passed.
 	else ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
+		WHISPER_CMAKE_ARGS+=-DGGML_METAL=OFF
 		export GGML_NO_ACCELERATE=1
 		export GGML_NO_METAL=1
 	endif
@@ -129,6 +132,12 @@ ifeq ($(OS),Darwin)
 		CMAKE_ARGS+=-DWHISPER_BUILD_TESTS=OFF
 		CMAKE_ARGS+=-DWHISPER_BUILD_SERVER=OFF
 		CMAKE_ARGS+=-DGGML_OPENMP=OFF
+		WHISPER_CMAKE_ARGS+=-DGGML_METAL=ON
+		WHISPER_CMAKE_ARGS+=-DGGML_METAL_USE_BF16=ON
+		WHISPER_CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
+		WHISPER_CMAKE_ARGS+=-DWHISPER_BUILD_EXAMPLES=OFF
+		WHISPER_CMAKE_ARGS+=-DWHISPER_BUILD_TESTS=OFF
+		WHISPER_CMAKE_ARGS+=-DWHISPER_BUILD_SERVER=OFF
 		export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-metal/:$(WHISPER_DIR)/build/ggml/src/ggml-blas
 	endif
 else
@@ -144,12 +153,14 @@ ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	export GGML_CUDA=1
 	CMAKE_ARGS+=-DGGML_CUDA=ON
+	WHISPER_CMAKE_ARGS+=-DGGML_CUDA=ON
 	CGO_LDFLAGS_WHISPER+=-lcufft -lggml-cuda
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-cuda/
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
+	WHISPER_CMAKE_ARGS+=-DGGML_VULKAN=1
 	CGO_LDFLAGS_WHISPER+=-lggml-vulkan
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-vulkan/
 endif
@@ -157,8 +168,6 @@ endif
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 	CMAKE_ARGS+=-DGGML_SYCL=ON
-	CGO_LDFLAGS_WHISPER+=-lggml-sycl
-	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-sycl/
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
@@ -311,14 +320,8 @@ sources/whisper.cpp:
 	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
-ifneq (,$(findstring sycl,$(BUILD_TYPE)))
-	+bash -c "source $(ONEAPI_VARS); \
-	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx . -B ./build && \
-	cd build && cmake --build . --config Release"
-else
-	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) . -B ./build
+	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
-endif
 
 get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama/llama.cpp
 
@@ -786,21 +789,11 @@ ifneq ($(UPX),)
 endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
-ifneq (,$(findstring sycl,$(BUILD_TYPE)))
-	CC=icx \
-	CXX=icpx \
-	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" \
-	C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" \
-	LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
-	LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
-else
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" \
 	C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" \
 	LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper	
-endif
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper
 endif
