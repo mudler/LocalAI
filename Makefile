@@ -34,7 +34,7 @@ ONNX_OS?=linux
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
 export CMAKE_ARGS?=-DBUILD_SHARED_LIBS=OFF
-export WHISPER_CMAKE_ARGS?=$(CMAKE_ARGS)
+export WHISPER_CMAKE_ARGS?=-DBUILD_SHARED_LIBS=OFF
 export BACKEND_LIBS?=
 export WHISPER_DIR=$(abspath ./sources/whisper.cpp)
 export WHISPER_INCLUDE_PATH=$(WHISPER_DIR)/include:$(WHISPER_DIR)/ggml/include
