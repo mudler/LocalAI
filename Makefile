@@ -24,6 +24,9 @@ BARKCPP_VERSION?=v1.0.0
 STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
 STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
 
+# ONEAPI variables for SYCL
+export ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
+
 ONNX_VERSION?=1.20.0
 ONNX_ARCH?=x64
 ONNX_OS?=linux
@@ -152,11 +155,13 @@ endif
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 	CMAKE_ARGS+=-DGGML_SYCL=ON
+	CMAKE_ARGS+=-DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
 	export GGML_SYCL_F16=1
 	CMAKE_ARGS+=-DGGML_SYCL_F16=ON
+	CMAKE_ARGS+=-DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -167,7 +172,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	export CC=$(ROCM_HOME)/llvm/bin/clang
 	export STABLE_BUILD_TYPE=
 	export GGML_HIP=1
-	GPU_TARGETS ?= gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
+	GPU_TARGETS ?= gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx1010,gfx1030,gfx1032,gfx1100,gfx1101,gfx1102
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
 	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
@@ -303,8 +308,14 @@ sources/whisper.cpp:
 	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	+bash -c "source $(ONEAPI_VARS); \
+	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) . -B ./build && \
+	cd build && cmake --build . --config Release"
+else
 	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
+endif
 
 get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama/llama.cpp
 
