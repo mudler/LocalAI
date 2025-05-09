@@ -786,8 +786,21 @@ ifneq ($(UPX),)
 endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	CC=icx \
+	CXX=icpx \
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" \
+	C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" \
+	LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
+	LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
+else
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" \
+	C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" \
+	LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
+	LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper	
+endif
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper
 endif
