@@ -155,13 +155,11 @@ endif
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 	CMAKE_ARGS+=-DGGML_SYCL=ON
-	CMAKE_ARGS+=-DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
 	export GGML_SYCL_F16=1
 	CMAKE_ARGS+=-DGGML_SYCL_F16=ON
-	CMAKE_ARGS+=-DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
