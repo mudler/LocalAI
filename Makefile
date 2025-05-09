@@ -308,7 +308,7 @@ sources/whisper.cpp:
 sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
-	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) . -B ./build && \
+	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx . -B ./build && \
 	cd build && cmake --build . --config Release"
 else
 	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) . -B ./build
