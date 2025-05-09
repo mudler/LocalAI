@@ -150,11 +150,15 @@ endif
 
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
+	CGO_LDFLAGS_WHISPER+=-lggml-vulkan
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-vulkan/
 endif
 
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 	CMAKE_ARGS+=-DGGML_SYCL=ON
+	CGO_LDFLAGS_WHISPER+=-lggml-sycl
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-sycl/
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
@@ -173,7 +177,8 @@ ifeq ($(BUILD_TYPE),hipblas)
 	GPU_TARGETS ?= gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx1010,gfx1030,gfx1032,gfx1100,gfx1101,gfx1102
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
-	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
+	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib -lggml-hip
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-hip/
 endif
 
 ifeq ($(BUILD_TYPE),metal)
