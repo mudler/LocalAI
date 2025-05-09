@@ -9,8 +9,8 @@ DETECT_LIBS?=true
 CPPLLAMA_VERSION?=f05a6d71a0f3dbf0730b56a1abbad41c0f42e63d
 
 # whisper.cpp version
-WHISPER_REPO?=https://github.com/ggerganov/whisper.cpp
-WHISPER_CPP_VERSION?=6266a9f9e56a5b925e9892acf650f3eb1245814d
+WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
+WHISPER_CPP_VERSION?=cb2bd11ee86c6d2a8c8c22ea3043682cbf127bcd
 
 # go-piper version
 PIPER_REPO?=https://github.com/mudler/go-piper
@@ -30,8 +30,11 @@ ONNX_OS?=linux
 
 export BUILD_TYPE?=
 export STABLE_BUILD_TYPE?=$(BUILD_TYPE)
-export CMAKE_ARGS?=
+export CMAKE_ARGS?=-DBUILD_SHARED_LIBS=OFF
 export BACKEND_LIBS?=
+export WHISPER_DIR=$(abspath ./sources/whisper.cpp)
+export WHISPER_INCLUDE_PATH=$(WHISPER_DIR)/include:$(WHISPER_DIR)/ggml/include
+export WHISPER_LIBRARY_PATH=$(WHISPER_DIR)/build/src/:$(WHISPER_DIR)/build/ggml/src
 
 CGO_LDFLAGS?=
 CGO_LDFLAGS_WHISPER?=
@@ -115,6 +118,15 @@ ifeq ($(OS),Darwin)
 	ifeq ($(BUILD_TYPE),metal)
 #			-lcblas 	removed: it seems to always be listed as a duplicate flag.
 		CGO_LDFLAGS += -framework Accelerate
+		CGO_LDFLAGS_WHISPER+=-lggml-metal -lggml-blas
+		CMAKE_ARGS+=-DGGML_METAL=ON
+		CMAKE_ARGS+=-DGGML_METAL_USE_BF16=ON
+		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
+		CMAKE_ARGS+=-DWHISPER_BUILD_EXAMPLES=OFF
+		CMAKE_ARGS+=-DWHISPER_BUILD_TESTS=OFF
+		CMAKE_ARGS+=-DWHISPER_BUILD_SERVER=OFF
+		CMAKE_ARGS+=-DGGML_OPENMP=OFF
+		export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-metal/:$(WHISPER_DIR)/build/ggml/src/ggml-blas
 	endif
 else
 CGO_LDFLAGS_WHISPER+=-lgomp
@@ -128,7 +140,9 @@ endif
 ifeq ($(BUILD_TYPE),cublas)
 	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	export GGML_CUDA=1
-	CGO_LDFLAGS_WHISPER+=-lcufft
+	CMAKE_ARGS+=-DGGML_CUDA=ON
+	CGO_LDFLAGS_WHISPER+=-lcufft -lggml-cuda
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-cuda/
 endif
 
 ifeq ($(BUILD_TYPE),vulkan)
@@ -137,10 +151,12 @@ endif
 
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
+	CMAKE_ARGS+=-DGGML_SYCL=ON
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
 	export GGML_SYCL_F16=1
+	CMAKE_ARGS+=-DGGML_SYCL_F16=ON
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -286,8 +302,9 @@ sources/whisper.cpp:
 	git checkout $(WHISPER_CPP_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-sources/whisper.cpp/libwhisper.a: sources/whisper.cpp
-	cd sources/whisper.cpp && $(MAKE) libwhisper.a libggml.a
+sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
+	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) . -B ./build
+	cd sources/whisper.cpp/build && cmake --build . --config Release
 
 get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama/llama.cpp
 
@@ -754,8 +771,8 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/silero-vad
 endif
 
-backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="$(CURDIR)/sources/whisper.cpp/include:$(CURDIR)/sources/whisper.cpp/ggml/include" LIBRARY_PATH=$(CURDIR)/sources/whisper.cpp \
+backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper

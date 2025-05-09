@@ -12,7 +12,7 @@ jobs:
           - repository: "ggml-org/llama.cpp"
             variable: "CPPLLAMA_VERSION"
             branch: "master"
-          - repository: "ggerganov/whisper.cpp"
+          - repository: "ggml-org/whisper.cpp"
             variable: "WHISPER_CPP_VERSION"
             branch: "master"
           - repository: "PABannier/bark.cpp"
