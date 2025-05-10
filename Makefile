@@ -166,11 +166,15 @@ endif
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 	CMAKE_ARGS+=-DGGML_SYCL=ON
+	WHISPER_CMAKE_ARGS+=-DGGML_SYCL=ON
+	CGO_LDFLAGS_WHISPER+=-lggml-sycl
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-sycl/
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
 	export GGML_SYCL_F16=1
 	CMAKE_ARGS+=-DGGML_SYCL_F16=ON
+	WHISPER_CMAKE_ARGS+=-DGGML_SYCL_F16=ON
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -184,6 +188,7 @@ ifeq ($(BUILD_TYPE),hipblas)
 	GPU_TARGETS ?= gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx1010,gfx1030,gfx1032,gfx1100,gfx1101,gfx1102
 	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
+	WHISPER_CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
 	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib -lggml-hip
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-hip/
 endif
@@ -318,8 +323,14 @@ sources/whisper.cpp:
 	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	+bash -c "source $(ONEAPI_VARS); \
+	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx . -B ./build && \
+	cd build && cmake --build . --config Release"
+else
 	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
+endif
 
 get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama/llama.cpp
 
@@ -787,11 +798,8 @@ ifneq ($(UPX),)
 endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" \
-	C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" \
-	LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
-	LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper	
+	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper
 endif
