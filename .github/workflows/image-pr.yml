@@ -33,6 +33,7 @@ jobs:
       # Pushing with all jobs in parallel
       # eats the bandwidth of all the nodes
       max-parallel: ${{ github.event_name != 'pull_request' && 4 || 8 }}
+      fail-fast: false
       matrix:
         include:
           # This is basically covered by the AIO test
