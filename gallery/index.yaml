@@ -584,24 +584,24 @@
     - https://huggingface.co/Daemontatox/Qwen3-14B-Griffon
     - https://huggingface.co/mradermacher/Qwen3-14B-Griffon-i1-GGUF
   description: |
-      This is a fine-tuned version of the Qwen3-14B model using the high-quality OpenThoughts2-1M dataset. Fine-tuned with Unsloth’s TRL-compatible framework and LoRA for efficient performance, this model is optimized for advanced reasoning tasks, especially in math, logic puzzles, code generation, and step-by-step problem solving.
-      Training Dataset
+    This is a fine-tuned version of the Qwen3-14B model using the high-quality OpenThoughts2-1M dataset. Fine-tuned with Unsloth’s TRL-compatible framework and LoRA for efficient performance, this model is optimized for advanced reasoning tasks, especially in math, logic puzzles, code generation, and step-by-step problem solving.
+    Training Dataset
 
-          Dataset: OpenThoughts2-1M
-          Source: A synthetic dataset curated and expanded by the OpenThoughts team
-          Volume: ~1.1M high-quality examples
-          Content Type: Multi-turn reasoning, math proofs, algorithmic code generation, logical deduction, and structured conversations
-          Tools Used: Curator Viewer
+        Dataset: OpenThoughts2-1M
+        Source: A synthetic dataset curated and expanded by the OpenThoughts team
+        Volume: ~1.1M high-quality examples
+        Content Type: Multi-turn reasoning, math proofs, algorithmic code generation, logical deduction, and structured conversations
+        Tools Used: Curator Viewer
 
-      This dataset builds upon OpenThoughts-114k and integrates strong reasoning-centric data sources like OpenR1-Math and KodCode.
-      Intended Use
+    This dataset builds upon OpenThoughts-114k and integrates strong reasoning-centric data sources like OpenR1-Math and KodCode.
+    Intended Use
 
-      This model is particularly suited for:
+    This model is particularly suited for:
 
-          Chain-of-thought and step-by-step reasoning
-          Code generation with logical structure
-          Educational tools for math and programming
-          AI agents requiring multi-turn problem-solving
+        Chain-of-thought and step-by-step reasoning
+        Code generation with logical structure
+        Educational tools for math and programming
+        AI agents requiring multi-turn problem-solving
   overrides:
     parameters:
       model: Qwen3-14B-Griffon.i1-Q4_K_M.gguf
@@ -7078,13 +7078,7 @@
   urls:
     - https://huggingface.co/ServiceNow-AI/Apriel-Nemotron-15b-Thinker
     - https://huggingface.co/bartowski/ServiceNow-AI_Apriel-Nemotron-15b-Thinker-GGUF
-  description: |
-    Apriel-Nemotron-15b-Thinker is a 15 billion‑parameter reasoning model in ServiceNow’s Apriel SLM series which achieves competitive performance against similarly sized state-of-the-art models like o1‑mini, QWQ‑32b, and EXAONE‑Deep‑32b, all while maintaining only half the memory footprint of those alternatives. It builds upon the Apriel‑15b‑base checkpoint through a three‑stage training pipeline (CPT, SFT and GRPO).
-    Highlights
-        Half the size of SOTA models like QWQ-32b and EXAONE-32b and hence memory efficient.
-        It consumes 40% less tokens compared to QWQ-32b, making it super efficient in production. 🚀🚀🚀
-        On par or outperforms on tasks like - MBPP, BFCL, Enterprise RAG, MT Bench, MixEval, IFEval and Multi-Challenge making it great for Agentic / Enterprise tasks.
-        Competitive performance on academic benchmarks like AIME-24 AIME-25, AMC-23, MATH-500 and GPQA considering model size.
+  description: "Apriel-Nemotron-15b-Thinker is a 15 billion‑parameter reasoning model in ServiceNow’s Apriel SLM series which achieves competitive performance against similarly sized state-of-the-art models like o1‑mini, QWQ‑32b, and EXAONE‑Deep‑32b, all while maintaining only half the memory footprint of those alternatives. It builds upon the Apriel‑15b‑base checkpoint through a three‑stage training pipeline (CPT, SFT and GRPO).\nHighlights\n    Half the size of SOTA models like QWQ-32b and EXAONE-32b and hence memory efficient.\n    It consumes 40% less tokens compared to QWQ-32b, making it super efficient in production. \U0001F680\U0001F680\U0001F680\n    On par or outperforms on tasks like - MBPP, BFCL, Enterprise RAG, MT Bench, MixEval, IFEval and Multi-Challenge making it great for Agentic / Enterprise tasks.\n    Competitive performance on academic benchmarks like AIME-24 AIME-25, AMC-23, MATH-500 and GPQA considering model size.\n"
   overrides:
     parameters:
       model: ServiceNow-AI_Apriel-Nemotron-15b-Thinker-Q4_K_M.gguf
@@ -9013,8 +9007,8 @@
       model: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
   files:
     - filename: deepseek-r1-distill-llama-8b-Q4_K_M.gguf
-      sha256: f8eba201522ab44b79bc54166126bfaf836111ff4cbf2d13c59c3b57da10573b
       uri: huggingface://unsloth/DeepSeek-R1-Distill-Llama-8B-GGUF/DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf
+      sha256: 0addb1339a82385bcd973186cd80d18dcc71885d45eabd899781a118d03827d9
 - !!merge <<: *llama31
   name: "selene-1-mini-llama-3.1-8b"
   icon: https://atla-ai.notion.site/image/https%3A%2F%2Fprod-files-secure.s3.us-west-2.amazonaws.com%2Ff08e6e70-73af-4363-9621-90e906b92ebc%2F1bfb4316-1ce6-40a0-800c-253739cfcdeb%2Fatla_white3x.svg?table=block&id=17c309d1-7745-80f9-8f60-e755409acd8d&spaceId=f08e6e70-73af-4363-9621-90e906b92ebc&userId=&cache=v2
