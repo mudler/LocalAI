@@ -159,7 +159,7 @@ endif
 ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1
 	WHISPER_CMAKE_ARGS+=-DGGML_VULKAN=1
-	CGO_LDFLAGS_WHISPER+=-lggml-vulkan
+	CGO_LDFLAGS_WHISPER+=-lggml-vulkan -lvulkan
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-vulkan/
 endif
 
