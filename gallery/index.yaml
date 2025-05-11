@@ -7135,6 +7135,45 @@
     - filename: cognition-ai_Kevin-32B-Q4_K_M.gguf
       sha256: 2576edd5b1880bcac6732eae9446b035426aee2e76937dc68a252ad34e185705
       uri: huggingface://bartowski/cognition-ai_Kevin-32B-GGUF/cognition-ai_Kevin-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen_qwen2.5-vl-7b-instruct"
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct
+    - https://huggingface.co/bartowski/Qwen_Qwen2.5-VL-7B-Instruct-GGUF
+  description: |
+    In the past five months since Qwen2-VL’s release, numerous developers have built new models on the Qwen2-VL vision-language models, providing us with valuable feedback. During this period, we focused on building more useful vision-language models. Today, we are excited to introduce the latest addition to the Qwen family: Qwen2.5-VL.
+    Key Enhancements:
+
+        Understand things visually: Qwen2.5-VL is not only proficient in recognizing common objects such as flowers, birds, fish, and insects, but it is highly capable of analyzing texts, charts, icons, graphics, and layouts within images.
+
+        Being agentic: Qwen2.5-VL directly plays as a visual agent that can reason and dynamically direct tools, which is capable of computer use and phone use.
+
+        Understanding long videos and capturing events: Qwen2.5-VL can comprehend videos of over 1 hour, and this time it has a new ability of cpaturing event by pinpointing the relevant video segments.
+
+        Capable of visual localization in different formats: Qwen2.5-VL can accurately localize objects in an image by generating bounding boxes or points, and it can provide stable JSON outputs for coordinates and attributes.
+
+        Generating structured outputs: for data like scans of invoices, forms, tables, etc. Qwen2.5-VL supports structured outputs of their contents, benefiting usages in finance, commerce, etc.
+
+    Model Architecture Updates:
+
+        Dynamic Resolution and Frame Rate Training for Video Understanding:
+
+    We extend dynamic resolution to the temporal dimension by adopting dynamic FPS sampling, enabling the model to comprehend videos at various sampling rates. Accordingly, we update mRoPE in the time dimension with IDs and absolute time alignment, enabling the model to learn temporal sequence and speed, and ultimately acquire the ability to pinpoint specific moments.
+
+        Streamlined and Efficient Vision Encoder
+
+    We enhance both training and inference speeds by strategically implementing window attention into the ViT. The ViT architecture is further optimized with SwiGLU and RMSNorm, aligning it with the structure of the Qwen2.5 LLM.
+  overrides:
+    mmproj: mmproj-Qwen_Qwen2.5-VL-7B-Instruct-f16.gguf
+    parameters:
+      model: Qwen_Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen_Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
+      sha256: 3f4513330aa7f109922bd701d773575484ae2b4a4090d6511260a2a4f8e3d069
+      uri: huggingface://bartowski/Qwen_Qwen2.5-VL-7B-Instruct-GGUF/Qwen_Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
+    - filename: mmproj-Qwen_Qwen2.5-VL-7B-Instruct-f16.gguf
+      sha256: c24a7f5fcfc68286f0a217023b6738e73bea4f11787a43e8238d4bb1b8604cde
+      uri: https://huggingface.co/bartowski/Qwen_Qwen2.5-VL-7B-Instruct-GGUF/resolve/main/mmproj-Qwen_Qwen2.5-VL-7B-Instruct-f16.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
