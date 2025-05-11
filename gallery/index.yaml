@@ -664,6 +664,36 @@
     - filename: Symiotic-14B.i1-Q4_K_M.gguf
       sha256: 8f5d4ef4751877fb8982308f153a9bd2b72289eda83b18dd591c3c04ba91a407
       uri: huggingface://mradermacher/Symiotic-14B-i1-GGUF/Symiotic-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "gryphe_pantheon-proto-rp-1.8-30b-a3b"
+  icon: https://huggingface.co/Gryphe/Pantheon-Proto-RP-1.8-30B-A3B/resolve/main/Pantheon.png
+  urls:
+    - https://huggingface.co/Gryphe/Pantheon-Proto-RP-1.8-30B-A3B
+    - https://huggingface.co/bartowski/Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-GGUF
+  description: |
+    Note: This model is a Qwen 30B MoE prototype and can be considered a sidegrade from my Small release some time ago. It did not receive extensive testing beyond a couple benchmarks to determine its sanity, so feel free to let me know what you think of it!
+
+    Welcome to the next iteration of my Pantheon model series, in which I strive to introduce a whole collection of diverse personas that can be summoned with a simple activation phrase.
+
+    Pantheon's purpose is two-fold, as these personalities similarly enhance the general roleplay experience, helping to encompass personality traits, accents and mannerisms that language models might otherwise find difficult to convey well.
+
+    GGUF quants are available here.
+
+    Your user feedback is critical to me so don't hesitate to tell me whether my model is either 1. terrible, 2. awesome or 3. somewhere in-between.
+    Model details
+
+    Ever since Qwen 3 released I've been trying to get MoE finetuning to work - After countless frustrating days, much code hacking, etc etc I finally got a full finetune to complete with reasonable loss values.
+
+    I picked the base model for this since I didn't feel like trying to fight a reasoning model's training - Maybe someday I'll make a model which uses thinking tags for the character's thoughts or something.
+
+    This time the recipe focused on combining as many data sources as I possibly could, featuring synthetic data from Sonnet 3.5 + 3.7, ChatGPT 4o and Deepseek. These then went through an extensive rewriting pipeline to eliminate common AI cliches, with the hopeful intent of providing you a fresh experience.
+  overrides:
+    parameters:
+      model: Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-Q4_K_M.gguf
+  files:
+    - filename: Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-Q4_K_M.gguf
+      sha256: b72fe703a992fba9595c24b96737a2b5199da89a1a3870b8bd57746dc3c123ae
+      uri: huggingface://bartowski/Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-GGUF/Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
