@@ -150,7 +150,7 @@ The AIO Images are inheriting the same environment variables as the base images 
 
 Standard container images do not have pre-installed models. 
 
-Images are available with and without python dependencies. Note that images with python dependencies are bigger (in order of 17GB). 
+Images are available with and without python dependencies (images with the `extras` suffix). Note that images with python dependencies are bigger (in order of 17GB). 
 
 Images with `core` in the tag are smaller and do not contain any python dependencies. 
 
@@ -160,10 +160,8 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                   |
 | --- | --- |-----------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master` | `localai/localai:master`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-cpu`                  | `localai/localai:latest-cpu`                  |
+| Latest tag | `quay.io/go-skynet/local-ai:latest` | `localai/localai:latest`                  |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}` | `localai/localai:{{< version >}}`             |
-| Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg` | `localai/localai:{{< version >}}-ffmpeg`      |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-ffmpeg-core` | `localai/localai:{{< version >}}-ffmpeg-core` |
 
 {{% /tab %}}
 
@@ -172,10 +170,9 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda11` | `localai/localai:master-cublas-cuda11`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11`                 | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11` | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
+| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11-extras` | `localai/localai:latest-gpu-nvidia-cuda-11-extras`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11` | `localai/localai:{{< version >}}-cublas-cuda11`             |
-| Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-ffmpeg` | `localai/localai:{{< version >}}-cublas-cuda11-ffmpeg`      |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11-ffmpeg-core` | `localai/localai:{{< version >}}-cublas-cuda11-ffmpeg-core` |
 
 {{% /tab %}}
 
@@ -185,9 +182,8 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda12` | `localai/localai:master-cublas-cuda12`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12`                 |
+| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12-extras` | `localai/localai:latest-gpu-nvidia-cuda-12-extras`                 |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12` | `localai/localai:{{< version >}}-cublas-cuda12`             |
-| Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-ffmpeg` | `localai/localai:{{< version >}}-cublas-cuda12-ffmpeg`      |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12-ffmpeg-core` | `localai/localai:{{< version >}}-cublas-cuda12-ffmpeg-core` |
 
 {{% /tab %}}
 
@@ -197,9 +193,8 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f16` | `localai/localai:master-sycl-f16`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16` | `localai/localai:latest-gpu-intel-f16`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-core` | `localai/localai:{{< version >}}-sycl-f16-core`             |
-| Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-ffmpeg` | `localai/localai:{{< version >}}-sycl-f16-ffmpeg`      |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16-ffmpeg-core` | `localai/localai:{{< version >}}-sycl-f16-ffmpeg-core` |
+| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16-extras` | `localai/localai:latest-gpu-intel-f16-extras`                      |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16` | `localai/localai:{{< version >}}-sycl-f16`             |
 
 {{% /tab %}}
 
@@ -209,9 +204,8 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f32` | `localai/localai:master-sycl-f32`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32` | `localai/localai:latest-gpu-intel-f32`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32-core` | `localai/localai:{{< version >}}-sycl-f32-core`             |
-| Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32-ffmpeg` | `localai/localai:{{< version >}}-sycl-f32-ffmpeg`      |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32-ffmpeg-core` | `localai/localai:{{< version >}}-sycl-f32-ffmpeg-core` |
+| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32-extras` | `localai/localai:latest-gpu-intel-f32-extras`                      |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32` | `localai/localai:{{< version >}}-sycl-f32`             |
 
 {{% /tab %}}
 
@@ -220,20 +214,18 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-hipblas` | `localai/localai:master-hipblas`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas`                  | `localai/localai:latest-gpu-hipblas`                  |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `localai/localai:latest-gpu-hipblas`                      |
+| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-hipblas-extras` | `localai/localai:latest-gpu-hipblas-extras`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas` | `localai/localai:{{< version >}}-hipblas`             |
-| Versioned image including FFMpeg| `quay.io/go-skynet/local-ai:{{< version >}}-hipblas-ffmpeg` | `localai/localai:{{< version >}}-hipblas-ffmpeg`      |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas-ffmpeg-core` | `localai/localai:{{< version >}}-hipblas-ffmpeg-core` |
 
 {{% /tab %}}
-
 
 {{% tab tabName="Vulkan Images" %}}
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai: master-vulkan-ffmpeg-core ` | `localai/localai: master-vulkan-ffmpeg-core `                      |
-| Latest tag | `quay.io/go-skynet/local-ai: latest-vulkan-ffmpeg-core ` | `localai/localai: latest-vulkan-ffmpeg-core`                 |
-| Versioned image including FFMpeg, no python | `quay.io/go-skynet/local-ai:{{< version >}}-vulkan-fmpeg-core` | `localai/localai:{{< version >}}-vulkan-fmpeg-core`             |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-vulkan` | `localai/localai:master-vulkan`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-vulkan` | `localai/localai:latest-gpu-vulkan`                 |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-vulkan` | `localai/localai:{{< version >}}-vulkan`             |
 {{% /tab %}}
 
 {{% tab tabName="Nvidia Linux for tegra" %}}
@@ -242,9 +234,9 @@ These images are compatible with Nvidia ARM64 devices, such as the Jetson Nano, 
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core` | `localai/localai:master-nvidia-l4t-arm64-core`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-core` | `localai/localai:latest-nvidia-l4t-arm64-core`                 |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64-core` | `localai/localai:{{< version >}}-nvidia-l4t-arm64-core`             |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64` | `localai/localai:master-nvidia-l4t-arm64`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64` | `localai/localai:latest-nvidia-l4t-arm64`                 |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64` | `localai/localai:{{< version >}}-nvidia-l4t-arm64`             |
 
 {{% /tab %}}
 
