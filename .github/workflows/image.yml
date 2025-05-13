@@ -99,7 +99,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'auto'
+            tag-latest: 'false'
             tag-suffix: '-cublas-cuda11-extras'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -113,7 +113,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'auto'
+            tag-latest: 'false'
             tag-suffix: '-cublas-cuda12-extras'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -125,7 +125,7 @@ jobs:
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
-            tag-latest: 'auto'
+            tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16-extras'
@@ -138,7 +138,7 @@ jobs:
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
-            tag-latest: 'auto'
+            tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32-extras'
