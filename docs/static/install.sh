@@ -16,6 +16,8 @@
 # Environment Variables:
 #   DOCKER_INSTALL - Set to "true" to install Docker images (default: auto-detected)
 #   USE_AIO       - Set to "true" to use the all-in-one LocalAI image (default: false)
+#   USE_EXTRAS    - Set to "true" to use images with extra Python dependencies (default: false)
+#   USE_VULKAN    - Set to "true" to use Vulkan GPU support (default: false)
 #   API_KEY       - API key for securing LocalAI access (default: none)
 #   PORT          - Port to run LocalAI on (default: 8080)
 #   THREADS       - Number of CPU threads to use (default: auto-detected)
@@ -158,6 +160,8 @@ uninstall_localai() {
 
 # DOCKER_INSTALL - set to "true" to install Docker images
 # USE_AIO - set to "true" to install the all-in-one LocalAI image
+# USE_EXTRAS - set to "true" to use images with extra Python dependencies
+# USE_VULKAN - set to "true" to use Vulkan GPU support
 PORT=${PORT:-8080}
 
 docker_found=false
@@ -171,6 +175,8 @@ fi
 
 DOCKER_INSTALL=${DOCKER_INSTALL:-$docker_found}
 USE_AIO=${USE_AIO:-false}
+USE_EXTRAS=${USE_EXTRAS:-false}
+USE_VULKAN=${USE_VULKAN:-false}
 API_KEY=${API_KEY:-}
 CORE_IMAGES=${CORE_IMAGES:-false}
 P2P_TOKEN=${P2P_TOKEN:-}
@@ -404,9 +410,9 @@ install_container_toolkit() {
     info "Restarting Docker Daemon"
     $SUDO systemctl restart docker
 
-    # The NVML error arises because SELinux blocked the container’s attempts to open the GPU devices or related libraries.
-    # Without relaxing SELinux for the container, GPU commands like nvidia-smi report “Insufficient Permissions”
-    # This has been noted in NVIDIA’s documentation:
+    # The NVML error arises because SELinux blocked the container's attempts to open the GPU devices or related libraries.
+    # Without relaxing SELinux for the container, GPU commands like nvidia-smi report "Insufficient Permissions"
+    # This has been noted in NVIDIA's documentation:
     # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/1.13.5/install-guide.html#id2
     # ref: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/troubleshooting.html#nvml-insufficient-permissions-and-selinux
     case $OS_NAME in
@@ -645,15 +651,6 @@ install_docker() {
     if $SUDO docker ps -a --format '{{.Names}}' | grep -q local-ai; then
         info "LocalAI Docker container already exists, replacing it..."
         $SUDO docker rm -f local-ai
-        # # Check if it is running
-        # if $SUDO docker ps --format '{{.Names}}' | grep -q local-ai; then
-        #     info "LocalAI Docker container is already running."
-        #     exit 0
-        # fi
-
-        # info "Starting LocalAI Docker container..."
-        # $SUDO docker start local-ai
-        # exit 0
     fi
 
     envs=""
@@ -665,11 +662,23 @@ install_docker() {
     fi
 
     IMAGE_TAG=
-    if [ "$HAS_CUDA" ]; then
-        IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12-ffmpeg
-        # CORE
-        if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12-ffmpeg-core
+    if [ "$USE_VULKAN" = true ]; then
+        IMAGE_TAG=${LOCALAI_VERSION}-gpu-vulkan
+
+        info "Starting LocalAI Docker container..."
+        $SUDO docker run -v local-ai-data:/build/models \
+            --device /dev/dri \
+            --restart=always \
+            -e API_KEY=$API_KEY \
+            -e THREADS=$THREADS \
+            $envs \
+            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
+    elif [ "$HAS_CUDA" ]; then
+        # Default to CUDA 12
+        IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12
+        # EXTRAS
+        if [ "$USE_EXTRAS" = true ]; then
+            IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12-extras
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
@@ -696,10 +705,10 @@ install_docker() {
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_AMD" ]; then
-        IMAGE_TAG=${LOCALAI_VERSION}-hipblas-ffmpeg
-        # CORE
-        if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-hipblas-ffmpeg-core
+        IMAGE_TAG=${LOCALAI_VERSION}-hipblas
+        # EXTRAS
+        if [ "$USE_EXTRAS" = true ]; then
+            IMAGE_TAG=${LOCALAI_VERSION}-hipblas-extras
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
@@ -710,16 +719,18 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/build/models \
             --device /dev/dri \
             --device /dev/kfd \
+            --group-add=video \
             --restart=always \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_INTEL" ]; then
-        IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32-ffmpeg
-        # CORE
-        if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32-ffmpeg-core
+        # Default to FP32 for better compatibility
+        IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32
+        # EXTRAS
+        if [ "$USE_EXTRAS" = true ]; then
+            IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32-extras
         fi
         # AIO
         if [ "$USE_AIO" = true ]; then
@@ -734,12 +745,10 @@ install_docker() {
             -e THREADS=$THREADS \
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
+
     else
-        IMAGE_TAG=${LOCALAI_VERSION}-ffmpeg
-        # CORE
-        if [ "$CORE_IMAGES" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-ffmpeg-core
-        fi
+        IMAGE_TAG=${LOCALAI_VERSION}
+
         # AIO
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-cpu
