@@ -11480,6 +11480,21 @@
     - filename: Rei-V3-KTO-12B.Q4_K_M.gguf
       sha256: c75a69e9cb7897b856e9fee9f11c19ab62215f0a7363bcff40132322588ac007
       uri: huggingface://mradermacher/Rei-V3-KTO-12B-GGUF/Rei-V3-KTO-12B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "thedrummer_snowpiercer-15b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/XtzACixKJgJlPSMiCIvCC.png
+  urls:
+    - https://huggingface.co/TheDrummer/Snowpiercer-15B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Snowpiercer-15B-v1-GGUF
+  description: |
+    Snowpiercer 15B v1 knocks out the positivity, enhances the RP & creativity, and retains the intelligence & reasoning.
+  overrides:
+    parameters:
+      model: TheDrummer_Snowpiercer-15B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Snowpiercer-15B-v1-Q4_K_M.gguf
+      sha256: 89a8996236399e2bd70f106c6aa31c2880d8de3638105c9e1fc192783b422352
+      uri: huggingface://bartowski/TheDrummer_Snowpiercer-15B-v1-GGUF/TheDrummer_Snowpiercer-15B-v1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
