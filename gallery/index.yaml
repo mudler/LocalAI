@@ -1748,6 +1748,31 @@
     - filename: INTELLECT-1-Instruct-Q4_K_M.gguf
       sha256: 5df236fe570e5998d07fb3207788eac811ef3b77dd2a0ad04a2ef5c6361f3030
       uri: huggingface://bartowski/INTELLECT-1-Instruct-GGUF/INTELLECT-1-Instruct-Q4_K_M.gguf
+- &intellect2
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64a32edf17b9f57eaec2ea65/KxI7k7byQs4ATme0naIzV.png
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - intellect
+  license: apache-2.0
+  name: "primeintellect_intellect-2"
+  urls:
+    - https://huggingface.co/PrimeIntellect/INTELLECT-2
+    - https://huggingface.co/bartowski/PrimeIntellect_INTELLECT-2-GGUF
+  description: |
+    INTELLECT-2 is a 32 billion parameter language model trained through a reinforcement learning run leveraging globally distributed, permissionless GPU resources contributed by the community.
+
+    The model was trained using prime-rl, a framework designed for distributed asynchronous RL, using GRPO over verifiable rewards along with modifications for improved training stability. For detailed information on our infrastructure and training recipe, see our technical report.
+  overrides:
+    parameters:
+      model: PrimeIntellect_INTELLECT-2-Q4_K_M.gguf
+  files:
+    - filename: PrimeIntellect_INTELLECT-2-Q4_K_M.gguf
+      sha256: b6765c8d5ec01c20b26f25c8aa66f48c282052db13ad82cffce60b5d0cb9a217
+      uri: huggingface://bartowski/PrimeIntellect_INTELLECT-2-GGUF/PrimeIntellect_INTELLECT-2-Q4_K_M.gguf
 - &llama33
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
