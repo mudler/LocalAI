@@ -10017,6 +10017,23 @@
     - filename: Skywork_Skywork-OR1-32B-Preview-Q4_K_M.gguf
       sha256: 304d4f6e6ac6c530b7427c30b43df3d19ae6160c68582b8815efb129533c2f0c
       uri: huggingface://bartowski/Skywork_Skywork-OR1-32B-Preview-GGUF/Skywork_Skywork-OR1-32B-Preview-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "skywork_skywork-or1-32b"
+  urls:
+    - https://huggingface.co/Skywork/Skywork-OR1-32B
+    - https://huggingface.co/bartowski/Skywork_Skywork-OR1-32B-GGUF
+  description: |
+      The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes. This series includes two general-purpose reasoning modelsl, Skywork-OR1-7B and Skywork-OR1-32B.
+
+          Skywork-OR1-32B outperforms Deepseek-R1 and Qwen3-32B on math tasks (AIME24 and AIME25) and delivers comparable performance on coding tasks (LiveCodeBench).
+          Skywork-OR1-7B exhibits competitive performance compared to similarly sized models in both math and coding scenarios.
+  overrides:
+    parameters:
+      model: Skywork_Skywork-OR1-32B-Q4_K_M.gguf
+  files:
+    - filename: Skywork_Skywork-OR1-32B-Q4_K_M.gguf
+      sha256: 5090c27a200ec3ce95e3077f444a9184f41f7473a6ee3dd73582a92445228d26
+      uri: huggingface://bartowski/Skywork_Skywork-OR1-32B-GGUF/Skywork_Skywork-OR1-32B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
