@@ -11482,6 +11482,7 @@
       uri: huggingface://mradermacher/Rei-V3-KTO-12B-GGUF/Rei-V3-KTO-12B.Q4_K_M.gguf
 - !!merge <<: *mistral03
   name: "thedrummer_snowpiercer-15b-v1"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/XtzACixKJgJlPSMiCIvCC.png
   urls:
     - https://huggingface.co/TheDrummer/Snowpiercer-15B-v1
@@ -11495,6 +11496,28 @@
     - filename: TheDrummer_Snowpiercer-15B-v1-Q4_K_M.gguf
       sha256: 89a8996236399e2bd70f106c6aa31c2880d8de3638105c9e1fc192783b422352
       uri: huggingface://bartowski/TheDrummer_Snowpiercer-15B-v1-GGUF/TheDrummer_Snowpiercer-15B-v1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "thedrummer_rivermind-lux-12b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/IVRsF-boO0T1BsQcvdYMu.png
+  urls:
+    - https://huggingface.co/TheDrummer/Rivermind-Lux-12B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Rivermind-Lux-12B-v1-GGUF
+  description: |
+    Hey common people, are you looking for the meme tune?
+
+    Rivermind 12B v1 has you covered with all its ad-riddled glory!
+
+    Not to be confused with Rivermind Lux 12B v1, which is the ad-free version.
+
+    Drummer proudly presents...
+    Rivermind Lux 12B v1
+  overrides:
+    parameters:
+      model: TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
+      sha256: ccaf2e49661ba692a27f06871fb792ff8b8c9632afe92ad89600e389f4ee8fc2
+      uri: huggingface://bartowski/TheDrummer_Rivermind-Lux-12B-v1-GGUF/TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
