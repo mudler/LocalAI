@@ -3853,7 +3853,6 @@ static void params_parse(const backend::ModelOptions* request,
 class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
-    bool loaded_model = false;
 
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
