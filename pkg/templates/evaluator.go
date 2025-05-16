@@ -255,7 +255,7 @@ func (e *Evaluator) TemplateMessages(messages []schema.Message, config *config.B
 					marshalAny(i.ToolCalls)
 				}
 			}
-			// Special Handling: System. We care if it was printed at all, not the r branch, so check seperately
+			// Special Handling: System. We care if it was printed at all, not the r branch, so check separately
 			if contentExists && role == "system" {
 				suppressConfigSystemPrompt = true
 			}

@@ -32,7 +32,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			return fiber.ErrBadRequest
 		}
 
-		log.Debug().Str("modelName", input.ModelID).Msg("elevenlabs TTS request recieved")
+		log.Debug().Str("modelName", input.ModelID).Msg("elevenlabs TTS request received")
 
 		filePath, _, err := backend.ModelTTS(input.Text, voiceID, input.LanguageCode, ml, appConfig, *cfg)
 		if err != nil {
