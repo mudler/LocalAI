@@ -20,7 +20,7 @@ var _ = Describe("EvaluateTemplate", func() {
 				VideosInMessage: 0,
 			}, "bar")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(Equal("[img-0]bar"))
+			Expect(result).To(Equal("<__image__>bar"))
 		})
 
 		It("should handle messages with more images correctly", func() {
@@ -33,7 +33,7 @@ var _ = Describe("EvaluateTemplate", func() {
 				VideosInMessage: 0,
 			}, "bar")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(Equal("[img-0][img-1]bar"))
+			Expect(result).To(Equal("<__image__><__image__>bar"))
 		})
 		It("should handle messages with more images correctly", func() {
 			result, err := TemplateMultiModal("", MultiModalOptions{
@@ -45,7 +45,7 @@ var _ = Describe("EvaluateTemplate", func() {
 				VideosInMessage: 0,
 			}, "bar")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(Equal("[audio-0][img-2][img-3]bar"))
+			Expect(result).To(Equal("[audio-0]<__image__><__image__>bar"))
 		})
 		It("should handle messages with more images correctly", func() {
 			result, err := TemplateMultiModal("", MultiModalOptions{
@@ -57,7 +57,7 @@ var _ = Describe("EvaluateTemplate", func() {
 				VideosInMessage: 0,
 			}, "bar")
 			Expect(err).NotTo(HaveOccurred())
-			Expect(result).To(Equal("[audio-0][img-2]bar"))
+			Expect(result).To(Equal("[audio-0]<__image__>bar"))
 		})
 		It("should handle messages with more images correctly", func() {
 			result, err := TemplateMultiModal("", MultiModalOptions{
