@@ -4084,32 +4084,31 @@ public:
     }
 
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
-        std::cout << "[DEBUG] Starting Predict request processing" << std::endl;
-        json data = parse_options(true, request);
-        std::cout << "[DEBUG] Parsed request options" << std::endl;
+         json data = parse_options(true, request);
 
         data["stream"] = false;
         //Raise error if embeddings is set to true
         if (ctx_server.params_base.embedding) {
-            std::cout << "[DEBUG] Error: Embedding mode not supported in streaming" << std::endl;
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Embedding is not supported in streaming mode");
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Embedding is not supported in Predict mode");
         }
-
+        std::cout << "[PREDICT] Received result: " << data.dump(2) << std::endl;
         auto completion_id = gen_chatcmplid();
-        std::cout << "[DEBUG] Generated completion ID: " << completion_id << std::endl;
         std::unordered_set<int> task_ids;
         try {
             std::vector<server_task> tasks;
 
             const auto & prompt = data.at("prompt");
             const auto type = SERVER_TASK_TYPE_COMPLETION;
-            std::cout << "[DEBUG] Processing prompt of type: " << type << std::endl;
+            // TODO: this log can become very long, put it behind a flag or think about a more compact format
+            //SRV_DBG("Prompt: %s\n", prompt.is_string() ? prompt.get<std::string>().c_str() : prompt.dump(2).c_str());
 
             std::vector<raw_buffer> files;
             const auto &images_data = data.find("image_data");
+           // std::cout << "[PREDICT] Images data: " << images_data->dump(2) << std::endl;
+           
             if (images_data != data.end() && images_data->is_array())
             {
-                std::cout << "[DEBUG] Found " << images_data->size() << " images to process" << std::endl;
+                std::cout << "[PREDICT] Processing " << images_data->size() << " images" << std::endl;
                 for (const auto &img : *images_data)
                 {
                     std::cout << "[PREDICT] Processing image" << std::endl;
@@ -4117,19 +4116,17 @@ public:
                     files.push_back(decoded_data);
                 }
             }
+
             // process files
             mtmd::bitmaps bitmaps;
             const bool has_mtmd = ctx_server.mctx != nullptr;
             {
                 if (!has_mtmd && !files.empty()) {
-                    std::cout << "[DEBUG] Error: Server does not support multimodal processing" << std::endl;
                     throw std::runtime_error("This server does not support multimodal");
                 }
                 for (auto & file : files) {
-                    std::cout << "[DEBUG] Processing image file of size: " << file.size() << " bytes" << std::endl;
                     mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_buf(file.data(), file.size()));
                     if (!bmp.ptr) {
-                        std::cout << "[DEBUG] Error: Failed to load image" << std::endl;
                         throw std::runtime_error("Failed to load image");
                     }
                     // calculate bitmap hash (for KV caching)
@@ -4142,12 +4139,11 @@ public:
             // process prompt
             std::vector<server_tokens> inputs;
             if (!prompt.is_string()) {
-                std::cout << "[DEBUG] Error: Prompt must be a string" << std::endl;
+                std::cout << "[PREDICT] Prompt must be a string" << std::endl;
                 throw std::runtime_error("prompt must be a string");
             }
 
             if (has_mtmd) {
-                std::cout << "[DEBUG] Processing multimodal input" << std::endl;
                 // multimodal
                 std::string prompt_str = prompt.get<std::string>();
                 mtmd_input_text inp_txt = {
@@ -4163,14 +4159,13 @@ public:
                                                     bitmaps_c_ptr.data(),
                                                     bitmaps_c_ptr.size());
                 if (tokenized != 0) {
-                    std::cout << "[DEBUG] Error: Failed to tokenize multimodal prompt" << std::endl;
+                    std::cout << "[PREDICT] Failed to tokenize prompt" << std::endl;
                     throw std::runtime_error("Failed to tokenize prompt");
                 }
 
                 server_tokens tmp(chunks, true);
                 inputs.push_back(std::move(tmp));
             } else {
-                std::cout << "[DEBUG] Processing standard text input" << std::endl;
                 // non-multimodal version
                 auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, prompt, true, true);
                 for (auto & p : tokenized_prompts) {
@@ -4179,7 +4174,6 @@ public:
                 }
             }
 
-            std::cout << "[DEBUG] Created " << inputs.size() << " input tasks" << std::endl;
             tasks.reserve(inputs.size());
             for (size_t i = 0; i < inputs.size(); i++) {
                 server_task task = server_task(type);
