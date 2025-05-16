@@ -3930,10 +3930,8 @@ public:
             {
                 for (const auto &img : *images_data)
                 {
-                    const std::vector<uint8_t> image_buffer = base64_decode(img["data"].get<std::string>());
-                    raw_buffer data;
-                    data.insert(data.end(), image_buffer.begin(), image_buffer.end());
-                    files.push_back(data);
+                    auto decoded_data = base64_decode(img["data"].get<std::string>());
+                    files.push_back(decoded_data);
                 }
             }
 
@@ -4113,10 +4111,9 @@ public:
                 std::cout << "[DEBUG] Found " << images_data->size() << " images to process" << std::endl;
                 for (const auto &img : *images_data)
                 {
-                    const std::vector<uint8_t> image_buffer = base64_decode(img["data"].get<std::string>());
-                    raw_buffer data;
-                    data.insert(data.end(), image_buffer.begin(), image_buffer.end());
-                    files.push_back(data);
+                    std::cout << "[PREDICT] Processing image" << std::endl;
+                    auto decoded_data = base64_decode(img["data"].get<std::string>());
+                    files.push_back(decoded_data);
                 }
             }
             // process files
