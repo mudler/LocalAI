@@ -179,7 +179,7 @@ var _ = Describe("Download Test", func() {
 	})
 
 	AfterEach(func() {
-		os.Remove(filePath) // cleanup, also checks existance of filePath`
+		os.Remove(filePath) // cleanup, also checks existence of filePath`
 		os.Remove(filePath + ".partial")
 	})
 })

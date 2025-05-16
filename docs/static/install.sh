@@ -647,7 +647,7 @@ install_docker() {
         $SUDO docker volume create local-ai-data
     fi
 
-    # Check if container is already runnning
+    # Check if container is already running
     if $SUDO docker ps -a --format '{{.Names}}' | grep -q local-ai; then
         info "LocalAI Docker container already exists, replacing it..."
         $SUDO docker rm -f local-ai

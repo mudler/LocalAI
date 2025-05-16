@@ -28,7 +28,7 @@ func VADEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			return fiber.ErrBadRequest
 		}
 
-		log.Debug().Str("model", input.Model).Msg("LocalAI VAD Request recieved")
+		log.Debug().Str("model", input.Model).Msg("LocalAI VAD Request received")
 
 		resp, err := backend.VAD(input, c.Context(), ml, appConfig, *cfg)
 
