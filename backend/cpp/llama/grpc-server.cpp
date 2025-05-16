@@ -4203,28 +4203,42 @@ public:
             }
 
             task_ids = server_task::get_list_id(tasks);
-            std::cout << "[DEBUG] Created " << tasks.size() << " tasks with IDs" << std::endl;
             ctx_server.queue_results.add_waiting_tasks(tasks);
             ctx_server.queue_tasks.post(std::move(tasks));
         } catch (const std::exception & e) {
-            std::cout << "[DEBUG] Error occurred: " << e.what() << std::endl;
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
         }
+
 
         std::cout << "[DEBUG] Waiting for results..." << std::endl;
         ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
             std::cout << "[DEBUG] Received " << results.size() << " results" << std::endl;
             if (results.size() == 1) {
                 // single result
-                reply->set_message(results[0]->to_json());
+                reply->set_message(results[0]->to_json().value("content", ""));
+
+                int32_t tokens_predicted = results[0]->to_json().value("tokens_predicted", 0);
+                reply->set_tokens(tokens_predicted);
+                int32_t tokens_evaluated = results[0]->to_json().value("tokens_evaluated", 0);
+                reply->set_prompt_tokens(tokens_evaluated);
+
+                if (results[0]->to_json().contains("timings")) {
+                    double timing_prompt_processing = results[0]->to_json().at("timings").value("prompt_ms", 0.0);
+                    reply->set_timing_prompt_processing(timing_prompt_processing);
+                    double timing_token_generation = results[0]->to_json().at("timings").value("predicted_ms", 0.0);
+                    reply->set_timing_token_generation(timing_token_generation);
+                }
+
             } else {
                 // multiple results (multitask)
                 json arr = json::array();
                 for (auto & res : results) {
-                    arr.push_back(res->to_json());
+                    arr.push_back(res->to_json().value("content", ""));
                 }
                 reply->set_message(arr);
             }
+
+            
         }, [&](const json & error_data) {
             std::cout << "[DEBUG] Error in results: " << error_data.value("content", "") << std::endl;
             reply->set_message(error_data.value("content", ""));
