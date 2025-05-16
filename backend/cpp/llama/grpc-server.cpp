@@ -4261,9 +4261,11 @@ public:
 
         body["stream"] = false;
 
+        /*
         if (llama_pooling_type(ctx_server.ctx) == LLAMA_POOLING_TYPE_NONE) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Pooling type 'none' is not OAI compatible. Please use a different pooling type");
         }
+        */
 
         // for the shape of input/content, see tokenize_input_prompts()
         json prompt = body.at("prompt");
@@ -4291,7 +4293,7 @@ public:
                 task.prompt_tokens = server_tokens(tokenized_prompts[i], ctx_server.mctx != nullptr);
 
                 // OAI-compat
-                task.params.oaicompat = OAICOMPAT_TYPE_EMBEDDING;
+                task.params.oaicompat = OAICOMPAT_TYPE_NONE;
 
                 tasks.push_back(std::move(task));
             }
