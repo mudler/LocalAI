@@ -9,9 +9,9 @@ done
 
 cp -r CMakeLists.txt llama.cpp/tools/grpc-server/
 cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
-cp -rfv json.hpp llama.cpp/tools/grpc-server/
-cp -rfv utils.hpp llama.cpp/tools/grpc-server/
-    
+cp -rfv llama.cpp/tools/server/json.hpp llama.cpp/tools/grpc-server/
+cp -rfv llama.cpp/tools/server/utils.hpp llama.cpp/tools/grpc-server/
+
 if grep -q "grpc-server" llama.cpp/tools/CMakeLists.txt; then
     echo "grpc-server already added"
 else
