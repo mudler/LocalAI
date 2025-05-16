@@ -3648,6 +3648,8 @@ json parse_options(bool streaming, const backend::PredictOptions* predict)
     data["prompt"] = predict->prompt();
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
+    // TODO: add back json_schema and let this be controlled by the user
+    // data["json_schema"] = predict->jsonschema();
 
     // Add the correlationid to json data
     data["correlation_id"] = predict->correlationid();
