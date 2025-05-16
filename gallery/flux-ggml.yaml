@@ -10,3 +10,5 @@ config_file: |
     - "t5xxl_path:t5xxl_fp16.safetensors"
     - "vae_path:ae.safetensors"
     - "sampler:euler"
+
+    cfg_scale: 1
