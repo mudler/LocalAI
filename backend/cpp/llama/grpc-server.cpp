@@ -4088,6 +4088,7 @@ public:
         json data = parse_options(true, request);
         std::cout << "[DEBUG] Parsed request options" << std::endl;
 
+        data["stream"] = false;
         //Raise error if embeddings is set to true
         if (ctx_server.params_base.embedding) {
             std::cout << "[DEBUG] Error: Embedding mode not supported in streaming" << std::endl;
@@ -4241,6 +4242,8 @@ public:
 
         json body = parse_options(false, request);
 
+        body["stream"] = false;
+
         if (llama_pooling_type(ctx_server.ctx) == LLAMA_POOLING_TYPE_NONE) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Pooling type 'none' is not OAI compatible. Please use a different pooling type");
         }
@@ -4311,7 +4314,8 @@ public:
 
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
         json body = parse_options(false, request);
-
+        body["stream"] = false;
+        
         json tokens_response = json::array();
         if (body.count("prompt") != 0) {
             const bool add_special = json_value(body, "add_special", false);
