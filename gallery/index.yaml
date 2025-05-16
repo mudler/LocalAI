@@ -8026,7 +8026,7 @@
 
     Changes since previous Stheno Datasets:
 
-    - Included Multi-turn Conversation-based Instruct Datasets to boost multi-turn coherency. # This is a seperate set, not the ones made by Kalomaze and Nopm, that are used in Magnum. They're completely different data.
+    - Included Multi-turn Conversation-based Instruct Datasets to boost multi-turn coherency. # This is a separate set, not the ones made by Kalomaze and Nopm, that are used in Magnum. They're completely different data.
     - Replaced Single-Turn Instruct with Better Prompts and Answers by Claude 3.5 Sonnet and Claude 3 Opus.
     - Removed c2 Samples -> Underway of re-filtering and masking to use with custom prefills. TBD
     - Included 55% more Roleplaying Examples based of [Gryphe's](https://huggingface.co/datasets/Gryphe/Sonnet3.5-Charcard-Roleplay) Charcard RP Sets. Further filtered and cleaned on.

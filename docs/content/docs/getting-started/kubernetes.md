@@ -7,7 +7,7 @@ ico = "rocket_launch"
 +++
 
 
-For installing LocalAI in Kubernetes, the deployment file from the `examples` can be used and customized as prefered:
+For installing LocalAI in Kubernetes, the deployment file from the `examples` can be used and customized as preferred:
 
 ```
 kubectl apply -f https://raw.githubusercontent.com/mudler/LocalAI-examples/refs/heads/main/kubernetes/deployment.yaml
@@ -29,7 +29,7 @@ helm repo update
 # Get the values
 helm show values go-skynet/local-ai > values.yaml
 
-# Edit the values value if needed
+# Edit the values if needed
 # vim values.yaml ...
 
 # Install the helm chart

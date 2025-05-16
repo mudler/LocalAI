@@ -48,7 +48,7 @@ int tts(char *text,int  threads, char *dst ) {
 
     // generate audio
     if (!bark_generate_audio(c, text, threads)) {
-        fprintf(stderr, "%s: An error occured. If the problem persists, feel free to open an issue to report it.\n", __func__);
+        fprintf(stderr, "%s: An error occurred. If the problem persists, feel free to open an issue to report it.\n", __func__);
         return 1;
     }
 

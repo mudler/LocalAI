@@ -16,7 +16,7 @@ import (
 
 // new idea: what if we declare a struct of these here, and use a loop to check?
 
-// TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we seperate directories for .bin/.yaml and .tmpl
+// TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we separate directories for .bin/.yaml and .tmpl
 type ModelLoader struct {
 	ModelPath     string
 	mu            sync.Mutex

@@ -9,7 +9,7 @@ ico = "rocket_launch"
 
 ### Build
 
-LocalAI can be built as a container image or as a single, portable binary. Note that the some model architectures might require Python libraries, which are not included in the binary. The binary contains only the core backends written in Go and C++. 
+LocalAI can be built as a container image or as a single, portable binary. Note that some model architectures might require Python libraries, which are not included in the binary. The binary contains only the core backends written in Go and C++. 
 
 LocalAI's extensible architecture allows you to add your own backends, which can be written in any language, and as such the container images contains also the Python dependencies to run all the available backends (for example, in order to run backends like __Diffusers__ that allows to generate images and videos from text).
 
@@ -189,7 +189,7 @@ sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer
 
 - If completions are slow, ensure that `gpu-layers` in your model yaml matches the number of layers from the model in use (or simply use a high number such as 256).
 
-- If you a get a compile error: `error: only virtual member functions can be marked 'final'`, reinstall all the necessary brew packages, clean the build, and try again.
+- If you get a compile error: `error: only virtual member functions can be marked 'final'`, reinstall all the necessary brew packages, clean the build, and try again.
 
 ```
 # reinstall build dependencies

@@ -34,7 +34,7 @@ func TTSEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfi
 			return fiber.ErrBadRequest
 		}
 
-		log.Debug().Str("model", input.Model).Msg("LocalAI TTS Request recieved")
+		log.Debug().Str("model", input.Model).Msg("LocalAI TTS Request received")
 
 		if cfg.Backend == "" {
 			if input.Backend != "" {

@@ -30,7 +30,7 @@ func JINARerankEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, a
 			return fiber.ErrBadRequest
 		}
 
-		log.Debug().Str("model", input.Model).Msg("JINA Rerank Request recieved")
+		log.Debug().Str("model", input.Model).Msg("JINA Rerank Request received")
 
 		request := &proto.RerankRequest{
 			Query:     input.Query,
