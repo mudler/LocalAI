@@ -12,4 +12,4 @@ config_file: |
     enable_parameters: num_inference_steps
     pipeline_type: FluxPipeline
 
-  cfg_scale: 0
+  cfg_scale: 1
