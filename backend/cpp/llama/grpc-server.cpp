@@ -1,3 +1,12 @@
+// llama.cpp gRPC C++ backend server
+//
+// Ettore Di Giacinto <mudler@localai.io> and llama.cpp authors
+//
+// This is a gRPC server for llama.cpp compatible with the LocalAI proto
+// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP (https://github.com/ggerganov/llama.cpp/tree/master/examples/server), 
+// but modified to work with gRPC
+//
+
 #include "utils.hpp"
 
 #include "arg.h"
