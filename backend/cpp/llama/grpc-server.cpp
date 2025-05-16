@@ -4005,7 +4005,7 @@ public:
                 task.id_selected_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat
-                task.params.oaicompat                 = OAICOMPAT_TYPE_COMPLETION;
+                task.params.oaicompat                 = OAICOMPAT_TYPE_NONE;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
@@ -4194,7 +4194,7 @@ public:
                 task.id_selected_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat
-                task.params.oaicompat                 = OAICOMPAT_TYPE_COMPLETION;
+                task.params.oaicompat                 = OAICOMPAT_TYPE_NONE;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
