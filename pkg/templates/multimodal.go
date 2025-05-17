@@ -21,7 +21,8 @@ type MultimodalContent struct {
 	ID int
 }
 
-const DefaultMultiModalTemplate = "{{ range .Audio }}[audio-{{.ID}}]{{end}}{{ range .Images }}[img-{{.ID}}]{{end}}{{ range .Video }}[vid-{{.ID}}]{{end}}{{.Text}}"
+// https://github.com/ggml-org/llama.cpp/blob/be1d4a13db26750fac702ceb3af88ae4f39dc9f4/tools/mtmd/mtmd.h#L42
+const DefaultMultiModalTemplate = "{{ range .Audio }}[audio-{{.ID}}]{{end}}{{ range .Images }}<__image__>{{end}}{{ range .Video }}[vid-{{.ID}}]{{end}}{{.Text}}"
 
 func TemplateMultiModal(templateString string, opts MultiModalOptions, text string) (string, error) {
 	if templateString == "" {
