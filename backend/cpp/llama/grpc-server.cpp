@@ -4302,7 +4302,7 @@ public:
                 task.prompt_tokens = server_tokens(tokenized_prompts[i], ctx_server.mctx != nullptr);
 
                 // OAI-compat
-                task.params.oaicompat = OAICOMPAT_TYPE_NONE;
+                task.params.oaicompat = OAICOMPAT_TYPE_EMBEDDING;
 
                 tasks.push_back(std::move(task));
             }
