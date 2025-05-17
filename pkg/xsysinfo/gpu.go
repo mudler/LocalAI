@@ -2,18 +2,29 @@ package xsysinfo
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
 )
 
-func GPUs() ([]*gpu.GraphicsCard, error) {
-	gpu, err := ghw.GPU()
-	if err != nil {
-		return nil, err
-	}
+var (
+	gpuCache     []*gpu.GraphicsCard
+	gpuCacheOnce sync.Once
+	gpuCacheErr  error
+)
 
-	return gpu.GraphicsCards, nil
+func GPUs() ([]*gpu.GraphicsCard, error) {
+	gpuCacheOnce.Do(func() {
+		gpu, err := ghw.GPU()
+		if err != nil {
+			gpuCacheErr = err
+			return
+		}
+		gpuCache = gpu.GraphicsCards
+	})
+
+	return gpuCache, gpuCacheErr
 }
 
 func TotalAvailableVRAM() (uint64, error) {
