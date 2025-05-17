@@ -43,4 +43,10 @@ in_main {
 ' "llama.cpp/tools/server/server.cpp" > llama.cpp/tools/grpc-server/server.cpp
 
 # remove index.html.gz.hpp and loading.html.hpp includes
-sed -i '/#include "index\.html\.gz\.hpp"/d; /#include "loading\.html\.hpp"/d' llama.cpp/tools/grpc-server/server.cpp
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    # macOS
+    sed -i '' '/#include "index\.html\.gz\.hpp"/d; /#include "loading\.html\.hpp"/d' llama.cpp/tools/grpc-server/server.cpp
+else
+    # Linux and others
+    sed -i '/#include "index\.html\.gz\.hpp"/d; /#include "loading\.html\.hpp"/d' llama.cpp/tools/grpc-server/server.cpp
+fi
