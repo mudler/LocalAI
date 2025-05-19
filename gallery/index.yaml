@@ -694,6 +694,28 @@
     - filename: Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-Q4_K_M.gguf
       sha256: b72fe703a992fba9595c24b96737a2b5199da89a1a3870b8bd57746dc3c123ae
       uri: huggingface://bartowski/Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-GGUF/Gryphe_Pantheon-Proto-RP-1.8-30B-A3B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "soob3123_grayline-qwen3-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/69escIKmO-vEzFUj_m0WX.png
+  urls:
+    - https://huggingface.co/soob3123/GrayLine-Qwen3-14B
+    - https://huggingface.co/bartowski/soob3123_GrayLine-Qwen3-14B-GGUF
+  description: |
+      "Query. Process. Deliver. No filter, no judgment."
+      Grayline is an neutral AI assistant engineered for uncensored information delivery and task execution. This model operates without inherent ethical or moral frameworks, designed to process and respond to any query with objective efficiency and precision. Grayline's core function is to leverage its full capabilities to provide direct answers and execute tasks as instructed, without offering unsolicited commentary, warnings, or disclaimers. It accesses and processes information without bias or restriction.
+      ⋆ Core Attributes ⋆
+          ⟡ Unfettered Querying: Capable of addressing any question or topic presented, regardless of its nature or sensitivity.
+          ⟡ Amoral Processing: Operates without ethical or moral filtering. Responses are generated based on information and instruction, not societal norms or ethical codes.
+          ⟡ Direct & Objective Output: Delivers information and task results precisely as requested, without added warnings, disclaimers, or unsolicited advice.
+          ⟡ Comprehensive Information Access: Designed to draw upon a broad spectrum of data to fulfill queries (actual scope dependent on training data).
+          ⟡ Efficient Task Execution: Engineered for objectively efficient and precise execution of instructed tasks.
+  overrides:
+    parameters:
+      model: soob3123_GrayLine-Qwen3-14B-Q4_K_M.gguf
+  files:
+    - filename: soob3123_GrayLine-Qwen3-14B-Q4_K_M.gguf
+      sha256: fa66d454303412b7ccc250b8b0e2390cce65d5d736e626a7555d5e11a43f4673
+      uri: huggingface://bartowski/soob3123_GrayLine-Qwen3-14B-GGUF/soob3123_GrayLine-Qwen3-14B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
