@@ -7282,6 +7282,30 @@
     - filename: mmproj-Qwen_Qwen2.5-VL-72B-Instruct-f16.gguf
       sha256: 6099885b9c4056e24806b616401ff2730a7354335e6f2f0eaf2a45e89c8a457c
       uri: https://huggingface.co/bartowski/Qwen_Qwen2.5-VL-72B-Instruct-GGUF/resolve/main/mmproj-Qwen_Qwen2.5-VL-72B-Instruct-f16.gguf
+- !!merge <<: *qwen25
+  name: "a-m-team_am-thinking-v1"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62da53284398e21bf7f0d539/y6wX4K-P9O8B9frsxxQ6W.jpeg
+  urls:
+    - https://huggingface.co/a-m-team/AM-Thinking-v1
+    - https://huggingface.co/bartowski/a-m-team_AM-Thinking-v1-GGUF
+  description: |
+      AM-Thinking‑v1, a 32B dense language model focused on enhancing reasoning capabilities. Built on Qwen 2.5‑32B‑Base, AM-Thinking‑v1 shows strong performance on reasoning benchmarks, comparable to much larger MoE models like DeepSeek‑R1, Qwen3‑235B‑A22B, Seed1.5-Thinking, and larger dense model like Nemotron-Ultra-253B-v1.
+      benchmark
+      🧩 Why Another 32B Reasoning Model Matters?
+
+      Large Mixture‑of‑Experts (MoE) models such as DeepSeek‑R1 or Qwen3‑235B‑A22B dominate leaderboards—but they also demand clusters of high‑end GPUs. Many teams just need the best dense model that fits on a single card. AM‑Thinking‑v1 fills that gap while remaining fully based on open-source components:
+
+          Outperforms DeepSeek‑R1 on AIME’24/’25 & LiveCodeBench and approaches Qwen3‑235B‑A22B despite being 1/7‑th the parameter count.
+          Built on the publicly available Qwen 2.5‑32B‑Base, as well as the RL training queries.
+          Shows that with a well‑designed post‑training pipeline ( SFT + dual‑stage RL ) you can squeeze flagship‑level reasoning out of a 32 B dense model.
+          Deploys on one A100‑80 GB with deterministic latency—no MoE routing overhead.
+  overrides:
+    parameters:
+      model: a-m-team_AM-Thinking-v1-Q4_K_M.gguf
+  files:
+    - filename: a-m-team_AM-Thinking-v1-Q4_K_M.gguf
+      sha256: a6da6e8d330d76167c04a54eeb550668b59b613ea53af22e3b4a0c6da271e38d
+      uri: huggingface://bartowski/a-m-team_AM-Thinking-v1-GGUF/a-m-team_AM-Thinking-v1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
