@@ -255,6 +255,8 @@ message ModelOptions {
   string CacheTypeValue = 64;
 
   repeated GrammarTrigger GrammarTriggers = 65;
+
+  bool Reranking = 71;
 }
 
 message Result {

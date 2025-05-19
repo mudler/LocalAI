@@ -120,6 +120,7 @@ type LLMConfig struct {
 	MMap            *bool    `yaml:"mmap"`
 	MMlock          *bool    `yaml:"mmlock"`
 	LowVRAM         *bool    `yaml:"low_vram"`
+	Reranking       *bool    `yaml:"reranking"`
 	Grammar         string   `yaml:"grammar"`
 	StopWords       []string `yaml:"stopwords"`
 	Cutstrings      []string `yaml:"cutstrings"`
@@ -370,6 +371,10 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 
 	if cfg.Embeddings == nil {
 		cfg.Embeddings = &falseV
+	}
+
+	if cfg.Reranking == nil {
+		cfg.Reranking = &falseV
 	}
 
 	if threads == 0 {
