@@ -9,3 +9,4 @@ intel-extension-for-transformers
 bitsandbytes
 outetts
 sentence-transformers==3.4.1
+protobuf==6.31.0
