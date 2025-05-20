@@ -2568,6 +2568,39 @@
     - filename: L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
       sha256: 743c11180c0c9168c0fe31a97f9d2efe0dd749c2797d749821fcb1d6932c19f7
       uri: huggingface://mradermacher/L3.3-Genetic-Lemonade-Sunset-70B-GGUF/L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "thedrummer_valkyrie-49b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/8I-AvB0bFSoEcxlLU7dtY.png
+  urls:
+    - https://huggingface.co/TheDrummer/Valkyrie-49B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Valkyrie-49B-v1-GGUF
+  description: |
+    it swears unprompted 10/10 model
+
+    ... characters work well, groups work well, scenarios also work really well so great model overall
+
+    This is pretty exciting though. GLM-4 already had me on the verge of deleting all of my other 32b and lower models. I got to test this more but I think this model at Q3m is the death blow lol
+
+    Smart Nemotron 49b learned how to roleplay
+
+    Even without thinking it rock solid at 4qm.
+
+    Without thinking is like 40-70b level. With thinking is 100+b level
+
+    This model would have been AGI if it were named properly with a name like "Bob". Alas, it was not.
+
+    I think this model is nice. It follows prompts very well. I didn't really note any major issues or repetition
+
+    Yeah this is good. I think its clearly smart enough, close to the other L3.3 70b models. It follows directions and formatting very well. I asked it to create the intro message, my first response was formatted differently, and it immediately followed my format on the second message. I also have max tokens at 2k cause I like the model to finish it's thought. But I started trimming the models responses when I felt the last bit was unnecessary and it started replying closer to that length. It's pretty much uncensored.
+
+    Nemotron is my favorite model, and I think you fixed it!!
+  overrides:
+    parameters:
+      model: TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
+      sha256: f50be1eef41e0da2cb59e4b238f4f178ee1000833270b337f97f91572c31b752
+      uri: huggingface://bartowski/TheDrummer_Valkyrie-49B-v1-GGUF/TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
