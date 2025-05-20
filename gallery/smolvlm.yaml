@@ -1,0 +1,19 @@
+---
+name: smolvlm
+# yamllint disable-line rule:trailing-spaces
+config_file: |
+    mmap: true
+    template:
+      chat_message: |
+        {{if eq .RoleName "assistant"}}Assistant{{else if eq .RoleName "system"}}System{{else if eq .RoleName "user"}}User{{end}}: {{.Content }}<end_of_utterance>
+      chat: "<|im_start|>\n{{.Input -}}\nAssistant: "
+      completion: |
+        {{-.Input}}
+    f16: true
+    stopwords:
+    - '<|im_end|>'
+    - '<dummy32000>'
+    - '</s>'
+    - '<|'
+    - '<end_of_utterance>'
+    - '<|endoftext|>'

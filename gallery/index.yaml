@@ -1,4 +1,34 @@
 ---
+- &smolvlm:
+  url: "github:mudler/LocalAI/gallery/smolvlm.yaml@master"
+  name: "smolvlm-256m-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM_256_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM-256M-Instruct-GGUF
+  license: apache-2.0
+  description: |
+    SmolVLM-256M is the smallest multimodal model in the world. It accepts arbitrary sequences of image and text inputs to produce text outputs. It's designed for efficiency. SmolVLM can answer questions about images, describe visual content, or transcribe text. Its lightweight architecture makes it suitable for on-device applications while maintaining strong performance on multimodal tasks. It can run inference on one image with under 1GB of GPU RAM.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - vision
+    - multimodal
+    - smollvlm
+    - image-to-text
+  overrides:
+    parameters:
+      model: SmolVLM-256M-Instruct-Q8_0.gguf
+    mmproj: mmproj-SmolVLM-256M-Instruct-Q8_0.gguf
+  files:
+    - filename: mmproj-SmolVLM-256M-Instruct-Q8_0.gguf
+      sha256: 7e943f7c53f0382a6fc41b6ee0c2def63ba4fded9ab8ed039cc9e2ab905e0edd
+      uri: huggingface://ggml-org/SmolVLM-256M-Instruct-GGUF/mmproj-SmolVLM-256M-Instruct-Q8_0.gguf
+    - filename: SmolVLM-256M-Instruct-Q8_0.gguf
+      sha256: 2a31195d3769c0b0fd0a4906201666108834848db768af11de1d2cef7cd35e65
+      uri: huggingface://ggml-org/SmolVLM-256M-Instruct-GGUF/SmolVLM-256M-Instruct-Q8_0.gguf
 - &qwen3
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   name: "qwen3-30b-a3b"
