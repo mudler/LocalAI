@@ -1,6 +1,9 @@
 package sound
 
-import "math"
+import (
+	"encoding/binary"
+	"math"
+)
 
 /*
 
@@ -75,4 +78,13 @@ func BytesToInt16sLE(bytes []byte) []int16 {
 		int16s[i] = int16(bytes[2*i]) | int16(bytes[2*i+1])<<8
 	}
 	return int16s
+}
+
+func Int16toBytesLE(arr []int16) []byte {
+	le := binary.LittleEndian
+	result := make([]byte, 0, 2*len(arr))
+	for _, val := range arr {
+		result = le.AppendUint16(result, uint16(val))
+	}
+	return result
 }

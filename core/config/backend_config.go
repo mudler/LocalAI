@@ -81,10 +81,6 @@ type Pipeline struct {
 	VAD           string `yaml:"vad"`
 }
 
-func (p Pipeline) IsNotConfigured() bool {
-	return p.LLM == "" || p.TTS == "" || p.Transcription == ""
-}
-
 type File struct {
 	Filename string         `yaml:"filename" json:"filename"`
 	SHA256   string         `yaml:"sha256" json:"sha256"`

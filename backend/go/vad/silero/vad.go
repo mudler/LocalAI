@@ -35,6 +35,10 @@ func (vad *VAD) Load(opts *pb.ModelOptions) error {
 func (vad *VAD) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	audio := req.Audio
 
+	if err := vad.detector.Reset(); err != nil {
+		return pb.VADResponse{}, fmt.Errorf("reset: %w", err)
+	}
+
 	segments, err := vad.detector.Detect(audio)
 	if err != nil {
 		return pb.VADResponse{}, fmt.Errorf("detect: %w", err)

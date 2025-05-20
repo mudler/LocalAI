@@ -16,7 +16,10 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	// openAI compatible API endpoint
 
 	// realtime
+	// TODO: Modify/disable the API key middleware for this endpoint to allow ephemeral keys created by sessions
 	app.Get("/v1/realtime", openai.Realtime(application))
+	app.Post("/v1/realtime/sessions", openai.RealtimeTranscriptionSession(application))
+	app.Post("/v1/realtime/transcription_session", openai.RealtimeTranscriptionSession(application))
 
 	// chat
 	chatChain := []fiber.Handler{
