@@ -131,7 +131,17 @@ func RegisterUIRoutes(app *fiber.App,
 			page := c.Query("page")
 			items := c.Query("items")
 
-			models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+			models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+			if err != nil {
+				log.Error().Err(err).Msg("could not list models from galleries")
+				return c.Status(fiber.StatusInternalServerError).Render("views/error", fiber.Map{
+					"Title":        "LocalAI - Models",
+					"BaseURL":      utils.BaseURL(c),
+					"Version":      internal.PrintableVersion(),
+					"ErrorCode":    "500",
+					"ErrorMessage": err.Error(),
+				})
+			}
 
 			// Get all available tags
 			allTags := map[string]struct{}{}

@@ -1,4 +1,130 @@
 ---
+- &smolvlm
+  url: "github:mudler/LocalAI/gallery/smolvlm.yaml@master"
+  name: "smolvlm-256m-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM_256_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM-256M-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM-256M-Instruct-GGUF
+  license: apache-2.0
+  description: |
+    SmolVLM-256M is the smallest multimodal model in the world. It accepts arbitrary sequences of image and text inputs to produce text outputs. It's designed for efficiency. SmolVLM can answer questions about images, describe visual content, or transcribe text. Its lightweight architecture makes it suitable for on-device applications while maintaining strong performance on multimodal tasks. It can run inference on one image with under 1GB of GPU RAM.
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - vision
+    - multimodal
+    - smollvlm
+    - image-to-text
+  overrides:
+    parameters:
+      model: SmolVLM-256M-Instruct-Q8_0.gguf
+    mmproj: mmproj-SmolVLM-256M-Instruct-Q8_0.gguf
+  files:
+    - filename: mmproj-SmolVLM-256M-Instruct-Q8_0.gguf
+      sha256: 7e943f7c53f0382a6fc41b6ee0c2def63ba4fded9ab8ed039cc9e2ab905e0edd
+      uri: huggingface://ggml-org/SmolVLM-256M-Instruct-GGUF/mmproj-SmolVLM-256M-Instruct-Q8_0.gguf
+    - filename: SmolVLM-256M-Instruct-Q8_0.gguf
+      sha256: 2a31195d3769c0b0fd0a4906201666108834848db768af11de1d2cef7cd35e65
+      uri: huggingface://ggml-org/SmolVLM-256M-Instruct-GGUF/SmolVLM-256M-Instruct-Q8_0.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm-500m-instruct"
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM-500M-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM-500M-Instruct-GGUF
+  description: |
+    SmolVLM-500M is a tiny multimodal model, member of the SmolVLM family. It accepts arbitrary sequences of image and text inputs to produce text outputs. It's designed for efficiency. SmolVLM can answer questions about images, describe visual content, or transcribe text. Its lightweight architecture makes it suitable for on-device applications while maintaining strong performance on multimodal tasks. It can run inference on one image with 1.23GB of GPU RAM.
+  overrides:
+    parameters:
+      model: SmolVLM-500M-Instruct-Q8_0.gguf
+    mmproj: mmproj-SmolVLM-500M-Instruct-Q8_0.gguf
+  files:
+    - filename: mmproj-SmolVLM-500M-Instruct-Q8_0.gguf
+      sha256: d1eb8b6b23979205fdf63703ed10f788131a3f812c7b1f72e0119d5d81295150
+      uri: huggingface://ggml-org/SmolVLM-500M-Instruct-GGUF/mmproj-SmolVLM-500M-Instruct-Q8_0.gguf
+    - filename: SmolVLM-500M-Instruct-Q8_0.gguf
+      sha256: 9d4612de6a42214499e301494a3ecc2be0abdd9de44e663bda63f1152fad1bf4
+      uri: huggingface://ggml-org/SmolVLM-500M-Instruct-GGUF/SmolVLM-500M-Instruct-Q8_0.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM-Instruct-GGUF
+  description: |
+    SmolVLM is a compact open multimodal model that accepts arbitrary sequences of image and text inputs to produce text outputs. Designed for efficiency, SmolVLM can answer questions about images, describe visual content, create stories grounded on multiple images, or function as a pure language model without visual inputs. Its lightweight architecture makes it suitable for on-device applications while maintaining strong performance on multimodal tasks.
+  overrides:
+    parameters:
+      model: SmolVLM-Instruct-Q4_K_M.gguf
+    mmproj: mmproj-SmolVLM-Instruct-Q8_0.gguf
+  files:
+    - filename: SmolVLM-Instruct-Q4_K_M.gguf
+      sha256: dc80966bd84789de64115f07888939c03abb1714d431c477dfb405517a554af5
+      uri: https://huggingface.co/ggml-org/SmolVLM-Instruct-GGUF/resolve/main/SmolVLM-Instruct-Q4_K_M.gguf
+    - filename: mmproj-SmolVLM-Instruct-Q8_0.gguf
+      sha256: 86b84aa7babf1ab51a6366d973b9d380354e92c105afaa4f172cc76d044da739
+      uri: https://huggingface.co/ggml-org/SmolVLM-Instruct-GGUF/resolve/main/mmproj-SmolVLM-Instruct-Q8_0.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm2-2.2b-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM2_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM2-2.2B-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM2-2.2B-Instruct-GGUF
+  description: |
+    SmolVLM2-2.2B is a lightweight multimodal model designed to analyze video content. The model processes videos, images, and text inputs to generate text outputs - whether answering questions about media files, comparing visual content, or transcribing text from images. Despite its compact size, requiring only 5.2GB of GPU RAM for video inference, it delivers robust performance on complex multimodal tasks. This efficiency makes it particularly well-suited for on-device applications where computational resources may be limited.
+  overrides:
+    parameters:
+      model: SmolVLM2-2.2B-Instruct-Q4_K_M.gguf
+    mmproj: mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf
+  files:
+    - filename: SmolVLM2-2.2B-Instruct-Q4_K_M.gguf
+      sha256: 0cf76814555b8665149075b74ab6b5c1d428ea1d3d01c1918c12012e8d7c9f58
+      uri: huggingface://ggml-org/SmolVLM2-2.2B-Instruct-GGUF/SmolVLM2-2.2B-Instruct-Q4_K_M.gguf
+    - filename: mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf
+      sha256: ae07ea1facd07dd3230c4483b63e8cda96c6944ad2481f33d531f79e892dd024
+      uri: huggingface://ggml-org/SmolVLM2-2.2B-Instruct-GGUF/mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm2-500m-video-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM2_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM2-500M-Video-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM2-500M-Video-Instruct-GGUF
+  description: |
+    SmolVLM2-500M-Video is a lightweight multimodal model designed to analyze video content.
+    The model processes videos, images, and text inputs to generate text outputs - whether answering questions about media files, comparing visual content, or transcribing text from images. Despite its compact size, requiring only 1.8GB of GPU RAM for video inference, it delivers robust performance on complex multimodal tasks.
+    This efficiency makes it particularly well-suited for on-device applications where computational resources may be limited.
+  overrides:
+    parameters:
+      model: SmolVLM2-500M-Video-Instruct-f16.gguf
+    mmproj: mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf
+  files:
+    - filename: SmolVLM2-500M-Video-Instruct-f16.gguf
+      sha256: 80f7e3f04bc2d3324ac1a9f52f5776fe13a69912adf74f8e7edacf773d140d77
+      uri: huggingface://ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/SmolVLM2-500M-Video-Instruct-f16.gguf
+    - filename: mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf
+      sha256: b5dc8ebe7cbeab66a5369693960a52515d7824f13d4063ceca78431f2a6b59b0
+      uri: huggingface://ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm2-256m-video-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM2_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM2-256M-Video-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM2-256M-Video-Instruct-GGUF
+  description: |
+    SmolVLM2-256M-Video is a lightweight multimodal model designed to analyze video content. The model processes videos, images, and text inputs to generate text outputs - whether answering questions about media files, comparing visual content, or transcribing text from images. Despite its compact size, requiring only 1.38GB of GPU RAM for video inference. This efficiency makes it particularly well-suited for on-device applications that require specific domain fine-tuning and computational resources may be limited.
+  overrides:
+    parameters:
+      model: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+    mmproj: mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+  files:
+    - filename: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+      sha256: af7ce9951a2f46c4f6e5def253e5b896ca5e417010e7a9949fdc9e5175c27767
+      uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+    - filename: mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+      sha256: d34913a588464ff7215f086193e0426a4f045eaba74456ee5e2667d8ed6798b1
+      uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
 - &qwen3
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   name: "qwen3-30b-a3b"
@@ -2568,6 +2694,39 @@
     - filename: L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
       sha256: 743c11180c0c9168c0fe31a97f9d2efe0dd749c2797d749821fcb1d6932c19f7
       uri: huggingface://mradermacher/L3.3-Genetic-Lemonade-Sunset-70B-GGUF/L3.3-Genetic-Lemonade-Sunset-70B.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "thedrummer_valkyrie-49b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/8I-AvB0bFSoEcxlLU7dtY.png
+  urls:
+    - https://huggingface.co/TheDrummer/Valkyrie-49B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Valkyrie-49B-v1-GGUF
+  description: |
+    it swears unprompted 10/10 model
+
+    ... characters work well, groups work well, scenarios also work really well so great model overall
+
+    This is pretty exciting though. GLM-4 already had me on the verge of deleting all of my other 32b and lower models. I got to test this more but I think this model at Q3m is the death blow lol
+
+    Smart Nemotron 49b learned how to roleplay
+
+    Even without thinking it rock solid at 4qm.
+
+    Without thinking is like 40-70b level. With thinking is 100+b level
+
+    This model would have been AGI if it were named properly with a name like "Bob". Alas, it was not.
+
+    I think this model is nice. It follows prompts very well. I didn't really note any major issues or repetition
+
+    Yeah this is good. I think its clearly smart enough, close to the other L3.3 70b models. It follows directions and formatting very well. I asked it to create the intro message, my first response was formatted differently, and it immediately followed my format on the second message. I also have max tokens at 2k cause I like the model to finish it's thought. But I started trimming the models responses when I felt the last bit was unnecessary and it started replying closer to that length. It's pretty much uncensored.
+
+    Nemotron is my favorite model, and I think you fixed it!!
+  overrides:
+    parameters:
+      model: TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
+      sha256: f50be1eef41e0da2cb59e4b238f4f178ee1000833270b337f97f91572c31b752
+      uri: huggingface://bartowski/TheDrummer_Valkyrie-49B-v1-GGUF/TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -7282,6 +7441,30 @@
     - filename: mmproj-Qwen_Qwen2.5-VL-72B-Instruct-f16.gguf
       sha256: 6099885b9c4056e24806b616401ff2730a7354335e6f2f0eaf2a45e89c8a457c
       uri: https://huggingface.co/bartowski/Qwen_Qwen2.5-VL-72B-Instruct-GGUF/resolve/main/mmproj-Qwen_Qwen2.5-VL-72B-Instruct-f16.gguf
+- !!merge <<: *qwen25
+  name: "a-m-team_am-thinking-v1"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/62da53284398e21bf7f0d539/y6wX4K-P9O8B9frsxxQ6W.jpeg
+  urls:
+    - https://huggingface.co/a-m-team/AM-Thinking-v1
+    - https://huggingface.co/bartowski/a-m-team_AM-Thinking-v1-GGUF
+  description: |
+      AM-Thinking‑v1, a 32B dense language model focused on enhancing reasoning capabilities. Built on Qwen 2.5‑32B‑Base, AM-Thinking‑v1 shows strong performance on reasoning benchmarks, comparable to much larger MoE models like DeepSeek‑R1, Qwen3‑235B‑A22B, Seed1.5-Thinking, and larger dense model like Nemotron-Ultra-253B-v1.
+      benchmark
+      🧩 Why Another 32B Reasoning Model Matters?
+
+      Large Mixture‑of‑Experts (MoE) models such as DeepSeek‑R1 or Qwen3‑235B‑A22B dominate leaderboards—but they also demand clusters of high‑end GPUs. Many teams just need the best dense model that fits on a single card. AM‑Thinking‑v1 fills that gap while remaining fully based on open-source components:
+
+          Outperforms DeepSeek‑R1 on AIME’24/’25 & LiveCodeBench and approaches Qwen3‑235B‑A22B despite being 1/7‑th the parameter count.
+          Built on the publicly available Qwen 2.5‑32B‑Base, as well as the RL training queries.
+          Shows that with a well‑designed post‑training pipeline ( SFT + dual‑stage RL ) you can squeeze flagship‑level reasoning out of a 32 B dense model.
+          Deploys on one A100‑80 GB with deterministic latency—no MoE routing overhead.
+  overrides:
+    parameters:
+      model: a-m-team_AM-Thinking-v1-Q4_K_M.gguf
+  files:
+    - filename: a-m-team_AM-Thinking-v1-Q4_K_M.gguf
+      sha256: a6da6e8d330d76167c04a54eeb550668b59b613ea53af22e3b4a0c6da271e38d
+      uri: huggingface://bartowski/a-m-team_AM-Thinking-v1-GGUF/a-m-team_AM-Thinking-v1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -9507,6 +9690,25 @@
     - filename: nvidia_Llama-3.1-8B-UltraLong-4M-Instruct-Q4_K_M.gguf
       sha256: c503c77c6d8cc4be53ce7cddb756cb571862f0422594c17e58a75d7be9f00907
       uri: huggingface://bartowski/nvidia_Llama-3.1-8B-UltraLong-4M-Instruct-GGUF/nvidia_Llama-3.1-8B-UltraLong-4M-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "facebook_kernelllm"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1592839207516-noauth.png
+  urls:
+    - https://huggingface.co/facebook/KernelLLM
+    - https://huggingface.co/bartowski/facebook_KernelLLM-GGUF
+  description: |
+    We introduce KernelLLM, a large language model based on Llama 3.1 Instruct, which has been trained specifically for the task of authoring GPU kernels using Triton. KernelLLM translates PyTorch modules into Triton kernels and was evaluated on KernelBench-Triton (see here). KernelLLM aims to democratize GPU programming by making kernel development more accessible and efficient.
+    KernelLLM's vision is to meet the growing demand for high-performance GPU kernels by automating the generation of efficient Triton implementations. As workloads grow larger and more diverse accelerator architectures emerge, the need for tailored kernel solutions has increased significantly. Although a number of works exist, most of them are limited to test-time optimization, while others tune on solutions traced of KernelBench problems itself, thereby limiting the informativeness of the results towards out-of-distribution generalization. To the best of our knowledge KernelLLM is the first LLM finetuned on external (torch, triton) pairs, and we hope that making our model available can accelerate progress towards intelligent kernel authoring systems.
+    KernelLLM Workflow for Triton Kernel Generation: Our approach uses KernelLLM to translate PyTorch code (green) into Triton kernel candidates. Input and output components are marked in bold. The generations are validated against unit tests, which run kernels with random inputs of known shapes. This workflow allows us to evaluate multiple generations (pass@k) by increasing the number of kernel candidate generations. The best kernel implementation is selected and returned (green output).
+    The model was trained on approximately 25,000 paired examples of PyTorch modules and their equivalent Triton kernel implementations, and additional synthetically generated samples. Our approach combines filtered code from TheStack [Kocetkov et al. 2022] and synthetic examples generated through torch.compile() and additional prompting techniques. The filtered and compiled dataset is [KernelBook]](https://huggingface.co/datasets/GPUMODE/KernelBook).
+    We finetuned Llama3.1-8B-Instruct on the created dataset using supervised instruction tuning and measured its ability to generate correct Triton kernels and corresponding calling code on KernelBench-Triton, our newly created variant of KernelBench [Ouyang et al. 2025] targeting Triton kernel generation. The torch code was used with a prompt template containing a format example as instruction during both training and evaluation. The model was trained for 10 epochs with a batch size of 32 and a standard SFT recipe with hyperparameters selected by perplexity on a held-out subset of the training data. Training took circa 12 hours wall clock time on 16 GPUs (192 GPU hours), and we report the best checkpoint's validation results.
+  overrides:
+    parameters:
+      model: facebook_KernelLLM-Q4_K_M.gguf
+  files:
+    - filename: facebook_KernelLLM-Q4_K_M.gguf
+      sha256: 947e1f4d48d23bf9a71984b98de65204858ec4e58990c17ef6195dc64838e6d7
+      uri: huggingface://bartowski/facebook_KernelLLM-GGUF/facebook_KernelLLM-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
