@@ -66,6 +66,25 @@
     - filename: mmproj-SmolVLM-Instruct-Q8_0.gguf
       sha256: 86b84aa7babf1ab51a6366d973b9d380354e92c105afaa4f172cc76d044da739
       uri: https://huggingface.co/ggml-org/SmolVLM-Instruct-GGUF/resolve/main/mmproj-SmolVLM-Instruct-Q8_0.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm2-2.2b-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM2_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM2-2.2B-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM2-2.2B-Instruct-GGUF
+  description: |
+    SmolVLM2-2.2B is a lightweight multimodal model designed to analyze video content. The model processes videos, images, and text inputs to generate text outputs - whether answering questions about media files, comparing visual content, or transcribing text from images. Despite its compact size, requiring only 5.2GB of GPU RAM for video inference, it delivers robust performance on complex multimodal tasks. This efficiency makes it particularly well-suited for on-device applications where computational resources may be limited.
+  overrides:
+    parameters:
+      model: SmolVLM2-2.2B-Instruct-Q4_K_M.gguf
+    mmproj: mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf
+  files:
+    - filename: SmolVLM2-2.2B-Instruct-Q4_K_M.gguf
+      sha256: 0cf76814555b8665149075b74ab6b5c1d428ea1d3d01c1918c12012e8d7c9f58
+      uri: huggingface://ggml-org/SmolVLM2-2.2B-Instruct-GGUF/SmolVLM2-2.2B-Instruct-Q4_K_M.gguf
+    - filename: mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf
+      sha256: ae07ea1facd07dd3230c4483b63e8cda96c6944ad2481f33d531f79e892dd024
+      uri: huggingface://ggml-org/SmolVLM2-2.2B-Instruct-GGUF/mmproj-SmolVLM2-2.2B-Instruct-Q8_0.gguf
 - &qwen3
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   name: "qwen3-30b-a3b"
