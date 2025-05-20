@@ -1,5 +1,5 @@
 ---
-- &smolvlm:
+- &smolvlm
   url: "github:mudler/LocalAI/gallery/smolvlm.yaml@master"
   name: "smolvlm-256m-instruct"
   icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM_256_banner.png
