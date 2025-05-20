@@ -106,6 +106,25 @@
     - filename: mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf
       sha256: b5dc8ebe7cbeab66a5369693960a52515d7824f13d4063ceca78431f2a6b59b0
       uri: huggingface://ggml-org/SmolVLM2-500M-Video-Instruct-GGUF/mmproj-SmolVLM2-500M-Video-Instruct-f16.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm2-256m-video-instruct"
+  icon: https://huggingface.co/datasets/huggingface/documentation-images/resolve/main/SmolVLM2_banner.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM2-256M-Video-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM2-256M-Video-Instruct-GGUF
+  description: |
+    SmolVLM2-256M-Video is a lightweight multimodal model designed to analyze video content. The model processes videos, images, and text inputs to generate text outputs - whether answering questions about media files, comparing visual content, or transcribing text from images. Despite its compact size, requiring only 1.38GB of GPU RAM for video inference. This efficiency makes it particularly well-suited for on-device applications that require specific domain fine-tuning and computational resources may be limited.
+  overrides:
+    parameters:
+      model: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+    mmproj: mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+  files:
+    - filename: SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+      sha256: af7ce9951a2f46c4f6e5def253e5b896ca5e417010e7a9949fdc9e5175c27767
+      uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+    - filename: mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
+      sha256: d34913a588464ff7215f086193e0426a4f045eaba74456ee5e2667d8ed6798b1
+      uri: huggingface://ggml-org/SmolVLM2-256M-Video-Instruct-GGUF/mmproj-SmolVLM2-256M-Video-Instruct-Q8_0.gguf
 - &qwen3
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   name: "qwen3-30b-a3b"
