@@ -120,6 +120,7 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *f
 
 		models, err := gallery.AvailableGalleryModels(mgs.galleries, mgs.modelPath)
 		if err != nil {
+			log.Error().Err(err).Msg("could not list models from galleries")
 			return err
 		}
 
