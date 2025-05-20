@@ -9564,6 +9564,25 @@
     - filename: nvidia_Llama-3.1-8B-UltraLong-4M-Instruct-Q4_K_M.gguf
       sha256: c503c77c6d8cc4be53ce7cddb756cb571862f0422594c17e58a75d7be9f00907
       uri: huggingface://bartowski/nvidia_Llama-3.1-8B-UltraLong-4M-Instruct-GGUF/nvidia_Llama-3.1-8B-UltraLong-4M-Instruct-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "facebook_kernelllm"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1592839207516-noauth.png
+  urls:
+    - https://huggingface.co/facebook/KernelLLM
+    - https://huggingface.co/bartowski/facebook_KernelLLM-GGUF
+  description: |
+    We introduce KernelLLM, a large language model based on Llama 3.1 Instruct, which has been trained specifically for the task of authoring GPU kernels using Triton. KernelLLM translates PyTorch modules into Triton kernels and was evaluated on KernelBench-Triton (see here). KernelLLM aims to democratize GPU programming by making kernel development more accessible and efficient.
+    KernelLLM's vision is to meet the growing demand for high-performance GPU kernels by automating the generation of efficient Triton implementations. As workloads grow larger and more diverse accelerator architectures emerge, the need for tailored kernel solutions has increased significantly. Although a number of works exist, most of them are limited to test-time optimization, while others tune on solutions traced of KernelBench problems itself, thereby limiting the informativeness of the results towards out-of-distribution generalization. To the best of our knowledge KernelLLM is the first LLM finetuned on external (torch, triton) pairs, and we hope that making our model available can accelerate progress towards intelligent kernel authoring systems.
+    KernelLLM Workflow for Triton Kernel Generation: Our approach uses KernelLLM to translate PyTorch code (green) into Triton kernel candidates. Input and output components are marked in bold. The generations are validated against unit tests, which run kernels with random inputs of known shapes. This workflow allows us to evaluate multiple generations (pass@k) by increasing the number of kernel candidate generations. The best kernel implementation is selected and returned (green output).
+    The model was trained on approximately 25,000 paired examples of PyTorch modules and their equivalent Triton kernel implementations, and additional synthetically generated samples. Our approach combines filtered code from TheStack [Kocetkov et al. 2022] and synthetic examples generated through torch.compile() and additional prompting techniques. The filtered and compiled dataset is [KernelBook]](https://huggingface.co/datasets/GPUMODE/KernelBook).
+    We finetuned Llama3.1-8B-Instruct on the created dataset using supervised instruction tuning and measured its ability to generate correct Triton kernels and corresponding calling code on KernelBench-Triton, our newly created variant of KernelBench [Ouyang et al. 2025] targeting Triton kernel generation. The torch code was used with a prompt template containing a format example as instruction during both training and evaluation. The model was trained for 10 epochs with a batch size of 32 and a standard SFT recipe with hyperparameters selected by perplexity on a held-out subset of the training data. Training took circa 12 hours wall clock time on 16 GPUs (192 GPU hours), and we report the best checkpoint's validation results.
+  overrides:
+    parameters:
+      model: facebook_KernelLLM-Q4_K_M.gguf
+  files:
+    - filename: facebook_KernelLLM-Q4_K_M.gguf
+      sha256: 947e1f4d48d23bf9a71984b98de65204858ec4e58990c17ef6195dc64838e6d7
+      uri: huggingface://bartowski/facebook_KernelLLM-GGUF/facebook_KernelLLM-Q4_K_M.gguf
 - !!merge <<: *llama33
   name: "llama-3.3-magicalgirl-2.5-i1"
   icon: https://cdn-uploads.huggingface.co/production/uploads/633e85093a17ab61de8d9073/FGK0qBGmELj6DEUxbbrdR.png
