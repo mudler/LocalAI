@@ -118,19 +118,18 @@ And we convert it to the gguf format that LocalAI can consume:
 
 # Convert to gguf
 git clone https://github.com/ggerganov/llama.cpp.git
-pushd llama.cpp && make GGML_CUDA=1 && popd
+pushd llama.cpp && cmake -B build -DGGML_CUDA=ON && cmake --build build --config Release && popd
 
 # We need to convert the pytorch model into ggml for quantization
 # It crates 'ggml-model-f16.bin' in the 'merged' directory.
-pushd llama.cpp && python convert.py --outtype f16 \
-    ../qlora-out/merged/pytorch_model-00001-of-00002.bin && popd
+pushd llama.cpp && python3 convert_hf_to_gguf.py ../qlora-out/merged && popd
 
 # Start off by making a basic q4_0 4-bit quantization.
 # It's important to have 'ggml' in the name of the quant for some
 # software to recognize it's file format.
-pushd llama.cpp &&  ./quantize ../qlora-out/merged/ggml-model-f16.gguf \
-    ../custom-model-q4_0.bin q4_0
+pushd llama.cpp/build/bin &&  ./llama-quantize ../../../qlora-out/merged/Merged-33B-F16.gguf \
+    ../../../custom-model-q4_0.gguf q4_0
 
 ```
 
-Now you should have ended up with a `custom-model-q4_0.bin` file that you can copy in the LocalAI models directory and use it with LocalAI.
+Now you should have ended up with a `custom-model-q4_0.gguf` file that you can copy in the LocalAI models directory and use it with LocalAI.
