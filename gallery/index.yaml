@@ -29,6 +29,24 @@
     - filename: SmolVLM-256M-Instruct-Q8_0.gguf
       sha256: 2a31195d3769c0b0fd0a4906201666108834848db768af11de1d2cef7cd35e65
       uri: huggingface://ggml-org/SmolVLM-256M-Instruct-GGUF/SmolVLM-256M-Instruct-Q8_0.gguf
+- !!merge <<: *smolvlm
+  name: "smolvlm-500m-instruct"
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolVLM-500M-Instruct
+    - https://huggingface.co/ggml-org/SmolVLM-500M-Instruct-GGUF
+  description: |
+    SmolVLM-500M is a tiny multimodal model, member of the SmolVLM family. It accepts arbitrary sequences of image and text inputs to produce text outputs. It's designed for efficiency. SmolVLM can answer questions about images, describe visual content, or transcribe text. Its lightweight architecture makes it suitable for on-device applications while maintaining strong performance on multimodal tasks. It can run inference on one image with 1.23GB of GPU RAM.
+  overrides:
+    parameters:
+      model: SmolVLM-500M-Instruct-Q8_0.gguf
+    mmproj: mmproj-SmolVLM-500M-Instruct-Q8_0.gguf
+  files:
+    - filename: mmproj-SmolVLM-500M-Instruct-Q8_0.gguf
+      sha256: d1eb8b6b23979205fdf63703ed10f788131a3f812c7b1f72e0119d5d81295150
+      uri: huggingface://ggml-org/SmolVLM-500M-Instruct-GGUF/mmproj-SmolVLM-500M-Instruct-Q8_0.gguf
+    - filename: SmolVLM-500M-Instruct-Q8_0.gguf
+      sha256: 9d4612de6a42214499e301494a3ecc2be0abdd9de44e663bda63f1152fad1bf4
+      uri: huggingface://ggml-org/SmolVLM-500M-Instruct-GGUF/SmolVLM-500M-Instruct-Q8_0.gguf
 - &qwen3
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   name: "qwen3-30b-a3b"
