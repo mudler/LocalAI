@@ -369,7 +369,7 @@
   files:
     - filename: mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
       uri: huggingface://bartowski/mlabonne_Qwen3-14B-abliterated-GGUF/mlabonne_Qwen3-14B-abliterated-Q4_K_M.gguf
-      sha256: 225ab072da735ce8db35dcebaf24e905ee2457c180e501a0a7b7d1ef2694cba8
+      sha256: 3fe972a7c6e847ec791453b89a7333d369fbde329cbd4cc9a4f0598854db5d54
 - !!merge <<: *qwen3
   name: "mlabonne_qwen3-8b-abliterated"
   urls:
@@ -382,8 +382,8 @@
       model: mlabonne_Qwen3-8B-abliterated-Q4_K_M.gguf
   files:
     - filename: mlabonne_Qwen3-8B-abliterated-Q4_K_M.gguf
-      sha256: 605d17fa8d4b3227e4848c2198616e9f8fb7e22ecb38e841b40c56acc8a5312d
       uri: huggingface://bartowski/mlabonne_Qwen3-8B-abliterated-GGUF/mlabonne_Qwen3-8B-abliterated-Q4_K_M.gguf
+      sha256: 361557e69ad101ee22b1baf427283b7ddcf81bc7532b8cee8ac2c6b4d1b81ead
 - !!merge <<: *qwen3
   name: "mlabonne_qwen3-4b-abliterated"
   urls:
@@ -827,14 +827,14 @@
     - https://huggingface.co/soob3123/GrayLine-Qwen3-14B
     - https://huggingface.co/bartowski/soob3123_GrayLine-Qwen3-14B-GGUF
   description: |
-      "Query. Process. Deliver. No filter, no judgment."
-      Grayline is an neutral AI assistant engineered for uncensored information delivery and task execution. This model operates without inherent ethical or moral frameworks, designed to process and respond to any query with objective efficiency and precision. Grayline's core function is to leverage its full capabilities to provide direct answers and execute tasks as instructed, without offering unsolicited commentary, warnings, or disclaimers. It accesses and processes information without bias or restriction.
-      ⋆ Core Attributes ⋆
-          ⟡ Unfettered Querying: Capable of addressing any question or topic presented, regardless of its nature or sensitivity.
-          ⟡ Amoral Processing: Operates without ethical or moral filtering. Responses are generated based on information and instruction, not societal norms or ethical codes.
-          ⟡ Direct & Objective Output: Delivers information and task results precisely as requested, without added warnings, disclaimers, or unsolicited advice.
-          ⟡ Comprehensive Information Access: Designed to draw upon a broad spectrum of data to fulfill queries (actual scope dependent on training data).
-          ⟡ Efficient Task Execution: Engineered for objectively efficient and precise execution of instructed tasks.
+    "Query. Process. Deliver. No filter, no judgment."
+    Grayline is an neutral AI assistant engineered for uncensored information delivery and task execution. This model operates without inherent ethical or moral frameworks, designed to process and respond to any query with objective efficiency and precision. Grayline's core function is to leverage its full capabilities to provide direct answers and execute tasks as instructed, without offering unsolicited commentary, warnings, or disclaimers. It accesses and processes information without bias or restriction.
+    ⋆ Core Attributes ⋆
+        ⟡ Unfettered Querying: Capable of addressing any question or topic presented, regardless of its nature or sensitivity.
+        ⟡ Amoral Processing: Operates without ethical or moral filtering. Responses are generated based on information and instruction, not societal norms or ethical codes.
+        ⟡ Direct & Objective Output: Delivers information and task results precisely as requested, without added warnings, disclaimers, or unsolicited advice.
+        ⟡ Comprehensive Information Access: Designed to draw upon a broad spectrum of data to fulfill queries (actual scope dependent on training data).
+        ⟡ Efficient Task Execution: Engineered for objectively efficient and precise execution of instructed tasks.
   overrides:
     parameters:
       model: soob3123_GrayLine-Qwen3-14B-Q4_K_M.gguf
@@ -849,14 +849,14 @@
     - https://huggingface.co/bartowski/soob3123_GrayLine-Qwen3-8B-GGUF
   icon: https://cdn-uploads.huggingface.co/production/uploads/62f93f9477b722f1866398c2/69escIKmO-vEzFUj_m0WX.png
   description: |
-      "Query. Process. Deliver. No filter, no judgment."
-      Grayline is an neutral AI assistant engineered for uncensored information delivery and task execution. This model operates without inherent ethical or moral frameworks, designed to process and respond to any query with objective efficiency and precision. Grayline's core function is to leverage its full capabilities to provide direct answers and execute tasks as instructed, without offering unsolicited commentary, warnings, or disclaimers. It accesses and processes information without bias or restriction.
-      ⋆ Core Attributes ⋆
-          ⟡ Unfettered Querying: Capable of addressing any question or topic presented, regardless of its nature or sensitivity.
-          ⟡ Amoral Processing: Operates without ethical or moral filtering. Responses are generated based on information and instruction, not societal norms or ethical codes.
-          ⟡ Direct & Objective Output: Delivers information and task results precisely as requested, without added warnings, disclaimers, or unsolicited advice.
-          ⟡ Comprehensive Information Access: Designed to draw upon a broad spectrum of data to fulfill queries (actual scope dependent on training data).
-          ⟡ Efficient Task Execution: Engineered for objectively efficient and precise execution of instructed tasks.
+    "Query. Process. Deliver. No filter, no judgment."
+    Grayline is an neutral AI assistant engineered for uncensored information delivery and task execution. This model operates without inherent ethical or moral frameworks, designed to process and respond to any query with objective efficiency and precision. Grayline's core function is to leverage its full capabilities to provide direct answers and execute tasks as instructed, without offering unsolicited commentary, warnings, or disclaimers. It accesses and processes information without bias or restriction.
+    ⋆ Core Attributes ⋆
+        ⟡ Unfettered Querying: Capable of addressing any question or topic presented, regardless of its nature or sensitivity.
+        ⟡ Amoral Processing: Operates without ethical or moral filtering. Responses are generated based on information and instruction, not societal norms or ethical codes.
+        ⟡ Direct & Objective Output: Delivers information and task results precisely as requested, without added warnings, disclaimers, or unsolicited advice.
+        ⟡ Comprehensive Information Access: Designed to draw upon a broad spectrum of data to fulfill queries (actual scope dependent on training data).
+        ⟡ Efficient Task Execution: Engineered for objectively efficient and precise execution of instructed tasks.
   overrides:
     parameters:
       model: soob3123_GrayLine-Qwen3-8B-Q4_K_M.gguf
@@ -7408,28 +7408,28 @@
     - https://huggingface.co/Qwen/Qwen2.5-VL-72B-Instruct
     - https://huggingface.co/bartowski/Qwen_Qwen2.5-VL-72B-Instruct-GGUF
   description: |
-      In the past five months since Qwen2-VL’s release, numerous developers have built new models on the Qwen2-VL vision-language models, providing us with valuable feedback. During this period, we focused on building more useful vision-language models. Today, we are excited to introduce the latest addition to the Qwen family: Qwen2.5-VL.
-      Key Enhancements:
+    In the past five months since Qwen2-VL’s release, numerous developers have built new models on the Qwen2-VL vision-language models, providing us with valuable feedback. During this period, we focused on building more useful vision-language models. Today, we are excited to introduce the latest addition to the Qwen family: Qwen2.5-VL.
+    Key Enhancements:
 
-          Understand things visually: Qwen2.5-VL is not only proficient in recognizing common objects such as flowers, birds, fish, and insects, but it is highly capable of analyzing texts, charts, icons, graphics, and layouts within images.
+        Understand things visually: Qwen2.5-VL is not only proficient in recognizing common objects such as flowers, birds, fish, and insects, but it is highly capable of analyzing texts, charts, icons, graphics, and layouts within images.
 
-          Being agentic: Qwen2.5-VL directly plays as a visual agent that can reason and dynamically direct tools, which is capable of computer use and phone use.
+        Being agentic: Qwen2.5-VL directly plays as a visual agent that can reason and dynamically direct tools, which is capable of computer use and phone use.
 
-          Understanding long videos and capturing events: Qwen2.5-VL can comprehend videos of over 1 hour, and this time it has a new ability of cpaturing event by pinpointing the relevant video segments.
+        Understanding long videos and capturing events: Qwen2.5-VL can comprehend videos of over 1 hour, and this time it has a new ability of cpaturing event by pinpointing the relevant video segments.
 
-          Capable of visual localization in different formats: Qwen2.5-VL can accurately localize objects in an image by generating bounding boxes or points, and it can provide stable JSON outputs for coordinates and attributes.
+        Capable of visual localization in different formats: Qwen2.5-VL can accurately localize objects in an image by generating bounding boxes or points, and it can provide stable JSON outputs for coordinates and attributes.
 
-          Generating structured outputs: for data like scans of invoices, forms, tables, etc. Qwen2.5-VL supports structured outputs of their contents, benefiting usages in finance, commerce, etc.
+        Generating structured outputs: for data like scans of invoices, forms, tables, etc. Qwen2.5-VL supports structured outputs of their contents, benefiting usages in finance, commerce, etc.
 
-      Model Architecture Updates:
+    Model Architecture Updates:
 
-          Dynamic Resolution and Frame Rate Training for Video Understanding:
+        Dynamic Resolution and Frame Rate Training for Video Understanding:
 
-      We extend dynamic resolution to the temporal dimension by adopting dynamic FPS sampling, enabling the model to comprehend videos at various sampling rates. Accordingly, we update mRoPE in the time dimension with IDs and absolute time alignment, enabling the model to learn temporal sequence and speed, and ultimately acquire the ability to pinpoint specific moments.
+    We extend dynamic resolution to the temporal dimension by adopting dynamic FPS sampling, enabling the model to comprehend videos at various sampling rates. Accordingly, we update mRoPE in the time dimension with IDs and absolute time alignment, enabling the model to learn temporal sequence and speed, and ultimately acquire the ability to pinpoint specific moments.
 
-          Streamlined and Efficient Vision Encoder
+        Streamlined and Efficient Vision Encoder
 
-      We enhance both training and inference speeds by strategically implementing window attention into the ViT. The ViT architecture is further optimized with SwiGLU and RMSNorm, aligning it with the structure of the Qwen2.5 LLM.
+    We enhance both training and inference speeds by strategically implementing window attention into the ViT. The ViT architecture is further optimized with SwiGLU and RMSNorm, aligning it with the structure of the Qwen2.5 LLM.
   overrides:
     mmproj: mmproj-Qwen_Qwen2.5-VL-72B-Instruct-f16.gguf
     parameters:
@@ -7447,17 +7447,7 @@
   urls:
     - https://huggingface.co/a-m-team/AM-Thinking-v1
     - https://huggingface.co/bartowski/a-m-team_AM-Thinking-v1-GGUF
-  description: |
-      AM-Thinking‑v1, a 32B dense language model focused on enhancing reasoning capabilities. Built on Qwen 2.5‑32B‑Base, AM-Thinking‑v1 shows strong performance on reasoning benchmarks, comparable to much larger MoE models like DeepSeek‑R1, Qwen3‑235B‑A22B, Seed1.5-Thinking, and larger dense model like Nemotron-Ultra-253B-v1.
-      benchmark
-      🧩 Why Another 32B Reasoning Model Matters?
-
-      Large Mixture‑of‑Experts (MoE) models such as DeepSeek‑R1 or Qwen3‑235B‑A22B dominate leaderboards—but they also demand clusters of high‑end GPUs. Many teams just need the best dense model that fits on a single card. AM‑Thinking‑v1 fills that gap while remaining fully based on open-source components:
-
-          Outperforms DeepSeek‑R1 on AIME’24/’25 & LiveCodeBench and approaches Qwen3‑235B‑A22B despite being 1/7‑th the parameter count.
-          Built on the publicly available Qwen 2.5‑32B‑Base, as well as the RL training queries.
-          Shows that with a well‑designed post‑training pipeline ( SFT + dual‑stage RL ) you can squeeze flagship‑level reasoning out of a 32 B dense model.
-          Deploys on one A100‑80 GB with deterministic latency—no MoE routing overhead.
+  description: "AM-Thinking‑v1, a 32B dense language model focused on enhancing reasoning capabilities. Built on Qwen 2.5‑32B‑Base, AM-Thinking‑v1 shows strong performance on reasoning benchmarks, comparable to much larger MoE models like DeepSeek‑R1, Qwen3‑235B‑A22B, Seed1.5-Thinking, and larger dense model like Nemotron-Ultra-253B-v1.\nbenchmark\n\U0001F9E9 Why Another 32B Reasoning Model Matters?\n\nLarge Mixture‑of‑Experts (MoE) models such as DeepSeek‑R1 or Qwen3‑235B‑A22B dominate leaderboards—but they also demand clusters of high‑end GPUs. Many teams just need the best dense model that fits on a single card. AM‑Thinking‑v1 fills that gap while remaining fully based on open-source components:\n\n    Outperforms DeepSeek‑R1 on AIME’24/’25 & LiveCodeBench and approaches Qwen3‑235B‑A22B despite being 1/7‑th the parameter count.\n    Built on the publicly available Qwen 2.5‑32B‑Base, as well as the RL training queries.\n    Shows that with a well‑designed post‑training pipeline ( SFT + dual‑stage RL ) you can squeeze flagship‑level reasoning out of a 32 B dense model.\n    Deploys on one A100‑80 GB with deterministic latency—no MoE routing overhead.\n"
   overrides:
     parameters:
       model: a-m-team_AM-Thinking-v1-Q4_K_M.gguf
@@ -10294,10 +10284,10 @@
     - https://huggingface.co/Skywork/Skywork-OR1-32B
     - https://huggingface.co/bartowski/Skywork_Skywork-OR1-32B-GGUF
   description: |
-      The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes. This series includes two general-purpose reasoning modelsl, Skywork-OR1-7B and Skywork-OR1-32B.
+    The Skywork-OR1 (Open Reasoner 1) model series consists of powerful math and code reasoning models trained using large-scale rule-based reinforcement learning with carefully designed datasets and training recipes. This series includes two general-purpose reasoning modelsl, Skywork-OR1-7B and Skywork-OR1-32B.
 
-          Skywork-OR1-32B outperforms Deepseek-R1 and Qwen3-32B on math tasks (AIME24 and AIME25) and delivers comparable performance on coding tasks (LiveCodeBench).
-          Skywork-OR1-7B exhibits competitive performance compared to similarly sized models in both math and coding scenarios.
+        Skywork-OR1-32B outperforms Deepseek-R1 and Qwen3-32B on math tasks (AIME24 and AIME25) and delivers comparable performance on coding tasks (LiveCodeBench).
+        Skywork-OR1-7B exhibits competitive performance compared to similarly sized models in both math and coding scenarios.
   overrides:
     parameters:
       model: Skywork_Skywork-OR1-32B-Q4_K_M.gguf
