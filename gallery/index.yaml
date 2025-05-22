@@ -11806,6 +11806,37 @@
     - filename: TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
       sha256: ccaf2e49661ba692a27f06871fb792ff8b8c9632afe92ad89600e389f4ee8fc2
       uri: huggingface://bartowski/TheDrummer_Rivermind-Lux-12B-v1-GGUF/TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_devstral-small-2505"
+  urls:
+    - https://huggingface.co/mistralai/Devstral-Small-2505
+    - https://huggingface.co/bartowski/mistralai_Devstral-Small-2505-GGUF
+  description: |
+    Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI 🙌. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.
+
+    It is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.
+
+    For enterprises requiring specialized capabilities (increased context, domain-specific knowledge, etc.), we will release commercial models beyond what Mistral AI contributes to the community.
+
+    Learn more about Devstral in our blog post.
+    Key Features:
+
+        Agentic coding: Devstral is designed to excel at agentic coding tasks, making it a great choice for software engineering agents.
+        lightweight: with its compact size of just 24 billion parameters, Devstral is light enough to run on a single RTX 4090 or a Mac with 32GB RAM, making it an appropriate model for local deployment and on-device use.
+        Apache 2.0 License: Open license allowing usage and modification for both commercial and non-commercial purposes.
+        Context Window: A 128k context window.
+        Tokenizer: Utilizes a Tekken tokenizer with a 131k vocabulary size.
+  overrides:
+    mmproj: mmproj-mistralai_Devstral-Small-2505-f16.gguf
+    parameters:
+      model: mistralai_Devstral-Small-2505-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Devstral-Small-2505-Q4_K_M.gguf
+      sha256: 6bcda763d93e24e1aa37972869d58dccb3cf79d6a42466fc39094ebbe3a72185
+      uri: huggingface://bartowski/mistralai_Devstral-Small-2505-GGUF/mistralai_Devstral-Small-2505-Q4_K_M.gguf
+    - filename: mmproj-mistralai_Devstral-Small-2505-f16.gguf
+      sha256: f5add93ad360ef6ccba571bba15e8b4bd4471f3577440a8b18785f8707d987ed
+      uri: huggingface://bartowski/mistralai_Devstral-Small-2505-GGUF/mmproj-mistralai_Devstral-Small-2505-f16.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
