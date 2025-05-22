@@ -2,8 +2,9 @@ torch==2.4.1
 accelerate
 llvmlite==0.43.0
 numba==0.60.0
-transformers
+# https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
+transformers==4.52.1
 bitsandbytes
 outetts
-sentence-transformers==3.4.1
+sentence-transformers==4.1.0
 protobuf==6.31.0

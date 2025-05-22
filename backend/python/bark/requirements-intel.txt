@@ -5,5 +5,6 @@ torchaudio==2.3.1+cxx11.abi
 oneccl_bind_pt==2.3.100+xpu
 optimum[openvino]
 setuptools
-transformers
+# https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
+transformers==4.52.1
 accelerate
