@@ -1,4 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 torch==2.4.1+cu118
-transformers
+# https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
+transformers==4.52.1
 accelerate

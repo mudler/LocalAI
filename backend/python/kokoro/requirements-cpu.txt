@@ -1,2 +1,3 @@
 torch==2.4.1
-transformers
+# https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
+transformers==4.52.1
