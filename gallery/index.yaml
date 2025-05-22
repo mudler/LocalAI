@@ -11837,6 +11837,22 @@
     - filename: mmproj-mistralai_Devstral-Small-2505-f16.gguf
       sha256: f5add93ad360ef6ccba571bba15e8b4bd4471f3577440a8b18785f8707d987ed
       uri: huggingface://bartowski/mistralai_Devstral-Small-2505-GGUF/mmproj-mistralai_Devstral-Small-2505-f16.gguf
+- !!merge <<: *mistral03
+  name: "delta-vector_archaeo-12b-v2"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/66c26b6fb01b19d8c3c2467b/mBgg5DKlQFcwz0fXXljTF.jpeg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Delta-Vector/Archaeo-12B-V2
+    - https://huggingface.co/bartowski/Delta-Vector_Archaeo-12B-V2-GGUF
+  description: |
+    A series of Merges made for Roleplaying & Creative Writing, This model uses Rei-V3-KTO-12B and Francois-PE-V2-Huali-12B and Slerp to merge the 2 models - as a sequel to the OG Archaeo.
+  overrides:
+    parameters:
+      model: Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
+  files:
+    - filename: Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
+      sha256: 2b0c8cb3a65b36d2fc0abe47c84a4adda91b890d9f984ca31e4a53e08cfffb8c
+      uri: huggingface://bartowski/Delta-Vector_Archaeo-12B-V2-GGUF/Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
