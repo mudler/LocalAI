@@ -285,20 +285,40 @@ EOT
 ###################################
 ###################################
 
-# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
-# Adjustments to the build process should likely be made here.
-FROM builder-base AS builder
+# Compile backends first in a separate stage
+FROM builder-base AS builder-backends
 
-# Install the pre-built GRPC
 COPY --from=grpc /opt/grpc /usr/local
 
-# Rebuild with defaults backends
+WORKDIR /build
+
+COPY ./Makefile .
+COPY ./backend ./backend
+COPY ./go.mod .
+COPY ./go.sum .
+COPY ./.git ./.git
+
+# Some of the Go backends use libs from the main src, we could further optimize the caching by building the CPP backends before here
+COPY ./pkg/grpc ./pkg/grpc
+COPY ./pkg/utils ./pkg/utils
+COPY ./pkg/langchain ./pkg/langchain
+
+RUN ls -l ./
+RUN make backend-assets
+RUN make prepare
+RUN if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx512 backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make grpcs; \
+    else \
+        make grpcs; \
+    fi
+
+# The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
+# Adjustments to the build process should likely be made here.
+FROM builder-backends AS builder
+
 WORKDIR /build
 
 COPY . .
-COPY .git .
-
-RUN make prepare
 
 ## Build the binary
 ## If we're on arm64 AND using cublas/hipblas, skip some of the llama-compat backends to save space
@@ -389,8 +409,6 @@ COPY . .
 
 COPY --from=builder /build/sources ./sources/
 COPY --from=grpc /opt/grpc /usr/local
-
-RUN make prepare-sources
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
