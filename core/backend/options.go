@@ -94,6 +94,11 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		lowVRAM = *c.LowVRAM
 	}
 
+	reranking := false
+	if c.Reranking != nil {
+		reranking = *c.Reranking
+	}
+
 	mmap := false
 	if c.MMap != nil {
 		mmap = *c.MMap
@@ -178,6 +183,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		RopeFreqScale:       c.RopeFreqScale,
 		NUMA:                c.NUMA,
 		Embeddings:          embeddings,
+		Reranking:           reranking,
 		LowVRAM:             lowVRAM,
 		NGPULayers:          int32(nGPULayers),
 		MMap:                mmap,

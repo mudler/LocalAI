@@ -58,6 +58,9 @@ func (llm *LLM) Load(opts *pb.ModelOptions) error {
 	if opts.Embeddings {
 		llamaOpts = append(llamaOpts, llama.EnableEmbeddings)
 	}
+	if opts.Reranking {
+		llamaOpts = append(llamaOpts, llama.EnableReranking)
+	}
 	if opts.NGPULayers != 0 {
 		llamaOpts = append(llamaOpts, llama.SetGPULayers(int(opts.NGPULayers)))
 	}
