@@ -9722,6 +9722,33 @@
     - filename: Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
       sha256: 25db6d4ae5649e6d2084036d8f05ec1aca459126e2d4734d6c18f1e16147a4d3
       uri: huggingface://mradermacher/Llama-3.3-MagicalGirl-2.5-i1-GGUF/Llama-3.3-MagicalGirl-2.5.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  name: "nvidia_llama-3.1-nemotron-nano-4b-v1.1"
+  urls:
+    - https://huggingface.co/nvidia/Llama-3.1-Nemotron-Nano-4B-v1.1
+    - https://huggingface.co/bartowski/nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-GGUF
+  description: |
+    Llama-3.1-Nemotron-Nano-4B-v1.1 is a large language model (LLM) which is a derivative of nvidia/Llama-3.1-Minitron-4B-Width-Base, which is created from Llama 3.1 8B using our LLM compression technique and offers improvements in model accuracy and efficiency. It is a reasoning model that is post trained for reasoning, human chat preferences, and tasks, such as RAG and tool calling.
+
+    Llama-3.1-Nemotron-Nano-4B-v1.1 is a model which offers a great tradeoff between model accuracy and efficiency. The model fits on a single RTX GPU and can be used locally. The model supports a context length of 128K.
+
+    This model underwent a multi-phase post-training process to enhance both its reasoning and non-reasoning capabilities. This includes a supervised fine-tuning stage for Math, Code, Reasoning, and Tool Calling as well as multiple reinforcement learning (RL) stages using Reward-aware Preference Optimization (RPO) algorithms for both chat and instruction-following. The final model checkpoint is obtained after merging the final SFT and RPO checkpoints
+
+    This model is part of the Llama Nemotron Collection. You can find the other model(s) in this family here:
+
+        Llama-3.3-Nemotron-Ultra-253B-v1
+        Llama-3.3-Nemotron-Super-49B-v1
+        Llama-3.1-Nemotron-Nano-8B-v1
+
+    This model is ready for commercial use.
+  overrides:
+    parameters:
+      model: nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-Q4_K_M.gguf
+      sha256: 530f0e0ade58d22d4b24d9378cf8a87161d22f33cae8f2f65876f3a1555819e6
+      uri: huggingface://bartowski/nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-GGUF/nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
@@ -11779,6 +11806,53 @@
     - filename: TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
       sha256: ccaf2e49661ba692a27f06871fb792ff8b8c9632afe92ad89600e389f4ee8fc2
       uri: huggingface://bartowski/TheDrummer_Rivermind-Lux-12B-v1-GGUF/TheDrummer_Rivermind-Lux-12B-v1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_devstral-small-2505"
+  urls:
+    - https://huggingface.co/mistralai/Devstral-Small-2505
+    - https://huggingface.co/bartowski/mistralai_Devstral-Small-2505-GGUF
+  description: |
+    Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI 🙌. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.
+
+    It is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.
+
+    For enterprises requiring specialized capabilities (increased context, domain-specific knowledge, etc.), we will release commercial models beyond what Mistral AI contributes to the community.
+
+    Learn more about Devstral in our blog post.
+    Key Features:
+
+        Agentic coding: Devstral is designed to excel at agentic coding tasks, making it a great choice for software engineering agents.
+        lightweight: with its compact size of just 24 billion parameters, Devstral is light enough to run on a single RTX 4090 or a Mac with 32GB RAM, making it an appropriate model for local deployment and on-device use.
+        Apache 2.0 License: Open license allowing usage and modification for both commercial and non-commercial purposes.
+        Context Window: A 128k context window.
+        Tokenizer: Utilizes a Tekken tokenizer with a 131k vocabulary size.
+  overrides:
+    mmproj: mmproj-mistralai_Devstral-Small-2505-f16.gguf
+    parameters:
+      model: mistralai_Devstral-Small-2505-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Devstral-Small-2505-Q4_K_M.gguf
+      sha256: 6bcda763d93e24e1aa37972869d58dccb3cf79d6a42466fc39094ebbe3a72185
+      uri: huggingface://bartowski/mistralai_Devstral-Small-2505-GGUF/mistralai_Devstral-Small-2505-Q4_K_M.gguf
+    - filename: mmproj-mistralai_Devstral-Small-2505-f16.gguf
+      sha256: f5add93ad360ef6ccba571bba15e8b4bd4471f3577440a8b18785f8707d987ed
+      uri: huggingface://bartowski/mistralai_Devstral-Small-2505-GGUF/mmproj-mistralai_Devstral-Small-2505-f16.gguf
+- !!merge <<: *mistral03
+  name: "delta-vector_archaeo-12b-v2"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/66c26b6fb01b19d8c3c2467b/mBgg5DKlQFcwz0fXXljTF.jpeg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Delta-Vector/Archaeo-12B-V2
+    - https://huggingface.co/bartowski/Delta-Vector_Archaeo-12B-V2-GGUF
+  description: |
+    A series of Merges made for Roleplaying & Creative Writing, This model uses Rei-V3-KTO-12B and Francois-PE-V2-Huali-12B and Slerp to merge the 2 models - as a sequel to the OG Archaeo.
+  overrides:
+    parameters:
+      model: Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
+  files:
+    - filename: Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
+      sha256: 2b0c8cb3a65b36d2fc0abe47c84a4adda91b890d9f984ca31e4a53e08cfffb8c
+      uri: huggingface://bartowski/Delta-Vector_Archaeo-12B-V2-GGUF/Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
