@@ -7455,6 +7455,50 @@
     - filename: a-m-team_AM-Thinking-v1-Q4_K_M.gguf
       sha256: a6da6e8d330d76167c04a54eeb550668b59b613ea53af22e3b4a0c6da271e38d
       uri: huggingface://bartowski/a-m-team_AM-Thinking-v1-GGUF/a-m-team_AM-Thinking-v1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "arliai_qwq-32b-arliai-rpr-v4"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6625f4a8a8d1362ebcc3851a/hIZ2ZcaDyfYLT9Yd4pfOs.jpeg
+  urls:
+    - https://huggingface.co/ArliAI/QwQ-32B-ArliAI-RpR-v4
+    - https://huggingface.co/bartowski/ArliAI_QwQ-32B-ArliAI-RpR-v4-GGUF
+  description: |
+    The best RP/creative model from ArliAI yet again.
+
+        Reduced repetitions and impersonation
+
+        To add to the creativity and out of the box thinking of RpR v3, a more advanced filtering method was used in order to remove examples where the LLM repeated similar phrases or talked for the user. Any repetition or impersonation cases that happens will be due to how the base QwQ model was trained, and not because of the RpR dataset.
+
+        Increased training sequence length
+
+        The training sequence length was increased to 16K in order to help awareness and memory even on longer chats.
+
+    RpR Series Overview: Building on RPMax with Reasoning
+
+    RpR (RolePlay with Reasoning) is a new series of models from ArliAI. This series builds directly upon the successful dataset curation methodology and training methods developed for the RPMax series.
+
+    RpR models use the same curated, deduplicated RP and creative writing dataset used for RPMax, with a focus on variety to ensure high creativity and minimize cross-context repetition. Users familiar with RPMax will recognize the unique, non-repetitive writing style unlike other finetuned-for-RP models.
+
+    With the release of QwQ as the first high performing open-source reasoning model that can be easily trained, it was clear that the available instruct and creative writing reasoning datasets contains only one response per example. This is type of single response dataset used for training reasoning models causes degraded output quality in long multi-turn chats. Which is why Arli AI decided to create a real RP model capable of long multi-turn chat with reasoning.
+
+    In order to create RpR, we first had to actually create the reasoning RP dataset by re-processing our existing known-good RPMax dataset into a reasoning dataset. This was possible by using the base QwQ Instruct model itself to create the reasoning process for every turn in the RPMax dataset conversation examples, which is then further refined in order to make sure the reasoning is in-line with the actual response examples from the dataset.
+
+    Another important thing to get right is to make sure the model is trained on examples that present reasoning blocks in the same way as it encounters it during inference. Which is, never seeing the reasoning blocks in it's context. In order to do this, the training run was completed using axolotl with manual template-free segments dataset in order to make sure that the model is never trained to see the reasoning block in the context. Just like how the model will be used during inference time.
+
+    The result of training QwQ on this dataset with this method are consistently coherent and interesting outputs even in long multi-turn RP chats. This is as far as we know the first true correctly-trained reasoning model trained for RP and creative writing.
+
+    You can access the model at https://arliai.com and we also have a models ranking page at https://www.arliai.com/models-ranking
+
+    Ask questions in our new Discord Server https://discord.com/invite/t75KbPgwhk or on our subreddit https://www.reddit.com/r/ArliAI/
+    Model Description
+
+    QwQ-32B-ArliAI-RpR-v4 is the third release in the RpR series. It is a 32-billion parameter model fine-tuned using the RpR dataset based on the curated RPMax dataset combined with techniques to maintain reasoning abilities in long multi-turn chats.
+  overrides:
+    parameters:
+      model: ArliAI_QwQ-32B-ArliAI-RpR-v4-Q4_K_M.gguf
+  files:
+    - filename: ArliAI_QwQ-32B-ArliAI-RpR-v4-Q4_K_M.gguf
+      sha256: fd67ca1e792efb25129cbd17b9b0f5c410dd963f17234828686928d21039b585
+      uri: huggingface://bartowski/ArliAI_QwQ-32B-ArliAI-RpR-v4-GGUF/ArliAI_QwQ-32B-ArliAI-RpR-v4-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
