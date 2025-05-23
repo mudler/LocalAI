@@ -864,6 +864,21 @@
     - filename: soob3123_GrayLine-Qwen3-8B-Q4_K_M.gguf
       sha256: bc3eb52ef275f0220e8a66ea99384eea7eca61c62eb52387eef2356d1c8ebd0e
       uri: huggingface://bartowski/soob3123_GrayLine-Qwen3-8B-GGUF/soob3123_GrayLine-Qwen3-8B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "vulpecula-4b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/X4wG8maYiZT68QLGW4NPn.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Vulpecula-4B
+    - https://huggingface.co/prithivMLmods/Vulpecula-4B-GGUF
+  description: |
+    **Vulpecula-4B** is fine-tuned based on the traces of **SK1.1**, consisting of the same 1,000 entries of the **DeepSeek thinking trajectory**, along with fine-tuning on **Fine-Tome 100k** and **Open Math Reasoning** datasets. This specialized 4B parameter model is designed for enhanced mathematical reasoning, logical problem-solving, and structured content generation, optimized for precision and step-by-step explanation.
+  overrides:
+    parameters:
+      model: Vulpecula-4B.Q4_K_M.gguf
+  files:
+    - filename: Vulpecula-4B.Q4_K_M.gguf
+      sha256: c21ff7922ccefa5c7aa67ca7a7a01582941a94efae4ce10b6397bcd288baab79
+      uri: huggingface://prithivMLmods/Vulpecula-4B-GGUF/Vulpecula-4B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
