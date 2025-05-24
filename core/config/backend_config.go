@@ -37,6 +37,7 @@ type BackendConfig struct {
 	TemplateConfig      TemplateConfig         `yaml:"template"`
 	KnownUsecaseStrings []string               `yaml:"known_usecases"`
 	KnownUsecases       *BackendConfigUsecases `yaml:"-"`
+	Pipeline            Pipeline               `yaml:"pipeline"`
 
 	PromptStrings, InputStrings                []string               `yaml:"-"`
 	InputToken                                 [][]int                `yaml:"-"`
@@ -70,6 +71,14 @@ type BackendConfig struct {
 	Usage       string `yaml:"usage"`
 
 	Options []string `yaml:"options"`
+}
+
+// Pipeline defines other models to use for audio-to-audio
+type Pipeline struct {
+	TTS           string `yaml:"tts"`
+	LLM           string `yaml:"llm"`
+	Transcription string `yaml:"transcription"`
+	VAD           string `yaml:"vad"`
 }
 
 type File struct {
