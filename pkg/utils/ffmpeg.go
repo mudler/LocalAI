@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/go-audio/wav"
 )
 
 func ffmpegCommand(args []string) (string, error) {
@@ -17,6 +19,21 @@ func ffmpegCommand(args []string) (string, error) {
 // AudioToWav converts audio to wav for transcribe.
 // TODO: use https://github.com/mccoyst/ogg?
 func AudioToWav(src, dst string) error {
+	if strings.HasSuffix(src, ".wav") {
+		f, err := os.Open(src)
+		if err != nil {
+			return fmt.Errorf("open: %w", err)
+		}
+
+		dec := wav.NewDecoder(f)
+		dec.ReadInfo()
+		f.Close()
+
+		if dec.BitDepth == 16 && dec.NumChans == 1 && dec.SampleRate == 16000 {
+			os.Rename(src, dst)
+			return nil
+		}
+	}
 	commandArgs := []string{"-i", src, "-format", "s16le", "-ar", "16000", "-ac", "1", "-acodec", "pcm_s16le", dst}
 	out, err := ffmpegCommand(commandArgs)
 	if err != nil {

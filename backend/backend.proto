@@ -162,6 +162,7 @@ message Reply {
   int32 prompt_tokens = 3;
   double timing_prompt_processing = 4;
   double timing_token_generation = 5;
+  bytes audio = 6;
 }
 
 message GrammarTrigger {
