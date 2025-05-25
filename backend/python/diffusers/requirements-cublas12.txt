@@ -1,4 +1,4 @@
-torch==2.4.1
+torch==2.6.0+cu118
 diffusers
 opencv-python
 # https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
