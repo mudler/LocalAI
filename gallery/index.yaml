@@ -879,6 +879,21 @@
     - filename: Vulpecula-4B.Q4_K_M.gguf
       sha256: c21ff7922ccefa5c7aa67ca7a7a01582941a94efae4ce10b6397bcd288baab79
       uri: huggingface://prithivMLmods/Vulpecula-4B-GGUF/Vulpecula-4B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "allura-org_q3-30b-a3b-pentiment"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/tQmu_UoG1AMAIaLSGLXhB.png
+  urls:
+    - https://huggingface.co/allura-org/Q3-30b-A3b-Pentiment
+    - https://huggingface.co/bartowski/allura-org_Q3-30b-A3b-Pentiment-GGUF
+  description: |
+    Triple stage RP/general tune of Qwen3-30B-A3b Base (finetune, merged for stablization, aligned)
+  overrides:
+    parameters:
+      model: allura-org_Q3-30b-A3b-Pentiment-Q4_K_M.gguf
+  files:
+    - filename: allura-org_Q3-30b-A3b-Pentiment-Q4_K_M.gguf
+      sha256: b03dd17c828ea71842e73e195395eb6c02408d5354f1aedf85caa403979aa89c
+      uri: huggingface://bartowski/allura-org_Q3-30b-A3b-Pentiment-GGUF/allura-org_Q3-30b-A3b-Pentiment-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
