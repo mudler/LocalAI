@@ -1528,6 +1528,32 @@
     - filename: Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
       sha256: 75c66d64a32416cdaaeeeb1d11477481c93558ade4dc61a93f7aba8312cd0480
       uri: huggingface://mradermacher/Gemma-3-12B-FornaxV.2-QAT-CoT-GGUF/Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "medgemma-4b-it"
+  urls:
+    - https://huggingface.co/google/medgemma-4b-it
+    - https://huggingface.co/unsloth/medgemma-4b-it-GGUF
+  description: |
+    MedGemma is a collection of Gemma 3 variants that are trained for performance on medical text and image comprehension. Developers can use MedGemma to accelerate building healthcare-based AI applications. MedGemma currently comes in two variants: a 4B multimodal version and a 27B text-only version.
+
+    MedGemma 4B utilizes a SigLIP image encoder that has been specifically pre-trained on a variety of de-identified medical data, including chest X-rays, dermatology images, ophthalmology images, and histopathology slides. Its LLM component is trained on a diverse set of medical data, including radiology images, histopathology patches, ophthalmology images, and dermatology images.
+
+    MedGemma 4B is available in both pre-trained (suffix: -pt) and instruction-tuned (suffix -it) versions. The instruction-tuned version is a better starting point for most applications. The pre-trained version is available for those who want to experiment more deeply with the models.
+
+    MedGemma 27B has been trained exclusively on medical text and optimized for inference-time computation. MedGemma 27B is only available as an instruction-tuned model.
+
+    MedGemma variants have been evaluated on a range of clinically relevant benchmarks to illustrate their baseline performance. These include both open benchmark datasets and curated datasets. Developers can fine-tune MedGemma variants for improved performance. Consult the Intended Use section below for more details.
+  overrides:
+    mmproj: mmproj-medgemma-4b-it-F16.gguf
+    parameters:
+      model: medgemma-4b-it-Q4_K_M.gguf
+  files:
+    - filename: medgemma-4b-it-Q4_K_M.gguf
+      sha256: 2d20114e538b9f6d465a6714b66b976c2c030da84e54ad7954d661e54776f8fd
+      uri: huggingface://unsloth/medgemma-4b-it-GGUF/medgemma-4b-it-Q4_K_M.gguf
+    - filename: mmproj-medgemma-4b-it-F16.gguf
+      sha256: 13913a7e70893b09c40154cbd43456611ea58f12bfe1e5d4ad5b7e4875644dc3
+      uri: https://huggingface.co/unsloth/medgemma-4b-it-GGUF/resolve/main/mmproj-F16.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
