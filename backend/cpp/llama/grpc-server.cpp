@@ -133,6 +133,15 @@ json parse_options(bool streaming, const backend::PredictOptions* predict)
             });
     }
 
+    // for each audio in the request, add the audio data
+    for (int i = 0; i < predict->audios_size(); i++) {
+        data["audio_data"].push_back(json
+            {
+                {"id", i},
+                {"data",    predict->audios(i)},
+            });
+    }
+
     data["stop"] = predict->stopprompts();
     // data["n_probs"] = predict->nprobs();
     //TODO: images,
@@ -406,6 +415,16 @@ public:
                 }
             }
 
+            const auto &audio_data = data.find("audio_data");
+            if (audio_data != data.end() && audio_data->is_array())
+            {
+                for (const auto &audio : *audio_data)
+                {
+                    auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                    files.push_back(decoded_data);
+                }
+            }
+
             // process files
             mtmd::bitmaps bitmaps;
             const bool has_mtmd = ctx_server.mctx != nullptr;
@@ -416,10 +435,10 @@ public:
                 for (auto & file : files) {
                     mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_buf(file.data(), file.size()));
                     if (!bmp.ptr) {
-                        throw std::runtime_error("Failed to load image");
+                        throw std::runtime_error("Failed to load image/audio");
                     }
                     // calculate bitmap hash (for KV caching)
-                    std::string hash = fnv_hash(bmp.data(), bmp.nx()*bmp.ny()*3);
+                    std::string hash = fnv_hash(bmp.data(), bmp.n_bytes());
                     bmp.set_id(hash.c_str());
                     bitmaps.entries.push_back(std::move(bmp));
                 }
@@ -588,6 +607,16 @@ public:
                 }
             }
 
+            const auto &audio_data = data.find("audio_data");
+            if (audio_data != data.end() && audio_data->is_array())
+            {
+                for (const auto &audio : *audio_data)
+                {
+                    auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                    files.push_back(decoded_data);
+                }
+            }
+
             // process files
             mtmd::bitmaps bitmaps;
             const bool has_mtmd = ctx_server.mctx != nullptr;
@@ -598,10 +627,10 @@ public:
                 for (auto & file : files) {
                     mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_buf(file.data(), file.size()));
                     if (!bmp.ptr) {
-                        throw std::runtime_error("Failed to load image");
+                        throw std::runtime_error("Failed to load image/audio");
                     }
                     // calculate bitmap hash (for KV caching)
-                    std::string hash = fnv_hash(bmp.data(), bmp.nx()*bmp.ny()*3);
+                    std::string hash = fnv_hash(bmp.data(), bmp.n_bytes());
                     bmp.set_id(hash.c_str());
                     bitmaps.entries.push_back(std::move(bmp));
                 }

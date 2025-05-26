@@ -21,8 +21,8 @@ func (vad *VAD) Load(opts *pb.ModelOptions) error {
 		SampleRate: 16000,
 		//WindowSize:           1024,
 		Threshold:            0.5,
-		MinSilenceDurationMs: 0,
-		SpeechPadMs:          0,
+		MinSilenceDurationMs: 100,
+		SpeechPadMs:          30,
 	})
 	if err != nil {
 		return fmt.Errorf("create silero detector: %w", err)
@@ -34,6 +34,10 @@ func (vad *VAD) Load(opts *pb.ModelOptions) error {
 
 func (vad *VAD) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	audio := req.Audio
+
+	if err := vad.detector.Reset(); err != nil {
+		return pb.VADResponse{}, fmt.Errorf("reset: %w", err)
+	}
 
 	segments, err := vad.detector.Detect(audio)
 	if err != nil {

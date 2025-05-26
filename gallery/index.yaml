@@ -879,6 +879,21 @@
     - filename: Vulpecula-4B.Q4_K_M.gguf
       sha256: c21ff7922ccefa5c7aa67ca7a7a01582941a94efae4ce10b6397bcd288baab79
       uri: huggingface://prithivMLmods/Vulpecula-4B-GGUF/Vulpecula-4B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "allura-org_q3-30b-a3b-pentiment"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/tQmu_UoG1AMAIaLSGLXhB.png
+  urls:
+    - https://huggingface.co/allura-org/Q3-30b-A3b-Pentiment
+    - https://huggingface.co/bartowski/allura-org_Q3-30b-A3b-Pentiment-GGUF
+  description: |
+    Triple stage RP/general tune of Qwen3-30B-A3b Base (finetune, merged for stablization, aligned)
+  overrides:
+    parameters:
+      model: allura-org_Q3-30b-A3b-Pentiment-Q4_K_M.gguf
+  files:
+    - filename: allura-org_Q3-30b-A3b-Pentiment-Q4_K_M.gguf
+      sha256: b03dd17c828ea71842e73e195395eb6c02408d5354f1aedf85caa403979aa89c
+      uri: huggingface://bartowski/allura-org_Q3-30b-A3b-Pentiment-GGUF/allura-org_Q3-30b-A3b-Pentiment-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
@@ -1528,6 +1543,54 @@
     - filename: Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
       sha256: 75c66d64a32416cdaaeeeb1d11477481c93558ade4dc61a93f7aba8312cd0480
       uri: huggingface://mradermacher/Gemma-3-12B-FornaxV.2-QAT-CoT-GGUF/Gemma-3-12B-FornaxV.2-QAT-CoT.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "medgemma-4b-it"
+  urls:
+    - https://huggingface.co/google/medgemma-4b-it
+    - https://huggingface.co/unsloth/medgemma-4b-it-GGUF
+  description: |
+    MedGemma is a collection of Gemma 3 variants that are trained for performance on medical text and image comprehension. Developers can use MedGemma to accelerate building healthcare-based AI applications. MedGemma currently comes in two variants: a 4B multimodal version and a 27B text-only version.
+
+    MedGemma 4B utilizes a SigLIP image encoder that has been specifically pre-trained on a variety of de-identified medical data, including chest X-rays, dermatology images, ophthalmology images, and histopathology slides. Its LLM component is trained on a diverse set of medical data, including radiology images, histopathology patches, ophthalmology images, and dermatology images.
+
+    MedGemma 4B is available in both pre-trained (suffix: -pt) and instruction-tuned (suffix -it) versions. The instruction-tuned version is a better starting point for most applications. The pre-trained version is available for those who want to experiment more deeply with the models.
+
+    MedGemma 27B has been trained exclusively on medical text and optimized for inference-time computation. MedGemma 27B is only available as an instruction-tuned model.
+
+    MedGemma variants have been evaluated on a range of clinically relevant benchmarks to illustrate their baseline performance. These include both open benchmark datasets and curated datasets. Developers can fine-tune MedGemma variants for improved performance. Consult the Intended Use section below for more details.
+  overrides:
+    mmproj: mmproj-medgemma-4b-it-F16.gguf
+    parameters:
+      model: medgemma-4b-it-Q4_K_M.gguf
+  files:
+    - filename: medgemma-4b-it-Q4_K_M.gguf
+      sha256: 2d20114e538b9f6d465a6714b66b976c2c030da84e54ad7954d661e54776f8fd
+      uri: huggingface://unsloth/medgemma-4b-it-GGUF/medgemma-4b-it-Q4_K_M.gguf
+    - filename: mmproj-medgemma-4b-it-F16.gguf
+      sha256: 13913a7e70893b09c40154cbd43456611ea58f12bfe1e5d4ad5b7e4875644dc3
+      uri: https://huggingface.co/unsloth/medgemma-4b-it-GGUF/resolve/main/mmproj-F16.gguf
+- !!merge <<: *gemma3
+  name: "medgemma-27b-text-it"
+  urls:
+    - https://huggingface.co/google/medgemma-27b-text-it
+    - https://huggingface.co/unsloth/medgemma-27b-text-it-GGUF
+  description: |
+    MedGemma is a collection of Gemma 3 variants that are trained for performance on medical text and image comprehension. Developers can use MedGemma to accelerate building healthcare-based AI applications. MedGemma currently comes in two variants: a 4B multimodal version and a 27B text-only version.
+
+    MedGemma 4B utilizes a SigLIP image encoder that has been specifically pre-trained on a variety of de-identified medical data, including chest X-rays, dermatology images, ophthalmology images, and histopathology slides. Its LLM component is trained on a diverse set of medical data, including radiology images, histopathology patches, ophthalmology images, and dermatology images.
+
+    MedGemma 4B is available in both pre-trained (suffix: -pt) and instruction-tuned (suffix -it) versions. The instruction-tuned version is a better starting point for most applications. The pre-trained version is available for those who want to experiment more deeply with the models.
+
+    MedGemma 27B has been trained exclusively on medical text and optimized for inference-time computation. MedGemma 27B is only available as an instruction-tuned model.
+
+    MedGemma variants have been evaluated on a range of clinically relevant benchmarks to illustrate their baseline performance. These include both open benchmark datasets and curated datasets. Developers can fine-tune MedGemma variants for improved performance. Consult the Intended Use section below for more details.
+  overrides:
+    parameters:
+      model: medgemma-27b-text-it-Q4_K_M.gguf
+  files:
+    - filename: medgemma-27b-text-it-Q4_K_M.gguf
+      sha256: 383b1c414d3f2f1a9c577a61e623d29a4ed4f7834f60b9e5412f5ff4e8aaf080
+      uri: huggingface://unsloth/medgemma-27b-text-it-GGUF/medgemma-27b-text-it-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -10431,6 +10494,20 @@
     - filename: Skywork_Skywork-OR1-7B-Q4_K_M.gguf
       sha256: 3c5e25b875a8e748fd6991484aa17335c76a13e5aca94917a0c3f08c0239c269
       uri: huggingface://bartowski/Skywork_Skywork-OR1-7B-GGUF/Skywork_Skywork-OR1-7B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "nvidia_acereason-nemotron-14b"
+  urls:
+    - https://huggingface.co/nvidia/AceReason-Nemotron-14B
+    - https://huggingface.co/bartowski/nvidia_AceReason-Nemotron-14B-GGUF
+  description: |
+    We're thrilled to introduce AceReason-Nemotron-14B, a math and code reasoning model trained entirely through reinforcement learning (RL), starting from the DeepSeek-R1-Distilled-Qwen-14B. It delivers impressive results, achieving 78.6% on AIME 2024 (+8.9%), 67.4% on AIME 2025 (+17.4%), 61.1% on LiveCodeBench v5 (+8%), 54.9% on LiveCodeBench v6 (+7%), and 2024 on Codeforces (+543). We systematically study the RL training process through extensive ablations and propose a simple yet effective approach: first RL training on math-only prompts, then RL training on code-only prompts. Notably, we find that math-only RL not only significantly enhances the performance of strong distilled models on math benchmarks, but also code reasoning tasks. In addition, extended code-only RL further improves code benchmark performance while causing minimal degradation in math results. We find that RL not only elicits the foundational reasoning capabilities acquired during pre-training and supervised fine-tuning (e.g., distillation), but also pushes the limits of the model's reasoning ability, enabling it to solve problems that were previously unsolvable.
+  overrides:
+    parameters:
+      model: nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
+      sha256: cf78ee6667778d2d04d996567df96e7b6d29755f221e3d9903a4803500fcfe24
+      uri: huggingface://bartowski/nvidia_AceReason-Nemotron-14B-GGUF/nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"

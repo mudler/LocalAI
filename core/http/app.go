@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/dave-gray101/v2keyauth"
+	"github.com/gofiber/websocket/v2"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -98,6 +99,15 @@ func API(application *application.Application) (*fiber.App, error) {
 			return c.Next()
 		})
 	}
+
+	router.Use("/v1/realtime", func(c *fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) {
+			// Returns true if the client requested upgrade to the WebSocket protocol
+			return c.Next()
+		}
+
+		return nil
+	})
 
 	router.Hooks().OnListen(func(listenData fiber.ListenData) error {
 		scheme := "http"
