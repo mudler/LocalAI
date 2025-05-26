@@ -210,6 +210,9 @@ For more information, see [💻 Getting started](https://localai.io/basics/getti
 
 ## 📰 Latest project news
 
+- May 2025: [Audio input](https://github.com/mudler/LocalAI/pull/5466) and [Reranking](https://github.com/mudler/LocalAI/pull/5396) in llama.cpp backend, [Realtime API](https://github.com/mudler/LocalAI/pull/5392),  Support to Gemma, SmollVLM, and more multimodal models (available in the gallery).
+- May 2025: Important: image name changes [See release](https://github.com/mudler/LocalAI/releases/tag/v2.29.0)
+- Apr 2025: Rebrand, WebUI enhancements
 - Apr 2025: [LocalAGI](https://github.com/mudler/LocalAGI) and [LocalRecall](https://github.com/mudler/LocalRecall) join the LocalAI family stack.
 - Apr 2025: WebUI overhaul, AIO images updates
 - Feb 2025: Backend cleanup, Breaking changes, new backends (kokoro, OutelTTS, faster-whisper), Nvidia L4T images
