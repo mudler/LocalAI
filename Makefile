@@ -6,7 +6,7 @@ BINARY_NAME=local-ai
 DETECT_LIBS?=true
 
 # llama.cpp versions
-CPPLLAMA_VERSION?=d13d0f6135803822ec1cd7e3efb49360b88a1bdf
+CPPLLAMA_VERSION?=fef693dc6b959a8e8ba11558fbeaad0b264dd457
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
@@ -453,7 +453,7 @@ run: prepare ## run local-ai
 test-models/testmodel.ggml:
 	mkdir test-models
 	mkdir test-dir
-	wget -q https://huggingface.co/RichardErkhov/Qwen_-_Qwen2-1.5B-Instruct-gguf/resolve/main/Qwen2-1.5B-Instruct.Q2_K.gguf -O test-models/testmodel.ggml
+	wget -q https://huggingface.co/mradermacher/gpt2-alpaca-gpt4-GGUF/resolve/main/gpt2-alpaca-gpt4.Q4_K_M.gguf -O test-models/testmodel.ggml
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav

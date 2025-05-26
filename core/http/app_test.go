@@ -35,9 +35,9 @@ const bearerKey = "Bearer " + apiKey
 const testPrompt = `### System:
 You are an AI assistant that follows instruction extremely well. Help as much as you can.
 
-### User:
+### Instruction:
 
-Can you help rephrasing sentences?
+Say hello.
 
 ### Response:`
 
