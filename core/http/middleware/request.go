@@ -308,7 +308,7 @@ func mergeOpenAIRequestAndBackendConfig(config *config.BackendConfig, input *sch
 					input.Messages[i].StringVideos = append(input.Messages[i].StringVideos, base64) // TODO: make sure that we only return base64 stuff
 					vidIndex++
 					nrOfVideosInMessage++
-				case "audio_url", "audio":
+				case "audio_url", "audio", "input_audio":
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
 					if err != nil {
