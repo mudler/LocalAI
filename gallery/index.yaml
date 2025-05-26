@@ -10494,6 +10494,20 @@
     - filename: Skywork_Skywork-OR1-7B-Q4_K_M.gguf
       sha256: 3c5e25b875a8e748fd6991484aa17335c76a13e5aca94917a0c3f08c0239c269
       uri: huggingface://bartowski/Skywork_Skywork-OR1-7B-GGUF/Skywork_Skywork-OR1-7B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "nvidia_acereason-nemotron-14b"
+  urls:
+    - https://huggingface.co/nvidia/AceReason-Nemotron-14B
+    - https://huggingface.co/bartowski/nvidia_AceReason-Nemotron-14B-GGUF
+  description: |
+    We're thrilled to introduce AceReason-Nemotron-14B, a math and code reasoning model trained entirely through reinforcement learning (RL), starting from the DeepSeek-R1-Distilled-Qwen-14B. It delivers impressive results, achieving 78.6% on AIME 2024 (+8.9%), 67.4% on AIME 2025 (+17.4%), 61.1% on LiveCodeBench v5 (+8%), 54.9% on LiveCodeBench v6 (+7%), and 2024 on Codeforces (+543). We systematically study the RL training process through extensive ablations and propose a simple yet effective approach: first RL training on math-only prompts, then RL training on code-only prompts. Notably, we find that math-only RL not only significantly enhances the performance of strong distilled models on math benchmarks, but also code reasoning tasks. In addition, extended code-only RL further improves code benchmark performance while causing minimal degradation in math results. We find that RL not only elicits the foundational reasoning capabilities acquired during pre-training and supervised fine-tuning (e.g., distillation), but also pushes the limits of the model's reasoning ability, enabling it to solve problems that were previously unsolvable.
+  overrides:
+    parameters:
+      model: nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
+      sha256: cf78ee6667778d2d04d996567df96e7b6d29755f221e3d9903a4803500fcfe24
+      uri: huggingface://bartowski/nvidia_AceReason-Nemotron-14B-GGUF/nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
