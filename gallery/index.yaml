@@ -12073,6 +12073,22 @@ During testing, Designant punched well above its weight class in terms of active
     - filename: LuckyRP-24B.Q4_K_M.gguf
       sha256: d4c091af782ae2c8a148f60d0e5596508aec808aeb7d430787c13ab311974da8
       uri: huggingface://mradermacher/LuckyRP-24B-GGUF/LuckyRP-24B.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "llama3-24b-mullein-v1"
+  url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
+  icon: https://cdn-uploads.huggingface.co/production/uploads/675a77cf99ca23af9daacccc/aApksUdvpFFkveNbegjlS.webp
+  urls:
+    - https://huggingface.co/trashpanda-org/Llama3-24B-Mullein-v1
+    - https://huggingface.co/mradermacher/Llama3-24B-Mullein-v1-GGUF
+  description: |
+    hasnonname's trashpanda baby is getting a sequel. More JLLM-ish than ever, too. No longer as unhinged as v0, so we're discontinuing the instruct version. Varied rerolls, good character/scenario handling, almost no user impersonation now. Huge dependence on intro message quality, but lets it follow up messages from larger models quite nicely. Currently considering it as an overall improvement over v0 as far as tester feedback is concerned. Still seeing some slop and an occasional bad reroll response, though.
+  overrides:
+    parameters:
+      model: Llama3-24B-Mullein-v1.Q4_K_M.gguf
+  files:
+    - filename: Llama3-24B-Mullein-v1.Q4_K_M.gguf
+      sha256: 1ee5d21b3ea1e941b5db84416d50de68804ca33859da91fecccfef1140feefd3
+      uri: huggingface://mradermacher/Llama3-24B-Mullein-v1-GGUF/Llama3-24B-Mullein-v1.Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
