@@ -1,7 +1,6 @@
 diffusers
 opencv-python
-# https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
-transformers==4.52.1
+transformers
 accelerate
 compel
 peft

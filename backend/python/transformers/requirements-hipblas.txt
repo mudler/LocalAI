@@ -1,8 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
 torch==2.4.1+rocm6.0
 accelerate
-# https://github.com/huggingface/transformers/issues/38269#issuecomment-2900214777
-transformers==4.52.1
+transformers
 llvmlite==0.43.0
 numba==0.60.0
 bitsandbytes
