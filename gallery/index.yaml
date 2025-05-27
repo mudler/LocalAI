@@ -902,8 +902,7 @@
     - https://huggingface.co/bartowski/allura-org_Q3-30B-A3B-Designant-GGUF
   description: |
     Intended as a direct upgrade to Pentiment, Q3-30B-A3B-Designant is a roleplaying model finetuned from Qwen3-30B-A3B-Base.
-
-During testing, Designant punched well above its weight class in terms of active parameters, demonstrating the potential for well-made lightweight Mixture of Experts models in the roleplay scene. While one tester observed looping behavior, repetition in general was minimal.
+    During testing, Designant punched well above its weight class in terms of active parameters, demonstrating the potential for well-made lightweight Mixture of Experts models in the roleplay scene. While one tester observed looping behavior, repetition in general was minimal.
   overrides:
     parameters:
       model: allura-org_Q3-30B-A3B-Designant-Q4_K_M.gguf
