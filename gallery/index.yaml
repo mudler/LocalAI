@@ -12039,6 +12039,25 @@ During testing, Designant punched well above its weight class in terms of active
     - filename: Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
       sha256: 2b0c8cb3a65b36d2fc0abe47c84a4adda91b890d9f984ca31e4a53e08cfffb8c
       uri: huggingface://bartowski/Delta-Vector_Archaeo-12B-V2-GGUF/Delta-Vector_Archaeo-12B-V2-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6669a3a617b838fda45637b8/qQpy13yAYpZHupUcWIocZ.png
+  name: "luckyrp-24b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Vortex5/LuckyRP-24B
+    - https://huggingface.co/mradermacher/LuckyRP-24B-GGUF
+  description: |
+    LuckyRP-24B is a merge of the following models using mergekit:
+
+    trashpanda-org/MS-24B-Mullein-v0
+    cognitivecomputations/Dolphin3.0-Mistral-24B
+  overrides:
+    parameters:
+      model: LuckyRP-24B.Q4_K_M.gguf
+  files:
+    - filename: LuckyRP-24B.Q4_K_M.gguf
+      sha256: d4c091af782ae2c8a148f60d0e5596508aec808aeb7d430787c13ab311974da8
+      uri: huggingface://mradermacher/LuckyRP-24B-GGUF/LuckyRP-24B.Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
