@@ -911,6 +911,21 @@ During testing, Designant punched well above its weight class in terms of active
     - filename: allura-org_Q3-30B-A3B-Designant-Q4_K_M.gguf
       sha256: b0eb5b5c040b8ec378c572b4edc975b2782ef457dca42fb7a7e84a6a1647f1ae
       uri: huggingface://bartowski/allura-org_Q3-30B-A3B-Designant-GGUF/allura-org_Q3-30B-A3B-Designant-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "mrm8488_qwen3-14b-ft-limo"
+  icon: https://huggingface.co/mrm8488/Qwen3-14B-ft-limo/resolve/main/logo-min.png
+  urls:
+    - https://huggingface.co/mrm8488/Qwen3-14B-ft-limo
+    - https://huggingface.co/bartowski/mrm8488_Qwen3-14B-ft-limo-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen3-14B using the limo training recipe (and dataset). We use Qwen3-14B-Instruct instead of Qwen2.5-32B-Instruct as base model.
+  overrides:
+    parameters:
+      model: mrm8488_Qwen3-14B-ft-limo-Q4_K_M.gguf
+  files:
+    - filename: mrm8488_Qwen3-14B-ft-limo-Q4_K_M.gguf
+      sha256: 19d6dfd4a470cb293ad5e96bd94689fa2d12d1024eac548479c2e64f967d5f00
+      uri: huggingface://bartowski/mrm8488_Qwen3-14B-ft-limo-GGUF/mrm8488_Qwen3-14B-ft-limo-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
