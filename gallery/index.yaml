@@ -12089,6 +12089,21 @@ During testing, Designant punched well above its weight class in terms of active
     - filename: Llama3-24B-Mullein-v1.Q4_K_M.gguf
       sha256: 1ee5d21b3ea1e941b5db84416d50de68804ca33859da91fecccfef1140feefd3
       uri: huggingface://mradermacher/Llama3-24B-Mullein-v1-GGUF/Llama3-24B-Mullein-v1.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "ms-24b-mullein-v0"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/675a77cf99ca23af9daacccc/KMazK4tkkCrh3kO7N1cJ7.webp
+  urls:
+    - https://huggingface.co/trashpanda-org/MS-24B-Mullein-v0
+    - https://huggingface.co/mradermacher/MS-24B-Mullein-v0-GGUF
+  description: |
+     Hasnonname threw what he had into it. The datasets could still use some work which we'll consider for V1 (or a theorized merge between base and instruct variants), but so far, aside from being rough around the edges, Mullein has varied responses across rerolls, a predisposition to NPC characterization, accurate character/scenario portrayal and little to no positivity bias (in instances, even unhinged), but as far as negatives go, I'm seeing strong adherence to initial message structure, rare user impersonation and some slop.
+  overrides:
+    parameters:
+      model: MS-24B-Mullein-v0.Q4_K_M.gguf
+  files:
+    - filename: MS-24B-Mullein-v0.Q4_K_M.gguf
+      sha256: ef30561f1f7a9057b58e6f1b7c8a5da461bb320216232edf3916c1c02cb50e34
+      uri: huggingface://mradermacher/MS-24B-Mullein-v0-GGUF/MS-24B-Mullein-v0.Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
