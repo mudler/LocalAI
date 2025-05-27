@@ -54,7 +54,7 @@
                             {{ range .Models }}
                             <div class="bg-gray-800/80 border border-gray-700 rounded-lg p-4 flex items-center">
                                 <i class="fas fa-brain text-lg text-gray-400 mr-3"></i>
-                                <p class="font-medium text-gray-200">{{.Name}}</p>
+                                <p class="font-medium text-gray-200">{{if .Name}}{{.Name}}{{else}}{{.}}{{end}}</p>
                             </div>              
                             {{end}}
                         </div>
