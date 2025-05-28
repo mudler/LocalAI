@@ -7641,6 +7641,39 @@
     - filename: WhiteRabbitNeo_WhiteRabbitNeo-V3-7B-Q4_K_M.gguf
       sha256: 584bfc1f4c160928842866c566129f9789c4671af8e51a9e36ba0ebf10f24f41
       uri: huggingface://bartowski/WhiteRabbitNeo_WhiteRabbitNeo-V3-7B-GGUF/WhiteRabbitNeo_WhiteRabbitNeo-V3-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-omni-7b"
+  tags:
+    - multimodal
+    - gguf
+    - gpu
+    - cpu
+    - qwen2.5
+    - audio-to-text
+    - image-to-text
+    - text-to-text
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Omni-7B
+    - https://huggingface.co/ggml-org/Qwen2.5-Omni-7B-GGUF
+  description: |
+    Qwen2.5-Omni is an end-to-end multimodal model designed to perceive diverse modalities, including text, images, audio, and video, while simultaneously generating text and natural speech responses in a streaming manner.
+    Modalities:
+    - ✅ Text input
+    - ✅ Audio input
+    - ✅ Image input
+    - ❌ Video input
+    - ❌ Audio generation
+  overrides:
+    mmproj: mmproj-Qwen2.5-Omni-7B-Q8_0.gguf
+    parameters:
+      model: Qwen2.5-Omni-7B-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Omni-7B-Q4_K_M.gguf
+      sha256: 09883dff531dc56923a041c9c99c7c779e26ffde32caa83adeeb7502ec3b50fe
+      uri: huggingface://ggml-org/Qwen2.5-Omni-7B-GGUF/Qwen2.5-Omni-7B-Q4_K_M.gguf
+    - filename: mmproj-Qwen2.5-Omni-7B-Q8_0.gguf
+      sha256: 4a7bc5478a2ec8c5d186d63532eb22e75b79ba75ec3c0ce821676157318ef4ad
+      uri: https://huggingface.co/ggml-org/Qwen2.5-Omni-7B-GGUF/resolve/main/mmproj-Qwen2.5-Omni-7B-Q8_0.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
