@@ -383,17 +383,28 @@ func mergeOpenAIRequestAndBackendConfig(config *config.BackendConfig, input *sch
 		if inputs != "" {
 			config.InputStrings = append(config.InputStrings, inputs)
 		}
-	case []interface{}:
+	case []any:
 		for _, pp := range inputs {
 			switch i := pp.(type) {
 			case string:
 				config.InputStrings = append(config.InputStrings, i)
-			case []interface{}:
+			case []any:
 				tokens := []int{}
+				inputStrings := []string{}
 				for _, ii := range i {
-					tokens = append(tokens, int(ii.(float64)))
+					switch ii := ii.(type) {
+					case int:
+						tokens = append(tokens, ii)
+					case float64:
+						tokens = append(tokens, int(ii))
+					case string:
+						inputStrings = append(inputStrings, ii)
+					default:
+						log.Error().Msgf("Unknown input type: %T", ii)
+					}
 				}
 				config.InputToken = append(config.InputToken, tokens)
+				config.InputStrings = append(config.InputStrings, inputStrings...)
 			}
 		}
 	}
