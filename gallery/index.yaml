@@ -10572,6 +10572,27 @@
     - filename: nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
       sha256: cf78ee6667778d2d04d996567df96e7b6d29755f221e3d9903a4803500fcfe24
       uri: huggingface://bartowski/nvidia_AceReason-Nemotron-14B-GGUF/nvidia_AceReason-Nemotron-14B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "pku-ds-lab_fairyr1-14b-preview"
+  urls:
+    - https://huggingface.co/PKU-DS-LAB/FairyR1-14B-Preview
+    - https://huggingface.co/bartowski/PKU-DS-LAB_FairyR1-14B-Preview-GGUF
+  description: |
+    FairyR1-14B-Preview, a highly efficient large-language-model (LLM) that matches or exceeds larger models on select tasks. Built atop the DeepSeek-R1-Distill-Qwen-14B base, this model continues to utilize the 'distill-and-merge' pipeline from TinyR1-32B-Preview and Fairy-32B, combining task-focused fine-tuning with model-merging techniques—to deliver competitive performance with drastically reduced size and inference cost. This project was funded by NSFC, Grant 624B2005.
+
+    As a member of the FairyR1 series, FairyR1-14B-Preview shares the same training data and process as FairyR1-32B. We strongly recommend using the FairyR1-32B, which achieves comparable performance in math and coding to deepseek-R1-671B with only 5% of the parameters. For more details, please view the page of FairyR1-32B.
+    The FairyR1 model represents a further exploration of our earlier work TinyR1, retaining the core “Branch-Merge Distillation” approach while introducing refinements in data processing and model architecture.
+
+    In this effort, we overhauled the distillation data pipeline: raw examples from datasets such as AIMO/NuminaMath-1.5 for mathematics and OpenThoughts-114k for code were first passed through multiple 'teacher' models to generate candidate answers. These candidates were then carefully selected, restructured, and refined, especially for the chain-of-thought(CoT). Subsequently, we applied multi-stage filtering—including automated correctness checks for math problems and length-based selection (2K–8K tokens for math samples, 4K–8K tokens for code samples). This yielded two focused training sets of roughly 6.6K math examples and 3.8K code examples.
+
+    On the modeling side, rather than training three separate specialists as before, we limited our scope to just two domain experts (math and code), each trained independently under identical hyperparameters (e.g., learning rate and batch size) for about five epochs. We then fused these experts into a single 14B-parameter model using the AcreeFusion tool. By streamlining both the data distillation workflow and the specialist-model merging process, FairyR1 achieves task-competitive results with only a fraction of the parameters and computational cost of much larger models.
+  overrides:
+    parameters:
+      model: PKU-DS-LAB_FairyR1-14B-Preview-Q4_K_M.gguf
+  files:
+    - filename: PKU-DS-LAB_FairyR1-14B-Preview-Q4_K_M.gguf
+      sha256: c082eb3312cb5343979c95aad3cdf8e96abd91e3f0cb15e0083b5d7d94d7a9f8
+      uri: huggingface://bartowski/PKU-DS-LAB_FairyR1-14B-Preview-GGUF/PKU-DS-LAB_FairyR1-14B-Preview-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
