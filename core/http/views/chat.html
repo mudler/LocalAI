@@ -218,6 +218,8 @@ SOFTWARE.
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.
             For models that support images, you can upload an image by clicking the paperclip
             <i class="fa-solid fa-paperclip"></i> icon.
+            For models that support audio, you can upload an audio file by clicking the microphone
+            <i class="fa-solid fa-microphone"></i> icon.
           </p>
           <div id="messages" class="max-w-3xl mx-auto">
             <template x-for="message in history">
@@ -290,6 +292,12 @@ SOFTWARE.
                   class="fa-solid fa-paperclip text-gray-400 absolute right-12 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
                   title="Attach an image"
                 ></button>
+                <button
+                  type="button"
+                  onclick="document.getElementById('input_audio').click()"
+                  class="fa-solid fa-microphone text-gray-400 absolute right-20 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  title="Attach an audio file"
+                ></button>
                 
                 <!-- Send button and loader in the same position -->
                 <div class="absolute right-3 top-4">
@@ -317,6 +325,13 @@ SOFTWARE.
             <input
               id="input_image"
               type="file"
+              style="display: none;"
+              @change="fileName = $event.target.files[0].name"
+            />
+            <input
+              id="input_audio"
+              type="file"
+              accept="audio/*"
               style="display: none;"
               @change="fileName = $event.target.files[0].name"
             />
@@ -381,7 +396,7 @@ SOFTWARE.
           clear() {
             this.history.length = 0;
           },
-          add(role, content, image) {
+          add(role, content, image, audio) {
             const N = this.history.length - 1;
             if (this.history.length && this.history[N].role === role) {
               this.history[N].content += content;
@@ -394,7 +409,7 @@ SOFTWARE.
               lines.forEach((line) => {
                 c += DOMPurify.sanitize(marked.parse(line));
               });
-              this.history.push({ role, content, html: c, image });
+              this.history.push({ role, content, html: c, image, audio });
             }
             document.getElementById('messages').scrollIntoView(false);
             const parser = new DOMParser();
@@ -418,6 +433,7 @@ SOFTWARE.
               role: message.role,
               content: message.content,
               image: message.image,
+              audio: message.audio,
             }));
           },
         });

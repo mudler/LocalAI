@@ -49,12 +49,13 @@ function submitSystemPrompt(event) {
 }
 
 var image = "";
+var audio = "";
 
 function submitPrompt(event) {
   event.preventDefault();
 
   const input = document.getElementById("input").value;
-  Alpine.store("chat").add("user", input, image);
+  Alpine.store("chat").add("user", input, image, audio);
   document.getElementById("input").value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
@@ -62,7 +63,6 @@ function submitPrompt(event) {
 }
 
 function readInputImage() {
-
   if (!this.files || !this.files[0]) return;
 
   const FR = new FileReader();
@@ -74,35 +74,47 @@ function readInputImage() {
   FR.readAsDataURL(this.files[0]);
 }
 
+function readInputAudio() {
+  if (!this.files || !this.files[0]) return;
 
-  async function promptGPT(systemPrompt, input) {
-    const model = document.getElementById("chat-model").value;
-    // Set class "loader" to the element with "loader" id
-    //document.getElementById("loader").classList.add("loader");
-    // Make the "loader" visible
-    toggleLoader(true);
+  const FR = new FileReader();
 
+  FR.addEventListener("load", function(evt) {
+    audio = evt.target.result;
+  });
 
-    messages = Alpine.store("chat").messages();
+  FR.readAsDataURL(this.files[0]);
+}
 
-    // if systemPrompt isn't empty, push it at the start of messages
-    if (systemPrompt) {
-      messages.unshift({
-        role: "system",
-        content: systemPrompt
-      });
-    }
+async function promptGPT(systemPrompt, input) {
+  const model = document.getElementById("chat-model").value;
+  // Set class "loader" to the element with "loader" id
+  //document.getElementById("loader").classList.add("loader");
+  // Make the "loader" visible
+  toggleLoader(true);
 
-    // loop all messages, and check if there are images. If there are, we need to change the content field
-    messages.forEach((message) => {
+  messages = Alpine.store("chat").messages();
+
+  // if systemPrompt isn't empty, push it at the start of messages
+  if (systemPrompt) {
+    messages.unshift({
+      role: "system",
+      content: systemPrompt
+    });
+  }
+
+  // loop all messages, and check if there are images or audios. If there are, we need to change the content field
+  messages.forEach((message) => {
+    if (message.image || message.audio) {
+      // The content field now becomes an array
+      message.content = [
+        {
+          "type": "text",
+          "text": message.content
+        }
+      ]
+      
       if (message.image) {
-        // The content field now becomes an array
-        message.content = [
-          {
-            "type": "text",
-            "text": message.content
-          }
-        ]
         message.content.push(
           {
             "type": "image_url",
@@ -111,168 +123,154 @@ function readInputImage() {
             }
           }
         );
-
-        // remove the image field
         delete message.image;
       }
-    });
 
-       // reset the form and the image
-       image = "";
-       document.getElementById("input_image").value = null;
-       document.getElementById("fileName").innerHTML = "";
-
-    // if (image) {
-    //   // take the last element content's and add the image
-    //   last_message = messages[messages.length - 1]
-    //   // The content field now becomes an array
-    //   last_message.content = [
-    //     {
-    //       "type": "text",
-    //       "text": last_message.content
-    //     }
-    //    ]
-    //   last_message.content.push(
-    //     {
-    //       "type": "image_url",
-    //       "image_url": {
-    //         "url": image,
-    //       }
-    //     }
-    //   );
-    //   // and we replace it in the messages array
-    //   messages[messages.length - 1] = last_message
-
-    //   // reset the form and the image
-    //   image = "";
-    //   document.getElementById("input_image").value = null;
-    //   document.getElementById("fileName").innerHTML = "";
-    // }
-
-    // Source: https://stackoverflow.com/a/75751803/11386095
-    const response = await fetch("v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        stream: true,
-      }),
-    });
-
-    if (!response.ok) {
-      Alpine.store("chat").add(
-        "assistant",
-        `<span class='error'>Error: POST /v1/chat/completions ${response.status}</span>`,
-      );
-      return;
-    }
-
-    const reader = response.body
-      ?.pipeThrough(new TextDecoderStream())
-      .getReader();
-
-    if (!reader) {
-      Alpine.store("chat").add(
-        "assistant",
-        `<span class='error'>Error: Failed to decode API response</span>`,
-      );
-      return;
-    }
-
-    // Function to add content to the chat and handle DOM updates efficiently
-    const addToChat = (token) => {
-      const chatStore = Alpine.store("chat");
-      chatStore.add("assistant", token);
-      // Efficiently scroll into view without triggering multiple reflows
-      // const messages = document.getElementById('messages');
-      // messages.scrollTop = messages.scrollHeight;
-    };
-
-    let buffer = "";
-    let contentBuffer = [];
-
-    try {
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += value;
-
-        let lines = buffer.split("\n");
-        buffer = lines.pop(); // Retain any incomplete line in the buffer
-
-        lines.forEach((line) => {
-          if (line.length === 0 || line.startsWith(":")) return;
-          if (line === "data: [DONE]") {
-            return;
-          }
-
-          if (line.startsWith("data: ")) {
-            try {
-              const jsonData = JSON.parse(line.substring(6));
-              const token = jsonData.choices[0].delta.content;
-
-              if (token) {
-                contentBuffer.push(token);
-              }
-            } catch (error) {
-              console.error("Failed to parse line:", line, error);
+      if (message.audio) {
+        message.content.push(
+          {
+            "type": "audio_url",
+            "audio_url": {
+              "url": message.audio,
             }
           }
-        });
-
-        // Efficiently update the chat in batch
-        if (contentBuffer.length > 0) {
-          addToChat(contentBuffer.join(""));
-          contentBuffer = [];
-        }
+        );
+        delete message.audio;
       }
+    }
+  });
 
-      // Final content flush if any data remains
+  // reset the form and the files
+  image = "";
+  audio = "";
+  document.getElementById("input_image").value = null;
+  document.getElementById("input_audio").value = null;
+  document.getElementById("fileName").innerHTML = "";
+
+  // Source: https://stackoverflow.com/a/75751803/11386095
+  const response = await fetch("v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: model,
+      messages: messages,
+      stream: true,
+    }),
+  });
+
+  if (!response.ok) {
+    Alpine.store("chat").add(
+      "assistant",
+      `<span class='error'>Error: POST /v1/chat/completions ${response.status}</span>`,
+    );
+    return;
+  }
+
+  const reader = response.body
+    ?.pipeThrough(new TextDecoderStream())
+    .getReader();
+
+  if (!reader) {
+    Alpine.store("chat").add(
+      "assistant",
+      `<span class='error'>Error: Failed to decode API response</span>`,
+    );
+    return;
+  }
+
+  // Function to add content to the chat and handle DOM updates efficiently
+  const addToChat = (token) => {
+    const chatStore = Alpine.store("chat");
+    chatStore.add("assistant", token);
+    // Efficiently scroll into view without triggering multiple reflows
+    // const messages = document.getElementById('messages');
+    // messages.scrollTop = messages.scrollHeight;
+  };
+
+  let buffer = "";
+  let contentBuffer = [];
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += value;
+
+      let lines = buffer.split("\n");
+      buffer = lines.pop(); // Retain any incomplete line in the buffer
+
+      lines.forEach((line) => {
+        if (line.length === 0 || line.startsWith(":")) return;
+        if (line === "data: [DONE]") {
+          return;
+        }
+
+        if (line.startsWith("data: ")) {
+          try {
+            const jsonData = JSON.parse(line.substring(6));
+            const token = jsonData.choices[0].delta.content;
+
+            if (token) {
+              contentBuffer.push(token);
+            }
+          } catch (error) {
+            console.error("Failed to parse line:", line, error);
+          }
+        }
+      });
+
+      // Efficiently update the chat in batch
       if (contentBuffer.length > 0) {
         addToChat(contentBuffer.join(""));
+        contentBuffer = [];
       }
-
-      // Highlight all code blocks once at the end
-      hljs.highlightAll();
-    } catch (error) {
-      console.error("An error occurred while reading the stream:", error);
-      Alpine.store("chat").add(
-        "assistant",
-        `<span class='error'>Error: Failed to process stream</span>`,
-      );
-    } finally {
-      // Perform any cleanup if necessary
-      reader.releaseLock();
     }
 
-    // Remove class "loader" from the element with "loader" id
-    toggleLoader(false);
+    // Final content flush if any data remains
+    if (contentBuffer.length > 0) {
+      addToChat(contentBuffer.join(""));
+    }
 
-    // scroll to the bottom of the chat
-    document.getElementById('messages').scrollIntoView(false)
-    // set focus to the input
-    document.getElementById("input").focus();
+    // Highlight all code blocks once at the end
+    hljs.highlightAll();
+  } catch (error) {
+    console.error("An error occurred while reading the stream:", error);
+    Alpine.store("chat").add(
+      "assistant",
+      `<span class='error'>Error: Failed to process stream</span>`,
+    );
+  } finally {
+    // Perform any cleanup if necessary
+    reader.releaseLock();
   }
 
-  document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
+  // Remove class "loader" from the element with "loader" id
+  toggleLoader(false);
 
-  document.getElementById("prompt").addEventListener("submit", submitPrompt);
+  // scroll to the bottom of the chat
+  document.getElementById('messages').scrollIntoView(false)
+  // set focus to the input
   document.getElementById("input").focus();
-  document.getElementById("input_image").addEventListener("change", readInputImage);
+}
 
-  storesystemPrompt = localStorage.getItem("system_prompt");
-  if (storesystemPrompt) {
-    document.getElementById("systemPrompt").value = storesystemPrompt;
-  } else {
-    document.getElementById("systemPrompt").value = null;
-  }
+document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
+document.getElementById("prompt").addEventListener("submit", submitPrompt);
+document.getElementById("input").focus();
+document.getElementById("input_image").addEventListener("change", readInputImage);
+document.getElementById("input_audio").addEventListener("change", readInputAudio);
 
-  marked.setOptions({
-    highlight: function (code) {
-      return hljs.highlightAuto(code).value;
-    },
-  });
+storesystemPrompt = localStorage.getItem("system_prompt");
+if (storesystemPrompt) {
+  document.getElementById("systemPrompt").value = storesystemPrompt;
+} else {
+  document.getElementById("systemPrompt").value = null;
+}
+
+marked.setOptions({
+  highlight: function (code) {
+    return hljs.highlightAuto(code).value;
+  },
+});
