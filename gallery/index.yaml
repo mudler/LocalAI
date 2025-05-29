@@ -1,4 +1,33 @@
 ---
+- url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
+  license: apache-2.0
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65df6605dba41b152100edf9/LEUWPRTize9N7dMShjcPC.png
+  description: |
+    Moondream is a small vision language model designed to run efficiently everywhere.
+  urls:
+    - https://huggingface.co/vikhyatk/moondream2
+    - https://huggingface.co/ggml-org/moondream2-20250414-GGUF
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - moondream
+    - gpu
+    - image-to-text
+    - vision
+    - cpu
+  name: "moondream2-20250414"
+  overrides:
+    mmproj: moondream2-mmproj-f16-20250414.gguf
+    parameters:
+      model: moondream2-text-model-f16_ct-vicuna.gguf
+  files:
+    - filename: moondream2-text-model-f16_ct-vicuna.gguf
+      sha256: 925bcb666baf69ed747e26121af287b16ae7764483be9548b1382f29783689a5
+      uri: https://huggingface.co/ggml-org/moondream2-20250414-GGUF/resolve/main/moondream2-text-model-f16_ct-vicuna.gguf
+    - filename: moondream2-mmproj-f16-20250414.gguf
+      sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
+      uri: https://huggingface.co/ggml-org/moondream2-20250414-GGUF/resolve/main/moondream2-mmproj-f16-20250414.gguf
 - &smolvlm
   url: "github:mudler/LocalAI/gallery/smolvlm.yaml@master"
   name: "smolvlm-256m-instruct"
