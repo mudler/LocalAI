@@ -15,7 +15,7 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,transformers:/build/backend/python/transformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,faster-whisper:/build/backend/python/faster-whisper/run.sh,kokoro:/build/backend/python/kokoro/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh"
+ENV EXTERNAL_GRPC_BACKENDS="coqui:/build/backend/python/coqui/run.sh,transformers:/build/backend/python/transformers/run.sh,rerankers:/build/backend/python/rerankers/run.sh,bark:/build/backend/python/bark/run.sh,diffusers:/build/backend/python/diffusers/run.sh,faster-whisper:/build/backend/python/faster-whisper/run.sh,kokoro:/build/backend/python/kokoro/run.sh,vllm:/build/backend/python/vllm/run.sh,exllama2:/build/backend/python/exllama2/run.sh,chatterbox:/build/backend/python/chatterbox/run.sh"
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -434,6 +434,9 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAG
     ; fi && \
     if [[ ( "${EXTRA_BACKENDS}" =~ "diffusers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/diffusers \
+    ; fi && \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "chatterbox" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" && "${BUILD_TYPE}" = "cublas" ]]; then \
+        make -C backend/python/chatterbox \
     ; fi
 
 RUN if [[ ( "${EXTRA_BACKENDS}" =~ "kokoro" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
