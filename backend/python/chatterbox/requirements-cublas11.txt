@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.6.0+cu118
+torchaudio==2.6.0+cu118
+transformers==4.46.3
+chatterbox-tts
+accelerate
