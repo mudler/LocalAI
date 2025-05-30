@@ -364,3 +364,67 @@ marked.setOptions({
     return hljs.highlightAuto(code).value;
   },
 });
+
+document.addEventListener("alpine:init", () => {
+  Alpine.store("chat", {
+    history: [],
+    languages: [undefined],
+    systemPrompt: "",
+    clear() {
+      this.history.length = 0;
+    },
+    add(role, content, image, audio) {
+      const N = this.history.length - 1;
+      if (this.history.length && this.history[N].role === role) {
+        this.history[N].content += content;
+        this.history[N].html = DOMPurify.sanitize(
+          marked.parse(this.history[N].content)
+        );
+        // Merge new images and audio with existing ones
+        if (image && image.length > 0) {
+          this.history[N].image = [...(this.history[N].image || []), ...image];
+        }
+        if (audio && audio.length > 0) {
+          this.history[N].audio = [...(this.history[N].audio || []), ...audio];
+        }
+      } else {
+        let c = "";
+        const lines = content.split("\n");
+        lines.forEach((line) => {
+          c += DOMPurify.sanitize(marked.parse(line));
+        });
+        this.history.push({ 
+          role, 
+          content, 
+          html: c, 
+          image: image || [], 
+          audio: audio || [] 
+        });
+      }
+      document.getElementById('messages').scrollIntoView(false);
+      const parser = new DOMParser();
+      const html = parser.parseFromString(
+        this.history[this.history.length - 1].html,
+        "text/html"
+      );
+      const code = html.querySelectorAll("pre code");
+      if (!code.length) return;
+      code.forEach((el) => {
+        const language = el.className.split("language-")[1];
+        if (this.languages.includes(language)) return;
+        const script = document.createElement("script");
+        script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+        document.head.appendChild(script);
+        this.languages.push(language);
+      });
+    },
+    messages() {
+      return this.history.map((message) => ({
+        role: message.role,
+        content: message.content,
+        image: message.image,
+        audio: message.audio,
+      }));
+    },
+  });
+});

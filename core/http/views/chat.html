@@ -237,8 +237,22 @@ SOFTWARE.
                     <div class="flex flex-col flex-1 items-end">
                       <span class="text-xs font-semibold text-gray-400">You</span>
                       <div class="p-2 flex-1 rounded bg-gray-700 text-white" x-html="message.html"></div>
-                      <template x-if="message.image">
-                        <img :src="message.image" alt="Image" class="rounded-lg mt-2 max-w-xs">
+                      <template x-if="message.image && message.image.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(img, index) in message.image" :key="index">
+                            <img :src="img" :alt="'Image ' + (index + 1)" class="rounded-lg max-w-xs">
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="message.audio && message.audio.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(audio, index) in message.audio" :key="index">
+                            <audio controls class="w-full">
+                              <source :src="audio" type="audio/*">
+                              Your browser does not support the audio element.
+                            </audio>
+                          </template>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -256,8 +270,22 @@ SOFTWARE.
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
-                      <template x-if="message.image">
-                        <img :src="message.image" alt="Image" class="rounded-lg mt-2 max-w-xs">
+                      <template x-if="message.image && message.image.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(img, index) in message.image" :key="index">
+                            <img :src="img" :alt="'Image ' + (index + 1)" class="rounded-lg max-w-xs">
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="message.audio && message.audio.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(audio, index) in message.audio" :key="index">
+                            <audio controls class="w-full">
+                              <source :src="audio" type="audio/*">
+                              Your browser does not support the audio element.
+                            </audio>
+                          </template>
+                        </div>
                       </template>
                     </div>
                   </div>
