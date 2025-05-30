@@ -1,5 +1,5 @@
-torch==2.4.1
+torch==2.6.0+cu118
 torchaudio==2.4.1
-transformers==4.48.3
+transformers==4.50.0
 accelerate
 coqui-tts
