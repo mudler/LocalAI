@@ -191,6 +191,9 @@ async function promptGPT(systemPrompt, input) {
 
   let buffer = "";
   let contentBuffer = [];
+  let thinkingContent = "";
+  let isThinking = false;
+  let lastThinkingMessageIndex = -1;
 
   try {
     while (true) {
@@ -214,7 +217,44 @@ async function promptGPT(systemPrompt, input) {
             const token = jsonData.choices[0].delta.content;
 
             if (token) {
-              contentBuffer.push(token);
+              // Check for thinking tags
+              if (token.includes("<thinking>") || token.includes("<think>")) {
+                isThinking = true;
+                thinkingContent = "";
+                lastThinkingMessageIndex = -1;
+                return;
+              }
+              if (token.includes("</thinking>") || token.includes("</think>")) {
+                isThinking = false;
+                if (thinkingContent.trim()) {
+                  // Only add the final thinking message if we don't already have one
+                  if (lastThinkingMessageIndex === -1) {
+                    Alpine.store("chat").add("thinking", thinkingContent);
+                  }
+                }
+                return;
+              }
+
+              // Handle content based on thinking state
+              if (isThinking) {
+                thinkingContent += token;
+                // Update the last thinking message or create a new one
+                if (lastThinkingMessageIndex === -1) {
+                  // Create new thinking message
+                  Alpine.store("chat").add("thinking", thinkingContent);
+                  lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                } else {
+                  // Update existing thinking message
+                  const chatStore = Alpine.store("chat");
+                  const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                  if (lastMessage && lastMessage.role === "thinking") {
+                    lastMessage.content = thinkingContent;
+                    lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                  }
+                }
+              } else {
+                contentBuffer.push(token);
+              }
             }
           } catch (error) {
             console.error("Failed to parse line:", line, error);
@@ -232,6 +272,9 @@ async function promptGPT(systemPrompt, input) {
     // Final content flush if any data remains
     if (contentBuffer.length > 0) {
       addToChat(contentBuffer.join(""));
+    }
+    if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+      Alpine.store("chat").add("thinking", thinkingContent);
     }
 
     // Highlight all code blocks once at the end
@@ -273,4 +316,78 @@ marked.setOptions({
   highlight: function (code) {
     return hljs.highlightAuto(code).value;
   },
+});
+
+document.addEventListener("alpine:init", () => {
+  Alpine.store("chat", {
+    history: [],
+    languages: [undefined],
+    systemPrompt: "",
+    clear() {
+      this.history.length = 0;
+    },
+    add(role, content, image, audio) {
+      const N = this.history.length - 1;
+      // For thinking messages, always create a new message
+      if (role === "thinking") {
+        let c = "";
+        const lines = content.split("\n");
+        lines.forEach((line) => {
+          c += DOMPurify.sanitize(marked.parse(line));
+        });
+        this.history.push({ role, content, html: c, image, audio });
+      }
+      // For other messages, merge if same role
+      else if (this.history.length && this.history[N].role === role) {
+        this.history[N].content += content;
+        this.history[N].html = DOMPurify.sanitize(
+          marked.parse(this.history[N].content)
+        );
+        // Merge new images and audio with existing ones
+        if (image && image.length > 0) {
+          this.history[N].image = [...(this.history[N].image || []), ...image];
+        }
+        if (audio && audio.length > 0) {
+          this.history[N].audio = [...(this.history[N].audio || []), ...audio];
+        }
+      } else {
+        let c = "";
+        const lines = content.split("\n");
+        lines.forEach((line) => {
+          c += DOMPurify.sanitize(marked.parse(line));
+        });
+        this.history.push({ 
+          role, 
+          content, 
+          html: c, 
+          image: image || [], 
+          audio: audio || [] 
+        });
+      }
+      document.getElementById('messages').scrollIntoView(false);
+      const parser = new DOMParser();
+      const html = parser.parseFromString(
+        this.history[this.history.length - 1].html,
+        "text/html"
+      );
+      const code = html.querySelectorAll("pre code");
+      if (!code.length) return;
+      code.forEach((el) => {
+        const language = el.className.split("language-")[1];
+        if (this.languages.includes(language)) return;
+        const script = document.createElement("script");
+        script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+        document.head.appendChild(script);
+        this.languages.push(language);
+      });
+    },
+    messages() {
+      return this.history.map((message) => ({
+        role: message.role,
+        content: message.content,
+        image: message.image,
+        audio: message.audio,
+      }));
+    },
+  });
 });
