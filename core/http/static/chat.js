@@ -50,16 +50,91 @@ function submitSystemPrompt(event) {
 
 var image = "";
 var audio = "";
+var fileContent = "";
+var currentFileName = "";
+
+async function extractTextFromPDF(pdfData) {
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    
+    return fullText;
+  } catch (error) {
+    console.error('Error extracting text from PDF:', error);
+    throw error;
+  }
+}
+
+function readInputFile() {
+  if (!this.files || !this.files[0]) return;
+
+  const file = this.files[0];
+  const FR = new FileReader();
+  currentFileName = file.name;
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+  FR.addEventListener("load", async function(evt) {
+    if (fileExtension === 'pdf') {
+      try {
+        fileContent = await extractTextFromPDF(evt.target.result);
+      } catch (error) {
+        console.error('Error processing PDF:', error);
+        fileContent = "Error processing PDF file";
+      }
+    } else {
+      // For text and markdown files
+      fileContent = evt.target.result;
+    }
+  });
+
+  if (fileExtension === 'pdf') {
+    FR.readAsArrayBuffer(file);
+  } else {
+    FR.readAsText(file);
+  }
+}
 
 function submitPrompt(event) {
   event.preventDefault();
 
   const input = document.getElementById("input").value;
-  Alpine.store("chat").add("user", input, image, audio);
+  let fullInput = input;
+  
+  // If there's file content, append it to the input for the LLM
+  if (fileContent) {
+    fullInput += "\n\nFile content:\n" + fileContent;
+  }
+  
+  // Show file icon in chat if there's a file
+  let displayContent = input;
+  if (currentFileName) {
+    displayContent += `\n\n<i class="fa-solid fa-file"></i> Attached file: ${currentFileName}`;
+  }
+  
+  // Add the message to the chat UI with just the icon
+  Alpine.store("chat").add("user", displayContent, image, audio);
+  
+  // Update the last message in the store with the full content
+  const history = Alpine.store("chat").history;
+  if (history.length > 0) {
+    history[history.length - 1].content = fullInput;
+  }
+  
   document.getElementById("input").value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
-  promptGPT(systemPrompt, input);
+  promptGPT(systemPrompt, fullInput);
+  
+  // Reset file content and name after sending
+  fileContent = "";
+  currentFileName = "";
 }
 
 function readInputImage() {
@@ -88,9 +163,6 @@ function readInputAudio() {
 
 async function promptGPT(systemPrompt, input) {
   const model = document.getElementById("chat-model").value;
-  // Set class "loader" to the element with "loader" id
-  //document.getElementById("loader").classList.add("loader");
-  // Make the "loader" visible
   toggleLoader(true);
 
   messages = Alpine.store("chat").messages();
@@ -261,6 +333,7 @@ document.getElementById("prompt").addEventListener("submit", submitPrompt);
 document.getElementById("input").focus();
 document.getElementById("input_image").addEventListener("change", readInputImage);
 document.getElementById("input_audio").addEventListener("change", readInputAudio);
+document.getElementById("input_file").addEventListener("change", readInputFile);
 
 storesystemPrompt = localStorage.getItem("system_prompt");
 if (storesystemPrompt) {

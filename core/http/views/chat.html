@@ -29,6 +29,11 @@ SOFTWARE.
 <html lang="en">
   {{template "views/partials/head" .}}
   <script defer src="static/chat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // Initialize PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
   <body class="bg-slate-900 text-gray-100 flex flex-col h-screen" x-data="{ sidebarOpen: true }">
@@ -215,11 +220,13 @@ SOFTWARE.
         <!-- Chat messages area -->
         <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
           <p id="usage" x-show="history.length === 0" class="text-gray-300">
-            Start chatting with the AI by typing a prompt in the input field below and pressing Enter.
+            Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
             For models that support images, you can upload an image by clicking the paperclip
-            <i class="fa-solid fa-paperclip"></i> icon.
+            <i class="fa-solid fa-paperclip"></i> icon. <br>
             For models that support audio, you can upload an audio file by clicking the microphone
-            <i class="fa-solid fa-microphone"></i> icon.
+            <i class="fa-solid fa-microphone"></i> icon. <br>
+            To send a text, markdown or PDF file, click the file
+            <i class="fa-solid fa-file"></i> icon.
           </p>
           <div id="messages" class="max-w-3xl mx-auto">
             <template x-for="message in history">
@@ -298,6 +305,12 @@ SOFTWARE.
                   class="fa-solid fa-microphone text-gray-400 absolute right-20 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
                   title="Attach an audio file"
                 ></button>
+                <button
+                  type="button"
+                  onclick="document.getElementById('input_file').click()"
+                  class="fa-solid fa-file text-gray-400 absolute right-28 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  title="Upload text, markdown or PDF file"
+                ></button>
                 
                 <!-- Send button and loader in the same position -->
                 <div class="absolute right-3 top-4">
@@ -332,6 +345,13 @@ SOFTWARE.
               id="input_audio"
               type="file"
               accept="audio/*"
+              style="display: none;"
+              @change="fileName = $event.target.files[0].name"
+            />
+            <input
+              id="input_file"
+              type="file"
+              accept=".txt,.md,.pdf"
               style="display: none;"
               @change="fileName = $event.target.files[0].name"
             />
