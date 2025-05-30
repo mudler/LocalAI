@@ -48,10 +48,10 @@ function submitSystemPrompt(event) {
   document.getElementById("systemPrompt").blur();
 }
 
-var image = "";
-var audio = "";
-var fileContent = "";
-var currentFileName = "";
+var images = [];
+var audios = [];
+var fileContents = [];
+var currentFileNames = [];
 
 async function extractTextFromPDF(pdfData) {
   try {
@@ -73,32 +73,34 @@ async function extractTextFromPDF(pdfData) {
 }
 
 function readInputFile() {
-  if (!this.files || !this.files[0]) return;
+  if (!this.files || !this.files.length) return;
 
-  const file = this.files[0];
-  const FR = new FileReader();
-  currentFileName = file.name;
-  const fileExtension = file.name.split('.').pop().toLowerCase();
-  
-  FR.addEventListener("load", async function(evt) {
-    if (fileExtension === 'pdf') {
-      try {
-        fileContent = await extractTextFromPDF(evt.target.result);
-      } catch (error) {
-        console.error('Error processing PDF:', error);
-        fileContent = "Error processing PDF file";
+  Array.from(this.files).forEach(file => {
+    const FR = new FileReader();
+    currentFileNames.push(file.name);
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    FR.addEventListener("load", async function(evt) {
+      if (fileExtension === 'pdf') {
+        try {
+          const content = await extractTextFromPDF(evt.target.result);
+          fileContents.push({ name: file.name, content: content });
+        } catch (error) {
+          console.error('Error processing PDF:', error);
+          fileContents.push({ name: file.name, content: "Error processing PDF file" });
+        }
+      } else {
+        // For text and markdown files
+        fileContents.push({ name: file.name, content: evt.target.result });
       }
+    });
+
+    if (fileExtension === 'pdf') {
+      FR.readAsArrayBuffer(file);
     } else {
-      // For text and markdown files
-      fileContent = evt.target.result;
+      FR.readAsText(file);
     }
   });
-
-  if (fileExtension === 'pdf') {
-    FR.readAsArrayBuffer(file);
-  } else {
-    FR.readAsText(file);
-  }
 }
 
 function submitPrompt(event) {
@@ -107,19 +109,25 @@ function submitPrompt(event) {
   const input = document.getElementById("input").value;
   let fullInput = input;
   
-  // If there's file content, append it to the input for the LLM
-  if (fileContent) {
-    fullInput += "\n\nFile content:\n" + fileContent;
+  // If there are file contents, append them to the input for the LLM
+  if (fileContents.length > 0) {
+    fullInput += "\n\nFile contents:\n";
+    fileContents.forEach(file => {
+      fullInput += `\n--- ${file.name} ---\n${file.content}\n`;
+    });
   }
   
-  // Show file icon in chat if there's a file
+  // Show file icons in chat if there are files
   let displayContent = input;
-  if (currentFileName) {
-    displayContent += `\n\n<i class="fa-solid fa-file"></i> Attached file: ${currentFileName}`;
+  if (currentFileNames.length > 0) {
+    displayContent += "\n\n";
+    currentFileNames.forEach(fileName => {
+      displayContent += `<i class="fa-solid fa-file"></i> Attached file: ${fileName}\n`;
+    });
   }
   
-  // Add the message to the chat UI with just the icon
-  Alpine.store("chat").add("user", displayContent, image, audio);
+  // Add the message to the chat UI with just the icons
+  Alpine.store("chat").add("user", displayContent, images, audios);
   
   // Update the last message in the store with the full content
   const history = Alpine.store("chat").history;
@@ -132,33 +140,37 @@ function submitPrompt(event) {
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
   promptGPT(systemPrompt, fullInput);
   
-  // Reset file content and name after sending
-  fileContent = "";
-  currentFileName = "";
+  // Reset file contents and names after sending
+  fileContents = [];
+  currentFileNames = [];
 }
 
 function readInputImage() {
-  if (!this.files || !this.files[0]) return;
+  if (!this.files || !this.files.length) return;
 
-  const FR = new FileReader();
+  Array.from(this.files).forEach(file => {
+    const FR = new FileReader();
 
-  FR.addEventListener("load", function(evt) {
-    image = evt.target.result;
+    FR.addEventListener("load", function(evt) {
+      images.push(evt.target.result);
+    });
+
+    FR.readAsDataURL(file);
   });
-
-  FR.readAsDataURL(this.files[0]);
 }
 
 function readInputAudio() {
-  if (!this.files || !this.files[0]) return;
+  if (!this.files || !this.files.length) return;
 
-  const FR = new FileReader();
+  Array.from(this.files).forEach(file => {
+    const FR = new FileReader();
 
-  FR.addEventListener("load", function(evt) {
-    audio = evt.target.result;
+    FR.addEventListener("load", function(evt) {
+      audios.push(evt.target.result);
+    });
+
+    FR.readAsDataURL(file);
   });
-
-  FR.readAsDataURL(this.files[0]);
 }
 
 async function promptGPT(systemPrompt, input) {
@@ -177,7 +189,7 @@ async function promptGPT(systemPrompt, input) {
 
   // loop all messages, and check if there are images or audios. If there are, we need to change the content field
   messages.forEach((message) => {
-    if (message.image || message.audio) {
+    if ((message.image && message.image.length > 0) || (message.audio && message.audio.length > 0)) {
       // The content field now becomes an array
       message.content = [
         {
@@ -186,37 +198,42 @@ async function promptGPT(systemPrompt, input) {
         }
       ]
       
-      if (message.image) {
-        message.content.push(
-          {
-            "type": "image_url",
-            "image_url": {
-              "url": message.image,
+      if (message.image && message.image.length > 0) {
+        message.image.forEach(img => {
+          message.content.push(
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": img,
+              }
             }
-          }
-        );
+          );
+        });
         delete message.image;
       }
 
-      if (message.audio) {
-        message.content.push(
-          {
-            "type": "audio_url",
-            "audio_url": {
-              "url": message.audio,
+      if (message.audio && message.audio.length > 0) {
+        message.audio.forEach(aud => {
+          message.content.push(
+            {
+              "type": "audio_url",
+              "audio_url": {
+                "url": aud,
+              }
             }
-          }
-        );
+          );
+        });
         delete message.audio;
       }
     }
   });
 
   // reset the form and the files
-  image = "";
-  audio = "";
+  images = [];
+  audios = [];
   document.getElementById("input_image").value = null;
   document.getElementById("input_audio").value = null;
+  document.getElementById("input_file").value = null;
   document.getElementById("fileName").innerHTML = "";
 
   // Source: https://stackoverflow.com/a/75751803/11386095

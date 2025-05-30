@@ -221,12 +221,11 @@ SOFTWARE.
         <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
           <p id="usage" x-show="history.length === 0" class="text-gray-300">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
-            For models that support images, you can upload an image by clicking the paperclip
-            <i class="fa-solid fa-paperclip"></i> icon. <br>
-            For models that support audio, you can upload an audio file by clicking the microphone
-            <i class="fa-solid fa-microphone"></i> icon. <br>
-            To send a text, markdown or PDF file, click the file
-            <i class="fa-solid fa-file"></i> icon.
+            <ul class="list-disc list-inside">
+              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image"></i> icon.</li>
+              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone"></i> icon.</li>
+              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file"></i> icon.</li>
+            </ul>
           </p>
           <div id="messages" class="max-w-3xl mx-auto">
             <template x-for="message in history">
@@ -296,8 +295,8 @@ SOFTWARE.
                 <button
                   type="button"
                   onclick="document.getElementById('input_image').click()"
-                  class="fa-solid fa-paperclip text-gray-400 absolute right-12 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
-                  title="Attach an image"
+                  class="fa-solid fa-image text-gray-400 absolute right-12 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  title="Attach images"
                 ></button>
                 <button
                   type="button"
@@ -338,22 +337,26 @@ SOFTWARE.
             <input
               id="input_image"
               type="file"
+              multiple
+              accept="image/*"
               style="display: none;"
-              @change="fileName = $event.target.files[0].name"
+              @change="fileName = $event.target.files.length + ' image(s) selected'"
             />
             <input
               id="input_audio"
               type="file"
+              multiple
               accept="audio/*"
               style="display: none;"
-              @change="fileName = $event.target.files[0].name"
+              @change="fileName = $event.target.files.length + ' audio file(s) selected'"
             />
             <input
               id="input_file"
               type="file"
+              multiple
               accept=".txt,.md,.pdf"
               style="display: none;"
-              @change="fileName = $event.target.files[0].name"
+              @change="fileName = $event.target.files.length + ' file(s) selected'"
             />
           </div>
           </form>
