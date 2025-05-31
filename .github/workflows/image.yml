@@ -49,8 +49,8 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             aio: "-aio-gpu-hipblas"
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
+            grpc-base-image: "ubuntu:24.04"
             latest-image: 'latest-gpu-hipblas-extras'
             latest-image-aio: 'latest-aio-gpu-hipblas'
             runs-on: 'arc-runner-set'
@@ -61,8 +61,8 @@ jobs:
             tag-suffix: '-hipblas'
             ffmpeg: 'true'
             image-type: 'core'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
+            grpc-base-image: "ubuntu:24.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
             latest-image: 'latest-gpu-hipblas'
@@ -104,7 +104,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             aio: "-aio-gpu-nvidia-cuda-11"
             latest-image: 'latest-gpu-nvidia-cuda-11-extras'
             latest-image-aio: 'latest-aio-gpu-nvidia-cuda-11'
@@ -118,7 +118,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             aio: "-aio-gpu-nvidia-cuda-12"
             latest-image: 'latest-gpu-nvidia-cuda-12-extras'
             latest-image-aio: 'latest-aio-gpu-nvidia-cuda-12'
@@ -127,7 +127,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-sycl-f16-extras'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -140,7 +140,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-sycl-f32-extras'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -154,7 +154,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-sycl-f16'
             ffmpeg: 'true'
             image-type: 'core'
@@ -165,7 +165,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-sycl-f32'
             ffmpeg: 'true'
             image-type: 'core'
@@ -207,7 +207,7 @@ jobs:
             tag-suffix: ''
             ffmpeg: 'true'
             image-type: 'core'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             runs-on: 'arc-runner-set'
             aio: "-aio-cpu"
             latest-image: 'latest-cpu'
@@ -223,7 +223,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
             latest-image: 'latest-gpu-nvidia-cuda-12'
@@ -236,7 +236,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             latest-image: 'latest-gpu-nvidia-cuda-12'
@@ -247,7 +247,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             latest-image: 'latest-gpu-vulkan'

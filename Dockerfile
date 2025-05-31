@@ -1,5 +1,5 @@
 ARG IMAGE_TYPE=extras
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=ubuntu:24.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
 
@@ -29,7 +29,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install CMake (the version in 22.04 is too old)
+# Install CMake (the version in 24.04 is too old)
 RUN <<EOT bash
     if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
@@ -96,11 +96,12 @@ RUN apt-get update && \
         python3-dev llvm \
         python3-venv && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
+    rm -rf /var/lib/apt/lists/* 
+    # && \
+   # pip install --upgrade pip --break-system-packages
 
-# Install grpcio-tools (the version in 22.04 is too old)
-RUN pip install --user grpcio-tools
+# Install grpcio-tools (the version in 24.04 is too old)
+RUN pip install --user grpcio-tools --break-system-packages
 
 ###################################
 ###################################
@@ -216,7 +217,7 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install CMake (the version in 22.04 is too old)
+# Install CMake (the version in 24.04 is too old)
 RUN <<EOT bash
     if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
@@ -266,7 +267,7 @@ RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 WORKDIR /build
 
 
-# We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
+# We need protoc installed, and the version in 24.04 is too old.  We will create one as part installing the GRPC build below
 # but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
 # here so that we can generate the grpc code for the stablediffusion build
 RUN <<EOT bash
