@@ -312,7 +312,7 @@ func mergeOpenAIRequestAndBackendConfig(config *config.BackendConfig, input *sch
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
 					if err != nil {
-						log.Error().Msgf("Failed encoding image: %s", err)
+						log.Error().Msgf("Failed encoding audio: %s", err)
 						continue CONTENT
 					}
 					input.Messages[i].StringAudios = append(input.Messages[i].StringAudios, base64) // TODO: make sure that we only return base64 stuff
