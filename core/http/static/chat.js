@@ -48,49 +48,133 @@ function submitSystemPrompt(event) {
   document.getElementById("systemPrompt").blur();
 }
 
-var image = "";
-var audio = "";
+var images = [];
+var audios = [];
+var fileContents = [];
+var currentFileNames = [];
+
+async function extractTextFromPDF(pdfData) {
+  try {
+    const pdf = await pdfjsLib.getDocument({ data: pdfData }).promise;
+    let fullText = '';
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n';
+    }
+    
+    return fullText;
+  } catch (error) {
+    console.error('Error extracting text from PDF:', error);
+    throw error;
+  }
+}
+
+function readInputFile() {
+  if (!this.files || !this.files.length) return;
+
+  Array.from(this.files).forEach(file => {
+    const FR = new FileReader();
+    currentFileNames.push(file.name);
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    
+    FR.addEventListener("load", async function(evt) {
+      if (fileExtension === 'pdf') {
+        try {
+          const content = await extractTextFromPDF(evt.target.result);
+          fileContents.push({ name: file.name, content: content });
+        } catch (error) {
+          console.error('Error processing PDF:', error);
+          fileContents.push({ name: file.name, content: "Error processing PDF file" });
+        }
+      } else {
+        // For text and markdown files
+        fileContents.push({ name: file.name, content: evt.target.result });
+      }
+    });
+
+    if (fileExtension === 'pdf') {
+      FR.readAsArrayBuffer(file);
+    } else {
+      FR.readAsText(file);
+    }
+  });
+}
 
 function submitPrompt(event) {
   event.preventDefault();
 
   const input = document.getElementById("input").value;
-  Alpine.store("chat").add("user", input, image, audio);
+  let fullInput = input;
+  
+  // If there are file contents, append them to the input for the LLM
+  if (fileContents.length > 0) {
+    fullInput += "\n\nFile contents:\n";
+    fileContents.forEach(file => {
+      fullInput += `\n--- ${file.name} ---\n${file.content}\n`;
+    });
+  }
+  
+  // Show file icons in chat if there are files
+  let displayContent = input;
+  if (currentFileNames.length > 0) {
+    displayContent += "\n\n";
+    currentFileNames.forEach(fileName => {
+      displayContent += `<i class="fa-solid fa-file"></i> Attached file: ${fileName}\n`;
+    });
+  }
+  
+  // Add the message to the chat UI with just the icons
+  Alpine.store("chat").add("user", displayContent, images, audios);
+  
+  // Update the last message in the store with the full content
+  const history = Alpine.store("chat").history;
+  if (history.length > 0) {
+    history[history.length - 1].content = fullInput;
+  }
+  
   document.getElementById("input").value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
-  promptGPT(systemPrompt, input);
+  promptGPT(systemPrompt, fullInput);
+  
+  // Reset file contents and names after sending
+  fileContents = [];
+  currentFileNames = [];
 }
 
 function readInputImage() {
-  if (!this.files || !this.files[0]) return;
+  if (!this.files || !this.files.length) return;
 
-  const FR = new FileReader();
+  Array.from(this.files).forEach(file => {
+    const FR = new FileReader();
 
-  FR.addEventListener("load", function(evt) {
-    image = evt.target.result;
+    FR.addEventListener("load", function(evt) {
+      images.push(evt.target.result);
+    });
+
+    FR.readAsDataURL(file);
   });
-
-  FR.readAsDataURL(this.files[0]);
 }
 
 function readInputAudio() {
-  if (!this.files || !this.files[0]) return;
+  if (!this.files || !this.files.length) return;
 
-  const FR = new FileReader();
+  Array.from(this.files).forEach(file => {
+    const FR = new FileReader();
 
-  FR.addEventListener("load", function(evt) {
-    audio = evt.target.result;
+    FR.addEventListener("load", function(evt) {
+      audios.push(evt.target.result);
+    });
+
+    FR.readAsDataURL(file);
   });
-
-  FR.readAsDataURL(this.files[0]);
 }
 
 async function promptGPT(systemPrompt, input) {
   const model = document.getElementById("chat-model").value;
-  // Set class "loader" to the element with "loader" id
-  //document.getElementById("loader").classList.add("loader");
-  // Make the "loader" visible
   toggleLoader(true);
 
   messages = Alpine.store("chat").messages();
@@ -105,7 +189,7 @@ async function promptGPT(systemPrompt, input) {
 
   // loop all messages, and check if there are images or audios. If there are, we need to change the content field
   messages.forEach((message) => {
-    if (message.image || message.audio) {
+    if ((message.image && message.image.length > 0) || (message.audio && message.audio.length > 0)) {
       // The content field now becomes an array
       message.content = [
         {
@@ -114,37 +198,42 @@ async function promptGPT(systemPrompt, input) {
         }
       ]
       
-      if (message.image) {
-        message.content.push(
-          {
-            "type": "image_url",
-            "image_url": {
-              "url": message.image,
+      if (message.image && message.image.length > 0) {
+        message.image.forEach(img => {
+          message.content.push(
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": img,
+              }
             }
-          }
-        );
+          );
+        });
         delete message.image;
       }
 
-      if (message.audio) {
-        message.content.push(
-          {
-            "type": "audio_url",
-            "audio_url": {
-              "url": message.audio,
+      if (message.audio && message.audio.length > 0) {
+        message.audio.forEach(aud => {
+          message.content.push(
+            {
+              "type": "audio_url",
+              "audio_url": {
+                "url": aud,
+              }
             }
-          }
-        );
+          );
+        });
         delete message.audio;
       }
     }
   });
 
   // reset the form and the files
-  image = "";
-  audio = "";
+  images = [];
+  audios = [];
   document.getElementById("input_image").value = null;
   document.getElementById("input_audio").value = null;
+  document.getElementById("input_file").value = null;
   document.getElementById("fileName").innerHTML = "";
 
   // Source: https://stackoverflow.com/a/75751803/11386095
@@ -261,6 +350,7 @@ document.getElementById("prompt").addEventListener("submit", submitPrompt);
 document.getElementById("input").focus();
 document.getElementById("input_image").addEventListener("change", readInputImage);
 document.getElementById("input_audio").addEventListener("change", readInputAudio);
+document.getElementById("input_file").addEventListener("change", readInputFile);
 
 storesystemPrompt = localStorage.getItem("system_prompt");
 if (storesystemPrompt) {
@@ -273,4 +363,68 @@ marked.setOptions({
   highlight: function (code) {
     return hljs.highlightAuto(code).value;
   },
+});
+
+document.addEventListener("alpine:init", () => {
+  Alpine.store("chat", {
+    history: [],
+    languages: [undefined],
+    systemPrompt: "",
+    clear() {
+      this.history.length = 0;
+    },
+    add(role, content, image, audio) {
+      const N = this.history.length - 1;
+      if (this.history.length && this.history[N].role === role) {
+        this.history[N].content += content;
+        this.history[N].html = DOMPurify.sanitize(
+          marked.parse(this.history[N].content)
+        );
+        // Merge new images and audio with existing ones
+        if (image && image.length > 0) {
+          this.history[N].image = [...(this.history[N].image || []), ...image];
+        }
+        if (audio && audio.length > 0) {
+          this.history[N].audio = [...(this.history[N].audio || []), ...audio];
+        }
+      } else {
+        let c = "";
+        const lines = content.split("\n");
+        lines.forEach((line) => {
+          c += DOMPurify.sanitize(marked.parse(line));
+        });
+        this.history.push({ 
+          role, 
+          content, 
+          html: c, 
+          image: image || [], 
+          audio: audio || [] 
+        });
+      }
+      document.getElementById('messages').scrollIntoView(false);
+      const parser = new DOMParser();
+      const html = parser.parseFromString(
+        this.history[this.history.length - 1].html,
+        "text/html"
+      );
+      const code = html.querySelectorAll("pre code");
+      if (!code.length) return;
+      code.forEach((el) => {
+        const language = el.className.split("language-")[1];
+        if (this.languages.includes(language)) return;
+        const script = document.createElement("script");
+        script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+        document.head.appendChild(script);
+        this.languages.push(language);
+      });
+    },
+    messages() {
+      return this.history.map((message) => ({
+        role: message.role,
+        content: message.content,
+        image: message.image,
+        audio: message.audio,
+      }));
+    },
+  });
 });

@@ -29,6 +29,11 @@ SOFTWARE.
 <html lang="en">
   {{template "views/partials/head" .}}
   <script defer src="static/chat.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+    // Initialize PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  </script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
   <body class="bg-slate-900 text-gray-100 flex flex-col h-screen" x-data="{ sidebarOpen: true }">
@@ -215,11 +220,12 @@ SOFTWARE.
         <!-- Chat messages area -->
         <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
           <p id="usage" x-show="history.length === 0" class="text-gray-300">
-            Start chatting with the AI by typing a prompt in the input field below and pressing Enter.
-            For models that support images, you can upload an image by clicking the paperclip
-            <i class="fa-solid fa-paperclip"></i> icon.
-            For models that support audio, you can upload an audio file by clicking the microphone
-            <i class="fa-solid fa-microphone"></i> icon.
+            Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
+            <ul class="list-disc list-inside">
+              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image"></i> icon.</li>
+              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone"></i> icon.</li>
+              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file"></i> icon.</li>
+            </ul>
           </p>
           <div id="messages" class="max-w-3xl mx-auto">
             <template x-for="message in history">
@@ -231,8 +237,22 @@ SOFTWARE.
                     <div class="flex flex-col flex-1 items-end">
                       <span class="text-xs font-semibold text-gray-400">You</span>
                       <div class="p-2 flex-1 rounded bg-gray-700 text-white" x-html="message.html"></div>
-                      <template x-if="message.image">
-                        <img :src="message.image" alt="Image" class="rounded-lg mt-2 max-w-xs">
+                      <template x-if="message.image && message.image.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(img, index) in message.image" :key="index">
+                            <img :src="img" :alt="'Image ' + (index + 1)" class="rounded-lg max-w-xs">
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="message.audio && message.audio.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(audio, index) in message.audio" :key="index">
+                            <audio controls class="w-full">
+                              <source :src="audio" type="audio/*">
+                              Your browser does not support the audio element.
+                            </audio>
+                          </template>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -250,8 +270,22 @@ SOFTWARE.
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
-                      <template x-if="message.image">
-                        <img :src="message.image" alt="Image" class="rounded-lg mt-2 max-w-xs">
+                      <template x-if="message.image && message.image.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(img, index) in message.image" :key="index">
+                            <img :src="img" :alt="'Image ' + (index + 1)" class="rounded-lg max-w-xs">
+                          </template>
+                        </div>
+                      </template>
+                      <template x-if="message.audio && message.audio.length > 0">
+                        <div class="mt-2 space-y-2">
+                          <template x-for="(audio, index) in message.audio" :key="index">
+                            <audio controls class="w-full">
+                              <source :src="audio" type="audio/*">
+                              Your browser does not support the audio element.
+                            </audio>
+                          </template>
+                        </div>
                       </template>
                     </div>
                   </div>
@@ -289,14 +323,20 @@ SOFTWARE.
                 <button
                   type="button"
                   onclick="document.getElementById('input_image').click()"
-                  class="fa-solid fa-paperclip text-gray-400 absolute right-12 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
-                  title="Attach an image"
+                  class="fa-solid fa-image text-gray-400 absolute right-12 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  title="Attach images"
                 ></button>
                 <button
                   type="button"
                   onclick="document.getElementById('input_audio').click()"
                   class="fa-solid fa-microphone text-gray-400 absolute right-20 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
                   title="Attach an audio file"
+                ></button>
+                <button
+                  type="button"
+                  onclick="document.getElementById('input_file').click()"
+                  class="fa-solid fa-file text-gray-400 absolute right-28 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  title="Upload text, markdown or PDF file"
                 ></button>
                 
                 <!-- Send button and loader in the same position -->
@@ -325,15 +365,26 @@ SOFTWARE.
             <input
               id="input_image"
               type="file"
+              multiple
+              accept="image/*"
               style="display: none;"
-              @change="fileName = $event.target.files[0].name"
+              @change="fileName = $event.target.files.length + ' image(s) selected'"
             />
             <input
               id="input_audio"
               type="file"
+              multiple
               accept="audio/*"
               style="display: none;"
-              @change="fileName = $event.target.files[0].name"
+              @change="fileName = $event.target.files.length + ' audio file(s) selected'"
+            />
+            <input
+              id="input_file"
+              type="file"
+              multiple
+              accept=".txt,.md,.pdf"
+              style="display: none;"
+              @change="fileName = $event.target.files.length + ' file(s) selected'"
             />
           </div>
           </form>
