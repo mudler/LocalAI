@@ -11,9 +11,9 @@ set -e
 
 cp -r CMakeLists.txt llama.cpp/tools/grpc-server/
 cp -r grpc-server.cpp llama.cpp/tools/grpc-server/
-cp -rfv llama.cpp/common/json.hpp llama.cpp/tools/grpc-server/
+cp -rfv llama.cpp/vendor/nlohmann/json.hpp llama.cpp/tools/grpc-server/
 cp -rfv llama.cpp/tools/server/utils.hpp llama.cpp/tools/grpc-server/
-cp -rfv llama.cpp/tools/server/httplib.h llama.cpp/tools/grpc-server/
+cp -rfv llama.cpp/vendor/cpp-httplib/httplib.h llama.cpp/tools/grpc-server/
 
 set +e
 if grep -q "grpc-server" llama.cpp/tools/CMakeLists.txt; then
