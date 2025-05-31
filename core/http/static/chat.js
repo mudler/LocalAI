@@ -280,6 +280,9 @@ async function promptGPT(systemPrompt, input) {
 
   let buffer = "";
   let contentBuffer = [];
+  let thinkingContent = "";
+  let isThinking = false;
+  let lastThinkingMessageIndex = -1;
 
   try {
     while (true) {
@@ -303,7 +306,44 @@ async function promptGPT(systemPrompt, input) {
             const token = jsonData.choices[0].delta.content;
 
             if (token) {
-              contentBuffer.push(token);
+              // Check for thinking tags
+              if (token.includes("<thinking>") || token.includes("<think>")) {
+                isThinking = true;
+                thinkingContent = "";
+                lastThinkingMessageIndex = -1;
+                return;
+              }
+              if (token.includes("</thinking>") || token.includes("</think>")) {
+                isThinking = false;
+                if (thinkingContent.trim()) {
+                  // Only add the final thinking message if we don't already have one
+                  if (lastThinkingMessageIndex === -1) {
+                    Alpine.store("chat").add("thinking", thinkingContent);
+                  }
+                }
+                return;
+              }
+
+              // Handle content based on thinking state
+              if (isThinking) {
+                thinkingContent += token;
+                // Update the last thinking message or create a new one
+                if (lastThinkingMessageIndex === -1) {
+                  // Create new thinking message
+                  Alpine.store("chat").add("thinking", thinkingContent);
+                  lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                } else {
+                  // Update existing thinking message
+                  const chatStore = Alpine.store("chat");
+                  const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                  if (lastMessage && lastMessage.role === "thinking") {
+                    lastMessage.content = thinkingContent;
+                    lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                  }
+                }
+              } else {
+                contentBuffer.push(token);
+              }
             }
           } catch (error) {
             console.error("Failed to parse line:", line, error);
@@ -321,6 +361,9 @@ async function promptGPT(systemPrompt, input) {
     // Final content flush if any data remains
     if (contentBuffer.length > 0) {
       addToChat(contentBuffer.join(""));
+    }
+    if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+      Alpine.store("chat").add("thinking", thinkingContent);
     }
 
     // Highlight all code blocks once at the end
@@ -375,7 +418,17 @@ document.addEventListener("alpine:init", () => {
     },
     add(role, content, image, audio) {
       const N = this.history.length - 1;
-      if (this.history.length && this.history[N].role === role) {
+      // For thinking messages, always create a new message
+      if (role === "thinking") {
+        let c = "";
+        const lines = content.split("\n");
+        lines.forEach((line) => {
+          c += DOMPurify.sanitize(marked.parse(line));
+        });
+        this.history.push({ role, content, html: c, image, audio });
+      }
+      // For other messages, merge if same role
+      else if (this.history.length && this.history[N].role === role) {
         this.history[N].content += content;
         this.history[N].html = DOMPurify.sanitize(
           marked.parse(this.history[N].content)
