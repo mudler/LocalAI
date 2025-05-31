@@ -150,6 +150,20 @@ jobs:
           cache: false
       - name: Dependencies
         run: |
+          ## XXX: This is a workaround to fix the build failure due to the network issues
+          # Configure apt to use French mirrors and add retry logic
+          echo 'Acquire::Retries "3";' | sudo tee /etc/apt/apt.conf.d/80-retries
+          echo 'Acquire::http::Timeout "120";' | sudo tee -a /etc/apt/apt.conf.d/80-retries
+          echo 'Acquire::https::Timeout "120";' | sudo tee -a /etc/apt/apt.conf.d/80-retries
+          echo 'Acquire::ftp::Timeout "120";' | sudo tee -a /etc/apt/apt.conf.d/80-retries
+          
+          # Add French mirrors
+          echo 'deb http://fr.archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse' | sudo tee /etc/apt/sources.list
+          echo 'deb http://fr.archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse' | sudo tee -a /etc/apt/sources.list
+          echo 'deb http://fr.archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse' | sudo tee -a /etc/apt/sources.list
+          echo 'deb http://fr.archive.ubuntu.com/ubuntu/ jammy-security main restricted universe multiverse' | sudo tee -a /etc/apt/sources.list
+          ## END of workaround
+          
           sudo apt-get update
           sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk cmake libgmock-dev
           make install-go-tools
