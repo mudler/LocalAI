@@ -1,4 +1,4 @@
-grpcio==1.72.0
+grpcio==1.72.1
 protobuf
 certifi
 setuptools
