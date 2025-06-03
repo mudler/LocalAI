@@ -1,20 +1,3 @@
-
-## XXX: In some versions of CMake clip wasn't being built before llama.
-## This is an hack for now, but it should be fixed in the future.
-# set(TARGET myclip)
-# add_library(${TARGET} clip.cpp clip.h clip-impl.h llava.cpp llava.h)
-# install(TARGETS ${TARGET} LIBRARY)
-# target_include_directories(myclip PUBLIC .)
-# target_include_directories(myclip PUBLIC ../..)
-# target_include_directories(myclip PUBLIC ../../common)
-# target_link_libraries(${TARGET} PRIVATE common ggml llama ${CMAKE_THREAD_LIBS_INIT})
-# target_compile_features(${TARGET} PRIVATE cxx_std_11)
-# if (NOT MSVC)
-#     target_compile_options(${TARGET} PRIVATE -Wno-cast-qual) # stb_image.h
-# endif()
-# END CLIP hack
-
-
 set(TARGET grpc-server)
 set(CMAKE_CXX_STANDARD 17)
 cmake_minimum_required(VERSION 3.15)
@@ -79,7 +62,7 @@ add_executable(${TARGET} grpc-server.cpp utils.hpp json.hpp httplib.h)
 target_include_directories(${TARGET} PRIVATE ../llava)
 target_include_directories(${TARGET} PRIVATE ${CMAKE_SOURCE_DIR})
 
-target_link_libraries(${TARGET} PRIVATE common llama mtmd mtmd_helper ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
+target_link_libraries(${TARGET} PRIVATE common llama mtmd ${CMAKE_THREAD_LIBS_INIT} absl::flags hw_grpc_proto
   absl::flags_parse
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}
