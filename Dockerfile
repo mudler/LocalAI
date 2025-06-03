@@ -435,7 +435,7 @@ RUN if [[ ( "${EXTRA_BACKENDS}" =~ "coqui" || -z "${EXTRA_BACKENDS}" ) && "$IMAG
     if [[ ( "${EXTRA_BACKENDS}" =~ "diffusers" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" ]]; then \
         make -C backend/python/diffusers \
     ; fi && \
-    if [[ ( "${EXTRA_BACKENDS}" =~ "chatterbox" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" && "${BUILD_TYPE}" = "cublas" ]]; then \
+    if [[ ( "${EXTRA_BACKENDS}" =~ "chatterbox" || -z "${EXTRA_BACKENDS}" ) && "$IMAGE_TYPE" == "extras" && "${BUILD_TYPE}" = "cublas" && "${CUDA_MAJOR_VERSION}" = "12" ]]; then \
         make -C backend/python/chatterbox \
     ; fi
 
