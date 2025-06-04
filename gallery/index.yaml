@@ -954,6 +954,21 @@
     - filename: mrm8488_Qwen3-14B-ft-limo-Q4_K_M.gguf
       sha256: 19d6dfd4a470cb293ad5e96bd94689fa2d12d1024eac548479c2e64f967d5f00
       uri: huggingface://bartowski/mrm8488_Qwen3-14B-ft-limo-GGUF/mrm8488_Qwen3-14B-ft-limo-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "arcee-ai_homunculus"
+  icon: https://huggingface.co/arcee-ai/Homunculus/resolve/main/logo.jpg
+  urls:
+    - https://huggingface.co/arcee-ai/Homunculus
+    - https://huggingface.co/bartowski/arcee-ai_Homunculus-GGUF
+  description: |
+      Homunculus is a 12 billion-parameter instruction model distilled from Qwen3-235B onto the Mistral-Nemo backbone. It was purpose-built to preserve Qwen’s two-mode interaction style—/think (deliberate chain-of-thought) and /nothink (concise answers)—while running on a single consumer GPU.
+  overrides:
+    parameters:
+      model: arcee-ai_Homunculus-Q4_K_M.gguf
+  files:
+    - filename: arcee-ai_Homunculus-Q4_K_M.gguf
+      sha256: 243a41543cc239612465b0474afb782a5cde130d836b7cbd60d1120295269318
+      uri: huggingface://bartowski/arcee-ai_Homunculus-GGUF/arcee-ai_Homunculus-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
