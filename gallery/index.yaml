@@ -2880,6 +2880,28 @@
     - filename: TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
       sha256: f50be1eef41e0da2cb59e4b238f4f178ee1000833270b337f97f91572c31b752
       uri: huggingface://bartowski/TheDrummer_Valkyrie-49B-v1-GGUF/TheDrummer_Valkyrie-49B-v1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "e-n-v-y_legion-v2.1-llama-70b-elarablated-v0.8-hf"
+  urls:
+    - https://huggingface.co/e-n-v-y/Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf
+    - https://huggingface.co/bartowski/e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-GGUF
+  description: |
+    This checkpoint was finetuned with a process I'm calling "Elarablation" (a portamenteau of "Elara", which is a name that shows up in AI-generated writing and RP all the time) and "ablation". The idea is to reduce the amount of repetitiveness and "slop" that the model exhibits. In addition to significantly reducing the occurrence of the name "Elara", I've also reduced other very common names that pop up in certain situations. I've also specifically attacked two phrases, "voice barely above a whisper" and "eyes glinted with mischief", which come up a lot less often now. Finally, I've convinced it that it can put a f-cking period after the word "said" because a lot of slop-ish phrases tend to come after "said,".
+
+    You can check out some of the more technical details in the overview on my github repo, here:
+
+    https://github.com/envy-ai/elarablate
+
+    My current focus has been on some of the absolute worst offending phrases in AI creative writing, but I plan to go after RP slop as well. If you run into any issues with this model (going off the rails, repeating tokens, etc), go to the community tab and post the context and parameters in a comment so I can look into it. Also, if you have any "slop" pet peeves, post the context of those as well and I can try to reduce/eliminate them in the next version.
+
+    The settings I've tested with are temperature at 0.7 and all other filters completely neutral. Other settings may lead to better or worse results.
+  overrides:
+    parameters:
+      model: e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-Q4_K_M.gguf
+  files:
+    - filename: e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-Q4_K_M.gguf
+      sha256: 2d57b5b0788761f3adb54b60f0e3dcf43a7b2e5bd83c475c689f7f86e86bbc90
+      uri: huggingface://bartowski/e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-GGUF/e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
