@@ -1,4 +1,4 @@
 accelerate
-torch==2.4.1
+torch==2.7.0
 transformers
 bitsandbytes
