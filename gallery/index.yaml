@@ -10657,6 +10657,22 @@
     - filename: PKU-DS-LAB_FairyR1-32B-Q4_K_M.gguf
       sha256: bbfe6602b9d4f22da36090a4c77da0138c44daa4ffb01150d0370f6965503e65
       uri: huggingface://bartowski/PKU-DS-LAB_FairyR1-32B-GGUF/PKU-DS-LAB_FairyR1-32B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "nvidia_nemotron-research-reasoning-qwen-1.5b"
+  urls:
+    - https://huggingface.co/nvidia/Nemotron-Research-Reasoning-Qwen-1.5B
+    - https://huggingface.co/bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF
+  description: |
+    Nemotron-Research-Reasoning-Qwen-1.5B is the world’s leading 1.5B open-weight model for complex reasoning tasks such as mathematical problems, coding challenges, scientific questions, and logic puzzles. It is trained using the ProRL algorithm on a diverse and comprehensive set of datasets. Our model has achieved impressive results, outperforming Deepseek’s 1.5B model by a large margin on a broad range of tasks, including math, coding, and GPQA.
+
+    This model is for research and development only.
+  overrides:
+    parameters:
+      model: nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q4_K_M.gguf
+  files:
+    - filename: nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q4_K_M.gguf
+      sha256: 3685e223b41b39cef92aaa283d9cc943e27208eab942edfd1967059d6a98aa7a
+      uri: huggingface://bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
