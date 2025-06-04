@@ -10695,6 +10695,21 @@
     - filename: nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q4_K_M.gguf
       sha256: 3685e223b41b39cef92aaa283d9cc943e27208eab942edfd1967059d6a98aa7a
       uri: huggingface://bartowski/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-GGUF/nvidia_Nemotron-Research-Reasoning-Qwen-1.5B-Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "deepseek-ai_deepseek-r1-0528-qwen3-8b"
+  icon: https://github.com/deepseek-ai/DeepSeek-V2/blob/main/figures/logo.svg?raw=true
+  urls:
+    - https://huggingface.co/deepseek-ai/DeepSeek-R1-0528-Qwen3-8B
+    - https://huggingface.co/bartowski/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-GGUF
+  description: |
+    The DeepSeek R1 model has undergone a minor version upgrade, with the current version being DeepSeek-R1-0528. In the latest update, DeepSeek R1 has significantly improved its depth of reasoning and inference capabilities by leveraging increased computational resources and introducing algorithmic optimization mechanisms during post-training. The model has demonstrated outstanding performance across various benchmark evaluations, including mathematics, programming, and general logic. Its overall performance is now approaching that of leading models, such as O3 and Gemini 2.5 Pro.
+  overrides:
+    parameters:
+      model: deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf
+  files:
+    - filename: deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf
+      sha256: e0c2f118fd59f3a16f20d18b0e7f79e960c84bc8c66d94fd71a691e05151d54f
+      uri: huggingface://bartowski/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-GGUF/deepseek-ai_DeepSeek-R1-0528-Qwen3-8B-Q4_K_M.gguf
 - &qwen2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master" ## Start QWEN2
   name: "qwen2-7b-instruct"
