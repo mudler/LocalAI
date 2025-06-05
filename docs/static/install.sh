@@ -663,7 +663,7 @@ install_docker() {
 
     IMAGE_TAG=
     if [ "$USE_VULKAN" = true ]; then
-        IMAGE_TAG=${LOCALAI_VERSION}-gpu-vulkan
+        IMAGE_TAG=${LOCALAI_VERSION}-vulkan
 
         info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/build/models \
