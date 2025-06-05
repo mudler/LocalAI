@@ -4095,6 +4095,24 @@
     - filename: Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-Q4_K_M.gguf
       sha256: b9f01bead9e163db9351af036d8d63ef479d7d48a1bb44934ead732a180f371c
       uri: huggingface://bartowski/Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-GGUF/Menlo_ReZero-v0.1-llama-3.2-3b-it-grpo-250404-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "ultravox-v0_5-llama-3_2-1b"
+  urls:
+    - https://huggingface.co/fixie-ai/ultravox-v0_5-llama-3_2-1b
+    - https://huggingface.co/ggml-org/ultravox-v0_5-llama-3_2-1b-GGUF
+  description: |
+    Ultravox is a multimodal Speech LLM built around a pretrained Llama3.2-1B-Instruct and whisper-large-v3-turbo backbone.
+  overrides:
+    mmproj: mmproj-ultravox-v0_5-llama-3_2-1b-f16.gguf
+    parameters:
+      model: Llama-3.2-1B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-1B-Instruct-Q4_K_M.gguf
+      sha256: 6f85a640a97cf2bf5b8e764087b1e83da0fdb51d7c9fab7d0fece9385611df83
+      uri: huggingface://ggml-org/ultravox-v0_5-llama-3_2-1b-GGUF/Llama-3.2-1B-Instruct-Q4_K_M.gguf
+    - filename: mmproj-ultravox-v0_5-llama-3_2-1b-f16.gguf
+      sha256: b34dde1835752949d6b960528269af93c92fec91c61ea0534fcc73f96c1ed8b2
+      uri: https://huggingface.co/ggml-org/ultravox-v0_5-llama-3_2-1b-GGUF/resolve/main/mmproj-ultravox-v0_5-llama-3_2-1b-f16.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
