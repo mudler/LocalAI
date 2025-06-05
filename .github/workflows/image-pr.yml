@@ -44,7 +44,7 @@ jobs:
           #   ffmpeg: 'true'
           #   image-type: 'extras'
           #   runs-on: 'arc-runner-set'
-          #   base-image: "ubuntu:22.04"
+          #   base-image: "ubuntu:24.04"
           #   makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -55,7 +55,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'extras'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
@@ -63,15 +63,15 @@ jobs:
             tag-suffix: '-hipblas'
             ffmpeg: 'false'
             image-type: 'extras'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
+            grpc-base-image: "ubuntu:24.04"
             runs-on: 'arc-runner-set'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: 'sycl-f16-ffmpeg'
             ffmpeg: 'true'
             image-type: 'extras'
@@ -84,7 +84,7 @@ jobs:
             ffmpeg: 'true'
             image-type: 'core'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             makeflags: "--jobs=4 --output-sync=target"
   # core-image-build:
   #   uses: ./.github/workflows/image_build.yml
@@ -116,13 +116,13 @@ jobs:
           #   ffmpeg: 'true'
           #   image-type: 'core'
           #   runs-on: 'ubuntu-latest'
-          #   base-image: "ubuntu:22.04"
+          #   base-image: "ubuntu:24.04"
           #   makeflags: "--jobs=4 --output-sync=target"
           # - build-type: 'sycl_f16'
           #   platforms: 'linux/amd64'
           #   tag-latest: 'false'
           #   base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-          #   grpc-base-image: "ubuntu:22.04"
+          #   grpc-base-image: "ubuntu:24.04"
           #   tag-suffix: 'sycl-f16-ffmpeg-core'
           #   ffmpeg: 'true'
           #   image-type: 'core'
@@ -137,7 +137,7 @@ jobs:
           #   ffmpeg: 'true'
           #   image-type: 'core'
           #   runs-on: 'ubuntu-latest'
-          #   base-image: "ubuntu:22.04"
+          #   base-image: "ubuntu:24.04"
           #   makeflags: "--jobs=4 --output-sync=target"
           # - build-type: 'vulkan'
           #   platforms: 'linux/amd64'
@@ -146,5 +146,5 @@ jobs:
           #   ffmpeg: 'true'
           #   image-type: 'core'
           #   runs-on: 'ubuntu-latest'
-          #   base-image: "ubuntu:22.04"
+          #   base-image: "ubuntu:24.04"
           #   makeflags: "--jobs=4 --output-sync=target"
