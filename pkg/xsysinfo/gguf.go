@@ -1,8 +1,6 @@
 package xsysinfo
 
 import (
-	"errors"
-
 	gguf "github.com/gpustack/gguf-parser-go"
 )
 
@@ -18,28 +16,38 @@ type VRAMEstimate struct {
 func EstimateGGUFVRAMUsage(f *gguf.GGUFFile, availableVRAM uint64) (*VRAMEstimate, error) {
 	// Get model metadata
 	m := f.Metadata()
-	a := f.Architecture()
+
+	estimate := f.EstimateLLaMACppRun()
+
+	lmes := estimate.SummarizeItem(true, 0, 0)
+	estimatedVRAM := uint64(0)
+	availableLayers := lmes.OffloadLayers // TODO: check if we can just use OffloadLayers here
+
+	for _, vram := range lmes.VRAMs {
+		estimatedVRAM += uint64(vram.NonUMA)
+	}
 
 	// Calculate base model size
 	modelSize := uint64(m.Size)
 
-	if a.BlockCount == 0 {
-		return nil, errors.New("block count is 0")
+	if availableLayers == 0 {
+		availableLayers = 1
+	}
+
+	if estimatedVRAM == 0 {
+		estimatedVRAM = 1
 	}
 
 	// Estimate number of layers that can fit in VRAM
 	// Each layer typically requires about 1/32 of the model size
-	layerSize := modelSize / uint64(a.BlockCount)
-	estimatedLayers := int(availableVRAM / layerSize)
+	layerSize := estimatedVRAM / availableLayers
 
-	// If we can't fit even one layer, we need to do full offload
-	isFullOffload := estimatedLayers <= 0
-	if isFullOffload {
-		estimatedLayers = 0
+	estimatedLayers := int(availableVRAM / layerSize)
+	if availableVRAM > estimatedVRAM {
+		estimatedLayers = int(availableLayers)
 	}
 
 	// Calculate estimated VRAM usage
-	estimatedVRAM := uint64(estimatedLayers) * layerSize
 
 	return &VRAMEstimate{
 		TotalVRAM:       availableVRAM,
@@ -47,6 +55,6 @@ func EstimateGGUFVRAMUsage(f *gguf.GGUFFile, availableVRAM uint64) (*VRAMEstimat
 		ModelSize:       modelSize,
 		EstimatedLayers: estimatedLayers,
 		EstimatedVRAM:   estimatedVRAM,
-		IsFullOffload:   isFullOffload,
+		IsFullOffload:   availableVRAM > estimatedVRAM,
 	}, nil
 }
