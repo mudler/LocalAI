@@ -10069,6 +10069,30 @@
     - filename: nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-Q4_K_M.gguf
       sha256: 530f0e0ade58d22d4b24d9378cf8a87161d22f33cae8f2f65876f3a1555819e6
       uri: huggingface://bartowski/nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-GGUF/nvidia_Llama-3.1-Nemotron-Nano-4B-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "ultravox-v0_5-llama-3_1-8b"
+  urls:
+    - https://huggingface.co/fixie-ai/ultravox-v0_5-llama-3_1-8b
+    - https://huggingface.co/ggml-org/ultravox-v0_5-llama-3_1-8b-GGUF
+  description: |
+    Ultravox is a multimodal Speech LLM built around a pretrained Llama3.1-8B-Instruct and whisper-large-v3-turbo backbone.
+
+    See https://ultravox.ai for the GitHub repo and more information.
+
+    Ultravox is a multimodal model that can consume both speech and text as input (e.g., a text system prompt and voice user message). The input to the model is given as a text prompt with a special <|audio|> pseudo-token, and the model processor will replace this magic token with embeddings derived from the input audio. Using the merged embeddings as input, the model will then generate output text as usual.
+
+    In a future revision of Ultravox, we plan to expand the token vocabulary to support generation of semantic and acoustic audio tokens, which can then be fed to a vocoder to produce voice output. No preference tuning has been applied to this revision of the model.
+  overrides:
+    mmproj: mmproj-ultravox-v0_5-llama-3_1-8b-f16.gguf
+    parameters:
+      model: Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+      sha256: 7b064f5842bf9532c91456deda288a1b672397a54fa729aa665952863033557c
+      uri: huggingface://ggml-org/ultravox-v0_5-llama-3_1-8b-GGUF/Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf
+    - filename: mmproj-ultravox-v0_5-llama-3_1-8b-f16.gguf
+      sha256: e6395ed42124303eaa9fca934452aabce14c59d2a56fab2dda65b798442289ff
+      uri: https://huggingface.co/ggml-org/ultravox-v0_5-llama-3_1-8b-GGUF/resolve/main/mmproj-ultravox-v0_5-llama-3_1-8b-f16.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
