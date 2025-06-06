@@ -986,6 +986,29 @@
     - filename: Goekdeniz-Guelmez_Josiefied-Qwen3-14B-abliterated-v3-Q4_K_M.gguf
       sha256: 505c7911066931569a38ef6b073d09396f25ddd9d9bcedd2ad54d172326361bc
       uri: huggingface://bartowski/Goekdeniz-Guelmez_Josiefied-Qwen3-14B-abliterated-v3-GGUF/Goekdeniz-Guelmez_Josiefied-Qwen3-14B-abliterated-v3-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "nbeerbower_qwen3-gutenberg-encore-14b"
+  icon: https://huggingface.co/nbeerbower/Mistral-Nemo-Gutenberg-Encore-12B/resolve/main/encore_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Qwen3-Gutenberg-Encore-14B
+    - https://huggingface.co/bartowski/nbeerbower_Qwen3-Gutenberg-Encore-14B-GGUF
+  description: |
+    nbeerbower/Xiaolong-Qwen3-14B finetuned on:
+
+    jondurbin/gutenberg-dpo-v0.1
+    nbeerbower/gutenberg2-dpo
+    nbeerbower/gutenberg-moderne-dpo
+    nbeerbower/synthetic-fiction-dpo
+    nbeerbower/Arkhaios-DPO
+    nbeerbower/Purpura-DPO
+    nbeerbower/Schule-DPO
+  overrides:
+    parameters:
+      model: nbeerbower_Qwen3-Gutenberg-Encore-14B-Q4_K_M.gguf
+  files:
+    - filename: nbeerbower_Qwen3-Gutenberg-Encore-14B-Q4_K_M.gguf
+      sha256: 9c4c39a42431ceed3ccfab796fcab7385995e00a59a8a724c51769289c49a7b7
+      uri: huggingface://bartowski/nbeerbower_Qwen3-Gutenberg-Encore-14B-GGUF/nbeerbower_Qwen3-Gutenberg-Encore-14B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
