@@ -1009,6 +1009,21 @@
     - filename: nbeerbower_Qwen3-Gutenberg-Encore-14B-Q4_K_M.gguf
       sha256: 9c4c39a42431ceed3ccfab796fcab7385995e00a59a8a724c51769289c49a7b7
       uri: huggingface://bartowski/nbeerbower_Qwen3-Gutenberg-Encore-14B-GGUF/nbeerbower_Qwen3-Gutenberg-Encore-14B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "akhil-theerthala_kuvera-8b-v0.1.0"
+  urls:
+    - https://huggingface.co/Akhil-Theerthala/Kuvera-8B-v0.1.0
+    - https://huggingface.co/bartowski/Akhil-Theerthala_Kuvera-8B-v0.1.0-GGUF
+  description: |
+    This model is a fine-tuned version of Qwen/Qwen3-8B designed to answer personal finance queries. It has been trained on a specialized dataset of real Reddit queries with synthetically curated responses, focusing on understanding both the financial necessities and the psychological context of the user.
+    The model aims to provide empathetic and practical advice for a wide range of personal finance topics. It leverages a base model's strong language understanding and generation capabilities, further enhanced by targeted fine-tuning on domain-specific data. A key feature of this model is its training to consider the emotional and psychological state of the person asking the query, alongside the purely financial aspects.
+  overrides:
+    parameters:
+      model: Akhil-Theerthala_Kuvera-8B-v0.1.0-Q4_K_M.gguf
+  files:
+    - filename: Akhil-Theerthala_Kuvera-8B-v0.1.0-Q4_K_M.gguf
+      sha256: a4e5f379ad58b4225620b664f2c67470f40b43d49a6cf05c83d10ab34ddceb85
+      uri: huggingface://bartowski/Akhil-Theerthala_Kuvera-8B-v0.1.0-GGUF/Akhil-Theerthala_Kuvera-8B-v0.1.0-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
