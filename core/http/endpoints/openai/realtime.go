@@ -569,7 +569,7 @@ func updateTransSession(session *Session, update *types.ClientSession, cl *confi
 	if trUpd != nil && trUpd.Model != "" && trUpd.Model != trCur.Model {
 		pipeline := config.Pipeline {
 			VAD: "silero-vad",
-			Transcription: session.InputAudioTranscription.Model,
+			Transcription: trUpd.Model,
 		}
 
 		m, _, err := newTranscriptionOnlyModel(&pipeline, cl, ml, appConfig)
