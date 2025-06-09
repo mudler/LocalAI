@@ -7814,6 +7814,39 @@
       sha256: 4a7bc5478a2ec8c5d186d63532eb22e75b79ba75ec3c0ce821676157318ef4ad
       uri: https://huggingface.co/ggml-org/Qwen2.5-Omni-7B-GGUF/resolve/main/mmproj-Qwen2.5-Omni-7B-Q8_0.gguf
 - !!merge <<: *qwen25
+  name: "qwen2.5-omni-3b"
+  tags:
+    - multimodal
+    - gguf
+    - gpu
+    - cpu
+    - qwen2.5
+    - audio-to-text
+    - image-to-text
+    - text-to-text
+  urls:
+    - https://huggingface.co/Qwen/Qwen2.5-Omni-3B
+    - https://huggingface.co/ggml-org/Qwen2.5-Omni-3B-GGUF
+  description: |
+    Qwen2.5-Omni is an end-to-end multimodal model designed to perceive diverse modalities, including text, images, audio, and video, while simultaneously generating text and natural speech responses in a streaming manner.
+    Modalities:
+    - ✅ Text input
+    - ✅ Audio input
+    - ✅ Image input
+    - ❌ Video input
+    - ❌ Audio generation
+  overrides:
+    mmproj: mmproj-Qwen2.5-Omni-3B-Q8_0.gguf
+    parameters:
+      model: Qwen2.5-Omni-3B-Q4_K_M.gguf
+  files:
+    - filename: Qwen2.5-Omni-3B-Q4_K_M.gguf
+      sha256: 4b0bd358c1e9ec55dd3055ef6d71c958c821533d85916a10cfa89c4552a86e29
+      uri: huggingface://ggml-org/Qwen2.5-Omni-3B-GGUF/Qwen2.5-Omni-3B-Q4_K_M.gguf
+    - filename: mmproj-Qwen2.5-Omni-3B-Q8_0.gguf
+      sha256: 4e6c816cd33f7298d07cb780c136a396631e50e62f6501660271f8c6e302e565
+      uri: https://huggingface.co/ggml-org/Qwen2.5-Omni-3B-GGUF/resolve/main/mmproj-Qwen2.5-Omni-3B-Q8_0.gguf
+- !!merge <<: *qwen25
   name: "open-thoughts_openthinker3-7b"
   icon: https://huggingface.co/datasets/open-thoughts/open-thoughts-114k/resolve/main/open_thoughts.png
   urls:
