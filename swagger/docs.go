@@ -246,7 +246,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
-                                "$ref": "#/definitions/gallery.GalleryOpStatus"
+                                "$ref": "#/definitions/services.GalleryOpStatus"
                             }
                         }
                     }
@@ -260,7 +260,7 @@ const docTemplate = `{
                     "200": {
                         "description": "Response",
                         "schema": {
-                            "$ref": "#/definitions/gallery.GalleryOpStatus"
+                            "$ref": "#/definitions/services.GalleryOpStatus"
                         }
                     }
                 }
@@ -987,7 +987,7 @@ const docTemplate = `{
                 }
             }
         },
-        "gallery.GalleryOpStatus": {
+        "services.GalleryOpStatus": {
             "type": "object",
             "properties": {
                 "deletion": {

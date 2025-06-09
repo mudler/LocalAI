@@ -3,6 +3,7 @@ package model
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -18,19 +19,21 @@ import (
 
 // TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we separate directories for .bin/.yaml and .tmpl
 type ModelLoader struct {
-	ModelPath     string
-	mu            sync.Mutex
-	singletonLock sync.Mutex
-	singletonMode bool
-	models        map[string]*Model
-	wd            *WatchDog
+	ModelPath        string
+	mu               sync.Mutex
+	singletonLock    sync.Mutex
+	singletonMode    bool
+	models           map[string]*Model
+	wd               *WatchDog
+	externalBackends map[string]string
 }
 
 func NewModelLoader(modelPath string, singleActiveBackend bool) *ModelLoader {
 	nml := &ModelLoader{
-		ModelPath:     modelPath,
-		models:        make(map[string]*Model),
-		singletonMode: singleActiveBackend,
+		ModelPath:        modelPath,
+		models:           make(map[string]*Model),
+		singletonMode:    singleActiveBackend,
+		externalBackends: make(map[string]string),
 	}
 
 	return nml
@@ -42,6 +45,33 @@ func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
 
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
 	return utils.ExistsInPath(ml.ModelPath, s)
+}
+
+func (ml *ModelLoader) SetExternalBackend(name, uri string) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.externalBackends[name] = uri
+}
+
+func (ml *ModelLoader) DeleteExternalBackend(name string) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	delete(ml.externalBackends, name)
+}
+
+func (ml *ModelLoader) GetExternalBackend(name string) string {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	return ml.externalBackends[name]
+}
+
+func (ml *ModelLoader) GetAllExternalBackends(o *Options) map[string]string {
+	backends := make(map[string]string)
+	maps.Copy(backends, ml.externalBackends)
+	if o != nil {
+		maps.Copy(backends, o.externalBackends)
+	}
+	return backends
 }
 
 var knownFilesToSkip []string = []string{

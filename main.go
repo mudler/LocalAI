@@ -65,7 +65,7 @@ Some of the models compatible are:
   - Alpaca
   - StableLM (ggml quantized)
 
-For a list of compatible models, check out: https://localai.io/model-compatibility/index.html
+For a list of all available models for one-click install, check out: https://models.localai.io
 
 Copyright: Ettore Di Giacinto
 
@@ -76,6 +76,7 @@ Version: ${version}
 		kong.Vars{
 			"basepath":  kong.ExpandPath("."),
 			"galleries": `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`,
+			"backends":  `[{"name":"localai", "url":"github:mudler/LocalAI/backends/index.yaml@master"}]`,
 			"version":   internal.PrintableVersion(),
 		},
 	)
