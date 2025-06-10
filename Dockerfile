@@ -100,7 +100,7 @@ RUN apt-get update && \
     pip install --upgrade pip
 
 # Install grpcio-tools (the version in 22.04 is too old)
-RUN pip install --user grpcio-tools
+RUN pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
 
 ###################################
 ###################################

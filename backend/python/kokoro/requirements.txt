@@ -1,4 +1,4 @@
-grpcio==1.72.1
+grpcio==1.71.0
 protobuf
 phonemizer
 scipy

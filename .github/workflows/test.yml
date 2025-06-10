@@ -99,7 +99,7 @@ jobs:
           go install github.com/GeertJohan/go.rice/rice@latest
 
           # The python3-grpc-tools package in 22.04 is too old
-          pip install --user grpcio-tools
+          pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
 
           make -C backend/python/transformers
 
@@ -223,7 +223,7 @@ jobs:
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
-          pip install --user --no-cache-dir grpcio-tools
+          pip install --user --no-cache-dir grpcio-tools==1.71.0 grpcio==1.71.0
           go install github.com/GeertJohan/go.rice/rice@latest
       - name: Test
         run: |
