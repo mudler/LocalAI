@@ -1,4 +1,4 @@
-torch==2.4.1
+torch==2.7.1+cu118
 accelerate
 llvmlite==0.43.0
 numba==0.60.0
