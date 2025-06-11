@@ -1065,6 +1065,36 @@
     - filename: OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-Q4_K_M.gguf
       sha256: 4862bc5841f34bd7402a66b2149d6948465fef63e50499ab2d07c89f77aec651
       uri: huggingface://bartowski/OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-GGUF/OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-embedding-4b"
+  tags:
+    - qwen3
+    - embedding
+    - gguf
+    - gpu
+    - cpu
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Embedding-4B-GGUF
+  description: |
+    The Qwen3 Embedding model series is the latest proprietary model of the Qwen family, specifically designed for text embedding and ranking tasks. Building upon the dense foundational models of the Qwen3 series, it provides a comprehensive range of text embeddings and reranking models in various sizes (0.6B, 4B, and 8B). This series inherits the exceptional multilingual capabilities, long-text understanding, and reasoning skills of its foundational model. The Qwen3 Embedding series represents significant advancements in multiple text embedding and ranking tasks, including text retrieval, code retrieval, text classification, text clustering, and bitext mining.
+    **Exceptional Versatility**: The embedding model has achieved state-of-the-art performance across a wide range of downstream application evaluations. The 8B size embedding model ranks **No.1** in the MTEB multilingual leaderboard (as of June 5, 2025, score **70.58**), while the reranking model excels in various text retrieval scenarios.
+    **Comprehensive Flexibility**: The Qwen3 Embedding series offers a full spectrum of sizes (from 0.6B to 8B) for both embedding and reranking models, catering to diverse use cases that prioritize efficiency and effectiveness. Developers can seamlessly combine these two modules. Additionally, the embedding model allows for flexible vector definitions across all dimensions, and both embedding and reranking models support user-defined instructions to enhance performance for specific tasks, languages, or scenarios.
+    **Multilingual Capability**: The Qwen3 Embedding series offer support for over 100 languages, thanks to the multilingual capabilites of Qwen3 models. This includes various programming languages, and provides robust multilingual, cross-lingual, and code retrieval capabilities.
+    **Qwen3-Embedding-4B-GGUF** has the following features:
+    - Model Type: Text Embedding
+    - Supported Languages: 100+ Languages
+    - Number of Paramaters: 4B
+    - Context Length: 32k
+    - Embedding Dimension: Up to 2560, supports user-defined output dimensions ranging from 32 to 2560
+    - Quantization: q4_K_M, q5_0, q5_K_M, q6_K, q8_0, f16
+  overrides:
+    embeddings: true
+    parameters:
+      model: Qwen3-Embedding-4B-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Embedding-4B-Q4_K_M.gguf
+      sha256: aaeddb737110a166dbc7155753bb60d8c3ba9a93e69938c18bf3fdd7f23f0381
+      uri: huggingface://Qwen/Qwen3-Embedding-4B-GGUF/Qwen3-Embedding-4B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
