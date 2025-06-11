@@ -12464,6 +12464,31 @@
     - filename: MS-24B-Mullein-v0.Q4_K_M.gguf
       sha256: ef30561f1f7a9057b58e6f1b7c8a5da461bb320216232edf3916c1c02cb50e34
       uri: huggingface://mradermacher/MS-24B-Mullein-v0-GGUF/MS-24B-Mullein-v0.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_magistral-small-2506"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png
+  urls:
+    - https://huggingface.co/mistralai/Magistral-Small-2506
+    - https://huggingface.co/bartowski/mistralai_Magistral-Small-2506-GGUF
+  description: |
+    Building upon Mistral Small 3.1 (2503), with added reasoning capabilities, undergoing SFT from Magistral Medium traces and RL on top, it's a small, efficient reasoning model with 24B parameters.
+
+    Magistral Small can be deployed locally, fitting within a single RTX 4090 or a 32GB RAM MacBook once quantized.
+
+    Learn more about Magistral in our blog post.
+    Key Features
+
+        Reasoning: Capable of long chains of reasoning traces before providing an answer.
+        Multilingual: Supports dozens of languages, including English, French, German, Greek, Hindi, Indonesian, Italian, Japanese, Korean, Malay, Nepali, Polish, Portuguese, Romanian, Russian, Serbian, Spanish, Swedish, Turkish, Ukrainian, Vietnamese, Arabic, Bengali, Chinese, and Farsi.
+        Apache 2.0 License: Open license allowing usage and modification for both commercial and non-commercial purposes.
+        Context Window: A 128k context window, but performance might degrade past 40k. Hence we recommend setting the maximum model length to 40k.
+  overrides:
+    parameters:
+      model: mistralai_Magistral-Small-2506-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Magistral-Small-2506-Q4_K_M.gguf
+      sha256: b681b81ba30238b7654db77b4b3afa7b0f6226c84d8bbd5a5dfb1a5a3cb95816
+      uri: huggingface://bartowski/mistralai_Magistral-Small-2506-GGUF/mistralai_Magistral-Small-2506-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
