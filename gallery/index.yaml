@@ -28,6 +28,28 @@
     - filename: moondream2-mmproj-f16-20250414.gguf
       sha256: 4cc1cb3660d87ff56432ebeb7884ad35d67c48c7b9f6b2856f305e39c38eed8f
       uri: https://huggingface.co/ggml-org/moondream2-20250414-GGUF/resolve/main/moondream2-mmproj-f16-20250414.gguf
+- icon: https://raw.githubusercontent.com/Anditty/OASIS/refs/heads/main/Group.svg
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  tags:
+    - gguf
+    - gpu
+    - cpu
+    - text-to-text
+  license: kwaipilot-license
+  name: "kwaipilot_kwaicoder-autothink-preview"
+  urls:
+    - https://huggingface.co/Kwaipilot/KwaiCoder-AutoThink-preview
+    - https://huggingface.co/bartowski/Kwaipilot_KwaiCoder-AutoThink-preview-GGUF
+  description: |
+    KwaiCoder-AutoThink-preview is the first public AutoThink LLM released by the Kwaipilot team at Kuaishou.
+    The model merges thinking and non‑thinking abilities into a single checkpoint and dynamically adjusts its reasoning depth based on the input’s difficulty.
+  overrides:
+    parameters:
+      model: Kwaipilot_KwaiCoder-AutoThink-preview-Q4_K_M.gguf
+  files:
+    - filename: Kwaipilot_KwaiCoder-AutoThink-preview-Q4_K_M.gguf
+      sha256: 3004a61c8aa376d97b6dcfec458344f6c443a416591b2c7235fec09f4c78642d
+      uri: huggingface://bartowski/Kwaipilot_KwaiCoder-AutoThink-preview-GGUF/Kwaipilot_KwaiCoder-AutoThink-preview-Q4_K_M.gguf
 - &smolvlm
   url: "github:mudler/LocalAI/gallery/smolvlm.yaml@master"
   name: "smolvlm-256m-instruct"
