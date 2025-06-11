@@ -20,11 +20,11 @@ type GrammarConfig struct {
 	DisableParallelNewLines bool `yaml:"disable_parallel_new_lines"`
 
 	// MixedMode enables the LLM to return strings and not only JSON objects
-	// This is useful for models to not constraing returning only JSON and also messages back to the user
+	// This is useful for models to not constraining returning only JSON and also messages back to the user
 	MixedMode bool `yaml:"mixed_mode"`
 
 	// NoMixedFreeString disables the mixed mode for free strings
-	// In this way if the LLM selects a free string, it won't be mixed necessarly with JSON objects.
+	// In this way if the LLM selects a free string, it won't be mixed necessarily with JSON objects.
 	// For example, if enabled the LLM or returns a JSON object or a free string, but not a mix of both
 	// If disabled(default): the LLM can return a JSON object surrounded by free strings (e.g. `this is the JSON result: { "bar": "baz" } for your question`). This forces the LLM to return at least a JSON object, but its not going to be strict
 	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
@@ -184,7 +184,7 @@ func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
 // into
 // [ { "foo": "bar" }, { "baz": "qux" } ]
 // Credits to Michael Yang (https://github.com/mxyng) for the original implementation
-// This is a slighly reworked version, improved for readability and error handling
+// This is a slightly reworked version, improved for readability and error handling
 func ParseJSON(s string) ([]map[string]any, error) {
 	var objs []map[string]any
 	offset := 0
