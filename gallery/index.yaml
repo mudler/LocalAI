@@ -1046,6 +1046,25 @@
     - filename: Akhil-Theerthala_Kuvera-8B-v0.1.0-Q4_K_M.gguf
       sha256: a4e5f379ad58b4225620b664f2c67470f40b43d49a6cf05c83d10ab34ddceb85
       uri: huggingface://bartowski/Akhil-Theerthala_Kuvera-8B-v0.1.0-GGUF/Akhil-Theerthala_Kuvera-8B-v0.1.0-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "openbuddy_openbuddy-r1-0528-distill-qwen3-32b-preview0-qat"
+  icon: https://raw.githubusercontent.com/OpenBuddy/OpenBuddy/main/media/demo.png
+  url: "github:mudler/LocalAI/gallery/qwen3-openbuddy.yaml@master"
+  urls:
+    - https://huggingface.co/OpenBuddy/OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT
+    - https://huggingface.co/bartowski/OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-GGUF
+  description: |
+  Base Model: Qwen/Qwen3-32B
+  Context Length: 40K Tokens
+  License: Apache 2.0
+  Training Data: Distilled from DeepSeek-R1-0528
+  overrides:
+    parameters:
+      model: OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-Q4_K_M.gguf
+  files:
+    - filename: OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-Q4_K_M.gguf
+      sha256: 4862bc5841f34bd7402a66b2149d6948465fef63e50499ab2d07c89f77aec651
+      uri: huggingface://bartowski/OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-GGUF/OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
