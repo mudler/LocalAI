@@ -1,0 +1,38 @@
+ARG BASE_IMAGE=ubuntu:22.04
+
+FROM ${BASE_IMAGE} AS builder
+ARG BACKEND=rerankers
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE}
+ARG CUDA_MAJOR_VERSION
+ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl python3-pip \
+        python-is-python3 \
+        python3-dev llvm \
+        python3-venv make && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --upgrade pip
+
+
+# Install uv as a system package
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Install grpcio-tools (the version in 22.04 is too old)
+RUN pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
+
+COPY ${BACKEND} /${BACKEND}
+COPY common/ /${BACKEND}/common
+
+RUN cd /${BACKEND} && make
+
+FROM scratch
+ARG BACKEND=rerankers
+COPY --from=builder /${BACKEND}/ /
