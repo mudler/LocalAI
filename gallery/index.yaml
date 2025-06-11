@@ -2979,6 +2979,25 @@
     - filename: e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-Q4_K_M.gguf
       sha256: 2d57b5b0788761f3adb54b60f0e3dcf43a7b2e5bd83c475c689f7f86e86bbc90
       uri: huggingface://bartowski/e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-GGUF/e-n-v-y_Legion-V2.1-LLaMa-70B-Elarablated-v0.8-hf-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "sophosympatheia_strawberrylemonade-l3-70b-v1.0"
+  icon: https://i.imgur.com/XRqSQwk.png
+  urls:
+    - https://huggingface.co/sophosympatheia/StrawberryLemonade-L3-70B-v1.0
+    - https://huggingface.co/bartowski/sophosympatheia_StrawberryLemonade-L3-70B-v1.0-GGUF
+  description: |
+    This 70B parameter model is a merge of zerofata/L3.3-GeneticLemonade-Final-v2-70B and zerofata/L3.3-GeneticLemonade-Unleashed-v3-70B, which are two excellent models for roleplaying. In my opinion, this merge achieves slightly better stability and expressiveness, combining the strengths of the two models with the solid foundation provided by deepcogito/cogito-v1-preview-llama-70B.
+
+    This model is uncensored. You are responsible for whatever you do with it.
+
+    This model was designed for roleplaying and storytelling and I think it does well at both. It may also perform well at other tasks but I have not tested its performance in other areas.
+  overrides:
+    parameters:
+      model: sophosympatheia_StrawberryLemonade-L3-70B-v1.0-Q4_K_M.gguf
+  files:
+    - filename: sophosympatheia_StrawberryLemonade-L3-70B-v1.0-Q4_K_M.gguf
+      sha256: 354472a2946598e0df376f9ecb91f83d7bc9c1b32db46bf48d3ea76f892f2a97
+      uri: huggingface://bartowski/sophosympatheia_StrawberryLemonade-L3-70B-v1.0-GGUF/sophosympatheia_StrawberryLemonade-L3-70B-v1.0-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
