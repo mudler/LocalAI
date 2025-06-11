@@ -7906,6 +7906,25 @@
     - filename: open-thoughts_OpenThinker3-7B-Q4_K_M.gguf
       sha256: 73b8f44c3b11c3ec63e4c4ddbb262679c8f681511d84940c4c990814aa0bafc0
       uri: huggingface://bartowski/open-thoughts_OpenThinker3-7B-GGUF/open-thoughts_OpenThinker3-7B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  icon: https://github.com/FlagOpen/RoboBrain2.0/raw/main/assets/logo2.png
+  name: "baai_robobrain2.0-7b"
+  urls:
+    - https://huggingface.co/BAAI/RoboBrain2.0-7B
+    - https://huggingface.co/bartowski/BAAI_RoboBrain2.0-7B-GGUF
+  description: |
+    We are excited to introduce RoboBrain 2.0, the most powerful open-source embodied brain model to date. Compared to its predecessor, RoboBrain1.0, our latest version significantly advances multi-agent task planning, spatial reasoning, and closed-loop execution. A detailed technical report will be released soon.
+  overrides:
+    mmproj: mmproj-BAAI_RoboBrain2.0-7B-f16.gguf
+    parameters:
+      model: BAAI_RoboBrain2.0-7B-Q4_K_M.gguf
+  files:
+    - filename: BAAI_RoboBrain2.0-7B-Q4_K_M.gguf
+      sha256: 9a55874f07514aafe7c9926a04d8143c88a1bd5bebebaa7202aabc9b0c48a8f7
+      uri: huggingface://bartowski/BAAI_RoboBrain2.0-7B-GGUF/BAAI_RoboBrain2.0-7B-Q4_K_M.gguf
+    - uri: https://huggingface.co/bartowski/BAAI_RoboBrain2.0-7B-GGUF/resolve/main/mmproj-BAAI_RoboBrain2.0-7B-f16.gguf
+      sha256: 7c62842afa6b90582acc5758578d5ab683610d33177c9b730f5489404cb28e4f
+      filename: mmproj-BAAI_RoboBrain2.0-7B-f16.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
