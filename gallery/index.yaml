@@ -1155,6 +1155,21 @@
     - filename: Qwen3-Embedding-0.6B-Q8_0.gguf
       sha256: a0e820fb3f8f448d3582862f9161bfaf58a63f89b46353f061e017597655821c
       uri: huggingface://Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+- !!merge <<: *qwen3
+  name: "yanfei-v2-qwen3-32b"
+  icon: https://huggingface.co/nbeerbower/Yanfei-Qwen3-32B/resolve/main/yanfei_cover.png?download=true
+  urls:
+    - https://huggingface.co/nbeerbower/Yanfei-v2-Qwen3-32B
+    - https://huggingface.co/mradermacher/Yanfei-v2-Qwen3-32B-GGUF
+  description: |
+    A repair of Yanfei-Qwen-32B by TIES merging huihui-ai/Qwen3-32B-abliterated, Zhiming-Qwen3-32B, and Menghua-Qwen3-32B using mergekit.
+  overrides:
+    parameters:
+      model: Yanfei-v2-Qwen3-32B.Q4_K_M.gguf
+  files:
+    - filename: Yanfei-v2-Qwen3-32B.Q4_K_M.gguf
+      sha256: b9c87f5816a66e9036b4af013e3d658f8a11f5e987c44e6d4cb6c4f91e82d3df
+      uri: huggingface://mradermacher/Yanfei-v2-Qwen3-32B-GGUF/Yanfei-v2-Qwen3-32B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
