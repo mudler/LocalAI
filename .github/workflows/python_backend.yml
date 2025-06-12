@@ -10,7 +10,7 @@ on:
   pull_request:
 
 concurrency:
-  group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  group: ci-backends-${{ github.head_ref || github.ref }}-${{ github.repository }}
   cancel-in-progress: true
 
 jobs:
