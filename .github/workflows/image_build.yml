@@ -53,10 +53,6 @@ on:
         description: 'Skip drivers by default'
         default: 'false'
         type: string
-      image-type:
-        description: 'Image type'
-        default: ''
-        type: string
       runs-on:
         description: 'Runs on'
         required: true
@@ -232,7 +228,6 @@ jobs:
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             FFMPEG=${{ inputs.ffmpeg }}
-            IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
@@ -261,7 +256,6 @@ jobs:
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             FFMPEG=${{ inputs.ffmpeg }}
-            IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target

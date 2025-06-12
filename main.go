@@ -76,7 +76,7 @@ Version: ${version}
 		kong.Vars{
 			"basepath":  kong.ExpandPath("."),
 			"galleries": `[{"name":"localai", "url":"github:mudler/LocalAI/gallery/index.yaml@master"}]`,
-			"backends":  `[{"name":"localai", "url":"github:mudler/LocalAI/backends/index.yaml@master"}]`,
+			"backends":  `[{"name":"localai", "url":"github:mudler/LocalAI/backend/index.yaml@master"}]`,
 			"version":   internal.PrintableVersion(),
 		},
 	)

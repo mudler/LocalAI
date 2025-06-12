@@ -37,7 +37,7 @@ var _ = Describe("Gallery Backends", func() {
 		It("should return error when backend is not found", func() {
 			err := InstallBackendFromGallery(galleries, "non-existent", tempDir, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no backend found with name"))
+			Expect(err.Error()).To(ContainSubstring("no model found with name"))
 		})
 
 		It("should install backend from gallery", func() {
