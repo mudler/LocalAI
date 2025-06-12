@@ -146,8 +146,8 @@ jobs:
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
-          context: ./backend/python
-          file: ./backend/python/Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile.python
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
@@ -164,8 +164,8 @@ jobs:
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
-          context: ./backend/python
-          file: ./backend/python/Dockerfile
+          context: ./backend
+          file: ./backend/Dockerfile.python
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: true

@@ -28,8 +28,9 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 # Install grpcio-tools (the version in 22.04 is too old)
 RUN pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
 
-COPY ${BACKEND} /${BACKEND}
-COPY common/ /${BACKEND}/common
+COPY python/${BACKEND} /${BACKEND}
+COPY backend.proto /${BACKEND}/backend.proto
+COPY python/common/ /${BACKEND}/common
 
 RUN cd /${BACKEND} && make
 
