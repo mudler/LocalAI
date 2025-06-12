@@ -86,24 +86,6 @@ jobs:
             cuda-major-version: "11"
             platforms: 'linux/amd64'
             tag-latest: 'true'
-            tag-suffix: '-gpu-nvidia-cuda-11-parler-tts'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            backend: "parler-tts"
-            latest-image: 'latest-gpu-nvidia-cuda-11-parler-tts'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-nvidia-cuda-11-openvoice'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            backend: "openvoice"
-            latest-image: 'latest-gpu-nvidia-cuda-11-openvoice'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -196,24 +178,6 @@ jobs:
             cuda-major-version: "12"
             platforms: 'linux/amd64'
             tag-latest: 'true'
-            tag-suffix: '-gpu-nvidia-cuda-12-parler-tts'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            backend: "parler-tts"
-            latest-image: 'latest-gpu-nvidia-cuda-12-parler-tts'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-nvidia-cuda-12-openvoice'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            backend: "openvoice"
-            latest-image: 'latest-gpu-nvidia-cuda-12-openvoice'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -302,24 +266,6 @@ jobs:
             backend: "exllama2"
             latest-image: 'latest-gpu-rocm-hipblas-exllama2'
           # ROCm additional backends
-          - build-type: 'hipblas'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-rocm-hipblas-parler-tts'
-            runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            backend: "parler-tts"
-            latest-image: 'latest-gpu-rocm-hipblas-parler-tts'
-          - build-type: 'hipblas'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-rocm-hipblas-openvoice'
-            runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            backend: "openvoice"
-            latest-image: 'latest-gpu-rocm-hipblas-openvoice'
           - build-type: 'hipblas'
             cuda-major-version: ""
             platforms: 'linux/amd64'
@@ -439,42 +385,6 @@ jobs:
             backend: "exllama2"
             latest-image: 'latest-gpu-intel-sycl-f16-exllama2'
           # SYCL additional backends
-          - build-type: 'sycl_f32'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-intel-sycl-f32-parler-tts'
-            runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            backend: "parler-tts"
-            latest-image: 'latest-gpu-intel-sycl-f32-parler-tts'
-          - build-type: 'sycl_f16'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-intel-sycl-f16-parler-tts'
-            runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            backend: "parler-tts"
-            latest-image: 'latest-gpu-intel-sycl-f16-parler-tts'
-          - build-type: 'sycl_f32'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-intel-sycl-f32-openvoice'
-            runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            backend: "openvoice"
-            latest-image: 'latest-gpu-intel-sycl-f32-openvoice'
-          - build-type: 'sycl_f16'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-intel-sycl-f16-openvoice'
-            runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            backend: "openvoice"
-            latest-image: 'latest-gpu-intel-sycl-f16-openvoice'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             platforms: 'linux/amd64'

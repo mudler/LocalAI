@@ -274,54 +274,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-exllama2"
   alias: "exllama2"
 
-- name: "cuda11-parler-tts-latest"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-parler-tts"
-  alias: "parler-tts"
-
-- name: "cuda11-parler-tts-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-parler-tts"
-  alias: "parler-tts"
-
-- name: "cuda12-parler-tts-latest"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-parler-tts"
-  alias: "parler-tts"
-
-- name: "cuda12-parler-tts-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-parler-tts"
-  alias: "parler-tts"
-
-- name: "rocm-parler-tts-latest"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-parler-tts"
-  alias: "parler-tts"
-
-- name: "rocm-parler-tts-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-parler-tts"
-  alias: "parler-tts"
-
-- name: "cuda11-openvoice-latest"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-openvoice"
-  alias: "openvoice"
-
-- name: "cuda11-openvoice-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-openvoice"
-  alias: "openvoice"
-
-- name: "cuda12-openvoice-latest"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-openvoice"
-  alias: "openvoice"
-
-- name: "cuda12-openvoice-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-openvoice"
-  alias: "openvoice"
-
-- name: "rocm-openvoice-latest"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-openvoice"
-  alias: "openvoice"
-
-- name: "rocm-openvoice-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-openvoice"
-  alias: "openvoice"
-
 - name: "cuda11-kokoro-latest"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-kokoro"
   alias: "kokoro"
