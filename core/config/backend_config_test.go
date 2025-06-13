@@ -159,6 +159,5 @@ parameters:
 		Expect(i.HasUsecases(FLAG_TTS)).To(BeFalse())
 		Expect(i.HasUsecases(FLAG_COMPLETION)).To(BeTrue())
 		Expect(i.HasUsecases(FLAG_CHAT)).To(BeTrue())
-
 	})
 })
