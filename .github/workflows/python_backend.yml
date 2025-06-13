@@ -72,15 +72,6 @@ jobs:
             base-image: "ubuntu:22.04"
             backend: "diffusers"
             latest-image: 'latest-gpu-nvidia-cuda-11-diffusers'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-nvidia-cuda-11-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            backend: "exllama2"
-            latest-image: 'latest-gpu-nvidia-cuda-11-exllama2'
           # CUDA 11 additional backends
           - build-type: 'cublas'
             cuda-major-version: "11"
@@ -164,15 +155,6 @@ jobs:
             base-image: "ubuntu:22.04"
             backend: "diffusers"
             latest-image: 'latest-gpu-nvidia-cuda-12-diffusers'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            backend: "exllama2"
-            latest-image: 'latest-gpu-nvidia-cuda-12-exllama2'
           # CUDA 12 additional backends
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -256,15 +238,6 @@ jobs:
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "diffusers"
             latest-image: 'latest-gpu-rocm-hipblas-diffusers'
-          - build-type: 'hipblas'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-rocm-hipblas-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            backend: "exllama2"
-            latest-image: 'latest-gpu-rocm-hipblas-exllama2'
           # ROCm additional backends
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -375,15 +348,6 @@ jobs:
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "diffusers"
             latest-image: 'latest-gpu-intel-sycl-f32-diffusers'
-          - build-type: 'sycl_f16'
-            cuda-major-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
-            tag-suffix: '-gpu-intel-sycl-f16-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            backend: "exllama2"
-            latest-image: 'latest-gpu-intel-sycl-f16-exllama2'
           # SYCL additional backends
           - build-type: 'sycl_f32'
             cuda-major-version: ""
