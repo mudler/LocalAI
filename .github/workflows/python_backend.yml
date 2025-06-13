@@ -32,6 +32,7 @@ jobs:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
+      fail-fast: false
       #max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
       matrix:
         include:
