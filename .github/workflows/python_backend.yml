@@ -54,7 +54,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "vllm"
             latest-image: 'latest-gpu-nvidia-cuda-11-vllm'
@@ -64,7 +64,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "transformers"
             latest-image: 'latest-gpu-nvidia-cuda-11-transformers'
@@ -74,7 +74,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "diffusers"
             latest-image: 'latest-gpu-nvidia-cuda-11-diffusers'
@@ -85,7 +85,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "kokoro"
             latest-image: 'latest-gpu-nvidia-cuda-11-kokoro'
@@ -95,7 +95,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "faster-whisper"
             latest-image: 'latest-gpu-nvidia-cuda-11-faster-whisper'
@@ -105,7 +105,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "coqui"
             latest-image: 'latest-gpu-nvidia-cuda-11-coqui'
@@ -115,7 +115,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-bark'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "bark"
             latest-image: 'latest-gpu-nvidia-cuda-11-bark'
@@ -125,7 +125,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "chatterbox"
             latest-image: 'latest-gpu-nvidia-cuda-11-chatterbox'
@@ -146,7 +146,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "vllm"
             latest-image: 'latest-gpu-nvidia-cuda-12-vllm'
@@ -156,7 +156,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "transformers"
             latest-image: 'latest-gpu-nvidia-cuda-12-transformers'
@@ -166,7 +166,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "diffusers"
             latest-image: 'latest-gpu-nvidia-cuda-12-diffusers'
@@ -177,7 +177,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "kokoro"
             latest-image: 'latest-gpu-nvidia-cuda-12-kokoro'
@@ -187,7 +187,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "faster-whisper"
             latest-image: 'latest-gpu-nvidia-cuda-12-faster-whisper'
@@ -197,7 +197,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "coqui"
             latest-image: 'latest-gpu-nvidia-cuda-12-coqui'
@@ -207,7 +207,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "bark"
             latest-image: 'latest-gpu-nvidia-cuda-12-bark'
@@ -217,7 +217,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "chatterbox"
             latest-image: 'latest-gpu-nvidia-cuda-12-chatterbox'
@@ -238,7 +238,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "vllm"
             latest-image: 'latest-gpu-rocm-hipblas-vllm'
@@ -248,7 +248,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "transformers"
             latest-image: 'latest-gpu-rocm-hipblas-transformers'
@@ -258,7 +258,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "diffusers"
             latest-image: 'latest-gpu-rocm-hipblas-diffusers'
@@ -269,7 +269,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "kokoro"
             latest-image: 'latest-gpu-rocm-hipblas-kokoro'
@@ -279,7 +279,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "faster-whisper"
             latest-image: 'latest-gpu-rocm-hipblas-faster-whisper'
@@ -289,7 +289,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "coqui"
             latest-image: 'latest-gpu-rocm-hipblas-coqui'
@@ -299,7 +299,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-bark'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "bark"
             latest-image: 'latest-gpu-rocm-hipblas-bark'
@@ -309,7 +309,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "chatterbox"
             latest-image: 'latest-gpu-rocm-hipblas-chatterbox'
@@ -340,7 +340,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "vllm"
             latest-image: 'latest-gpu-intel-sycl-f32-vllm'
@@ -350,7 +350,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "vllm"
             latest-image: 'latest-gpu-intel-sycl-f16-vllm'
@@ -360,7 +360,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "transformers"
             latest-image: 'latest-gpu-intel-sycl-f32-transformers'
@@ -370,7 +370,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-transformers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "transformers"
             latest-image: 'latest-gpu-intel-sycl-f16-transformers'
@@ -380,7 +380,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-diffusers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "diffusers"
             latest-image: 'latest-gpu-intel-sycl-f32-diffusers'
@@ -391,7 +391,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "kokoro"
             latest-image: 'latest-gpu-intel-sycl-f32-kokoro'
@@ -401,7 +401,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "kokoro"
             latest-image: 'latest-gpu-intel-sycl-f16-kokoro'
@@ -411,7 +411,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "faster-whisper"
             latest-image: 'latest-gpu-intel-sycl-f32-faster-whisper'
@@ -421,7 +421,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "faster-whisper"
             latest-image: 'latest-gpu-intel-sycl-f16-faster-whisper'
@@ -431,7 +431,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "coqui"
             latest-image: 'latest-gpu-intel-sycl-f32-coqui'
@@ -441,7 +441,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "coqui"
             latest-image: 'latest-gpu-intel-sycl-f16-coqui'
@@ -451,7 +451,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-bark'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "bark"
             latest-image: 'latest-gpu-intel-sycl-f32-bark'
@@ -461,7 +461,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-bark'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "bark"
             latest-image: 'latest-gpu-intel-sycl-f16-bark'
@@ -471,7 +471,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "chatterbox"
             latest-image: 'latest-gpu-intel-sycl-f32-chatterbox'
@@ -481,7 +481,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-chatterbox'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "chatterbox"
             latest-image: 'latest-gpu-intel-sycl-f16-chatterbox'
