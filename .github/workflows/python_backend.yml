@@ -41,7 +41,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "rerankers"
             latest-image: 'latest-gpu-nvidia-cuda-11-rerankers'
@@ -124,7 +124,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             backend: "rerankers"
             latest-image: 'latest-gpu-nvidia-cuda-12-rerankers'
@@ -207,7 +207,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             backend: "rerankers"
             latest-image: 'latest-gpu-rocm-hipblas-rerankers'
@@ -290,7 +290,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "rerankers"
             latest-image: 'latest-gpu-intel-sycl-f32-rerankers'
@@ -299,7 +299,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-rerankers'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             backend: "rerankers"
             latest-image: 'latest-gpu-intel-sycl-f16-rerankers'
