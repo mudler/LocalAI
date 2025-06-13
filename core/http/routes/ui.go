@@ -69,7 +69,7 @@ func RegisterUIRoutes(app *fiber.App,
 	var processingModels = NewModelOpCache()
 
 	// modelStatus returns the current status of the models being processed (installation or deletion)
-	// it is called asynchonously from the UI
+	// it is called asynchronously from the UI
 	modelStatus := func() (map[string]string, map[string]string) {
 		processingModelsData := processingModels.Map()
 
