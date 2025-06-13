@@ -8,6 +8,8 @@ ARG CUDA_MAJOR_VERSION
 ARG SKIP_DRIVERS=false
 ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -28,6 +30,13 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --upgrade pip
+
+
+# Cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# HipBLAS requirements
+ENV PATH=/opt/rocm/bin:${PATH}
 
 # Vulkan requirements
 RUN <<EOT bash
