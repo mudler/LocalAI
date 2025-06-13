@@ -332,7 +332,7 @@ func (ml *ModelLoader) grpcModel(backend string, autodetect bool, o *Options) fu
 		} else {
 			grpcProcess := backendPath(o.assetDir, backend)
 			if err := utils.VerifyPath(grpcProcess, o.assetDir); err != nil {
-				return nil, fmt.Errorf("refering to a backend not in asset dir: %s", err.Error())
+				return nil, fmt.Errorf("referring to a backend not in asset dir: %s", err.Error())
 			}
 
 			if autodetect {

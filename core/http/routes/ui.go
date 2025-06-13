@@ -20,7 +20,7 @@ func RegisterUIRoutes(app *fiber.App,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService) {
 
-	// keeps the state of models that are being installed from the UI
+	// keeps the state of ops that are started from the UI
 	var processingOps = services.NewOpCache(galleryService)
 
 	app.Get("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))

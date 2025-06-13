@@ -66,7 +66,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def TTS(self, request, context):
         try:
-            # if model is multilangual add language from request or env as fallback
+            # if model is multilingual add language from request or env as fallback
             lang = request.language or COQUI_LANGUAGE
             if lang == "":
                 lang = None
