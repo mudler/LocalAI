@@ -16,6 +16,10 @@ on:
         description: 'CUDA major version'
         default: "12"
         type: string
+      cuda-minor-version:
+        description: 'CUDA minor version'
+        default: "1"
+        type: string
       platforms:
         description: 'Platforms'
         default: ''
@@ -144,6 +148,7 @@ jobs:
           build-args: |
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
           context: ./backend
@@ -162,6 +167,7 @@ jobs:
           build-args: |
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
           context: ./backend

@@ -21,6 +21,7 @@ jobs:
       tag-suffix: ${{ matrix.tag-suffix }}
       build-type: ${{ matrix.build-type }}
       cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
@@ -39,6 +40,7 @@ jobs:
           # CUDA 11 builds
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-rerankers'
@@ -48,6 +50,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-rerankers'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-vllm'
@@ -57,6 +60,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-vllm'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-transformers'
@@ -66,6 +70,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-transformers'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-diffusers'
@@ -76,6 +81,7 @@ jobs:
           # CUDA 11 additional backends
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
@@ -85,6 +91,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-kokoro'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-faster-whisper'
@@ -94,6 +101,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-faster-whisper'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-coqui'
@@ -103,6 +111,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-coqui'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-bark'
@@ -112,6 +121,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-11-bark'
           - build-type: 'cublas'
             cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-chatterbox'
@@ -122,6 +132,7 @@ jobs:
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
@@ -131,6 +142,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-rerankers'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
@@ -140,6 +152,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-vllm'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
@@ -149,6 +162,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-transformers'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
@@ -159,6 +173,7 @@ jobs:
           # CUDA 12 additional backends
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
@@ -168,6 +183,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-kokoro'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
@@ -177,6 +193,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-faster-whisper'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
@@ -186,6 +203,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-coqui'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
@@ -195,6 +213,7 @@ jobs:
             latest-image: 'latest-gpu-nvidia-cuda-12-bark'
           - build-type: 'cublas'
             cuda-major-version: "12"
+            cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
@@ -205,6 +224,7 @@ jobs:
           # hipblas builds
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
@@ -214,6 +234,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-rerankers'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
@@ -223,6 +244,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-vllm'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
@@ -232,6 +254,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-transformers'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
@@ -242,6 +265,7 @@ jobs:
           # ROCm additional backends
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
@@ -251,6 +275,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-kokoro'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
@@ -260,6 +285,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-faster-whisper'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
@@ -269,6 +295,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-coqui'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-bark'
@@ -278,6 +305,7 @@ jobs:
             latest-image: 'latest-gpu-rocm-hipblas-bark'
           - build-type: 'hipblas'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-chatterbox'
@@ -288,6 +316,7 @@ jobs:
           # sycl builds
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-rerankers'
@@ -297,6 +326,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-rerankers'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-rerankers'
@@ -306,6 +336,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-rerankers'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-vllm'
@@ -315,6 +346,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-vllm'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-vllm'
@@ -324,6 +356,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-vllm'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-transformers'
@@ -333,6 +366,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-transformers'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-transformers'
@@ -342,6 +376,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-transformers'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-diffusers'
@@ -352,6 +387,7 @@ jobs:
           # SYCL additional backends
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-kokoro'
@@ -361,6 +397,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-kokoro'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-kokoro'
@@ -370,6 +407,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-kokoro'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-faster-whisper'
@@ -379,6 +417,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-faster-whisper'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-faster-whisper'
@@ -388,6 +427,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-faster-whisper'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-coqui'
@@ -397,6 +437,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-coqui'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-coqui'
@@ -406,6 +447,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-coqui'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-bark'
@@ -415,6 +457,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-bark'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-bark'
@@ -424,6 +467,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f16-bark'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f32-chatterbox'
@@ -433,6 +477,7 @@ jobs:
             latest-image: 'latest-gpu-intel-sycl-f32-chatterbox'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
+            cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-intel-sycl-f16-chatterbox'
