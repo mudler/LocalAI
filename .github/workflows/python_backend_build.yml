@@ -109,16 +109,12 @@ jobs:
           images: |
             quay.io/go-skynet/ci-tests
           tags: |
-            type=ref,event=branch,suffix=localai-backends-ci-pr-${{ github.event.number }}
-            type=semver,pattern={{raw}},suffix=localai-backends-ci-pr-${{ github.event.number }}
-            type=sha,suffix=localai-backends-ci-pr-${{ github.event.number }}
+            type=ref,event=branch,suffix=${{ github.event.number }}
+            type=semver,pattern={{raw}},suffix=${{ github.event.number }}
+            type=sha,suffix=${{ github.event.number }}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
-      - name: Testing image
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "Image is available at quay.io/go-skynet/ci-tests:localai-backends-ci-pr-${{ github.event.number }}:${{ steps.meta_pull_request.outputs.version }}" >> $GITHUB_STEP_SUMMARY
 ## End testing image
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
@@ -185,7 +181,7 @@ jobs:
       - name: Testing image
         if: github.event_name == 'pull_request'
         run: |
-          echo "Image is available at ttl.sh/localai-backends-ci-pr-${{ github.event.number }}:${{ steps.meta_pull_request.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Image is available at quay.io/go-skynet/ci-tests:${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
         run: |

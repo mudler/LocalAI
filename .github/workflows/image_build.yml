@@ -157,9 +157,9 @@ jobs:
           images: |
             quay.io/go-skynet/ci-tests
           tags: |
-            type=ref,event=branch,suffix=localai-ci-pr-${{ github.event.number }}
-            type=semver,pattern={{raw}},suffix=localai-ci-pr-${{ github.event.number }}
-            type=sha,suffix=localai-ci-pr-${{ github.event.number }}
+            type=ref,event=branch,suffix=localai${{ github.event.number }}
+            type=semver,pattern={{raw}},suffix=localai${{ github.event.number }}
+            type=sha,suffix=localai${{ github.event.number }}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
@@ -272,7 +272,7 @@ jobs:
       - name: Testing image
         if: github.event_name == 'pull_request'
         run: |
-          echo "Image is available at quay.io/go-skynet/ci-tests:localai-ci-pr-${{ github.event.number }}:${{ steps.meta_pull_request.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "Image is available at quay.io/go-skynet/ci-tests:localai${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
 ## End testing image
       - name: Build and push AIO image
         if: inputs.aio != ''
