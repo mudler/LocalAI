@@ -107,15 +107,19 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ttl.sh/localai-backends-ci-pr-${{ github.event.number }}
+            quay.io/go-skynet/ci-tests
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{raw}}
-            type=sha
+            type=ref,event=branch,suffix=localai-backends-ci-pr-${{ github.event.number }}
+            type=semver,pattern={{raw}},suffix=localai-backends-ci-pr-${{ github.event.number }}
+            type=sha,suffix=localai-backends-ci-pr-${{ github.event.number }}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
-
+      - name: Testing image
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "Image is available at quay.io/go-skynet/ci-tests:localai-backends-ci-pr-${{ github.event.number }}:${{ steps.meta_pull_request.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+## End testing image
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
         with:
@@ -133,7 +137,7 @@ jobs:
           password: ${{ secrets.dockerPassword }}
 
       - name: Login to Quay.io
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: quay.io
