@@ -286,22 +286,10 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-chatterbox"
   alias: "chatterbox"
 
-- name: "rocm-chatterbox-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-chatterbox"
-  alias: "chatterbox" 
-
-- name: "sycl-f32-chatterbox-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-chatterbox"
+- name: "cuda11-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-chatterbox"
   alias: "chatterbox"
 
-- name: "sycl-f16-chatterbox-master"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-chatterbox"
-  alias: "chatterbox"
-
-- name: "sycl-f32-chatterbox"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-chatterbox"
-  alias: "chatterbox"
-
-- name: "sycl-f16-chatterbox"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-chatterbox"
+- name: "cuda12-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-chatterbox"
   alias: "chatterbox"
