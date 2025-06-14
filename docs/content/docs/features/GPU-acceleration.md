@@ -249,7 +249,7 @@ This configuration has been tested on a 'custom' cluster managed by SUSE Rancher
 
 - When installing the ROCM kernel driver on your system ensure that you are installing an equal or newer version that that which is currently implemented in LocalAI (6.0.0 at time of writing).
 - AMD documentation indicates that this will ensure functionality however your milage may vary depending on the GPU and distro you are using.
-- If you encounter an `Error 413` on attempting to upload an audio file or image for whisper or llava/bakllava on a k8s deployment, note that the ingress for your deployment may require the annontation `nginx.ingress.kubernetes.io/proxy-body-size: "25m"` to allow larger uploads. This may be included in future versions of the helm chart.
+- If you encounter an `Error 413` on attempting to upload an audio file or image for whisper or llava/bakllava on a k8s deployment, note that the ingress for your deployment may require the annotation `nginx.ingress.kubernetes.io/proxy-body-size: "25m"` to allow larger uploads. This may be included in future versions of the helm chart.
 
 ## Intel acceleration (sycl)
 
@@ -301,7 +301,7 @@ docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/build/models localai/local
 
 ### Notes
 
-In addition to the commands to run LocalAI normally, you need to specify additonal flags to pass the GPU hardware to the container.
+In addition to the commands to run LocalAI normally, you need to specify additional flags to pass the GPU hardware to the container.
 
 These flags are the same as the sections above, depending on the hardware, for [nvidia](#cudanvidia-acceleration), [AMD](#rocmamd-acceleration) or [Intel](#intel-acceleration-sycl).
 

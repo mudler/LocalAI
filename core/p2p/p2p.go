@@ -221,7 +221,7 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 	// - starts a service if not started, if the worker is Online
 	// - checks that workers are Online, if not cancel the context of allocateLocalService
 	// - discoveryTunnels should return all the nodes and addresses associated with it
-	// - the caller should take now care of the fact that we are always returning fresh informations
+	// - the caller should take now care of the fact that we are always returning fresh information
 	go func() {
 		for {
 			select {
