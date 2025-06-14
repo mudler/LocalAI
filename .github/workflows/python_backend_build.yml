@@ -109,9 +109,9 @@ jobs:
           images: |
             quay.io/go-skynet/ci-tests
           tags: |
-            type=ref,event=branch,suffix=${{ github.event.number }}
-            type=semver,pattern={{raw}},suffix=${{ github.event.number }}
-            type=sha,suffix=${{ github.event.number }}
+            type=ref,event=branch,suffix=${{ github.event.number }}-${{ inputs.backend }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=semver,pattern={{raw}},suffix=${{ github.event.number }}-${{ inputs.backend }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=sha,suffix=${{ github.event.number }}-${{ inputs.backend }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
@@ -177,11 +177,6 @@ jobs:
           push: true
           tags: ${{ steps.meta_pull_request.outputs.tags }}
           labels: ${{ steps.meta_pull_request.outputs.labels }}
-
-      - name: Testing image
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "Image is available at quay.io/go-skynet/ci-tests:${{ github.event.number }}" >> $GITHUB_STEP_SUMMARY
 
       - name: Cleanup
         run: |
