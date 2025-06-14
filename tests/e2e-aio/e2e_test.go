@@ -101,7 +101,7 @@ var _ = Describe("E2E test", func() {
 						{
 
 							Role:    "user",
-							Content: "An animal with 'name', 'gender' and 'legs' fields",
+							Content: "Generate a JSON object of an animal with 'name', 'gender' and 'legs' fields",
 						},
 					},
 				}
