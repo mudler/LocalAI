@@ -5,7 +5,12 @@ LIMIT_TARGETS="cublas"
 EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
 EXLLAMA2_VERSION=c0ddebaaaf8ffd1b3529c2bb654e650bce2f790f
 
-source $(dirname $0)/../common/libbackend.sh
+backend_dir=$(dirname $0)
+if [ -d $backend_dir/common ]; then
+    source $backend_dir/common/libbackend.sh
+else
+    source $backend_dir/../common/libbackend.sh
+fi
 
 installRequirements
 

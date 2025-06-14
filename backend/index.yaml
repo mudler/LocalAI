@@ -1,0 +1,295 @@
+- name: "cuda11-rerankers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-rerankers"
+  alias: "cuda11-rerankers"
+
+- name: "cuda11-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-vllm"
+  alias: "cuda11-vllm"
+
+- name: "cuda11-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-transformers"
+  alias: "cuda11-transformers"
+
+- name: "cuda11-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-diffusers"
+  alias: "cuda11-diffusers"
+
+- name: "cuda11-exllama2"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-exllama2"
+  alias: "cuda11-exllama2"
+
+- name: "cuda12-rerankers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-rerankers"
+  alias: "cuda12-rerankers"
+
+- name: "cuda12-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm"
+  alias: "cuda12-vllm"
+
+- name: "cuda12-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-transformers"
+  alias: "cuda12-transformers"
+
+- name: "cuda12-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-diffusers"
+  alias: "cuda12-diffusers"
+
+- name: "cuda12-exllama2"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-exllama2"
+  alias: "cuda12-exllama2"
+
+- name: "rocm-rerankers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-rerankers"
+  alias: "rocm-rerankers"
+
+- name: "rocm-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-vllm"
+  alias: "rocm-vllm"
+
+- name: "rocm-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-transformers"
+  alias: "rocm-transformers"
+
+- name: "rocm-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-diffusers"
+  alias: "rocm-diffusers"
+
+- name: "intel-sycl-f32-rerankers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-rerankers"
+  alias: "intel-sycl-f32-rerankers"
+
+- name: "intel-sycl-f16-rerankers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-rerankers"
+  alias: "intel-sycl-f16-rerankers"
+
+- name: "intel-sycl-f32-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-vllm"
+  alias: "intel-sycl-f32-vllm"
+
+- name: "intel-sycl-f16-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-vllm"
+  alias: "intel-sycl-f16-vllm"
+
+- name: "intel-sycl-f32-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-transformers"
+  alias: "intel-sycl-f32-transformers"
+
+- name: "intel-sycl-f16-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-transformers"
+  alias: "intel-sycl-f16-transformers"
+
+- name: "intel-sycl-f32-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-diffusers"
+  alias: "intel-sycl-f32-diffusers"
+
+- name: "cuda11-rerankers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-rerankers"
+  alias: "rerankers"
+
+- name: "cuda11-vllm-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-vllm"
+  alias: "vllm"
+
+- name: "cuda11-transformers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-transformers"
+  alias: "transformers"
+
+- name: "cuda11-diffusers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-diffusers"
+  alias: "diffusers"
+
+- name: "cuda11-exllama2-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-exllama2"
+  alias: "exllama2"
+
+- name: "cuda12-rerankers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-rerankers"
+  alias: "rerankers"
+
+- name: "cuda12-vllm-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-vllm"
+  alias: "vllm"
+
+- name: "cuda12-transformers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-transformers"
+  alias: "transformers"
+
+- name: "cuda12-diffusers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-diffusers"
+  alias: "diffusers"
+
+- name: "cuda12-exllama2-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-exllama2"
+  alias: "exllama2"
+
+- name: "rocm-rerankers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-rerankers"
+  alias: "rerankers"
+
+- name: "rocm-vllm-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-vllm"
+  alias: "vllm"
+
+- name: "rocm-transformers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-transformers"
+  alias: "transformers"
+
+- name: "rocm-diffusers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-diffusers"
+  alias: "diffusers"
+
+- name: "intel-sycl-f32-rerankers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-rerankers"
+  alias: "rerankers"
+
+- name: "intel-sycl-f16-rerankers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-rerankers"
+  alias: "rerankers"
+
+- name: "intel-sycl-f32-vllm-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-vllm"
+  alias: "vllm"
+
+- name: "intel-sycl-f16-vllm-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-vllm"
+  alias: "vllm"
+
+- name: "intel-sycl-f32-transformers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-transformers"
+  alias: "transformers"
+
+- name: "intel-sycl-f16-transformers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-transformers"
+  alias: "transformers"
+
+- name: "intel-sycl-f32-diffusers-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-diffusers"
+  alias: "diffusers"
+
+- name: "cuda11-kokoro-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-kokoro"
+  alias: "kokoro"
+
+- name: "cuda12-kokoro-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-kokoro"
+  alias: "kokoro"
+
+- name: "rocm-kokoro-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-kokoro"
+  alias: "kokoro"
+
+- name: "sycl-f32-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-kokoro"
+  alias: "kokoro"
+
+- name: "sycl-f16-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-kokoro"
+  alias: "kokoro"
+
+- name: "sycl-f16-kokoro-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-kokoro"
+  alias: "kokoro"
+
+- name: "sycl-f32-kokoro-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-kokoro"
+  alias: "kokoro"
+
+- name: "cuda11-faster-whisper-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "cuda12-faster-whisper-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "rocm-faster-whisper-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "sycl-f32-faster-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "sycl-f16-faster-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "sycl-f32-faster-whisper-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "sycl-f16-faster-whisper-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-faster-whisper"
+  alias: "faster-whisper"
+
+- name: "cuda11-coqui-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-coqui"
+  alias: "coqui"
+
+- name: "cuda12-coqui-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-coqui"
+  alias: "coqui"
+
+- name: "rocm-coqui-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-coqui"
+  alias: "coqui"
+
+- name: "sycl-f32-coqui"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-coqui"
+  alias: "coqui"
+
+- name: "sycl-f16-coqui"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-coqui"
+  alias: "coqui"
+
+- name: "sycl-f32-coqui-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-coqui"
+  alias: "coqui"
+
+- name: "sycl-f16-coqui-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-coqui"
+  alias: "coqui"
+
+- name: "cuda11-bark-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-bark"
+  alias: "bark"
+
+- name: "cuda12-bark-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bark"
+  alias: "bark"
+
+- name: "rocm-bark-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-bark"
+  alias: "bark"
+
+- name: "sycl-f32-bark"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-bark"
+  alias: "bark"
+
+- name: "sycl-f16-bark"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-bark"
+  alias: "bark"
+
+- name: "sycl-f32-bark-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-bark"
+  alias: "bark"
+
+- name: "sycl-f16-bark-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-bark"
+  alias: "bark"
+
+- name: "cuda11-chatterbox-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-chatterbox"
+  alias: "chatterbox"
+
+- name: "cuda12-chatterbox-master"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-chatterbox"
+  alias: "chatterbox"
+
+- name: "cuda11-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-chatterbox"
+  alias: "chatterbox"
+
+- name: "cuda12-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-chatterbox"
+  alias: "chatterbox"

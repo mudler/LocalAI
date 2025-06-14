@@ -1,5 +1,10 @@
 #!/bin/bash
-source $(dirname $0)/../common/libbackend.sh
+backend_dir=$(dirname $0)
+if [ -d $backend_dir/common ]; then
+    source $backend_dir/common/libbackend.sh
+else
+    source $backend_dir/../common/libbackend.sh
+fi
 
 if [ -d "/opt/intel" ]; then
     # Assumes we are using the Intel oneAPI container image

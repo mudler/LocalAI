@@ -565,7 +565,7 @@ func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
-		ttsBackends := []string{"bark-cpp", "parler-tts", "piper", "transformers-musicgen"}
+		ttsBackends := []string{"bark-cpp", "piper", "transformers-musicgen"}
 		if !slices.Contains(ttsBackends, c.Backend) {
 			return false
 		}

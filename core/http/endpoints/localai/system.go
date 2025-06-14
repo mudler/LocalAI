@@ -21,6 +21,9 @@ func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConf
 		for b := range appConfig.ExternalGRPCBackends {
 			availableBackends = append(availableBackends, b)
 		}
+		for b := range ml.GetAllExternalBackends(nil) {
+			availableBackends = append(availableBackends, b)
+		}
 
 		sysmodels := []schema.SysInfoModel{}
 		for _, m := range loadedModels {

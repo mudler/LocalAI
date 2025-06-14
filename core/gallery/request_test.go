@@ -14,7 +14,7 @@ var _ = Describe("Gallery API tests", func() {
 					URL: "github:go-skynet/model-gallery/gpt4all-j.yaml@main",
 				},
 			}
-			e, err := GetGalleryConfigFromURL(req.URL, "")
+			e, err := GetGalleryConfigFromURL[ModelConfig](req.URL, "")
 			Expect(err).ToNot(HaveOccurred())
 			Expect(e.Name).To(Equal("gpt4all-j"))
 		})

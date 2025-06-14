@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<div class="flex flex-col min-h-screen">
+   
+    {{template "views/partials/navbar" .}}
+    {{ $numBackendsPerPage := 21 }}
+    <div class="container mx-auto px-4 py-8 flex-grow">
+
+        <!-- Hero Header -->
+        <div class="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-2xl shadow-xl p-6 mb-8">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                        Backend Management
+                    </span>
+                </h1>
+                <p class="text-lg text-gray-300 mb-2">
+                    <span class="font-semibold text-indigo-300">{{.AvailableBackends}}</span> backends available
+                    <a href="https://localai.io/backends/" target="_blank" class="ml-2 text-blue-400 hover:text-blue-300 transition">
+                        <i class="fas fa-circle-info"></i>
+                    </a>
+                </p>
+            </div>
+        </div>
+        
+        {{template "views/partials/inprogress" .}}
+
+        <!-- Search and Filter Section -->
+        <div class="bg-gray-800/70 rounded-xl p-6 mb-8 shadow-lg border border-gray-700/50">
+            <!-- Search Input -->
+            <div class="relative mb-6">
+                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                    <i class="fas fa-search text-gray-400"></i>
+                </div>
+                <input class="form-control block w-full pl-10 px-4 py-3 text-base font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none" 
+                    type="search" 
+                    name="search" 
+                    placeholder="Search backends by name, description or type..." 
+                    hx-post="browse/search/backends" 
+                    hx-trigger="input changed delay:500ms, search" 
+                    hx-target="#search-results"
+                    oninput="hidePagination()"
+                    onchange="hidePagination()"
+                    onsearch="hidePagination()"
+                    hx-indicator=".htmx-indicator">
+                <span class="htmx-indicator absolute right-3 top-3">
+                    <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </span>
+            </div>
+            
+            <!-- Filter by Type -->
+            <div class="mb-4">
+                <h3 class="text-gray-200 font-medium mb-3">Filter by type:</h3>
+                <div class="flex flex-wrap gap-2">
+                    <button hx-post="browse/search/backends"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 hover:bg-indigo-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "llm"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-brain mr-2"></i>LLM
+                    </button>
+                    <button hx-post="browse/search/backends" 
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-purple-900/60 text-purple-200 border border-purple-700/50 hover:bg-purple-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "diffusion"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-image mr-2"></i>Diffusion
+                    </button>
+                    <button hx-post="browse/search/backends"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-blue-900/60 text-blue-200 border border-blue-700/50 hover:bg-blue-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "tts"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-microphone mr-2"></i>TTS
+                    </button>
+                    <button hx-post="browse/search/backends" 
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-green-900/60 text-green-200 border border-green-700/50 hover:bg-green-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "whisper"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-headphones mr-2"></i>Whisper
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="search-results" class="transition-all duration-300">
+            {{.Backends}}
+        </div>
+
+        <!-- Pagination -->
+        {{ if gt .AvailableBackends $numBackendsPerPage }}
+        <div id="paginate" class="flex justify-center mt-8">
+            <div class="flex items-center gap-4">
+                {{ if .PrevPage }}
+                <button onclick="window.location.href='browse/backends?page={{.PrevPage}}'" 
+                    class="flex items-center justify-center h-10 w-10 bg-gray-800/80 text-gray-300 hover:bg-indigo-900/70 hover:text-white rounded-lg shadow transition duration-300 ease-in-out">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                {{ end }}
+                <div class="text-gray-400 text-sm">
+                    Page <span class="text-white font-medium">{{.CurrentPage}}</span> of <span class="text-white font-medium">{{.TotalPages}}</span>
+                </div>
+                {{ if .NextPage }}
+                <button onclick="window.location.href='browse/backends?page={{.NextPage}}'" 
+                    class="flex items-center justify-center h-10 w-10 bg-gray-800/80 text-gray-300 hover:bg-indigo-900/70 hover:text-white rounded-lg shadow transition duration-300 ease-in-out">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+                {{ end }}
+            </div>
+        </div>
+        {{ end }}
+
+    </div>
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+    function hidePagination() {
+        const paginateDiv = document.getElementById('paginate');
+        if (paginateDiv) {
+            paginateDiv.style.display = 'none';
+        }
+    }
+
+    // Listen for the htmx:afterSwap event to handle cases when the search results are updated
+    document.body.addEventListener('htmx:afterSwap', function(event) {
+        if (event.detail.target.id === 'search-results') {
+            hidePagination();
+        }
+    });
+
+   
+</script>
+
+</body>
+</html> 

@@ -53,10 +53,6 @@ on:
         description: 'Skip drivers by default'
         default: 'false'
         type: string
-      image-type:
-        description: 'Image type'
-        default: ''
-        type: string
       runs-on:
         description: 'Runs on'
         required: true
@@ -159,11 +155,11 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ttl.sh/localai-ci-pr-${{ github.event.number }}
+            quay.io/go-skynet/ci-tests
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{raw}}
-            type=sha
+            type=ref,event=branch,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=semver,pattern={{raw}},suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=sha,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
           flavor: |
             latest=${{ inputs.tag-latest }}
             suffix=${{ inputs.tag-suffix }}
@@ -211,7 +207,7 @@ jobs:
           password: ${{ secrets.dockerPassword }}
 
       - name: Login to DockerHub
-        if: github.event_name != 'pull_request'
+        # if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: quay.io
@@ -232,7 +228,6 @@ jobs:
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             FFMPEG=${{ inputs.ffmpeg }}
-            IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
@@ -261,7 +256,6 @@ jobs:
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             FFMPEG=${{ inputs.ffmpeg }}
-            IMAGE_TYPE=${{ inputs.image-type }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
@@ -275,10 +269,6 @@ jobs:
           push: true
           tags: ${{ steps.meta_pull_request.outputs.tags }}
           labels: ${{ steps.meta_pull_request.outputs.labels }}
-      - name: Testing image
-        if: github.event_name == 'pull_request'
-        run: |
-          echo "Image is available at ttl.sh/localai-ci-pr-${{ github.event.number }}:${{ steps.meta_pull_request.outputs.version }}" >> $GITHUB_STEP_SUMMARY
 ## End testing image
       - name: Build and push AIO image
         if: inputs.aio != ''

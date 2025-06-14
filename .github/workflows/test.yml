@@ -188,7 +188,7 @@ jobs:
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Build images
         run: |
-          docker build --build-arg FFMPEG=true --build-arg IMAGE_TYPE=extras --build-arg EXTRA_BACKENDS=rerankers --build-arg MAKEFLAGS="--jobs=5 --output-sync=target" -t local-ai:tests -f Dockerfile .
+          docker build --build-arg FFMPEG=true --build-arg MAKEFLAGS="--jobs=5 --output-sync=target" -t local-ai:tests -f Dockerfile .
           BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test make docker-aio
       - name: Test
         run: |

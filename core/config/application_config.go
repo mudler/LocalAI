@@ -15,6 +15,8 @@ type ApplicationConfig struct {
 	Context                             context.Context
 	ConfigFile                          string
 	ModelPath                           string
+	BackendsPath                        string
+	ExternalBackends                    []string
 	LibPath                             string
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
@@ -45,7 +47,8 @@ type ApplicationConfig struct {
 	DisableGalleryEndpoint             bool
 	LoadToMemory                       []string
 
-	Galleries []Gallery
+	Galleries        []Gallery
+	BackendGalleries []Gallery
 
 	BackendAssets     *rice.Box
 	AssetsDestination string
@@ -92,6 +95,18 @@ func WithModelsURL(urls ...string) AppOption {
 func WithModelPath(path string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ModelPath = path
+	}
+}
+
+func WithBackendsPath(path string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.BackendsPath = path
+	}
+}
+
+func WithExternalBackends(backends ...string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ExternalBackends = backends
 	}
 }
 
@@ -215,6 +230,20 @@ func WithStringGalleries(galls string) AppOption {
 			log.Error().Err(err).Msg("failed loading galleries")
 		}
 		o.Galleries = append(o.Galleries, galleries...)
+	}
+}
+
+func WithBackendGalleries(galls string) AppOption {
+	return func(o *ApplicationConfig) {
+		if galls == "" {
+			o.BackendGalleries = []Gallery{}
+			return
+		}
+		var galleries []Gallery
+		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
+			log.Error().Err(err).Msg("failed loading galleries")
+		}
+		o.BackendGalleries = append(o.BackendGalleries, galleries...)
 	}
 }
 

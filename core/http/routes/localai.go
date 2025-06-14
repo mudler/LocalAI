@@ -30,10 +30,16 @@ func RegisterLocalAIRoutes(router *fiber.App,
 
 		router.Get("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint())
 		router.Get("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint())
-		router.Post("/models/galleries", modelGalleryEndpointService.AddModelGalleryEndpoint())
-		router.Delete("/models/galleries", modelGalleryEndpointService.RemoveModelGalleryEndpoint())
 		router.Get("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint())
 		router.Get("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
+
+		backendGalleryEndpointService := localai.CreateBackendEndpointService(appConfig.BackendGalleries, appConfig.BackendsPath, galleryService)
+		router.Post("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint())
+		router.Post("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint())
+		router.Get("/backends", backendGalleryEndpointService.ListBackendsEndpoint())
+		router.Get("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint())
+		router.Get("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint())
+		router.Get("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
 	}
 
 	router.Post("/tts",

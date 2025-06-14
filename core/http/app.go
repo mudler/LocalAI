@@ -204,7 +204,7 @@ func API(application *application.Application) (*fiber.App, error) {
 	utils.LoadConfig(application.ApplicationConfig().ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
 	utils.LoadConfig(application.ApplicationConfig().ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
-	galleryService := services.NewGalleryService(application.ApplicationConfig())
+	galleryService := services.NewGalleryService(application.ApplicationConfig(), application.ModelLoader())
 	galleryService.Start(application.ApplicationConfig().Context, application.BackendLoader())
 
 	requestExtractor := middleware.NewRequestExtractor(application.BackendLoader(), application.ModelLoader(), application.ApplicationConfig())

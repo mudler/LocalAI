@@ -305,7 +305,7 @@ func (ml *ModelLoader) grpcModel(backend string, autodetect bool, o *Options) fu
 		}
 
 		// Check if the backend is provided as external
-		if uri, ok := o.externalBackends[backend]; ok {
+		if uri, ok := ml.GetAllExternalBackends(o)[backend]; ok {
 			log.Debug().Msgf("Loading external backend: %s", uri)
 			// check if uri is a file or a address
 			if fi, err := os.Stat(uri); err == nil {
@@ -526,7 +526,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	}
 
 	// append externalBackends supplied by the user via the CLI
-	for _, b := range o.externalBackends {
+	for _, b := range ml.GetAllExternalBackends(o) {
 		autoLoadBackends = append(autoLoadBackends, b)
 	}
 

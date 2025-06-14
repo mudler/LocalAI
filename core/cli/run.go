@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -19,6 +20,8 @@ import (
 type RunCMD struct {
 	ModelArgs []string `arg:"" optional:"" name:"models" help:"Model configuration URLs to load"`
 
+	ExternalBackends             []string      `env:"LOCALAI_EXTERNAL_BACKENDS,EXTERNAL_BACKENDS" help:"A list of external backends to load from gallery on boot" group:"backends"`
+	BackendsPath                 string        `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"backends"`
 	ModelsPath                   string        `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 	BackendAssetsPath            string        `env:"LOCALAI_BACKEND_ASSETS_PATH,BACKEND_ASSETS_PATH" type:"path" default:"/tmp/localai/backend_data" help:"Path used to extract libraries that are required by some of the backends in runtime" group:"storage"`
 	GeneratedContentPath         string        `env:"LOCALAI_GENERATED_CONTENT_PATH,GENERATED_CONTENT_PATH" type:"path" default:"/tmp/generated/content" help:"Location for generated content (e.g. images, audio, videos)" group:"storage"`
@@ -27,8 +30,8 @@ type RunCMD struct {
 	LocalaiConfigDir             string        `env:"LOCALAI_CONFIG_DIR" type:"path" default:"${basepath}/configuration" help:"Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json)" group:"storage"`
 	LocalaiConfigDirPollInterval time.Duration `env:"LOCALAI_CONFIG_DIR_POLL_INTERVAL" help:"Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to an interval to poll the LocalAI Config Dir (example: 1m)" group:"storage"`
 	// The alias on this option is there to preserve functionality with the old `--config-file` parameter
-	ModelsConfigFile string `env:"LOCALAI_MODELS_CONFIG_FILE,CONFIG_FILE" aliases:"config-file" help:"YAML file containing a list of model backend configs" group:"storage"`
-
+	ModelsConfigFile    string   `env:"LOCALAI_MODELS_CONFIG_FILE,CONFIG_FILE" aliases:"config-file" help:"YAML file containing a list of model backend configs" group:"storage"`
+	BackendGalleries    string   `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
 	Galleries           string   `env:"LOCALAI_GALLERIES,GALLERIES" help:"JSON list of galleries" group:"models" default:"${galleries}"`
 	AutoloadGalleries   bool     `env:"LOCALAI_AUTOLOAD_GALLERIES,AUTOLOAD_GALLERIES" group:"models"`
 	PreloadModels       string   `env:"LOCALAI_PRELOAD_MODELS,PRELOAD_MODELS" help:"A List of models to apply in JSON at start" group:"models"`
@@ -73,11 +76,15 @@ type RunCMD struct {
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
+	os.MkdirAll(r.BackendsPath, 0750)
+	os.MkdirAll(r.ModelsPath, 0750)
+
 	opts := []config.AppOption{
 		config.WithConfigFile(r.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithModelPath(r.ModelsPath),
+		config.WithBackendsPath(r.BackendsPath),
 		config.WithContextSize(r.ContextSize),
 		config.WithDebug(zerolog.GlobalLevel() <= zerolog.DebugLevel),
 		config.WithGeneratedContentDir(r.GeneratedContentPath),
@@ -87,6 +94,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithDynamicConfigDirPollInterval(r.LocalaiConfigDirPollInterval),
 		config.WithF16(r.F16),
 		config.WithStringGalleries(r.Galleries),
+		config.WithBackendGalleries(r.BackendGalleries),
 		config.WithCors(r.CORS),
 		config.WithCorsAllowOrigins(r.CORSAllowOrigins),
 		config.WithCsrf(r.CSRF),
@@ -97,6 +105,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithUploadLimitMB(r.UploadLimit),
 		config.WithApiKeys(r.APIKeys),
 		config.WithModelsURL(append(r.Models, r.ModelArgs...)...),
+		config.WithExternalBackends(r.ExternalBackends...),
 		config.WithOpaqueErrors(r.OpaqueErrors),
 		config.WithEnforcedPredownloadScans(!r.DisablePredownloadScan),
 		config.WithSubtleKeyComparison(r.UseSubtleKeyComparison),

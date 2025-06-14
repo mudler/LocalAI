@@ -6,7 +6,7 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
-func DoneProgress(galleryID, text string, showDelete bool) string {
+func DoneModelProgress(galleryID, text string, showDelete bool) string {
 	return elem.Div(
 		attrs.Props{
 			"id": "action-div-" + dropBadChars(galleryID),
@@ -21,6 +21,24 @@ func DoneProgress(galleryID, text string, showDelete bool) string {
 			elem.Text(bluemonday.StrictPolicy().Sanitize(text)),
 		),
 		elem.If(showDelete, deleteButton(galleryID), reInstallButton(galleryID)),
+	).Render()
+}
+
+func DoneBackendProgress(galleryID, text string, showDelete bool) string {
+	return elem.Div(
+		attrs.Props{
+			"id": "action-div-" + dropBadChars(galleryID),
+		},
+		elem.H3(
+			attrs.Props{
+				"role":      "status",
+				"id":        "pblabel",
+				"tabindex":  "-1",
+				"autofocus": "",
+			},
+			elem.Text(bluemonday.StrictPolicy().Sanitize(text)),
+		),
+		elem.If(showDelete, backendDeleteButton(galleryID), reInstallButton(galleryID)),
 	).Render()
 }
 
@@ -57,14 +75,22 @@ func ProgressBar(progress string) string {
 	).Render()
 }
 
-func StartProgressBar(uid, progress, text string) string {
+func StartModelProgressBar(uid, progress, text string) string {
+	return progressBar(uid, "browse/job/", progress, text)
+}
+
+func StartBackendProgressBar(uid, progress, text string) string {
+	return progressBar(uid, "browse/backend/job/", progress, text)
+}
+
+func progressBar(uid, url, progress, text string) string {
 	if progress == "" {
 		progress = "0"
 	}
 	return elem.Div(
 		attrs.Props{
 			"hx-trigger": "done",
-			"hx-get":     "browse/job/" + uid,
+			"hx-get":     url + uid,
 			"hx-swap":    "outerHTML",
 			"hx-target":  "this",
 		},
@@ -77,7 +103,7 @@ func StartProgressBar(uid, progress, text string) string {
 			},
 			elem.Text(bluemonday.StrictPolicy().Sanitize(text)), //Perhaps overly defensive
 			elem.Div(attrs.Props{
-				"hx-get":     "browse/job/progress/" + uid,
+				"hx-get":     url + "progress/" + uid,
 				"hx-trigger": "every 600ms",
 				"hx-target":  "this",
 				"hx-swap":    "innerHTML",

@@ -6,6 +6,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/assets"
@@ -60,10 +61,18 @@ func New(opts ...config.AppOption) (*Application, error) {
 		log.Error().Err(err).Msg("error installing models")
 	}
 
+	if err := pkgStartup.InstallExternalBackends(options.BackendGalleries, options.BackendsPath, nil, options.ExternalBackends...); err != nil {
+		log.Error().Err(err).Msg("error installing external backends")
+	}
+
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
 	if err := application.BackendLoader().LoadBackendConfigsFromPath(options.ModelPath, configLoaderOpts...); err != nil {
 		log.Error().Err(err).Msg("error loading config files")
+	}
+
+	if err := gallery.RegisterBackends(options.BackendsPath, application.ModelLoader()); err != nil {
+		log.Error().Err(err).Msg("error registering external backends")
 	}
 
 	if options.ConfigFile != "" {

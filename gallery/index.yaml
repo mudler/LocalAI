@@ -1892,6 +1892,29 @@
     - filename: meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
       sha256: 48dfc18d40691b4190b7fecf1f89b78cadc758c3a27a9e2a1cabd686fdb822e3
       uri: huggingface://bartowski/meta-llama_Llama-4-Scout-17B-16E-Instruct-GGUF/meta-llama_Llama-4-Scout-17B-16E-Instruct-Q3_K_S.gguf
+- name: "jina-reranker-v1-tiny-en"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  tags:
+    - reranker
+    - gguf
+    - cpu
+    - gpu
+    - text-generation
+    - jina
+  urls:
+    - https://huggingface.co/mradermacher/jina-reranker-v1-tiny-en-GGUF
+    - https://huggingface.co/JinaAI/jina-reranker-v1-tiny-en-GGUF
+  description: |
+    This model is designed for blazing-fast reranking while maintaining competitive performance. What's more, it leverages the power of our JinaBERT model as its foundation. JinaBERT itself is a unique variant of the BERT architecture that supports the symmetric bidirectional variant of ALiBi. This allows jina-reranker-v1-tiny-en to process significantly longer sequences of text compared to other reranking models, up to an impressive 8,192 tokens.
+  overrides:
+    f16: true
+    reranking: true
+    parameters:
+      model: jina-reranker-v1-tiny-en.f16.gguf
+  files:
+    - filename: jina-reranker-v1-tiny-en.f16.gguf
+      sha256: 5f696cf0d0f3d347c4a279eee8270e5918554cdac0ed1f632f2619e4e8341407
+      uri: huggingface://mradermacher/jina-reranker-v1-tiny-en-GGUF/jina-reranker-v1-tiny-en.f16.gguf
 - &eurollm
   name: "eurollm-9b-instruct"
   icon: https://openeurollm.eu/_next/static/media/logo-dark.e7001867.svg
