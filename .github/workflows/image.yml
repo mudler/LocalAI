@@ -36,7 +36,6 @@ jobs:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
-      max-parallel: 2
       matrix:
         include:
           - build-type: 'hipblas'
@@ -76,7 +75,7 @@ jobs:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
-      max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
+      #max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
       matrix:
         include:
           - build-type: ''
