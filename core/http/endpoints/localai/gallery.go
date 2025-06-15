@@ -3,7 +3,6 @@ package localai
 import (
 	"encoding/json"
 	"fmt"
-	"slices"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
@@ -22,8 +21,7 @@ type ModelGalleryEndpointService struct {
 }
 
 type GalleryModel struct {
-	ID        string `json:"id"`
-	ConfigURL string `json:"config_url"`
+	ID string `json:"id"`
 	gallery.GalleryModel
 }
 
@@ -37,7 +35,7 @@ func CreateModelGalleryEndpointService(galleries []config.Gallery, modelPath str
 
 // GetOpStatusEndpoint returns the job status
 // @Summary Returns the job status
-// @Success 200 {object} gallery.GalleryOpStatus "Response"
+// @Success 200 {object} services.GalleryOpStatus "Response"
 // @Router /models/jobs/{uuid} [get]
 func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -51,7 +49,7 @@ func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx)
 
 // GetAllStatusEndpoint returns all the jobs status progress
 // @Summary Returns all the jobs status progress
-// @Success 200 {object} map[string]gallery.GalleryOpStatus "Response"
+// @Success 200 {object} map[string]services.GalleryOpStatus "Response"
 // @Router /models/jobs [get]
 func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -76,12 +74,11 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 		if err != nil {
 			return err
 		}
-		mgs.galleryApplier.C <- gallery.GalleryOp{
-			Req:              input.GalleryModel,
-			Id:               uuid.String(),
-			GalleryModelName: input.ID,
-			Galleries:        mgs.galleries,
-			ConfigURL:        input.ConfigURL,
+		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel]{
+			Req:                input.GalleryModel,
+			ID:                 uuid.String(),
+			GalleryElementName: input.ID,
+			Galleries:          mgs.galleries,
 		}
 
 		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
@@ -97,9 +94,9 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 	return func(c *fiber.Ctx) error {
 		modelName := c.Params("name")
 
-		mgs.galleryApplier.C <- gallery.GalleryOp{
-			Delete:           true,
-			GalleryModelName: modelName,
+		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel]{
+			Delete:             true,
+			GalleryElementName: modelName,
 		}
 
 		uuid, err := uuid.NewUUID()
@@ -150,61 +147,6 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *f
 func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		log.Debug().Msgf("Listing model galleries %+v", mgs.galleries)
-		dat, err := json.Marshal(mgs.galleries)
-		if err != nil {
-			return err
-		}
-		return c.Send(dat)
-	}
-}
-
-// AddModelGalleryEndpoint adds a gallery in LocalAI
-// @Summary Adds a gallery in LocalAI
-// @Param request body config.Gallery true "Gallery details"
-// @Success 200 {object} []config.Gallery "Response"
-// @Router /models/galleries [post]
-func (mgs *ModelGalleryEndpointService) AddModelGalleryEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		input := new(config.Gallery)
-		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
-			return err
-		}
-		if slices.ContainsFunc(mgs.galleries, func(gallery config.Gallery) bool {
-			return gallery.Name == input.Name
-		}) {
-			return fmt.Errorf("%s already exists", input.Name)
-		}
-		dat, err := json.Marshal(mgs.galleries)
-		if err != nil {
-			return err
-		}
-		log.Debug().Msgf("Adding %+v to gallery list", *input)
-		mgs.galleries = append(mgs.galleries, *input)
-		return c.Send(dat)
-	}
-}
-
-// RemoveModelGalleryEndpoint remove a gallery in LocalAI
-// @Summary removes a gallery from LocalAI
-// @Param request body config.Gallery true "Gallery details"
-// @Success 200 {object} []config.Gallery "Response"
-// @Router /models/galleries [delete]
-func (mgs *ModelGalleryEndpointService) RemoveModelGalleryEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		input := new(config.Gallery)
-		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
-			return err
-		}
-		if !slices.ContainsFunc(mgs.galleries, func(gallery config.Gallery) bool {
-			return gallery.Name == input.Name
-		}) {
-			return fmt.Errorf("%s is not currently registered", input.Name)
-		}
-		mgs.galleries = slices.DeleteFunc(mgs.galleries, func(gallery config.Gallery) bool {
-			return gallery.Name == input.Name
-		})
 		dat, err := json.Marshal(mgs.galleries)
 		if err != nil {
 			return err

@@ -119,7 +119,7 @@ func installModel(galleries []config.Gallery, modelName, modelPath string, downl
 		return err, false
 	}
 
-	model := gallery.FindModel(models, modelName, modelPath)
+	model := gallery.FindGalleryElement(models, modelName, modelPath)
 	if model == nil {
 		return err, false
 	}

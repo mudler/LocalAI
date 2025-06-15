@@ -100,7 +100,7 @@ definitions:
           type: string
         type: array
     type: object
-  gallery.GalleryOpStatus:
+  services.GalleryOpStatus:
     properties:
       deletion:
         description: Deletion is true if the operation is a deletion
@@ -891,7 +891,7 @@ paths:
           description: Response
           schema:
             additionalProperties:
-              $ref: '#/definitions/gallery.GalleryOpStatus'
+              $ref: '#/definitions/services.GalleryOpStatus'
             type: object
       summary: Returns all the jobs status progress
   /models/jobs/{uuid}:
@@ -900,7 +900,7 @@ paths:
         "200":
           description: Response
           schema:
-            $ref: '#/definitions/gallery.GalleryOpStatus'
+            $ref: '#/definitions/services.GalleryOpStatus'
       summary: Returns the job status
   /system:
     get:

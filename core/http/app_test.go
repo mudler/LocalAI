@@ -485,29 +485,6 @@ var _ = Describe("API test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(content["backend"]).To(Equal("llama"))
 			})
-			It("apply models from config", func() {
-				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml",
-				})
-
-				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
-
-				uuid := response["uuid"].(string)
-
-				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
-					return response["processed"].(bool)
-				}, "900s", "10s").Should(Equal(true))
-
-				Eventually(func() []string {
-					models, _ := client.ListModels(context.TODO())
-					modelList := []string{}
-					for _, m := range models.Models {
-						modelList = append(modelList, m.ID)
-					}
-					return modelList
-				}, "360s", "10s").Should(ContainElements("hermes-2-pro-mistral"))
-			})
 			It("apply models without overrides", func() {
 				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
 					URL:       bertEmbeddingsURL,
@@ -533,80 +510,6 @@ var _ = Describe("API test", func() {
 				Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 			})
 
-			It("runs openllama gguf(llama-cpp)", Label("llama-gguf"), func() {
-				if runtime.GOOS != "linux" {
-					Skip("test supported only on linux")
-				}
-
-				modelName := "hermes-2-pro-mistral"
-				response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-					ConfigURL: "https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml",
-				})
-
-				Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
-
-				uuid := response["uuid"].(string)
-
-				Eventually(func() bool {
-					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
-					return response["processed"].(bool)
-				}, "900s", "10s").Should(Equal(true))
-
-				By("testing chat")
-				resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
-					{
-						Role:    "user",
-						Content: "How much is 2+2?",
-					},
-				}})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp.Choices)).To(Equal(1))
-				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")))
-
-				By("testing functions")
-				resp2, err := client.CreateChatCompletion(
-					context.TODO(),
-					openai.ChatCompletionRequest{
-						Model: modelName,
-						Messages: []openai.ChatCompletionMessage{
-							{
-								Role:    "user",
-								Content: "What is the weather like in San Francisco (celsius)?",
-							},
-						},
-						Functions: []openai.FunctionDefinition{
-							openai.FunctionDefinition{
-								Name:        "get_current_weather",
-								Description: "Get the current weather",
-								Parameters: jsonschema.Definition{
-									Type: jsonschema.Object,
-									Properties: map[string]jsonschema.Definition{
-										"location": {
-											Type:        jsonschema.String,
-											Description: "The city and state, e.g. San Francisco, CA",
-										},
-										"unit": {
-											Type: jsonschema.String,
-											Enum: []string{"celcius", "fahrenheit"},
-										},
-									},
-									Required: []string{"location"},
-								},
-							},
-						},
-					})
-				Expect(err).ToNot(HaveOccurred())
-				Expect(len(resp2.Choices)).To(Equal(1))
-				Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
-				Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
-
-				var res map[string]string
-				err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(res["location"]).To(ContainSubstring("San Francisco"), fmt.Sprint(res))
-				Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
-				Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
-			})
 		})
 	})
 
@@ -673,6 +576,82 @@ var _ = Describe("API test", func() {
 			_, err = os.ReadDir(tmpdir)
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("runs gguf models (chat)", Label("llama-gguf"), func() {
+			if runtime.GOOS != "linux" {
+				Skip("test supported only on linux")
+			}
+
+			modelName := "qwen3-1.7b"
+			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
+				ID: "localai@" + modelName,
+			})
+
+			Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
+
+			uuid := response["uuid"].(string)
+
+			Eventually(func() bool {
+				response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+				return response["processed"].(bool)
+			}, "900s", "10s").Should(Equal(true))
+
+			By("testing chat")
+			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: modelName, Messages: []openai.ChatCompletionMessage{
+				{
+					Role:    "user",
+					Content: "How much is 2+2?",
+				},
+			}})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp.Choices)).To(Equal(1))
+			Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("4"), ContainSubstring("four")))
+
+			By("testing functions")
+			resp2, err := client.CreateChatCompletion(
+				context.TODO(),
+				openai.ChatCompletionRequest{
+					Model: modelName,
+					Messages: []openai.ChatCompletionMessage{
+						{
+							Role:    "user",
+							Content: "What is the weather like in San Francisco (celsius)?",
+						},
+					},
+					Functions: []openai.FunctionDefinition{
+						openai.FunctionDefinition{
+							Name:        "get_current_weather",
+							Description: "Get the current weather",
+							Parameters: jsonschema.Definition{
+								Type: jsonschema.Object,
+								Properties: map[string]jsonschema.Definition{
+									"location": {
+										Type:        jsonschema.String,
+										Description: "The city and state, e.g. San Francisco, CA",
+									},
+									"unit": {
+										Type: jsonschema.String,
+										Enum: []string{"celcius", "fahrenheit"},
+									},
+								},
+								Required: []string{"location"},
+							},
+						},
+					},
+				})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(resp2.Choices)).To(Equal(1))
+			Expect(resp2.Choices[0].Message.FunctionCall).ToNot(BeNil())
+			Expect(resp2.Choices[0].Message.FunctionCall.Name).To(Equal("get_current_weather"), resp2.Choices[0].Message.FunctionCall.Name)
+
+			var res map[string]string
+			err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(res["location"]).To(ContainSubstring("San Francisco"), fmt.Sprint(res))
+			Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
+			Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
+		})
+
 		It("installs and is capable to run tts", Label("tts"), func() {
 			if runtime.GOOS != "linux" {
 				Skip("test supported only on linux")

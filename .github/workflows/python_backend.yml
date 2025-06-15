@@ -1,0 +1,457 @@
+---
+name: 'build python backend container images'
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+
+concurrency:
+  group: ci-backends-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  backend-jobs:
+    uses: ./.github/workflows/python_backend_build.yml
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      latest-image: ${{ matrix.latest-image }}
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: false
+      max-parallel: ${{ github.event_name != 'pull_request' && 6 || 4 }}
+      matrix:
+        include:
+          # CUDA 11 builds
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-rerankers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "rerankers"
+            latest-image: 'latest-gpu-nvidia-cuda-11-rerankers'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-vllm'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "vllm"
+            latest-image: 'latest-gpu-nvidia-cuda-11-vllm'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-transformers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "transformers"
+            latest-image: 'latest-gpu-nvidia-cuda-11-transformers'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-diffusers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "diffusers"
+            latest-image: 'latest-gpu-nvidia-cuda-11-diffusers'
+          # CUDA 11 additional backends
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "kokoro"
+            latest-image: 'latest-gpu-nvidia-cuda-11-kokoro'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-faster-whisper'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "faster-whisper"
+            latest-image: 'latest-gpu-nvidia-cuda-11-faster-whisper'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-coqui'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "coqui"
+            latest-image: 'latest-gpu-nvidia-cuda-11-coqui'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-bark'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "bark"
+            latest-image: 'latest-gpu-nvidia-cuda-11-bark'
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-chatterbox'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "chatterbox"
+            latest-image: 'latest-gpu-nvidia-cuda-11-chatterbox'
+          # CUDA 12 builds
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "rerankers"
+            latest-image: 'latest-gpu-nvidia-cuda-12-rerankers'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-vllm'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "vllm"
+            latest-image: 'latest-gpu-nvidia-cuda-12-vllm'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-transformers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "transformers"
+            latest-image: 'latest-gpu-nvidia-cuda-12-transformers'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "diffusers"
+            latest-image: 'latest-gpu-nvidia-cuda-12-diffusers'
+          # CUDA 12 additional backends
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "kokoro"
+            latest-image: 'latest-gpu-nvidia-cuda-12-kokoro'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "faster-whisper"
+            latest-image: 'latest-gpu-nvidia-cuda-12-faster-whisper'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-coqui'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "coqui"
+            latest-image: 'latest-gpu-nvidia-cuda-12-coqui'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-bark'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "bark"
+            latest-image: 'latest-gpu-nvidia-cuda-12-bark'
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
+            runs-on: 'arc-runner-set'
+            base-image: "ubuntu:22.04"
+            backend: "chatterbox"
+            latest-image: 'latest-gpu-nvidia-cuda-12-chatterbox'
+          # hipblas builds
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-rerankers'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "rerankers"
+            latest-image: 'latest-gpu-rocm-hipblas-rerankers'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-vllm'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "vllm"
+            latest-image: 'latest-gpu-rocm-hipblas-vllm'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-transformers'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "transformers"
+            latest-image: 'latest-gpu-rocm-hipblas-transformers'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-diffusers'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "diffusers"
+            latest-image: 'latest-gpu-rocm-hipblas-diffusers'
+          # ROCm additional backends
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-kokoro'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "kokoro"
+            latest-image: 'latest-gpu-rocm-hipblas-kokoro'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "faster-whisper"
+            latest-image: 'latest-gpu-rocm-hipblas-faster-whisper'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-coqui'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "coqui"
+            latest-image: 'latest-gpu-rocm-hipblas-coqui'
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-bark'
+            runs-on: 'arc-runner-set'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "bark"
+            latest-image: 'latest-gpu-rocm-hipblas-bark'
+          # sycl builds
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-rerankers'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "rerankers"
+            latest-image: 'latest-gpu-intel-sycl-f32-rerankers'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-rerankers'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "rerankers"
+            latest-image: 'latest-gpu-intel-sycl-f16-rerankers'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-vllm'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "vllm"
+            latest-image: 'latest-gpu-intel-sycl-f32-vllm'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-vllm'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "vllm"
+            latest-image: 'latest-gpu-intel-sycl-f16-vllm'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-transformers'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "transformers"
+            latest-image: 'latest-gpu-intel-sycl-f32-transformers'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-transformers'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "transformers"
+            latest-image: 'latest-gpu-intel-sycl-f16-transformers'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-diffusers'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "diffusers"
+            latest-image: 'latest-gpu-intel-sycl-f32-diffusers'
+          # SYCL additional backends
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-kokoro'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "kokoro"
+            latest-image: 'latest-gpu-intel-sycl-f32-kokoro'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-kokoro'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "kokoro"
+            latest-image: 'latest-gpu-intel-sycl-f16-kokoro'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-faster-whisper'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "faster-whisper"
+            latest-image: 'latest-gpu-intel-sycl-f32-faster-whisper'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-faster-whisper'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "faster-whisper"
+            latest-image: 'latest-gpu-intel-sycl-f16-faster-whisper'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-coqui'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "coqui"
+            latest-image: 'latest-gpu-intel-sycl-f32-coqui'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-coqui'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "coqui"
+            latest-image: 'latest-gpu-intel-sycl-f16-coqui'
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-bark'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "bark"
+            latest-image: 'latest-gpu-intel-sycl-f32-bark'
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-bark'
+            runs-on: 'arc-runner-set'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "bark"
+            latest-image: 'latest-gpu-intel-sycl-f16-bark'
