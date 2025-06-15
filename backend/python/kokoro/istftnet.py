@@ -154,7 +154,7 @@ class SineGen(torch.nn.Module):
         """ f0_values: (batchsize, length, dim)
             where dim indicates fundamental tone and overtones
         """
-        # convert to F0 in rad. The interger part n can be ignored
+        # convert to F0 in rad. The integer part n can be ignored
         # because 2 * np.pi * n doesn't affect phase
         rad_values = (f0_values / self.sampling_rate) % 1
 
