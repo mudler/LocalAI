@@ -243,12 +243,12 @@ spec:
               amd.com/gpu: '1'
 ```
 
-This configuration has been tested on a 'custom' cluster managed by SUSE Rancher that was deployed on top of Ubuntu 22.04.4, certification of other configuration is ongoing and compatability is not gauranteed.
+This configuration has been tested on a 'custom' cluster managed by SUSE Rancher that was deployed on top of Ubuntu 22.04.4, certification of other configuration is ongoing and compatability is not guaranteed.
 
 ### Notes
 
 - When installing the ROCM kernel driver on your system ensure that you are installing an equal or newer version that that which is currently implemented in LocalAI (6.0.0 at time of writing).
-- AMD documentation indicates that this will ensure functionality however your milage may vary depending on the GPU and distro you are using.
+- AMD documentation indicates that this will ensure functionality however your mileage may vary depending on the GPU and distro you are using.
 - If you encounter an `Error 413` on attempting to upload an audio file or image for whisper or llava/bakllava on a k8s deployment, note that the ingress for your deployment may require the annotation `nginx.ingress.kubernetes.io/proxy-body-size: "25m"` to allow larger uploads. This may be included in future versions of the helm chart.
 
 ## Intel acceleration (sycl)
