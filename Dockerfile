@@ -23,7 +23,7 @@ RUN apt-get update && \
         curl libssl-dev \
         git \
         git-lfs \
-        unzip upx-ucl && \
+        unzip upx-ucl python3 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
