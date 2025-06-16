@@ -7,7 +7,7 @@ on:
       - master
     tags:
       - '*'
-  pull_request:
+  #pull_request:
 
 concurrency:
   group: ci-backends-${{ github.head_ref || github.ref }}-${{ github.repository }}
