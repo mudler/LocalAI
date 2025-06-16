@@ -223,7 +223,7 @@ jobs:
           password: ${{ secrets.dockerPassword }}
 
       - name: Login to DockerHub
-        # if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: quay.io
@@ -282,7 +282,7 @@ jobs:
           file: ./Dockerfile
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
-          push: true
+          #push: true
           tags: ${{ steps.meta_pull_request.outputs.tags }}
           labels: ${{ steps.meta_pull_request.outputs.labels }}
 ## End testing image
