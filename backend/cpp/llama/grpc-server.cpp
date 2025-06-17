@@ -300,8 +300,10 @@ static void params_parse(const backend::ModelOptions* request,
     params.no_kv_offload = request->nokvoffload();
     params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
 
-    params.embedding = request->embeddings();
-    params.reranking = request->reranking();
+    params.embedding = request->embeddings() || request->reranking();
+    if (request->reranking()) {
+        params.pooling_type = LLAMA_POOLING_TYPE_RANK;
+    }
 
     if (request->ropescaling() == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
     else if (request->ropescaling() == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
@@ -823,7 +825,7 @@ public:
     }
 
     grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) {
-        if (!ctx_server.params_base.reranking || ctx_server.params_base.embedding) {
+        if (!ctx_server.params_base.embedding || ctx_server.params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
             return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This server does not support reranking. Start it with `--reranking` and without `--embedding`");
         }
 
