@@ -45,7 +45,7 @@ jobs:
             ffmpeg: 'true'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             grpc-base-image: "ubuntu:22.04"
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             latest-image: 'latest-gpu-hipblas'
             aio: "-aio-gpu-hipblas"
@@ -84,7 +84,7 @@ jobs:
             tag-suffix: ''
             ffmpeg: 'true'
             base-image: "ubuntu:22.04"
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
             latest-image: 'latest-cpu'
             latest-image-aio: 'latest-aio-cpu'
@@ -97,7 +97,7 @@ jobs:
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda11'
             ffmpeg: 'true'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
@@ -111,7 +111,7 @@ jobs:
             tag-latest: 'false'
             tag-suffix: '-cublas-cuda12'
             ffmpeg: 'true'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
@@ -123,7 +123,7 @@ jobs:
             tag-latest: 'false'
             tag-suffix: '-vulkan'
             ffmpeg: 'true'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
@@ -137,7 +137,7 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f16'
             ffmpeg: 'true'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             latest-image: 'latest-gpu-intel-f16'
             aio: "-aio-gpu-intel-f16"
@@ -149,7 +149,7 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-sycl-f32'
             ffmpeg: 'true'
-            runs-on: 'arc-runner-set'
+            runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             latest-image: 'latest-gpu-intel-f32'
             aio: "-aio-gpu-intel-f32"
