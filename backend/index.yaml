@@ -1,10 +1,11 @@
+---
 ## vLLM
 - &vllm
   name: "cuda11-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-vllm"
   license: apache-2.0
   urls:
-   - https://github.com/vllm-project/vllm
+    - https://github.com/vllm-project/vllm
   tags:
     - text-to-text
     - multimodal
@@ -90,225 +91,264 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-rerankers"
   alias: "rerankers"
 ## Transformers
-- name: "cuda12-transformers"
+- &transformers
+  name: "cuda12-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-transformers"
-  alias: "cuda12-transformers"
-- name: "rocm-transformers"
+  icon: https://camo.githubusercontent.com/26569a27b8a30a488dd345024b71dbc05da7ff1b2ba97bb6080c9f1ee0f26cc7/68747470733a2f2f68756767696e67666163652e636f2f64617461736574732f68756767696e67666163652f646f63756d656e746174696f6e2d696d616765732f7265736f6c76652f6d61696e2f7472616e73666f726d6572732f7472616e73666f726d6572735f61735f615f6d6f64656c5f646566696e6974696f6e2e706e67
+  alias: "transformers"
+  license: apache-2.0
+  description: |
+    Transformers acts as the model-definition framework for state-of-the-art machine learning models in text, computer vision, audio, video, and multimodal model, for both inference and training.
+    It centralizes the model definition so that this definition is agreed upon across the ecosystem. transformers is the pivot across frameworks: if a model definition is supported, it will be compatible with the majority of training frameworks (Axolotl, Unsloth, DeepSpeed, FSDP, PyTorch-Lightning, ...), inference engines (vLLM, SGLang, TGI, ...), and adjacent modeling libraries (llama.cpp, mlx, ...) which leverage the model definition from transformers.
+  urls:
+    - https://github.com/huggingface/transformers
+  tags:
+    - text-to-text
+    - multimodal
+- !!merge <<: *transformers
+  name: "rocm-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-transformers"
-  alias: "rocm-transformers"
-- name: "intel-sycl-f32-transformers"
+- !!merge <<: *transformers
+  name: "intel-sycl-f32-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-transformers"
-  alias: "intel-sycl-f32-transformers"
-
-- name: "intel-sycl-f16-transformers"
+- !!merge <<: *transformers
+  name: "intel-sycl-f16-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-transformers"
-  alias: "intel-sycl-f16-transformers"
-- name: "cuda11-transformers-master"
+- !!merge <<: *transformers
+  name: "cuda11-transformers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-transformers"
-  alias: "transformers"
-- name: "cuda11-transformers"
+- !!merge <<: *transformers
+  name: "cuda11-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-transformers"
-  alias: "cuda11-transformers"
-
-
-- name: "cuda12-transformers-master"
+- !!merge <<: *transformers
+  name: "cuda12-transformers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-transformers"
-  alias: "transformers"
-
-
-- name: "rocm-transformers-master"
+- !!merge <<: *transformers
+  name: "rocm-transformers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-transformers"
-  alias: "transformers"
-
-
-
-- name: "intel-sycl-f32-transformers-master"
+- !!merge <<: *transformers
+  name: "intel-sycl-f32-transformers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-transformers"
-  alias: "transformers"
-
-- name: "intel-sycl-f16-transformers-master"
+- !!merge <<: *transformers
+  name: "intel-sycl-f16-transformers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-transformers"
-  alias: "transformers"
 ## Diffusers
-- name: "cuda12-diffusers"
+- &diffusers
+  icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
+  description: |
+    🤗 Diffusers is the go-to library for state-of-the-art pretrained diffusion models for generating images, audio, and even 3D structures of molecules. Whether you're looking for a simple inference solution or training your own diffusion models, 🤗 Diffusers is a modular toolbox that supports both.
+  urls:
+    - https://github.com/huggingface/diffusers
+  tags:
+    - image-generation
+    - video-generation
+    - diffusion-models
+  name: "cuda12-diffusers"
+  license: apache-2.0
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-diffusers"
-  alias: "cuda12-diffusers"
-- name: "rocm-diffusers"
+  alias: "diffusers"
+- !!merge <<: *diffusers
+  name: "rocm-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-diffusers"
-  alias: "rocm-diffusers"
-- name: "cuda11-diffusers"
+- !!merge <<: *diffusers
+  name: "cuda11-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-diffusers"
-  alias: "cuda11-diffusers"
-
-
-- name: "intel-sycl-f32-diffusers"
+- !!merge <<: *diffusers
+  name: "intel-sycl-f32-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-diffusers"
-  alias: "intel-sycl-f32-diffusers"
-
-- name: "cuda11-diffusers-master"
+- !!merge <<: *diffusers
+  name: "cuda11-diffusers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-diffusers"
-  alias: "diffusers"
-
-- name: "cuda12-diffusers-master"
+- !!merge <<: *diffusers
+  name: "cuda12-diffusers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-diffusers"
-  alias: "diffusers"
-
-- name: "rocm-diffusers-master"
+- !!merge <<: *diffusers
+  name: "rocm-diffusers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-diffusers"
-  alias: "diffusers"
-
-- name: "intel-sycl-f32-diffusers-master"
+- !!merge <<: *diffusers
+  name: "intel-sycl-f32-diffusers-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-diffusers"
-  alias: "diffusers"
-
   ## exllama2
-- name: "cuda11-exllama2"
+- &exllama2
+  urls:
+    - https://github.com/turboderp-org/exllamav2
+  tags:
+    - text-to-text
+    - LLM
+    - EXL2
+  license: MIT
+  description: |
+    ExLlamaV2 is an inference library for running local LLMs on modern consumer GPUs.
+  name: "cuda11-exllama2"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-exllama2"
-  alias: "cuda11-exllama2"
-- name: "cuda12-exllama2"
+  alias: "exllama2"
+- !!merge <<: *exllama2
+  name: "cuda12-exllama2"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-exllama2"
-  alias: "cuda12-exllama2"
-
-- name: "cuda11-exllama2-master"
+- !!merge <<: *exllama2
+  name: "cuda11-exllama2-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-exllama2"
-  alias: "exllama2"
-
-
-- name: "cuda12-exllama2-master"
+- !!merge <<: *exllama2
+  name: "cuda12-exllama2-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-exllama2"
-  alias: "exllama2"
-
 ## kokoro
-- name: "cuda11-kokoro-master"
+- &kokoro
+  icon: https://avatars.githubusercontent.com/u/166769057?v=4
+  description: |
+    Kokoro is an open-weight TTS model with 82 million parameters. Despite its lightweight architecture, it delivers comparable quality to larger models while being significantly faster and more cost-efficient. With Apache-licensed weights, Kokoro can be deployed anywhere from production environments to personal projects.
+  urls:
+    - https://huggingface.co/hexgrad/Kokoro-82M
+    - https://github.com/hexgrad/kokoro
+  tags:
+    - text-to-speech
+    - TTS
+    - LLM
+  license: apache-2.0
+  name: "cuda11-kokoro-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-kokoro"
   alias: "kokoro"
-
-- name: "cuda12-kokoro-master"
+- !!merge <<: *kokoro
+  name: "cuda12-kokoro-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-kokoro"
-  alias: "kokoro"
-
-- name: "rocm-kokoro-master"
+- !!merge <<: *kokoro
+  name: "rocm-kokoro-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-kokoro"
-  alias: "kokoro"
-
-- name: "sycl-f32-kokoro"
+- !!merge <<: *kokoro
+  name: "sycl-f32-kokoro"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-kokoro"
-  alias: "kokoro"
-
-- name: "sycl-f16-kokoro"
+- !!merge <<: *kokoro
+  name: "sycl-f16-kokoro"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-kokoro"
-  alias: "kokoro"
-
-- name: "sycl-f16-kokoro-master"
+- !!merge <<: *kokoro
+  name: "sycl-f16-kokoro-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-kokoro"
-  alias: "kokoro"
-
-- name: "sycl-f32-kokoro-master"
+- !!merge <<: *kokoro
+  name: "sycl-f32-kokoro-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-kokoro"
-  alias: "kokoro"
-
 ## faster-whisper
-- name: "cuda11-faster-whisper-master"
+- &faster-whisper
+  icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
+  description: |
+    faster-whisper is a reimplementation of OpenAI's Whisper model using CTranslate2, which is a fast inference engine for Transformer models.
+    This implementation is up to 4 times faster than openai/whisper for the same accuracy while using less memory. The efficiency can be further improved with 8-bit quantization on both CPU and GPU.
+  urls:
+    - https://github.com/SYSTRAN/faster-whisper
+  tags:
+    - speech-to-text
+    - Whisper
+  license: MIT
+  name: "cuda11-faster-whisper-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-faster-whisper"
   alias: "faster-whisper"
-
-- name: "cuda12-faster-whisper-master"
+- !!merge <<: *faster-whisper
+  name: "cuda12-faster-whisper-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-faster-whisper"
-  alias: "faster-whisper"
-
-- name: "rocm-faster-whisper-master"
+- !!merge <<: *faster-whisper
+  name: "rocm-faster-whisper-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-faster-whisper"
-  alias: "faster-whisper"
-
-- name: "sycl-f32-faster-whisper"
+- !!merge <<: *faster-whisper
+  name: "sycl-f32-faster-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-faster-whisper"
-  alias: "faster-whisper"
-
-- name: "sycl-f16-faster-whisper"
+- !!merge <<: *faster-whisper
+  name: "sycl-f16-faster-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-faster-whisper"
-  alias: "faster-whisper"
-
-- name: "sycl-f32-faster-whisper-master"
+- !!merge <<: *faster-whisper
+  name: "sycl-f32-faster-whisper-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-faster-whisper"
-  alias: "faster-whisper"
-
-- name: "sycl-f16-faster-whisper-master"
+- !!merge <<: *faster-whisper
+  name: "sycl-f16-faster-whisper-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-faster-whisper"
-  alias: "faster-whisper"
-
 ## coqui
+- &coqui
+  urls:
+    - https://github.com/idiap/coqui-ai-TTS
+  description: |
+    🐸 Coqui TTS is a library for advanced Text-to-Speech generation.
 
-- name: "cuda11-coqui-master"
+    🚀 Pretrained models in +1100 languages.
+
+    🛠️ Tools for training new models and fine-tuning existing models in any language.
+
+    📚 Utilities for dataset analysis and curation.
+  tags:
+    - text-to-speech
+    - TTS
+  license: mpl-2.0
+  name: "cuda11-coqui-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-coqui"
   alias: "coqui"
-
-- name: "cuda12-coqui-master"
+  icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
+- !!merge <<: *coqui
+  name: "cuda12-coqui-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-coqui"
-  alias: "coqui"
-
-- name: "rocm-coqui-master"
+- !!merge <<: *coqui
+  name: "rocm-coqui-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-coqui"
-  alias: "coqui"
-
-- name: "sycl-f32-coqui"
+- !!merge <<: *coqui
+  name: "sycl-f32-coqui"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-coqui"
-  alias: "coqui"
-
-- name: "sycl-f16-coqui"
+- !!merge <<: *coqui
+  name: "sycl-f16-coqui"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-coqui"
-  alias: "coqui"
-
-- name: "sycl-f32-coqui-master"
+- !!merge <<: *coqui
+  name: "sycl-f32-coqui-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-coqui"
-  alias: "coqui"
-
-- name: "sycl-f16-coqui-master"
+- !!merge <<: *coqui
+  name: "sycl-f16-coqui-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-coqui"
-  alias: "coqui"
-
 ## bark
-- name: "cuda11-bark-master"
+- &bark
+  urls:
+    - https://github.com/suno-ai/bark
+  description: |
+    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints, which are ready for inference and available for commercial use.
+  tags:
+    - text-to-speech
+    - TTS
+  license: MIT
+  name: "cuda11-bark-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-bark"
   alias: "bark"
-
-- name: "cuda12-bark-master"
+  icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
+- !!merge <<: *bark
+  name: "cuda12-bark-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bark"
-  alias: "bark"
-
-- name: "rocm-bark-master"
+- !!merge <<: *bark
+  name: "rocm-bark-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-bark"
-  alias: "bark"
-
-- name: "sycl-f32-bark"
+- !!merge <<: *bark
+  name: "sycl-f32-bark"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-bark"
-  alias: "bark"
-
-- name: "sycl-f16-bark"
+- !!merge <<: *bark
+  name: "sycl-f16-bark"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-bark"
-  alias: "bark"
-
-- name: "sycl-f32-bark-master"
+- !!merge <<: *bark
+  name: "sycl-f32-bark-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-bark"
-  alias: "bark"
-
-- name: "sycl-f16-bark-master"
+- !!merge <<: *bark
+  name: "sycl-f16-bark-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-bark"
-  alias: "bark"
-
 ## chatterbox
-
-- name: "cuda11-chatterbox-master"
+- &chatterbox
+  urls:
+    - https://github.com/resemble-ai/chatterbox
+  description: |
+    Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
+    Whether you're working on memes, videos, games, or AI agents, Chatterbox brings your content to life. It's also the first open source TTS model to support emotion exaggeration control, a powerful feature that makes your voices stand out.
+  tags:
+    - text-to-speech
+    - TTS
+  license: MIT
+  icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTAxOTE0MDAsIm5iZiI6MTc1MDE5MTEwMCwicGF0aCI6Ii82NjAyMjQvNDQ4MTY2NjUzLWJkOGM1ZjAzLWU5MWQtNGVlNS1iNjgwLTU3MzU1ZGEyMDRkMS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwNjE3JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDYxN1QyMDExNDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMmI1NGY3OGFiZTlhNGFkNTVlYTY4NTIwMWEzODRiZGE4YzdhNGQ5MGNhNzE3MDYyYTA2NDIxYTkyYzhiODkwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.mR9kM9xX0TdzPuSpuspCllHYQiq79dFQ2rtuNvjrl6w
+  name: "cuda11-chatterbox-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-chatterbox"
   alias: "chatterbox"
-
-- name: "cuda12-chatterbox-master"
+- !!merge <<: *chatterbox
+  name: "cuda12-chatterbox-master"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-chatterbox"
-  alias: "chatterbox"
-
-- name: "cuda11-chatterbox"
+- !!merge <<: *chatterbox
+  name: "cuda11-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-chatterbox"
-  alias: "chatterbox"
-
-- name: "cuda12-chatterbox"
+- !!merge <<: *chatterbox
+  name: "cuda12-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-chatterbox"
-  alias: "chatterbox"
