@@ -45,6 +45,14 @@ on:
         description: 'Backend to build'
         required: true
         type: string
+      context:
+        description: 'Build context'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Build Dockerfile'
+        required: true
+        type: string
     secrets:
       dockerUsername:
         required: true

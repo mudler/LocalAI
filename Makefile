@@ -225,7 +225,6 @@ ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 
 ifeq ($(ONNX_OS),linux)
 ifeq ($(ONNX_ARCH),x64)
-	ALL_GRPC_BACKENDS+=backend-assets/grpc/bark-cpp
 	ALL_GRPC_BACKENDS+=backend-assets/grpc/stablediffusion-ggml
 endif
 endif
