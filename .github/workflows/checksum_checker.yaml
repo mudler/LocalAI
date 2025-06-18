@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
 jobs:
   checksum_check:
-    runs-on: arc-runner-set
+    runs-on: ubuntu-latest
     steps:
       - name: Force Install GIT latest
         run: |
