@@ -13,7 +13,7 @@ hero:
       mobile: "gradient-mobile.webp"
 
   badge:
-    text: "⭐ 31.8k+ stars on GitHub!"
+    text: "⭐ 33.3k+ stars on GitHub!"
     color: primary
     pill: false
     soft: true
