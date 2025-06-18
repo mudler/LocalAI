@@ -30,7 +30,7 @@ var _ = Describe("OCI", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer os.RemoveAll(dir)
 
-			err = ExtractOCIImage(img, dir)
+			err = ExtractOCIImage(img, dir, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

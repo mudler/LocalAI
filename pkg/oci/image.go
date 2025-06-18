@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -59,11 +60,64 @@ var defaultRetryPredicate = func(err error) bool {
 	return false
 }
 
-// ExtractOCIImage will extract a given targetImage into a given targetDestination
-func ExtractOCIImage(img v1.Image, targetDestination string) error {
-	reader := mutate.Extract(img)
+type progressWriter struct {
+	written        int64
+	total          int64
+	fileName       string
+	downloadStatus func(string, string, string, float64)
+}
 
-	_, err := archive.Apply(context.Background(), targetDestination, reader, archive.WithNoSameOwner())
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return strconv.FormatInt(bytes, 10) + " B"
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func (pw *progressWriter) Write(p []byte) (int, error) {
+	n := len(p)
+	pw.written += int64(n)
+	if pw.total > 0 {
+		percentage := float64(pw.written) / float64(pw.total) * 100
+		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
+		pw.downloadStatus(pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
+	} else {
+		pw.downloadStatus(pw.fileName, formatBytes(pw.written), "", 0)
+	}
+
+	return n, nil
+}
+
+// ExtractOCIImage will extract a given targetImage into a given targetDestination
+func ExtractOCIImage(img v1.Image, targetDestination string, downloadStatus func(string, string, string, float64)) error {
+	var reader io.Reader
+	reader = mutate.Extract(img)
+
+	if downloadStatus != nil {
+		var totalSize int64
+		layers, err := img.Layers()
+		if err != nil {
+			return err
+		}
+		for _, layer := range layers {
+			size, err := layer.Size()
+			if err != nil {
+				return err
+			}
+			totalSize += size
+		}
+		reader = io.TeeReader(reader, &progressWriter{total: totalSize, downloadStatus: downloadStatus})
+	}
+
+	_, err := archive.Apply(context.Background(),
+		targetDestination, reader,
+		archive.WithNoSameOwner())
 
 	return err
 }
