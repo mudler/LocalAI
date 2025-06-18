@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/rs/zerolog/log"
@@ -70,6 +71,7 @@ func registerBackendGalleryRoutes(app *fiber.App, appConfig *config.ApplicationC
 			"ProcessingBackends": processingBackendsData,
 			"AvailableBackends":  len(backends),
 			"TaskTypes":          taskTypes,
+			"IsP2PEnabled":       p2p.IsP2PEnabled(),
 		}
 
 		if page == "" {
