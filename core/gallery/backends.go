@@ -44,7 +44,7 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 		return fmt.Errorf("failed to create backend path %q: %v", backendPath, err)
 	}
 
-	if err := oci.ExtractOCIImage(img, backendPath); err != nil {
+	if err := oci.ExtractOCIImage(img, backendPath, downloadStatus); err != nil {
 		return fmt.Errorf("failed to extract image %q: %v", config.URI, err)
 	}
 
