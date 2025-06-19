@@ -12,7 +12,7 @@ Section under construction
 This section contains instruction on how to use LocalAI with GPU acceleration.
 
 {{% alert icon="⚡" context="warning" %}}
-For accelleration for AMD or Metal HW is still in development, for additional details see the [build]({{%relref "docs/getting-started/build#Acceleration" %}})
+For acceleration for AMD or Metal HW is still in development, for additional details see the [build]({{%relref "docs/getting-started/build#Acceleration" %}})
 {{% /alert %}}
 
 
@@ -116,7 +116,7 @@ llama_init_from_file: kv self size  =  512.00 MB
 
 There are a limited number of tested configurations for ROCm systems however most newer deditated GPU consumer grade devices seem to be supported under the current ROCm6 implementation.
 
-Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatability and package versions for dependencies across all variations of OS must be tested independently if disired, please refer to the [build]({{%relref "docs/getting-started/build#Acceleration" %}}) documentation.
+Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatibility and package versions for dependencies across all variations of OS must be tested independently if desired, please refer to the [build]({{%relref "docs/getting-started/build#Acceleration" %}}) documentation.
 
 ### Requirements
 
