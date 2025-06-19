@@ -121,17 +121,11 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ### NVIDIA GPU Images:
 
 ```bash
-# CUDA 12.0 with core features
+# CUDA 12.0
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 
-# CUDA 12.0 with extra Python dependencies
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12-extras
-
-# CUDA 11.7 with core features
+# CUDA 11.7
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
-
-# CUDA 11.7 with extra Python dependencies
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11-extras
 
 # NVIDIA Jetson (L4T) ARM64
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64
@@ -140,11 +134,7 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nv
 ### AMD GPU Images (ROCm):
 
 ```bash
-# ROCm with core features
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
-
-# ROCm with extra Python dependencies
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas-extras
 ```
 
 ### Intel GPU Images (oneAPI):
@@ -153,20 +143,13 @@ docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri 
 # Intel GPU with FP16 support
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f16
 
-# Intel GPU with FP16 support and extra dependencies
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f16-extras
-
 # Intel GPU with FP32 support
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f32
-
-# Intel GPU with FP32 support and extra dependencies
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f32-extras
 ```
 
 ### Vulkan GPU Images:
 
 ```bash
-# Vulkan with core features
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 ```
 
