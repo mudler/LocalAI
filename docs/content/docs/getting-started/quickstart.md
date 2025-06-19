@@ -27,19 +27,67 @@ curl https://localai.io/install.sh | sh
 
 See [Installer]({{% relref "docs/advanced/installer" %}}) for all the supported options
 
-### Run with docker:
-```bash
-# CPU only image:
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-cpu
+### Run with docker
 
-# Nvidia GPU:
+
+#### CPU only image:
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+```
+
+#### NVIDIA GPU Images:
+
+```bash
+# CUDA 12.0
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 
-# CPU and GPU image (bigger size):
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
+# CUDA 11.7
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
 
-# AIO images (it will pre-download a set of models ready for use, see https://localai.io/basics/container/)
+# NVIDIA Jetson (L4T) ARM64
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64
+```
+
+#### AMD GPU Images (ROCm):
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
+```
+
+#### Intel GPU Images (oneAPI):
+
+```bash
+# Intel GPU with FP16 support
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f16
+
+# Intel GPU with FP32 support
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f32
+```
+
+#### Vulkan GPU Images:
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
+```
+
+#### AIO Images (pre-downloaded models):
+
+```bash
+# CPU version
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+
+# NVIDIA CUDA 12 version
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
+
+# NVIDIA CUDA 11 version
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
+
+# Intel GPU version
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel-f16
+
+# AMD GPU version
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
 ```
 
 ### Load models:
