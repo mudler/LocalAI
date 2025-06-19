@@ -91,6 +91,13 @@ Your backend container should:
 5. Have a top level `run.sh` file that will be used to run the backend
 6. Pushed to a registry so can be used in a gallery
 
+### Getting started
+
+For getting started, see the available backends in LocalAI here: https://github.com/mudler/LocalAI/tree/master/backend . 
+
+- For Python based backends there is a template that can be used as starting point: https://github.com/mudler/LocalAI/tree/master/backend/python/common/template . 
+- For Golang based backends, you can see the `bark-cpp` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/go/bark
+- For C++ based backends, you can see the `llama-cpp` backend as an example: https://github.com/mudler/LocalAI/tree/master/backend/cpp/llama
 
 ### Publishing Your Backend
 
