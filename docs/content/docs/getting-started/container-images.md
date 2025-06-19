@@ -150,10 +150,6 @@ The AIO Images are inheriting the same environment variables as the base images 
 
 Standard container images do not have pre-installed models. 
 
-Images are available with and without python dependencies (images with the `extras` suffix). Note that images with python dependencies are bigger (in order of 17GB). 
-
-Images with `core` in the tag are smaller and do not contain any python dependencies. 
-
 {{< tabs tabTotal="8" >}}
 {{% tab tabName="Vanilla / CPU Images" %}}
 
@@ -171,7 +167,6 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda11` | `localai/localai:master-cublas-cuda11`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11` | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
-| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11-extras` | `localai/localai:latest-gpu-nvidia-cuda-11-extras`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11` | `localai/localai:{{< version >}}-cublas-cuda11`             |
 
 {{% /tab %}}
@@ -182,7 +177,6 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda12` | `localai/localai:master-cublas-cuda12`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12`                 |
-| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12-extras` | `localai/localai:latest-gpu-nvidia-cuda-12-extras`                 |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12` | `localai/localai:{{< version >}}-cublas-cuda12`             |
 
 {{% /tab %}}
@@ -193,7 +187,6 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f16` | `localai/localai:master-sycl-f16`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16` | `localai/localai:latest-gpu-intel-f16`                      |
-| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16-extras` | `localai/localai:latest-gpu-intel-f16-extras`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16` | `localai/localai:{{< version >}}-sycl-f16`             |
 
 {{% /tab %}}
@@ -204,7 +197,6 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f32` | `localai/localai:master-sycl-f32`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32` | `localai/localai:latest-gpu-intel-f32`                      |
-| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32-extras` | `localai/localai:latest-gpu-intel-f32-extras`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32` | `localai/localai:{{< version >}}-sycl-f32`             |
 
 {{% /tab %}}
@@ -215,7 +207,6 @@ Images with `core` in the tag are smaller and do not contain any python dependen
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-hipblas` | `localai/localai:master-hipblas`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `localai/localai:latest-gpu-hipblas`                      |
-| Latest tag with extras | `quay.io/go-skynet/local-ai:latest-gpu-hipblas-extras` | `localai/localai:latest-gpu-hipblas-extras`                      |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas` | `localai/localai:{{< version >}}-hipblas`             |
 
 {{% /tab %}}

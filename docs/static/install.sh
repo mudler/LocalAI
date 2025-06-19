@@ -16,7 +16,6 @@
 # Environment Variables:
 #   DOCKER_INSTALL - Set to "true" to install Docker images (default: auto-detected)
 #   USE_AIO       - Set to "true" to use the all-in-one LocalAI image (default: false)
-#   USE_EXTRAS    - Set to "true" to use images with extra Python dependencies (default: false)
 #   USE_VULKAN    - Set to "true" to use Vulkan GPU support (default: false)
 #   API_KEY       - API key for securing LocalAI access (default: none)
 #   PORT          - Port to run LocalAI on (default: 8080)
@@ -160,7 +159,6 @@ uninstall_localai() {
 
 # DOCKER_INSTALL - set to "true" to install Docker images
 # USE_AIO - set to "true" to install the all-in-one LocalAI image
-# USE_EXTRAS - set to "true" to use images with extra Python dependencies
 # USE_VULKAN - set to "true" to use Vulkan GPU support
 PORT=${PORT:-8080}
 
@@ -175,7 +173,6 @@ fi
 
 DOCKER_INSTALL=${DOCKER_INSTALL:-$docker_found}
 USE_AIO=${USE_AIO:-false}
-USE_EXTRAS=${USE_EXTRAS:-false}
 USE_VULKAN=${USE_VULKAN:-false}
 API_KEY=${API_KEY:-}
 CORE_IMAGES=${CORE_IMAGES:-false}
@@ -676,10 +673,6 @@ install_docker() {
     elif [ "$HAS_CUDA" ]; then
         # Default to CUDA 12
         IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12
-        # EXTRAS
-        if [ "$USE_EXTRAS" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12-extras
-        fi
         # AIO
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-nvidia-cuda-12
@@ -706,10 +699,6 @@ install_docker() {
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_AMD" ]; then
         IMAGE_TAG=${LOCALAI_VERSION}-hipblas
-        # EXTRAS
-        if [ "$USE_EXTRAS" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-hipblas-extras
-        fi
         # AIO
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-hipblas
@@ -728,10 +717,6 @@ install_docker() {
     elif [ "$HAS_INTEL" ]; then
         # Default to FP32 for better compatibility
         IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32
-        # EXTRAS
-        if [ "$USE_EXTRAS" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32-extras
-        fi
         # AIO
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-intel-f32

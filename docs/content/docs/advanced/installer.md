@@ -23,7 +23,6 @@ List of the Environment Variables:
 |----------------------|--------------------------------------------------------------|
 | **DOCKER_INSTALL**       | Set to "true" to enable the installation of Docker images.    |
 | **USE_AIO**              | Set to "true" to use the all-in-one LocalAI Docker image.    |
-| **USE_EXTRAS**           | Set to "true" to use images with extra Python dependencies.   |
 | **USE_VULKAN**           | Set to "true" to use Vulkan GPU support.                     |
 | **API_KEY**              | Specify an API key for accessing LocalAI, if required.       |
 | **PORT**                 | Specifies the port on which LocalAI will run (default is 8080). |

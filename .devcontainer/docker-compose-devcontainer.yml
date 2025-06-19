@@ -6,7 +6,6 @@ services:
       target: devcontainer
       args:
       - FFMPEG=true
-      - IMAGE_TYPE=extras
       - GO_TAGS=p2p tts
     env_file:
       - ../.env
