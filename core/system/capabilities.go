@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
+	"github.com/rs/zerolog/log"
 )
 
 type SystemState struct {
@@ -11,11 +12,12 @@ type SystemState struct {
 }
 
 func GetSystemState() (*SystemState, error) {
-	gpuVendor, err := detectGPUVendor()
-	if err != nil {
-		return nil, err
-	}
-	return &SystemState{GPUVendor: gpuVendor}, nil
+	gpuVendor, _ := detectGPUVendor()
+	log.Debug().Str("gpuVendor", gpuVendor).Msg("GPU vendor")
+
+	return &SystemState{
+		GPUVendor: gpuVendor,
+	}, nil
 }
 
 func detectGPUVendor() (string, error) {
@@ -25,15 +27,22 @@ func detectGPUVendor() (string, error) {
 	}
 
 	for _, gpu := range gpus {
-		if strings.ToUpper(gpu.DeviceInfo.Vendor.Name) == "NVIDIA" {
-			return "nvidia", nil
+		if gpu.DeviceInfo != nil {
+			if gpu.DeviceInfo.Vendor != nil {
+				gpuVendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
+				if gpuVendorName == "NVIDIA" {
+					return "nvidia", nil
+				}
+				if gpuVendorName == "AMD" {
+					return "amd", nil
+				}
+				if gpuVendorName == "INTEL" {
+					return "intel", nil
+				}
+				return "nvidia", nil
+			}
 		}
-		if strings.ToUpper(gpu.DeviceInfo.Vendor.Name) == "AMD" {
-			return "amd", nil
-		}
-		if strings.ToUpper(gpu.DeviceInfo.Vendor.Name) == "INTEL" {
-			return "intel", nil
-		}
+
 	}
 
 	return "", nil

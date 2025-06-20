@@ -1,9 +1,11 @@
 package gallery
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/system"
@@ -13,12 +15,53 @@ import (
 )
 
 const (
-	aliasFile = "alias"
-	metaFile  = "meta"
-	runFile   = "run.sh"
+	metadataFile = "metadata.json"
+	runFile      = "run.sh"
 )
 
+// readBackendMetadata reads the metadata JSON file for a backend
+func readBackendMetadata(backendPath string) (*BackendMetadata, error) {
+	metadataPath := filepath.Join(backendPath, metadataFile)
+
+	// If metadata file doesn't exist, return nil (for backward compatibility)
+	if _, err := os.Stat(metadataPath); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	data, err := os.ReadFile(metadataPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read metadata file %q: %v", metadataPath, err)
+	}
+
+	var metadata BackendMetadata
+	if err := json.Unmarshal(data, &metadata); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal metadata file %q: %v", metadataPath, err)
+	}
+
+	return &metadata, nil
+}
+
+// writeBackendMetadata writes the metadata JSON file for a backend
+func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
+	metadataPath := filepath.Join(backendPath, metadataFile)
+
+	data, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %v", err)
+	}
+
+	if err := os.WriteFile(metadataPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write metadata file %q: %v", metadataPath, err)
+	}
+
+	return nil
+}
+
 func findBestBackendFromMeta(backend *GalleryBackend, systemState *system.SystemState, backends GalleryElements[*GalleryBackend]) *GalleryBackend {
+	if systemState == nil {
+		return nil
+	}
+
 	realBackend := backend.CapabilitiesMap[systemState.GPUVendor]
 	if realBackend == "" {
 		return nil
@@ -63,10 +106,16 @@ func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.S
 			return fmt.Errorf("failed to create meta backend path %q: %v", metaBackendPath, err)
 		}
 
-		// Then, let's create an meta file to point to the best backend
-		metaFile := filepath.Join(metaBackendPath, metaFile)
-		if err := os.WriteFile(metaFile, []byte(bestBackend.Name), 0644); err != nil {
-			return fmt.Errorf("failed to write meta file %q: %v", metaFile, err)
+		// Create metadata for the meta backend
+		metaMetadata := &BackendMetadata{
+			MetaBackendFor: bestBackend.Name,
+			Name:           name,
+			GalleryURL:     backend.Gallery.URL,
+			InstalledAt:    time.Now().Format(time.RFC3339),
+		}
+
+		if err := writeBackendMetadata(metaBackendPath, metaMetadata); err != nil {
+			return fmt.Errorf("failed to write metadata for meta backend %q: %v", name, err)
 		}
 
 		return nil
@@ -102,12 +151,19 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 		return fmt.Errorf("failed to extract image %q: %v", config.URI, err)
 	}
 
+	// Create metadata for the backend
+	metadata := &BackendMetadata{
+		Name:        name,
+		GalleryURL:  config.Gallery.URL,
+		InstalledAt: time.Now().Format(time.RFC3339),
+	}
+
 	if config.Alias != "" {
-		// Write an alias file inside
-		aliasFile := filepath.Join(backendPath, aliasFile)
-		if err := os.WriteFile(aliasFile, []byte(config.Alias), 0644); err != nil {
-			return fmt.Errorf("failed to write alias file %q: %v", aliasFile, err)
-		}
+		metadata.Alias = config.Alias
+	}
+
+	if err := writeBackendMetadata(backendPath, metadata); err != nil {
+		return fmt.Errorf("failed to write metadata for backend %q: %v", name, err)
 	}
 
 	return nil
@@ -124,37 +180,39 @@ func DeleteBackendFromSystem(basePath string, name string) error {
 		if err != nil {
 			return err
 		}
+		foundBackend := false
 
 		for _, backend := range backends {
 			if backend.IsDir() {
-				aliasFile := filepath.Join(basePath, backend.Name(), aliasFile)
-				alias, err := os.ReadFile(aliasFile)
+				metadata, err := readBackendMetadata(filepath.Join(basePath, backend.Name()))
 				if err != nil {
 					return err
 				}
-				if string(alias) == name {
+				if metadata != nil && metadata.Alias == name {
 					backendDirectory = filepath.Join(basePath, backend.Name())
+					foundBackend = true
 					break
 				}
 			}
 		}
 
-		if backendDirectory == "" {
+		// If no backend found, return successfully (idempotent behavior)
+		if !foundBackend {
 			return fmt.Errorf("no backend found with name %q", name)
 		}
 	}
 
-	// If it's a meta, delete also associated backend
-	metaFile := filepath.Join(backendDirectory, metaFile)
-	if _, err := os.Stat(metaFile); err == nil {
-		meta, err := os.ReadFile(metaFile)
-		if err != nil {
-			return err
-		}
-		metaBackendDirectory := filepath.Join(basePath, string(meta))
+	// If it's a meta backend, delete also associated backend
+	metadata, err := readBackendMetadata(backendDirectory)
+	if err != nil {
+		return err
+	}
+
+	if metadata != nil && metadata.MetaBackendFor != "" {
+		metaBackendDirectory := filepath.Join(basePath, metadata.MetaBackendFor)
 		log.Debug().Str("backendDirectory", metaBackendDirectory).Msg("Deleting meta backend")
 		if _, err := os.Stat(metaBackendDirectory); os.IsNotExist(err) {
-			return fmt.Errorf("meta backend %q not found", string(meta))
+			return fmt.Errorf("meta backend %q not found", metadata.MetaBackendFor)
 		}
 		os.RemoveAll(metaBackendDirectory)
 	}
@@ -175,14 +233,13 @@ func ListSystemBackends(basePath string) (map[string]string, error) {
 			runFile := filepath.Join(basePath, backend.Name(), runFile)
 			backendsNames[backend.Name()] = runFile
 
-			aliasFile := filepath.Join(basePath, backend.Name(), aliasFile)
-			if _, err := os.Stat(aliasFile); err == nil {
-				// read the alias file, and use it as key
-				alias, err := os.ReadFile(aliasFile)
-				if err != nil {
-					return nil, err
-				}
-				backendsNames[string(alias)] = runFile
+			// Check for alias in metadata
+			metadata, err := readBackendMetadata(filepath.Join(basePath, backend.Name()))
+			if err != nil {
+				return nil, err
+			}
+			if metadata != nil && metadata.Alias != "" {
+				backendsNames[metadata.Alias] = runFile
 			}
 		}
 	}
