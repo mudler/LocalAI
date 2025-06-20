@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 
@@ -206,14 +207,20 @@ var _ = Describe("Gallery Backends", func() {
 		})
 
 		It("should list meta backends correctly in system backends", func() {
-			// Create a meta backend directory with alias
+			// Create a meta backend directory with metadata
 			metaBackendPath := filepath.Join(tempDir, "meta-backend")
 			err := os.MkdirAll(metaBackendPath, 0750)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Create alias file pointing to concrete backend
-			aliasFilePath := filepath.Join(metaBackendPath, "meta")
-			err = os.WriteFile(aliasFilePath, []byte("concrete-backend"), 0644)
+			// Create metadata file pointing to concrete backend
+			metadata := &BackendMetadata{
+				MetaBackendFor: "concrete-backend",
+				Name:           "meta-backend",
+				InstalledAt:    "2023-01-01T00:00:00Z",
+			}
+			metadataData, err := json.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(metaBackendPath, "metadata.json"), metadataData, 0644)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Create the concrete backend directory with run.sh
@@ -264,10 +271,17 @@ var _ = Describe("Gallery Backends", func() {
 
 			err := InstallBackend(tempDir, &backend, nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(filepath.Join(tempDir, "test-backend", "alias")).To(BeARegularFile())
-			content, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "alias"))
+			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
+
+			// Read and verify metadata
+			metadataData, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "metadata.json"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(content)).To(ContainSubstring("test-alias"))
+			var metadata BackendMetadata
+			err = json.Unmarshal(metadataData, &metadata)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metadata.Alias).To(Equal("test-alias"))
+			Expect(metadata.Name).To(Equal("test-backend"))
+
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
 
 			// Check that the alias was recognized
@@ -294,7 +308,7 @@ var _ = Describe("Gallery Backends", func() {
 
 		It("should not error when backend doesn't exist", func() {
 			err := DeleteBackendFromSystem(tempDir, "non-existent")
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -325,8 +339,15 @@ var _ = Describe("Gallery Backends", func() {
 			err := os.MkdirAll(backendPath, 0750)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Create alias file
-			err = os.WriteFile(filepath.Join(backendPath, "alias"), []byte(alias), 0644)
+			// Create metadata file with alias
+			metadata := &BackendMetadata{
+				Alias:       alias,
+				Name:        backendName,
+				InstalledAt: "2023-01-01T00:00:00Z",
+			}
+			metadataData, err := json.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendPath, "metadata.json"), metadataData, 0644)
 			Expect(err).NotTo(HaveOccurred())
 
 			backends, err := ListSystemBackends(tempDir)
