@@ -255,6 +255,7 @@ jobs:
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name != 'pull_request' && inputs.latest-image != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 ### Start testing image
@@ -298,6 +299,7 @@ jobs:
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name != 'pull_request' && inputs.latest-image-aio != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta_aio.outputs.tags }}
           labels: ${{ steps.meta_aio.outputs.labels }}
 
@@ -313,6 +315,7 @@ jobs:
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name != 'pull_request' && inputs.latest-image-aio != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta_aio_dockerhub.outputs.tags }}
           labels: ${{ steps.meta_aio_dockerhub.outputs.labels }}
 
@@ -325,20 +328,16 @@ jobs:
         # run this on branches, when it is a tag and there is a latest-image defined
         if: github.event_name != 'pull_request' && inputs.latest-image != ''  && github.ref_type == 'tag'
         run: |
-          docker pull localai/localai:${{ steps.meta.outputs.version }}
           docker tag localai/localai:${{ steps.meta.outputs.version }} localai/localai:${{ inputs.latest-image }}
           docker push localai/localai:${{ inputs.latest-image }}
-          docker pull quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }}
           docker tag quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }} quay.io/go-skynet/local-ai:${{ inputs.latest-image }}
           docker push quay.io/go-skynet/local-ai:${{ inputs.latest-image }}
       - name: Latest AIO tag
         # run this on branches, when it is a tag and there is a latest-image defined
         if: github.event_name != 'pull_request' && inputs.latest-image-aio != ''  && github.ref_type == 'tag'
         run: |
-          docker pull localai/localai:${{ steps.meta_aio_dockerhub.outputs.version }}
           docker tag localai/localai:${{ steps.meta_aio_dockerhub.outputs.version }} localai/localai:${{ inputs.latest-image-aio }}
           docker push localai/localai:${{ inputs.latest-image-aio }}
-          docker pull quay.io/go-skynet/local-ai:${{ steps.meta_aio.outputs.version }}
           docker tag quay.io/go-skynet/local-ai:${{ steps.meta_aio.outputs.version }} quay.io/go-skynet/local-ai:${{ inputs.latest-image-aio }}
           docker push quay.io/go-skynet/local-ai:${{ inputs.latest-image-aio }}
 
