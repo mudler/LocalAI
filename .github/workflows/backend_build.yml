@@ -210,6 +210,7 @@ jobs:
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name != 'pull_request' && inputs.latest-image != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
@@ -240,10 +241,8 @@ jobs:
       - name: Latest tag
         if: github.event_name != 'pull_request' && inputs.latest-image != '' && github.ref_type == 'tag'
         run: |
-          docker pull localai/localai-backends:${{ steps.meta.outputs.version }}
           docker tag localai/localai-backends:${{ steps.meta.outputs.version }} localai/localai-backends:${{ inputs.latest-image }}
           docker push localai/localai-backends:${{ inputs.latest-image }}
-          docker pull quay.io/go-skynet/local-ai-backends:${{ steps.meta.outputs.version }}
           docker tag quay.io/go-skynet/local-ai-backends:${{ steps.meta.outputs.version }} quay.io/go-skynet/local-ai-backends:${{ inputs.latest-image }}
           docker push quay.io/go-skynet/local-ai-backends:${{ inputs.latest-image }}
 
