@@ -3,15 +3,20 @@ package gallery
 import "github.com/mudler/LocalAI/core/config"
 
 type GalleryBackend struct {
-	Metadata `json:",inline" yaml:",inline"`
-	Alias    string `json:"alias,omitempty" yaml:"alias,omitempty"`
-	URI      string `json:"uri,omitempty" yaml:"uri,omitempty"`
+	Metadata        `json:",inline" yaml:",inline"`
+	Alias           string            `json:"alias,omitempty" yaml:"alias,omitempty"`
+	URI             string            `json:"uri,omitempty" yaml:"uri,omitempty"`
+	CapabilitiesMap map[string]string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 }
 
 type GalleryBackends []*GalleryBackend
 
 func (m *GalleryBackend) SetGallery(gallery config.Gallery) {
 	m.Gallery = gallery
+}
+
+func (m *GalleryBackend) IsMeta() bool {
+	return len(m.CapabilitiesMap) > 0
 }
 
 func (m *GalleryBackend) SetInstalled(installed bool) {
