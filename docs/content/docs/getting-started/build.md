@@ -127,13 +127,6 @@ docker build -t localai .
 docker run localai
 ```
 
-There are some build arguments that can be used to customize the build:
-
-| Variable | Default | Description |
-| ---------------------| ------- | ----------- |
-| `IMAGE_TYPE`         |   `extras`      | Build type. Available: `core`, `extras` |
-
-
 ### Example: Build on mac
 
 Building on Mac (M1, M2 or M3) works, but you may need to install some prerequisites using `brew`. 

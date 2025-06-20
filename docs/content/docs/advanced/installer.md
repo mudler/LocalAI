@@ -38,7 +38,6 @@ List of the Environment Variables:
 
 The installer will automatically detect your GPU and select the appropriate image. By default, it uses the standard images without extra Python dependencies. You can customize the image selection using the following environment variables:
 
-- `USE_EXTRAS=true`: Use images with extra Python dependencies (larger images, ~17GB)
 - `USE_AIO=true`: Use all-in-one images that include all dependencies
 - `USE_VULKAN=true`: Use Vulkan GPU support instead of vendor-specific GPU support
 
