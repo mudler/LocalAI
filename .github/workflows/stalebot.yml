@@ -22,4 +22,4 @@ jobs:
           days-before-pr-close: 10
           exempt-pr-labels: 'enhancement,bug'
           exempt-pr-issues: 'enhancement,bug'
-          only-labels: 'unconfirmed'
+          #only-labels: 'unconfirmed'
