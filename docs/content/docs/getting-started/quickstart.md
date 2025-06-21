@@ -46,7 +46,8 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gp
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
 
 # NVIDIA Jetson (L4T) ARM64
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64
+# First, you need to have installed the nvidia container toolkit: https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html#installing-with-ap
+docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/localai:latest-nvidia-l4t-arm64
 ```
 
 #### AMD GPU Images (ROCm):
