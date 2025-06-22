@@ -20,6 +20,5 @@ jobs:
           days-before-pr-stale: 90
           days-before-issue-close: 5
           days-before-pr-close: 10
-          exempt-pr-labels: 'enhancement,bug'
-          exempt-pr-issues: 'enhancement,bug'
-          #only-labels: 'unconfirmed'
+          exempt-issue-labels: 'roadmap'
+          exempt-pr-labels: 'roadmap'
