@@ -1186,6 +1186,21 @@
     - filename: Qwen3-The-Josiefied-Omega-Directive-22B-uncensored-abliterated.i1-Q4_K_M.gguf
       sha256: 3d43e00b685004688b05f75d77f756a84eaa24e042d536e12e3ce1faa71f8c64
       uri: huggingface://mradermacher/Qwen3-The-Josiefied-Omega-Directive-22B-uncensored-abliterated-i1-GGUF/Qwen3-The-Josiefied-Omega-Directive-22B-uncensored-abliterated.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "menlo_jan-nano"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65713d70f56f9538679e5a56/wC7Xtolp7HOFIdKTOJhVt.png
+  urls:
+    - https://huggingface.co/Menlo/Jan-nano
+    - https://huggingface.co/bartowski/Menlo_Jan-nano-GGUF
+  description: |
+    Jan-Nano is a compact 4-billion parameter language model specifically designed and trained for deep research tasks. This model has been optimized to work seamlessly with Model Context Protocol (MCP) servers, enabling efficient integration with various research tools and data sources.
+  overrides:
+    parameters:
+      model: Menlo_Jan-nano-Q4_K_M.gguf
+  files:
+    - filename: Menlo_Jan-nano-Q4_K_M.gguf
+      sha256: b90a30f226e6bce26ef9e0db444cb12530edf90b0eea0defc15b0e361fc698eb
+      uri: huggingface://bartowski/Menlo_Jan-nano-GGUF/Menlo_Jan-nano-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
