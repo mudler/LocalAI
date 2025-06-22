@@ -40,7 +40,7 @@ curl http://localhost:8080/v1/images/generations -H "Content-Type: application/j
 
 ### stablediffusion-ggml
 
-This backend is based on [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp). Every model supported by that backend is suppoerted indeed with LocalAI.
+This backend is based on [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp). Every model supported by that backend is supported indeed with LocalAI.
 
 
 #### Setup
