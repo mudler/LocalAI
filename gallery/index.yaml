@@ -1233,6 +1233,29 @@
     - filename: Q3-8B-Kintsugi-Q4_K_M.GGUF
       sha256: 2eecf44c709ef02794346d84f7d69ee30059c2a71186e4d18a0861958a4a52db
       uri: huggingface://allura-quants/allura-org_Q3-8B-Kintsugi-GGUF/Q3-8B-Kintsugi-Q4_K_M.GGUF
+- !!merge <<: *qwen3
+  name: "ds-r1-qwen3-8b-arliai-rpr-v4-small-iq-imatrix"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6625f4a8a8d1362ebcc3851a/hIZ2ZcaDyfYLT9Yd4pfOs.jpeg
+  urls:
+    - https://huggingface.co/ArliAI/DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small
+    - https://huggingface.co/Lewdiculous/DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-GGUF-IQ-Imatrix
+  description: |
+    The best RP/creative model series from ArliAI yet again. This time made based on DS-R1-0528-Qwen3-8B-Fast for a smaller memory footprint.
+
+        Reduced repetitions and impersonation
+
+        To add to the creativity and out of the box thinking of RpR v3, a more advanced filtering method was used in order to remove examples where the LLM repeated similar phrases or talked for the user. Any repetition or impersonation cases that happens will be due to how the base QwQ model was trained, and not because of the RpR dataset.
+
+        Increased training sequence length
+
+        The training sequence length was increased to 16K in order to help awareness and memory even on longer chats.
+  overrides:
+    parameters:
+      model: DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-Q4_K_M-imat.gguf
+  files:
+    - filename: DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-Q4_K_M-imat.gguf
+      sha256: b40be91d3d2f2497efa849e69f0bb303956b54e658f57bc39c41dba424018d71
+      uri: huggingface://Lewdiculous/DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-GGUF-IQ-Imatrix/DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-Q4_K_M-imat.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
