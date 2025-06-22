@@ -1217,6 +1217,22 @@
     - filename: Qwen3-The-Xiaolong-Omega-Directive-22B-uncensored-abliterated.i1-Q4_K_M.gguf
       sha256: ecee2813ab0b9cc6f555aff81dfbfe380f7bdaf15cef475c8ff402462f4ddd41
       uri: huggingface://mradermacher/Qwen3-The-Xiaolong-Omega-Directive-22B-uncensored-abliterated-i1-GGUF/Qwen3-The-Xiaolong-Omega-Directive-22B-uncensored-abliterated.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "allura-org_q3-8b-kintsugi"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/o_fhP0riFrKh-5XyPxQyk.png
+  urls:
+    - https://huggingface.co/allura-org/Q3-8B-Kintsugi
+    - https://huggingface.co/allura-quants/allura-org_Q3-8B-Kintsugi-GGUF
+  description: |
+    Q3-8B-Kintsugi is a roleplaying model finetuned from Qwen3-8B-Base.
+    During testing, Kintsugi punched well above its weight class in terms of parameters, especially for 1-on-1 roleplaying and general storywriting.
+  overrides:
+    parameters:
+      model: Q3-8B-Kintsugi-Q4_K_M.GGUF
+  files:
+    - filename: Q3-8B-Kintsugi-Q4_K_M.GGUF
+      sha256: 2eecf44c709ef02794346d84f7d69ee30059c2a71186e4d18a0861958a4a52db
+      uri: huggingface://allura-quants/allura-org_Q3-8B-Kintsugi-GGUF/Q3-8B-Kintsugi-Q4_K_M.GGUF
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
