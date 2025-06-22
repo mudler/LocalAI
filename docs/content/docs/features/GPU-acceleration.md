@@ -232,8 +232,8 @@ spec:
         - env:
             - name: HIP_VISIBLE_DEVICES
               value: '0'
-              # This variable indicates the devices availible to container (0:device1 1:device2 2:device3) etc.
-              # For multiple devices (say device 1 and 3) the value would be equivelant to HIP_VISIBLE_DEVICES="0,2"
+              # This variable indicates the devices available to container (0:device1 1:device2 2:device3) etc.
+              # For multiple devices (say device 1 and 3) the value would be equivalent to HIP_VISIBLE_DEVICES="0,2"
               # Please take note of this when an iGPU is present in host system as compatability is not assured.
           ...
           resources:
