@@ -3441,6 +3441,27 @@
     - filename: Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
       sha256: 86ac8efb86daf241792ac3d5d35b7da92c54901b4208a6f2829bd03d8f273c9c
       uri: huggingface://mraWdermacher/Qwen2.5-Coder-32B-Instruct-Uncensored-i1-GGUF/Qwen2.5-Coder-32B-Instruct-Uncensored.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "skywork_skywork-swe-32b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6665dd2b3a64c70529f7542c/8o-IE7N3GwSFCIH3ntc8E.png
+  urls:
+    - https://huggingface.co/Skywork/Skywork-SWE-32B
+    - https://huggingface.co/bartowski/Skywork_Skywork-SWE-32B-GGUF
+  description: |
+    Skywork-SWE-32B is a code agent model developed by Skywork AI, specifically designed for software engineering (SWE) tasks. It demonstrates strong performance across several key metrics:
+
+    Skywork-SWE-32B attains 38.0% pass@1 accuracy on the SWE-bench Verified benchmark, outperforming previous open-source SoTA Qwen2.5-Coder-32B-based LLMs built on the OpenHands agent framework.
+    When incorporated with test-time scaling techniques, the performance further improves to 47.0% accuracy, surpassing the previous SoTA results for sub-32B parameter models.
+    We clearly demonstrate the data scaling law phenomenon for software engineering capabilities in LLMs, with no signs of saturation at 8209 collected training trajectories.
+
+    We also introduce an efficient and automated pipeline for SWE data collection, culminating in the creation of the Skywork-SWE dataset---a large-scale, high-quality dataset featuring comprehensive executable runtime environments. Detailed descriptions are available on our technical report.
+  overrides:
+    parameters:
+      model: Skywork_Skywork-SWE-32B-Q4_K_M.gguf
+  files:
+    - filename: Skywork_Skywork-SWE-32B-Q4_K_M.gguf
+      sha256: b5a451fa677159d7ab0aee64eeec5933aa4e5bd598e400501ecec3af0a767fa8
+      uri: huggingface://bartowski/Skywork_Skywork-SWE-32B-GGUF/Skywork_Skywork-SWE-32B-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://avatars.githubusercontent.com/u/186387526
