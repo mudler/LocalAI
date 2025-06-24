@@ -1,12 +1,19 @@
 package gallery
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gopkg.in/yaml.v2"
+)
+
+const (
+	testImage = "quay.io/mudler/tests:localai-backend-test"
 )
 
 var _ = Describe("Gallery Backends", func() {
@@ -35,15 +42,206 @@ var _ = Describe("Gallery Backends", func() {
 
 	Describe("InstallBackendFromGallery", func() {
 		It("should return error when backend is not found", func() {
-			err := InstallBackendFromGallery(galleries, "non-existent", tempDir, nil)
+			err := InstallBackendFromGallery(galleries, nil, "non-existent", tempDir, nil)
 			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no model found with name"))
+			Expect(err.Error()).To(ContainSubstring("no backend found with name \"non-existent\""))
 		})
 
 		It("should install backend from gallery", func() {
-			err := InstallBackendFromGallery(galleries, "test-backend", tempDir, nil)
+			err := InstallBackendFromGallery(galleries, nil, "test-backend", tempDir, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
+		})
+	})
+
+	Describe("Meta Backends", func() {
+		It("should identify meta backends correctly", func() {
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			Expect(metaBackend.IsMeta()).To(BeTrue())
+
+			regularBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "regular-backend",
+				},
+				URI: testImage,
+			}
+
+			Expect(regularBackend.IsMeta()).To(BeFalse())
+
+			emptyMetaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "empty-meta-backend",
+				},
+				CapabilitiesMap: map[string]string{},
+			}
+
+			Expect(emptyMetaBackend.IsMeta()).To(BeFalse())
+
+			nilMetaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nil-meta-backend",
+				},
+				CapabilitiesMap: nil,
+			}
+
+			Expect(nilMetaBackend.IsMeta()).To(BeFalse())
+		})
+
+		It("should find best backend from meta based on system capabilities", func() {
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			nvidiaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nvidia-backend",
+				},
+				URI: testImage,
+			}
+
+			amdBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "amd-backend",
+				},
+				URI: testImage,
+			}
+
+			backends := GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend}
+
+			// Test with NVIDIA system state
+			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+			bestBackend := findBestBackendFromMeta(metaBackend, nvidiaSystemState, backends)
+			Expect(bestBackend).To(Equal(nvidiaBackend))
+
+			// Test with AMD system state
+			amdSystemState := &system.SystemState{GPUVendor: "amd"}
+			bestBackend = findBestBackendFromMeta(metaBackend, amdSystemState, backends)
+			Expect(bestBackend).To(Equal(amdBackend))
+
+			// Test with unsupported GPU vendor
+			unsupportedSystemState := &system.SystemState{GPUVendor: "unsupported"}
+			bestBackend = findBestBackendFromMeta(metaBackend, unsupportedSystemState, backends)
+			Expect(bestBackend).To(BeNil())
+		})
+
+		It("should handle meta backend deletion correctly", func() {
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia": "nvidia-backend",
+					"amd":    "amd-backend",
+					"intel":  "intel-backend",
+				},
+			}
+
+			nvidiaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "nvidia-backend",
+				},
+				URI: testImage,
+			}
+
+			amdBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "amd-backend",
+				},
+				URI: testImage,
+			}
+
+			gallery := config.Gallery{
+				Name: "test-gallery",
+				URL:  "file://" + filepath.Join(tempDir, "backend-gallery.yaml"),
+			}
+
+			galleryBackend := GalleryBackends{amdBackend, nvidiaBackend, metaBackend}
+
+			dat, err := yaml.Marshal(galleryBackend)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tempDir, "backend-gallery.yaml"), dat, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Test with NVIDIA system state
+			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, "meta-backend", tempDir, nil)
+			Expect(err).NotTo(HaveOccurred())
+
+			metaBackendPath := filepath.Join(tempDir, "meta-backend")
+			Expect(metaBackendPath).To(BeADirectory())
+
+			concreteBackendPath := filepath.Join(tempDir, "nvidia-backend")
+			Expect(concreteBackendPath).To(BeADirectory())
+
+			allBackends, err := ListSystemBackends(tempDir)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(allBackends).To(HaveKey("meta-backend"))
+			Expect(allBackends).To(HaveKey("nvidia-backend"))
+
+			// Delete meta backend by name
+			err = DeleteBackendFromSystem(tempDir, "meta-backend")
+			Expect(err).NotTo(HaveOccurred())
+
+			// Verify meta backend directory is deleted
+			Expect(metaBackendPath).NotTo(BeADirectory())
+
+			// Verify concrete backend directory is deleted
+			Expect(concreteBackendPath).NotTo(BeADirectory())
+		})
+
+		It("should list meta backends correctly in system backends", func() {
+			// Create a meta backend directory with metadata
+			metaBackendPath := filepath.Join(tempDir, "meta-backend")
+			err := os.MkdirAll(metaBackendPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create metadata file pointing to concrete backend
+			metadata := &BackendMetadata{
+				MetaBackendFor: "concrete-backend",
+				Name:           "meta-backend",
+				InstalledAt:    "2023-01-01T00:00:00Z",
+			}
+			metadataData, err := json.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(metaBackendPath, "metadata.json"), metadataData, 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Create the concrete backend directory with run.sh
+			concreteBackendPath := filepath.Join(tempDir, "concrete-backend")
+			err = os.MkdirAll(concreteBackendPath, 0750)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(concreteBackendPath, "run.sh"), []byte("#!/bin/bash"), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			// List system backends
+			backends, err := ListSystemBackends(tempDir)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Should include both the meta backend name and concrete backend name
+			Expect(backends).To(HaveKey("meta-backend"))
+			Expect(backends).To(HaveKey("concrete-backend"))
+
+			// meta-backend should point to its own run.sh
+			Expect(backends["meta-backend"]).To(Equal(filepath.Join(tempDir, "meta-backend", "run.sh")))
+			// concrete-backend should point to its own run.sh
+			Expect(backends["concrete-backend"]).To(Equal(filepath.Join(tempDir, "concrete-backend", "run.sh")))
 		})
 	})
 
@@ -73,10 +271,17 @@ var _ = Describe("Gallery Backends", func() {
 
 			err := InstallBackend(tempDir, &backend, nil)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(filepath.Join(tempDir, "test-backend", "alias")).To(BeARegularFile())
-			content, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "alias"))
+			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
+
+			// Read and verify metadata
+			metadataData, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "metadata.json"))
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(content)).To(ContainSubstring("test-alias"))
+			var metadata BackendMetadata
+			err = json.Unmarshal(metadataData, &metadata)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(metadata.Alias).To(Equal("test-alias"))
+			Expect(metadata.Name).To(Equal("test-backend"))
+
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
 
 			// Check that the alias was recognized
@@ -103,7 +308,7 @@ var _ = Describe("Gallery Backends", func() {
 
 		It("should not error when backend doesn't exist", func() {
 			err := DeleteBackendFromSystem(tempDir, "non-existent")
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
@@ -134,8 +339,15 @@ var _ = Describe("Gallery Backends", func() {
 			err := os.MkdirAll(backendPath, 0750)
 			Expect(err).NotTo(HaveOccurred())
 
-			// Create alias file
-			err = os.WriteFile(filepath.Join(backendPath, "alias"), []byte(alias), 0644)
+			// Create metadata file with alias
+			metadata := &BackendMetadata{
+				Alias:       alias,
+				Name:        backendName,
+				InstalledAt: "2023-01-01T00:00:00Z",
+			}
+			metadataData, err := json.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(backendPath, "metadata.json"), metadataData, 0644)
 			Expect(err).NotTo(HaveOccurred())
 
 			backends, err := ListSystemBackends(tempDir)

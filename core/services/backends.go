@@ -2,12 +2,13 @@ package services
 
 import (
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/system"
 
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
 )
 
-func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend]) error {
+func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend], systemState *system.SystemState) error {
 	utils.ResetDownloadTimers()
 	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: "processing", Progress: 0})
 
@@ -23,7 +24,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend]) e
 		g.modelLoader.DeleteExternalBackend(op.GalleryElementName)
 	} else {
 		log.Warn().Msgf("installing backend %s", op.GalleryElementName)
-		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, op.GalleryElementName, g.appConfig.BackendsPath, progressCallback)
+		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, op.GalleryElementName, g.appConfig.BackendsPath, progressCallback)
 		if err == nil {
 			err = gallery.RegisterBackends(g.appConfig.BackendsPath, g.modelLoader)
 		}
