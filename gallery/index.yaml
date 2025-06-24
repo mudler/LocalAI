@@ -12834,6 +12834,24 @@
     - filename: mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
       sha256: 2ad86e0934a4d6f021c1dbcf12d81aac75a84edd3a929294c09cb1cb6117627c
       uri: huggingface://bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/jxUvuFK1bdOdAPiYIcBW5.jpeg
+  name: "delta-vector_austral-24b-winton"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/Delta-Vector/Austral-24B-Winton
+    - https://huggingface.co/bartowski/Delta-Vector_Austral-24B-Winton-GGUF
+  description: |
+    More than 1.5-metres tall, about six-metres long and up to 1000-kilograms heavy, Australovenator Wintonensis was a fast and agile hunter. The largest known Australian theropod.
+
+    This is a finetune of Harbinger 24B to be a generalist Roleplay/Adventure model. I've removed some of the "slops" that i noticed in an otherwise great model aswell as improving the general writing of the model, This was a multi-stage finetune, all previous checkpoints are released aswell.
+  overrides:
+    parameters:
+      model: Delta-Vector_Austral-24B-Winton-Q4_K_M.gguf
+  files:
+    - filename: Delta-Vector_Austral-24B-Winton-Q4_K_M.gguf
+      sha256: feb76e0158d1ebba1809de89d01671b86037f768ebd5f6fb165885ae6338b1b7
+      uri: huggingface://bartowski/Delta-Vector_Austral-24B-Winton-GGUF/Delta-Vector_Austral-24B-Winton-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
