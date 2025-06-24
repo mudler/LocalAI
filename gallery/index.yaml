@@ -12741,6 +12741,29 @@
     - filename: mistralai_Magistral-Small-2506-Q4_K_M.gguf
       sha256: b681b81ba30238b7654db77b4b3afa7b0f6226c84d8bbd5a5dfb1a5a3cb95816
       uri: huggingface://bartowski/mistralai_Magistral-Small-2506-GGUF/mistralai_Magistral-Small-2506-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png
+  name: "mistralai_mistral-small-3.2-24b-instruct-2506"
+  urls:
+    - https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506
+    - https://huggingface.co/bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF
+  description: |
+    Mistral-Small-3.2-24B-Instruct-2506 is a minor update of Mistral-Small-3.1-24B-Instruct-2503.
+
+    Small-3.2 improves in the following categories:
+
+        Instruction following: Small-3.2 is better at following precise instructions
+        Repetition errors: Small-3.2 produces less infinite generations or repetitive answers
+        Function calling: Small-3.2's function calling template is more robust (see here and examples)
+
+    In all other categories Small-3.2 should match or slightly improve compared to Mistral-Small-3.1-24B-Instruct-2503.
+  overrides:
+    parameters:
+      model: mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+      sha256: 2ad86e0934a4d6f021c1dbcf12d81aac75a84edd3a929294c09cb1cb6117627c
+      uri: huggingface://bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
