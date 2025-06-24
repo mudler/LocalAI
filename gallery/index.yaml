@@ -10497,6 +10497,55 @@
     - filename: mmproj-ultravox-v0_5-llama-3_1-8b-f16.gguf
       sha256: e6395ed42124303eaa9fca934452aabce14c59d2a56fab2dda65b798442289ff
       uri: https://huggingface.co/ggml-org/ultravox-v0_5-llama-3_1-8b-GGUF/resolve/main/mmproj-ultravox-v0_5-llama-3_1-8b-f16.gguf
+- !!merge <<: *llama31
+  name: "astrosage-70b"
+  urls:
+    - https://huggingface.co/AstroMLab/AstroSage-70B
+    - https://huggingface.co/mradermacher/AstroSage-70B-GGUF
+  description: |
+    Developed by: AstroMLab (Tijmen de Haan, Yuan-Sen Ting, Tirthankar Ghosal, Tuan Dung Nguyen, Alberto Accomazzi, Emily Herron, Vanessa Lama, Azton Wells, Nesar Ramachandra, Rui Pan)
+    Funded by:
+        Oak Ridge Leadership Computing Facility (OLCF), a DOE Office of Science User Facility at Oak Ridge National Laboratory (U.S. Department of Energy).
+        Microsoft’s Accelerating Foundation Models Research (AFMR) program.
+        World Premier International Research Center Initiative (WPI), MEXT, Japan.
+        National Science Foundation (NSF).
+        UChicago Argonne LLC, Operator of Argonne National Laboratory (U.S. Department of Energy).
+    Reference Paper: Tijmen de Haan et al. (2025). "AstroMLab 4: Benchmark-Topping Performance in Astronomy Q&A with a 70B-Parameter Domain-Specialized Reasoning Model" https://arxiv.org/abs/2505.17592
+    Model Type: Autoregressive transformer-based LLM, specialized in astronomy, astrophysics, space science, astroparticle physics, cosmology, and astronomical instrumentation.
+    Model Architecture: AstroSage-70B is a fine-tuned derivative of the Meta-Llama-3.1-70B architecture, making no architectural changes. The Llama-3.1-70B-Instruct tokenizer is also used without modification.
+    Context Length: Fine-tuned on 8192-token sequences. Base model was trained to 128k context length.
+    AstroSage-70B is a large-scale, domain-specialized language model tailored for research and education in astronomy, astrophysics, space science, cosmology, and astronomical instrumentation. It builds on the Llama-3.1-70B foundation model, enhanced through extensive continued pre-training (CPT) on a vast corpus of astronomical literature, further refined with supervised fine-tuning (SFT) on instruction-following datasets, and finally enhanced via parameter averaging (model merging) with other popular fine tunes. AstroSage-70B aims to achieve state-of-the-art performance on astronomy-specific tasks, providing researchers, students, and enthusiasts with an advanced AI assistant. This 70B parameter model represents a significant scaling up from the AstroSage-8B model. The primary enhancements from the AstroSage-8B model are:
+
+        Stronger base model, higher parameter count for increased capacity
+        Improved datasets
+        Improved learning hyperparameters
+        Reasoning capability (can be enabled or disabled at inference time)
+    Training Lineage
+        Base Model: Meta-Llama-3.1-70B.
+        Continued Pre-Training (CPT): The base model underwent 2.5 epochs of CPT (168k GPU-hours) on a specialized astronomy corpus (details below, largely inherited from AstroSage-8B) to produce AstroSage-70B-CPT. This stage imbues domain-specific knowledge and language nuances.
+        Supervised Fine-Tuning (SFT): AstroSage-70B-CPT was then fine-tuned for 0.6 epochs (13k GPU-hours) using astronomy-relevant and general-purpose instruction-following datasets, resulting in AstroSage-70B-SFT.
+        Final Mixture: The released AstroSage-70B model is created via parameter averaging / model merging:
+            DARE-TIES with rescale: true and lambda: 1.2
+            AstroSage-70B-CPT designated as the "base model"
+            70% AstroSage-70B-SFT (density 0.7)
+            15% Llama-3.1-Nemotron-70B-Instruct (density 0.5)
+            7.5% Llama-3.3-70B-Instruct (density 0.5)
+            7.5% Llama-3.1-70B-Instruct (density 0.5)
+    Intended Use: Like AstroSage-8B, this model can be used for a variety of LLM application, including
+        Providing factual information and explanations in astronomy, astrophysics, cosmology, and instrumentation.
+        Assisting with literature reviews and summarizing scientific papers.
+        Answering domain-specific questions with high accuracy.
+        Brainstorming research ideas and formulating hypotheses.
+        Assisting with programming tasks related to astronomical data analysis.
+        Serving as an educational tool for learning astronomical concepts.
+        Potentially forming the core of future agentic research assistants capable of more autonomous scientific tasks.
+  overrides:
+    parameters:
+      model: AstroSage-70B.Q4_K_M.gguf
+  files:
+    - filename: AstroSage-70B.Q4_K_M.gguf
+      sha256: 1d98dabfa001d358d9f95d2deba93a94ad8baa8839c75a0129cdb6bcf1507f38
+      uri: huggingface://mradermacher/AstroSage-70B-GGUF/AstroSage-70B.Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
