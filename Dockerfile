@@ -2,81 +2,16 @@ ARG BASE_IMAGE=ubuntu:22.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
 
-# The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM ${BASE_IMAGE} AS requirements
-
-USER root
-
-ARG GO_VERSION=1.22.6
-ARG CMAKE_VERSION=3.26.4
-ARG CMAKE_FROM_SOURCE=false
-ARG TARGETARCH
-ARG TARGETVARIANT
 
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential \
-        ccache \
-        ca-certificates espeak-ng \
-        curl libssl-dev \
-        git \
-        git-lfs \
-        unzip upx-ucl python3 python-is-python3 && \
+        ca-certificates curl wget espeak-ng libgomp1 \
+        python3 python-is-python3 ffmpeg && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
-# Install CMake (the version in 22.04 is too old)
-RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
-        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
-    else
-        apt-get update && \
-        apt-get install -y \
-            cmake && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
-    fi
-EOT
-
-# Install Go
-RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
-ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
-
-# Install grpc compilers and rice
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af && \
-    go install github.com/GeertJohan/go.rice/rice@latest
-
-COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
-RUN update-ca-certificates
-
-RUN test -n "$TARGETARCH" \
-    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
-
-# Use the variables in subsequent instructions
-RUN echo "Target Architecture: $TARGETARCH"
-RUN echo "Target Variant: $TARGETVARIANT"
-
-# Cuda
-ENV PATH=/usr/local/cuda/bin:${PATH}
-
-# HipBLAS requirements
-ENV PATH=/opt/rocm/bin:${PATH}
-
-# OpenBLAS requirements and stable diffusion
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libopenblas-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-WORKDIR /build
-
-
-###################################
-###################################
 
 # The requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
 FROM requirements AS requirements-drivers
@@ -85,7 +20,8 @@ ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
 ARG SKIP_DRIVERS=false
-
+ARG TARGETARCH
+ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 # Vulkan requirements
@@ -151,6 +87,83 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
         ldconfig \
     ; fi
+
+# Cuda
+ENV PATH=/usr/local/cuda/bin:${PATH}
+
+# HipBLAS requirements
+ENV PATH=/opt/rocm/bin:${PATH}
+
+###################################
+###################################
+
+# The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
+FROM requirements-drivers AS build-requirements
+
+ARG GO_VERSION=1.22.6
+ARG CMAKE_VERSION=3.26.4
+ARG CMAKE_FROM_SOURCE=false
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ccache \
+        ca-certificates espeak-ng \
+        curl libssl-dev \
+        git \
+        git-lfs \
+        unzip upx-ucl python3 python-is-python3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# Install Go
+RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
+ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
+
+# Install grpc compilers and rice
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af && \
+    go install github.com/GeertJohan/go.rice/rice@latest
+
+COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
+RUN update-ca-certificates
+
+
+# OpenBLAS requirements and stable diffusion
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        libopenblas-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN test -n "$TARGETARCH" \
+    || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
+
+# Use the variables in subsequent instructions
+RUN echo "Target Architecture: $TARGETARCH"
+RUN echo "Target Variant: $TARGETVARIANT"
+
+
+
+
+WORKDIR /build
+
 
 ###################################
 ###################################
@@ -218,13 +231,14 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 # The builder-base target has the arguments, variables, and copies shared between full builder images and the uncompiled devcontainer
 
-FROM requirements-drivers AS builder-base
+FROM build-requirements AS builder-base
 
 ARG GO_TAGS="tts p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
-
+ARG TARGETARCH
+ARG TARGETVARIANT
 ENV GRPC_BACKENDS=${GRPC_BACKENDS}
 ENV GO_TAGS=${GO_TAGS}
 ENV MAKEFLAGS=${MAKEFLAGS}
@@ -259,6 +273,8 @@ EOT
 
 # Compile backends first in a separate stage
 FROM builder-base AS builder-backends
+ARG TARGETARCH
+ARG TARGETVARIANT
 
 COPY --from=grpc /opt/grpc /usr/local
 
@@ -314,24 +330,13 @@ RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
 
 FROM builder-base AS devcontainer
 
-ARG FFMPEG
-
 COPY --from=grpc /opt/grpc /usr/local
 
 COPY .devcontainer-scripts /.devcontainer-scripts
 
-# Add FFmpeg
-RUN if [ "${FFMPEG}" = "true" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            ffmpeg && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
-
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        ssh less wget
+        ssh less
 # For the devcontainer, leave apt functional in case additional devtools are needed at runtime.
 
 RUN go install github.com/go-delve/delve/cmd/dlv@latest
@@ -345,40 +350,16 @@ RUN go install github.com/mikefarah/yq/v4@latest
 # If you cannot find a more suitable place for an addition, this layer is a suitable place for it.
 FROM requirements-drivers
 
-ARG FFMPEG
-ARG BUILD_TYPE
-ARG TARGETARCH
-ARG MAKEFLAGS
-
-ENV BUILD_TYPE=${BUILD_TYPE}
-ENV REBUILD=false
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
-ENV MAKEFLAGS=${MAKEFLAGS}
 
 ARG CUDA_MAJOR_VERSION=12
 ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 ENV NVIDIA_REQUIRE_CUDA="cuda>=${CUDA_MAJOR_VERSION}.0"
 ENV NVIDIA_VISIBLE_DEVICES=all
 
-# Add FFmpeg
-RUN if [ "${FFMPEG}" = "true" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            ffmpeg && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
+WORKDIR /
 
-WORKDIR /build
-
-# we start fresh & re-copy all assets because `make build` does not clean up nicely after itself
-# so when `entrypoint.sh` runs `make build` again (which it does by default), the build would fail
-# see https://github.com/go-skynet/LocalAI/pull/658#discussion_r1241971626 and
-# https://github.com/go-skynet/LocalAI/pull/434
-COPY . .
-
-COPY --from=builder /build/sources ./sources/
-COPY --from=grpc /opt/grpc /usr/local
+COPY ./entrypoint.sh .
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
@@ -387,12 +368,12 @@ COPY --from=builder /build/local-ai ./
 COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # Make sure the models directory exists
-RUN mkdir -p /build/models /build/backends
+RUN mkdir -p /models /backends
 
 # Define the health check command
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
 
-VOLUME /build/models /build/backends
+VOLUME /models /backends
 EXPOSE 8080
-ENTRYPOINT [ "/build/entrypoint.sh" ]
+ENTRYPOINT [ "/entrypoint.sh" ]

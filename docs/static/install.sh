@@ -663,7 +663,7 @@ install_docker() {
         IMAGE_TAG=${LOCALAI_VERSION}-vulkan
 
         info "Starting LocalAI Docker container..."
-        $SUDO docker run -v local-ai-data:/build/models \
+        $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --restart=always \
             -e API_KEY=$API_KEY \
@@ -690,7 +690,7 @@ install_docker() {
         fi
 
         info "Starting LocalAI Docker container..."
-        $SUDO docker run -v local-ai-data:/build/models \
+        $SUDO docker run -v local-ai-data:/models \
             --gpus all \
             --restart=always \
             -e API_KEY=$API_KEY \
@@ -705,7 +705,7 @@ install_docker() {
         fi
 
         info "Starting LocalAI Docker container..."
-        $SUDO docker run -v local-ai-data:/build/models \
+        $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --device /dev/kfd \
             --group-add=video \
@@ -723,7 +723,7 @@ install_docker() {
         fi
 
         info "Starting LocalAI Docker container..."
-        $SUDO docker run -v local-ai-data:/build/models \
+        $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --restart=always \
             -e API_KEY=$API_KEY \
