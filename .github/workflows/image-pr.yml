@@ -40,7 +40,7 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            tag-suffix: '-cublas-cuda12-ffmpeg'
+            tag-suffix: '-gpu-nvidia-cuda12-ffmpeg'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
