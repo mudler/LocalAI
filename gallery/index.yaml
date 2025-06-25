@@ -1256,6 +1256,29 @@
     - filename: DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-Q4_K_M-imat.gguf
       sha256: b40be91d3d2f2497efa849e69f0bb303956b54e658f57bc39c41dba424018d71
       uri: huggingface://Lewdiculous/DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-GGUF-IQ-Imatrix/DS-R1-Qwen3-8B-ArliAI-RpR-v4-Small-Q4_K_M-imat.gguf
+- !!merge <<: *qwen3
+  name: "menlo_jan-nano-128k"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65713d70f56f9538679e5a56/NP7CvcjOtLX8mST0t7eAM.png
+  urls:
+    - https://huggingface.co/Menlo/Jan-nano-128k
+    - https://huggingface.co/bartowski/Menlo_Jan-nano-128k-GGUF
+  description: |
+    Jan-Nano-128k represents a significant advancement in compact language models for research applications. Building upon the success of Jan-Nano, this enhanced version features a native 128k context window that enables deeper, more comprehensive research capabilities without the performance degradation typically associated with context extension methods.
+
+    Key Improvements:
+
+        🔍 Research Deeper: Extended context allows for processing entire research papers, lengthy documents, and complex multi-turn conversations
+        ⚡ Native 128k Window: Built from the ground up to handle long contexts efficiently, maintaining performance across the full context range
+        📈 Enhanced Performance: Unlike traditional context extension methods, Jan-Nano-128k shows improved performance with longer contexts
+
+    This model maintains full compatibility with Model Context Protocol (MCP) servers while dramatically expanding the scope of research tasks it can handle in a single session.
+  overrides:
+    parameters:
+      model: Menlo_Jan-nano-128k-Q4_K_M.gguf
+  files:
+    - filename: Menlo_Jan-nano-128k-Q4_K_M.gguf
+      sha256: a864031a138288da427ca176afd61d7fe2b03fd19a84a656b2691aa1f7a12921
+      uri: huggingface://bartowski/Menlo_Jan-nano-128k-GGUF/Menlo_Jan-nano-128k-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
