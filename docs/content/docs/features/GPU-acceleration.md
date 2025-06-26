@@ -268,7 +268,7 @@ The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=ta
 To run LocalAI with Docker and sycl starting `phi-2`, you can use the following command as an example:
 
 ```bash
-docker run -e DEBUG=true --privileged -ti -v $PWD/models:/build/models -p 8080:8080  -v /dev/dri:/dev/dri --rm quay.io/go-skynet/local-ai:master-gpu-intel-f32-ffmpeg-core phi-2
+docker run -e DEBUG=true --privileged -ti -v $PWD/models:/models -p 8080:8080  -v /dev/dri:/dev/dri --rm quay.io/go-skynet/local-ai:master-gpu-intel-f32-ffmpeg-core phi-2
 ```
 
 ### Notes
@@ -296,7 +296,7 @@ To use Vulkan, use the images with the `vulkan` tag, for example `{{< version >}
 To run LocalAI with Docker and Vulkan, you can use the following command as an example:
 
 ```bash
-docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/build/models localai/localai:latest-vulkan-ffmpeg-core
+docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models localai/localai:latest-vulkan-ffmpeg-core
 ```
 
 ### Notes
@@ -308,7 +308,7 @@ These flags are the same as the sections above, depending on the hardware, for [
 If you have mixed hardware, you can pass flags for multiple GPUs, for example:
 
 ```bash
-docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/build/models \
+docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models \
 --gpus=all \ # nvidia passthrough
 --device /dev/dri --device /dev/kfd \ # AMD/Intel passthrough
 localai/localai:latest-vulkan-ffmpeg-core

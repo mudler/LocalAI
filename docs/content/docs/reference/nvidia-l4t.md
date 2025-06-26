@@ -35,7 +35,7 @@ docker pull quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core
 Run the LocalAI container on Nvidia ARM64 devices using the following command, where `/data/models` is the directory containing the models:
 
 ```bash
-docker run -e DEBUG=true -p 8080:8080 -v /data/models:/build/models  -ti --restart=always --name local-ai --runtime nvidia --gpus all quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core
+docker run -e DEBUG=true -p 8080:8080 -v /data/models:/models  -ti --restart=always --name local-ai --runtime nvidia --gpus all quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-core
 ```
 
 Note: `/data/models` is the directory containing the models. You can replace it with the directory containing your models.

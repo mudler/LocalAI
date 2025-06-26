@@ -92,7 +92,7 @@ services:
       - DEBUG=true
       # ...
     volumes:
-      - ./models:/build/models:cached
+      - ./models:/models:cached
     # decomment the following piece if running with Nvidia GPUs
     # deploy:
     #   resources:
@@ -105,21 +105,21 @@ services:
 
 {{% alert icon="💡" %}}
 
-**Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/build/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
+**Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
 
 You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`). 
 
-If you want to use a named model or a local directory, you can mount it as a volume to `/build/models`:
+If you want to use a named model or a local directory, you can mount it as a volume to `/models`:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti -v $PWD/models:/build/models localai/localai:latest-aio-cpu
+docker run -p 8080:8080 --name local-ai -ti -v $PWD/models:/models localai/localai:latest-aio-cpu
 ```
 
 or associate a volume:
 
 ```bash
 docker volume create localai-models
-docker run -p 8080:8080 --name local-ai -ti -v localai-models:/build/models localai/localai:latest-aio-cpu
+docker run -p 8080:8080 --name local-ai -ti -v localai-models:/models localai/localai:latest-aio-cpu
 ```
 
 {{% /alert %}}

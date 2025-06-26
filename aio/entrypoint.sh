@@ -135,4 +135,4 @@ check_vars
 
 echo "===> Starting LocalAI[$PROFILE] with the following models: $MODELS"
 
-exec /build/entrypoint.sh "$@"
+exec /entrypoint.sh "$@"
