@@ -28,8 +28,6 @@ jobs:
       grpc-base-image: ${{ matrix.grpc-base-image }}
       aio: ${{ matrix.aio }}
       makeflags: ${{ matrix.makeflags }}
-      latest-image: ${{ matrix.latest-image }}
-      latest-image-aio: ${{ matrix.latest-image-aio }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -47,9 +45,7 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            latest-image: 'latest-gpu-hipblas'
             aio: "-aio-gpu-hipblas"
-            latest-image-aio: 'latest-aio-gpu-hipblas'
 
   core-image-build:
     uses: ./.github/workflows/image_build.yml
@@ -66,8 +62,6 @@ jobs:
       base-image: ${{ matrix.base-image }}
       grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
-      latest-image: ${{ matrix.latest-image }}
-      latest-image-aio: ${{ matrix.latest-image-aio }}
       skip-drivers: ${{ matrix.skip-drivers }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -158,8 +152,6 @@ jobs:
       base-image: ${{ matrix.base-image }}
       grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
-      latest-image: ${{ matrix.latest-image }}
-      latest-image-aio: ${{ matrix.latest-image-aio }}
       skip-drivers: ${{ matrix.skip-drivers }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
@@ -175,7 +167,6 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'false'
             tag-suffix: '-nvidia-l4t-arm64'
-            latest-image: 'latest-nvidia-l4t-arm64'
             ffmpeg: 'true'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
