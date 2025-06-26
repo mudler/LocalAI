@@ -31,6 +31,10 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend], s
 	}
 	if err != nil {
 		log.Error().Err(err).Msgf("error installing backend %s", op.GalleryElementName)
+		if !op.Delete {
+			// If we didn't install the backend, we need to make sure we don't have a leftover directory
+			gallery.DeleteBackendFromSystem(g.appConfig.BackendsPath, op.GalleryElementName)
+		}
 		return err
 	}
 
