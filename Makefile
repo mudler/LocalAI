@@ -22,7 +22,7 @@ BARKCPP_VERSION?=v1.0.0
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=10c6501bd05a697e014f1bee3a84e5664290c489
+STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
 
 # ONEAPI variables for SYCL
 export ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
