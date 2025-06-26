@@ -86,8 +86,6 @@ jobs:
             base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
-            latest-image: 'latest-cpu'
-            latest-image-aio: 'latest-aio-cpu'
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
           - build-type: 'cublas'
@@ -95,29 +93,25 @@ jobs:
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            tag-suffix: '-cublas-cuda11'
+            tag-suffix: '-gpu-nvidia-cuda11'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
-            latest-image: 'latest-gpu-nvidia-cuda-11'
             aio: "-aio-gpu-nvidia-cuda-11"
-            latest-image-aio: 'latest-aio-gpu-nvidia-cuda-11'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            tag-suffix: '-cublas-cuda12'
+            tag-suffix: '-gpu-nvidia-cuda12'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
-            latest-image: 'latest-gpu-nvidia-cuda-12'
             aio: "-aio-gpu-nvidia-cuda-12"
-            latest-image-aio: 'latest-aio-gpu-nvidia-cuda-12'
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -127,33 +121,27 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
-            latest-image: 'latest-gpu-vulkan'
             aio: "-aio-gpu-vulkan"
-            latest-image-aio: 'latest-aio-gpu-vulkan'
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
-            tag-suffix: '-sycl-f16'
+            tag-suffix: '-gpu-intel-f16'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            latest-image: 'latest-gpu-intel-f16'
             aio: "-aio-gpu-intel-f16"
-            latest-image-aio: 'latest-aio-gpu-intel-f16'
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
-            tag-suffix: '-sycl-f32'
+            tag-suffix: '-gpu-intel-f32'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            latest-image: 'latest-gpu-intel-f32'
             aio: "-aio-gpu-intel-f32"
-            latest-image-aio: 'latest-aio-gpu-intel-f32'
 
   gh-runner:
     uses: ./.github/workflows/image_build.yml

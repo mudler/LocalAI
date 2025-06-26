@@ -672,7 +672,7 @@ install_docker() {
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_CUDA" ]; then
         # Default to CUDA 12
-        IMAGE_TAG=${LOCALAI_VERSION}-cublas-cuda12
+        IMAGE_TAG=${LOCALAI_VERSION}-gpu-nvidia-cuda12
         # AIO
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-nvidia-cuda-12
@@ -716,7 +716,7 @@ install_docker() {
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_INTEL" ]; then
         # Default to FP32 for better compatibility
-        IMAGE_TAG=${LOCALAI_VERSION}-sycl-f32
+        IMAGE_TAG=${LOCALAI_VERSION}-gpu-intel-f32
         # AIO
         if [ "$USE_AIO" = true ]; then
             IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-intel-f32

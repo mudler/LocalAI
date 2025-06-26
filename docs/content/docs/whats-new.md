@@ -288,8 +288,8 @@ From this release the default behavior of images has changed. Compilation is not
 ### Container images
 - Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:v1.20.0`
 - FFmpeg: `quay.io/go-skynet/local-ai:v1.20.0-ffmpeg`
-- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v1.20.0-cublas-cuda11-ffmpeg`
-- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v1.20.0-cublas-cuda12-ffmpeg`
+- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v1.20.0-gpu-nvidia-cuda11-ffmpeg`
+- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v1.20.0-gpu-nvidia-cuda12-ffmpeg`
 
 ### Updates
 
@@ -339,8 +339,8 @@ You can check the full changelog in [Github](https://github.com/go-skynet/LocalA
 Container images:
 - Standard (GPT + `stablediffusion`): `quay.io/go-skynet/local-ai:v1.19.2`
 - FFmpeg: `quay.io/go-skynet/local-ai:v1.19.2-ffmpeg`
-- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v1.19.2-cublas-cuda11-ffmpeg`
-- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v1.19.2-cublas-cuda12-ffmpeg`
+- CUDA 11+FFmpeg: `quay.io/go-skynet/local-ai:v1.19.2-gpu-nvidia-cuda11-ffmpeg`
+- CUDA 12+FFmpeg: `quay.io/go-skynet/local-ai:v1.19.2-gpu-nvidia-cuda12-ffmpeg`
 
 --- 
 

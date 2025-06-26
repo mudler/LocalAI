@@ -165,9 +165,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda11` | `localai/localai:master-cublas-cuda11`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda11` | `localai/localai:master-gpu-nvidia-cuda11`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11` | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda11` | `localai/localai:{{< version >}}-cublas-cuda11`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda11` | `localai/localai:{{< version >}}-gpu-nvidia-cuda11`             |
 
 {{% /tab %}}
 
@@ -175,9 +175,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-cublas-cuda12` | `localai/localai:master-cublas-cuda12`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda12` | `localai/localai:master-gpu-nvidia-cuda12`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12`                 |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-cublas-cuda12` | `localai/localai:{{< version >}}-cublas-cuda12`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda12` | `localai/localai:{{< version >}}-gpu-nvidia-cuda12`             |
 
 {{% /tab %}}
 
@@ -185,9 +185,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f16` | `localai/localai:master-sycl-f16`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel-f16` | `localai/localai:master-gpu-intel-f16`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16` | `localai/localai:latest-gpu-intel-f16`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f16` | `localai/localai:{{< version >}}-sycl-f16`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel-f16` | `localai/localai:{{< version >}}-gpu-intel-f16`             |
 
 {{% /tab %}}
 
@@ -195,9 +195,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-sycl-f32` | `localai/localai:master-sycl-f32`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel-f32` | `localai/localai:master-gpu-intel-f32`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32` | `localai/localai:latest-gpu-intel-f32`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-sycl-f32` | `localai/localai:{{< version >}}-sycl-f32`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel-f32` | `localai/localai:{{< version >}}-gpu-intel-f32`             |
 
 {{% /tab %}}
 
