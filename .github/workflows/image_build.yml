@@ -33,14 +33,6 @@ on:
         description: 'Tag latest'
         default: ''
         type: string
-      latest-image:
-          description: 'Tag latest'
-          default: ''
-          type: string
-      latest-image-aio:
-          description: 'Tag latest'
-          default: ''
-          type: string
       tag-suffix:
         description: 'Tag suffix'
         default: ''
@@ -164,7 +156,7 @@ jobs:
             type=sha
           flavor: |
             latest=${{ inputs.tag-latest }}
-            suffix=${{ inputs.tag-suffix }}
+            suffix=${{ inputs.tag-suffix }},onlatest=true
       - name: Docker meta for PR
         id: meta_pull_request
         if: github.event_name == 'pull_request'
@@ -191,7 +183,7 @@ jobs:
             type=semver,pattern={{raw}}
           flavor: |
             latest=${{ inputs.tag-latest }}
-            suffix=${{ inputs.aio }}
+            suffix=${{ inputs.aio }},onlatest=true
 
       - name: Docker meta AIO (dockerhub)
         if: inputs.aio != ''
@@ -204,7 +196,8 @@ jobs:
             type=ref,event=branch
             type=semver,pattern={{raw}}
           flavor: |
-            suffix=${{ inputs.aio }}
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.aio }},onlatest=true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@master
@@ -255,7 +248,6 @@ jobs:
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
-          load: ${{ github.event_name != 'pull_request' && inputs.latest-image != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 ### Start testing image
@@ -299,7 +291,6 @@ jobs:
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
-          load: ${{ github.event_name != 'pull_request' && inputs.latest-image-aio != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta_aio.outputs.tags }}
           labels: ${{ steps.meta_aio.outputs.labels }}
 
@@ -315,31 +306,8 @@ jobs:
           file: ./Dockerfile.aio
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
-          load: ${{ github.event_name != 'pull_request' && inputs.latest-image-aio != '' && github.ref_type == 'tag' }}
           tags: ${{ steps.meta_aio_dockerhub.outputs.tags }}
           labels: ${{ steps.meta_aio_dockerhub.outputs.labels }}
-
-      - name: Cleanup
-        run: |
-          docker builder prune -f
-          docker system prune --force --volumes --all
-
-      - name: Latest tag
-        # run this on branches, when it is a tag and there is a latest-image defined
-        if: github.event_name != 'pull_request' && inputs.latest-image != ''  && github.ref_type == 'tag'
-        run: |
-          docker tag localai/localai:${{ steps.meta.outputs.version }} localai/localai:${{ inputs.latest-image }}
-          docker push localai/localai:${{ inputs.latest-image }}
-          docker tag quay.io/go-skynet/local-ai:${{ steps.meta.outputs.version }} quay.io/go-skynet/local-ai:${{ inputs.latest-image }}
-          docker push quay.io/go-skynet/local-ai:${{ inputs.latest-image }}
-      - name: Latest AIO tag
-        # run this on branches, when it is a tag and there is a latest-image defined
-        if: github.event_name != 'pull_request' && inputs.latest-image-aio != ''  && github.ref_type == 'tag'
-        run: |
-          docker tag localai/localai:${{ steps.meta_aio_dockerhub.outputs.version }} localai/localai:${{ inputs.latest-image-aio }}
-          docker push localai/localai:${{ inputs.latest-image-aio }}
-          docker tag quay.io/go-skynet/local-ai:${{ steps.meta_aio.outputs.version }} quay.io/go-skynet/local-ai:${{ inputs.latest-image-aio }}
-          docker push quay.io/go-skynet/local-ai:${{ inputs.latest-image-aio }}
 
       - name: job summary
         run: |
