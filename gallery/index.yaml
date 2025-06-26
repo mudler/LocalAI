@@ -1976,6 +1976,21 @@
     - filename: medgemma-27b-text-it-Q4_K_M.gguf
       sha256: 383b1c414d3f2f1a9c577a61e623d29a4ed4f7834f60b9e5412f5ff4e8aaf080
       uri: huggingface://unsloth/medgemma-27b-text-it-GGUF/medgemma-27b-text-it-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3n-e2b-it"
+  urls:
+    - https://huggingface.co/google/gemma-3n-E4B-it
+    - https://huggingface.co/ggml-org/gemma-3n-E2B-it-GGUF
+  description: |
+    Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. Gemma 3n models are designed for efficient execution on low-resource devices. They are capable of multimodal input, handling text, image, video, and audio input, and generating text outputs, with open weights for pre-trained and instruction-tuned variants. These models were trained with data in over 140 spoken languages.
+    Gemma 3n models use selective parameter activation technology to reduce resource requirements. This technique allows the models to operate at an effective size of 2B and 4B parameters, which is lower than the total number of parameters they contain. For more information on Gemma 3n's efficient parameter management technology, see the Gemma 3n page.
+  overrides:
+    parameters:
+      model: gemma-3n-E2B-it-Q8_0.gguf
+  files:
+    - filename: gemma-3n-E2B-it-Q8_0.gguf
+      sha256: 038a47c482e7af3009c462b56a7592e1ade3c7862540717aa1d9dee1760c337b
+      uri: huggingface://ggml-org/gemma-3n-E2B-it-GGUF/gemma-3n-E2B-it-Q8_0.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
