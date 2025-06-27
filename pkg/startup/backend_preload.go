@@ -27,7 +27,7 @@ func InstallExternalBackends(galleries []config.Gallery, backendPath string, dow
 				errs = errors.Join(err, fmt.Errorf("error installing backend %s", backend))
 			}
 		default:
-			err := gallery.InstallBackendFromGallery(galleries, systemState, backend, backendPath, downloadStatus)
+			err := gallery.InstallBackendFromGallery(galleries, systemState, backend, backendPath, downloadStatus, true)
 			if err != nil {
 				errs = errors.Join(err, fmt.Errorf("error installing backend %s", backend))
 			}

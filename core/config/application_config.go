@@ -55,7 +55,7 @@ type ApplicationConfig struct {
 
 	ExternalGRPCBackends map[string]string
 
-	AutoloadGalleries bool
+	AutoloadGalleries, AutoloadBackendGalleries bool
 
 	SingleBackend           bool
 	ParallelBackendRequests bool
@@ -190,6 +190,10 @@ var EnableParallelBackendRequests = func(o *ApplicationConfig) {
 
 var EnableGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadGalleries = true
+}
+
+var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
+	o.AutoloadBackendGalleries = true
 }
 
 func WithExternalBackend(name string, uri string) AppOption {

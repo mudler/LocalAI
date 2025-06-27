@@ -17,7 +17,7 @@ import (
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
-func InstallModels(galleries []config.Gallery, modelPath string, enforceScan bool, downloadStatus func(string, string, string, float64), models ...string) error {
+func InstallModels(galleries, backendGalleries []config.Gallery, modelPath, backendBasePath string, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
 
@@ -99,7 +99,7 @@ func InstallModels(galleries []config.Gallery, modelPath string, enforceScan boo
 				}
 			} else {
 				// Check if it's a model gallery, or print a warning
-				e, found := installModel(galleries, url, modelPath, downloadStatus, enforceScan)
+				e, found := installModel(galleries, backendGalleries, url, modelPath, backendBasePath, downloadStatus, enforceScan, autoloadBackendGalleries)
 				if e != nil && found {
 					log.Error().Err(err).Msgf("[startup] failed installing model '%s'", url)
 					err = errors.Join(err, e)
@@ -113,7 +113,7 @@ func InstallModels(galleries []config.Gallery, modelPath string, enforceScan boo
 	return err
 }
 
-func installModel(galleries []config.Gallery, modelName, modelPath string, downloadStatus func(string, string, string, float64), enforceScan bool) (error, bool) {
+func installModel(galleries, backendGalleries []config.Gallery, modelName, modelPath, backendBasePath string, downloadStatus func(string, string, string, float64), enforceScan, autoloadBackendGalleries bool) (error, bool) {
 	models, err := gallery.AvailableGalleryModels(galleries, modelPath)
 	if err != nil {
 		return err, false
@@ -129,7 +129,7 @@ func installModel(galleries []config.Gallery, modelName, modelPath string, downl
 	}
 
 	log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
-	err = gallery.InstallModelFromGallery(galleries, modelName, modelPath, gallery.GalleryModel{}, downloadStatus, enforceScan)
+	err = gallery.InstallModelFromGallery(galleries, backendGalleries, modelName, modelPath, backendBasePath, gallery.GalleryModel{}, downloadStatus, enforceScan, autoloadBackendGalleries)
 	if err != nil {
 		return err, true
 	}

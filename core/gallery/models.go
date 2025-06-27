@@ -10,6 +10,7 @@ import (
 	"dario.cat/mergo"
 	"github.com/mudler/LocalAI/core/config"
 	lconfig "github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/system"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/utils"
 
@@ -69,7 +70,9 @@ type PromptTemplate struct {
 }
 
 // Installs a model from the gallery
-func InstallModelFromGallery(galleries []config.Gallery, name string, basePath string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan bool) error {
+func InstallModelFromGallery(
+	modelGalleries, backendGalleries []config.Gallery,
+	name string, basePath, backendBasePath string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend bool) error {
 
 	applyModel := func(model *GalleryModel) error {
 		name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
@@ -119,14 +122,26 @@ func InstallModelFromGallery(galleries []config.Gallery, name string, basePath s
 			return err
 		}
 
-		if err := InstallModel(basePath, installName, &config, model.Overrides, downloadStatus, enforceScan); err != nil {
+		installedModel, err := InstallModel(basePath, installName, &config, model.Overrides, downloadStatus, enforceScan)
+		if err != nil {
 			return err
+		}
+
+		if automaticallyInstallBackend && installedModel.Backend != "" {
+			systemState, err := system.GetSystemState()
+			if err != nil {
+				return err
+			}
+
+			if err := InstallBackendFromGallery(backendGalleries, systemState, installedModel.Backend, backendBasePath, downloadStatus, false); err != nil {
+				return err
+			}
 		}
 
 		return nil
 	}
 
-	models, err := AvailableGalleryModels(galleries, basePath)
+	models, err := AvailableGalleryModels(modelGalleries, basePath)
 	if err != nil {
 		return err
 	}
@@ -139,11 +154,11 @@ func InstallModelFromGallery(galleries []config.Gallery, name string, basePath s
 	return applyModel(model)
 }
 
-func InstallModel(basePath, nameOverride string, config *ModelConfig, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64), enforceScan bool) error {
+func InstallModel(basePath, nameOverride string, config *ModelConfig, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.BackendConfig, error) {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0750)
 	if err != nil {
-		return fmt.Errorf("failed to create base path: %v", err)
+		return nil, fmt.Errorf("failed to create base path: %v", err)
 	}
 
 	if len(configOverrides) > 0 {
@@ -155,7 +170,7 @@ func InstallModel(basePath, nameOverride string, config *ModelConfig, configOver
 		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
 		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
-			return err
+			return nil, err
 		}
 
 		// Create file path
@@ -165,19 +180,19 @@ func InstallModel(basePath, nameOverride string, config *ModelConfig, configOver
 			scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
 			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
 				log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
-				return err
+				return nil, err
 			}
 		}
 		uri := downloader.URI(file.URI)
 		if err := uri.DownloadFile(filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	// Write prompt template contents to separate files
 	for _, template := range config.PromptTemplates {
 		if err := utils.VerifyPath(template.Name+".tmpl", basePath); err != nil {
-			return err
+			return nil, err
 		}
 		// Create file path
 		filePath := filepath.Join(basePath, template.Name+".tmpl")
@@ -185,12 +200,12 @@ func InstallModel(basePath, nameOverride string, config *ModelConfig, configOver
 		// Create parent directory
 		err := os.MkdirAll(filepath.Dir(filePath), 0750)
 		if err != nil {
-			return fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
+			return nil, fmt.Errorf("failed to create parent directory for prompt template %q: %v", template.Name, err)
 		}
 		// Create and write file content
 		err = os.WriteFile(filePath, []byte(template.Content), 0600)
 		if err != nil {
-			return fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
+			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
 		}
 
 		log.Debug().Msgf("Prompt template %q written", template.Name)
@@ -202,8 +217,10 @@ func InstallModel(basePath, nameOverride string, config *ModelConfig, configOver
 	}
 
 	if err := utils.VerifyPath(name+".yaml", basePath); err != nil {
-		return err
+		return nil, err
 	}
+
+	backendConfig := lconfig.BackendConfig{}
 
 	// write config file
 	if len(configOverrides) != 0 || len(config.ConfigFile) != 0 {
@@ -213,33 +230,33 @@ func InstallModel(basePath, nameOverride string, config *ModelConfig, configOver
 		configMap := make(map[string]interface{})
 		err = yaml.Unmarshal([]byte(config.ConfigFile), &configMap)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal config YAML: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal config YAML: %v", err)
 		}
 
 		configMap["name"] = name
 
 		if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
-			return err
+			return nil, err
 		}
 
 		// Write updated config file
 		updatedConfigYAML, err := yaml.Marshal(configMap)
 		if err != nil {
-			return fmt.Errorf("failed to marshal updated config YAML: %v", err)
+			return nil, fmt.Errorf("failed to marshal updated config YAML: %v", err)
 		}
 
-		backendConfig := lconfig.BackendConfig{}
 		err = yaml.Unmarshal(updatedConfigYAML, &backendConfig)
 		if err != nil {
-			return fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
+			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
 		}
+
 		if !backendConfig.Validate() {
-			return fmt.Errorf("failed to validate updated config YAML")
+			return nil, fmt.Errorf("failed to validate updated config YAML")
 		}
 
 		err = os.WriteFile(configFilePath, updatedConfigYAML, 0600)
 		if err != nil {
-			return fmt.Errorf("failed to write updated config file: %v", err)
+			return nil, fmt.Errorf("failed to write updated config file: %v", err)
 		}
 
 		log.Debug().Msgf("Written config file %s", configFilePath)
@@ -249,14 +266,12 @@ func InstallModel(basePath, nameOverride string, config *ModelConfig, configOver
 	modelFile := filepath.Join(basePath, galleryFileName(name))
 	data, err := yaml.Marshal(config)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	log.Debug().Msgf("Written gallery file %s", modelFile)
 
-	return os.WriteFile(modelFile, data, 0600)
-
-	//return nil
+	return &backendConfig, os.WriteFile(modelFile, data, 0600)
 }
 
 func galleryFileName(name string) string {

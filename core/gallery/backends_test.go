@@ -42,13 +42,13 @@ var _ = Describe("Gallery Backends", func() {
 
 	Describe("InstallBackendFromGallery", func() {
 		It("should return error when backend is not found", func() {
-			err := InstallBackendFromGallery(galleries, nil, "non-existent", tempDir, nil)
+			err := InstallBackendFromGallery(galleries, nil, "non-existent", tempDir, nil, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no backend found with name \"non-existent\""))
 		})
 
 		It("should install backend from gallery", func() {
-			err := InstallBackendFromGallery(galleries, nil, "test-backend", tempDir, nil)
+			err := InstallBackendFromGallery(galleries, nil, "test-backend", tempDir, nil, true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
 		})
@@ -181,7 +181,7 @@ var _ = Describe("Gallery Backends", func() {
 
 			// Test with NVIDIA system state
 			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
-			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, "meta-backend", tempDir, nil)
+			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, "meta-backend", tempDir, nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			metaBackendPath := filepath.Join(tempDir, "meta-backend")

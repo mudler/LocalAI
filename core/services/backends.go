@@ -24,7 +24,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend], s
 		g.modelLoader.DeleteExternalBackend(op.GalleryElementName)
 	} else {
 		log.Warn().Msgf("installing backend %s", op.GalleryElementName)
-		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, op.GalleryElementName, g.appConfig.BackendsPath, progressCallback)
+		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, op.GalleryElementName, g.appConfig.BackendsPath, progressCallback, true)
 		if err == nil {
 			err = gallery.RegisterBackends(g.appConfig.BackendsPath, g.modelLoader)
 		}

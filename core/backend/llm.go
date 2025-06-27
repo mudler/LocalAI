@@ -42,9 +42,10 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		if _, err := os.Stat(modelFile); os.IsNotExist(err) {
 			utils.ResetDownloadTimers()
 			// if we failed to load the model, we try to download it
-			err := gallery.InstallModelFromGallery(o.Galleries, modelFile, loader.ModelPath, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans)
+			err := gallery.InstallModelFromGallery(o.Galleries, o.BackendGalleries, modelFile, loader.ModelPath, o.BackendsPath, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
 			if err != nil {
-				return nil, err
+				log.Error().Err(err).Msgf("failed to install model %q from gallery", modelFile)
+				//return nil, err
 			}
 		}
 	}
