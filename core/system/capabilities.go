@@ -30,13 +30,13 @@ func detectGPUVendor() (string, error) {
 		if gpu.DeviceInfo != nil {
 			if gpu.DeviceInfo.Vendor != nil {
 				gpuVendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
-				if gpuVendorName == "NVIDIA" {
+				if strings.Contains(gpuVendorName, "NVIDIA") {
 					return "nvidia", nil
 				}
-				if gpuVendorName == "AMD" {
+				if strings.Contains(gpuVendorName, "AMD") {
 					return "amd", nil
 				}
-				if gpuVendorName == "INTEL" {
+				if strings.Contains(gpuVendorName, "INTEL") {
 					return "intel", nil
 				}
 				return "nvidia", nil
