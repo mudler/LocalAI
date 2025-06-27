@@ -30,7 +30,7 @@ func (m *GalleryBackend) SetGallery(gallery config.Gallery) {
 }
 
 func (m *GalleryBackend) IsMeta() bool {
-	return len(m.CapabilitiesMap) > 0
+	return len(m.CapabilitiesMap) > 0 && m.URI == ""
 }
 
 func (m *GalleryBackend) SetInstalled(installed bool) {
