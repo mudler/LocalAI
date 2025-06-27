@@ -205,9 +205,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-hipblas` | `localai/localai:master-hipblas`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-hipblas` | `localai/localai:master-gpu-hipblas`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `localai/localai:latest-gpu-hipblas`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-hipblas` | `localai/localai:{{< version >}}-hipblas`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-hipblas` | `localai/localai:{{< version >}}-gpu-hipblas`             |
 
 {{% /tab %}}
 

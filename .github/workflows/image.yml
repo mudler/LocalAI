@@ -38,8 +38,8 @@ jobs:
         include:
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
-            tag-suffix: '-hipblas'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-hipblas'
             ffmpeg: 'true'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             grpc-base-image: "ubuntu:22.04"
@@ -86,7 +86,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda11'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
@@ -98,7 +98,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda12'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
@@ -108,7 +108,7 @@ jobs:
             aio: "-aio-gpu-nvidia-cuda-12"
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-vulkan'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
@@ -118,7 +118,7 @@ jobs:
             aio: "-aio-gpu-vulkan"
           - build-type: 'sycl_f16'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-gpu-intel-f16'
@@ -128,7 +128,7 @@ jobs:
             aio: "-aio-gpu-intel-f16"
           - build-type: 'sycl_f32'
             platforms: 'linux/amd64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
             tag-suffix: '-gpu-intel-f32'
@@ -165,7 +165,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
-            tag-latest: 'false'
+            tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64'
             ffmpeg: 'true'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
