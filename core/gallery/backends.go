@@ -71,7 +71,22 @@ func findBestBackendFromMeta(backend *GalleryBackend, systemState *system.System
 }
 
 // Installs a model from the gallery
-func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, name string, basePath string, downloadStatus func(string, string, string, float64)) error {
+func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, name string, basePath string, downloadStatus func(string, string, string, float64), force bool) error {
+	if !force {
+		// check if we already have the backend installed
+		backends, err := ListSystemBackends(basePath)
+		if err != nil {
+			return err
+		}
+		if _, ok := backends[name]; ok {
+			return nil
+		}
+	}
+
+	if name == "" {
+		return fmt.Errorf("backend name is empty")
+	}
+
 	log.Debug().Interface("galleries", galleries).Str("name", name).Msg("Installing backend from gallery")
 
 	backends, err := AvailableBackends(galleries, basePath)
