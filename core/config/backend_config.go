@@ -70,7 +70,8 @@ type BackendConfig struct {
 	Description string `yaml:"description"`
 	Usage       string `yaml:"usage"`
 
-	Options []string `yaml:"options"`
+	Options   []string `yaml:"options"`
+	Overrides []string `yaml:"overrides"`
 }
 
 // Pipeline defines other models to use for audio-to-audio

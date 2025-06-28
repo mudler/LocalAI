@@ -258,6 +258,8 @@ message ModelOptions {
   repeated GrammarTrigger GrammarTriggers = 65;
 
   bool Reranking = 71;
+
+  repeated string Overrides = 72;
 }
 
 message Result {
