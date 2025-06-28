@@ -1307,6 +1307,48 @@
     - filename: Qwen3-55B-A3B-TOTAL-RECALL-V1.3.i1-Q4_K_M.gguf
       sha256: bcf5a1f8a40e9438a19b23dfb40e872561c310296c5ac804f937a0e3c1376def
       uri: huggingface://mradermacher/Qwen3-55B-A3B-TOTAL-RECALL-V1.3-i1-GGUF/Qwen3-55B-A3B-TOTAL-RECALL-V1.3.i1-Q4_K_M.gguf
+
+- !!merge <<: *qwen3
+  name: "qwen3-55b-a3b-total-recall-deep-40x"
+  icon: https://huggingface.co/DavidAU/Qwen3-55B-A3B-TOTAL-RECALL-V1.3/resolve/main/qwen3-total-recall.gif
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3-55B-A3B-TOTAL-RECALL-Deep-40X-GGUF
+  description: |
+    WARNING: MADNESS - UN HINGED and... NSFW. Vivid prose. INTENSE. Visceral Details. Violence. HORROR. GORE. Swearing. UNCENSORED... humor, romance, fun.
+    Qwen3-55B-A3B-TOTAL-RECALL-Deep-40X-GGUF
+
+    A highly experimental model ("tamer" versions below) based on Qwen3-30B-A3B (MOE, 128 experts, 8 activated), with Brainstorm 40X (by DavidAU - details at bottom of this page).
+
+    These modifications blow the model (V1) out to 87 layers, 1046 tensors and 55B parameters.
+
+    Note that some versions are smaller than this, with fewer layers/tensors and smaller parameter counts.
+
+    The adapter extensively alters performance, reasoning and output generation.
+
+    Exceptional changes in creative, prose and general performance.
+
+    Regens of the same prompt - even with the same settings - will be very different.
+
+    THREE example generations below - creative (generated with Q3_K_M, V1 model).
+
+    ONE example generation (#4) - non creative (generated with Q3_K_M, V1 model).
+
+    You can run this model on CPU and/or GPU due to unique model construction, size of experts and total activated experts at 3B parameters (8 experts), which translates into roughly almost 6B parameters in this version.
+
+    Two quants uploaded for testing: Q3_K_M, Q4_K_M
+
+    V3, V4 and V5 are also available in these two quants.
+
+    V2 and V6 in Q3_k_m only; as are: V 1.3, 1.4, 1.5, 1.7 and V7 (newest)
+
+    NOTE: V2 and up are from source model 2, V1 and 1.3,1.4,1.5,1.7 are from source model 1.
+  overrides:
+    parameters:
+      model: Qwen3-55B-A3B-TOTAL-RECALL-V5-Deep-40X-q4_K_M.gguf
+  files:
+    - filename: Qwen3-55B-A3B-TOTAL-RECALL-V5-Deep-40X-q4_K_M.gguf
+      sha256: 20ef786a8c8e74eb257aa3069e237cbd40f42d25f5502fed6fa016bb8afbdae4
+      uri: huggingface://DavidAU/Qwen3-55B-A3B-TOTAL-RECALL-Deep-40X-GGUF/Qwen3-55B-A3B-TOTAL-RECALL-V5-Deep-40X-q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
