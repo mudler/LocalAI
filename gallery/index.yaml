@@ -13043,6 +13043,75 @@
     - filename: Delta-Vector_Austral-24B-Winton-Q4_K_M.gguf
       sha256: feb76e0158d1ebba1809de89d01671b86037f768ebd5f6fb165885ae6338b1b7
       uri: huggingface://bartowski/Delta-Vector_Austral-24B-Winton-GGUF/Delta-Vector_Austral-24B-Winton-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistral-small-3.2-46b-the-brilliant-raconteur-ii-instruct-2506"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/DavidAU/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506/resolve/main/mistral-2506.jpg
+  urls:
+    - https://huggingface.co/DavidAU/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506
+    - https://huggingface.co/mradermacher/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506-GGUF
+  description: |
+    WARNING: MADNESS - UN HINGED and... NSFW. Vivid prose. INTENSE. Visceral Details. Violence. HORROR. GORE. Swearing. UNCENSORED... humor, romance, fun.
+    Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506
+
+    This repo contains the full precision source code, in "safe tensors" format to generate GGUFs, GPTQ, EXL2, AWQ, HQQ and other formats. The source code can also be used directly.
+
+    ABOUT:
+
+    A stronger, more creative Mistral (Mistral-Small-3.2-24B-Instruct-2506) extended to 79 layers, 46B parameters with Brainstorm 40x by DavidAU (details at very bottom of the page). This is version II, which has a jump in detail, and raw emotion relative to version 1.
+
+    This model pushes Mistral's Instruct 2506 to the limit:
+
+        Regens will be very different, even with same prompt / settings.
+        Output generation will vary vastly on each generation.
+        Reasoning will be changed, and often shorter.
+        Prose, creativity, word choice, and general "flow" are improved.
+        Several system prompts below help push this model even further.
+        Model is partly de-censored / abliterated. Most Mistrals are more uncensored that most other models too.
+        This model can also be used for coding too; even at low quants.
+        Model can be used for all use cases too.
+
+    As this is an instruct model, this model thrives on instructions - both in the system prompt and/or the prompt itself.
+
+    One example below with 3 generations using Q4_K_S.
+
+    Second example below with 2 generations using Q4_K_S.
+
+    Quick Details:
+
+        Model is 128k context, Jinja template (embedded) OR Chatml Template.
+        Reasoning can be turned on/off (see system prompts below) and is OFF by default.
+        Temp range .1 to 1 suggested, with 1-2 for enhanced creative. Above temp 2, is strong but can be very different.
+        Rep pen range: 1 (off) or very light 1.01, 1.02 to 1.05. (model is sensitive to rep pen - this affects reasoning / generation length.)
+        For creative/brainstorming use: suggest 2-5 generations due to variations caused by Brainstorm.
+
+    Observations:
+
+        Sometimes using Chatml (or Alpaca / others ) template (VS Jinja) will result in stronger creative generation.
+        Model can be operated with NO system prompt; however a system prompt will enhance generation.
+        Longer prompts, that more detailed, with more instructions will result in much stronger generations.
+        For prose directives: You may need to add directions, because the model may follow your instructions too closely. IE: "use short sentences" vs "use short sentences sparsely".
+        Reasoning (on) can lead to better creative generation, however sometimes generation with reasoning off is better.
+        Rep pen of up to 1.05 may be needed on quants Q2k/q3ks for some prompts to address "low bit" issues.
+
+    Detailed settings, system prompts, how to and examples below.
+
+    NOTES:
+
+    Image generation should also be possible with this model, just like the base model. Brainstorm was not applied to the image generation systems of the model... yet.
+
+    This is Version II and subject to change / revision.
+
+    This model is a slightly different version of:
+
+    https://huggingface.co/DavidAU/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-Instruct-2506
+  overrides:
+    parameters:
+      model: Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506.Q4_K_M.gguf
+  files:
+    - filename: Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506.Q4_K_M.gguf
+      sha256: 5c8b6f21ae4f671880fafe60001f30f4c639a680e257701e474777cfcf00f8f6
+      uri: huggingface://mradermacher/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506-GGUF/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506.Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
