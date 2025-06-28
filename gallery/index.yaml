@@ -2257,6 +2257,35 @@
     - filename: gemma-3n-E4B-it-Q8_0.gguf
       sha256: 9f74079242c765116bd1f33123aa07160b5e93578c2d0032594b7ed97576f9c3
       uri: huggingface://ggml-org/gemma-3n-E4B-it-GGUF/gemma-3n-E4B-it-Q8_0.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-4b-it-max-horror-uncensored-dbl-x-imatrix"
+  icon: https://huggingface.co/DavidAU/Gemma-3-4b-it-MAX-HORROR-Uncensored-DBL-X-Imatrix-GGUF/resolve/main/gemma4-horror-max2.jpg
+  urls:
+    - https://huggingface.co/DavidAU/Gemma-3-4b-it-MAX-HORROR-Uncensored-DBL-X-Imatrix-GGUF
+  description: |
+    Google's newest Gemma-3 model that has been uncensored by David_AU (maintains instruction following / model performance and adds 4 layers to the model) and re-enforced with a system prompt (optional) - see below.
+    The "Horror Imatrix" was built using Grand Horror 16B (at my repo). This adds a "tint" of horror to the model.
+
+    5 examples provided (NSFW / F-Bombs galore) below with prompts at IQ4XS (56 t/s on mid level card).
+
+    Context: 128k.
+
+    "MAXED"
+
+    This means the embed and output tensor are set at "BF16" (full precision) for all quants. This enhances quality, depth and general performance at the cost of a slightly larger quant.
+
+    "HORROR IMATRIX"
+
+    A strong, in house built, imatrix dataset built by David_AU which results in better overall function, instruction following, output quality and stronger connections to ideas, concepts and the world in general.
+
+    This combines with "MAXing" the quant to improve preformance.
+  overrides:
+    parameters:
+      model: Gemma-3-4b-it-MAX-HORROR-Uncensored-D_AU-Q4_K_M-imat.gguf
+  files:
+    - filename: Gemma-3-4b-it-MAX-HORROR-Uncensored-D_AU-Q4_K_M-imat.gguf
+      sha256: 1c577e4c84311c39b3d54b0cef12857ad46e88755f858143accbfcca7cc9fc6b
+      uri: huggingface://DavidAU/Gemma-3-4b-it-MAX-HORROR-Uncensored-DBL-X-Imatrix-GGUF/Gemma-3-4b-it-MAX-HORROR-Uncensored-D_AU-Q4_K_M-imat.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
