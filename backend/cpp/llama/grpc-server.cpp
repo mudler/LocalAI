@@ -12,6 +12,7 @@
 
 #include "backend.pb.h"
 #include "backend.grpc.pb.h"
+#include "common.h"
 #include <getopt.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
@@ -257,6 +258,13 @@ static void params_parse(const backend::ModelOptions* request,
 
         if (!strcmp(optname, "gpu")) {
           //  llama.has_gpu = true;
+        }
+    }
+
+    // Add kv_overrides
+    if (request->overrides_size() > 0) {
+        for (int i = 0; i < request->overrides_size(); i++) {
+            string_parse_kv_override(request->overrides(i).c_str(), params.kv_overrides);
         }
     }
 

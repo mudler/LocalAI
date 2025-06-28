@@ -143,6 +143,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 		CLIPModel:            c.Diffusers.ClipModel,
 		CLIPSubfolder:        c.Diffusers.ClipSubFolder,
 		Options:              c.Options,
+		Overrides:            c.Overrides,
 		CLIPSkip:             int32(c.Diffusers.ClipSkip),
 		ControlNet:           c.Diffusers.ControlNet,
 		ContextSize:          int32(ctxSize),
