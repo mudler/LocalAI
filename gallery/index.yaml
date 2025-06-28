@@ -1417,6 +1417,119 @@
     - filename: Qwen3-42B-A3B-Stranger-Thoughts-Deep20x-Abliterated-Uncensored.i1-Q4_K_M.gguf
       sha256: ef4a601adfc2897b214cda2d16f76dcb8215a1b994bc76c696158d68ec535dd8
       uri: huggingface://mradermacher/Qwen3-42B-A3B-Stranger-Thoughts-Deep20x-Abliterated-Uncensored-i1-GGUF/Qwen3-42B-A3B-Stranger-Thoughts-Deep20x-Abliterated-Uncensored.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-22b-a3b-the-harley-quinn"
+  icon: https://huggingface.co/DavidAU/Qwen3-22B-A3B-The-Harley-Quinn/resolve/main/qwen3-harley-quinn-23b.webp
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3-22B-A3B-The-Harley-Quinn
+    - https://huggingface.co/mradermacher/Qwen3-22B-A3B-The-Harley-Quinn-GGUF
+  description: |
+    WARNING: MADNESS - UN HINGED and... NSFW. Vivid prose. INTENSE. Visceral Details. Violence. HORROR. GORE. Swearing. UNCENSORED... humor, romance, fun.
+    Qwen3-22B-A3B-The-Harley-Quinn
+
+    This repo contains the full precision source code, in "safe tensors" format to generate GGUFs, GPTQ, EXL2, AWQ, HQQ and other formats. The source code can also be used directly.
+
+    ABOUT:
+
+    A stranger, yet radically different version of Kalmaze's "Qwen/Qwen3-16B-A3B" with the experts pruned to 64 (from 128, the Qwen 3 30B-A3B version) and then I added 19 layers expanding (Brainstorm 20x by DavidAU info at bottom of this page) the model to 22B total parameters.
+
+    The goal: slightly alter the model, to address some odd creative thinking and output choices.
+
+    Then... Harley Quinn showed up, and then it was a party!
+
+    A wild, out of control (sometimes) but never boring party.
+
+    Please note that the modifications affect the entire model operation; roughly I adjusted the model to think a little "deeper" and "ponder" a bit - but this is a very rough description.
+
+    That being said, reasoning and output generation will be altered regardless of your use case(s).
+
+    These modifications pushes Qwen's model to the absolute limit for creative use cases.
+
+    Detail, vividiness, and creativity all get a boost.
+
+    Prose (all) will also be very different from "default" Qwen3.
+
+    Likewise, regen(s) of the same prompt - even at the same settings - will create very different version(s) too.
+
+    The Brainstrom 20x has also lightly de-censored the model under some conditions.
+
+    However, this model can be prone to bouts of madness.
+
+    It will not always behave, and it will sometimes go -wildly- off script.
+
+    See 4 examples below.
+
+    Model retains full reasoning, and output generation of a Qwen3 MOE ; but has not been tested for "non-creative" use cases.
+
+    Model is set with Qwen's default config:
+
+        40 k context
+        8 of 64 experts activated.
+        Chatml OR Jinja Template (embedded)
+
+    Four example generations below.
+
+    IMPORTANT:
+
+    See usage guide / repo below to get the most out of this model, as settings are very specific.
+
+    If not set correctly, this model will not work the way it should.
+
+    Critical settings:
+
+        Chatml or Jinja Template (embedded, but updated version at repo below)
+        Rep pen of 1.01 or 1.02 ; higher (1.04, 1.05) will result in "Harley Mode".
+        Temp range of .6 to 1.2. ; higher you may need to prompt the model to "output" after thinking.
+        Experts set at 8-10 ; higher will result in "odder" output BUT it might be better.
+
+    That being said, "Harley Quinn" may make her presence known at any moment.
+
+    USAGE GUIDE:
+
+    Please refer to this model card for
+
+        Specific usage, suggested settings, changing ACTIVE EXPERTS, templates, settings and the like:
+        How to maximize this model in "uncensored" form, with specific notes on "abliterated" models.
+        Rep pen / temp settings specific to getting the model to perform strongly.
+
+    https://huggingface.co/DavidAU/Qwen3-18B-A3B-Stranger-Thoughts-Abliterated-Uncensored-GGUF
+
+    GGUF / QUANTS / SPECIAL SHOUTOUT:
+
+    Special thanks to team Mradermacher for making the quants!
+
+    https://huggingface.co/mradermacher/Qwen3-22B-A3B-The-Harley-Quinn-GGUF
+
+    KNOWN ISSUES:
+
+        Model may "mis-capitalize" word(s) - lowercase, where uppercase should be - from time to time.
+        Model may add extra space from time to time before a word.
+        Incorrect template and/or settings will result in a drop in performance / poor performance.
+        Can rant at the end / repeat. Most of the time it will stop on its own.
+
+    Looking for the Abliterated / Uncensored version?
+
+    https://huggingface.co/DavidAU/Qwen3-23B-A3B-The-Harley-Quinn-PUDDIN-Abliterated-Uncensored
+
+    In some cases this "abliterated/uncensored" version may work better than this version.
+    EXAMPLES
+
+    Standard system prompt, rep pen 1.01-1.02, topk 100, topp .95, minp .05, rep pen range 64.
+
+    Tested in LMStudio, quant Q4KS, GPU (CPU output will differ slightly).
+
+    As this is the mid range quant, expected better results from higher quants and/or with more experts activated to be better.
+
+    NOTE: Some formatting lost on copy/paste.
+
+    WARNING: NSFW. Vivid prose. INTENSE. Visceral Details. Violence. HORROR. GORE. Swearing. UNCENSORED... humor, romance, fun.
+  overrides:
+    parameters:
+      model: Qwen3-22B-A3B-The-Harley-Quinn.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-22B-A3B-The-Harley-Quinn.Q4_K_M.gguf
+      sha256: a3666754efde5d6c054de53cff0f38f1bb4a20117e2502eed7018ae57017b0a2
+      uri: huggingface://mradermacher/Qwen3-22B-A3B-The-Harley-Quinn-GGUF/Qwen3-22B-A3B-The-Harley-Quinn.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
