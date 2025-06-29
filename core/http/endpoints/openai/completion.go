@@ -31,7 +31,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 	created := int(time.Now().Unix())
 
 	process := func(id string, s string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
-		ComputeChoices(req, s, config, appConfig, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+		tokenCallback := func(s string, tokenUsage backend.TokenUsage) bool {
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
@@ -58,7 +58,8 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 
 			responses <- resp
 			return true
-		})
+		}
+		ComputeChoices(req, s, config, cl, appConfig, loader, func(s string, c *[]schema.Choice) {}, tokenCallback)
 		close(responses)
 	}
 
@@ -168,7 +169,7 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 			}
 
 			r, tokenUsage, err := ComputeChoices(
-				input, i, config, appConfig, ml, func(s string, c *[]schema.Choice) {
+				input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
 					*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
 				}, nil)
 			if err != nil {
