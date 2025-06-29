@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -14,6 +14,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
@@ -34,15 +35,19 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c *config.BackendConfig, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c *config.BackendConfig, cl *config.BackendConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
 	if o.AutoloadGalleries { // experimental
-		if _, err := os.Stat(modelFile); os.IsNotExist(err) {
+		modelNames, err := services.ListModels(cl, loader, nil, services.SKIP_ALWAYS)
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(modelNames, c.Name) {
 			utils.ResetDownloadTimers()
 			// if we failed to load the model, we try to download it
-			err := gallery.InstallModelFromGallery(o.Galleries, o.BackendGalleries, modelFile, loader.ModelPath, o.BackendsPath, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
+			err := gallery.InstallModelFromGallery(o.Galleries, o.BackendGalleries, c.Name, loader.ModelPath, o.BackendsPath, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to install model %q from gallery", modelFile)
 				//return nil, err

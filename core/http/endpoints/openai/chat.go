@@ -41,7 +41,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		}
 		responses <- initialMessage
 
-		ComputeChoices(req, s, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+		ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
@@ -68,7 +68,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 	}
 	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.BackendConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
 		result := ""
-		_, tokenUsage, _ := ComputeChoices(req, prompt, config, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
+		_, tokenUsage, _ := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
 			// TODO: Change generated BNF grammar to be compliant with the schema so we can
 			// stream the result token by token here.
@@ -92,7 +92,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 			}
 			responses <- initialMessage
 
-			result, err := handleQuestion(config, req, ml, startupOptions, functionResults, result, prompt)
+			result, err := handleQuestion(config, cl, req, ml, startupOptions, functionResults, result, prompt)
 			if err != nil {
 				log.Error().Err(err).Msg("error handling question")
 				return
@@ -383,7 +383,8 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 
 		// no streaming mode
 		default:
-			result, tokenUsage, err := ComputeChoices(input, predInput, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
+
+			tokenCallback := func(s string, c *[]schema.Choice) {
 				if !shouldUseFn {
 					// no function is called, just reply and use stop as finish reason
 					*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
@@ -403,7 +404,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 
 				switch {
 				case noActionsToRun:
-					result, err := handleQuestion(config, input, ml, startupOptions, results, s, predInput)
+					result, err := handleQuestion(config, cl, input, ml, startupOptions, results, s, predInput)
 					if err != nil {
 						log.Error().Err(err).Msg("error handling question")
 						return
@@ -458,7 +459,18 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 					}
 				}
 
-			}, nil)
+			}
+
+			result, tokenUsage, err := ComputeChoices(
+				input,
+				predInput,
+				config,
+				cl,
+				startupOptions,
+				ml,
+				tokenCallback,
+				nil,
+			)
 			if err != nil {
 				return err
 			}
@@ -489,7 +501,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 	}
 }
 
-func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
+func handleQuestion(config *config.BackendConfig, cl *config.BackendConfigLoader, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
 
 	if len(funcResults) == 0 && result != "" {
 		log.Debug().Msgf("nothing function results but we had a message from the LLM")
@@ -538,7 +550,7 @@ func handleQuestion(config *config.BackendConfig, input *schema.OpenAIRequest, m
 		audios = append(audios, m.StringAudios...)
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err
