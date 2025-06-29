@@ -141,10 +141,10 @@ docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri 
 
 ```bash
 # Intel GPU with FP16 support
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f16
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel-f16
 
 # Intel GPU with FP32 support
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel-f32
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel-f32
 ```
 
 ### Vulkan GPU Images:

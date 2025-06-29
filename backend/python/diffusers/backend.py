@@ -38,9 +38,7 @@ DISABLE_CPU_OFFLOAD = os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
 FRAMES = os.environ.get("FRAMES", "64")
 
 if XPU:
-    import intel_extension_for_pytorch as ipex
-
-    print(ipex.xpu.get_device_name(0))
+    print(torch.xpu.get_device_name(0))
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
@@ -336,6 +334,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
 
             device = "cpu" if not request.CUDA else "cuda"
+            if XPU:
+                device = "xpu"
             self.device = device
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )
@@ -359,12 +359,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
                 self.pipe.set_adapters(adapters_name, adapter_weights=adapters_weights)
 
-            if request.CUDA:
-                self.pipe.to('cuda')
+            if device != "cpu":
+                self.pipe.to(device)
                 if self.controlnet:
-                    self.controlnet.to('cuda')
-            if XPU:
-                self.pipe = self.pipe.to("xpu")
+                    self.controlnet.to(device)
+
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service
