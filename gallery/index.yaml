@@ -10909,6 +10909,31 @@
     - filename: AstroSage-70B.Q4_K_M.gguf
       sha256: 1d98dabfa001d358d9f95d2deba93a94ad8baa8839c75a0129cdb6bcf1507f38
       uri: huggingface://mradermacher/AstroSage-70B-GGUF/AstroSage-70B.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "thedrummer_anubis-70b-v1.1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/G-NwpVtnbdfdnPusYDzx3.png
+  urls:
+    - https://huggingface.co/TheDrummer/Anubis-70B-v1.1
+    - https://huggingface.co/bartowski/TheDrummer_Anubis-70B-v1.1-GGUF
+  description: |
+    A follow up to Anubis 70B v1.0 but with two main strengths: character adherence and unalignment.
+
+    This is not a minor update to Anubis. It is a totally different beast.
+
+        The model does a fantastic job portraying my various characters without fail, adhering to them in such a refreshing and pleasing degree with their dialogue and mannerisms, while also being able to impart a very nice and fresh style that doesn't feel like any other L3.3 models.
+
+        I do think it's a solid improvement though, like it nails characters.
+
+        It feels fresh. I am quite impressed on how it picked up on and empasized subtle details I have not seen other models do in one of my historically accurate character cards.
+
+        Anubis v1.1 is in my main model rotation now, I really like it! -Tarek
+  overrides:
+    parameters:
+      model: TheDrummer_Anubis-70B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Anubis-70B-v1.1-Q4_K_M.gguf
+      sha256: a73bed551c64703737f598f1120aac28d1a62c08b5dbe2208da810936bb2522d
+      uri: huggingface://bartowski/TheDrummer_Anubis-70B-v1.1-GGUF/TheDrummer_Anubis-70B-v1.1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
