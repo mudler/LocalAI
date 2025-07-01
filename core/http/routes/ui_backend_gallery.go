@@ -223,7 +223,7 @@ func registerBackendGalleryRoutes(app *fiber.App, appConfig *config.ApplicationC
 			return c.SendString(elements.ProgressBar("0"))
 		}
 
-		if status.Progress == 100 && status.Processed && status.Message == "completed" {
+		if status.Progress == 100 {
 			c.Set("HX-Trigger", "done") // this triggers /browse/backend/job/:uid
 			return c.SendString(elements.ProgressBar("100"))
 		}

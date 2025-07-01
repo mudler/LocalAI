@@ -256,7 +256,7 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 			return fmt.Errorf("failed to get image %q: %v", url, err)
 		}
 
-		return oci.ExtractOCIImage(img, url, filepath.Dir(filePath), downloadStatus)
+		return oci.ExtractOCIImage(img, filepath.Dir(filePath), downloadStatus)
 	}
 
 	// Check if the file already exists

@@ -121,12 +121,7 @@ func AvailableGalleryModels(galleries []config.Gallery, basePath string) (Galler
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements[*GalleryModel](gallery, basePath, func(model *GalleryModel) bool {
-			if _, err := os.Stat(filepath.Join(basePath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
-				return true
-			}
-			return false
-		})
+		galleryModels, err := getGalleryElements[*GalleryModel](gallery, basePath)
 		if err != nil {
 			return nil, err
 		}
@@ -142,14 +137,7 @@ func AvailableBackends(galleries []config.Gallery, basePath string) (GalleryElem
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements[*GalleryBackend](gallery, basePath, func(backend *GalleryBackend) bool {
-			backends, err := ListSystemBackends(basePath)
-			if err != nil {
-				return false
-			}
-			_, exists := backends[backend.GetName()]
-			return exists
-		})
+		galleryModels, err := getGalleryElements[*GalleryBackend](gallery, basePath)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +162,7 @@ func findGalleryURLFromReferenceURL(url string, basePath string) (string, error)
 	return refFile, err
 }
 
-func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string, isInstalledCallback func(T) bool) ([]T, error) {
+func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath string) ([]T, error) {
 	var models []T = []T{}
 
 	if strings.HasSuffix(gallery.URL, ".ref") {
@@ -199,7 +187,15 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 	// Add gallery to models
 	for _, model := range models {
 		model.SetGallery(gallery)
-		model.SetInstalled(isInstalledCallback(model))
+		// we check if the model was already installed by checking if the config file exists
+		// TODO: (what to do if the model doesn't install a config file?)
+		// TODO: This is sub-optimal now that the gallery handles both backends and models - we need to abstract this away
+		if _, err := os.Stat(filepath.Join(basePath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
+			model.SetInstalled(true)
+		}
+		if _, err := os.Stat(filepath.Join(basePath, model.GetName())); err == nil {
+			model.SetInstalled(true)
+		}
 	}
 	return models, nil
 }
