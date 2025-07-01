@@ -1560,6 +1560,21 @@
     - filename: Qwen3-33B-A3B-Stranger-Thoughts-Abliterated-Uncensored.Q4_K_M.gguf
       sha256: fc0f028ab04d4643032e5bf65c3b51ba947e97b4f562c4fc25c06b6a20b14616
       uri: huggingface://mradermacher/Qwen3-33B-A3B-Stranger-Thoughts-Abliterated-Uncensored-GGUF/Qwen3-33B-A3B-Stranger-Thoughts-Abliterated-Uncensored.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "pinkpixel_crystal-think-v2"
+  icon: https://huggingface.co/PinkPixel/Crystal-Think-V2/resolve/main/crystal-think-v2-logo.png
+  urls:
+    - https://huggingface.co/PinkPixel/Crystal-Think-V2
+    - https://huggingface.co/bartowski/PinkPixel_Crystal-Think-V2-GGUF
+  description: |
+    Crystal-Think is a specialized mathematical reasoning model based on Qwen3-4B, fine-tuned using Group Relative Policy Optimization (GRPO) on NVIDIA's OpenMathReasoning dataset. Version 2 introduces the new <think></think> reasoning format for enhanced step-by-step mathematical problem solving, algebraic reasoning, and mathematical code generation.
+  overrides:
+    parameters:
+      model: PinkPixel_Crystal-Think-V2-Q4_K_M.gguf
+  files:
+    - filename: PinkPixel_Crystal-Think-V2-Q4_K_M.gguf
+      sha256: 10f2558089c90bc9ef8036ac0b1142ad8991902ec83840a00710fd654df19aaa
+      uri: huggingface://bartowski/PinkPixel_Crystal-Think-V2-GGUF/PinkPixel_Crystal-Think-V2-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
