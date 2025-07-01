@@ -3594,6 +3594,38 @@
     - filename: sophosympatheia_StrawberryLemonade-L3-70B-v1.0-Q4_K_M.gguf
       sha256: 354472a2946598e0df376f9ecb91f83d7bc9c1b32db46bf48d3ea76f892f2a97
       uri: huggingface://bartowski/sophosympatheia_StrawberryLemonade-L3-70B-v1.0-GGUF/sophosympatheia_StrawberryLemonade-L3-70B-v1.0-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "steelskull_l3.3-shakudo-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64545af5ec40bbbd01242ca6/Y3_fED_Re3U1rd0jOPnAR.jpeg
+  urls:
+    - https://huggingface.co/Steelskull/L3.3-Shakudo-70b
+    - https://huggingface.co/bartowski/Steelskull_L3.3-Shakudo-70b-GGUF
+  description: |
+    L3.3-Shakudo-70b is the result of a multi-stage merging process by Steelskull, designed to create a powerful and creative roleplaying model with a unique flavor. The creation process involved several advanced merging techniques, including weight twisting, to achieve its distinct characteristics.
+    Stage 1: The Cognitive Foundation & Weight Twisting
+
+    The process began by creating a cognitive and tool-use focused base model, L3.3-Cogmoblated-70B. This was achieved through a `model_stock` merge of several models known for their reasoning and instruction-following capabilities. This base was built upon `nbeerbower/Llama-3.1-Nemotron-lorablated-70B`, a model intentionally "ablated" to skew refusal behaviors. This technique, known as weight twisting, helps the final model adopt more desirable response patterns by building upon a foundation that is already aligned against common refusal patterns.
+    Stage 2: The Twin Hydrargyrum - Flavor and Depth
+
+    Two distinct models were then created from the Cogmoblated base:
+
+        L3.3-M1-Hydrargyrum-70B: This model was merged using `SCE`, a technique that enhances creative writing and prose style, giving the model its unique "flavor." The Top_K for this merge were set at 0.22 .
+        L3.3-M2-Hydrargyrum-70B: This model was created using a `Della_Linear` merge, which focuses on integrating the "depth" of various roleplaying and narrative models. The settings for this merge were set at: (lambda: 1.1) (weight: 0.2) (density: 0.7) (epsilon: 0.2)
+
+    Final Stage: Shakudo
+
+    The final model, L3.3-Shakudo-70b, was created by merging the two Hydrargyrum variants using a 50/50 `nuslerp`. This final step combines the rich, creative prose (flavor) from the SCE merge with the strong roleplaying capabilities (depth) from the Della_Linear merge, resulting in a model with a distinct and refined narrative voice.
+
+    A special thank you to Nectar.ai for their generous support of the open-source community and my projects.
+
+    Additionally, a heartfelt thanks to all the Ko-fi supporters who have contributed—your generosity is deeply appreciated and helps keep this work going and the Pods spinning.
+  overrides:
+    parameters:
+      model: Steelskull_L3.3-Shakudo-70b-Q4_K_M.gguf
+  files:
+    - filename: Steelskull_L3.3-Shakudo-70b-Q4_K_M.gguf
+      sha256: 54590c02226f12c6f48a4af6bfed0e3c90130addd1fb8a2b4fcc1f0ab1674ef7
+      uri: huggingface://bartowski/Steelskull_L3.3-Shakudo-70b-GGUF/Steelskull_L3.3-Shakudo-70b-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
