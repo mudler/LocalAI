@@ -60,7 +60,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'vulkan'
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'false'
             tag-suffix: '-vulkan-core'
             runs-on: 'ubuntu-latest'
