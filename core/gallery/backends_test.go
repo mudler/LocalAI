@@ -227,7 +227,7 @@ var _ = Describe("Gallery Backends", func() {
 			concreteBackendPath := filepath.Join(tempDir, "concrete-backend")
 			err = os.MkdirAll(concreteBackendPath, 0750)
 			Expect(err).NotTo(HaveOccurred())
-			err = os.WriteFile(filepath.Join(concreteBackendPath, "run.sh"), []byte("#!/bin/bash"), 0755)
+			err = os.WriteFile(filepath.Join(concreteBackendPath, "metadata.json"), []byte("{}"), 0755)
 			Expect(err).NotTo(HaveOccurred())
 
 			// List system backends
@@ -318,6 +318,8 @@ var _ = Describe("Gallery Backends", func() {
 			backendNames := []string{"backend1", "backend2", "backend3"}
 			for _, name := range backendNames {
 				err := os.MkdirAll(filepath.Join(tempDir, name), 0750)
+				Expect(err).NotTo(HaveOccurred())
+				err = os.WriteFile(filepath.Join(tempDir, name, "metadata.json"), []byte("{}"), 0755)
 				Expect(err).NotTo(HaveOccurred())
 			}
 

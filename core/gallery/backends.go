@@ -162,7 +162,7 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 		return fmt.Errorf("failed to create backend path %q: %v", backendPath, err)
 	}
 
-	if err := oci.ExtractOCIImage(img, backendPath, downloadStatus); err != nil {
+	if err := oci.ExtractOCIImage(img, config.URI, backendPath, downloadStatus); err != nil {
 		return fmt.Errorf("failed to extract image %q: %v", config.URI, err)
 	}
 
@@ -246,6 +246,13 @@ func ListSystemBackends(basePath string) (map[string]string, error) {
 	for _, backend := range backends {
 		if backend.IsDir() {
 			runFile := filepath.Join(basePath, backend.Name(), runFile)
+			// Skip if metadata file don't exist
+
+			metadataFilePath := filepath.Join(basePath, backend.Name(), metadataFile)
+			if _, err := os.Stat(metadataFilePath); os.IsNotExist(err) {
+				continue
+			}
+
 			backendsNames[backend.Name()] = runFile
 
 			// Check for alias in metadata
