@@ -18,7 +18,7 @@ PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
 
 # bark.cpp
 BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
-BARKCPP_VERSION?=v1.0.0
+BARKCPP_VERSION?=5d5be84f089ab9ea53b7a793f088d3fbf7247495
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
