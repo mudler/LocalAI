@@ -247,20 +247,31 @@ func ListSystemBackends(basePath string) (map[string]string, error) {
 		if backend.IsDir() {
 			runFile := filepath.Join(basePath, backend.Name(), runFile)
 			// Skip if metadata file don't exist
-
 			metadataFilePath := filepath.Join(basePath, backend.Name(), metadataFile)
 			if _, err := os.Stat(metadataFilePath); os.IsNotExist(err) {
 				continue
 			}
-
-			backendsNames[backend.Name()] = runFile
 
 			// Check for alias in metadata
 			metadata, err := readBackendMetadata(filepath.Join(basePath, backend.Name()))
 			if err != nil {
 				return nil, err
 			}
-			if metadata != nil && metadata.Alias != "" {
+
+			if metadata == nil {
+				continue
+			}
+
+			if _, exists := backendsNames[backend.Name()]; !exists {
+				// We don't want to override aliases if already set, and if we are meta backend
+				if _, err := os.Stat(runFile); err == nil {
+					backendsNames[backend.Name()] = runFile
+				} else {
+					backendsNames[backend.Name()] = ""
+				}
+			}
+
+			if metadata.Alias != "" {
 				backendsNames[metadata.Alias] = runFile
 			}
 		}
