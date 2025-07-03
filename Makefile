@@ -265,8 +265,8 @@ sources/bark.cpp/build/libbark.a: sources/bark.cpp
 	cmake $(CMAKE_ARGS) .. && \
 	cmake --build . --config Release
 
-backend/go/bark/libbark.a: sources/bark.cpp/build/libbark.a
-	$(MAKE) -C backend/go/bark libbark.a
+backend/go/bark-cpp/libbark.a: sources/bark.cpp/build/libbark.a
+	$(MAKE) -C backend/go/bark-cpp libbark.a
 
 ## go-piper
 sources/go-piper:
@@ -355,7 +355,7 @@ clean: ## Remove build related file
 	rm -rf release/
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
-	$(MAKE) -C backend/go/bark clean
+	$(MAKE) -C backend/go/bark-cpp clean
 	$(MAKE) -C backend/cpp/llama clean
 	$(MAKE) -C backend/go/image/stablediffusion-ggml clean
 	rm -rf backend/cpp/llama-* || true
@@ -778,9 +778,9 @@ backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
 	mkdir -p backend-assets/util/
 	cp -rf backend/cpp/llama-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
 
-backend-assets/grpc/bark-cpp: backend/go/bark/libbark.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark/ LIBRARY_PATH=$(CURDIR)/backend/go/bark/ \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark/
+backend-assets/grpc/bark-cpp: backend/go/bark-cpp/libbark.a backend-assets/grpc
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark-cpp/ LIBRARY_PATH=$(CURDIR)/backend/go/bark-cpp/ \
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark-cpp/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/bark-cpp
 endif
