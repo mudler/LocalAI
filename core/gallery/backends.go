@@ -62,7 +62,7 @@ func findBestBackendFromMeta(backend *GalleryBackend, systemState *system.System
 		return nil
 	}
 
-	realBackend := backend.CapabilitiesMap[systemState.GPUVendor]
+	realBackend := backend.CapabilitiesMap[systemState.Capability()]
 	if realBackend == "" {
 		return nil
 	}

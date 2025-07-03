@@ -24,6 +24,8 @@ ARG TARGETARCH
 ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
 
+RUN mkdir -p /run/localai
+
 # Vulkan requirements
 RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
@@ -36,7 +38,8 @@ RUN <<EOT bash
         apt-get install -y \
             vulkan-sdk && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
+        rm -rf /var/lib/apt/lists/* && \
+        echo "vulkan" > /run/localai/capability
     fi
 EOT
 
@@ -63,7 +66,8 @@ RUN <<EOT bash
             libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
+        rm -rf /var/lib/apt/lists/* && \
+        echo "nvidia" > /run/localai/capability
     fi
 EOT
 
@@ -83,6 +87,7 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
             rocblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
+        echo "amd" > /run/localai/capability && \
         # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
         # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
         ldconfig \
