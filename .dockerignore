@@ -3,7 +3,9 @@
 .vscode
 .devcontainer
 models
+backends
 examples/chatbot-ui/models
+backend/go/image/stablediffusion-ggml/build/
 examples/rwkv/models
 examples/**/models
 Dockerfile*
