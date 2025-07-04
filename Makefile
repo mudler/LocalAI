@@ -713,81 +713,6 @@ else
 	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
 endif
 
-# This target is for manually building a variant with-auto detected flags
-backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-copy
-	$(MAKE) -C backend/cpp/llama-cpp-copy purge
-	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
-	$(MAKE) VARIANT="llama-cpp-copy" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-copy/grpc-server backend-assets/grpc/llama-cpp
-
-backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-avx2
-	$(MAKE) -C backend/cpp/llama-cpp-avx2 purge
-	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
-
-backend-assets/grpc/llama-cpp-avx512: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-avx512
-	$(MAKE) -C backend/cpp/llama-cpp-avx512 purge
-	$(info ${GREEN}I llama-cpp build info:avx512${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx512" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-avx512/grpc-server backend-assets/grpc/llama-cpp-avx512
-
-backend-assets/grpc/llama-cpp-avx: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-avx
-	$(MAKE) -C backend/cpp/llama-cpp-avx purge
-	$(info ${GREEN}I llama-cpp build info:avx${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-avx/grpc-server backend-assets/grpc/llama-cpp-avx
-
-backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-fallback
-	$(MAKE) -C backend/cpp/llama-cpp-fallback purge
-	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
-
-backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-cuda
-	$(MAKE) -C backend/cpp/llama-cpp-cuda purge
-	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
-
-backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-hipblas
-	$(MAKE) -C backend/cpp/llama-cpp-hipblas purge
-	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
-
-backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-sycl_f16
-	$(MAKE) -C backend/cpp/llama-cpp-sycl_f16 purge
-	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
-	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
-
-backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-sycl_f32
-	$(MAKE) -C backend/cpp/llama-cpp-sycl_f32 purge
-	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
-	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
-
-backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
-	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-grpc
-	$(MAKE) -C backend/cpp/llama-cpp-grpc purge
-	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
-
-backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
-	mkdir -p backend-assets/util/
-	cp -rf backend/cpp/llama-cpp-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
-
 backend-assets/grpc/bark-cpp: protogen-go replace backend/go/bark-cpp/libbark.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark-cpp/ LIBRARY_PATH=$(CURDIR)/backend/go/bark-cpp/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark-cpp/
@@ -795,21 +720,21 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/bark-cpp
 endif
 
-backend-assets/grpc/piper: protogen-go replacesources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
+backend-assets/grpc/piper: protogen-go replace sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
 	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/piper
 endif
 
-backend-assets/grpc/silero-vad: protogen-go replacebackend-assets/grpc backend-assets/lib/libonnxruntime.so.1
+backend-assets/grpc/silero-vad: protogen-go replace backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/onnxruntime/include/" LIBRARY_PATH=$(CURDIR)/backend-assets/lib \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/silero-vad
 endif
 
-backend-assets/grpc/whisper: protogen-go replacesources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
+backend-assets/grpc/whisper: protogen-go replace sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	CGO_CXXFLAGS="$(CGO_CXXFLAGS_WHISPER)" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
