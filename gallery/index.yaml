@@ -1593,6 +1593,23 @@
     - filename: HelpingAI_Dhanishtha-2.0-preview-Q4_K_M.gguf
       sha256: 026a1f80187c9ecdd0227816a35661f3b6b7abe85971121b4c1c25b6cdd7ab86
       uri: huggingface://bartowski/HelpingAI_Dhanishtha-2.0-preview-GGUF/HelpingAI_Dhanishtha-2.0-preview-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "agentica-org_deepswe-preview"
+  icon: https://hebbkx1anhila5yf.public.blob.vercel-storage.com/IMG_3783-N75vmFhDaJtJkLR4d8pdBymos68DPo.png
+  urls:
+    - https://huggingface.co/agentica-org/DeepSWE-Preview
+    - https://huggingface.co/bartowski/agentica-org_DeepSWE-Preview-GGUF
+  description: |
+    DeepSWE-Preview is a fully open-sourced, state-of-the-art coding agent trained with only reinforcement learning (RL) to excel at software engineering (SWE) tasks. DeepSWE-Preview demonstrates strong reasoning capabilities in navigating complex codebases and viewing/editing multiple files, and it serves as a foundational model for future coding agents. The model achieves an impressive 59.0% on SWE-Bench-Verified, which is currently #1 in the open-weights category.
+
+    DeepSWE-Preview is trained on top of Qwen3-32B with thinking mode enabled. With just 200 steps of RL training, SWE-Bench-Verified score increases by ~20%.
+  overrides:
+    parameters:
+      model: agentica-org_DeepSWE-Preview-Q4_K_M.gguf
+  files:
+    - filename: agentica-org_DeepSWE-Preview-Q4_K_M.gguf
+      sha256: 196a7128d3b7a59f1647792bb72c17db306f773e78d5a47feeeea92e672d761b
+      uri: huggingface://bartowski/agentica-org_DeepSWE-Preview-GGUF/agentica-org_DeepSWE-Preview-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
