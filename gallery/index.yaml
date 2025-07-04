@@ -11016,6 +11016,20 @@
     - filename: TheDrummer_Anubis-70B-v1.1-Q4_K_M.gguf
       sha256: a73bed551c64703737f598f1120aac28d1a62c08b5dbe2208da810936bb2522d
       uri: huggingface://bartowski/TheDrummer_Anubis-70B-v1.1-GGUF/TheDrummer_Anubis-70B-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "ockerman0_anubislemonade-70b-v1"
+  urls:
+    - https://huggingface.co/ockerman0/AnubisLemonade-70B-v1
+    - https://huggingface.co/bartowski/ockerman0_AnubisLemonade-70B-v1-GGUF
+  description: |
+      AnubisLemonade-70B-v1 is a 70B parameter model that is a follow-up to Anubis-70B-v1.1. It is a state-of-the-art (SOTA) model developed by ockerman0, representing the world's first model to feature Intermediate Thinking capabilities. Unlike traditional models that provide single-pass responses, AnubisLemonade-70B-v1 employs a revolutionary multi-phase thinking process that allows the model to think, reconsider, and refine its reasoning multiple times throughout a single response.
+  overrides:
+    parameters:
+      model: ockerman0_AnubisLemonade-70B-v1-Q4_K_M.gguf
+  files:
+    - filename: ockerman0_AnubisLemonade-70B-v1-Q4_K_M.gguf
+      sha256: 44a06924a131fafde604a6c4e2f9f5209b9e79452b2211c9dbb0b14a1e177c43
+      uri: huggingface://bartowski/ockerman0_AnubisLemonade-70B-v1-GGUF/ockerman0_AnubisLemonade-70B-v1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
