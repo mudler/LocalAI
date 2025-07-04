@@ -41,8 +41,8 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas'
             ffmpeg: 'true'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
-            grpc-base-image: "ubuntu:22.04"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
+            grpc-base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             aio: "-aio-gpu-hipblas"
@@ -77,7 +77,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: ''
             ffmpeg: 'true'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
             makeflags: "--jobs=4 --output-sync=target"
@@ -90,7 +90,7 @@ jobs:
             tag-suffix: '-gpu-nvidia-cuda11'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
             aio: "-aio-gpu-nvidia-cuda-11"
@@ -102,7 +102,7 @@ jobs:
             tag-suffix: '-gpu-nvidia-cuda12'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-12"
@@ -112,7 +112,7 @@ jobs:
             tag-suffix: '-vulkan'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-vulkan"
@@ -120,7 +120,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-gpu-intel-f16'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
@@ -130,7 +130,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-gpu-intel-f32'
             ffmpeg: 'true'
             runs-on: 'ubuntu-latest'
