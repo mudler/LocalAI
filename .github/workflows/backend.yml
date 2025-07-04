@@ -7,7 +7,7 @@ on:
       - master
     tags:
       - '*'
-  #pull_request:
+  pull_request:
 
 concurrency:
   group: ci-backends-${{ github.head_ref || github.ref }}-${{ github.repository }}
@@ -46,7 +46,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -57,7 +57,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-vllm'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -68,7 +68,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -79,7 +79,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -91,7 +91,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -102,7 +102,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -113,7 +113,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -124,7 +124,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -135,7 +135,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-chatterbox'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -147,7 +147,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -158,7 +158,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -169,7 +169,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -180,7 +180,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "diffusers"            
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -192,7 +192,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -203,7 +203,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -214,7 +214,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -225,7 +225,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -236,7 +236,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -248,7 +248,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -259,7 +259,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -270,7 +270,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -281,7 +281,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -293,7 +293,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -304,7 +304,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -315,7 +315,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -326,7 +326,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.1"
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -505,7 +505,7 @@ jobs:
             tag-latest: 'true'
             tag-suffix: '-bark-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             backend: "bark"
             dockerfile: "./backend/Dockerfile.go"
             context: "./"
