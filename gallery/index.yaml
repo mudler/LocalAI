@@ -13391,6 +13391,25 @@
     - filename: Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506.Q4_K_M.gguf
       sha256: 5c8b6f21ae4f671880fafe60001f30f4c639a680e257701e474777cfcf00f8f6
       uri: huggingface://mradermacher/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506-GGUF/Mistral-Small-3.2-46B-The-Brilliant-Raconteur-II-Instruct-2506.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "zerofata_ms3.2-paintedfantasy-visage-33b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/CQeog2SHdGUdmx8vHqL71.png
+  urls:
+    - https://huggingface.co/zerofata/MS3.2-PaintedFantasy-Visage-33B
+    - https://huggingface.co/bartowski/zerofata_MS3.2-PaintedFantasy-Visage-33B-GGUF
+  description: |
+    Another experimental release. Mistral Small 3.2 24B upscaled by 18 layers to create a 33.6B model. This model then went through pretraining, SFT & DPO.
+
+    Can't guarantee the Mistral 3.2 repetition issues are fixed, but this model seems to be less repetitive than my previous attempt.
+
+    This is an uncensored creative model intended to excel at character driven RP / ERP where characters are portrayed creatively and proactively.
+  overrides:
+    parameters:
+      model: zerofata_MS3.2-PaintedFantasy-Visage-33B-Q4_K_M.gguf
+  files:
+    - filename: zerofata_MS3.2-PaintedFantasy-Visage-33B-Q4_K_M.gguf
+      sha256: bd315ad9a4cf0f47ed24f8d387b0cad1dd127e10f2bbe1c6820ae91f700ada56
+      uri: huggingface://bartowski/zerofata_MS3.2-PaintedFantasy-Visage-33B-GGUF/zerofata_MS3.2-PaintedFantasy-Visage-33B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
