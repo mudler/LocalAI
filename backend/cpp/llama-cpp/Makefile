@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=
+LLAMA_VERSION?=e75ba4c0434eb759eb7ff74e034ebe729053e575
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
 CMAKE_ARGS?=
@@ -49,6 +49,96 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DCMAKE_CXX_COMPILER=icpx \
 		-DCMAKE_CXX_FLAGS="-fsycl"
 endif
+
+build-llama-cpp-grpc-server:
+# Conditionally build grpc for the llama backend to use if needed
+ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
+	$(MAKE) -C ../../grpc build
+	_PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto \
+	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
+	PATH="${INSTALLED_PACKAGES}/bin:${PATH}" \
+	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" \
+	LLAMA_VERSION=$(CPPLLAMA_VERSION) \
+	$(MAKE) grpc-server
+else
+	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
+	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) grpc-server
+endif
+
+
+# This target is for manually building a variant with-auto detected flags
+llama-cpp: llama.cpp purge
+	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
+	$(MAKE) VARIANT="llama-cpp-copy" build-llama-cpp-grpc-server
+	cp -rfv grpc-server llama-cpp
+
+llama-cpp-avx2: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-avx2
+	$(MAKE) -C backend/cpp/llama-cpp-avx2 purge
+	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
+
+backend-assets/grpc/llama-cpp-avx512: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-avx512
+	$(MAKE) -C backend/cpp/llama-cpp-avx512 purge
+	$(info ${GREEN}I llama-cpp build info:avx512${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx512" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-avx512/grpc-server backend-assets/grpc/llama-cpp-avx512
+
+backend-assets/grpc/llama-cpp-avx: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-avx
+	$(MAKE) -C backend/cpp/llama-cpp-avx purge
+	$(info ${GREEN}I llama-cpp build info:avx${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-avx/grpc-server backend-assets/grpc/llama-cpp-avx
+
+backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-fallback
+	$(MAKE) -C backend/cpp/llama-cpp-fallback purge
+	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
+
+backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-cuda
+	$(MAKE) -C backend/cpp/llama-cpp-cuda purge
+	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
+
+backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-hipblas
+	$(MAKE) -C backend/cpp/llama-cpp-hipblas purge
+	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
+
+backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-sycl_f16
+	$(MAKE) -C backend/cpp/llama-cpp-sycl_f16 purge
+	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
+	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
+
+backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-sycl_f32
+	$(MAKE) -C backend/cpp/llama-cpp-sycl_f32 purge
+	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
+	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
+
+backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama-cpp/llama.cpp
+	cp -rf backend/cpp/llama-cpp backend/cpp/llama-cpp-grpc
+	$(MAKE) -C backend/cpp/llama-cpp-grpc purge
+	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
+	cp -rfv backend/cpp/llama-cpp-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
+
+backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
+	mkdir -p backend-assets/util/
+	cp -rf backend/cpp/llama-cpp-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
+
 
 llama.cpp:
 	mkdir -p llama.cpp
