@@ -1575,6 +1575,24 @@
     - filename: PinkPixel_Crystal-Think-V2-Q4_K_M.gguf
       sha256: 10f2558089c90bc9ef8036ac0b1142ad8991902ec83840a00710fd654df19aaa
       uri: huggingface://bartowski/PinkPixel_Crystal-Think-V2-GGUF/PinkPixel_Crystal-Think-V2-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "helpingai_dhanishtha-2.0-preview"
+  urls:
+    - https://huggingface.co/HelpingAI/Dhanishtha-2.0-preview
+    - https://huggingface.co/bartowski/HelpingAI_Dhanishtha-2.0-preview-GGUF
+  description: |
+    What makes Dhanishtha-2.0 special? Imagine an AI that doesn't just answer your questions instantly, but actually thinks through problems step-by-step, shows its work, and can even change its mind when it realizes a better approach. That's Dhanishtha-2.0.
+    Quick Summary:
+        🚀 For Everyone: An AI that shows its thinking process and can reconsider its reasoning
+        👩‍💻 For Developers: First model with intermediate thinking capabilities, 39+ language support
+    Dhanishtha-2.0 is a state-of-the-art (SOTA) model developed by HelpingAI, representing the world's first model to feature Intermediate Thinking capabilities. Unlike traditional models that provide single-pass responses, Dhanishtha-2.0 employs a revolutionary multi-phase thinking process that allows the model to think, reconsider, and refine its reasoning multiple times throughout a single response.
+  overrides:
+    parameters:
+      model: HelpingAI_Dhanishtha-2.0-preview-Q4_K_M.gguf
+  files:
+    - filename: HelpingAI_Dhanishtha-2.0-preview-Q4_K_M.gguf
+      sha256: 026a1f80187c9ecdd0227816a35661f3b6b7abe85971121b4c1c25b6cdd7ab86
+      uri: huggingface://bartowski/HelpingAI_Dhanishtha-2.0-preview-GGUF/HelpingAI_Dhanishtha-2.0-preview-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
