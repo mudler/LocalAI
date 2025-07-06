@@ -26,6 +26,7 @@ STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
 
 # ONEAPI variables for SYCL
 export ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
+ONEAPI_VERSION=2025.1
 
 ONNX_VERSION?=1.20.0
 ONNX_ARCH?=x64
@@ -170,11 +171,20 @@ endif
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export GGML_SYCL=1
 	CMAKE_ARGS+=-DGGML_SYCL=ON
+	WHISPER_CMAKE_ARGS+=-DGGML_SYCL=ON -DCMAKE_C_COMPILER=icx -DCMAKE_CXX_COMPILER=icpx
+	export CC=icx
+	export CXX=icpx
+	CGO_LDFLAGS_WHISPER += -fsycl -L${DNNLROOT}/lib -rpath ${ONEAPI_ROOT}/${ONEAPI_VERSION}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL -lggml-sycl
+	CGO_LDFLAGS_WHISPER += $(shell pkg-config --libs mkl-static-lp64-gomp)
+	CGO_CXXFLAGS_WHISPER += -fiopenmp -fopenmp-targets=spir64
+	CGO_CXXFLAGS_WHISPER += $(shell pkg-config --cflags mkl-static-lp64-gomp )
+	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-sycl/
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
 	export GGML_SYCL_F16=1
 	CMAKE_ARGS+=-DGGML_SYCL_F16=ON
+	WHISPER_CMAKE_ARGS+=-DGGML_SYCL_F16=ON
 endif
 
 ifeq ($(BUILD_TYPE),hipblas)
@@ -801,6 +811,7 @@ endif
 
 backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
+	CGO_CXXFLAGS="$(CGO_CXXFLAGS_WHISPER)" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper
@@ -852,18 +863,20 @@ docker-aio-all:
 
 docker-image-intel:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.1.0-0-devel-ubuntu24.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:${ONEAPI_VERSION}.0-0-devel-ubuntu24.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
+		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
 docker-image-intel-xpu:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.1.0-0-devel-ubuntu22.04 \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:${ONEAPI_VERSION}.0-0-devel-ubuntu22.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
+		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
 .PHONY: swagger
