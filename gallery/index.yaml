@@ -4891,6 +4891,37 @@
     - filename: mmproj-ultravox-v0_5-llama-3_2-1b-f16.gguf
       sha256: b34dde1835752949d6b960528269af93c92fec91c61ea0534fcc73f96c1ed8b2
       uri: https://huggingface.co/ggml-org/ultravox-v0_5-llama-3_2-1b-GGUF/resolve/main/mmproj-ultravox-v0_5-llama-3_2-1b-f16.gguf
+- !!merge <<: *llama32
+  name: "nano_imp_1b-q8_0"
+  icon: https://huggingface.co/SicariusSicariiStuff/Nano_Imp_1B/resolve/main/Images/Nano_Imp_1B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Nano_Imp_1B
+    - https://huggingface.co/Triangle104/Nano_Imp_1B-Q8_0-GGUF
+  description: |
+    It's the 10th of May, 2025—lots of progress is being made in the world of AI (DeepSeek, Qwen, etc...)—but still, there has yet to be a fully coherent 1B RP model. Why?
+
+    Well, at 1B size, the mere fact a model is even coherent is some kind of a marvel—and getting it to roleplay feels like you're asking too much from 1B parameters. Making very small yet smart models is quite hard, making one that does RP is exceedingly hard. I should know.
+
+    I've made the world's first 3B roleplay model—Impish_LLAMA_3B—and I thought that this was the absolute minimum size for coherency and RP capabilities. I was wrong.
+
+    One of my stated goals was to make AI accessible and available for everyone—but not everyone could run 13B or even 8B models. Some people only have mid-tier phones, should they be left behind?
+
+    A growing sentiment often says something along the lines of:
+
+        If your waifu runs on someone else's hardware—then she's not your waifu.
+
+    I'm not an expert in waifu culture, but I do agree that people should be able to run models locally, without their data (knowingly or unknowingly) being used for X or Y.
+
+    I thought my goal of making a roleplay model that everyone could run would only be realized sometime in the future—when mid-tier phones got the equivalent of a high-end Snapdragon chipset. Again I was wrong, as this changes today.
+
+    Today, the 10th of May 2025, I proudly present to you—Nano_Imp_1B, the world's first and only fully coherent 1B-parameter roleplay model.
+  overrides:
+    parameters:
+      model: nano_imp_1b-q8_0.gguf
+  files:
+    - filename: nano_imp_1b-q8_0.gguf
+      sha256: 2756551de7d8ff7093c2c5eec1cd00f1868bc128433af53f5a8d434091d4eb5a
+      uri: huggingface://Triangle104/Nano_Imp_1B-Q8_0-GGUF/nano_imp_1b-q8_0.gguf
 - &qwen25
   name: "qwen2.5-14b-instruct" ## Qwen2.5
   icon: https://avatars.githubusercontent.com/u/141221163
