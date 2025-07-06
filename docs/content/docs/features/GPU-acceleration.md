@@ -289,14 +289,14 @@ If using nvidia, follow the steps in the [CUDA](#cudanvidia-acceleration) sectio
 
 ### Container images
 
-To use Vulkan, use the images with the `vulkan` tag, for example `{{< version >}}-vulkan-ffmpeg-core`.
+To use Vulkan, use the images with the `vulkan` tag, for example `{{< version >}}-gpu-vulkan`.
 
 #### Example
 
 To run LocalAI with Docker and Vulkan, you can use the following command as an example:
 
 ```bash
-docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models localai/localai:latest-vulkan-ffmpeg-core
+docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models localai/localai:latest-gpu-vulkan
 ```
 
 ### Notes
@@ -311,5 +311,5 @@ If you have mixed hardware, you can pass flags for multiple GPUs, for example:
 docker run -p 8080:8080 -e DEBUG=true -v $PWD/models:/models \
 --gpus=all \ # nvidia passthrough
 --device /dev/dri --device /dev/kfd \ # AMD/Intel passthrough
-localai/localai:latest-vulkan-ffmpeg-core
+localai/localai:latest-gpu-vulkan
 ```
