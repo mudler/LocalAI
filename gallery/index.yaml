@@ -11030,6 +11030,32 @@
     - filename: ockerman0_AnubisLemonade-70B-v1-Q4_K_M.gguf
       sha256: 44a06924a131fafde604a6c4e2f9f5209b9e79452b2211c9dbb0b14a1e177c43
       uri: huggingface://bartowski/ockerman0_AnubisLemonade-70B-v1-GGUF/ockerman0_AnubisLemonade-70B-v1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "sicariussicariistuff_impish_llama_4b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_LLAMA_4B/resolve/main/Images/Impish_LLAMA_4B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_LLAMA_4B
+    - https://huggingface.co/bartowski/SicariusSicariiStuff_Impish_LLAMA_4B-GGUF
+  description: |
+    5th of May, 2025, Impish_LLAMA_4B.
+
+    Almost a year ago, I created Impish_LLAMA_3B, the first fully coherent 3B roleplay model at the time. It was quickly adopted by some platforms, as well as one of the go-to models for mobile. After some time, I made Fiendish_LLAMA_3B and insisted it was not an upgrade, but a different flavor (which was indeed the case, as a different dataset was used to tune it).
+
+    Impish_LLAMA_4B, however, is an upgrade, a big one. I've had over a dozen 4B candidates, but none of them were 'worthy' of the Impish badge. This model has superior responsiveness and context awareness, and is able to pull off very coherent adventures. It even comes with some additional assistant capabilities too. Of course, while it is exceptionally competent for its size, it is still 4B. Manage expectations and all that. I, however, am very much pleased with it. It took several tries to pull off just right. Total tokens trained: about 400m (due to being a generalist model, lots of tokens went there, despite the emphasis on roleplay & adventure).
+
+    This took more effort than I thought it would. Because of course it would. This is mainly due to me refusing to release a model only 'slightly better' than my two 3B models mentioned above. Because "what would be the point" in that? The reason I included so many tokens for this tune is that small models are especially sensitive to many factors, including the percentage of moisture in the air and how many times I ran nvidia-smi since the system last started.
+
+    It's no secret that roleplay/creative writing models can reduce a model's general intelligence (any tune and RL risk this, but roleplay models are especially 'fragile'). Therefore, additional tokens of general assistant data were needed in my opinion, and indeed seemed to help a lot with retaining intelligence.
+
+    This model is also 'built a bit different', literally, as it is based on nVidia's prune; it does not 'behave' like a typical 8B, from my own subjective impression. This helped a lot with keeping it smart at such size.
+    To be honest, my 'job' here in open source is 'done' at this point. I've achieved everything I wanted to do here, and then some.
+  overrides:
+    parameters:
+      model: SicariusSicariiStuff_Impish_LLAMA_4B-Q4_K_M.gguf
+  files:
+    - filename: SicariusSicariiStuff_Impish_LLAMA_4B-Q4_K_M.gguf
+      sha256: 84d14bf15e198465336220532cb0fbcbdad81b33f1ab6748551218ee432208f6
+      uri: huggingface://bartowski/SicariusSicariiStuff_Impish_LLAMA_4B-GGUF/SicariusSicariiStuff_Impish_LLAMA_4B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
