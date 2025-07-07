@@ -180,23 +180,23 @@ COPY --from=grpc /opt/grpc /usr/local
 
 COPY . /LocalAI
 
-RUN cd /LocalAI && make backend-assets/grpc/llama-cpp-avx \
-        backend-assets/grpc/llama-cpp-avx2 \
-        backend-assets/grpc/llama-cpp-avx512 \
-        backend-assets/grpc/llama-cpp-fallback \
-        backend-assets/grpc/llama-cpp-grpc \
-        backend-assets/util/llama-cpp-rpc-server
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx \
+        llama-cpp-avx2 \
+        llama-cpp-avx512 \
+        llama-cpp-fallback \
+        llama-cpp-grpc \
+        llama-cpp-rpc-server
 
 FROM scratch
 
 ARG BACKEND
 ENV BACKEND=${BACKEND}
-COPY --from=builder /LocalAI/backend-assets/grpc/llama-cpp-avx ./
-COPY --from=builder /LocalAI/backend-assets/grpc/llama-cpp-avx2 ./
-COPY --from=builder /LocalAI/backend-assets/grpc/llama-cpp-avx512 ./
-COPY --from=builder /LocalAI/backend-assets/grpc/llama-cpp-fallback ./
-COPY --from=builder /LocalAI/backend-assets/grpc/llama-cpp-grpc ./
-COPY --from=builder /LocalAI/backend-assets/util/llama-cpp-rpc-server ./
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-avx ./
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-avx2 ./
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-avx512 ./
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-fallback ./
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-grpc ./
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-rpc-server ./
 COPY --from=builder /LocalAI/backend/cpp/llama-cpp/run.sh ./
 
 # copy ld.so from the base image in lib/ld.so
