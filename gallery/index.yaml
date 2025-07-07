@@ -1629,6 +1629,28 @@
     - filename: Compumacy-Experimental-32B.Q4_K_M.gguf
       sha256: c235616290cd0d1c5f77fe789c198a114c2a50cbdbbf72f3d1ccbb5297d95cb8
       uri: huggingface://mradermacher/Compumacy-Experimental-32B-GGUF/Compumacy-Experimental-32B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "mini-hydra"
+  icon: https://huggingface.co/Daemontatox/Mini-Hydra/resolve/main/Image.jpg
+  urls:
+    - https://huggingface.co/Daemontatox/Mini-Hydra
+    - https://huggingface.co/mradermacher/Mini-Hydra-GGUF
+  description: |
+    A specialized reasoning-focused MoE model based on Qwen3-30B-A3Bn
+
+    Mini-Hydra is a Mixture-of-Experts (MoE) language model designed for efficient reasoning and faster conclusion generation. Built upon the Qwen3-30B-A3B architecture, this model aims to bridge the performance gap between sparse MoE models and their dense counterparts while maintaining computational efficiency.
+    The model was trained on a carefully curated combination of reasoning-focused datasets:
+    Tesslate/Gradient-Reasoning: Advanced reasoning problems with step-by-step solutions
+    Daemontatox/curated_thoughts_convs: Curated conversational data emphasizing thoughtful responses
+    Daemontatox/natural_reasoning: Natural language reasoning examples and explanations
+    Daemontatox/numina_math_cconvs: Mathematical conversation and problem-solving data
+  overrides:
+    parameters:
+      model: Mini-Hydra.Q4_K_M.gguf
+  files:
+    - filename: Mini-Hydra.Q4_K_M.gguf
+      sha256: b84ceec82cef26dce286f427a4a59e06e4608938341770dae0bd0c1102111911
+      uri: huggingface://mradermacher/Mini-Hydra-GGUF/Mini-Hydra.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
