@@ -5,5 +5,5 @@ numba==0.60.0
 transformers
 bitsandbytes
 outetts
-sentence-transformers==4.1.0
+sentence-transformers==5.0.0
 protobuf==6.31.0
