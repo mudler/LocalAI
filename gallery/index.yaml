@@ -1665,6 +1665,22 @@
     - filename: Qwen-GUI-3B.i1-Q4_K_M.gguf
       sha256: 39b6d842a3f5166bf01b1f50bbeb13cc2cc1ee59c3c8c09702a73c6e13b7023c
       uri: huggingface://mradermacher/Qwen-GUI-3B-i1-GGUF/Qwen-GUI-3B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "huihui-jan-nano-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-Jan-nano-abliterated
+    - https://huggingface.co/mradermacher/Huihui-Jan-nano-abliterated-GGUF
+  description: |
+    This is an uncensored version of Menlo/Jan-nano created with abliteration (see remove-refusals-with-transformers to know more about it). This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+
+    Ablation was performed using a new and faster method, which yields better results.
+  overrides:
+    parameters:
+      model: Huihui-Jan-nano-abliterated.Q4_K_M.gguf
+  files:
+    - filename: Huihui-Jan-nano-abliterated.Q4_K_M.gguf
+      sha256: 4390733f3f97ec36a24abe0b4e1b07980a4470e9ec4bf0f7d027c90be38670fa
+      uri: huggingface://mradermacher/Huihui-Jan-nano-abliterated-GGUF/Huihui-Jan-nano-abliterated.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
