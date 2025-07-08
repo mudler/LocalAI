@@ -13552,6 +13552,32 @@
     - filename: zerofata_MS3.2-PaintedFantasy-Visage-33B-Q4_K_M.gguf
       sha256: bd315ad9a4cf0f47ed24f8d387b0cad1dd127e10f2bbe1c6820ae91f700ada56
       uri: huggingface://bartowski/zerofata_MS3.2-PaintedFantasy-Visage-33B-GGUF/zerofata_MS3.2-PaintedFantasy-Visage-33B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "cognitivecomputations_dolphin-mistral-24b-venice-edition"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/68485b28c949339ca04c370c/LMOLMYwK-ixnGGdSBXew6.jpeg
+  urls:
+    - https://huggingface.co/cognitivecomputations/Dolphin-Mistral-24B-Venice-Edition
+    - https://huggingface.co/bartowski/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-GGUF
+  description: |
+      Dolphin Mistral 24B Venice Edition is a collaborative project we undertook with Venice.ai with the goal of creating the most uncensored version of Mistral 24B for use within the Venice ecosystem.
+
+      Dolphin Mistral 24B Venice Edition is now live on https://venice.ai/ as “Venice Uncensored,” the new default model for all Venice users.
+
+      Dolphin aims to be a general purpose model, similar to the models behind ChatGPT, Claude, Gemini. But these models present problems for businesses seeking to include AI in their products.
+
+          They maintain control of the system prompt, deprecating and changing things as they wish, often causing software to break.
+          They maintain control of the model versions, sometimes changing things silently, or deprecating older models that your business relies on.
+          They maintain control of the alignment, and in particular the alignment is one-size-fits all, not tailored to the application.
+          They can see all your queries and they can potentially use that data in ways you wouldn't want. Dolphin, in contrast, is steerable and gives control to the system owner. You set the system prompt. You decide the alignment. You have control of your data. Dolphin does not impose its ethics or guidelines on you. You are the one who decides the guidelines.
+
+      Dolphin belongs to YOU, it is your tool, an extension of your will. Just as you are personally responsible for what you do with a knife, gun, fire, car, or the internet, you are the creator and originator of any content you generate with Dolphin.
+  overrides:
+    parameters:
+      model: cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_M.gguf
+  files:
+    - filename: cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_M.gguf
+      sha256: 2740d59cb0de4136b960f608778e657f30294922bf59f145eadbdf7850127392
+      uri: huggingface://bartowski/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-GGUF/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
