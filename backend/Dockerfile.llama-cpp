@@ -180,12 +180,12 @@ COPY --from=grpc /opt/grpc /usr/local
 
 COPY . /LocalAI
 
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx \
-        llama-cpp-avx2 \
-        llama-cpp-avx512 \
-        llama-cpp-fallback \
-        llama-cpp-grpc \
-        llama-cpp-rpc-server
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx2
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx512
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-fallback
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-grpc
+RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-rpc-server
 
 FROM scratch
 

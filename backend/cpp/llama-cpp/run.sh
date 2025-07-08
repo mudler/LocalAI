@@ -9,12 +9,11 @@ grep -e "flags" /proc/cpuinfo | head -1
 
 BINARY=llama-cpp-fallback
 
-# Check avx 512
-if grep -q -e "\savx512\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX512 found OK"
-	BINARY=llama-cpp-avx512
+if grep -q -e "\savx\s" /proc/cpuinfo ; then
+	echo "CPU:    AVX    found OK"
+	BINARY=llama-cpp-avx
 else
-	echo "CPU: no AVX512 found"
+	echo "CPU: no AVX    found"
 	BINARY=llama-cpp-fallback
 fi
 
@@ -26,11 +25,12 @@ else
 	BINARY=llama-cpp-fallback
 fi
 
-if grep -q -e "\savx\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX    found OK"
-	BINARY=llama-cpp-avx
+# Check avx 512
+if grep -q -e "\savx512\s" /proc/cpuinfo ; then
+	echo "CPU:    AVX512 found OK"
+	BINARY=llama-cpp-avx512
 else
-	echo "CPU: no AVX    found"
+	echo "CPU: no AVX512 found"
 	BINARY=llama-cpp-fallback
 fi
 
