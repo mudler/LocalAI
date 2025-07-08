@@ -11158,6 +11158,24 @@
     - filename: SicariusSicariiStuff_Impish_LLAMA_4B-Q4_K_M.gguf
       sha256: 84d14bf15e198465336220532cb0fbcbdad81b33f1ab6748551218ee432208f6
       uri: huggingface://bartowski/SicariusSicariiStuff_Impish_LLAMA_4B-GGUF/SicariusSicariiStuff_Impish_LLAMA_4B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "ockerman0_anubislemonade-70b-v1.1"
+  urls:
+    - https://huggingface.co/ockerman0/AnubisLemonade-70B-v1.1
+    - https://huggingface.co/bartowski/ockerman0_AnubisLemonade-70B-v1.1-GGUF
+  description: |
+    Another experimental merge between Drummer's Anubis v1.1 and sophosympatheia's StrawberryLemonade v1.2 with the goal of finding a nice balance between each model's qualities.
+
+    Feedback is highly encouraged!
+
+    Recommended samplers are a Temperature of 1 and Min-P of 0.025, though feel free to experiment otherwise.
+  overrides:
+    parameters:
+      model: ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
+      sha256: e217b2c39d4fae8499ca2a24ff8c7025ec93cd16883aa57f43ac9240222c4754
+      uri: huggingface://bartowski/ockerman0_AnubisLemonade-70B-v1.1-GGUF/ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
