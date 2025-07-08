@@ -5,10 +5,11 @@ __pycache__/
 *.o
 get-sources
 prepare-sources
-/backend/cpp/llama/grpc-server
-/backend/cpp/llama/llama.cpp
+/backend/cpp/llama-cpp/grpc-server
+/backend/cpp/llama-cpp/llama.cpp
 /backend/cpp/llama-*
 !backend/cpp/llama-cpp
+/backends
 
 *.log
 

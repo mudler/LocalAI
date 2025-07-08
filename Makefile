@@ -225,12 +225,6 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 endif
 
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx512
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
-ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 
 ifeq ($(ONNX_OS),linux)
@@ -401,9 +395,6 @@ endif
 	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 	rice append --exec $(BINARY_NAME)
-
-build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=p2p $(MAKE) build
 
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=p2p $(MAKE) build
