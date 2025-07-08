@@ -8,7 +8,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
@@ -20,12 +19,6 @@ type BackendsCMDFlags struct {
 }
 
 type BackendsList struct {
-	BackendsCMDFlags `embed:""`
-}
-
-type BackendsInstallSingle struct {
-	InstallArgs []string `arg:"" optional:"" name:"backend" help:"Backend images to install"`
-
 	BackendsCMDFlags `embed:""`
 }
 
@@ -42,36 +35,9 @@ type BackendsUninstall struct {
 }
 
 type BackendsCMD struct {
-	List          BackendsList          `cmd:"" help:"List the backends available in your galleries" default:"withargs"`
-	Install       BackendsInstall       `cmd:"" help:"Install a backend from the gallery"`
-	InstallSingle BackendsInstallSingle `cmd:"" help:"Install a single backend from the gallery"`
-	Uninstall     BackendsUninstall     `cmd:"" help:"Uninstall a backend"`
-}
-
-func (bi *BackendsInstallSingle) Run(ctx *cliContext.Context) error {
-	for _, backend := range bi.InstallArgs {
-		progressBar := progressbar.NewOptions(
-			1000,
-			progressbar.OptionSetDescription(fmt.Sprintf("downloading backend %s", backend)),
-			progressbar.OptionShowBytes(false),
-			progressbar.OptionClearOnFinish(),
-		)
-		progressCallback := func(fileName string, current string, total string, percentage float64) {
-			v := int(percentage * 10)
-			err := progressBar.Set(v)
-			if err != nil {
-				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
-			}
-		}
-
-		if err := gallery.InstallBackend(bi.BackendsPath, &gallery.GalleryBackend{
-			URI: backend,
-		}, progressCallback); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	List      BackendsList      `cmd:"" help:"List the backends available in your galleries" default:"withargs"`
+	Install   BackendsInstall   `cmd:"" help:"Install a backend from the gallery"`
+	Uninstall BackendsUninstall `cmd:"" help:"Uninstall a backend"`
 }
 
 func (bl *BackendsList) Run(ctx *cliContext.Context) error {
@@ -114,23 +80,6 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 			if err != nil {
 				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
 			}
-		}
-
-		backendURI := downloader.URI(backendName)
-
-		if !backendURI.LooksLikeOCI() {
-			backends, err := gallery.AvailableBackends(galleries, bi.BackendsPath)
-			if err != nil {
-				return err
-			}
-
-			backend := gallery.FindGalleryElement(backends, backendName, bi.BackendsPath)
-			if backend == nil {
-				log.Error().Str("backend", backendName).Msg("backend not found")
-				return fmt.Errorf("backend not found: %s", backendName)
-			}
-
-			log.Info().Str("backend", backendName).Str("license", backend.License).Msg("installing backend")
 		}
 
 		err := startup.InstallExternalBackends(galleries, bi.BackendsPath, progressCallback, backendName)
