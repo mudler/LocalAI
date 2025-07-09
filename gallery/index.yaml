@@ -13616,6 +13616,27 @@
     - filename: cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_M.gguf
       sha256: 2740d59cb0de4136b960f608778e657f30294922bf59f145eadbdf7850127392
       uri: huggingface://bartowski/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-GGUF/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "lyranovaheart_starfallen-snow-fantasy-24b-ms3.2-v0.0"
+  icon: https://huggingface.co/LyraNovaHeart/Starfallen-Snow-Fantasy-24B-MS3.2-v0.0/resolve/main/Snow_Fantasy.png
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  urls:
+    - https://huggingface.co/LyraNovaHeart/Starfallen-Snow-Fantasy-24B-MS3.2-v0.0
+    - https://huggingface.co/bartowski/LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-GGUF
+  description: |
+    So.... I'm kinda back, I hope. This was my attempt at trying to get a stellar like model out of Mistral 3.2 24b, I think I got most of it down besides a few quirks. It's not quite what I want to make in the future, but it's got good vibes. I like it, so try please?
+    The following models were included in the merge:
+
+        zerofata/MS3.2-PaintedFantasy-24B
+        Gryphe/Codex-24B-Small-3.2
+        Delta-Vector/MS3.2-Austral-Winton
+  overrides:
+    parameters:
+      model: LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-Q4_K_M.gguf
+  files:
+    - filename: LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-Q4_K_M.gguf
+      sha256: 26e691b57a22e86f7504adc02f9576552c78c574fd76553e3146a5d163059a7a
+      uri: huggingface://bartowski/LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-GGUF/LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
