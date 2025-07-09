@@ -190,7 +190,7 @@ jobs:
         run: |
           make docker-build-llama-cpp
           make docker-save-llama-cpp
-          make build-api
+          PATH="$PATH:$HOME/go/bin" make build-api
           ./local-ai backends install "ocifile://$PWD/backend-images/llama-cpp.tar"
       - name: Build images
         run: |
@@ -198,7 +198,7 @@ jobs:
           BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test make docker-aio
       - name: Test
         run: |
-            PATH="$PATH:$HOME/go/bin" LOCALAI_MODELS_DIR=$PWD/models LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio \
+            PATH="$PATH:$HOME/go/bin" LOCALAI_BACKEND_DIR=$PWD/backends LOCALAI_MODELS_DIR=$PWD/models LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio \
             make run-e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
