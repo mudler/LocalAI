@@ -1,4 +1,28 @@
 ---
+- &smollm3
+  name: "huggingfacetb_smollm3-3b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61c141342aac764ce1654e43/zy0dqTCCt5IHmuzwoqtJ9.png
+  urls:
+    - https://huggingface.co/HuggingFaceTB/SmolLM3-3B
+    - https://huggingface.co/bartowski/HuggingFaceTB_SmolLM3-3B-GGUF
+  description: |
+    SmolLM3 is a 3B parameter language model designed to push the boundaries of small models. It supports 6 languages, advanced reasoning and long context. SmolLM3 is a fully open model that offers strong performance at the 3B–4B scale.
+    The model is a decoder-only transformer using GQA and NoPE (with 3:1 ratio), it was pretrained on 11.2T tokens with a staged curriculum of web, code, math and reasoning data. Post-training included midtraining on 140B reasoning tokens followed by supervised fine-tuning and alignment via Anchored Preference Optimization (APO).
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - cpu
+    - smollm3
+  overrides:
+    parameters:
+      model: HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf
+  files:
+    - filename: HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf
+      sha256: bb99120d551d869789d52fd8d50b9644a39013115159f218c5fc2c963bb658e2
+      uri: huggingface://bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf
 - url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
   license: apache-2.0
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65df6605dba41b152100edf9/LEUWPRTize9N7dMShjcPC.png
