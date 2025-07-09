@@ -66,7 +66,7 @@ ARG GO_VERSION=1.22.6
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
-        ccache \
+        ccache git \
         ca-certificates \
         make \
         curl unzip \
