@@ -21,6 +21,7 @@ var client *openai.Client
 var containerImage = os.Getenv("LOCALAI_IMAGE")
 var containerImageTag = os.Getenv("LOCALAI_IMAGE_TAG")
 var modelsDir = os.Getenv("LOCALAI_MODELS_DIR")
+var backendDir = os.Getenv("LOCALAI_BACKEND_DIR")
 var apiEndpoint = os.Getenv("LOCALAI_API_ENDPOINT")
 var apiKey = os.Getenv("LOCALAI_API_KEY")
 
@@ -82,6 +83,12 @@ func startDockerImage() {
 	Expect(err).To(Not(HaveOccurred()))
 	md := cwd + "/models"
 
+	bd := cwd + "/backends"
+
+	if backendDir != "" {
+		bd = backendDir
+	}
+
 	if modelsDir != "" {
 		md = modelsDir
 	}
@@ -99,6 +106,7 @@ func startDockerImage() {
 		},
 		Env: map[string]string{
 			"MODELS_PATH":                   "/models",
+			"BACKENDS_PATH":                 "/backends",
 			"DEBUG":                         "true",
 			"THREADS":                       fmt.Sprint(proc),
 			"LOCALAI_SINGLE_ACTIVE_BACKEND": "true",
@@ -107,6 +115,11 @@ func startDockerImage() {
 			{
 				HostFilePath:      md,
 				ContainerFilePath: "/models",
+				FileMode:          0o755,
+			},
+			{
+				HostFilePath:      bd,
+				ContainerFilePath: "/backends",
 				FileMode:          0o755,
 			},
 		},

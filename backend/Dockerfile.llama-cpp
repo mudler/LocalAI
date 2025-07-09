@@ -180,12 +180,20 @@ COPY --from=grpc /opt/grpc /usr/local
 
 COPY . /LocalAI
 
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx2
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx512
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-fallback
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-grpc
-RUN cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-rpc-server
+## Otherwise just run the normal build
+RUN <<EOT bash
+if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-fallback && \
+        make llama-cpp-grpc && make llama-cpp-rpc-server; \
+    else \
+        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx && \
+        make llama-cpp-avx2 && \
+        make llama-cpp-avx512 && \
+        make llama-cpp-fallback && \
+        make llama-cpp-grpc && \
+        make llama-cpp-rpc-server; \
+    fi  
+EOT
 
 FROM scratch
 
