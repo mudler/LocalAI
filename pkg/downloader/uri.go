@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/mudler/LocalAI/pkg/oci"
@@ -25,6 +26,7 @@ const (
 	HuggingFacePrefix1 = "hf://"
 	HuggingFacePrefix2 = "hf.co/"
 	OCIPrefix          = "oci://"
+	OCIFilePrefix      = "ocifile://"
 	OllamaPrefix       = "ollama://"
 	HTTPPrefix         = "http://"
 	HTTPSPrefix        = "https://"
@@ -137,8 +139,18 @@ func (u URI) LooksLikeURL() bool {
 		strings.HasPrefix(string(u), GithubURI2)
 }
 
+func (u URI) LooksLikeHTTPURL() bool {
+	return strings.HasPrefix(string(u), HTTPPrefix) ||
+		strings.HasPrefix(string(u), HTTPSPrefix)
+}
+
 func (s URI) LooksLikeOCI() bool {
-	return strings.HasPrefix(string(s), OCIPrefix) || strings.HasPrefix(string(s), OllamaPrefix)
+	return strings.HasPrefix(string(s), "quay.io") ||
+		strings.HasPrefix(string(s), OCIPrefix) ||
+		strings.HasPrefix(string(s), OllamaPrefix) ||
+		strings.HasPrefix(string(s), OCIFilePrefix) ||
+		strings.HasPrefix(string(s), "ghcr.io") ||
+		strings.HasPrefix(string(s), "docker.io")
 }
 
 func (s URI) ResolveURL() string {
@@ -234,6 +246,13 @@ func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
 func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
 	url := uri.ResolveURL()
 	if uri.LooksLikeOCI() {
+
+		// Only Ollama wants to download to the file, for the rest, we want to download to the directory
+		// so we check if filepath has any extension, otherwise we assume it's a directory
+		if filepath.Ext(filePath) != "" && !strings.HasPrefix(url, OllamaPrefix) {
+			filePath = filepath.Dir(filePath)
+		}
+
 		progressStatus := func(desc ocispec.Descriptor) io.Writer {
 			return &progressWriter{
 				fileName:       filePath,
@@ -245,9 +264,18 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 			}
 		}
 
-		if strings.HasPrefix(url, OllamaPrefix) {
-			url = strings.TrimPrefix(url, OllamaPrefix)
+		if url, ok := strings.CutPrefix(url, OllamaPrefix); ok {
 			return oci.OllamaFetchModel(url, filePath, progressStatus)
+		}
+
+		if url, ok := strings.CutPrefix(url, OCIFilePrefix); ok {
+			// Open the tarball
+			img, err := tarball.ImageFromPath(url, nil)
+			if err != nil {
+				return fmt.Errorf("failed to open tarball: %s", err.Error())
+			}
+
+			return oci.ExtractOCIImage(img, url, filePath, downloadStatus)
 		}
 
 		url = strings.TrimPrefix(url, OCIPrefix)
@@ -256,7 +284,12 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 			return fmt.Errorf("failed to get image %q: %v", url, err)
 		}
 
-		return oci.ExtractOCIImage(img, url, filepath.Dir(filePath), downloadStatus)
+		return oci.ExtractOCIImage(img, url, filePath, downloadStatus)
+	}
+
+	// We need to check if url looks like an URL or bail out
+	if !URI(url).LooksLikeHTTPURL() {
+		return fmt.Errorf("url %q does not look like an HTTP URL", url)
 	}
 
 	// Check if the file already exists

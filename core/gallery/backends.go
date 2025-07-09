@@ -9,8 +9,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/system"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/rs/zerolog/log"
 )
 
@@ -151,19 +151,15 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 	}
 
 	name := config.Name
-
-	img, err := oci.GetImage(config.URI, "", nil, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get image %q: %v", config.URI, err)
-	}
-
 	backendPath := filepath.Join(basePath, name)
-	if err := os.MkdirAll(backendPath, 0750); err != nil {
-		return fmt.Errorf("failed to create backend path %q: %v", backendPath, err)
+	err = os.MkdirAll(backendPath, 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create base path: %v", err)
 	}
 
-	if err := oci.ExtractOCIImage(img, config.URI, backendPath, downloadStatus); err != nil {
-		return fmt.Errorf("failed to extract image %q: %v", config.URI, err)
+	uri := downloader.URI(config.URI)
+	if err := uri.DownloadFile(backendPath, "", 1, 1, downloadStatus); err != nil {
+		return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 	}
 
 	// Create metadata for the backend
