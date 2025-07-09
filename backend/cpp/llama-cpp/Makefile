@@ -52,6 +52,13 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DCMAKE_CXX_FLAGS="-fsycl"
 endif
 
+INSTALLED_PACKAGES=$(CURDIR)/../grpc/installed_packages
+INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
+ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
+				 -DProtobuf_DIR=${INSTALLED_LIB_CMAKE}/protobuf \
+				 -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
+				 -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
+				 -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
 build-llama-cpp-grpc-server:
 # Conditionally build grpc for the llama backend to use if needed
 ifdef BUILD_GRPC_FOR_BACKEND_LLAMA

@@ -327,7 +327,7 @@ sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
-get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama-cpp/llama.cpp
+get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
@@ -360,9 +360,7 @@ clean: ## Remove build related file
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/go/bark-cpp clean
-	$(MAKE) -C backend/cpp/llama-cpp clean
 	$(MAKE) -C backend/go/image/stablediffusion-ggml clean
-	rm -rf backend/cpp/llama-cpp-* || true
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
 	rmdir pkg/grpc/proto || true
@@ -403,18 +401,6 @@ backend-assets/lib:
 	mkdir -p backend-assets/lib
 
 dist:
-	$(MAKE) backend-assets/grpc/llama-cpp-avx2
-ifeq ($(DETECT_LIBS),true)
-	scripts/prepare-libs.sh backend-assets/grpc/llama-cpp-avx2
-endif
-ifeq ($(OS),Darwin)
-	BUILD_TYPE=none $(MAKE) backend-assets/grpc/llama-cpp-fallback
-else
-	$(MAKE) backend-assets/grpc/llama-cpp-cuda
-	$(MAKE) backend-assets/grpc/llama-cpp-hipblas
-	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
-	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
-endif
 	GO_TAGS="tts p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
 	scripts/prepare-libs.sh backend-assets/grpc/piper
@@ -679,31 +665,6 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/huggingface
 endif
 
-backend/cpp/llama-cpp/llama.cpp:
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama-cpp llama.cpp
-
-INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
-INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
-ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
-				 -DProtobuf_DIR=${INSTALLED_LIB_CMAKE}/protobuf \
-				 -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
-				 -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
-				 -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
-build-llama-cpp-grpc-server:
-# Conditionally build grpc for the llama backend to use if needed
-ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
-	$(MAKE) -C backend/cpp/grpc build
-	_PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto \
-	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
-	PATH="${INSTALLED_PACKAGES}/bin:${PATH}" \
-	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" \
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) \
-	$(MAKE) -C backend/cpp/${VARIANT} grpc-server
-else
-	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
-endif
-
 backend-assets/grpc/bark-cpp: protogen-go replace backend/go/bark-cpp/libbark.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark-cpp/ LIBRARY_PATH=$(CURDIR)/backend/go/bark-cpp/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark-cpp/
@@ -794,6 +755,48 @@ docker-image-intel-xpu:
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+backend-images:
+	mkdir -p backend-images
+
+docker-build-llama-cpp:
+	docker build -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
+
+docker-save-llama-cpp: backend-images
+	docker save local-ai-backend:llama-cpp -o backend-images/llama-cpp.tar
+	
+
+docker-build-rerankers:
+	docker build -t local-ai-backend:rerankers -f backend/Dockerfile.python --build-arg BACKEND=rerankers .
+
+docker-build-vllm:
+	docker build -t local-ai-backend:vllm -f backend/Dockerfile.python --build-arg BACKEND=vllm .
+
+docker-build-transformers:
+	docker build -t local-ai-backend:transformers -f backend/Dockerfile.python --build-arg BACKEND=transformers .
+
+docker-build-diffusers:
+	docker build -t local-ai-backend:diffusers -f backend/Dockerfile.python --build-arg BACKEND=diffusers .
+
+docker-build-kokoro:
+	docker build -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
+
+docker-build-faster-whisper:
+	docker build -t local-ai-backend:faster-whisper -f backend/Dockerfile.python --build-arg BACKEND=faster-whisper .
+
+docker-build-coqui:
+	docker build -t local-ai-backend:coqui -f backend/Dockerfile.python --build-arg BACKEND=coqui .
+
+docker-build-bark:
+	docker build -t local-ai-backend:bark -f backend/Dockerfile.python --build-arg BACKEND=bark .
+
+docker-build-chatterbox:
+	docker build -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox .
+
+docker-build-exllama2:
+	docker build -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .
+
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-exllama2
 
 .PHONY: swagger
 swagger:

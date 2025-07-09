@@ -186,6 +186,12 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           go install github.com/GeertJohan/go.rice/rice@latest
           PATH="$PATH:$HOME/go/bin" make protogen-go
+      - name: Build and install backends needed for tests
+        run: |
+          make docker-build-llama-cpp
+          make docker-save-llama-cpp
+          make build-api
+          ./local-ai backends install "ocifile://$PWD/backend-images/llama-cpp.tar"
       - name: Build images
         run: |
           docker build --build-arg FFMPEG=true --build-arg MAKEFLAGS="--jobs=5 --output-sync=target" -t local-ai:tests -f Dockerfile .
