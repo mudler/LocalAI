@@ -3767,6 +3767,29 @@
     - filename: Steelskull_L3.3-Shakudo-70b-Q4_K_M.gguf
       sha256: 54590c02226f12c6f48a4af6bfed0e3c90130addd1fb8a2b4fcc1f0ab1674ef7
       uri: huggingface://bartowski/Steelskull_L3.3-Shakudo-70b-GGUF/Steelskull_L3.3-Shakudo-70b-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "zerofata_l3.3-geneticlemonade-opus-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65b19c6c638328850e12d38c/aSNMz-ywI9I7wEj0yCb5s.png
+  urls:
+    - https://huggingface.co/zerofata/L3.3-GeneticLemonade-Opus-70B
+    - https://huggingface.co/bartowski/zerofata_L3.3-GeneticLemonade-Opus-70B-GGUF
+  description: |
+    Felt like making a merge.
+
+    This model combines three individually solid, stable and distinctly different RP models.
+
+    zerofata/GeneticLemonade-Unleashed-v3 Creative, generalist RP / ERP model.
+
+    Delta-Vector/Plesio-70B Unique prose and unique dialogue RP / ERP model.
+
+    TheDrummer/Anubis-70B-v1.1 Character portrayal, neutrally aligned RP / ERP model.
+  overrides:
+    parameters:
+      model: zerofata_L3.3-GeneticLemonade-Opus-70B-Q4_K_M.gguf
+  files:
+    - filename: zerofata_L3.3-GeneticLemonade-Opus-70B-Q4_K_M.gguf
+      sha256: 777934f3fd8c4f01f77067e4d5998d1d451c87a7e331445386dc324d5cc0d0d3
+      uri: huggingface://bartowski/zerofata_L3.3-GeneticLemonade-Opus-70B-GGUF/zerofata_L3.3-GeneticLemonade-Opus-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
