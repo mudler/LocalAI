@@ -2501,6 +2501,26 @@
     - filename: TheDrummer_Big-Tiger-Gemma-27B-v3-Q4_K_M.gguf
       sha256: 4afbd426fa2b3b2927edff46a909868ade5656e3ca7c1df609c524b2b2cbe8c5
       uri: huggingface://bartowski/TheDrummer_Big-Tiger-Gemma-27B-v3-GGUF/TheDrummer_Big-Tiger-Gemma-27B-v3-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_tiger-gemma-12b-v3"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/Wah-kBvM_ya6x08q7fc6q.png
+  urls:
+    - https://huggingface.co/TheDrummer/Tiger-Gemma-12B-v3
+    - https://huggingface.co/bartowski/TheDrummer_Tiger-Gemma-12B-v3-GGUF
+  description: |
+    Gemma 3 12B tune that unlocks more capabilities and less positivity! Should be vision capable.
+
+        More neutral tone, especially when dealing with harder topics.
+        No em-dashes just for the heck of it.
+        Less markdown responses, more paragraphs.
+        Better steerability to harder themes.
+  overrides:
+    parameters:
+      model: TheDrummer_Tiger-Gemma-12B-v3-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Tiger-Gemma-12B-v3-Q4_K_M.gguf
+      sha256: b1756e46d7fce1718cf70cb74028ada567bac388503e93fc23af0baea5b5cd9f
+      uri: huggingface://bartowski/TheDrummer_Tiger-Gemma-12B-v3-GGUF/TheDrummer_Tiger-Gemma-12B-v3-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
