@@ -3814,6 +3814,25 @@
     - filename: zerofata_L3.3-GeneticLemonade-Opus-70B-Q4_K_M.gguf
       sha256: 777934f3fd8c4f01f77067e4d5998d1d451c87a7e331445386dc324d5cc0d0d3
       uri: huggingface://bartowski/zerofata_L3.3-GeneticLemonade-Opus-70B-GGUF/zerofata_L3.3-GeneticLemonade-Opus-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "delta-vector_plesio-70b"
+  icon: https://files.catbox.moe/opd2nm.jpg
+  urls:
+    - https://huggingface.co/Delta-Vector/Plesio-70B
+    - https://huggingface.co/bartowski/Delta-Vector_Plesio-70B-GGUF
+  description: |
+    A simple merge yet sovl in it's own way, This merge is inbetween Shimamura & Austral Winton, I wanted to give Austral a bit of shorter prose, So FYI for all the 10000+ Token reply lovers.
+
+    Thanks Auri for testing!
+
+    Using the Oh-so-great 0.2 Slerp merge weight with Winton as the Base.
+  overrides:
+    parameters:
+      model: Delta-Vector_Plesio-70B-Q4_K_M.gguf
+  files:
+    - filename: Delta-Vector_Plesio-70B-Q4_K_M.gguf
+      sha256: 3a9c3f733a45a38834a3fae664db03a0eae88fe00bc6d9be3d1aeaa47526c4c4
+      uri: huggingface://bartowski/Delta-Vector_Plesio-70B-GGUF/Delta-Vector_Plesio-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
