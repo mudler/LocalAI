@@ -13776,6 +13776,23 @@
     - filename: LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-Q4_K_M.gguf
       sha256: 26e691b57a22e86f7504adc02f9576552c78c574fd76553e3146a5d163059a7a
       uri: huggingface://bartowski/LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-GGUF/LyraNovaHeart_Starfallen-Snow-Fantasy-24B-MS3.2-v0.0-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_devstral-small-2507"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/634c17653d11eaedd88b314d/9OgyfKstSZtbmsmuG8MbU.png
+  urls:
+    - https://huggingface.co/mistralai/Devstral-Small-2507
+    - https://huggingface.co/bartowski/mistralai_Devstral-Small-2507-GGUF
+  description: |
+    Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI 🙌. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.
+
+    It is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.
+  overrides:
+    parameters:
+      model: mistralai_Devstral-Small-2507-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Devstral-Small-2507-Q4_K_M.gguf
+      sha256: 6d597aa03c2a02bad861d15f282ae530d3b276b52255f37ba200d3c0de7d3aed
+      uri: huggingface://bartowski/mistralai_Devstral-Small-2507-GGUF/mistralai_Devstral-Small-2507-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
