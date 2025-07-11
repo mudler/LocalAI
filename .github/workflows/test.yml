@@ -67,6 +67,16 @@ jobs:
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install github.com/GeertJohan/go.rice/rice@latest
+          PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Dependencies
         run: |
           sudo apt-get update
@@ -87,9 +97,6 @@ jobs:
           sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
           export CUDACXX=/usr/local/cuda/bin/nvcc
 
-          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
-          go install github.com/GeertJohan/go.rice/rice@latest
 
           # The python3-grpc-tools package in 22.04 is too old
           pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
@@ -100,28 +107,13 @@ jobs:
           make sources/go-piper && \
           GO_TAGS="tts" make -C sources/go-piper piper.o && \
           sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/
+
+          make backends/llama-cpp
         env:
           CUDA_VERSION: 12-4
-      - name: Cache grpc
-        id: cache-grpc
-        uses: actions/cache@v4
-        with:
-          path: grpc
-          key: ${{ runner.os }}-grpc-${{ env.GRPC_VERSION }}
-      - name: Build grpc
-        if: steps.cache-grpc.outputs.cache-hit != 'true'
-        run: |
-          git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --jobs 5 --shallow-submodules https://github.com/grpc/grpc && \
-          cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && cd cmake/build && \
-          cmake -DgRPC_INSTALL=ON \
-            -DgRPC_BUILD_TESTS=OFF \
-            ../.. && sudo make --jobs 5
-      - name: Install gRPC
-        run: |
-          cd grpc && cd cmake/build && sudo make --jobs 5 install
       - name: Test
         run: |
-          PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target backends/llama-cpp test
+          PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.22
