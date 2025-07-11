@@ -48,3 +48,6 @@ fi
 
 echo "Using binary: $BINARY"
 exec $CURDIR/$BINARY "$@"
+
+# In case we fail execing, just run fallback
+exec $CURDIR/llama-cpp-fallback "$@"
