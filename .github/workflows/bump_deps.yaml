@@ -10,30 +10,36 @@ jobs:
       matrix:
         include:
           - repository: "ggml-org/llama.cpp"
-            variable: "CPPLLAMA_VERSION"
+            variable: "LLAMA_VERSION"
             branch: "master"
+            file: "backend/cpp/llama-cpp/Makefile"
           - repository: "ggml-org/whisper.cpp"
             variable: "WHISPER_CPP_VERSION"
             branch: "master"
+            file: "Makefile"
           - repository: "PABannier/bark.cpp"
             variable: "BARKCPP_VERSION"
             branch: "main"
+            file: "Makefile"
           - repository: "leejet/stable-diffusion.cpp"
             variable: "STABLEDIFFUSION_GGML_VERSION"
             branch: "master"
+            file: "Makefile"
           - repository: "mudler/go-stable-diffusion"
             variable: "STABLEDIFFUSION_VERSION"
             branch: "master"
+            file: "Makefile"
           - repository: "mudler/go-piper"
             variable: "PIPER_VERSION"
             branch: "master"
+            file: "Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Bump dependencies 🔧
         id: bump
         run: |
-          bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }}
+          bash .github/bump_deps.sh ${{ matrix.repository }} ${{ matrix.branch }} ${{ matrix.variable }} ${{ matrix.file }}
           {
             echo 'message<<EOF'
             cat "${{ matrix.variable }}_message.txt"
