@@ -25,6 +25,7 @@ ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 RUN mkdir -p /run/localai
+RUN echo "default" > /run/localai/capability
 
 # Vulkan requirements
 RUN <<EOT bash
