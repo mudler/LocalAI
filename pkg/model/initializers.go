@@ -526,7 +526,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	}
 
 	// append externalBackends supplied by the user via the CLI
-	for _, b := range ml.GetAllExternalBackends(o) {
+	for b := range ml.GetAllExternalBackends(o) {
 		autoLoadBackends = append(autoLoadBackends, b)
 	}
 

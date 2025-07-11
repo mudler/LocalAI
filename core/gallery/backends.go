@@ -283,6 +283,7 @@ func RegisterBackends(basePath string, modelLoader *model.ModelLoader) error {
 	}
 
 	for name, runFile := range backends {
+		log.Debug().Str("name", name).Str("runFile", runFile).Msg("Registering backend")
 		modelLoader.SetExternalBackend(name, runFile)
 	}
 
