@@ -449,6 +449,10 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
+########################################################
+## Tests
+########################################################
+
 ## Test targets
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
@@ -460,18 +464,12 @@ test: prepare test-models/testmodel.ggml grpcs
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
 
-prepare-e2e:
-	mkdir -p $(TEST_DIR)
-	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
-	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 --build-arg FFMPEG=true -t localai-tests .
-
-run-e2e-image:
-	ls -liah $(abspath ./tests/e2e-fixtures)
-	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
-
 backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build-api
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
+########################################################
+## AIO tests
+########################################################
 
 docker-build-aio:
 	docker build --build-arg MAKEFLAGS="--jobs=5 --output-sync=target" -t local-ai:tests -f Dockerfile .
@@ -488,6 +486,20 @@ run-e2e-aio: protogen-go
 	@echo 'Running e2e AIO tests'
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
 
+########################################################
+## E2E tests
+########################################################
+
+prepare-e2e:
+	mkdir -p $(TEST_DIR)
+	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
+	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
+	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 --build-arg FFMPEG=true -t localai-tests .
+
+run-e2e-image:
+	ls -liah $(abspath ./tests/e2e-fixtures)
+	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
+
 test-e2e:
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
@@ -497,6 +509,10 @@ test-e2e:
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
+
+########################################################
+## Integration and unit tests
+########################################################
 
 test-llama-gguf: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
@@ -519,6 +535,10 @@ test-container:
 	docker build --target requirements -t local-ai-test-container .
 	docker run -ti --rm --entrypoint /bin/bash -ti -v $(abspath ./):/build local-ai-test-container
 
+########################################################
+## Help
+########################################################
+
 ## Help:
 help: ## Show this help.
 	@echo ''
@@ -530,6 +550,10 @@ help: ## Show this help.
 		if (/^[a-zA-Z_-]+:.*?##.*$$/) {printf "    ${YELLOW}%-20s${GREEN}%s${RESET}\n", $$1, $$2} \
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
+
+########################################################
+## Backends
+########################################################
 
 .PHONY: protogen
 protogen: protogen-go protogen-python
@@ -770,6 +794,10 @@ docker-image-intel-xpu:
 		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
+########################################################
+## Backends
+########################################################
+
 backend-images:
 	mkdir -p backend-images
 
@@ -811,6 +839,10 @@ docker-build-exllama2:
 	docker build -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .
 
 docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-exllama2
+
+########################################################
+### END Backends
+########################################################
 
 .PHONY: swagger
 swagger:
