@@ -53,6 +53,17 @@ jobs:
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-11-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
             platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-vllm'
@@ -151,6 +162,17 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -257,6 +279,17 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'true'
+            tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
+          - build-type: 'hipblas'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -353,6 +386,28 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+          - build-type: 'sycl_f32'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
+          - build-type: 'sycl_f16'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'true'
+            tag-suffix: '-gpu-intel-sycl-f16-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -508,4 +563,15 @@ jobs:
             base-image: "ubuntu:22.04"
             backend: "bark"
             dockerfile: "./backend/Dockerfile.go"
+            context: "./"
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'true'
+            tag-suffix: '-cpu-llama-cpp'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
