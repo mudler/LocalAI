@@ -72,13 +72,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install build-essential ccache upx-ucl curl ffmpeg
           sudo apt-get install -y libgmock-dev clang
-          curl https://repo.anaconda.com/pkgs/misc/gpgkeys/anaconda.asc | gpg --dearmor > conda.gpg && \
-             sudo install -o root -g root -m 644 conda.gpg /usr/share/keyrings/conda-archive-keyring.gpg && \
-             gpg --keyring /usr/share/keyrings/conda-archive-keyring.gpg --no-default-keyring --fingerprint 34161F5BF5EB1D4BFBBB8F0A8AEB4F8B29D82806 && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" > /etc/apt/sources.list.d/conda.list' && \
-             sudo /bin/bash -c 'echo "deb [arch=amd64 signed-by=/usr/share/keyrings/conda-archive-keyring.gpg] https://repo.anaconda.com/pkgs/misc/debrepo/conda stable main" | tee -a /etc/apt/sources.list.d/conda.list' && \
-             sudo apt-get update && \
-             sudo apt-get install -y conda
           # Install UV
           curl -LsSf https://astral.sh/uv/install.sh | sh
           sudo apt-get install -y ca-certificates cmake patch python3-pip unzip
@@ -128,7 +121,7 @@ jobs:
           cd grpc && cd cmake/build && sudo make --jobs 5 install
       - name: Test
         run: |
-          PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
+          PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target backends/llama-cpp test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.22
