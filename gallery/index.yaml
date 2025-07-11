@@ -2521,6 +2521,22 @@
     - filename: TheDrummer_Tiger-Gemma-12B-v3-Q4_K_M.gguf
       sha256: b1756e46d7fce1718cf70cb74028ada567bac388503e93fc23af0baea5b5cd9f
       uri: huggingface://bartowski/TheDrummer_Tiger-Gemma-12B-v3-GGUF/TheDrummer_Tiger-Gemma-12B-v3-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "huihui-ai_huihui-gemma-3n-e4b-it-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-gemma-3n-E4B-it-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-GGUF
+  description: |
+      This is an uncensored version of google/gemma-3n-E4B-it created with abliteration (see remove-refusals-with-transformers to know more about it). This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+
+      It was only the text part that was processed, not the image part. After abliterated, it seems like more output content has been opened from a magic box.
+  overrides:
+    parameters:
+      model: huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-Q4_K_M.gguf
+  files:
+    - filename: huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-Q4_K_M.gguf
+      sha256: bf3f41f5d90c30777054d5cc23c10a31f08a833e774a014733f918b5c73f2265
+      uri: huggingface://bartowski/huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-GGUF/huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
