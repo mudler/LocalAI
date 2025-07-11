@@ -4104,6 +4104,23 @@
     - filename: Skywork_Skywork-SWE-32B-Q4_K_M.gguf
       sha256: b5a451fa677159d7ab0aee64eeec5933aa4e5bd598e400501ecec3af0a767fa8
       uri: huggingface://bartowski/Skywork_Skywork-SWE-32B-GGUF/Skywork_Skywork-SWE-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "microsoft_nextcoder-32b"
+  urls:
+    - https://huggingface.co/microsoft/NextCoder-32B
+    - https://huggingface.co/bartowski/microsoft_NextCoder-32B-GGUF
+  description: |
+    NextCoder is the latest series of Code-Editing large language models developed using the Qwen2.5-Coder Instruct variants as base and trained with novel Selective Knowledge Transfer finetuning methodology as introduced in the paper. NextCoder family model comes in 3 different sizes 7, 14, 32 billion parameters, to meet the needs of different developers. Following are the key improvements:
+    Significantly improvements in code editing, NextCoder-32B has performing on par with GPT-4o on complex benchmarks like Aider-Polyglot with performance increment of 44% from their base model.
+    No loss of generalizibility, due to our new finetuning method SeleKT
+    Long-context Support up to 32K tokens.
+  overrides:
+    parameters:
+      model: microsoft_NextCoder-32B-Q4_K_M.gguf
+  files:
+    - filename: microsoft_NextCoder-32B-Q4_K_M.gguf
+      sha256: e3f77c7fa08814a3a86b9f8cbb8c7fb3c0063403bac26c99dc67655937da4e44
+      uri: huggingface://bartowski/microsoft_NextCoder-32B-GGUF/microsoft_NextCoder-32B-Q4_K_M.gguf
 - &opencoder
   name: "opencoder-8b-base"
   icon: https://avatars.githubusercontent.com/u/186387526
