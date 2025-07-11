@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/docker/go-connections/nat"
 	. "github.com/onsi/ginkgo/v2"
@@ -111,21 +112,23 @@ func startDockerImage() {
 			"THREADS":                       fmt.Sprint(proc),
 			"LOCALAI_SINGLE_ACTIVE_BACKEND": "true",
 		},
-		Files: []testcontainers.ContainerFile{
+		Mounts: testcontainers.ContainerMounts{
 			{
-				HostFilePath:      md,
-				ContainerFilePath: "/models",
-				FileMode:          0o755,
+				Source: testcontainers.DockerBindMountSource{
+					HostPath: md,
+				},
+				Target: "/models",
 			},
 			{
-				HostFilePath:      bd,
-				ContainerFilePath: "/backends",
-				FileMode:          0o755,
+				Source: testcontainers.DockerBindMountSource{
+					HostPath: bd,
+				},
+				Target: "/backends",
 			},
 		},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port(defaultApiPort)),
-		//	wait.ForHTTP("/v1/models").WithPort(nat.Port(apiPort)).WithStartupTimeout(50*time.Minute),
+			wait.ForListeningPort(nat.Port(defaultApiPort)).WithStartupTimeout(10*time.Minute),
+			wait.ForHTTP("/v1/models").WithPort(nat.Port(defaultApiPort)).WithStartupTimeout(10*time.Minute),
 		),
 	}
 
