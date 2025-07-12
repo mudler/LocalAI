@@ -13835,6 +13835,32 @@
     - filename: Mistral-2x24B-MOE-Pwr-Magis-Devstl-Reason-Ult-44B-NEO-D_AU-Q4_K_M.gguf
       sha256: cafa5f41187c4799c6f37cc8d5ab95f87456488443261f19266bb587b94c960c
       uri: huggingface://DavidAU/Mistral-2x24B-MOE-Power-CODER-Magistral-Devstral-Reasoning-Ultimate-NEO-MAX-44B-gguf/Mistral-2x24B-MOE-Pwr-Magis-Devstl-Reason-Ult-44B-NEO-D_AU-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "impish_magic_24b-i1"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_Magic_24B/resolve/main/Images/Impish_Magic_24B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Magic_24B
+    - https://huggingface.co/mradermacher/Impish_Magic_24B-i1-GGUF
+  description: |
+    It's the 20th of June, 2025—The world is getting more and more chaotic, but let's look at the bright side: Mistral released a new model at a very good size of 24B, no more "sign here" or "accept this weird EULA" there, a proper Apache 2.0 License, nice! 👍🏻
+
+    This model is based on mistralai/Magistral-Small-2506 so naturally I named it Impish_Magic. Truly excellent size, I tested it on my laptop (16GB gpu) and it works quite fast (4090m).
+
+    This model went "full" fine-tune over 100m unique tokens. Why do I say "full"?
+
+    I've tuned specific areas in the model to attempt to change the vocabulary usage, while keeping as much intelligence as possible. So this is definitely not a LoRA, but also not exactly a proper full finetune, but rather something in-between.
+
+    As I mentioned in a small update, I've made nice progress regarding interesting sources of data, some of them are included in this tune. 100m tokens is a lot for a Roleplay / Adventure tune, and yes, it can do adventure as well—there is unique adventure data here, that was never used so far.
+
+    A lot of the data still needs to be cleaned and processed. I've included it before I did any major data processing, because with the magic of 24B parameters, even "dirty" data would work well, especially when using a more "balanced" approach for tuning that does not include burning the hell of the model in a full finetune across all of its layers. Could this data be cleaner? Of course, and it will. But for now, I would hate to make perfect the enemy of the good.
+    Fun fact: Impish_Magic_24B is the first roleplay finetune of magistral!
+  overrides:
+    parameters:
+      model: Impish_Magic_24B.i1-Q4_K_M.gguf
+  files:
+    - filename: Impish_Magic_24B.i1-Q4_K_M.gguf
+      sha256: 38f73fb17b67837ab8b3664a6c8b54133539f58ae7a7a02e816f6a358b688562
+      uri: huggingface://mradermacher/Impish_Magic_24B-i1-GGUF/Impish_Magic_24B.i1-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
