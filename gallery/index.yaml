@@ -13811,6 +13811,30 @@
     - filename: mistralai_Devstral-Small-2507-Q4_K_M.gguf
       sha256: 6d597aa03c2a02bad861d15f282ae530d3b276b52255f37ba200d3c0de7d3aed
       uri: huggingface://bartowski/mistralai_Devstral-Small-2507-GGUF/mistralai_Devstral-Small-2507-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistral-2x24b-moe-power-coder-magistral-devstral-reasoning-ultimate-neo-max-44b"
+  icon: https://huggingface.co/DavidAU/Mistral-2x24B-MOE-Power-CODER-Magistral-Devstral-Reasoning-Ultimate-NEO-MAX-44B-gguf/resolve/main/mags-devs1.jpg
+  urls:
+    - https://huggingface.co/DavidAU/Mistral-2x24B-MOE-Power-CODER-Magistral-Devstral-Reasoning-Ultimate-NEO-MAX-44B-gguf
+  description: |
+    Seriously off the scale coding power.
+
+    TWO monster coders (Magistral 24B AND Devstral 24B) in MOE (Mixture of Experts) 2x24B configuration with full reasoning (can be turned on/off).
+
+    The two best Mistral Coders at 24B each in one MOE MODEL (44B) that is stronger than the sum of their parts with 128k context.
+
+    Both models code together, with Magistral in "charge" using Devstral's coding power.
+
+    Full reasoning/thinking which can be turned on or off.
+
+    GGUFs enhanced using NEO Imatrix dataset, and further enhanced with output tensor at bf16 (16 bit full precision).
+  overrides:
+    parameters:
+      model: Mistral-2x24B-MOE-Pwr-Magis-Devstl-Reason-Ult-44B-NEO-D_AU-Q4_K_M.gguf
+  files:
+    - filename: Mistral-2x24B-MOE-Pwr-Magis-Devstl-Reason-Ult-44B-NEO-D_AU-Q4_K_M.gguf
+      sha256: cafa5f41187c4799c6f37cc8d5ab95f87456488443261f19266bb587b94c960c
+      uri: huggingface://DavidAU/Mistral-2x24B-MOE-Power-CODER-Magistral-Devstral-Reasoning-Ultimate-NEO-MAX-44B-gguf/Mistral-2x24B-MOE-Pwr-Magis-Devstl-Reason-Ult-44B-NEO-D_AU-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
