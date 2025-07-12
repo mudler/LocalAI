@@ -3889,6 +3889,24 @@
     - filename: Delta-Vector_Plesio-70B-Q4_K_M.gguf
       sha256: 3a9c3f733a45a38834a3fae664db03a0eae88fe00bc6d9be3d1aeaa47526c4c4
       uri: huggingface://bartowski/Delta-Vector_Plesio-70B-GGUF/Delta-Vector_Plesio-70B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "nvidia_llama-3_3-nemotron-super-49b-genrm-multilingual"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/1613114437487-60262a8e0703121c822a80b6.png
+  urls:
+    - https://huggingface.co/nvidia/Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual
+    - https://huggingface.co/bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-GGUF
+    - https://arxiv.org/abs/2505.11475
+  description: |
+    Llama-3.3-Nemotron-Super-49B-GenRM-Multilingual is a generative reward model that leverages Llama-3.3-Nemotron-Super-49B-v1 as the foundation and is fine-tuned using Reinforcement Learning to predict the quality of LLM generated responses.
+
+    Llama-3.3-Nemotron-Super-49B-GenRM-Multilingual can be used to judge the quality of one response, or the ranking between two responses given a multilingual conversation history. It will first generate reasoning traces then output an integer score. A higher score means the response is of higher quality.
+  overrides:
+    parameters:
+      model: nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-Q4_K_M.gguf
+  files:
+    - filename: nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-Q4_K_M.gguf
+      sha256: 6d821ed3bee6ad9062c57be6403ae89eb5d552dde2658eb50a41671a1a109bae
+      uri: huggingface://bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-GGUF/nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
