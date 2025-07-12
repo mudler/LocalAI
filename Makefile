@@ -225,12 +225,6 @@ ifeq ($(findstring tts,$(GO_TAGS)),tts)
 endif
 
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx2
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-avx512
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-fallback
-ALL_GRPC_BACKENDS+=backend-assets/grpc/llama-cpp-grpc
-ALL_GRPC_BACKENDS+=backend-assets/util/llama-cpp-rpc-server
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 
 ifeq ($(ONNX_OS),linux)
@@ -333,7 +327,7 @@ sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
-get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp backend/cpp/llama/llama.cpp
+get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
@@ -366,9 +360,7 @@ clean: ## Remove build related file
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) -C backend/go/bark-cpp clean
-	$(MAKE) -C backend/cpp/llama clean
 	$(MAKE) -C backend/go/image/stablediffusion-ggml clean
-	rm -rf backend/cpp/llama-* || true
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
 	rmdir pkg/grpc/proto || true
@@ -402,9 +394,6 @@ endif
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 	rice append --exec $(BINARY_NAME)
 
-build-minimal:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true GRPC_BACKENDS="backend-assets/grpc/llama-cpp-avx2" GO_TAGS=p2p $(MAKE) build
-
 build-api:
 	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=p2p $(MAKE) build
 
@@ -412,18 +401,6 @@ backend-assets/lib:
 	mkdir -p backend-assets/lib
 
 dist:
-	$(MAKE) backend-assets/grpc/llama-cpp-avx2
-ifeq ($(DETECT_LIBS),true)
-	scripts/prepare-libs.sh backend-assets/grpc/llama-cpp-avx2
-endif
-ifeq ($(OS),Darwin)
-	BUILD_TYPE=none $(MAKE) backend-assets/grpc/llama-cpp-fallback
-else
-	$(MAKE) backend-assets/grpc/llama-cpp-cuda
-	$(MAKE) backend-assets/grpc/llama-cpp-hipblas
-	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f16
-	$(MAKE) backend-assets/grpc/llama-cpp-sycl_f32
-endif
 	GO_TAGS="tts p2p" $(MAKE) build
 ifeq ($(DETECT_LIBS),true)
 	scripts/prepare-libs.sh backend-assets/grpc/piper
@@ -472,6 +449,10 @@ prepare-test: grpcs
 	cp -rf backend-assets core/http
 	cp tests/models_fixtures/* test-models
 
+########################################################
+## Tests
+########################################################
+
 ## Test targets
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
@@ -483,6 +464,32 @@ test: prepare test-models/testmodel.ggml grpcs
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
 
+backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build-api
+	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
+########################################################
+## AIO tests
+########################################################
+
+docker-build-aio:
+	docker build --build-arg MAKEFLAGS="--jobs=5 --output-sync=target" -t local-ai:tests -f Dockerfile .
+	BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test $(MAKE) docker-aio
+
+e2e-aio:
+	LOCALAI_BACKEND_DIR=$(abspath ./backends) \
+	LOCALAI_MODELS_DIR=$(abspath ./models) \
+	LOCALAI_IMAGE_TAG=test \
+	LOCALAI_IMAGE=local-ai-aio \
+	$(MAKE) run-e2e-aio
+
+run-e2e-aio: protogen-go
+	@echo 'Running e2e AIO tests'
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
+
+########################################################
+## E2E tests
+########################################################
+
 prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
@@ -493,10 +500,6 @@ run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
 	docker run -p 5390:8080 -e MODELS_PATH=/models -e THREADS=1 -e DEBUG=true -d --rm -v $(TEST_DIR):/models --gpus all --name e2e-tests-$(RANDOM) localai-tests
 
-run-e2e-aio: protogen-go
-	@echo 'Running e2e AIO tests'
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --flake-attempts $(TEST_FLAKES) -v -r ./tests/e2e-aio
-
 test-e2e:
 	@echo 'Running e2e tests'
 	BUILD_TYPE=$(BUILD_TYPE) \
@@ -506,6 +509,10 @@ test-e2e:
 teardown-e2e:
 	rm -rf $(TEST_DIR) || true
 	docker stop $$(docker ps -q --filter ancestor=localai-tests)
+
+########################################################
+## Integration and unit tests
+########################################################
 
 test-llama-gguf: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models \
@@ -528,6 +535,10 @@ test-container:
 	docker build --target requirements -t local-ai-test-container .
 	docker run -ti --rm --entrypoint /bin/bash -ti -v $(abspath ./):/build local-ai-test-container
 
+########################################################
+## Help
+########################################################
+
 ## Help:
 help: ## Show this help.
 	@echo ''
@@ -539,6 +550,10 @@ help: ## Show this help.
 		if (/^[a-zA-Z_-]+:.*?##.*$$/) {printf "    ${YELLOW}%-20s${GREEN}%s${RESET}\n", $$1, $$2} \
 		else if (/^## .*$$/) {printf "  ${CYAN}%s${RESET}\n", substr($$1,4)} \
 		}' $(MAKEFILE_LIST)
+
+########################################################
+## Backends
+########################################################
 
 .PHONY: protogen
 protogen: protogen-go protogen-python
@@ -679,7 +694,7 @@ backend-assets/espeak-ng-data: sources/go-piper sources/go-piper/libpiper_bindin
 	mkdir -p backend-assets/espeak-ng-data
 	@cp -rf sources/go-piper/piper-phonemize/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
-backend-assets/grpc: protogen-go replace
+backend-assets/grpc:
 	mkdir -p backend-assets/grpc
 
 backend-assets/grpc/huggingface: backend-assets/grpc
@@ -688,128 +703,28 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/huggingface
 endif
 
-backend/cpp/llama/llama.cpp:
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/llama llama.cpp
-
-INSTALLED_PACKAGES=$(CURDIR)/backend/cpp/grpc/installed_packages
-INSTALLED_LIB_CMAKE=$(INSTALLED_PACKAGES)/lib/cmake
-ADDED_CMAKE_ARGS=-Dabsl_DIR=${INSTALLED_LIB_CMAKE}/absl \
-				 -DProtobuf_DIR=${INSTALLED_LIB_CMAKE}/protobuf \
-				 -Dutf8_range_DIR=${INSTALLED_LIB_CMAKE}/utf8_range \
-				 -DgRPC_DIR=${INSTALLED_LIB_CMAKE}/grpc \
-				 -DCMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES=${INSTALLED_PACKAGES}/include
-build-llama-cpp-grpc-server:
-# Conditionally build grpc for the llama backend to use if needed
-ifdef BUILD_GRPC_FOR_BACKEND_LLAMA
-	$(MAKE) -C backend/cpp/grpc build
-	_PROTOBUF_PROTOC=${INSTALLED_PACKAGES}/bin/proto \
-	_GRPC_CPP_PLUGIN_EXECUTABLE=${INSTALLED_PACKAGES}/bin/grpc_cpp_plugin \
-	PATH="${INSTALLED_PACKAGES}/bin:${PATH}" \
-	CMAKE_ARGS="${CMAKE_ARGS} ${ADDED_CMAKE_ARGS}" \
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) \
-	$(MAKE) -C backend/cpp/${VARIANT} grpc-server
-else
-	echo "BUILD_GRPC_FOR_BACKEND_LLAMA is not defined."
-	LLAMA_VERSION=$(CPPLLAMA_VERSION) $(MAKE) -C backend/cpp/${VARIANT} grpc-server
-endif
-
-# This target is for manually building a variant with-auto detected flags
-backend-assets/grpc/llama-cpp: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-cpp
-	$(MAKE) -C backend/cpp/llama-cpp purge
-	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
-	$(MAKE) VARIANT="llama-cpp" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cpp/grpc-server backend-assets/grpc/llama-cpp
-
-backend-assets/grpc/llama-cpp-avx2: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-avx2
-	$(MAKE) -C backend/cpp/llama-avx2 purge
-	$(info ${GREEN}I llama-cpp build info:avx2${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx2" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-avx2/grpc-server backend-assets/grpc/llama-cpp-avx2
-
-backend-assets/grpc/llama-cpp-avx512: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-avx512
-	$(MAKE) -C backend/cpp/llama-avx512 purge
-	$(info ${GREEN}I llama-cpp build info:avx512${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) VARIANT="llama-avx512" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-avx512/grpc-server backend-assets/grpc/llama-cpp-avx512
-
-backend-assets/grpc/llama-cpp-avx: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-avx
-	$(MAKE) -C backend/cpp/llama-avx purge
-	$(info ${GREEN}I llama-cpp build info:avx${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-avx" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-avx/grpc-server backend-assets/grpc/llama-cpp-avx
-
-backend-assets/grpc/llama-cpp-fallback: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-fallback
-	$(MAKE) -C backend/cpp/llama-fallback purge
-	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-fallback" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-fallback/grpc-server backend-assets/grpc/llama-cpp-fallback
-
-backend-assets/grpc/llama-cpp-cuda: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-cuda
-	$(MAKE) -C backend/cpp/llama-cuda purge
-	$(info ${GREEN}I llama-cpp build info:cuda${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DGGML_CUDA=ON" $(MAKE) VARIANT="llama-cuda" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-cuda/grpc-server backend-assets/grpc/llama-cpp-cuda
-
-backend-assets/grpc/llama-cpp-hipblas: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-hipblas
-	$(MAKE) -C backend/cpp/llama-hipblas purge
-	$(info ${GREEN}I llama-cpp build info:hipblas${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" BUILD_TYPE="hipblas" $(MAKE) VARIANT="llama-hipblas" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-hipblas/grpc-server backend-assets/grpc/llama-cpp-hipblas
-
-backend-assets/grpc/llama-cpp-sycl_f16: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f16
-	$(MAKE) -C backend/cpp/llama-sycl_f16 purge
-	$(info ${GREEN}I llama-cpp build info:sycl_f16${RESET})
-	BUILD_TYPE="sycl_f16" $(MAKE) VARIANT="llama-sycl_f16" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-sycl_f16/grpc-server backend-assets/grpc/llama-cpp-sycl_f16
-
-backend-assets/grpc/llama-cpp-sycl_f32: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-sycl_f32
-	$(MAKE) -C backend/cpp/llama-sycl_f32 purge
-	$(info ${GREEN}I llama-cpp build info:sycl_f32${RESET})
-	BUILD_TYPE="sycl_f32" $(MAKE) VARIANT="llama-sycl_f32" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-sycl_f32/grpc-server backend-assets/grpc/llama-cpp-sycl_f32
-
-backend-assets/grpc/llama-cpp-grpc: backend-assets/grpc backend/cpp/llama/llama.cpp
-	cp -rf backend/cpp/llama backend/cpp/llama-grpc
-	$(MAKE) -C backend/cpp/llama-grpc purge
-	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-grpc" build-llama-cpp-grpc-server
-	cp -rfv backend/cpp/llama-grpc/grpc-server backend-assets/grpc/llama-cpp-grpc
-
-backend-assets/util/llama-cpp-rpc-server: backend-assets/grpc/llama-cpp-grpc
-	mkdir -p backend-assets/util/
-	cp -rf backend/cpp/llama-grpc/llama.cpp/build/bin/rpc-server backend-assets/util/llama-cpp-rpc-server
-
-backend-assets/grpc/bark-cpp: backend/go/bark-cpp/libbark.a backend-assets/grpc
+backend-assets/grpc/bark-cpp: protogen-go replace backend/go/bark-cpp/libbark.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark-cpp/ LIBRARY_PATH=$(CURDIR)/backend/go/bark-cpp/ \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark-cpp/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/bark-cpp
 endif
 
-backend-assets/grpc/piper: sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
+backend-assets/grpc/piper: protogen-go replace sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
 	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/piper
 endif
 
-backend-assets/grpc/silero-vad: backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
+backend-assets/grpc/silero-vad: protogen-go replace backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/onnxruntime/include/" LIBRARY_PATH=$(CURDIR)/backend-assets/lib \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/silero-vad
 endif
 
-backend-assets/grpc/whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
+backend-assets/grpc/whisper: protogen-go replace sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a backend-assets/grpc
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	CGO_CXXFLAGS="$(CGO_CXXFLAGS_WHISPER)" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/whisper ./backend/go/transcribe/whisper
@@ -817,7 +732,7 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/whisper
 endif
 
-backend-assets/grpc/local-store: backend-assets/grpc
+backend-assets/grpc/local-store: backend-assets/grpc protogen-go replace
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/local-store ./backend/go/stores/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/local-store
@@ -878,6 +793,56 @@ docker-image-intel-xpu:
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+
+########################################################
+## Backends
+########################################################
+
+backend-images:
+	mkdir -p backend-images
+
+docker-build-llama-cpp:
+	docker build -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
+
+docker-save-llama-cpp: backend-images
+	docker save local-ai-backend:llama-cpp -o backend-images/llama-cpp.tar
+	
+
+docker-build-rerankers:
+	docker build -t local-ai-backend:rerankers -f backend/Dockerfile.python --build-arg BACKEND=rerankers .
+
+docker-build-vllm:
+	docker build -t local-ai-backend:vllm -f backend/Dockerfile.python --build-arg BACKEND=vllm .
+
+docker-build-transformers:
+	docker build -t local-ai-backend:transformers -f backend/Dockerfile.python --build-arg BACKEND=transformers .
+
+docker-build-diffusers:
+	docker build -t local-ai-backend:diffusers -f backend/Dockerfile.python --build-arg BACKEND=diffusers .
+
+docker-build-kokoro:
+	docker build -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
+
+docker-build-faster-whisper:
+	docker build -t local-ai-backend:faster-whisper -f backend/Dockerfile.python --build-arg BACKEND=faster-whisper .
+
+docker-build-coqui:
+	docker build -t local-ai-backend:coqui -f backend/Dockerfile.python --build-arg BACKEND=coqui .
+
+docker-build-bark:
+	docker build -t local-ai-backend:bark -f backend/Dockerfile.python --build-arg BACKEND=bark .
+
+docker-build-chatterbox:
+	docker build -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox .
+
+docker-build-exllama2:
+	docker build -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .
+
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-exllama2
+
+########################################################
+### END Backends
+########################################################
 
 .PHONY: swagger
 swagger:

@@ -12,6 +12,10 @@ type SystemState struct {
 	GPUVendor string
 }
 
+const (
+	defaultCapability = "default"
+)
+
 func (s *SystemState) Capability() string {
 	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") != "" {
 		return os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
@@ -30,6 +34,10 @@ func (s *SystemState) Capability() string {
 		if err == nil {
 			return string(capability)
 		}
+	}
+
+	if s.GPUVendor == "" {
+		return defaultCapability
 	}
 
 	return s.GPUVendor
