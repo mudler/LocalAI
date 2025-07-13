@@ -417,7 +417,7 @@ else
 endif
 
 dist-cross-linux-arm64:
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_NATIVE=off" GRPC_BACKENDS="backend-assets/grpc/llama-cpp-fallback backend-assets/grpc/llama-cpp-grpc backend-assets/util/llama-cpp-rpc-server" GO_TAGS="p2p" \
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_NATIVE=off" GO_TAGS="p2p" \
 	STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
