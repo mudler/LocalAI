@@ -123,9 +123,9 @@ EOT
 
 COPY . /LocalAI
 
-RUN cd /LocalAI && make backend-assets/grpc/bark-cpp
+RUN cd /LocalAI && make backend-assets/grpc/${BACKEND}
 
 FROM scratch
 
-COPY --from=builder /LocalAI/backend-assets/grpc/bark-cpp ./
-COPY --from=builder /LocalAI/backend/go/bark/run.sh ./
+COPY --from=builder /LocalAI/backend-assets/grpc/${BACKEND} ./
+COPY --from=builder /LocalAI/backend/go/${BACKEND}/run.sh ./

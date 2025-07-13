@@ -1,8 +1,7 @@
 ---
 ## vLLM
 - &vllm
-  name: "cuda11-vllm"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-vllm"
+  name: "vllm"
   license: apache-2.0
   urls:
     - https://github.com/vllm-project/vllm
@@ -29,6 +28,19 @@
         Speculative decoding
         Chunked prefill
   alias: "vllm"
+  capabilities:
+    nvidia: "cuda12-vllm"
+    amd: "rocm-vllm"
+    intel: "intel-sycl-f16-vllm"
+- !!merge <<: *vllm
+  name: "vllm-development"
+  capabilities:
+    nvidia: "cuda12-vllm-development"
+    amd: "rocm-vllm-development"
+    intel: "intel-sycl-f16-vllm-development"
+- !!merge <<: *vllm
+  name: "cuda11-vllm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-vllm"
 - !!merge <<: *vllm
   name: "cuda12-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm"
@@ -57,43 +69,52 @@
   name: "intel-sycl-f16-vllm-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-vllm"
 ## Rerankers
-- name: "cuda11-rerankers"
+- &rerankers
+  name: "rerankers"
+  alias: "rerankers"
+  capabilities:
+    nvidia: "cuda12-rerankers"
+    intel: "intel-sycl-f16-rerankers"
+    amd: "rocm-rerankers"
+- !!merge <<: *rerankers
+  name: "rerankers-development"
+  capabilities:
+    nvidia: "cuda12-rerankers-development"
+    intel: "intel-sycl-f16-rerankers-development"
+    amd: "rocm-rerankers-development"
+- !!merge <<: *rerankers
+  name: "cuda11-rerankers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-rerankers"
-  alias: "cuda11-rerankers"
-- name: "cuda12-rerankers"
+- !!merge <<: *rerankers
+  name: "cuda12-rerankers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-rerankers"
-  alias: "cuda12-rerankers"
-- name: "intel-sycl-f32-rerankers"
+- !!merge <<: *rerankers
+  name: "intel-sycl-f32-rerankers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-rerankers"
-  alias: "intel-sycl-f32-rerankers"
-- name: "intel-sycl-f16-rerankers"
+- !!merge <<: *rerankers
+  name: "intel-sycl-f16-rerankers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-rerankers"
-  alias: "intel-sycl-f16-rerankers"
-- name: "rocm-rerankers"
+- !!merge <<: *rerankers
+  name: "rocm-rerankers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-rerankers"
-  alias: "rocm-rerankers"
-- name: "cuda11-rerankers-development"
+- !!merge <<: *rerankers
+  name: "cuda11-rerankers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-rerankers"
-  alias: "rerankers"
-
-- name: "cuda12-rerankers-development"
+- !!merge <<: *rerankers
+  name: "cuda12-rerankers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-rerankers"
-  alias: "rerankers"
-- name: "rocm-rerankers-development"
+- !!merge <<: *rerankers
+  name: "rocm-rerankers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-rerankers"
-  alias: "rerankers"
-
-- name: "intel-sycl-f32-rerankers-development"
+- !!merge <<: *rerankers
+  name: "intel-sycl-f32-rerankers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-rerankers"
-  alias: "rerankers"
-
-- name: "intel-sycl-f16-rerankers-development"
+- !!merge <<: *rerankers
+  name: "intel-sycl-f16-rerankers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-rerankers"
-  alias: "rerankers"
 ## Transformers
 - &transformers
-  name: "cuda12-transformers"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-transformers"
+  name: "transformers"
   icon: https://camo.githubusercontent.com/26569a27b8a30a488dd345024b71dbc05da7ff1b2ba97bb6080c9f1ee0f26cc7/68747470733a2f2f68756767696e67666163652e636f2f64617461736574732f68756767696e67666163652f646f63756d656e746174696f6e2d696d616765732f7265736f6c76652f6d61696e2f7472616e73666f726d6572732f7472616e73666f726d6572735f61735f615f6d6f64656c5f646566696e6974696f6e2e706e67
   alias: "transformers"
   license: apache-2.0
@@ -105,6 +126,19 @@
   tags:
     - text-to-text
     - multimodal
+  capabilities:
+    nvidia: "cuda12-transformers"
+    intel: "intel-sycl-f16-transformers"
+    amd: "rocm-transformers"
+- !!merge <<: *transformers
+  name: "transformers-development"
+  capabilities:
+    nvidia: "cuda12-transformers-development"
+    intel: "intel-sycl-f16-transformers-development"
+    amd: "rocm-transformers-development"
+- !!merge <<: *transformers
+  name: "cuda12-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-transformers"
 - !!merge <<: *transformers
   name: "rocm-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-transformers"
@@ -143,10 +177,21 @@
     - image-generation
     - video-generation
     - diffusion-models
-  name: "cuda12-diffusers"
   license: apache-2.0
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-diffusers"
   alias: "diffusers"
+  capabilities:
+    nvidia: "cuda12-diffusers"
+    intel: "intel-sycl-f32-diffusers"
+    amd: "rocm-diffusers"
+- !!merge <<: *diffusers
+  name: "diffusers-development"
+  capabilities:
+    nvidia: "cuda12-diffusers-development"
+    intel: "intel-sycl-f32-diffusers-development"
+    amd: "rocm-diffusers-development"
+- !!merge <<: *diffusers
+  name: "cuda12-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-diffusers"
 - !!merge <<: *diffusers
   name: "rocm-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-diffusers"
@@ -170,6 +215,7 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-diffusers"
   ## exllama2
 - &exllama2
+  name: "exllama2"
   urls:
     - https://github.com/turboderp-org/exllamav2
   tags:
@@ -179,9 +225,20 @@
   license: MIT
   description: |
     ExLlamaV2 is an inference library for running local LLMs on modern consumer GPUs.
+  alias: "exllama2"
+  capabilities:
+    nvidia: "cuda12-exllama2"
+    intel: "intel-sycl-f32-exllama2"
+    amd: "rocm-exllama2"
+- !!merge <<: *exllama2
+  name: "exllama2-development"
+  capabilities:
+    nvidia: "cuda12-exllama2-development"
+    intel: "intel-sycl-f32-exllama2-development"
+    amd: "rocm-exllama2-development"
+- !!merge <<: *exllama2
   name: "cuda11-exllama2"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-exllama2"
-  alias: "exllama2"
 - !!merge <<: *exllama2
   name: "cuda12-exllama2"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-exllama2"
@@ -204,9 +261,21 @@
     - TTS
     - LLM
   license: apache-2.0
+  alias: "kokoro"
+  name: "kokoro"
+  capabilities:
+    nvidia: "cuda12-kokoro"
+    intel: "intel-sycl-f32-kokoro"
+    amd: "rocm-kokoro"
+- !!merge <<: *kokoro
+  name: "kokoro-development"
+  capabilities:
+    nvidia: "cuda12-kokoro-development"
+    intel: "intel-sycl-f32-kokoro-development"
+    amd: "rocm-kokoro-development"
+- !!merge <<: *kokoro
   name: "cuda11-kokoro-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-kokoro"
-  alias: "kokoro"
 - !!merge <<: *kokoro
   name: "cuda12-kokoro-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-kokoro"
@@ -225,6 +294,15 @@
 - !!merge <<: *kokoro
   name: "sycl-f32-kokoro-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-kokoro"
+- !!merge <<: *kokoro
+  name: "cuda11-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-kokoro"
+- !!merge <<: *kokoro
+  name: "cuda12-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-kokoro"
+- !!merge <<: *kokoro
+  name: "rocm-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-kokoro"
 ## faster-whisper
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
@@ -237,9 +315,20 @@
     - speech-to-text
     - Whisper
   license: MIT
-  name: "cuda11-faster-whisper-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-faster-whisper"
-  alias: "faster-whisper"
+  name: "faster-whisper"
+  capabilities:
+    nvidia: "cuda12-faster-whisper"
+    intel: "intel-sycl-f32-faster-whisper"
+    amd: "rocm-faster-whisper"
+- !!merge <<: *faster-whisper
+  name: "faster-whisper-development"
+  capabilities:
+    nvidia: "cuda12-faster-whisper-development"
+    intel: "intel-sycl-f32-faster-whisper-development"
+    amd: "rocm-faster-whisper-development"
+- !!merge <<: *faster-whisper
+  name: "cuda11-faster-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-faster-whisper"
 - !!merge <<: *faster-whisper
   name: "cuda12-faster-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-faster-whisper"
@@ -274,10 +363,28 @@
     - text-to-speech
     - TTS
   license: mpl-2.0
+  name: "coqui"
+  alias: "coqui"
+  capabilities:
+    nvidia: "cuda12-coqui"
+    intel: "intel-sycl-f32-coqui"
+    amd: "rocm-coqui"
+  icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
+- !!merge <<: *coqui
+  name: "coqui-development"
+  capabilities:
+    nvidia: "cuda12-coqui-development"
+    intel: "intel-sycl-f32-coqui-development"
+    amd: "rocm-coqui-development"
+- !!merge <<: *coqui
+  name: "cuda11-coqui"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-coqui"
+- !!merge <<: *coqui
+  name: "cuda12-coqui"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-coqui"
+- !!merge <<: *coqui
   name: "cuda11-coqui-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-coqui"
-  alias: "coqui"
-  icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
 - !!merge <<: *coqui
   name: "cuda12-coqui-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-coqui"
@@ -296,6 +403,9 @@
 - !!merge <<: *coqui
   name: "sycl-f16-coqui-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-coqui"
+- !!merge <<: *coqui
+  name: "rocm-coqui"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-coqui"
 ## bark
 - &bark
   urls:
@@ -306,13 +416,25 @@
     - text-to-speech
     - TTS
   license: MIT
-  name: "cuda11-bark-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-bark"
+  name: "bark"
   alias: "bark"
+  capabilities:
+    cuda: "cuda12-bark"
+    intel: "intel-sycl-f32-bark"
+    rocm: "rocm-bark"
   icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
 - !!merge <<: *bark
-  name: "cuda12-bark-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bark"
+  name: "bark-development"
+  capabilities:
+    nvidia: "cuda12-bark-development"
+    intel: "intel-sycl-f32-bark-development"
+    amd: "rocm-bark-development"
+- !!merge <<: *bark
+  name: "cuda11-bark-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-bark"
+- !!merge <<: *bark
+  name: "cuda11-bark"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-bark"
 - !!merge <<: *bark
   name: "rocm-bark-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-bark"
@@ -328,6 +450,15 @@
 - !!merge <<: *bark
   name: "sycl-f16-bark-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-bark"
+- !!merge <<: *bark
+  name: "cuda12-bark"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-bark"
+- !!merge <<: *bark
+  name: "rocm-bark"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-bark"
+- !!merge <<: *bark
+  name: "cuda12-bark-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bark"
 - &barkcpp
   urls:
     - https://github.com/PABannier/bark.cpp
@@ -369,15 +500,22 @@
     - TTS
   license: MIT
   icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTAxOTE0MDAsIm5iZiI6MTc1MDE5MTEwMCwicGF0aCI6Ii82NjAyMjQvNDQ4MTY2NjUzLWJkOGM1ZjAzLWU5MWQtNGVlNS1iNjgwLTU3MzU1ZGEyMDRkMS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwNjE3JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDYxN1QyMDExNDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMmI1NGY3OGFiZTlhNGFkNTVlYTY4NTIwMWEzODRiZGE4YzdhNGQ5MGNhNzE3MDYyYTA2NDIxYTkyYzhiODkwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.mR9kM9xX0TdzPuSpuspCllHYQiq79dFQ2rtuNvjrl6w
-  name: "cuda11-chatterbox-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-chatterbox"
-  alias: "chatterbox"
+  name: "chatterbox"
+  capabilities:
+    nvidia: "cuda12-chatterbox"
+- !!merge <<: *chatterbox
+  name: "chatterbox-development"
+  capabilities:
+    nvidia: "cuda12-chatterbox-development"
 - !!merge <<: *chatterbox
   name: "cuda12-chatterbox-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-chatterbox"
 - !!merge <<: *chatterbox
   name: "cuda11-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-chatterbox"
+- !!merge <<: *chatterbox
+  name: "cuda11-chatterbox-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-chatterbox"
 - !!merge <<: *chatterbox
   name: "cuda12-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-chatterbox"

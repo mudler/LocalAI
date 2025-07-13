@@ -9,8 +9,8 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/system"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/rs/zerolog/log"
 )
 
@@ -62,7 +62,7 @@ func findBestBackendFromMeta(backend *GalleryBackend, systemState *system.System
 		return nil
 	}
 
-	realBackend := backend.CapabilitiesMap[systemState.GPUVendor]
+	realBackend := backend.CapabilitiesMap[systemState.Capability()]
 	if realBackend == "" {
 		return nil
 	}
@@ -151,19 +151,15 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 	}
 
 	name := config.Name
-
-	img, err := oci.GetImage(config.URI, "", nil, nil)
-	if err != nil {
-		return fmt.Errorf("failed to get image %q: %v", config.URI, err)
-	}
-
 	backendPath := filepath.Join(basePath, name)
-	if err := os.MkdirAll(backendPath, 0750); err != nil {
-		return fmt.Errorf("failed to create backend path %q: %v", backendPath, err)
+	err = os.MkdirAll(backendPath, 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create base path: %v", err)
 	}
 
-	if err := oci.ExtractOCIImage(img, backendPath, downloadStatus); err != nil {
-		return fmt.Errorf("failed to extract image %q: %v", config.URI, err)
+	uri := downloader.URI(config.URI)
+	if err := uri.DownloadFile(backendPath, "", 1, 1, downloadStatus); err != nil {
+		return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 	}
 
 	// Create metadata for the backend
@@ -246,14 +242,32 @@ func ListSystemBackends(basePath string) (map[string]string, error) {
 	for _, backend := range backends {
 		if backend.IsDir() {
 			runFile := filepath.Join(basePath, backend.Name(), runFile)
-			backendsNames[backend.Name()] = runFile
+			// Skip if metadata file don't exist
+			metadataFilePath := filepath.Join(basePath, backend.Name(), metadataFile)
+			if _, err := os.Stat(metadataFilePath); os.IsNotExist(err) {
+				continue
+			}
 
 			// Check for alias in metadata
 			metadata, err := readBackendMetadata(filepath.Join(basePath, backend.Name()))
 			if err != nil {
 				return nil, err
 			}
-			if metadata != nil && metadata.Alias != "" {
+
+			if metadata == nil {
+				continue
+			}
+
+			if _, exists := backendsNames[backend.Name()]; !exists {
+				// We don't want to override aliases if already set, and if we are meta backend
+				if _, err := os.Stat(runFile); err == nil {
+					backendsNames[backend.Name()] = runFile
+				} else {
+					backendsNames[backend.Name()] = ""
+				}
+			}
+
+			if metadata.Alias != "" {
 				backendsNames[metadata.Alias] = runFile
 			}
 		}
