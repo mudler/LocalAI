@@ -337,6 +337,7 @@ var _ = Describe("API test", func() {
 					config.WithContext(c),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
+					config.WithBackendsPath(backendAssetsDir),
 					config.WithApiKeys([]string{apiKey}),
 					config.WithBackendAssets(backendAssets),
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
@@ -540,6 +541,7 @@ var _ = Describe("API test", func() {
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGeneratedContentDir(tmpdir),
+					config.WithBackendsPath(backendAssetsDir),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
 					config.WithBackendAssets(backendAssets),

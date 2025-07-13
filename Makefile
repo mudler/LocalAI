@@ -738,7 +738,7 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/local-store
 endif
 
-grpcs: prepare $(GRPC_BACKENDS)
+grpcs: prepare protogen-go $(GRPC_BACKENDS)
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
