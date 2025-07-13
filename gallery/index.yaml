@@ -2565,6 +2565,34 @@
     - filename: mmproj-google_medgemma-4b-it-f16.gguf
       sha256: e4970f0dc94f8299e61ca271947e0c676fdd5274a4635c6b0620be33c29bbca6
       uri: https://huggingface.co/bartowski/google_medgemma-4b-it-GGUF/resolve/main/mmproj-google_medgemma-4b-it-f16.gguf
+- !!merge <<: *gemma3
+  name: "google_medgemma-27b-it"
+  urls:
+    - https://huggingface.co/google/medgemma-27b-it
+    - https://huggingface.co/bartowski/google_medgemma-27b-it-GGUF
+  description: |
+    MedGemma is a collection of Gemma 3 variants that are trained for performance on medical text and image comprehension. Developers can use MedGemma to accelerate building healthcare-based AI applications. MedGemma currently comes in three variants: a 4B multimodal version and 27B text-only and multimodal versions.
+
+    Both MedGemma multimodal versions utilize a SigLIP image encoder that has been specifically pre-trained on a variety of de-identified medical data, including chest X-rays, dermatology images, ophthalmology images, and histopathology slides. Their LLM components are trained on a diverse set of medical data, including medical text, medical question-answer pairs, FHIR-based electronic health record data (27B multimodal only), radiology images, histopathology patches, ophthalmology images, and dermatology images.
+
+    MedGemma 4B is available in both pre-trained (suffix: -pt) and instruction-tuned (suffix -it) versions. The instruction-tuned version is a better starting point for most applications. The pre-trained version is available for those who want to experiment more deeply with the models.
+
+    MedGemma 27B multimodal has pre-training on medical image, medical record and medical record comprehension tasks. MedGemma 27B text-only has been trained exclusively on medical text. Both models have been optimized for inference-time computation on medical reasoning. This means it has slightly higher performance on some text benchmarks than MedGemma 27B multimodal. Users who want to work with a single model for both medical text, medical record and medical image tasks are better suited for MedGemma 27B multimodal. Those that only need text use-cases may be better served with the text-only variant. Both MedGemma 27B variants are only available in instruction-tuned versions.
+
+    MedGemma variants have been evaluated on a range of clinically relevant benchmarks to illustrate their baseline performance. These evaluations are based on both open benchmark datasets and curated datasets. Developers can fine-tune MedGemma variants for improved performance. Consult the Intended use section below for more details.
+
+    MedGemma is optimized for medical applications that involve a text generation component. For medical image-based applications that do not involve text generation, such as data-efficient classification, zero-shot classification, or content-based or semantic image retrieval, the MedSigLIP image encoder is recommended. MedSigLIP is based on the same image encoder that powers MedGemma.
+  overrides:
+    mmproj: mmproj-google_medgemma-27b-it-f16.gguf
+    parameters:
+      model: google_medgemma-27b-it-Q4_K_M.gguf
+  files:
+    - filename: google_medgemma-27b-it-Q4_K_M.gguf
+      sha256: 9daba2f7ef63524193f4bfa13ca2b5693e40ce840665eabcb949d61966b6f4af
+      uri: huggingface://bartowski/google_medgemma-27b-it-GGUF/google_medgemma-27b-it-Q4_K_M.gguf
+    - filename: mmproj-google_medgemma-27b-it-f16.gguf
+      sha256: b7bb3e607ed169bc2fbfb88d85c82903b10c49924a166ff84875768bb6f77821
+      uri: https://huggingface.co/bartowski/google_medgemma-27b-it-GGUF/resolve/main/mmproj-google_medgemma-27b-it-f16.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
