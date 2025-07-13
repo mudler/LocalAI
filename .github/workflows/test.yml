@@ -212,7 +212,7 @@ jobs:
           export CC=/opt/homebrew/opt/llvm/bin/clang
           # Used to run the newer GNUMake version from brew that supports --output-sync
           export PATH="/opt/homebrew/opt/make/libexec/gnubin:$PATH"
-          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
+          PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target protogen-go test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.22
