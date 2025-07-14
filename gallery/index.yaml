@@ -1725,6 +1725,22 @@
     - filename: Qwen3-8B-ShiningValiant3.Q4_K_M.gguf
       sha256: 7235a75a68eba40bd15f878adb41659fa2ca2a44e17e036757249fe47c7abe43
       uri: huggingface://mradermacher/Qwen3-8B-ShiningValiant3-GGUF/Qwen3-8B-ShiningValiant3.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "zhi-create-qwen3-32b-i1"
+  urls:
+    - https://huggingface.co/Zhihu-ai/Zhi-Create-Qwen3-32B
+    - https://huggingface.co/mradermacher/Zhi-Create-Qwen3-32B-i1-GGUF
+  description: |
+    Zhi-Create-Qwen3-32B is a fine-tuned model derived from Qwen/Qwen3-32B, with a focus on enhancing creative writing capabilities. Through careful optimization, the model shows promising improvements in creative writing performance, as evaluated using the WritingBench. In our evaluation, the model attains a score of 82.08 on WritingBench, which represents a significant improvement over the base Qwen3-32B model's score of 78.97.
+
+    Additionally, to maintain the model's general capabilities such as knowledge and reasoning, we performed fine-grained data mixture experiments by combining general knowledge, mathematics, code, and other data types. The final evaluation results show that general capabilities remain stable with no significant decline compared to the base model.
+  overrides:
+    parameters:
+      model: Zhi-Create-Qwen3-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: Zhi-Create-Qwen3-32B.i1-Q4_K_M.gguf
+      sha256: 7ed2a7e080b23570d2edce3fc27a88219749506dc431170cf67cbac5c9217ffb
+      uri: huggingface://mradermacher/Zhi-Create-Qwen3-32B-i1-GGUF/Zhi-Create-Qwen3-32B.i1-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
