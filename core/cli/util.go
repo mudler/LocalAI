@@ -4,7 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/mholt/archiver/v3"
 	"github.com/rs/zerolog/log"
 
 	gguf "github.com/gpustack/gguf-parser-go"
@@ -12,10 +16,12 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/oci"
 )
 
 type UtilCMD struct {
 	GGUFInfo         GGUFInfoCMD         `cmd:"" name:"gguf-info" help:"Get information about a GGUF file"`
+	CreateOCIImage   CreateOCIImageCMD   `cmd:"" name:"create-oci-image" help:"Create an OCI image from a file or a directory"`
 	HFScan           HFScanCMD           `cmd:"" name:"hf-scan" help:"Checks installed models for known security issues. WARNING: this is a best-effort feature and may not catch everything!"`
 	UsecaseHeuristic UsecaseHeuristicCMD `cmd:"" name:"usecase-heuristic" help:"Checks a specific model config and prints what usecase LocalAI will offer for it."`
 }
@@ -34,6 +40,35 @@ type HFScanCMD struct {
 type UsecaseHeuristicCMD struct {
 	ConfigName string `name:"The config file to check"`
 	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+}
+
+type CreateOCIImageCMD struct {
+	Input     []string `arg:"" help:"Input file or directory to create an OCI image from"`
+	Output    string   `default:"image.tar" help:"Output OCI image name"`
+	ImageName string   `default:"localai" help:"Image name"`
+	Platform  string   `default:"linux/amd64" help:"Platform of the image"`
+}
+
+func (u *CreateOCIImageCMD) Run(ctx *cliContext.Context) error {
+	log.Info().Msg("Creating OCI image from input")
+
+	dir, err := os.MkdirTemp("", "localai")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(dir)
+	err = archiver.Archive(u.Input, filepath.Join(dir, "archive.tar"))
+	if err != nil {
+		return err
+	}
+	log.Info().Msgf("Creating '%s' as '%s' from %v", u.Output, u.Input, u.Input)
+
+	platform := strings.Split(u.Platform, "/")
+	if len(platform) != 2 {
+		return fmt.Errorf("invalid platform: %s", u.Platform)
+	}
+
+	return oci.CreateTar(filepath.Join(dir, "archive.tar"), u.Output, u.ImageName, platform[1], platform[0])
 }
 
 func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
