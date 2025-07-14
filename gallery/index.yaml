@@ -3979,6 +3979,25 @@
     - filename: nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-Q4_K_M.gguf
       sha256: 6d821ed3bee6ad9062c57be6403ae89eb5d552dde2658eb50a41671a1a109bae
       uri: huggingface://bartowski/nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-GGUF/nvidia_Llama-3_3-Nemotron-Super-49B-GenRM-Multilingual-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "sophosympatheia_strawberrylemonade-70b-v1.1"
+  icon: https://i.imgur.com/XRqSQwk.png
+  urls:
+    - https://huggingface.co/sophosympatheia/Strawberrylemonade-L3-70B-v1.1
+    - https://huggingface.co/bartowski/sophosympatheia_Strawberrylemonade-70B-v1.1-GGUF
+  description: |
+    This 70B parameter model is a merge of zerofata/L3.3-GeneticLemonade-Final-v2-70B and zerofata/L3.3-GeneticLemonade-Unleashed-v3-70B, which are two excellent models for roleplaying, on top of two different base models that were then combined into this model. In my opinion, this merge improves upon my previous release (v1.0) with enhanced creativity and expressiveness.
+
+    This model is uncensored. You are responsible for whatever you do with it.
+
+    This model was designed for roleplaying and storytelling and I think it does well at both. It may also perform well at other tasks but I have not tested its performance in other areas.
+  overrides:
+    parameters:
+      model: sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
+  files:
+    - filename: sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
+      sha256: f0ca05ca40b8133f2fd5c7ae2e5c42af9200f559e54f37b46a76146ba09fa422
+      uri: huggingface://bartowski/sophosympatheia_Strawberrylemonade-70B-v1.1-GGUF/sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
