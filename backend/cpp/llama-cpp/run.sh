@@ -14,22 +14,30 @@ BINARY=llama-cpp-fallback
 
 if grep -q -e "\savx\s" /proc/cpuinfo ; then
 	echo "CPU:    AVX    found OK"
-	BINARY=llama-cpp-avx
+	if [ -e $CURDIR/llama-cpp-avx ]; then
+		BINARY=llama-cpp-avx
+	fi
 fi
 
 if grep -q -e "\savx2\s" /proc/cpuinfo ; then
 	echo "CPU:    AVX2   found OK"
-	BINARY=llama-cpp-avx2
+	if [ -e $CURDIR/llama-cpp-avx2 ]; then
+		BINARY=llama-cpp-avx2
+	fi
 fi
 
 # Check avx 512
 if grep -q -e "\savx512f\s" /proc/cpuinfo ; then
 	echo "CPU:    AVX512F found OK"
-	BINARY=llama-cpp-avx512
+	if [ -e $CURDIR/llama-cpp-avx512 ]; then
+		BINARY=llama-cpp-avx512
+	fi
 fi
 
 if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then
-	BINARY=llama-cpp-grpc
+	if [ -e $CURDIR/llama-cpp-grpc ]; then
+		BINARY=llama-cpp-grpc
+	fi
 fi
  
 # Extend ld library path with the dir where this script is located/lib
