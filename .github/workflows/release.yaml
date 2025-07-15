@@ -21,8 +21,72 @@ concurrency:
 jobs:
 
   build-linux-arm:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
+      - name: Free Disk Space (Ubuntu)
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: true
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Release space from worker
+        run: |
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          df -h
+          echo
+          sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+          sudo apt-get remove --auto-remove android-sdk-platform-tools snapd || true
+          sudo apt-get purge --auto-remove android-sdk-platform-tools snapd || true
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+          sudo rm -rf /usr/share/dotnet
+          sudo apt-get remove -y '^mono-.*' || true
+          sudo apt-get remove -y '^ghc-.*' || true
+          sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+          sudo apt-get remove -y 'php.*' || true
+          sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+          sudo apt-get remove -y '^google-.*' || true
+          sudo apt-get remove -y azure-cli || true
+          sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+          sudo apt-get remove -y '^gfortran-.*' || true
+          sudo apt-get remove -y microsoft-edge-stable || true
+          sudo apt-get remove -y firefox || true
+          sudo apt-get remove -y powershell || true
+          sudo apt-get remove -y r-base-core || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          echo
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          sudo rm -rfv build || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf "/usr/local/share/boost" || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          df -h
+
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
       - name: Clone
         uses: actions/checkout@v4
         with:
@@ -34,27 +98,25 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk
-          sudo apt-get install -qy binutils-aarch64-linux-gnu gcc-aarch64-linux-gnu g++-aarch64-linux-gnu libgmock-dev
+          sudo apt-get install -y wget curl build-essential ffmpeg protobuf-compiler ccache upx-ucl gawk cmake libgmock-dev
           make install-go-tools
       - name: Install CUDA Dependencies
         run: |
-          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/cross-linux-aarch64/cuda-keyring_1.1-1_all.deb
+          curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
-          sudo apt-get install -y cuda-cross-aarch64 cuda-nvcc-cross-aarch64-${CUDA_VERSION} libcublas-cross-aarch64-${CUDA_VERSION}
+          sudo apt-get install -y cuda-nvcc-${CUDA_VERSION} libcublas-dev-${CUDA_VERSION}
         env:
-          CUDA_VERSION: 12-4
+          CUDA_VERSION: 12-5
       - name: Cache grpc
         id: cache-grpc
         uses: actions/cache@v4
         with:
           path: grpc
-          key: ${{ runner.os }}-arm-grpc-${{ env.GRPC_VERSION }}
+          key: ${{ runner.os }}-grpc-arm64-${{ env.GRPC_VERSION }}
       - name: Build grpc
         if: steps.cache-grpc.outputs.cache-hit != 'true'
         run: |
-
           git clone --recurse-submodules -b ${{ env.GRPC_VERSION }} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
           cd grpc && sed -i "216i\  TESTONLY" "third_party/abseil-cpp/absl/container/CMakeLists.txt" && mkdir -p cmake/build && \
           cd cmake/build && cmake -DgRPC_INSTALL=ON \
@@ -62,56 +124,18 @@ jobs:
             ../.. && sudo make --jobs 5 --output-sync=target
       - name: Install gRPC
         run: |
-          GNU_HOST=aarch64-linux-gnu
-          C_COMPILER_ARM_LINUX=$GNU_HOST-gcc
-          CXX_COMPILER_ARM_LINUX=$GNU_HOST-g++
-
-          CROSS_TOOLCHAIN=/usr/$GNU_HOST
-          CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
-          CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
-
-          # https://cmake.org/cmake/help/v3.13/manual/cmake-toolchains.7.html#cross-compiling-for-linux
-          echo "set(CMAKE_SYSTEM_NAME Linux)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_SYSTEM_PROCESSOR arm)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_STAGING_PREFIX $CROSS_STAGING_PREFIX)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_SYSROOT ${CROSS_TOOLCHAIN}/sysroot)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_C_COMPILER /usr/bin/$C_COMPILER_ARM_LINUX)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_CXX_COMPILER /usr/bin/$CXX_COMPILER_ARM_LINUX)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN && \
-            echo "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)" >> $CMAKE_CROSS_TOOLCHAIN
-          GRPC_DIR=$PWD/grpc
-          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install && \
-          GRPC_CROSS_BUILD_DIR=$GRPC_DIR/cmake/cross_build && \
-          mkdir -p $GRPC_CROSS_BUILD_DIR && \
-          cd $GRPC_CROSS_BUILD_DIR && \
-          cmake -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=$CROSS_TOOLCHAIN/grpc_install \
-            ../.. && \
-          sudo make -j`nproc` install
+          cd grpc && cd cmake/build && sudo make --jobs 5 --output-sync=target install
+      # BACKEND_LIBS needed for gpu-workload: /opt/intel/oneapi/*/lib/libiomp5.so /opt/intel/oneapi/*/lib/libmkl_core.so /opt/intel/oneapi/*/lib/libmkl_core.so.2 /opt/intel/oneapi/*/lib/libmkl_intel_ilp64.so /opt/intel/oneapi/*/lib/libmkl_intel_ilp64.so.2 /opt/intel/oneapi/*/lib/libmkl_sycl_blas.so /opt/intel/oneapi/*/lib/libmkl_sycl_blas.so.4 /opt/intel/oneapi/*/lib/libmkl_tbb_thread.so /opt/intel/oneapi/*/lib/libmkl_tbb_thread.so.2 /opt/intel/oneapi/*/lib/libsycl.so /opt/intel/oneapi/*/lib/libsycl.so.7 /opt/intel/oneapi/*/lib/libsycl.so.7.1.0 /opt/rocm-*/lib/libamdhip64.so /opt/rocm-*/lib/libamdhip64.so.5 /opt/rocm-*/lib/libamdhip64.so.6 /opt/rocm-*/lib/libamdhip64.so.6.1.60100 /opt/rocm-*/lib/libhipblas.so /opt/rocm-*/lib/libhipblas.so.2 /opt/rocm-*/lib/libhipblas.so.2.1.60100 /opt/rocm-*/lib/librocblas.so /opt/rocm-*/lib/librocblas.so.4 /opt/rocm-*/lib/librocblas.so.4.1.60100 /usr/lib/x86_64-linux-gnu/libstdc++.so.6 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1 /usr/lib/x86_64-linux-gnu/libOpenCL.so.1.0.0 /usr/lib/x86_64-linux-gnu/libm.so.6 /usr/lib/x86_64-linux-gnu/libgcc_s.so.1 /usr/lib/x86_64-linux-gnu/libc.so.6 /usr/lib/x86_64-linux-gnu/librt.so.1 /usr/local/cuda-*/targets/x86_64-linux/lib/libcublas.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcublasLt.so /usr/local/cuda-*/targets/x86_64-linux/lib/libcudart.so /usr/local/cuda-*/targets/x86_64-linux/lib/stubs/libcuda.so
       - name: Build
         id: build
         run: |
-          GNU_HOST=aarch64-linux-gnu
-          C_COMPILER_ARM_LINUX=$GNU_HOST-gcc
-          CXX_COMPILER_ARM_LINUX=$GNU_HOST-g++
-
-          CROSS_TOOLCHAIN=/usr/$GNU_HOST
-          CROSS_STAGING_PREFIX=$CROSS_TOOLCHAIN/stage
-          CMAKE_CROSS_TOOLCHAIN=/tmp/arm.toolchain.cmake
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           export PATH=$PATH:$GOPATH/bin
           export PATH=/usr/local/cuda/bin:$PATH
-          sudo rm -rf /usr/aarch64-linux-gnu/lib/libstdc++.so.6
-          sudo cp -rf /usr/aarch64-linux-gnu/lib/libstdc++.so* /usr/aarch64-linux-gnu/lib/libstdc++.so.6
-          sudo cp /usr/aarch64-linux-gnu/lib/ld-linux-aarch64.so.1 ld.so
-          BACKEND_LIBS="./grpc/cmake/cross_build/third_party/re2/libre2.a ./grpc/cmake/cross_build/libgrpc.a ./grpc/cmake/cross_build/libgrpc++.a ./grpc/cmake/cross_build/third_party/protobuf/libprotobuf.a /usr/aarch64-linux-gnu/lib/libc.so.6 /usr/aarch64-linux-gnu/lib/libstdc++.so.6 /usr/aarch64-linux-gnu/lib/libgomp.so.1 /usr/aarch64-linux-gnu/lib/libm.so.6 /usr/aarch64-linux-gnu/lib/libgcc_s.so.1 /usr/aarch64-linux-gnu/lib/libdl.so.2 /usr/aarch64-linux-gnu/lib/libpthread.so.0 ./ld.so" \
-          GOOS=linux \
-          GOARCH=arm64 \
-          CMAKE_ARGS="-DProtobuf_INCLUDE_DIRS=$CROSS_STAGING_PREFIX/include -DProtobuf_DIR=$CROSS_STAGING_PREFIX/lib/cmake/protobuf -DgRPC_DIR=$CROSS_STAGING_PREFIX/lib/cmake/grpc -DCMAKE_TOOLCHAIN_FILE=$CMAKE_CROSS_TOOLCHAIN -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++" make dist-cross-linux-arm64
+          sudo cp /lib64/ld-linux-aarch64.so.1 ld.so
+          BACKEND_LIBS="./ld.so ./sources/go-piper/piper/build/fi/lib/libfmt.a ./sources/go-piper/piper-phonemize/pi/lib/libonnxruntime.so.1.14.1 ./sources/go-piper/piper-phonemize/pi/src/libespeak-ng/libespeak-ng.so /usr/lib/aarch64-linux-gnu/libdl.so.2 /usr/lib/aarch64-linux-gnu/librt.so.1 /usr/lib/aarch64-linux-gnu/libpthread.so.0 ./sources/go-piper/piper-phonemize/pi/lib/libpiper_phonemize.so.1 ./sources/go-piper/piper/build/si/lib/libspdlog.a ./sources/go-piper/espeak/ei/lib/libucd.so" \
+          make -j4 dist
       - uses: actions/upload-artifact@v4
         with:
           name: LocalAI-linux-arm64
