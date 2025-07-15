@@ -4,6 +4,7 @@ LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
 CMAKE_ARGS?=
 BUILD_TYPE?=
+NATIVE?=true
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 TARGET?=--target grpc-server
 
@@ -11,7 +12,9 @@ TARGET?=--target grpc-server
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
 
 CURRENT_MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
-
+ifeq ($(NATIVE),false)
+	CMAKE_ARGS+=-DGGML_NATIVE=OFF
+endif
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
 	CMAKE_ARGS+=-DGGML_CUDA=ON
@@ -28,13 +31,18 @@ else ifeq ($(BUILD_TYPE),hipblas)
 # If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
 # But if it's OSX without metal, disable it here
 else ifeq ($(OS),Darwin)
+	ifeq ($(BUILD_TYPE),)
+		BUILD_TYPE=metal
+	endif
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DGGML_METAL=OFF
 	else
 		CMAKE_ARGS+=-DGGML_METAL=ON
 		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
-		TARGET+=--target ggml-metal
+		CMAKE_ARGS+=-DGGML_METAL_USE_BF16=ON
+		CMAKE_ARGS+=-DGGML_OPENMP=OFF
 	endif
+	TARGET+=--target ggml-metal
 endif
 
 ifeq ($(BUILD_TYPE),sycl_f16)
