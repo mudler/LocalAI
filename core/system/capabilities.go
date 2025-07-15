@@ -2,6 +2,7 @@ package system
 
 import (
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -34,6 +35,11 @@ func (s *SystemState) Capability() string {
 		if err == nil {
 			return string(capability)
 		}
+	}
+
+	// If we are on mac and arm64, we will return metal
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		return "metal"
 	}
 
 	if s.GPUVendor == "" {

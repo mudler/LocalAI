@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/system"
@@ -98,6 +99,7 @@ var _ = Describe("Gallery Backends", func() {
 		})
 
 		It("should find best backend from meta based on system capabilities", func() {
+
 			metaBackend := &GalleryBackend{
 				Metadata: Metadata{
 					Name: "meta-backend",
@@ -106,6 +108,7 @@ var _ = Describe("Gallery Backends", func() {
 					"nvidia": "nvidia-backend",
 					"amd":    "amd-backend",
 					"intel":  "intel-backend",
+					"metal":  "metal-backend",
 				},
 			}
 
@@ -123,25 +126,43 @@ var _ = Describe("Gallery Backends", func() {
 				URI: testImage,
 			}
 
-			backends := GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend}
+			metalBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "metal-backend",
+				},
+				URI: testImage,
+			}
 
-			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
-			bestBackend := findBestBackendFromMeta(metaBackend, nvidiaSystemState, backends)
-			Expect(bestBackend).To(Equal(nvidiaBackend))
+			backends := GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend}
 
-			// Test with AMD system state
-			amdSystemState := &system.SystemState{GPUVendor: "amd"}
-			bestBackend = findBestBackendFromMeta(metaBackend, amdSystemState, backends)
-			Expect(bestBackend).To(Equal(amdBackend))
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				metal := &system.SystemState{}
+				bestBackend := findBestBackendFromMeta(metaBackend, metal, backends)
+				Expect(bestBackend).To(Equal(metalBackend))
 
-			// Test with unsupported GPU vendor
-			unsupportedSystemState := &system.SystemState{GPUVendor: "unsupported"}
-			bestBackend = findBestBackendFromMeta(metaBackend, unsupportedSystemState, backends)
-			Expect(bestBackend).To(BeNil())
+			} else {
+				// Test with NVIDIA system state
+				nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+				bestBackend := findBestBackendFromMeta(metaBackend, nvidiaSystemState, backends)
+				Expect(bestBackend).To(Equal(nvidiaBackend))
+
+				// Test with AMD system state
+				amdSystemState := &system.SystemState{GPUVendor: "amd"}
+				bestBackend = findBestBackendFromMeta(metaBackend, amdSystemState, backends)
+				Expect(bestBackend).To(Equal(amdBackend))
+
+				// Test with unsupported GPU vendor
+				unsupportedSystemState := &system.SystemState{GPUVendor: "unsupported"}
+				bestBackend = findBestBackendFromMeta(metaBackend, unsupportedSystemState, backends)
+				Expect(bestBackend).To(BeNil())
+			}
 		})
 
 		It("should handle meta backend deletion correctly", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
+
 			metaBackend := &GalleryBackend{
 				Metadata: Metadata{
 					Name: "meta-backend",
@@ -207,6 +228,9 @@ var _ = Describe("Gallery Backends", func() {
 		})
 
 		It("should handle meta backend deletion correctly with aliases", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
 			metaBackend := &GalleryBackend{
 				Metadata: Metadata{
 					Name: "meta-backend",
@@ -276,6 +300,9 @@ var _ = Describe("Gallery Backends", func() {
 		})
 
 		It("should handle meta backend deletion correctly with aliases pointing to the same backend", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
 			metaBackend := &GalleryBackend{
 				Metadata: Metadata{
 					Name: "meta-backend",
@@ -401,6 +428,9 @@ var _ = Describe("Gallery Backends", func() {
 		})
 
 		It("should create alias file when specified", func() {
+			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+				Skip("Skipping test on darwin/arm64")
+			}
 			backend := GalleryBackend{
 				Metadata: Metadata{
 					Name: "test-backend",

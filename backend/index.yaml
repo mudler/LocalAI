@@ -1,5 +1,27 @@
 ---
-## vLLM
+## metas
+- &llamacpp
+  name: "llama-cpp"
+  alias: "llama-cpp"
+  license: apache-2.0
+  description: |
+    llama.cpp is a fast inference engine for running local LLMs on CPUs and consumer GPUs.
+  urls:
+    - https://github.com/ggerganov/llama.cpp
+  tags:
+    - text-to-text
+    - LLM
+    - CPU
+    - GPU
+    - Metal
+    - CUDA
+    - HIP
+  capabilities:
+    default: "cpu-llama-cpp"
+    nvidia: "cuda12-llama-cpp"
+    intel: "intel-sycl-f16-llama-cpp"
+    amd: "rocm-llama-cpp"
+    metal: "metal-llama-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -32,6 +54,174 @@
     nvidia: "cuda12-vllm"
     amd: "rocm-vllm"
     intel: "intel-sycl-f16-vllm"
+- &rerankers
+  name: "rerankers"
+  alias: "rerankers"
+  capabilities:
+    nvidia: "cuda12-rerankers"
+    intel: "intel-sycl-f16-rerankers"
+    amd: "rocm-rerankers"
+- &transformers
+  name: "transformers"
+  icon: https://camo.githubusercontent.com/26569a27b8a30a488dd345024b71dbc05da7ff1b2ba97bb6080c9f1ee0f26cc7/68747470733a2f2f68756767696e67666163652e636f2f64617461736574732f68756767696e67666163652f646f63756d656e746174696f6e2d696d616765732f7265736f6c76652f6d61696e2f7472616e73666f726d6572732f7472616e73666f726d6572735f61735f615f6d6f64656c5f646566696e6974696f6e2e706e67
+  alias: "transformers"
+  license: apache-2.0
+  description: |
+    Transformers acts as the model-definition framework for state-of-the-art machine learning models in text, computer vision, audio, video, and multimodal model, for both inference and training.
+    It centralizes the model definition so that this definition is agreed upon across the ecosystem. transformers is the pivot across frameworks: if a model definition is supported, it will be compatible with the majority of training frameworks (Axolotl, Unsloth, DeepSpeed, FSDP, PyTorch-Lightning, ...), inference engines (vLLM, SGLang, TGI, ...), and adjacent modeling libraries (llama.cpp, mlx, ...) which leverage the model definition from transformers.
+  urls:
+    - https://github.com/huggingface/transformers
+  tags:
+    - text-to-text
+    - multimodal
+  capabilities:
+    nvidia: "cuda12-transformers"
+    intel: "intel-sycl-f16-transformers"
+    amd: "rocm-transformers"
+- &diffusers
+  icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
+  description: |
+    🤗 Diffusers is the go-to library for state-of-the-art pretrained diffusion models for generating images, audio, and even 3D structures of molecules. Whether you're looking for a simple inference solution or training your own diffusion models, 🤗 Diffusers is a modular toolbox that supports both.
+  urls:
+    - https://github.com/huggingface/diffusers
+  tags:
+    - image-generation
+    - video-generation
+    - diffusion-models
+  license: apache-2.0
+  alias: "diffusers"
+  capabilities:
+    nvidia: "cuda12-diffusers"
+    intel: "intel-sycl-f32-diffusers"
+    amd: "rocm-diffusers"
+- &exllama2
+  name: "exllama2"
+  urls:
+    - https://github.com/turboderp-org/exllamav2
+  tags:
+    - text-to-text
+    - LLM
+    - EXL2
+  license: MIT
+  description: |
+    ExLlamaV2 is an inference library for running local LLMs on modern consumer GPUs.
+  alias: "exllama2"
+  capabilities:
+    nvidia: "cuda12-exllama2"
+    intel: "intel-sycl-f32-exllama2"
+    amd: "rocm-exllama2"
+- &faster-whisper
+  icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
+  description: |
+    faster-whisper is a reimplementation of OpenAI's Whisper model using CTranslate2, which is a fast inference engine for Transformer models.
+    This implementation is up to 4 times faster than openai/whisper for the same accuracy while using less memory. The efficiency can be further improved with 8-bit quantization on both CPU and GPU.
+  urls:
+    - https://github.com/SYSTRAN/faster-whisper
+  tags:
+    - speech-to-text
+    - Whisper
+  license: MIT
+  name: "faster-whisper"
+  capabilities:
+    nvidia: "cuda12-faster-whisper"
+    intel: "intel-sycl-f32-faster-whisper"
+    amd: "rocm-faster-whisper"
+- &kokoro
+  icon: https://avatars.githubusercontent.com/u/166769057?v=4
+  description: |
+    Kokoro is an open-weight TTS model with 82 million parameters. Despite its lightweight architecture, it delivers comparable quality to larger models while being significantly faster and more cost-efficient. With Apache-licensed weights, Kokoro can be deployed anywhere from production environments to personal projects.
+  urls:
+    - https://huggingface.co/hexgrad/Kokoro-82M
+    - https://github.com/hexgrad/kokoro
+  tags:
+    - text-to-speech
+    - TTS
+    - LLM
+  license: apache-2.0
+  alias: "kokoro"
+  name: "kokoro"
+  capabilities:
+    nvidia: "cuda12-kokoro"
+    intel: "intel-sycl-f32-kokoro"
+    amd: "rocm-kokoro"
+- &coqui
+  urls:
+    - https://github.com/idiap/coqui-ai-TTS
+  description: |
+    🐸 Coqui TTS is a library for advanced Text-to-Speech generation.
+
+    🚀 Pretrained models in +1100 languages.
+
+    🛠️ Tools for training new models and fine-tuning existing models in any language.
+
+    📚 Utilities for dataset analysis and curation.
+  tags:
+    - text-to-speech
+    - TTS
+  license: mpl-2.0
+  name: "coqui"
+  alias: "coqui"
+  capabilities:
+    nvidia: "cuda12-coqui"
+    intel: "intel-sycl-f32-coqui"
+    amd: "rocm-coqui"
+  icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
+- &bark
+  urls:
+    - https://github.com/suno-ai/bark
+  description: |
+    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints, which are ready for inference and available for commercial use.
+  tags:
+    - text-to-speech
+    - TTS
+  license: MIT
+  name: "bark"
+  alias: "bark"
+  capabilities:
+    cuda: "cuda12-bark"
+    intel: "intel-sycl-f32-bark"
+    rocm: "rocm-bark"
+  icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
+- &barkcpp
+  urls:
+    - https://github.com/PABannier/bark.cpp
+  description: |
+      With bark.cpp, our goal is to bring real-time realistic multilingual text-to-speech generation to the community.
+
+      Plain C/C++ implementation without dependencies
+      AVX, AVX2 and AVX512 for x86 architectures
+      CPU and GPU compatible backends
+      Mixed F16 / F32 precision
+      4-bit, 5-bit and 8-bit integer quantization
+      Metal and CUDA backends
+
+      Models supported
+
+          Bark Small
+          Bark Large
+  tags:
+    - text-to-speech
+    - TTS
+  license: MIT
+  icon: https://github.com/PABannier/bark.cpp/raw/main/assets/banner.png
+  name: "bark-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-bark-cpp"
+  alias: "bark-cpp"
+- &chatterbox
+  urls:
+    - https://github.com/resemble-ai/chatterbox
+  description: |
+    Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
+    Whether you're working on memes, videos, games, or AI agents, Chatterbox brings your content to life. It's also the first open source TTS model to support emotion exaggeration control, a powerful feature that makes your voices stand out.
+  tags:
+    - text-to-speech
+    - TTS
+  license: MIT
+  icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTAxOTE0MDAsIm5iZiI6MTc1MDE5MTEwMCwicGF0aCI6Ii82NjAyMjQvNDQ4MTY2NjUzLWJkOGM1ZjAzLWU5MWQtNGVlNS1iNjgwLTU3MzU1ZGEyMDRkMS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwNjE3JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDYxN1QyMDExNDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMmI1NGY3OGFiZTlhNGFkNTVlYTY4NTIwMWEzODRiZGE4YzdhNGQ5MGNhNzE3MDYyYTA2NDIxYTkyYzhiODkwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.mR9kM9xX0TdzPuSpuspCllHYQiq79dFQ2rtuNvjrl6w
+  name: "chatterbox"
+  capabilities:
+    nvidia: "cuda12-chatterbox"
+# vllm
 - !!merge <<: *vllm
   name: "vllm-development"
   capabilities:
@@ -69,13 +259,6 @@
   name: "intel-sycl-f16-vllm-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-vllm"
 ## Rerankers
-- &rerankers
-  name: "rerankers"
-  alias: "rerankers"
-  capabilities:
-    nvidia: "cuda12-rerankers"
-    intel: "intel-sycl-f16-rerankers"
-    amd: "rocm-rerankers"
 - !!merge <<: *rerankers
   name: "rerankers-development"
   capabilities:
@@ -113,23 +296,6 @@
   name: "intel-sycl-f16-rerankers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-rerankers"
 ## Transformers
-- &transformers
-  name: "transformers"
-  icon: https://camo.githubusercontent.com/26569a27b8a30a488dd345024b71dbc05da7ff1b2ba97bb6080c9f1ee0f26cc7/68747470733a2f2f68756767696e67666163652e636f2f64617461736574732f68756767696e67666163652f646f63756d656e746174696f6e2d696d616765732f7265736f6c76652f6d61696e2f7472616e73666f726d6572732f7472616e73666f726d6572735f61735f615f6d6f64656c5f646566696e6974696f6e2e706e67
-  alias: "transformers"
-  license: apache-2.0
-  description: |
-    Transformers acts as the model-definition framework for state-of-the-art machine learning models in text, computer vision, audio, video, and multimodal model, for both inference and training.
-    It centralizes the model definition so that this definition is agreed upon across the ecosystem. transformers is the pivot across frameworks: if a model definition is supported, it will be compatible with the majority of training frameworks (Axolotl, Unsloth, DeepSpeed, FSDP, PyTorch-Lightning, ...), inference engines (vLLM, SGLang, TGI, ...), and adjacent modeling libraries (llama.cpp, mlx, ...) which leverage the model definition from transformers.
-  urls:
-    - https://github.com/huggingface/transformers
-  tags:
-    - text-to-text
-    - multimodal
-  capabilities:
-    nvidia: "cuda12-transformers"
-    intel: "intel-sycl-f16-transformers"
-    amd: "rocm-transformers"
 - !!merge <<: *transformers
   name: "transformers-development"
   capabilities:
@@ -167,22 +333,6 @@
   name: "intel-sycl-f16-transformers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-transformers"
 ## Diffusers
-- &diffusers
-  icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
-  description: |
-    🤗 Diffusers is the go-to library for state-of-the-art pretrained diffusion models for generating images, audio, and even 3D structures of molecules. Whether you're looking for a simple inference solution or training your own diffusion models, 🤗 Diffusers is a modular toolbox that supports both.
-  urls:
-    - https://github.com/huggingface/diffusers
-  tags:
-    - image-generation
-    - video-generation
-    - diffusion-models
-  license: apache-2.0
-  alias: "diffusers"
-  capabilities:
-    nvidia: "cuda12-diffusers"
-    intel: "intel-sycl-f32-diffusers"
-    amd: "rocm-diffusers"
 - !!merge <<: *diffusers
   name: "diffusers-development"
   capabilities:
@@ -214,22 +364,6 @@
   name: "intel-sycl-f32-diffusers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-diffusers"
   ## exllama2
-- &exllama2
-  name: "exllama2"
-  urls:
-    - https://github.com/turboderp-org/exllamav2
-  tags:
-    - text-to-text
-    - LLM
-    - EXL2
-  license: MIT
-  description: |
-    ExLlamaV2 is an inference library for running local LLMs on modern consumer GPUs.
-  alias: "exllama2"
-  capabilities:
-    nvidia: "cuda12-exllama2"
-    intel: "intel-sycl-f32-exllama2"
-    amd: "rocm-exllama2"
 - !!merge <<: *exllama2
   name: "exllama2-development"
   capabilities:
@@ -249,24 +383,6 @@
   name: "cuda12-exllama2-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-exllama2"
 ## kokoro
-- &kokoro
-  icon: https://avatars.githubusercontent.com/u/166769057?v=4
-  description: |
-    Kokoro is an open-weight TTS model with 82 million parameters. Despite its lightweight architecture, it delivers comparable quality to larger models while being significantly faster and more cost-efficient. With Apache-licensed weights, Kokoro can be deployed anywhere from production environments to personal projects.
-  urls:
-    - https://huggingface.co/hexgrad/Kokoro-82M
-    - https://github.com/hexgrad/kokoro
-  tags:
-    - text-to-speech
-    - TTS
-    - LLM
-  license: apache-2.0
-  alias: "kokoro"
-  name: "kokoro"
-  capabilities:
-    nvidia: "cuda12-kokoro"
-    intel: "intel-sycl-f32-kokoro"
-    amd: "rocm-kokoro"
 - !!merge <<: *kokoro
   name: "kokoro-development"
   capabilities:
@@ -304,22 +420,6 @@
   name: "rocm-kokoro"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-kokoro"
 ## faster-whisper
-- &faster-whisper
-  icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
-  description: |
-    faster-whisper is a reimplementation of OpenAI's Whisper model using CTranslate2, which is a fast inference engine for Transformer models.
-    This implementation is up to 4 times faster than openai/whisper for the same accuracy while using less memory. The efficiency can be further improved with 8-bit quantization on both CPU and GPU.
-  urls:
-    - https://github.com/SYSTRAN/faster-whisper
-  tags:
-    - speech-to-text
-    - Whisper
-  license: MIT
-  name: "faster-whisper"
-  capabilities:
-    nvidia: "cuda12-faster-whisper"
-    intel: "intel-sycl-f32-faster-whisper"
-    amd: "rocm-faster-whisper"
 - !!merge <<: *faster-whisper
   name: "faster-whisper-development"
   capabilities:
@@ -348,28 +448,7 @@
   name: "sycl-f16-faster-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-faster-whisper"
 ## coqui
-- &coqui
-  urls:
-    - https://github.com/idiap/coqui-ai-TTS
-  description: |
-    🐸 Coqui TTS is a library for advanced Text-to-Speech generation.
 
-    🚀 Pretrained models in +1100 languages.
-
-    🛠️ Tools for training new models and fine-tuning existing models in any language.
-
-    📚 Utilities for dataset analysis and curation.
-  tags:
-    - text-to-speech
-    - TTS
-  license: mpl-2.0
-  name: "coqui"
-  alias: "coqui"
-  capabilities:
-    nvidia: "cuda12-coqui"
-    intel: "intel-sycl-f32-coqui"
-    amd: "rocm-coqui"
-  icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
 - !!merge <<: *coqui
   name: "coqui-development"
   capabilities:
@@ -407,22 +486,6 @@
   name: "rocm-coqui"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-coqui"
 ## bark
-- &bark
-  urls:
-    - https://github.com/suno-ai/bark
-  description: |
-    Bark is a transformer-based text-to-audio model created by Suno. Bark can generate highly realistic, multilingual speech as well as other audio - including music, background noise and simple sound effects. The model can also produce nonverbal communications like laughing, sighing and crying. To support the research community, we are providing access to pretrained model checkpoints, which are ready for inference and available for commercial use.
-  tags:
-    - text-to-speech
-    - TTS
-  license: MIT
-  name: "bark"
-  alias: "bark"
-  capabilities:
-    cuda: "cuda12-bark"
-    intel: "intel-sycl-f32-bark"
-    rocm: "rocm-bark"
-  icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
 - !!merge <<: *bark
   name: "bark-development"
   capabilities:
@@ -459,50 +522,11 @@
 - !!merge <<: *bark
   name: "cuda12-bark-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-bark"
-- &barkcpp
-  urls:
-    - https://github.com/PABannier/bark.cpp
-  description: |
-      With bark.cpp, our goal is to bring real-time realistic multilingual text-to-speech generation to the community.
-
-      Plain C/C++ implementation without dependencies
-      AVX, AVX2 and AVX512 for x86 architectures
-      CPU and GPU compatible backends
-      Mixed F16 / F32 precision
-      4-bit, 5-bit and 8-bit integer quantization
-      Metal and CUDA backends
-
-      Models supported
-
-          Bark Small
-          Bark Large
-  tags:
-    - text-to-speech
-    - TTS
-  license: MIT
-  icon: https://github.com/PABannier/bark.cpp/raw/main/assets/banner.png
-  name: "bark-cpp"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-bark-cpp"
-  alias: "bark-cpp"
 - !!merge <<: *barkcpp
   name: "bark-cpp-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-bark-cpp"
   alias: "bark-cpp"
 ## chatterbox
-- &chatterbox
-  urls:
-    - https://github.com/resemble-ai/chatterbox
-  description: |
-    Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
-    Whether you're working on memes, videos, games, or AI agents, Chatterbox brings your content to life. It's also the first open source TTS model to support emotion exaggeration control, a powerful feature that makes your voices stand out.
-  tags:
-    - text-to-speech
-    - TTS
-  license: MIT
-  icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTAxOTE0MDAsIm5iZiI6MTc1MDE5MTEwMCwicGF0aCI6Ii82NjAyMjQvNDQ4MTY2NjUzLWJkOGM1ZjAzLWU5MWQtNGVlNS1iNjgwLTU3MzU1ZGEyMDRkMS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwNjE3JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDYxN1QyMDExNDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMmI1NGY3OGFiZTlhNGFkNTVlYTY4NTIwMWEzODRiZGE4YzdhNGQ5MGNhNzE3MDYyYTA2NDIxYTkyYzhiODkwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.mR9kM9xX0TdzPuSpuspCllHYQiq79dFQ2rtuNvjrl6w
-  name: "chatterbox"
-  capabilities:
-    nvidia: "cuda12-chatterbox"
 - !!merge <<: *chatterbox
   name: "chatterbox-development"
   capabilities:
