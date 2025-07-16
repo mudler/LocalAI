@@ -49,6 +49,10 @@ on:
         description: 'Build Dockerfile'
         required: true
         type: string
+      skip-drivers:
+        description: 'Skip drivers'
+        default: 'false'
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -197,6 +201,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
             BUILD_TYPE=${{ inputs.build-type }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
@@ -216,6 +221,7 @@ jobs:
           builder: ${{ steps.buildx.outputs.name }}
           build-args: |
             BUILD_TYPE=${{ inputs.build-type }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}

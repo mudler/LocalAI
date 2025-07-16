@@ -579,6 +579,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
+            skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
