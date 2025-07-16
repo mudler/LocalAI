@@ -680,3 +680,98 @@ jobs:
             docker tag localai/llama-cpp-darwin $tag
             docker push $tag
           done
+  llama-cpp-darwin-x86:
+    runs-on: macos-13
+    strategy:
+      matrix:
+        go-version: ['1.21.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
+      - name: Build llama-cpp-darwin
+        run: |
+          make protogen-go
+          export PLATFORMARCH=darwin/amd64
+          bash scripts/build-llama-cpp-darwin.sh
+          ls -la build/darwin.tar
+          mv build/darwin.tar build/llama-cpp.tar
+      - name: Upload llama-cpp.tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: llama-cpp-tar
+          path: build/llama-cpp.tar
+  llama-cpp-darwin-x86-publish:
+    needs: llama-cpp-darwin-x86
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download llama-cpp.tar
+        uses: actions/download-artifact@v4
+        with:
+          name: llama-cpp-tar
+          path: .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+      - name: Log in to quay.io
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+          password: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+          registry: quay.io
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            localai/localai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=auto
+            suffix=darwin-x86-llama-cpp,onlatest=true
+      - name: Docker meta
+        id: quaymeta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/local-ai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=auto
+            suffix=darwin-x86-llama-cpp,onlatest=true
+      - name: Load Docker image
+        run: docker load -i llama-cpp.tar
+      - name: Tag and push Docker image (DockerHub)
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
+            docker tag localai/llama-cpp-darwin $tag\
+            docker push $tag
+          done
+      - name: Tag and push Docker image (Quay)
+        run: |
+          for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do
+            docker tag localai/llama-cpp-darwin $tag
+            docker push $tag
+          done

@@ -24,6 +24,7 @@
     amd: "rocm-llama-cpp"
     metal: "metal-llama-cpp"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp"
+    darwin-x86: "darwin-x86-llama-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -224,6 +225,12 @@
   capabilities:
     nvidia: "cuda12-chatterbox"
 ## llama-cpp
+- !!merge <<: *llamacpp
+  name: "darwin-x86-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-darwin-x86-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "darwin-x86-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-darwin-x86-llama-cpp"
 - !!merge <<: *llamacpp
   name: "nvidia-l4t-arm64-llama-cpp"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-llama-cpp"

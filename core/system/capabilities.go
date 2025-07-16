@@ -16,6 +16,8 @@ type SystemState struct {
 const (
 	defaultCapability = "default"
 	nvidiaL4T         = "nvidia-l4t"
+	darwinX86         = "darwin-x86"
+	metal             = "metal"
 )
 
 func (s *SystemState) Capability(capMap map[string]string) string {
@@ -52,7 +54,12 @@ func (s *SystemState) getSystemCapabilities() string {
 
 	// If we are on mac and arm64, we will return metal
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
-		return "metal"
+		return metal
+	}
+
+	// If we are on mac and x86, we will return darwin-x86
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		return darwinX86
 	}
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
