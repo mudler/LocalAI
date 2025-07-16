@@ -201,8 +201,8 @@ jobs:
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
-          context: ./backend
-          file: ./backend/Dockerfile.python
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: ${{ github.event_name != 'pull_request' }}
@@ -220,8 +220,8 @@ jobs:
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
-          context: ./backend
-          file: ./backend/Dockerfile.python
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
           push: true

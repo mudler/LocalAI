@@ -26,8 +26,8 @@ jobs:
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
       backend: ${{ matrix.backend }}
-      dockerfile: $${ matrix.dockerfile }}
-      context: $${ matrix.context }}
+      dockerfile: ${{ matrix.dockerfile }}
+      context: ${{ matrix.context }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -610,6 +610,7 @@ jobs:
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go
+          make build-api
           bash scripts/build-llama-cpp-darwin.sh
           ls -la build/darwin.tar
           mv build/darwin.tar build/llama-cpp.tar
@@ -704,6 +705,7 @@ jobs:
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go
+          make build-api
           export PLATFORMARCH=darwin/amd64
           bash scripts/build-llama-cpp-darwin.sh
           ls -la build/darwin.tar
