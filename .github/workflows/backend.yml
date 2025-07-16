@@ -609,7 +609,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
-            backend: "bark"
+            backend: "bark-cpp"
             dockerfile: "./backend/Dockerfile.go"
             context: "./"
           - build-type: ''
@@ -684,7 +684,7 @@ jobs:
           sudo mv crane /usr/local/bin/
       - name: Log in to DockerHub
         run: |
-          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | crane auth login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | crane auth login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
       - name: Log in to quay.io
         run: |
           echo "${{ secrets.LOCALAI_REGISTRY_PASSWORD }}" | crane auth login quay.io -u "${{ secrets.LOCALAI_REGISTRY_USERNAME }}" --password-stdin
