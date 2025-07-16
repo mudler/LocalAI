@@ -15,9 +15,22 @@ type SystemState struct {
 
 const (
 	defaultCapability = "default"
+	nvidiaL4T         = "nvidia-l4t"
 )
 
-func (s *SystemState) Capability() string {
+func (s *SystemState) Capability(capMap map[string]string) string {
+	reportedCapability := s.getSystemCapabilities()
+
+	// Check if the reported capability is in the map
+	if _, exists := capMap[reportedCapability]; exists {
+		return reportedCapability
+	}
+
+	// Otherwise, return the default capability (catch-all)
+	return defaultCapability
+}
+
+func (s *SystemState) getSystemCapabilities() string {
 	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") != "" {
 		return os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
 	}
@@ -40,6 +53,13 @@ func (s *SystemState) Capability() string {
 	// If we are on mac and arm64, we will return metal
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 		return "metal"
+	}
+
+	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
+	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
+		if s.GPUVendor == "nvidia" {
+			return nvidiaL4T
+		}
 	}
 
 	if s.GPUVendor == "" {

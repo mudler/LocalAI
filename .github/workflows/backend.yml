@@ -575,6 +575,17 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            runs-on: 'ubuntu-24.04-arm'
+            backend: "llama-cpp"
+            dockerfile: "./backend/Dockerfile.llama-cpp"
+            context: "./"
   llama-cpp-darwin:
     runs-on: macOS-14
     strategy:
@@ -640,8 +651,8 @@ jobs:
             type=semver,pattern={{raw}}
             type=sha
           flavor: |
-            latest=true
-            suffix=llama-cpp-metal-darwin-arm64,onlatest=true
+            latest=auto
+            suffix=metal-darwin-arm64-llama-cpp,onlatest=true
       - name: Docker meta
         id: quaymeta
         uses: docker/metadata-action@v5
@@ -653,8 +664,8 @@ jobs:
             type=semver,pattern={{raw}}
             type=sha
           flavor: |
-            latest=true
-            suffix=llama-cpp-metal-darwin-arm64,onlatest=true
+            latest=auto
+            suffix=metal-darwin-arm64-llama-cpp,onlatest=true
       - name: Load Docker image
         run: docker load -i llama-cpp.tar
       - name: Tag and push Docker image (DockerHub)

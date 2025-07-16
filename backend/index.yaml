@@ -3,9 +3,10 @@
 - &llamacpp
   name: "llama-cpp"
   alias: "llama-cpp"
-  license: apache-2.0
+  license: mit
+  icon: https://user-images.githubusercontent.com/1991296/230134379-7181e485-c521-4d23-a0d6-f7b3b61ba524.png
   description: |
-    llama.cpp is a fast inference engine for running local LLMs on CPUs and consumer GPUs.
+    LLM inference in C/C++
   urls:
     - https://github.com/ggerganov/llama.cpp
   tags:
@@ -22,6 +23,7 @@
     intel: "intel-sycl-f16-llama-cpp"
     amd: "rocm-llama-cpp"
     metal: "metal-llama-cpp"
+    nvidia-l4t: "nvidia-l4t-arm64-llama-cpp"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -221,6 +223,55 @@
   name: "chatterbox"
   capabilities:
     nvidia: "cuda12-chatterbox"
+## llama-cpp
+- !!merge <<: *llamacpp
+  name: "nvidia-l4t-arm64-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "nvidia-l4t-arm64-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "cpu-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "cpu-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "cuda11-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "cuda12-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "rocm-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "intel-sycl-f32-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "intel-sycl-f16-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "metal-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "metal-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "cuda11-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "cuda12-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "rocm-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "intel-sycl-f32-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-llama-cpp"
+- !!merge <<: *llamacpp
+  name: "intel-sycl-f16-vllm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-vllm"
 # vllm
 - !!merge <<: *vllm
   name: "vllm-development"

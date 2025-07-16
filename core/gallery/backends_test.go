@@ -137,23 +137,23 @@ var _ = Describe("Gallery Backends", func() {
 
 			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 				metal := &system.SystemState{}
-				bestBackend := findBestBackendFromMeta(metaBackend, metal, backends)
+				bestBackend := metaBackend.FindBestBackendFromMeta(metal, backends)
 				Expect(bestBackend).To(Equal(metalBackend))
 
 			} else {
 				// Test with NVIDIA system state
 				nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
-				bestBackend := findBestBackendFromMeta(metaBackend, nvidiaSystemState, backends)
+				bestBackend := metaBackend.FindBestBackendFromMeta(nvidiaSystemState, backends)
 				Expect(bestBackend).To(Equal(nvidiaBackend))
 
 				// Test with AMD system state
 				amdSystemState := &system.SystemState{GPUVendor: "amd"}
-				bestBackend = findBestBackendFromMeta(metaBackend, amdSystemState, backends)
+				bestBackend = metaBackend.FindBestBackendFromMeta(amdSystemState, backends)
 				Expect(bestBackend).To(Equal(amdBackend))
 
 				// Test with unsupported GPU vendor
 				unsupportedSystemState := &system.SystemState{GPUVendor: "unsupported"}
-				bestBackend = findBestBackendFromMeta(metaBackend, unsupportedSystemState, backends)
+				bestBackend = metaBackend.FindBestBackendFromMeta(unsupportedSystemState, backends)
 				Expect(bestBackend).To(BeNil())
 			}
 		})

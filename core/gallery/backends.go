@@ -57,19 +57,6 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	return nil
 }
 
-func findBestBackendFromMeta(backend *GalleryBackend, systemState *system.SystemState, backends GalleryElements[*GalleryBackend]) *GalleryBackend {
-	if systemState == nil {
-		return nil
-	}
-
-	realBackend := backend.CapabilitiesMap[systemState.Capability()]
-	if realBackend == "" {
-		return nil
-	}
-
-	return backends.FindByName(realBackend)
-}
-
 // Installs a model from the gallery
 func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, name string, basePath string, downloadStatus func(string, string, string, float64), force bool) error {
 	if !force {
@@ -103,7 +90,7 @@ func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.S
 		log.Debug().Interface("systemState", systemState).Str("name", name).Msg("Backend is a meta backend")
 
 		// Then, let's try to find the best backend based on the capabilities map
-		bestBackend := findBestBackendFromMeta(backend, systemState, backends)
+		bestBackend := backend.FindBestBackendFromMeta(systemState, backends)
 		if bestBackend == nil {
 			return fmt.Errorf("no backend found with capabilities %q", backend.CapabilitiesMap)
 		}

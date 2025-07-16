@@ -1,6 +1,9 @@
 package gallery
 
-import "github.com/mudler/LocalAI/core/config"
+import (
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/system"
+)
 
 // BackendMetadata represents the metadata stored in a JSON file for each installed backend
 type BackendMetadata struct {
@@ -21,6 +24,19 @@ type GalleryBackend struct {
 	Alias           string            `json:"alias,omitempty" yaml:"alias,omitempty"`
 	URI             string            `json:"uri,omitempty" yaml:"uri,omitempty"`
 	CapabilitiesMap map[string]string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
+}
+
+func (backend *GalleryBackend) FindBestBackendFromMeta(systemState *system.SystemState, backends GalleryElements[*GalleryBackend]) *GalleryBackend {
+	if systemState == nil {
+		return nil
+	}
+
+	realBackend := backend.CapabilitiesMap[systemState.Capability(backend.CapabilitiesMap)]
+	if realBackend == "" {
+		return nil
+	}
+
+	return backends.FindByName(realBackend)
 }
 
 type GalleryBackends []*GalleryBackend
