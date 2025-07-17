@@ -8,9 +8,9 @@
                             {{ .Content | safeHTML }}
                     {{ end }}
                 </div>
-                <div class="big">
-                    {{ with resources.Get "images/logos/mark.svg" }}
-                        <img src="{{ . }}" alt="Logo" style="width: 22px;">
+                <div class="big header-logo">
+                    {{ with resources.Get "images/logos/logo.svg" }}
+                        {{ .Content | safeHTML }}
                     {{ end }}
                 </div>
             </a>
