@@ -123,7 +123,7 @@ EOT
 
 COPY . /LocalAI
 
-RUN cd /LocalAI && make -C /LocalAI/backend/go/${BACKEND} build
+RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
 
 FROM scratch
 ARG BACKEND=rerankers
