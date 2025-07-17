@@ -756,7 +756,7 @@ jobs:
       - name: Upload llama-cpp.tar
         uses: actions/upload-artifact@v4
         with:
-          name: llama-cpp-tar
+          name: llama-cpp-tar-x86
           path: build/llama-cpp.tar
   llama-cpp-darwin-x86-publish:
     needs: llama-cpp-darwin-x86
@@ -765,7 +765,7 @@ jobs:
       - name: Download llama-cpp.tar
         uses: actions/download-artifact@v4
         with:
-          name: llama-cpp-tar
+          name: llama-cpp-tar-x86
           path: .
       - name: Install crane
         run: |
