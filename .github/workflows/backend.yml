@@ -55,7 +55,7 @@ jobs:
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
-            platforms: 'linux/amd64,linux/arm64'
+            platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-11-llama-cpp'
             runs-on: 'ubuntu-latest'
@@ -177,7 +177,7 @@ jobs:
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
-            platforms: 'linux/amd64,linux/arm64'
+            platforms: 'linux/amd64'
             tag-latest: 'true'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
             runs-on: 'ubuntu-latest'
@@ -773,7 +773,7 @@ jobs:
           sudo mv crane /usr/local/bin/
       - name: Log in to DockerHub
         run: |
-          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | crane auth login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | crane auth login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
       - name: Log in to quay.io
         run: |
           echo "${{ secrets.LOCALAI_REGISTRY_PASSWORD }}" | crane auth login quay.io -u "${{ secrets.LOCALAI_REGISTRY_USERNAME }}" --password-stdin

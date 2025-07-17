@@ -19,7 +19,7 @@ RUN apt-get update && \
         build-essential \
         git ccache \
         ca-certificates \
-        make \
+        make cmake \
         curl unzip \
         libssl-dev && \
     apt-get clean && \
