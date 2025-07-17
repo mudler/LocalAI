@@ -1,3 +1,6 @@
 #!/bin/bash
 set -ex
-exec ./bark-cpp
+
+CURDIR=$(dirname "$(realpath $0)")
+
+exec $CURDIR/bark-cpp "$@"

@@ -5,9 +5,6 @@ BINARY_NAME=local-ai
 
 DETECT_LIBS?=true
 
-# llama.cpp versions
-CPPLLAMA_VERSION?=d6fb3f6b49b27ef1c0f4cf5128e041f7e7dc03af
-
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
 WHISPER_CPP_VERSION?=032697b9a850dc2615555e2a93a683cc3dd58559
@@ -15,10 +12,6 @@ WHISPER_CPP_VERSION?=032697b9a850dc2615555e2a93a683cc3dd58559
 # go-piper version
 PIPER_REPO?=https://github.com/mudler/go-piper
 PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
-
-# bark.cpp
-BARKCPP_REPO?=https://github.com/PABannier/bark.cpp.git
-BARKCPP_VERSION?=5d5be84f089ab9ea53b7a793f088d3fbf7247495
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
@@ -255,23 +248,6 @@ endif
 
 all: help
 
-## bark.cpp
-sources/bark.cpp:
-	git clone --recursive $(BARKCPP_REPO) sources/bark.cpp && \
-	cd sources/bark.cpp && \
-	git checkout $(BARKCPP_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/bark.cpp/build/libbark.a: sources/bark.cpp
-	cd sources/bark.cpp && \
-	mkdir -p build && \
-	cd build && \
-	cmake $(CMAKE_ARGS) .. && \
-	cmake --build . --config Release
-
-backend/go/bark-cpp/libbark.a: sources/bark.cpp/build/libbark.a
-	$(MAKE) -C backend/go/bark-cpp libbark.a
-
 ## go-piper
 sources/go-piper:
 	mkdir -p sources/go-piper
@@ -327,7 +303,7 @@ sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
-get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/bark.cpp sources/whisper.cpp
+get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/whisper.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
@@ -359,7 +335,6 @@ clean: ## Remove build related file
 	rm -rf release/
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
-	$(MAKE) -C backend/go/bark-cpp clean
 	$(MAKE) -C backend/go/image/stablediffusion-ggml clean
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
@@ -690,13 +665,6 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/huggingface
 endif
 
-backend-assets/grpc/bark-cpp: protogen-go replace backend/go/bark-cpp/libbark.a backend-assets/grpc
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH=$(CURDIR)/backend/go/bark-cpp/ LIBRARY_PATH=$(CURDIR)/backend/go/bark-cpp/ \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/bark-cpp ./backend/go/bark-cpp/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/bark-cpp
-endif
-
 backend-assets/grpc/piper: protogen-go replace sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
 	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
@@ -790,6 +758,9 @@ backend-images:
 
 docker-build-llama-cpp:
 	docker build -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
+
+docker-build-bark-cpp:
+	docker build -t local-ai-backend:bark-cpp -f backend/Dockerfile.go --build-arg BACKEND=bark-cpp .
 
 docker-save-llama-cpp: backend-images
 	docker save local-ai-backend:llama-cpp -o backend-images/llama-cpp.tar

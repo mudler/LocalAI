@@ -123,9 +123,10 @@ EOT
 
 COPY . /LocalAI
 
-RUN cd /LocalAI && make backend-assets/grpc/${BACKEND}
+RUN cd /LocalAI && make -C /LocalAI/backend/go/${BACKEND} build
 
 FROM scratch
+ARG BACKEND=rerankers
 
-COPY --from=builder /LocalAI/backend-assets/grpc/${BACKEND} ./
+COPY --from=builder /LocalAI/backend/go/${BACKEND}/${BACKEND} ./
 COPY --from=builder /LocalAI/backend/go/${BACKEND}/run.sh ./
