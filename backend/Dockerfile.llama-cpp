@@ -195,22 +195,13 @@ if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
     fi  
 EOT
 
+
+# Copy libraries using a script to handle architecture differences
+RUN make -C /LocalAI/backend/cpp/llama-cpp package
+
+
 FROM scratch
 
-ARG BACKEND
-ENV BACKEND=${BACKEND}
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-avx ./
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-avx2 ./
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-avx512 ./
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-fallback ./
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-grpc ./
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/llama-cpp-rpc-server ./
-COPY --from=builder /LocalAI/backend/cpp/llama-cpp/run.sh ./
 
-# copy ld.so from the base image in lib/ld.so
-COPY --from=builder /lib64/ld-linux-x86-64.so.2 ./lib/ld.so
-COPY --from=builder /lib/x86_64-linux-gnu/libc.so.6 ./lib/libc.so.6
-COPY --from=builder /lib/x86_64-linux-gnu/libgcc_s.so.1 ./lib/libgcc_s.so.1
-COPY --from=builder /lib/x86_64-linux-gnu/libstdc++.so.6 ./lib/libstdc++.so.6
-COPY --from=builder /lib/x86_64-linux-gnu/libm.so.6 ./lib/libm.so.6
-COPY --from=builder /lib/x86_64-linux-gnu/libgomp.so.1 ./lib/libgomp.so.1
+# Copy all available binaries (the build process only creates the appropriate ones for the target architecture)
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/package/. ./

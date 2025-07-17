@@ -138,6 +138,9 @@ rebuild:
 	rm -rf grpc-server
 	$(MAKE) grpc-server
 
+package:
+	bash package.sh
+
 purge:
 	rm -rf llama.cpp/build
 	rm -rf llama.cpp/tools/grpc-server
