@@ -12,6 +12,12 @@
                     {{ with resources.Get "images/logos/logo.svg" }}
                         {{ .Content | safeHTML }}
                     {{ end }}
+                    <style>
+                        .header-logo svg {
+                            width: 32px;
+                            height: 32px;
+                        }
+                    </style>
                 </div>
             </a>
             <button id="close-sidebar" class="btn btn-icon btn-soft">
