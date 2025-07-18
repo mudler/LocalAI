@@ -659,7 +659,7 @@ backend-assets/espeak-ng-data: sources/go-piper sources/go-piper/libpiper_bindin
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
 
-backend-assets/grpc/huggingface: backend-assets/grpc
+backend-assets/grpc/huggingface: protogen-go backend-assets/grpc
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/huggingface ./backend/go/llm/langchain/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/huggingface
