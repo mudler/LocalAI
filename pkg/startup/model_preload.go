@@ -4,14 +4,21 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/system"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v2"
+)
+
+const (
+	YAML_EXTENSION = ".yaml"
 )
 
 // InstallModels will preload models from the given list of URLs and galleries
@@ -20,6 +27,38 @@ import (
 func InstallModels(galleries, backendGalleries []config.Gallery, modelPath, backendBasePath string, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
+
+	installBackend := func(modelPath string) error {
+		// Then load the model file, and read the backend
+		modelYAML, e := os.ReadFile(modelPath)
+		if e != nil {
+			log.Error().Err(e).Str("filepath", modelPath).Msg("error reading model definition")
+			return e
+		}
+
+		var model config.BackendConfig
+		if e := yaml.Unmarshal(modelYAML, &model); e != nil {
+			log.Error().Err(e).Str("filepath", modelPath).Msg("error unmarshalling model definition")
+			return e
+		}
+
+		if model.Backend == "" {
+			log.Debug().Str("filepath", modelPath).Msg("no backend found in model definition")
+			return nil
+		}
+
+		systemState, err := system.GetSystemState()
+		if err != nil {
+			return err
+		}
+
+		if err := gallery.InstallBackendFromGallery(backendGalleries, systemState, model.Backend, backendBasePath, downloadStatus, false); err != nil {
+			log.Error().Err(err).Str("backend", model.Backend).Msg("error installing backend")
+			return err
+		}
+
+		return nil
+	}
 
 	for _, url := range models {
 		// As a best effort, try to resolve the model from the remote library
@@ -79,6 +118,13 @@ func InstallModels(galleries, backendGalleries []config.Gallery, modelPath, back
 					err = errors.Join(err, e)
 				}
 			}
+
+			// Check if we have the backend installed
+			if autoloadBackendGalleries && path.Ext(modelPath) == YAML_EXTENSION {
+				if err := installBackend(modelPath); err != nil {
+					log.Error().Err(err).Str("filepath", modelPath).Msg("error installing backend")
+				}
+			}
 		default:
 			if _, e := os.Stat(url); e == nil {
 				log.Debug().Msgf("[startup] resolved local model: %s", url)
@@ -92,10 +138,17 @@ func InstallModels(galleries, backendGalleries []config.Gallery, modelPath, back
 					continue
 				}
 
-				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + ".yaml"
+				modelDefinitionFilePath := filepath.Join(modelPath, md5Name) + YAML_EXTENSION
 				if e := os.WriteFile(modelDefinitionFilePath, modelYAML, 0600); e != nil {
 					log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error loading model: %s")
 					err = errors.Join(err, e)
+				}
+
+				// Check if we have the backend installed
+				if autoloadBackendGalleries && path.Ext(modelDefinitionFilePath) == YAML_EXTENSION {
+					if err := installBackend(modelDefinitionFilePath); err != nil {
+						log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error installing backend")
+					}
 				}
 			} else {
 				// Check if it's a model gallery, or print a warning
