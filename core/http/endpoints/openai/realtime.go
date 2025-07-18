@@ -636,6 +636,8 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 	}()
 
 	silenceThreshold := float64(session.TurnDetection.SilenceDurationMs) / 1000
+	speechStarted := false
+	startTime := time.Now()
 
 	ticker := time.NewTicker(300 * time.Millisecond)
 	defer ticker.Stop()
@@ -691,7 +693,16 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				continue
 			}
 
-			// TODO: Send input_audio_buffer.speech_started and input_audio_buffer.speech_stopped
+			if !speechStarted {
+				sendEvent(c, types.InputAudioBufferSpeechStartedEvent{
+					ServerEventBase: types.ServerEventBase{
+						EventID: "event_TODO",
+						Type: types.ServerEventTypeInputAudioBufferSpeechStarted,
+					},
+					AudioStartMs: time.Now().Sub(startTime).Milliseconds(),
+				})
+				speechStarted = true
+			}
 
 			// Segment still in progress when audio ended
 			segEndTime := segments[len(segments)-1].GetEnd()
@@ -717,6 +728,14 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				abytes := sound.Int16toBytesLE(aints)
 				// TODO: Remove prefix silence that is is over TurnDetectionParams.PrefixPaddingMs
 				go commitUtterance(vadContext, abytes, cfg, evaluator, session, conv, c)
+
+				sendEvent(c, types.InputAudioBufferSpeechStoppedEvent{
+					ServerEventBase: types.ServerEventBase{
+						EventID: "event_TODO",
+						Type: types.ServerEventTypeInputAudioBufferSpeechStopped,
+					},
+					AudioEndMs: time.Now().Sub(startTime).Milliseconds(),
+				})
 			}
 		}
 	}
