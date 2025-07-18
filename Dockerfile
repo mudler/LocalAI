@@ -127,7 +127,7 @@ RUN apt-get update && \
 
 # Install CMake (the version in 22.04 is too old)
 RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
     else
         apt-get update && \
@@ -209,7 +209,7 @@ RUN apt-get update && \
 
 # Install CMake (the version in 22.04 is too old)
 RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
     else
         apt-get update && \
