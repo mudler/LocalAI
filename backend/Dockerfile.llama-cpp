@@ -1,4 +1,53 @@
 ARG BASE_IMAGE=ubuntu:22.04
+ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
+
+
+# The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
+# You probably don't need to change anything here, and if you do, make sure that CI is adjusted so that the cache continues to work.
+FROM ${GRPC_BASE_IMAGE} AS grpc
+
+# This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
+ARG GRPC_MAKEFLAGS="-j4 -Otarget"
+ARG GRPC_VERSION=v1.65.0
+ARG CMAKE_FROM_SOURCE=false
+ARG CMAKE_VERSION=3.26.4
+
+ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
+
+WORKDIR /build
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        build-essential curl libssl-dev \
+        git && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+# We install GRPC to a different prefix here so that we can copy in only the build artifacts later
+# saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
+# and running make install in the target container
+RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
+    mkdir -p /build/grpc/cmake/build && \
+    cd /build/grpc/cmake/build && \
+    sed -i "216i\  TESTONLY" "../../third_party/abseil-cpp/absl/container/CMakeLists.txt" && \
+    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+    make && \
+    make install && \
+    rm -rf /build
 
 FROM ${BASE_IMAGE} AS builder
 ARG BACKEND=rerankers
@@ -17,14 +66,13 @@ ARG GO_VERSION=1.22.6
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
-        git ccache \
+        ccache git \
         ca-certificates \
-        make cmake \
+        make \
         curl unzip \
         libssl-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-
 
 # Cuda
 ENV PATH=/usr/local/cuda/bin:${PATH}
@@ -96,13 +144,6 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
-# Install Go
-RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
-ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin:/usr/local/bin
-
-# Install grpc compilers
-RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 RUN echo "TARGETARCH: $TARGETARCH"
 
 # We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
@@ -121,12 +162,46 @@ RUN <<EOT bash
     fi
 EOT
 
+# Install CMake (the version in 22.04 is too old)
+RUN <<EOT bash
+    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
+    else
+        apt-get update && \
+        apt-get install -y \
+            cmake && \
+        apt-get clean && \
+        rm -rf /var/lib/apt/lists/*
+    fi
+EOT
+
+COPY --from=grpc /opt/grpc /usr/local
+
+
 COPY . /LocalAI
 
-RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
+## Otherwise just run the normal build
+RUN <<EOT bash
+if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
+        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-fallback && \
+        make llama-cpp-grpc && make llama-cpp-rpc-server; \
+    else \
+        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx && \
+        make llama-cpp-avx2 && \
+        make llama-cpp-avx512 && \
+        make llama-cpp-fallback && \
+        make llama-cpp-grpc && \
+        make llama-cpp-rpc-server; \
+    fi  
+EOT
+
+
+# Copy libraries using a script to handle architecture differences
+RUN make -C /LocalAI/backend/cpp/llama-cpp package
+
 
 FROM scratch
-ARG BACKEND=rerankers
 
-COPY --from=builder /LocalAI/backend/go/${BACKEND}/${BACKEND} ./
-COPY --from=builder /LocalAI/backend/go/${BACKEND}/run.sh ./
+
+# Copy all available binaries (the build process only creates the appropriate ones for the target architecture)
+COPY --from=builder /LocalAI/backend/cpp/llama-cpp/package/. ./

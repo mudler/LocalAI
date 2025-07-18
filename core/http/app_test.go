@@ -295,6 +295,8 @@ var _ = Describe("API test", func() {
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
 
+			backendPath := os.Getenv("BACKENDS_PATH")
+
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0750)
 			Expect(err).ToNot(HaveOccurred())
@@ -337,6 +339,7 @@ var _ = Describe("API test", func() {
 					config.WithContext(c),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
+					config.WithBackendsPath(backendPath),
 					config.WithApiKeys([]string{apiKey}),
 					config.WithBackendAssets(backendAssets),
 					config.WithBackendAssetsOutput(backendAssetsDir))...)
@@ -517,6 +520,9 @@ var _ = Describe("API test", func() {
 		BeforeEach(func() {
 			var err error
 			tmpdir, err = os.MkdirTemp("", "")
+
+			backendPath := os.Getenv("BACKENDS_PATH")
+
 			Expect(err).ToNot(HaveOccurred())
 			modelDir = filepath.Join(tmpdir, "models")
 			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
@@ -540,6 +546,7 @@ var _ = Describe("API test", func() {
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGeneratedContentDir(tmpdir),
+					config.WithBackendsPath(backendPath),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
 					config.WithBackendAssets(backendAssets),
@@ -737,6 +744,7 @@ var _ = Describe("API test", func() {
 	Context("API query", func() {
 		BeforeEach(func() {
 			modelPath := os.Getenv("MODELS_PATH")
+			backendPath := os.Getenv("BACKENDS_PATH")
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
@@ -745,6 +753,7 @@ var _ = Describe("API test", func() {
 				append(commonOpts,
 					config.WithExternalBackend("transformers", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
+					config.WithBackendsPath(backendPath),
 					config.WithModelPath(modelPath),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
@@ -956,6 +965,7 @@ var _ = Describe("API test", func() {
 	Context("Config file", func() {
 		BeforeEach(func() {
 			modelPath := os.Getenv("MODELS_PATH")
+			backendPath := os.Getenv("BACKENDS_PATH")
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
@@ -963,6 +973,7 @@ var _ = Describe("API test", func() {
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithModelPath(modelPath),
+					config.WithBackendsPath(backendPath),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())

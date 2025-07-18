@@ -25,6 +25,7 @@ ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
 
 RUN mkdir -p /run/localai
+RUN echo "default" > /run/localai/capability
 
 # Vulkan requirements
 RUN <<EOT bash
@@ -299,11 +300,7 @@ COPY ./pkg/langchain ./pkg/langchain
 RUN ls -l ./
 RUN make backend-assets
 RUN make prepare
-RUN if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx512 backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make grpcs; \
-    else \
-        make grpcs; \
-    fi
+RUN make grpcs
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
 # Adjustments to the build process should likely be made here.
@@ -316,11 +313,7 @@ COPY . .
 ## Build the binary
 ## If we're on arm64 AND using cublas/hipblas, skip some of the llama-compat backends to save space
 ## Otherwise just run the normal build
-RUN if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        SKIP_GRPC_BACKEND="backend-assets/grpc/llama-cpp-avx512 backend-assets/grpc/llama-cpp-avx backend-assets/grpc/llama-cpp-avx2" make build; \
-    else \
-        make build; \
-    fi
+RUN make build
 
 RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
         mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \

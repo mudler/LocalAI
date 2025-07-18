@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/docker/go-connections/nat"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,6 +22,7 @@ var client *openai.Client
 var containerImage = os.Getenv("LOCALAI_IMAGE")
 var containerImageTag = os.Getenv("LOCALAI_IMAGE_TAG")
 var modelsDir = os.Getenv("LOCALAI_MODELS_DIR")
+var backendDir = os.Getenv("LOCALAI_BACKEND_DIR")
 var apiEndpoint = os.Getenv("LOCALAI_API_ENDPOINT")
 var apiKey = os.Getenv("LOCALAI_API_KEY")
 
@@ -82,6 +84,12 @@ func startDockerImage() {
 	Expect(err).To(Not(HaveOccurred()))
 	md := cwd + "/models"
 
+	bd := cwd + "/backends"
+
+	if backendDir != "" {
+		bd = backendDir
+	}
+
 	if modelsDir != "" {
 		md = modelsDir
 	}
@@ -99,20 +107,28 @@ func startDockerImage() {
 		},
 		Env: map[string]string{
 			"MODELS_PATH":                   "/models",
+			"BACKENDS_PATH":                 "/backends",
 			"DEBUG":                         "true",
 			"THREADS":                       fmt.Sprint(proc),
 			"LOCALAI_SINGLE_ACTIVE_BACKEND": "true",
 		},
-		Files: []testcontainers.ContainerFile{
+		Mounts: testcontainers.ContainerMounts{
 			{
-				HostFilePath:      md,
-				ContainerFilePath: "/models",
-				FileMode:          0o755,
+				Source: testcontainers.DockerBindMountSource{
+					HostPath: md,
+				},
+				Target: "/models",
+			},
+			{
+				Source: testcontainers.DockerBindMountSource{
+					HostPath: bd,
+				},
+				Target: "/backends",
 			},
 		},
 		WaitingFor: wait.ForAll(
-			wait.ForListeningPort(nat.Port(defaultApiPort)),
-		//	wait.ForHTTP("/v1/models").WithPort(nat.Port(apiPort)).WithStartupTimeout(50*time.Minute),
+			wait.ForListeningPort(nat.Port(defaultApiPort)).WithStartupTimeout(10*time.Minute),
+			wait.ForHTTP("/v1/models").WithPort(nat.Port(defaultApiPort)).WithStartupTimeout(10*time.Minute),
 		),
 	}
 

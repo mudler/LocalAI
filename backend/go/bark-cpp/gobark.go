@@ -1,7 +1,7 @@
 package main
 
-// #cgo CXXFLAGS: -I${SRCDIR}/../../../sources/bark.cpp/ -I${SRCDIR}/../../../sources/bark.cpp/encodec.cpp -I${SRCDIR}/../../../sources/bark.cpp/examples -I${SRCDIR}/../../../sources/bark.cpp/spm-headers
-// #cgo LDFLAGS: -L${SRCDIR}/ -L${SRCDIR}/../../../sources/bark.cpp/build/examples -L${SRCDIR}/../../../sources/bark.cpp/build/encodec.cpp/ -lbark -lencodec -lcommon
+// #cgo CXXFLAGS: -I${SRCDIR}/sources/bark.cpp/ -I${SRCDIR}/sources/bark.cpp/encodec.cpp -I${SRCDIR}/sources/bark.cpp/encodec.cpp/ggml/include -I${SRCDIR}/sources/bark.cpp/examples -I${SRCDIR}/sources/bark.cpp/spm-headers
+// #cgo LDFLAGS: -L${SRCDIR}/ -L${SRCDIR}/sources/bark.cpp/build/examples -L${SRCDIR}/sources/bark.cpp/build/encodec.cpp/ggml/src/ -L${SRCDIR}/sources/bark.cpp/build/encodec.cpp/ -lbark -lencodec -lcommon -lggml -lgomp
 // #include <gobark.h>
 // #include <stdlib.h>
 import "C"

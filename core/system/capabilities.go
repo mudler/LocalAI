@@ -2,6 +2,7 @@ package system
 
 import (
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -12,7 +13,26 @@ type SystemState struct {
 	GPUVendor string
 }
 
-func (s *SystemState) Capability() string {
+const (
+	defaultCapability = "default"
+	nvidiaL4T         = "nvidia-l4t"
+	darwinX86         = "darwin-x86"
+	metal             = "metal"
+)
+
+func (s *SystemState) Capability(capMap map[string]string) string {
+	reportedCapability := s.getSystemCapabilities()
+
+	// Check if the reported capability is in the map
+	if _, exists := capMap[reportedCapability]; exists {
+		return reportedCapability
+	}
+
+	// Otherwise, return the default capability (catch-all)
+	return defaultCapability
+}
+
+func (s *SystemState) getSystemCapabilities() string {
 	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") != "" {
 		return os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
 	}
@@ -30,6 +50,27 @@ func (s *SystemState) Capability() string {
 		if err == nil {
 			return string(capability)
 		}
+	}
+
+	// If we are on mac and arm64, we will return metal
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		return metal
+	}
+
+	// If we are on mac and x86, we will return darwin-x86
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		return darwinX86
+	}
+
+	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
+	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
+		if s.GPUVendor == "nvidia" {
+			return nvidiaL4T
+		}
+	}
+
+	if s.GPUVendor == "" {
+		return defaultCapability
 	}
 
 	return s.GPUVendor
