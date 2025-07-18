@@ -239,7 +239,7 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
 
 FROM build-requirements AS builder-base
 
-ARG GO_TAGS="tts p2p"
+ARG GO_TAGS="p2p"
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
@@ -315,11 +315,6 @@ COPY . .
 ## Otherwise just run the normal build
 RUN make build
 
-RUN if [ ! -d "/build/sources/go-piper/piper-phonemize/pi/lib/" ]; then \
-        mkdir -p /build/sources/go-piper/piper-phonemize/pi/lib/ \
-        touch /build/sources/go-piper/piper-phonemize/pi/lib/keep \
-    ; fi
-
 ###################################
 ###################################
 
@@ -361,9 +356,6 @@ COPY ./entrypoint.sh .
 
 # Copy the binary
 COPY --from=builder /build/local-ai ./
-
-# Copy shared libraries for piper
-COPY --from=builder /build/sources/go-piper/piper-phonemize/pi/lib/* /usr/lib/
 
 # Make sure the models directory exists
 RUN mkdir -p /models /backends

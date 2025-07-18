@@ -3,7 +3,7 @@ reranking: true
 f16: true
 parameters:
   model: jina-reranker-v1-tiny-en.f16.gguf
-
+backend: llama-cpp
 download_files:
   - filename: jina-reranker-v1-tiny-en.f16.gguf
     sha256: 5f696cf0d0f3d347c4a279eee8270e5918554cdac0ed1f632f2619e4e8341407

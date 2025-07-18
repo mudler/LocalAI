@@ -51,7 +51,7 @@ fi
 if [ -f $CURDIR/lib/ld.so ]; then
 	echo "Using lib/ld.so"
 	echo "Using binary: $BINARY"
-	$CURDIR/lib/ld.so $CURDIR/$BINARY "$@"
+	exec $CURDIR/lib/ld.so $CURDIR/$BINARY "$@"
 fi
 
 echo "Using binary: $BINARY"

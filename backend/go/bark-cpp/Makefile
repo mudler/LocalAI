@@ -42,7 +42,10 @@ bark-cpp: libbark.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" C_INCLUDE_PATH="$(CURDIR)" LIBRARY_PATH=$(CURDIR) \
 	$(GOCMD) build -v -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o bark-cpp ./
 
-build: bark-cpp
+package:
+	bash package.sh
+
+build: bark-cpp package
 
 clean:
 	rm -f gobark.o libbark.a

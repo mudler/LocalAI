@@ -9,10 +9,6 @@ DETECT_LIBS?=true
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
 WHISPER_CPP_VERSION?=032697b9a850dc2615555e2a93a683cc3dd58559
 
-# go-piper version
-PIPER_REPO?=https://github.com/mudler/go-piper
-PIPER_VERSION?=e10ca041a885d4a8f3871d52924b47792d5e5aa0
-
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
 STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
@@ -209,14 +205,6 @@ ifeq ($(STATIC),true)
 	LD_FLAGS+=-linkmode external -extldflags -static
 endif
 
-ifeq ($(findstring tts,$(GO_TAGS)),tts)
-#	OPTIONAL_TARGETS+=go-piper/libpiper_binding.a
-#	OPTIONAL_TARGETS+=backend-assets/espeak-ng-data
-	PIPER_CGO_CXXFLAGS+=-I$(CURDIR)/sources/go-piper/piper/src/cpp -I$(CURDIR)/sources/go-piper/piper/build/fi/include -I$(CURDIR)/sources/go-piper/piper/build/pi/include -I$(CURDIR)/sources/go-piper/piper/build/si/include
-	PIPER_CGO_LDFLAGS+=-L$(CURDIR)/sources/go-piper/piper/build/fi/lib -L$(CURDIR)/sources/go-piper/piper/build/pi/lib -L$(CURDIR)/sources/go-piper/piper/build/si/lib -lfmt -lspdlog -lucd
-	OPTIONAL_GRPC+=backend-assets/grpc/piper
-endif
-
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
 
@@ -247,19 +235,6 @@ endif
 .PHONY: all test build vendor get-sources prepare-sources prepare
 
 all: help
-
-## go-piper
-sources/go-piper:
-	mkdir -p sources/go-piper
-	cd sources/go-piper && \
-	git init && \
-	git remote add origin $(PIPER_REPO) && \
-	git fetch origin && \
-	git checkout $(PIPER_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-sources/go-piper/libpiper_binding.a: sources/go-piper
-	$(MAKE) -C sources/go-piper libpiper_binding.a example/main piper.o
 
 ## stablediffusion (ggml)
 sources/stablediffusion-ggml.cpp:
@@ -303,17 +278,15 @@ sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
-get-sources: sources/go-piper sources/stablediffusion-ggml.cpp sources/whisper.cpp
+get-sources: sources/stablediffusion-ggml.cpp sources/whisper.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -replace github.com/mudler/go-piper=$(CURDIR)/sources/go-piper
 
 dropreplace:
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp
 	$(GOCMD) mod edit -dropreplace github.com/ggerganov/whisper.cpp/bindings/go
-	$(GOCMD) mod edit -dropreplace github.com/mudler/go-piper
 
 prepare-sources: get-sources replace
 	$(GOCMD) mod download
@@ -322,7 +295,6 @@ prepare-sources: get-sources replace
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) -C sources/whisper.cpp clean
-	$(MAKE) -C sources/go-piper clean
 	$(MAKE) build
 
 prepare: prepare-sources $(OPTIONAL_TARGETS)
@@ -376,11 +348,8 @@ backend-assets/lib:
 	mkdir -p backend-assets/lib
 
 dist:
-	GO_TAGS="tts p2p" $(MAKE) build
-ifeq ($(DETECT_LIBS),true)
-	scripts/prepare-libs.sh backend-assets/grpc/piper
-endif
-	GO_TAGS="tts p2p" STATIC=true $(MAKE) build
+	GO_TAGS="p2p" $(MAKE) build
+	GO_TAGS="p2p" STATIC=true $(MAKE) build
 	mkdir -p release
 # if BUILD_ID is empty, then we don't append it to the binary name
 ifeq ($(BUILD_ID),)
@@ -418,7 +387,7 @@ prepare-test: grpcs
 ## Test targets
 test: prepare test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
-	export GO_TAGS="tts debug"
+	export GO_TAGS="debug"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
@@ -428,6 +397,9 @@ test: prepare test-models/testmodel.ggml grpcs
 
 backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build-api
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
+backends/piper: docker-build-piper docker-save-piper build-api
+	./local-ai backends install "ocifile://$(abspath ./backend-images/piper.tar)"
 
 ########################################################
 ## AIO tests
@@ -652,9 +624,6 @@ ifeq ($(BUILD_API_ONLY),true)
 	touch backend-assets/keep
 endif
 
-backend-assets/espeak-ng-data: sources/go-piper sources/go-piper/libpiper_binding.a
-	mkdir -p backend-assets/espeak-ng-data
-	@cp -rf sources/go-piper/piper-phonemize/pi/share/espeak-ng-data/. backend-assets/espeak-ng-data
 
 backend-assets/grpc:
 	mkdir -p backend-assets/grpc
@@ -663,13 +632,6 @@ backend-assets/grpc/huggingface: protogen-go backend-assets/grpc
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/huggingface ./backend/go/llm/langchain/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/huggingface
-endif
-
-backend-assets/grpc/piper: protogen-go replace sources/go-piper sources/go-piper/libpiper_binding.a backend-assets/grpc backend-assets/espeak-ng-data
-	CGO_CXXFLAGS="$(PIPER_CGO_CXXFLAGS)" CGO_LDFLAGS="$(PIPER_CGO_LDFLAGS)" LIBRARY_PATH=$(CURDIR)/sources/go-piper \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/piper ./backend/go/tts/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/piper
 endif
 
 backend-assets/grpc/silero-vad: protogen-go replace backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
@@ -762,9 +724,17 @@ docker-build-llama-cpp:
 docker-build-bark-cpp:
 	docker build -t local-ai-backend:bark-cpp -f backend/Dockerfile.go --build-arg BACKEND=bark-cpp .
 
+docker-build-piper:
+	docker build -t local-ai-backend:piper -f backend/Dockerfile.go --build-arg BACKEND=piper .
+
+docker-save-piper: backend-images
+	docker save local-ai-backend:piper -o backend-images/piper.tar
+
 docker-save-llama-cpp: backend-images
 	docker save local-ai-backend:llama-cpp -o backend-images/llama-cpp.tar
 	
+docker-save-bark-cpp: backend-images
+	docker save local-ai-backend:bark-cpp -o backend-images/bark-cpp.tar
 
 docker-build-rerankers:
 	docker build -t local-ai-backend:rerankers -f backend/Dockerfile.python --build-arg BACKEND=rerankers .

@@ -1,5 +1,6 @@
 context_size: 4096
 f16: true
+backend: llama-cpp
 function:
   capture_llm_results:
   - (?s)<Thought>(.*?)</Thought>
