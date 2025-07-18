@@ -1,5 +1,5 @@
 
-LLAMA_VERSION?=e75ba4c0434eb759eb7ff74e034ebe729053e575
+LLAMA_VERSION?=bf9087f59aab940cf312b85a67067ce33d9e365a
 LLAMA_REPO?=https://github.com/ggerganov/llama.cpp
 
 CMAKE_ARGS?=
