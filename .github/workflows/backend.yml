@@ -746,6 +746,18 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.go"
             context: "./"
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            skip-drivers: 'true'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-arm64-stablediffusion-ggml'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            runs-on: 'ubuntu-24.04-arm'
+            backend: "stablediffusion-ggml"
+            dockerfile: "./backend/Dockerfile.go"
+            context: "./"
   llama-cpp-darwin:
     runs-on: macOS-14
     strategy:
