@@ -19,7 +19,7 @@ LD_FLAGS?=
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
+STABLEDIFFUSION_GGML_VERSION?=10c6501bd05a697e014f1bee3a84e5664290c489
 
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
