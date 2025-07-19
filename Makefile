@@ -9,10 +9,6 @@ DETECT_LIBS?=true
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
 WHISPER_CPP_VERSION?=032697b9a850dc2615555e2a93a683cc3dd58559
 
-# stablediffusion.cpp (ggml)
-STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
-
 # ONEAPI variables for SYCL
 export ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 ONEAPI_VERSION=2025.1
@@ -207,13 +203,6 @@ endif
 
 ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
 ALL_GRPC_BACKENDS+=backend-assets/grpc/whisper
-
-ifeq ($(ONNX_OS),linux)
-ifeq ($(ONNX_ARCH),x64)
-	ALL_GRPC_BACKENDS+=backend-assets/grpc/stablediffusion-ggml
-endif
-endif
-
 ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
 ALL_GRPC_BACKENDS+=backend-assets/grpc/silero-vad
 ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
@@ -235,20 +224,6 @@ endif
 .PHONY: all test build vendor get-sources prepare-sources prepare
 
 all: help
-
-## stablediffusion (ggml)
-sources/stablediffusion-ggml.cpp:
-	git clone --recursive $(STABLEDIFFUSION_GGML_REPO) sources/stablediffusion-ggml.cpp && \
-	cd sources/stablediffusion-ggml.cpp && \
-	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
-	git submodule update --init --recursive --depth 1 --single-branch
-
-backend/go/image/stablediffusion-ggml/libsd.a: sources/stablediffusion-ggml.cpp
-	$(MAKE) -C backend/go/image/stablediffusion-ggml build/libstable-diffusion.a
-	$(MAKE) -C backend/go/image/stablediffusion-ggml libsd.a
-
-backend-assets/grpc/stablediffusion-ggml: backend/go/image/stablediffusion-ggml/libsd.a backend-assets/grpc
-	$(MAKE) -C backend/go/image/stablediffusion-ggml CGO_LDFLAGS="$(CGO_LDFLAGS)" stablediffusion-ggml
 
 sources/onnxruntime:
 	mkdir -p sources/onnxruntime
@@ -278,7 +253,7 @@ sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
-get-sources: sources/stablediffusion-ggml.cpp sources/whisper.cpp
+get-sources: sources/whisper.cpp
 
 replace:
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
@@ -307,7 +282,6 @@ clean: ## Remove build related file
 	rm -rf release/
 	rm -rf backend-assets/*
 	$(MAKE) -C backend/cpp/grpc clean
-	$(MAKE) -C backend/go/image/stablediffusion-ggml clean
 	$(MAKE) dropreplace
 	$(MAKE) protogen-clean
 	rmdir pkg/grpc/proto || true
@@ -400,6 +374,9 @@ backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build-api
 
 backends/piper: docker-build-piper docker-save-piper build-api
 	./local-ai backends install "ocifile://$(abspath ./backend-images/piper.tar)"
+
+backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build-api
+	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
 
 ########################################################
 ## AIO tests
@@ -735,6 +712,12 @@ docker-save-llama-cpp: backend-images
 	
 docker-save-bark-cpp: backend-images
 	docker save local-ai-backend:bark-cpp -o backend-images/bark-cpp.tar
+
+docker-build-stablediffusion-ggml:
+	docker build -t local-ai-backend:stablediffusion-ggml -f backend/Dockerfile.go --build-arg BACKEND=stablediffusion-ggml .
+
+docker-save-stablediffusion-ggml: backend-images
+	docker save local-ai-backend:stablediffusion-ggml -o backend-images/stablediffusion-ggml.tar
 
 docker-build-rerankers:
 	docker build -t local-ai-backend:rerankers -f backend/Dockerfile.python --build-arg BACKEND=rerankers .

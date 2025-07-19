@@ -103,7 +103,7 @@ jobs:
 
           make -C backend/python/transformers
 
-          make backends/llama-cpp backends/piper
+          make backends/llama-cpp backends/piper backends/stablediffusion-ggml
         env:
           CUDA_VERSION: 12-4
       - name: Test
@@ -168,7 +168,7 @@ jobs:
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Test
         run: |
-            PATH="$PATH:$HOME/go/bin" make backends/llama-cpp backends/piper docker-build-aio e2e-aio
+            PATH="$PATH:$HOME/go/bin" make backends/llama-cpp backends/piper backends/stablediffusion-ggml docker-build-aio e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.22

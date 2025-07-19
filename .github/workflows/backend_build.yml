@@ -64,7 +64,7 @@ on:
         required: true
 
 jobs:
-  reusable_python_backend-build:
+  backend-build:
     runs-on: ${{ inputs.runs-on }}
     steps:
 

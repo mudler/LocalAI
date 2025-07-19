@@ -4,9 +4,11 @@ LIBRARY_PATH := $(abspath ./)
 AR?=ar
 CMAKE_ARGS?=
 BUILD_TYPE?=
+NATIVE?=false
+CUDA_LIBPATH?=/usr/local/cuda/lib64/
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 # keep standard at C11 and C++11
-CXXFLAGS = -I. -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
+CXXFLAGS = -I. -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
 
 GOCMD?=go
 CGO_LDFLAGS?=
@@ -15,12 +17,21 @@ CGO_LDFLAGS_SYCL=
 GO_TAGS?=
 LD_FLAGS?=
 
+# stablediffusion.cpp (ggml)
+STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
+STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
+
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
 
+ifeq ($(NATIVE),false)
+	CMAKE_ARGS+=-DGGML_NATIVE=OFF
+endif
+
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
-	CMAKE_ARGS+=-DSD_CUDA=ON
+	CMAKE_ARGS+=-DSD_CUDA=ON -DGGML_CUDA=ON
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 # If build type is openblas then we set -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 # to CMAKE_ARGS automatically
 else ifeq ($(BUILD_TYPE),openblas)
@@ -30,14 +41,17 @@ else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DSD_HIPBLAS=ON
+	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DGGML_HIPBLAS=ON
 # If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
 # But if it's OSX without metal, disable it here
+else ifeq ($(BUILD_TYPE),vulkan)
+	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
+	CGO_LDFLAGS+=-lvulkan
 else ifeq ($(OS),Darwin)
 	ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DSD_METAL=OFF
+		CMAKE_ARGS+=-DSD_METAL=OFF -DGGML_METAL=OFF
 	else
-		CMAKE_ARGS+=-DSD_METAL=ON
+		CMAKE_ARGS+=-DSD_METAL=ON -DGGML_METAL=ON
 		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
 		TARGET+=--target ggml-metal
 	endif
@@ -49,8 +63,8 @@ ifeq ($(BUILD_TYPE),sycl_f16)
 		-DCMAKE_CXX_COMPILER=icpx \
 		-DSD_SYCL=ON \
 		-DGGML_SYCL_F16=ON
-	CC=icx
-	CXX=icpx
+	export CC=icx
+	export CXX=icpx
 	CGO_LDFLAGS_SYCL += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
 	CGO_LDFLAGS_SYCL += $(shell pkg-config --libs mkl-static-lp64-gomp)
 	CGO_CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
@@ -62,8 +76,8 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DCMAKE_C_COMPILER=icx \
 		-DCMAKE_CXX_COMPILER=icpx \
 		-DSD_SYCL=ON
-	CC=icx
-	CXX=icpx
+	export CC=icx
+	export CXX=icpx
 	CGO_LDFLAGS_SYCL += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
 	CGO_LDFLAGS_SYCL += $(shell pkg-config --libs mkl-static-lp64-gomp)
 	CGO_CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
@@ -101,12 +115,12 @@ ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
 	mkdir -p build && \
 	cd build && \
-	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
+	cmake $(CMAKE_ARGS) ../sources/stablediffusion-ggml.cpp && \
 	cmake --build . --config Release"
 else
 	mkdir -p build && \
 	cd build && \
-	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
+	cmake $(CMAKE_ARGS) ../sources/stablediffusion-ggml.cpp && \
 	cmake --build . --config Release
 endif
 	$(MAKE) $(COMBINED_LIB)
@@ -119,17 +133,26 @@ else
 	$(CXX) $(CXXFLAGS) gosd.cpp -o gosd.o -c
 endif
 
-libsd.a: gosd.o
+## stablediffusion (ggml)
+sources/stablediffusion-ggml.cpp:
+	git clone --recursive $(STABLEDIFFUSION_GGML_REPO) sources/stablediffusion-ggml.cpp && \
+	cd sources/stablediffusion-ggml.cpp && \
+	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
+	git submodule update --init --recursive --depth 1 --single-branch
+
+libsd.a: sources/stablediffusion-ggml.cpp build/libstable-diffusion.a gosd.o
 	cp $(INCLUDE_PATH)/build/libstable-diffusion.a ./libsd.a
 	$(AR) rcs libsd.a gosd.o
 
-stablediffusion-ggml:
+stablediffusion-ggml: libsd.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_SYCL)" C_INCLUDE_PATH="$(INCLUDE_PATH)" LIBRARY_PATH="$(LIBRARY_PATH)" \
 	CC="$(CC)" CXX="$(CXX)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o ../../../../backend-assets/grpc/stablediffusion-ggml ./
-ifneq ($(UPX),)
-	$(UPX) ../../../../backend-assets/grpc/stablediffusion-ggml
-endif
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o stablediffusion-ggml ./
+
+package:
+	bash package.sh
+
+build: stablediffusion-ggml package
 
 clean:
 	rm -rf gosd.o libsd.a build $(COMBINED_LIB)
