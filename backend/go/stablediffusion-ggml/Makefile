@@ -6,7 +6,7 @@ CMAKE_ARGS?=
 BUILD_TYPE?=
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 # keep standard at C11 and C++11
-CXXFLAGS = -I. -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/../../../../sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
+CXXFLAGS = -I. -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
 
 GOCMD?=go
 CGO_LDFLAGS?=
@@ -14,6 +14,10 @@ CGO_LDFLAGS?=
 CGO_LDFLAGS_SYCL=
 GO_TAGS?=
 LD_FLAGS?=
+
+# stablediffusion.cpp (ggml)
+STABLEDIFFUSION_GGML_REPO?=https://github.com/richiejp/stable-diffusion.cpp
+STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
 
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
@@ -101,12 +105,12 @@ ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
 	mkdir -p build && \
 	cd build && \
-	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
+	cmake $(CMAKE_ARGS) ../sources/stablediffusion-ggml.cpp && \
 	cmake --build . --config Release"
 else
 	mkdir -p build && \
 	cd build && \
-	cmake $(CMAKE_ARGS) ../../../../../sources/stablediffusion-ggml.cpp && \
+	cmake $(CMAKE_ARGS) ../sources/stablediffusion-ggml.cpp && \
 	cmake --build . --config Release
 endif
 	$(MAKE) $(COMBINED_LIB)
@@ -119,17 +123,26 @@ else
 	$(CXX) $(CXXFLAGS) gosd.cpp -o gosd.o -c
 endif
 
-libsd.a: gosd.o
+## stablediffusion (ggml)
+sources/stablediffusion-ggml.cpp:
+	git clone --recursive $(STABLEDIFFUSION_GGML_REPO) sources/stablediffusion-ggml.cpp && \
+	cd sources/stablediffusion-ggml.cpp && \
+	git checkout $(STABLEDIFFUSION_GGML_VERSION) && \
+	git submodule update --init --recursive --depth 1 --single-branch
+
+libsd.a: sources/stablediffusion-ggml.cpp build/libstable-diffusion.a gosd.o
 	cp $(INCLUDE_PATH)/build/libstable-diffusion.a ./libsd.a
 	$(AR) rcs libsd.a gosd.o
 
-stablediffusion-ggml:
+stablediffusion-ggml: libsd.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_SYCL)" C_INCLUDE_PATH="$(INCLUDE_PATH)" LIBRARY_PATH="$(LIBRARY_PATH)" \
 	CC="$(CC)" CXX="$(CXX)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o ../../../../backend-assets/grpc/stablediffusion-ggml ./
-ifneq ($(UPX),)
-	$(UPX) ../../../../backend-assets/grpc/stablediffusion-ggml
-endif
+	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o stablediffusion-ggml ./
+
+package:
+	bash package.sh
+
+build: stablediffusion-ggml package
 
 clean:
 	rm -rf gosd.o libsd.a build $(COMBINED_LIB)
