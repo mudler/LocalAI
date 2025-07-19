@@ -1,5 +1,6 @@
 context_size: 8192
 f16: true
+backend: llama-cpp
 function:
   grammar:
     no_mixed_free_string: true

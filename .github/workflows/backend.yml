@@ -598,6 +598,19 @@ jobs:
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+          # piper
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'true'
+            tag-suffix: '-piper'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "piper"
+            dockerfile: "./backend/Dockerfile.go"
+            context: "./"
           # bark-cpp
           - build-type: ''
             cuda-major-version: ""

@@ -1,4 +1,5 @@
 context_size: 4096
+backend: llama-cpp
 f16: true
 mmap: true
 mmproj: minicpm-v-2_6-mmproj-f16.gguf

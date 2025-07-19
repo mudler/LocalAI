@@ -103,12 +103,7 @@ jobs:
 
           make -C backend/python/transformers
 
-          # Pre-build piper before we start tests in order to have shared libraries in place
-          make sources/go-piper && \
-          GO_TAGS="tts" make -C sources/go-piper piper.o && \
-          sudo cp -rfv sources/go-piper/piper-phonemize/pi/lib/. /usr/lib/
-
-          make backends/llama-cpp
+          make backends/llama-cpp backends/piper
         env:
           CUDA_VERSION: 12-4
       - name: Test
@@ -173,7 +168,7 @@ jobs:
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Test
         run: |
-            PATH="$PATH:$HOME/go/bin" make backends/llama-cpp docker-build-aio e2e-aio
+            PATH="$PATH:$HOME/go/bin" make backends/llama-cpp backends/piper docker-build-aio e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.22

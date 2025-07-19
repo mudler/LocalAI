@@ -224,6 +224,26 @@
   name: "chatterbox"
   capabilities:
     nvidia: "cuda12-chatterbox"
+- &piper
+  name: "piper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
+  icon: https://github.com/OHF-Voice/piper1-gpl/raw/main/etc/logo.png
+  urls:
+    - https://github.com/rhasspy/piper
+    - https://github.com/mudler/go-piper
+  license: MIT
+  description: |
+     A fast, local neural text to speech system
+  tags:
+    - text-to-speech
+    - TTS
+  capabilities:
+    nvidia: "cuda12-piper"
+    intel: "intel-sycl-f32-piper"
+    amd: "rocm-piper"
+- !!merge <<: *piper
+  name: "piper-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-piper"
 ## llama-cpp
 - !!merge <<: *llamacpp
   name: "darwin-x86-llama-cpp"

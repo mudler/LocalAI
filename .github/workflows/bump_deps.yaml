@@ -32,7 +32,7 @@ jobs:
           - repository: "mudler/go-piper"
             variable: "PIPER_VERSION"
             branch: "master"
-            file: "Makefile"
+            file: "backend/go/piper/Makefile"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

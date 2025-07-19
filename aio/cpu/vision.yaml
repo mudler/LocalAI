@@ -1,5 +1,6 @@
 context_size: 4096
 f16: true
+backend: llama-cpp
 mmap: true
 mmproj: minicpm-v-2_6-mmproj-f16.gguf
 name: gpt-4o

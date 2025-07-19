@@ -128,5 +128,4 @@ RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} bu
 FROM scratch
 ARG BACKEND=rerankers
 
-COPY --from=builder /LocalAI/backend/go/${BACKEND}/${BACKEND} ./
-COPY --from=builder /LocalAI/backend/go/${BACKEND}/run.sh ./
+COPY --from=builder /LocalAI/backend/go/${BACKEND}/package/. ./

@@ -533,10 +533,6 @@ var _ = Describe("API test", func() {
 
 			galleries := []config.Gallery{
 				{
-					Name: "model-gallery",
-					URL:  "https://raw.githubusercontent.com/go-skynet/model-gallery/main/index.yaml",
-				},
-				{
 					Name: "localai",
 					URL:  "https://raw.githubusercontent.com/mudler/LocalAI/refs/heads/master/gallery/index.yaml",
 				},
@@ -665,7 +661,7 @@ var _ = Describe("API test", func() {
 			}
 
 			response := postModelApplyRequest("http://127.0.0.1:9090/models/apply", modelApplyRequest{
-				ID: "model-gallery@voice-en-us-kathleen-low",
+				ID: "localai@voice-en-us-kathleen-low",
 			})
 
 			Expect(response["uuid"]).ToNot(BeEmpty(), fmt.Sprint(response))
@@ -679,7 +675,7 @@ var _ = Describe("API test", func() {
 			}, "360s", "10s").Should(Equal(true))
 
 			// An HTTP Post to the /tts endpoint should return a wav audio file
-			resp, err := http.Post("http://127.0.0.1:9090/tts", "application/json", bytes.NewBuffer([]byte(`{"input": "Hello world", "model": "en-us-kathleen-low.onnx"}`)))
+			resp, err := http.Post("http://127.0.0.1:9090/tts", "application/json", bytes.NewBuffer([]byte(`{"input": "Hello world", "model": "voice-en-us-kathleen-low"}`)))
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))
 			dat, err := io.ReadAll(resp.Body)
 			Expect(err).ToNot(HaveOccurred(), fmt.Sprint(resp))

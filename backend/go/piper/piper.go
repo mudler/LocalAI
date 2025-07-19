@@ -23,7 +23,7 @@ func (sd *Piper) Load(opts *pb.ModelOptions) error {
 	}
 	var err error
 	// Note: the Model here is a path to a directory containing the model files
-	sd.piper, err = New(opts.LibrarySearchPath)
+	sd.piper, err = New(os.Getenv("ESPEAK_NG_DATA"))
 	return err
 }
 

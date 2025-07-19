@@ -45,7 +45,6 @@ var TypeAlias map[string]string = map[string]string{
 const (
 	WhisperBackend             = "whisper"
 	StableDiffusionGGMLBackend = "stablediffusion-ggml"
-	PiperBackend               = "piper"
 	LCHuggingFaceBackend       = "huggingface"
 
 	TransformersBackend = "transformers"
@@ -286,17 +285,7 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 		backend = realBackend
 	}
 
-	var backendToConsume string
-
-	switch backend {
-	case PiperBackend:
-		o.gRPCOptions.LibrarySearchPath = filepath.Join(o.assetDir, "backend-assets", "espeak-ng-data")
-		backendToConsume = PiperBackend
-	default:
-		backendToConsume = backend
-	}
-
-	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backendToConsume, o))
+	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
 		return nil, err
 	}
