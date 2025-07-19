@@ -45,6 +45,7 @@ else ifeq ($(BUILD_TYPE),hipblas)
 # But if it's OSX without metal, disable it here
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
+	CGO_LDFLAGS+=-lvulkan
 else ifeq ($(OS),Darwin)
 	ifneq ($(BUILD_TYPE),metal)
 		CMAKE_ARGS+=-DSD_METAL=OFF -DGGML_METAL=OFF
