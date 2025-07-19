@@ -5,7 +5,7 @@ AR?=ar
 CMAKE_ARGS?=
 BUILD_TYPE?=
 NATIVE?=false
-
+CUDA_LIBPATH?=/usr/local/cuda/lib64/
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 # keep standard at C11 and C++11
 CXXFLAGS = -I. -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
@@ -31,6 +31,7 @@ endif
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
 	CMAKE_ARGS+=-DSD_CUDA=ON -DGGML_CUDA=ON
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 # If build type is openblas then we set -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 # to CMAKE_ARGS automatically
 else ifeq ($(BUILD_TYPE),openblas)
