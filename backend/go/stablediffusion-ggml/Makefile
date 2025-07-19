@@ -4,6 +4,8 @@ LIBRARY_PATH := $(abspath ./)
 AR?=ar
 CMAKE_ARGS?=
 BUILD_TYPE?=
+NATIVE?=false
+
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 # keep standard at C11 and C++11
 CXXFLAGS = -I. -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/thirdparty -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp/ggml/include -I$(INCLUDE_PATH)/sources/stablediffusion-ggml.cpp -O3 -DNDEBUG -std=c++17 -fPIC
@@ -22,9 +24,13 @@ STABLEDIFFUSION_GGML_VERSION?=53e3b17eb3d0b5760ced06a1f98320b68b34aaae
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF
 
+ifeq ($(NATIVE),false)
+	CMAKE_ARGS+=-DGGML_NATIVE=OFF
+endif
+
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
-	CMAKE_ARGS+=-DSD_CUDA=ON
+	CMAKE_ARGS+=-DSD_CUDA=ON -DGGML_CUDA=ON
 # If build type is openblas then we set -DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS
 # to CMAKE_ARGS automatically
 else ifeq ($(BUILD_TYPE),openblas)
@@ -34,14 +40,16 @@ else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++
 else ifeq ($(BUILD_TYPE),hipblas)
-	CMAKE_ARGS+=-DSD_HIPBLAS=ON
+	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DGGML_HIPBLAS=ON
 # If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
 # But if it's OSX without metal, disable it here
+else ifeq ($(BUILD_TYPE),vulkan)
+	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
 	ifneq ($(BUILD_TYPE),metal)
-		CMAKE_ARGS+=-DSD_METAL=OFF
+		CMAKE_ARGS+=-DSD_METAL=OFF -DGGML_METAL=OFF
 	else
-		CMAKE_ARGS+=-DSD_METAL=ON
+		CMAKE_ARGS+=-DSD_METAL=ON -DGGML_METAL=ON
 		CMAKE_ARGS+=-DGGML_METAL_EMBED_LIBRARY=ON
 		TARGET+=--target ggml-metal
 	endif
@@ -53,8 +61,8 @@ ifeq ($(BUILD_TYPE),sycl_f16)
 		-DCMAKE_CXX_COMPILER=icpx \
 		-DSD_SYCL=ON \
 		-DGGML_SYCL_F16=ON
-	CC=icx
-	CXX=icpx
+	export CC=icx
+	export CXX=icpx
 	CGO_LDFLAGS_SYCL += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
 	CGO_LDFLAGS_SYCL += $(shell pkg-config --libs mkl-static-lp64-gomp)
 	CGO_CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
@@ -66,8 +74,8 @@ ifeq ($(BUILD_TYPE),sycl_f32)
 		-DCMAKE_C_COMPILER=icx \
 		-DCMAKE_CXX_COMPILER=icpx \
 		-DSD_SYCL=ON
-	CC=icx
-	CXX=icpx
+	export CC=icx
+	export CXX=icpx
 	CGO_LDFLAGS_SYCL += -fsycl -L${DNNLROOT}/lib -ldnnl ${MKLROOT}/lib/intel64/libmkl_sycl.a -fiopenmp -fopenmp-targets=spir64 -lOpenCL
 	CGO_LDFLAGS_SYCL += $(shell pkg-config --libs mkl-static-lp64-gomp)
 	CGO_CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
