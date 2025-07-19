@@ -27,6 +27,7 @@ ifeq ($(NATIVE),false)
 endif
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	CMAKE_ARGS+=-DGGML_CUDA=ON
 	CGO_LDFLAGS_WHISPER+=-lcufft -lggml-cuda
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-cuda/
@@ -114,7 +115,7 @@ sources/whisper.cpp:
 	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
-	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
+	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
 whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a
