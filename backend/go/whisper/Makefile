@@ -1,6 +1,7 @@
 GOCMD=go
 NATIVE?=false
 
+BUILD_TYPE?=
 CMAKE_ARGS?=
 
 # whisper.cpp version
@@ -15,6 +16,7 @@ export WHISPER_LIBRARY_PATH=$(WHISPER_DIR)/build/src/:$(WHISPER_DIR)/build/ggml/
 CGO_LDFLAGS_WHISPER?=
 CGO_LDFLAGS_WHISPER+=-lggml
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
+CUDA_LIBPATH?=/usr/local/cuda/lib64/
 
 # IF native is false, we add -DGGML_NATIVE=OFF to CMAKE_ARGS
 ifeq ($(NATIVE),false)
@@ -27,6 +29,7 @@ ifeq ($(NATIVE),false)
 endif
 # If build type is cublas, then we set -DGGML_CUDA=ON to CMAKE_ARGS automatically
 ifeq ($(BUILD_TYPE),cublas)
+	CGO_LDFLAGS+=-lcublas -lcudart -L$(CUDA_LIBPATH) -L$(CUDA_LIBPATH)/stubs/ -lcuda
 	CMAKE_ARGS+=-DGGML_CUDA=ON
 	CGO_LDFLAGS_WHISPER+=-lcufft -lggml-cuda
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-cuda/
@@ -74,21 +77,6 @@ else ifeq ($(OS),Darwin)
 	TARGET+=--target ggml-metal
 endif
 
-ifeq ($(BUILD_TYPE),sycl_f16)
-	CMAKE_ARGS+=-DGGML_SYCL=ON \
-		-DCMAKE_C_COMPILER=icx \
-		-DCMAKE_CXX_COMPILER=icpx \
-		-DCMAKE_CXX_FLAGS="-fsycl" \
-		-DGGML_SYCL_F16=ON
-endif
-
-ifeq ($(BUILD_TYPE),sycl_f32)
-	CMAKE_ARGS+=-DGGML_SYCL=ON \
-		-DCMAKE_C_COMPILER=icx \
-		-DCMAKE_CXX_COMPILER=icpx \
-		-DCMAKE_CXX_FLAGS="-fsycl"
-endif
-
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	export CC=icx
 	export CXX=icpx
@@ -97,6 +85,14 @@ ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	CGO_CXXFLAGS_WHISPER += -fiopenmp -fopenmp-targets=spir64
 	CGO_CXXFLAGS_WHISPER += $(shell pkg-config --cflags mkl-static-lp64-gomp )
 	export WHISPER_LIBRARY_PATH:=$(WHISPER_LIBRARY_PATH):$(WHISPER_DIR)/build/ggml/src/ggml-sycl/
+	CMAKE_ARGS+=-DGGML_SYCL=ON \
+		-DCMAKE_C_COMPILER=icx \
+		-DCMAKE_CXX_COMPILER=icpx \
+		-DCMAKE_CXX_FLAGS="-fsycl"
+endif
+
+ifeq ($(BUILD_TYPE),sycl_f16)
+	CMAKE_ARGS+=-DGGML_SYCL_F16=ON
 endif
 
 ifneq ($(OS),Darwin)
@@ -114,7 +110,7 @@ sources/whisper.cpp:
 	git submodule update --init --recursive --depth 1 --single-branch
 
 sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
-	cd sources/whisper.cpp && cmake $(WHISPER_CMAKE_ARGS) . -B ./build
+	cd sources/whisper.cpp && cmake $(CMAKE_ARGS) $(WHISPER_CMAKE_ARGS) . -B ./build
 	cd sources/whisper.cpp/build && cmake --build . --config Release
 
 whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a

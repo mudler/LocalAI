@@ -835,9 +835,10 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas-whisper'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
+            runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.go"
