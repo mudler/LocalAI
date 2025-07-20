@@ -7,7 +7,7 @@ DETECT_LIBS?=true
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
-WHISPER_CPP_VERSION?=032697b9a850dc2615555e2a93a683cc3dd58559
+WHISPER_CPP_VERSION?=c0dc39134904610778ac3c36554a5ba94531498a
 
 # ONEAPI variables for SYCL
 export ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
