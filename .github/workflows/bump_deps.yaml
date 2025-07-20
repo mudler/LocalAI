@@ -16,7 +16,7 @@ jobs:
           - repository: "ggml-org/whisper.cpp"
             variable: "WHISPER_CPP_VERSION"
             branch: "master"
-            file: "Makefile"
+            file: "backend/go/whisper/Makefile"
           - repository: "PABannier/bark.cpp"
             variable: "BARKCPP_VERSION"
             branch: "main"
