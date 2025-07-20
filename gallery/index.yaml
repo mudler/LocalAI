@@ -21,8 +21,8 @@
       model: HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf
   files:
     - filename: HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf
-      sha256: bb99120d551d869789d52fd8d50b9644a39013115159f218c5fc2c963bb658e2
       uri: huggingface://bartowski/HuggingFaceTB_SmolLM3-3B-GGUF/HuggingFaceTB_SmolLM3-3B-Q4_K_M.gguf
+      sha256: 519732558d5fa7420ab058e1b776dcfe73da78013c2fe59c7ca43c325ef89132
 - url: "github:mudler/LocalAI/gallery/moondream.yaml@master"
   license: apache-2.0
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65df6605dba41b152100edf9/LEUWPRTize9N7dMShjcPC.png
@@ -1007,7 +1007,7 @@
     - https://huggingface.co/arcee-ai/Homunculus
     - https://huggingface.co/bartowski/arcee-ai_Homunculus-GGUF
   description: |
-      Homunculus is a 12 billion-parameter instruction model distilled from Qwen3-235B onto the Mistral-Nemo backbone. It was purpose-built to preserve Qwen’s two-mode interaction style—/think (deliberate chain-of-thought) and /nothink (concise answers)—while running on a single consumer GPU.
+    Homunculus is a 12 billion-parameter instruction model distilled from Qwen3-235B onto the Mistral-Nemo backbone. It was purpose-built to preserve Qwen’s two-mode interaction style—/think (deliberate chain-of-thought) and /nothink (concise answers)—while running on a single consumer GPU.
   overrides:
     parameters:
       model: arcee-ai_Homunculus-Q4_K_M.gguf
@@ -1077,7 +1077,7 @@
   urls:
     - https://huggingface.co/OpenBuddy/OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT
     - https://huggingface.co/bartowski/OpenBuddy_OpenBuddy-R1-0528-Distill-Qwen3-32B-Preview0-QAT-GGUF
-  description: |
+  description: ""
   Base Model: Qwen/Qwen3-32B
   Context Length: 40K Tokens
   License: Apache 2.0
@@ -1117,8 +1117,8 @@
       model: Qwen3-Embedding-4B-Q4_K_M.gguf
   files:
     - filename: Qwen3-Embedding-4B-Q4_K_M.gguf
-      sha256: aaeddb737110a166dbc7155753bb60d8c3ba9a93e69938c18bf3fdd7f23f0381
       uri: huggingface://Qwen/Qwen3-Embedding-4B-GGUF/Qwen3-Embedding-4B-Q4_K_M.gguf
+      sha256: 2b0cf8f17b4c723c27303015383c27ec4bf2d8314bb677d05e920dd70bb0f16b
 - !!merge <<: *qwen3
   name: "qwen3-embedding-8b"
   tags:
@@ -1147,8 +1147,8 @@
       model: Qwen3-Embedding-8B-Q4_K_M.gguf
   files:
     - filename: Qwen3-Embedding-8B-Q4_K_M.gguf
-      sha256: 758749433c7954543f308a2bf850e4238c57aeb64834ee36ca6b3b57d33a147c
       uri: huggingface://Qwen/Qwen3-Embedding-8B-GGUF/Qwen3-Embedding-8B-Q4_K_M.gguf
+      sha256: 3fcd3febec8b3fd64435204db75bf0dd73b91e8d0661e0331acfe7e7c3120b85
 - !!merge <<: *qwen3
   name: "qwen3-embedding-0.6b"
   tags:
@@ -1177,8 +1177,8 @@
       model: Qwen3-Embedding-0.6B-Q8_0.gguf
   files:
     - filename: Qwen3-Embedding-0.6B-Q8_0.gguf
-      sha256: a0e820fb3f8f448d3582862f9161bfaf58a63f89b46353f061e017597655821c
       uri: huggingface://Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
+      sha256: 06507c7b42688469c4e7298b0a1e16deff06caf291cf0a5b278c308249c3e439
 - !!merge <<: *qwen3
   name: "yanfei-v2-qwen3-32b"
   icon: https://huggingface.co/nbeerbower/Yanfei-Qwen3-32B/resolve/main/yanfei_cover.png?download=true
@@ -1286,16 +1286,7 @@
   urls:
     - https://huggingface.co/Menlo/Jan-nano-128k
     - https://huggingface.co/bartowski/Menlo_Jan-nano-128k-GGUF
-  description: |
-    Jan-Nano-128k represents a significant advancement in compact language models for research applications. Building upon the success of Jan-Nano, this enhanced version features a native 128k context window that enables deeper, more comprehensive research capabilities without the performance degradation typically associated with context extension methods.
-
-    Key Improvements:
-
-        🔍 Research Deeper: Extended context allows for processing entire research papers, lengthy documents, and complex multi-turn conversations
-        ⚡ Native 128k Window: Built from the ground up to handle long contexts efficiently, maintaining performance across the full context range
-        📈 Enhanced Performance: Unlike traditional context extension methods, Jan-Nano-128k shows improved performance with longer contexts
-
-    This model maintains full compatibility with Model Context Protocol (MCP) servers while dramatically expanding the scope of research tasks it can handle in a single session.
+  description: "Jan-Nano-128k represents a significant advancement in compact language models for research applications. Building upon the success of Jan-Nano, this enhanced version features a native 128k context window that enables deeper, more comprehensive research capabilities without the performance degradation typically associated with context extension methods.\n\nKey Improvements:\n\n    \U0001F50D Research Deeper: Extended context allows for processing entire research papers, lengthy documents, and complex multi-turn conversations\n    ⚡ Native 128k Window: Built from the ground up to handle long contexts efficiently, maintaining performance across the full context range\n    \U0001F4C8 Enhanced Performance: Unlike traditional context extension methods, Jan-Nano-128k shows improved performance with longer contexts\n\nThis model maintains full compatibility with Model Context Protocol (MCP) servers while dramatically expanding the scope of research tasks it can handle in a single session.\n"
   overrides:
     parameters:
       model: Menlo_Jan-nano-128k-Q4_K_M.gguf
@@ -1331,7 +1322,6 @@
     - filename: Qwen3-55B-A3B-TOTAL-RECALL-V1.3.i1-Q4_K_M.gguf
       sha256: bcf5a1f8a40e9438a19b23dfb40e872561c310296c5ac804f937a0e3c1376def
       uri: huggingface://mradermacher/Qwen3-55B-A3B-TOTAL-RECALL-V1.3-i1-GGUF/Qwen3-55B-A3B-TOTAL-RECALL-V1.3.i1-Q4_K_M.gguf
-
 - !!merge <<: *qwen3
   name: "qwen3-55b-a3b-total-recall-deep-40x"
   icon: https://huggingface.co/DavidAU/Qwen3-55B-A3B-TOTAL-RECALL-V1.3/resolve/main/qwen3-total-recall.gif
@@ -1604,12 +1594,7 @@
   urls:
     - https://huggingface.co/HelpingAI/Dhanishtha-2.0-preview
     - https://huggingface.co/bartowski/HelpingAI_Dhanishtha-2.0-preview-GGUF
-  description: |
-    What makes Dhanishtha-2.0 special? Imagine an AI that doesn't just answer your questions instantly, but actually thinks through problems step-by-step, shows its work, and can even change its mind when it realizes a better approach. That's Dhanishtha-2.0.
-    Quick Summary:
-        🚀 For Everyone: An AI that shows its thinking process and can reconsider its reasoning
-        👩‍💻 For Developers: First model with intermediate thinking capabilities, 39+ language support
-    Dhanishtha-2.0 is a state-of-the-art (SOTA) model developed by HelpingAI, representing the world's first model to feature Intermediate Thinking capabilities. Unlike traditional models that provide single-pass responses, Dhanishtha-2.0 employs a revolutionary multi-phase thinking process that allows the model to think, reconsider, and refine its reasoning multiple times throughout a single response.
+  description: "What makes Dhanishtha-2.0 special? Imagine an AI that doesn't just answer your questions instantly, but actually thinks through problems step-by-step, shows its work, and can even change its mind when it realizes a better approach. That's Dhanishtha-2.0.\nQuick Summary:\n    \U0001F680 For Everyone: An AI that shows its thinking process and can reconsider its reasoning\n    \U0001F469‍\U0001F4BB For Developers: First model with intermediate thinking capabilities, 39+ language support\nDhanishtha-2.0 is a state-of-the-art (SOTA) model developed by HelpingAI, representing the world's first model to feature Intermediate Thinking capabilities. Unlike traditional models that provide single-pass responses, Dhanishtha-2.0 employs a revolutionary multi-phase thinking process that allows the model to think, reconsider, and refine its reasoning multiple times throughout a single response.\n"
   overrides:
     parameters:
       model: HelpingAI_Dhanishtha-2.0-preview-Q4_K_M.gguf
@@ -1681,7 +1666,7 @@
     - https://huggingface.co/zonghanHZH/ZonUI-3B
     - https://huggingface.co/mradermacher/Qwen-GUI-3B-i1-GGUF
   description: |
-      ZonUI-3B — A lightweight, resolution-aware GUI grounding model trained with only 24K samples on a single RTX 4090.
+    ZonUI-3B — A lightweight, resolution-aware GUI grounding model trained with only 24K samples on a single RTX 4090.
   overrides:
     parameters:
       model: Qwen-GUI-3B.i1-Q4_K_M.gguf
@@ -2411,11 +2396,11 @@
       model: medgemma-4b-it-Q4_K_M.gguf
   files:
     - filename: medgemma-4b-it-Q4_K_M.gguf
-      sha256: 2d20114e538b9f6d465a6714b66b976c2c030da84e54ad7954d661e54776f8fd
       uri: huggingface://unsloth/medgemma-4b-it-GGUF/medgemma-4b-it-Q4_K_M.gguf
+      sha256: d842e8d2aca3fc5e613c5f9255e693768eeccae729e5c2653159eb79afe751f3
     - filename: mmproj-medgemma-4b-it-F16.gguf
-      sha256: 13913a7e70893b09c40154cbd43456611ea58f12bfe1e5d4ad5b7e4875644dc3
       uri: https://huggingface.co/unsloth/medgemma-4b-it-GGUF/resolve/main/mmproj-F16.gguf
+      sha256: 1d45f34f8c2f1427a5555f400a63715b3e0c4191341fa2069d5205cb36195c33
 - !!merge <<: *gemma3
   name: "medgemma-27b-text-it"
   urls:
@@ -2543,9 +2528,9 @@
     - https://huggingface.co/huihui-ai/Huihui-gemma-3n-E4B-it-abliterated
     - https://huggingface.co/bartowski/huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-GGUF
   description: |
-      This is an uncensored version of google/gemma-3n-E4B-it created with abliteration (see remove-refusals-with-transformers to know more about it). This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
+    This is an uncensored version of google/gemma-3n-E4B-it created with abliteration (see remove-refusals-with-transformers to know more about it). This is a crude, proof-of-concept implementation to remove refusals from an LLM model without using TransformerLens.
 
-      It was only the text part that was processed, not the image part. After abliterated, it seems like more output content has been opened from a magic box.
+    It was only the text part that was processed, not the image part. After abliterated, it seems like more output content has been opened from a magic box.
   overrides:
     parameters:
       model: huihui-ai_Huihui-gemma-3n-E4B-it-abliterated-Q4_K_M.gguf
@@ -8962,12 +8947,7 @@
   urls:
     - https://huggingface.co/open-thoughts/OpenThinker3-7B
     - https://huggingface.co/bartowski/open-thoughts_OpenThinker3-7B-GGUF
-  description: |
-    State-of-the-art open-data 7B reasoning model. 🚀
-
-    This model is a fine-tuned version of Qwen/Qwen2.5-7B-Instruct on the OpenThoughts3-1.2M dataset. It represents a notable improvement over our previous models, OpenThinker-7B and OpenThinker2-7B, and it outperforms several other strong reasoning 7B models such as DeepSeek-R1-Distill-Qwen-7B and Llama-3.1-Nemotron-Nano-8B-v1, despite being trained only with SFT, without any RL.
-
-    This time, we also released a paper! See our paper and blog post for more details. OpenThinker3-32B to follow! 👀
+  description: "State-of-the-art open-data 7B reasoning model. \U0001F680\n\nThis model is a fine-tuned version of Qwen/Qwen2.5-7B-Instruct on the OpenThoughts3-1.2M dataset. It represents a notable improvement over our previous models, OpenThinker-7B and OpenThinker2-7B, and it outperforms several other strong reasoning 7B models such as DeepSeek-R1-Distill-Qwen-7B and Llama-3.1-Nemotron-Nano-8B-v1, despite being trained only with SFT, without any RL.\n\nThis time, we also released a paper! See our paper and blog post for more details. OpenThinker3-32B to follow! \U0001F440\n"
   overrides:
     parameters:
       model: open-thoughts_OpenThinker3-7B-Q4_K_M.gguf
@@ -11392,7 +11372,7 @@
     - https://huggingface.co/ockerman0/AnubisLemonade-70B-v1
     - https://huggingface.co/bartowski/ockerman0_AnubisLemonade-70B-v1-GGUF
   description: |
-      AnubisLemonade-70B-v1 is a 70B parameter model that is a follow-up to Anubis-70B-v1.1. It is a state-of-the-art (SOTA) model developed by ockerman0, representing the world's first model to feature Intermediate Thinking capabilities. Unlike traditional models that provide single-pass responses, AnubisLemonade-70B-v1 employs a revolutionary multi-phase thinking process that allows the model to think, reconsider, and refine its reasoning multiple times throughout a single response.
+    AnubisLemonade-70B-v1 is a 70B parameter model that is a follow-up to Anubis-70B-v1.1. It is a state-of-the-art (SOTA) model developed by ockerman0, representing the world's first model to feature Intermediate Thinking capabilities. Unlike traditional models that provide single-pass responses, AnubisLemonade-70B-v1 employs a revolutionary multi-phase thinking process that allows the model to think, reconsider, and refine its reasoning multiple times throughout a single response.
   overrides:
     parameters:
       model: ockerman0_AnubisLemonade-70B-v1-Q4_K_M.gguf
@@ -12075,13 +12055,13 @@
     - https://huggingface.co/PKU-DS-LAB/FairyR1-32B
     - https://huggingface.co/bartowski/PKU-DS-LAB_FairyR1-32B-GGUF
   description: |
-      FairyR1-32B, a highly efficient large-language-model (LLM) that matches or exceeds larger models on select tasks despite using only ~5% of their parameters. Built atop the DeepSeek-R1-Distill-Qwen-32B base, FairyR1-32B leverages a novel “distill-and-merge” pipeline—combining task-focused fine-tuning with model-merging techniques to deliver competitive performance with drastically reduced size and inference cost. This project was funded by NSFC, Grant 624B2005.
+    FairyR1-32B, a highly efficient large-language-model (LLM) that matches or exceeds larger models on select tasks despite using only ~5% of their parameters. Built atop the DeepSeek-R1-Distill-Qwen-32B base, FairyR1-32B leverages a novel “distill-and-merge” pipeline—combining task-focused fine-tuning with model-merging techniques to deliver competitive performance with drastically reduced size and inference cost. This project was funded by NSFC, Grant 624B2005.
 
-      The FairyR1 model represents a further exploration of our earlier work TinyR1, retaining the core “Branch-Merge Distillation” approach while introducing refinements in data processing and model architecture.
+    The FairyR1 model represents a further exploration of our earlier work TinyR1, retaining the core “Branch-Merge Distillation” approach while introducing refinements in data processing and model architecture.
 
-      In this effort, we overhauled the distillation data pipeline: raw examples from datasets such as AIMO/NuminaMath-1.5 for mathematics and OpenThoughts-114k for code were first passed through multiple 'teacher' models to generate candidate answers. These candidates were then carefully selected, restructured, and refined, especially for the chain-of-thought(CoT). Subsequently, we applied multi-stage filtering—including automated correctness checks for math problems and length-based selection (2K–8K tokens for math samples, 4K–8K tokens for code samples). This yielded two focused training sets of roughly 6.6K math examples and 3.8K code examples.
+    In this effort, we overhauled the distillation data pipeline: raw examples from datasets such as AIMO/NuminaMath-1.5 for mathematics and OpenThoughts-114k for code were first passed through multiple 'teacher' models to generate candidate answers. These candidates were then carefully selected, restructured, and refined, especially for the chain-of-thought(CoT). Subsequently, we applied multi-stage filtering—including automated correctness checks for math problems and length-based selection (2K–8K tokens for math samples, 4K–8K tokens for code samples). This yielded two focused training sets of roughly 6.6K math examples and 3.8K code examples.
 
-      On the modeling side, rather than training three separate specialists as before, we limited our scope to just two domain experts (math and code), each trained independently under identical hyperparameters (e.g., learning rate and batch size) for about five epochs. We then fused these experts into a single 32B-parameter model using the AcreeFusion tool. By streamlining both the data distillation workflow and the specialist-model merging process, FairyR1 achieves task-competitive results with only a fraction of the parameters and computational cost of much larger models.
+    On the modeling side, rather than training three separate specialists as before, we limited our scope to just two domain experts (math and code), each trained independently under identical hyperparameters (e.g., learning rate and batch size) for about five epochs. We then fused these experts into a single 32B-parameter model using the AcreeFusion tool. By streamlining both the data distillation workflow and the specialist-model merging process, FairyR1 achieves task-competitive results with only a fraction of the parameters and computational cost of much larger models.
   overrides:
     parameters:
       model: PKU-DS-LAB_FairyR1-32B-Q4_K_M.gguf
@@ -13592,21 +13572,7 @@
   urls:
     - https://huggingface.co/mistralai/Devstral-Small-2505
     - https://huggingface.co/bartowski/mistralai_Devstral-Small-2505-GGUF
-  description: |
-    Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI 🙌. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.
-
-    It is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.
-
-    For enterprises requiring specialized capabilities (increased context, domain-specific knowledge, etc.), we will release commercial models beyond what Mistral AI contributes to the community.
-
-    Learn more about Devstral in our blog post.
-    Key Features:
-
-        Agentic coding: Devstral is designed to excel at agentic coding tasks, making it a great choice for software engineering agents.
-        lightweight: with its compact size of just 24 billion parameters, Devstral is light enough to run on a single RTX 4090 or a Mac with 32GB RAM, making it an appropriate model for local deployment and on-device use.
-        Apache 2.0 License: Open license allowing usage and modification for both commercial and non-commercial purposes.
-        Context Window: A 128k context window.
-        Tokenizer: Utilizes a Tekken tokenizer with a 131k vocabulary size.
+  description: "Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI \U0001F64C. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.\n\nIt is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.\n\nFor enterprises requiring specialized capabilities (increased context, domain-specific knowledge, etc.), we will release commercial models beyond what Mistral AI contributes to the community.\n\nLearn more about Devstral in our blog post.\nKey Features:\n\n    Agentic coding: Devstral is designed to excel at agentic coding tasks, making it a great choice for software engineering agents.\n    lightweight: with its compact size of just 24 billion parameters, Devstral is light enough to run on a single RTX 4090 or a Mac with 32GB RAM, making it an appropriate model for local deployment and on-device use.\n    Apache 2.0 License: Open license allowing usage and modification for both commercial and non-commercial purposes.\n    Context Window: A 128k context window.\n    Tokenizer: Utilizes a Tekken tokenizer with a 131k vocabulary size.\n"
   overrides:
     mmproj: mmproj-mistralai_Devstral-Small-2505-f16.gguf
     parameters:
@@ -13676,7 +13642,7 @@
     - https://huggingface.co/trashpanda-org/MS-24B-Mullein-v0
     - https://huggingface.co/mradermacher/MS-24B-Mullein-v0-GGUF
   description: |
-     Hasnonname threw what he had into it. The datasets could still use some work which we'll consider for V1 (or a theorized merge between base and instruct variants), but so far, aside from being rough around the edges, Mullein has varied responses across rerolls, a predisposition to NPC characterization, accurate character/scenario portrayal and little to no positivity bias (in instances, even unhinged), but as far as negatives go, I'm seeing strong adherence to initial message structure, rare user impersonation and some slop.
+    Hasnonname threw what he had into it. The datasets could still use some work which we'll consider for V1 (or a theorized merge between base and instruct variants), but so far, aside from being rough around the edges, Mullein has varied responses across rerolls, a predisposition to NPC characterization, accurate character/scenario portrayal and little to no positivity bias (in instances, even unhinged), but as far as negatives go, I'm seeing strong adherence to initial message structure, rare user impersonation and some slop.
   overrides:
     parameters:
       model: MS-24B-Mullein-v0.Q4_K_M.gguf
@@ -13730,8 +13696,8 @@
       model: mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
   files:
     - filename: mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
-      sha256: 2ad86e0934a4d6f021c1dbcf12d81aac75a84edd3a929294c09cb1cb6117627c
       uri: huggingface://bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf
+      sha256: 80f5bda68f156f12650ca03a0a2dbfae06a215ac41caa773b8631a479f82415e
 - !!merge <<: *mistral03
   icon: https://cdn-uploads.huggingface.co/production/uploads/66c26b6fb01b19d8c3c2467b/jxUvuFK1bdOdAPiYIcBW5.jpeg
   name: "delta-vector_austral-24b-winton"
@@ -13845,18 +13811,18 @@
     - https://huggingface.co/cognitivecomputations/Dolphin-Mistral-24B-Venice-Edition
     - https://huggingface.co/bartowski/cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-GGUF
   description: |
-      Dolphin Mistral 24B Venice Edition is a collaborative project we undertook with Venice.ai with the goal of creating the most uncensored version of Mistral 24B for use within the Venice ecosystem.
+    Dolphin Mistral 24B Venice Edition is a collaborative project we undertook with Venice.ai with the goal of creating the most uncensored version of Mistral 24B for use within the Venice ecosystem.
 
-      Dolphin Mistral 24B Venice Edition is now live on https://venice.ai/ as “Venice Uncensored,” the new default model for all Venice users.
+    Dolphin Mistral 24B Venice Edition is now live on https://venice.ai/ as “Venice Uncensored,” the new default model for all Venice users.
 
-      Dolphin aims to be a general purpose model, similar to the models behind ChatGPT, Claude, Gemini. But these models present problems for businesses seeking to include AI in their products.
+    Dolphin aims to be a general purpose model, similar to the models behind ChatGPT, Claude, Gemini. But these models present problems for businesses seeking to include AI in their products.
 
-          They maintain control of the system prompt, deprecating and changing things as they wish, often causing software to break.
-          They maintain control of the model versions, sometimes changing things silently, or deprecating older models that your business relies on.
-          They maintain control of the alignment, and in particular the alignment is one-size-fits all, not tailored to the application.
-          They can see all your queries and they can potentially use that data in ways you wouldn't want. Dolphin, in contrast, is steerable and gives control to the system owner. You set the system prompt. You decide the alignment. You have control of your data. Dolphin does not impose its ethics or guidelines on you. You are the one who decides the guidelines.
+        They maintain control of the system prompt, deprecating and changing things as they wish, often causing software to break.
+        They maintain control of the model versions, sometimes changing things silently, or deprecating older models that your business relies on.
+        They maintain control of the alignment, and in particular the alignment is one-size-fits all, not tailored to the application.
+        They can see all your queries and they can potentially use that data in ways you wouldn't want. Dolphin, in contrast, is steerable and gives control to the system owner. You set the system prompt. You decide the alignment. You have control of your data. Dolphin does not impose its ethics or guidelines on you. You are the one who decides the guidelines.
 
-      Dolphin belongs to YOU, it is your tool, an extension of your will. Just as you are personally responsible for what you do with a knife, gun, fire, car, or the internet, you are the creator and originator of any content you generate with Dolphin.
+    Dolphin belongs to YOU, it is your tool, an extension of your will. Just as you are personally responsible for what you do with a knife, gun, fire, car, or the internet, you are the creator and originator of any content you generate with Dolphin.
   overrides:
     parameters:
       model: cognitivecomputations_Dolphin-Mistral-24B-Venice-Edition-Q4_K_M.gguf
@@ -13891,10 +13857,7 @@
   urls:
     - https://huggingface.co/mistralai/Devstral-Small-2507
     - https://huggingface.co/bartowski/mistralai_Devstral-Small-2507-GGUF
-  description: |
-    Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI 🙌. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.
-
-    It is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.
+  description: "Devstral is an agentic LLM for software engineering tasks built under a collaboration between Mistral AI and All Hands AI \U0001F64C. Devstral excels at using tools to explore codebases, editing multiple files and power software engineering agents. The model achieves remarkable performance on SWE-bench which positionates it as the #1 open source model on this benchmark.\n\nIt is finetuned from Mistral-Small-3.1, therefore it has a long context window of up to 128k tokens. As a coding agent, Devstral is text-only and before fine-tuning from Mistral-Small-3.1 the vision encoder was removed.\n"
   overrides:
     parameters:
       model: mistralai_Devstral-Small-2507-Q4_K_M.gguf
@@ -13932,19 +13895,7 @@
   urls:
     - https://huggingface.co/SicariusSicariiStuff/Impish_Magic_24B
     - https://huggingface.co/mradermacher/Impish_Magic_24B-i1-GGUF
-  description: |
-    It's the 20th of June, 2025—The world is getting more and more chaotic, but let's look at the bright side: Mistral released a new model at a very good size of 24B, no more "sign here" or "accept this weird EULA" there, a proper Apache 2.0 License, nice! 👍🏻
-
-    This model is based on mistralai/Magistral-Small-2506 so naturally I named it Impish_Magic. Truly excellent size, I tested it on my laptop (16GB gpu) and it works quite fast (4090m).
-
-    This model went "full" fine-tune over 100m unique tokens. Why do I say "full"?
-
-    I've tuned specific areas in the model to attempt to change the vocabulary usage, while keeping as much intelligence as possible. So this is definitely not a LoRA, but also not exactly a proper full finetune, but rather something in-between.
-
-    As I mentioned in a small update, I've made nice progress regarding interesting sources of data, some of them are included in this tune. 100m tokens is a lot for a Roleplay / Adventure tune, and yes, it can do adventure as well—there is unique adventure data here, that was never used so far.
-
-    A lot of the data still needs to be cleaned and processed. I've included it before I did any major data processing, because with the magic of 24B parameters, even "dirty" data would work well, especially when using a more "balanced" approach for tuning that does not include burning the hell of the model in a full finetune across all of its layers. Could this data be cleaner? Of course, and it will. But for now, I would hate to make perfect the enemy of the good.
-    Fun fact: Impish_Magic_24B is the first roleplay finetune of magistral!
+  description: "It's the 20th of June, 2025—The world is getting more and more chaotic, but let's look at the bright side: Mistral released a new model at a very good size of 24B, no more \"sign here\" or \"accept this weird EULA\" there, a proper Apache 2.0 License, nice! \U0001F44D\U0001F3FB\n\nThis model is based on mistralai/Magistral-Small-2506 so naturally I named it Impish_Magic. Truly excellent size, I tested it on my laptop (16GB gpu) and it works quite fast (4090m).\n\nThis model went \"full\" fine-tune over 100m unique tokens. Why do I say \"full\"?\n\nI've tuned specific areas in the model to attempt to change the vocabulary usage, while keeping as much intelligence as possible. So this is definitely not a LoRA, but also not exactly a proper full finetune, but rather something in-between.\n\nAs I mentioned in a small update, I've made nice progress regarding interesting sources of data, some of them are included in this tune. 100m tokens is a lot for a Roleplay / Adventure tune, and yes, it can do adventure as well—there is unique adventure data here, that was never used so far.\n\nA lot of the data still needs to be cleaned and processed. I've included it before I did any major data processing, because with the magic of 24B parameters, even \"dirty\" data would work well, especially when using a more \"balanced\" approach for tuning that does not include burning the hell of the model in a full finetune across all of its layers. Could this data be cleaner? Of course, and it will. But for now, I would hate to make perfect the enemy of the good.\nFun fact: Impish_Magic_24B is the first roleplay finetune of magistral!\n"
   overrides:
     parameters:
       model: Impish_Magic_24B.i1-Q4_K_M.gguf
