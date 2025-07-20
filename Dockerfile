@@ -181,7 +181,11 @@ FROM ${INTEL_BASE_IMAGE} AS intel
 RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
 RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
-
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        intel-oneapi-runtime-libs && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 ###################################
 ###################################
 
