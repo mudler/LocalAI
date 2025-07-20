@@ -53,7 +53,7 @@ else ifeq ($(BUILD_TYPE),hipblas)
 #	GPU_TARGETS ?= gfx803,gfx900,gfx906,gfx908,gfx90a,gfx942,gfx1010,gfx1030,gfx1032,gfx1100,gfx1101,gfx1102
 #	AMDGPU_TARGETS ?= "$(GPU_TARGETS)"
 	CMAKE_ARGS+=-DGGML_HIP=ON
-	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib
+	CGO_LDFLAGS += -O3 --rtlib=compiler-rt -unwindlib=libgcc -lhipblas -lrocblas --hip-link -L${ROCM_HOME}/lib/llvm/lib -L$(CURRENT_MAKEFILE_DIR)/sources/whisper.cpp/build/ggml/src/ggml-hip/ -lggml-hip
 #	CMAKE_ARGS+=-DGGML_HIP=ON -DAMDGPU_TARGETS="$(AMDGPU_TARGETS)" -DGPU_TARGETS="$(GPU_TARGETS)"
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DGGML_VULKAN=1

@@ -526,7 +526,7 @@ backend-images:
 	mkdir -p backend-images
 
 docker-build-llama-cpp:
-	docker build -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg IMAGE_BASE=$(IMAGE_BASE) -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
 
 docker-build-bark-cpp:
 	docker build -t local-ai-backend:bark-cpp -f backend/Dockerfile.go --build-arg BACKEND=bark-cpp .
@@ -565,7 +565,7 @@ docker-build-kokoro:
 	docker build -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
 
 docker-build-whisper:
-	docker build -t local-ai-backend:whisper -f backend/Dockerfile.go --build-arg BACKEND=whisper .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper -f backend/Dockerfile.go --build-arg BACKEND=whisper  .
 
 docker-save-whisper: backend-images
 	docker save local-ai-backend:whisper -o backend-images/whisper.tar
