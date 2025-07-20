@@ -186,55 +186,6 @@ RUN apt-get update && \
         intel-oneapi-runtime-libs && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
-###################################
-###################################
-
-# The grpc target does one thing, it builds and installs GRPC.  This is in it's own layer so that it can be effectively cached by CI.
-# You probably don't need to change anything here, and if you do, make sure that CI is adjusted so that the cache continues to work.
-FROM ${GRPC_BASE_IMAGE} AS grpc
-
-# This is a bit of a hack, but it's required in order to be able to effectively cache this layer in CI
-ARG GRPC_MAKEFLAGS="-j4 -Otarget"
-ARG GRPC_VERSION=v1.65.0
-ARG CMAKE_FROM_SOURCE=false
-ARG CMAKE_VERSION=3.26.4
-
-ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
-
-WORKDIR /build
-
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        ca-certificates \
-        build-essential curl libssl-dev \
-        git && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-# Install CMake (the version in 22.04 is too old)
-RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
-        curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
-    else
-        apt-get update && \
-        apt-get install -y \
-            cmake && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
-    fi
-EOT
-
-# We install GRPC to a different prefix here so that we can copy in only the build artifacts later
-# saves several hundred MB on the final docker image size vs copying in the entire GRPC source tree
-# and running make install in the target container
-RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shallow-submodules https://github.com/grpc/grpc && \
-    mkdir -p /build/grpc/cmake/build && \
-    cd /build/grpc/cmake/build && \
-    sed -i "216i\  TESTONLY" "../../third_party/abseil-cpp/absl/container/CMakeLists.txt" && \
-    cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
-    make && \
-    make install && \
-    rm -rf /build
 
 ###################################
 ###################################
@@ -262,9 +213,7 @@ RUN echo "GO_TAGS: $GO_TAGS" && echo "TARGETARCH: $TARGETARCH"
 WORKDIR /build
 
 
-# We need protoc installed, and the version in 22.04 is too old.  We will create one as part installing the GRPC build below
-# but that will also being in a newer version of absl which stablediffusion cannot compile with.  This version of protoc is only
-# here so that we can generate the grpc code for the stablediffusion build
+# We need protoc installed, and the version in 22.04 is too old.
 RUN <<EOT bash
     if [ "amd64" = "$TARGETARCH" ]; then
         curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v27.1/protoc-27.1-linux-x86_64.zip -o protoc.zip && \
@@ -286,8 +235,6 @@ FROM builder-base AS builder-backends
 ARG TARGETARCH
 ARG TARGETVARIANT
 
-COPY --from=grpc /opt/grpc /usr/local
-
 WORKDIR /build
 
 COPY ./Makefile .
@@ -303,7 +250,6 @@ COPY ./pkg/langchain ./pkg/langchain
 
 RUN ls -l ./
 RUN make backend-assets
-RUN make prepare
 RUN make grpcs
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
@@ -326,8 +272,6 @@ RUN make build
 # rather than copying files it mounts them locally and leaves building to the developer
 
 FROM builder-base AS devcontainer
-
-COPY --from=grpc /opt/grpc /usr/local
 
 COPY .devcontainer-scripts /.devcontainer-scripts
 

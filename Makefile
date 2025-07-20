@@ -88,7 +88,7 @@ ifeq ($(BUILD_API_ONLY),true)
 	GRPC_BACKENDS=
 endif
 
-.PHONY: all test build vendor prepare
+.PHONY: all test build vendor
 
 all: help
 
@@ -110,8 +110,6 @@ endif
 rebuild: ## Rebuilds the project
 	$(GOCMD) clean -cache
 	$(MAKE) build
-
-prepare: $(OPTIONAL_TARGETS)
 
 clean: ## Remove build related file
 	$(GOCMD) clean -cache
@@ -138,7 +136,7 @@ install-go-tools:
 	go install github.com/GeertJohan/go.rice/rice@latest
 
 ## Build:
-build: prepare backend-assets grpcs install-go-tools ## Build the project
+build: backend-assets grpcs install-go-tools ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -175,7 +173,7 @@ osx-signed: build
 	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
 
 ## Run
-run: prepare ## run local-ai
+run: ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
 
 test-models/testmodel.ggml:
@@ -196,7 +194,7 @@ prepare-test: grpcs
 ########################################################
 
 ## Test targets
-test: prepare test-models/testmodel.ggml grpcs
+test: test-models/testmodel.ggml grpcs
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
@@ -451,20 +449,20 @@ ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/huggingface
 endif
 
-backend-assets/grpc/silero-vad: protogen-go replace backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
+backend-assets/grpc/silero-vad: protogen-go backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/onnxruntime/include/" LIBRARY_PATH=$(CURDIR)/backend-assets/lib \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/silero-vad
 endif
 
-backend-assets/grpc/local-store: backend-assets/grpc protogen-go replace
+backend-assets/grpc/local-store: backend-assets/grpc protogen-go
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/local-store ./backend/go/stores/
 ifneq ($(UPX),)
 	$(UPX) backend-assets/grpc/local-store
 endif
 
-grpcs: prepare protogen-go $(GRPC_BACKENDS)
+grpcs: protogen-go $(GRPC_BACKENDS)
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
