@@ -350,58 +350,58 @@
   name: "intel-sycl-f16-llama-cpp-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-llama-cpp"
 ## whisper
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "cpu-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "cpu-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "cuda11-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "cuda12-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "rocm-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "intel-sycl-f32-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "intel-sycl-f16-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "vulkan-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "vulkan-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-vulkan-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "metal-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "metal-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "cuda11-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "cuda12-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "rocm-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "intel-sycl-f32-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-whisper"
-- !!merge <<: *whisper
+- !!merge <<: *whispercpp
   name: "intel-sycl-f16-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-whisper"
 ## stablediffusion-ggml
