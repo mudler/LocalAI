@@ -23,7 +23,7 @@ MODELS="github://owner/repo/file.yaml@branch,github://owner/repo/file.yaml@branc
 Here's an example to initiate the **phi-2** model:
 
 ```bash
-docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
+docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubusercontent.com/mudler/ad601a0488b497b69ec549150d9edd18/raw/a8a8869ef1bb7e3830bf5c0bae29a0cce991ff8d/phi-2.yaml
 ```
 
 You can also check all the embedded models configurations [here](https://github.com/mudler/LocalAI/tree/master/embedded/models).
@@ -64,7 +64,7 @@ Then, launch LocalAI using your gist's URL:
 
 ```bash
 ## Important! Substitute with your gist's URL!
-docker run -p 8080:8080 localai/localai:{{< version >}}-ffmpeg-core https://gist.githubusercontent.com/xxxx/phi-2.yaml
+docker run -p 8080:8080 localai/localai:{{< version >}} https://gist.githubusercontent.com/xxxx/phi-2.yaml
 ```
 
 ## Next Steps
