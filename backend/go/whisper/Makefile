@@ -18,7 +18,7 @@ CGO_LDFLAGS_WHISPER+=-lggml
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
 CUDA_LIBPATH?=/usr/local/cuda/lib64/
 
-ONEAPI_VERSION?=2025.1
+ONEAPI_VERSION?=2025.2
 
 # IF native is false, we add -DGGML_NATIVE=OFF to CMAKE_ARGS
 ifeq ($(NATIVE),false)
@@ -42,7 +42,7 @@ else ifeq ($(BUILD_TYPE),openblas)
 # If build type is clblas (openCL) we set -DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
 else ifeq ($(BUILD_TYPE),clblas)
 	CMAKE_ARGS+=-DGGML_CLBLAST=ON -DCLBlast_DIR=/some/path
-# If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++ 
+# If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++
 else ifeq ($(BUILD_TYPE),hipblas)
 	ROCM_HOME ?= /opt/rocm
 	ROCM_PATH ?= /opt/rocm
@@ -120,7 +120,7 @@ sources/whisper.cpp/build/src/libwhisper.a: sources/whisper.cpp
 
 whisper: sources/whisper.cpp sources/whisper.cpp/build/src/libwhisper.a
 	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp=$(CURDIR)/sources/whisper.cpp
-	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go	
+	$(GOCMD) mod edit -replace github.com/ggerganov/whisper.cpp/bindings/go=$(CURDIR)/sources/whisper.cpp/bindings/go
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_WHISPER)" C_INCLUDE_PATH="${WHISPER_INCLUDE_PATH}" LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" LD_LIBRARY_PATH="${WHISPER_LIBRARY_PATH}" \
 	CGO_CXXFLAGS="$(CGO_CXXFLAGS_WHISPER)" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o whisper ./

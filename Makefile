@@ -7,6 +7,8 @@ ONNX_VERSION?=1.20.0
 ONNX_ARCH?=x64
 ONNX_OS?=linux
 
+ONEAPI_VERSION?=2025.2
+
 export BUILD_TYPE?=
 
 GO_TAGS?=
@@ -539,7 +541,7 @@ docker-save-piper: backend-images
 
 docker-save-llama-cpp: backend-images
 	docker save local-ai-backend:llama-cpp -o backend-images/llama-cpp.tar
-	
+
 docker-save-bark-cpp: backend-images
 	docker save local-ai-backend:bark-cpp -o backend-images/bark-cpp.tar
 
