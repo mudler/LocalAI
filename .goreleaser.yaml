@@ -1,5 +1,6 @@
 before:
   hooks:
+    - make protogen-go
     - go mod tidy
 dist: release
 source:

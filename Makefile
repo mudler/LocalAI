@@ -248,10 +248,14 @@ protogen: protogen-go protogen-python
 .PHONY: protogen-clean
 protogen-clean: protogen-go-clean protogen-python-clean
 
+protoc:
+	curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
+
 .PHONY: protogen-go
-protogen-go: install-go-tools
+protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
-	protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 .PHONY: protogen-go-clean
