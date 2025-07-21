@@ -83,7 +83,7 @@ install-go-tools:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
 
 ## Build:
-build: grpcs install-go-tools ## Build the project
+build: protogen-go install-go-tools ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
@@ -93,10 +93,10 @@ build: grpcs install-go-tools ## Build the project
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
 dev-dist:
-	$(GORELEASER) build --snapshot --single-target --clean
+	$(GORELEASER) build --snapshot --clean
 
 dist:
-	$(GORELEASER) build --single-target --clean
+	$(GORELEASER) build --clean
 
 osx-signed: build
 	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
@@ -114,7 +114,7 @@ test-models/testmodel.ggml:
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
 	cp tests/models_fixtures/* test-models
 
-prepare-test: grpcs
+prepare-test: protogen-go
 	cp tests/models_fixtures/* test-models
 
 ########################################################
@@ -122,7 +122,7 @@ prepare-test: grpcs
 ########################################################
 
 ## Test targets
-test: test-models/testmodel.ggml grpcs
+test: test-models/testmodel.ggml protogen-go
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
@@ -358,8 +358,6 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/diffusers test
 	$(MAKE) -C backend/python/chatterbox test
 	$(MAKE) -C backend/python/vllm test
-
-grpcs: protogen-go
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio

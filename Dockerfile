@@ -248,7 +248,7 @@ COPY ./pkg/utils ./pkg/utils
 COPY ./pkg/langchain ./pkg/langchain
 
 RUN ls -l ./
-RUN make grpcs
+RUN make protogen-go
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.
 # Adjustments to the build process should likely be made here.
