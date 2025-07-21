@@ -4,6 +4,7 @@ package main
 // It is meant to be used by the main executable that is the server for the specific backend type (falcon, gpt3, etc)
 import (
 	"container/heap"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -99,6 +100,9 @@ func sortIntoKeySlicese(keys []*pb.StoresKey) [][]float32 {
 }
 
 func (s *Store) Load(opts *pb.ModelOptions) error {
+	if opts.Model != "" {
+		return errors.New("not implemented")
+	}
 	return nil
 }
 
@@ -315,7 +319,7 @@ func isNormalized(k []float32) bool {
 
 	for _, v := range k {
 		v64 := float64(v)
-		sum += v64*v64
+		sum += v64 * v64
 	}
 
 	s := math.Sqrt(sum)

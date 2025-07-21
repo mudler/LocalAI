@@ -132,25 +132,25 @@ test: test-models/testmodel.ggml grpcs
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
 
-backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build-api
+backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
-backends/piper: docker-build-piper docker-save-piper build-api
+backends/piper: docker-build-piper docker-save-piper build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/piper.tar)"
 
-backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build-api
+backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
 
-backends/whisper: docker-build-whisper docker-save-whisper build-api
+backends/whisper: docker-build-whisper docker-save-whisper build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/whisper.tar)"
 	
-backends/silero-vad: docker-build-silero-vad docker-save-silero-vad build-api
+backends/silero-vad: docker-build-silero-vad docker-save-silero-vad build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/silero-vad.tar)"
 
-backends/local-store: docker-build-local-store docker-save-local-store build-api
+backends/local-store: docker-build-local-store docker-save-local-store build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/local-store.tar)"
 
-backends/huggingface: docker-build-huggingface docker-save-huggingface build-api
+backends/huggingface: docker-build-huggingface docker-save-huggingface build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/huggingface.tar)"
 
 ########################################################
