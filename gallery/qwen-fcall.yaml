@@ -2,6 +2,7 @@
 name: "qwen-fcall"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   function:
     json_regex_match:

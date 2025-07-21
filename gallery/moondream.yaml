@@ -3,6 +3,7 @@ name: "moondream2"
 
 
 config_file: |
+    backend: "llama-cpp"
     context_size: 2046
     roles:
       user: "\nQuestion: "

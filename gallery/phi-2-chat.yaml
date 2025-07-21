@@ -2,6 +2,7 @@
 name: "phi-2-chatml"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   template:
     chat_message: |

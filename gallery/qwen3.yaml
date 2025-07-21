@@ -3,6 +3,7 @@ name: "qwen3"
 
 config_file: |
   mmap: true
+  backend: "llama-cpp"
   template:
     chat_message: |
       <|im_start|>{{ .RoleName }}

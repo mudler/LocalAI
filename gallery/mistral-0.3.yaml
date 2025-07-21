@@ -2,6 +2,7 @@
 name: "mistral-0.3"
 
 config_file: |
+  backend: "llama-cpp"
   context_size: 8192
   mmap: true
   stopwords:

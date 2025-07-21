@@ -2,6 +2,7 @@
 name: smolvlm
 # yamllint disable-line rule:trailing-spaces
 config_file: |
+    backend: "llama-cpp"
     mmap: true
     template:
       chat_message: |

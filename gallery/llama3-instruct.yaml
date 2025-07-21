@@ -2,6 +2,7 @@
 name: "llama3-instruct"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   template:
     chat_message: |

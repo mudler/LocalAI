@@ -2,6 +2,7 @@
 name: "chatml"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   function:
     disable_no_action: true
