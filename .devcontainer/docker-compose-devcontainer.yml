@@ -5,7 +5,6 @@ services:
       dockerfile: Dockerfile
       target: devcontainer
       args:
-      - FFMPEG=true
       - GO_TAGS=p2p tts
     env_file:
       - ../.env
