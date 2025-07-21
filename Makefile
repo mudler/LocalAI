@@ -246,7 +246,35 @@ protogen: protogen-go protogen-python
 protogen-clean: protogen-go-clean protogen-python-clean
 
 protoc:
-	curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	ARCH_NAME=$$(uname -m); \
+	if [ "$$OS_NAME" = "darwin" ]; then \
+	  if [ "$$ARCH_NAME" = "arm64" ]; then \
+	    FILE=protoc-31.1-osx-aarch_64.zip; \
+	  elif [ "$$ARCH_NAME" = "x86_64" ]; then \
+	    FILE=protoc-31.1-osx-x86_64.zip; \
+	  else \
+	    echo "Unsupported macOS architecture: $$ARCH_NAME"; exit 1; \
+	  fi; \
+	elif [ "$$OS_NAME" = "linux" ]; then \
+	  if [ "$$ARCH_NAME" = "x86_64" ]; then \
+	    FILE=protoc-31.1-linux-x86_64.zip; \
+	  elif [ "$$ARCH_NAME" = "aarch64" ] || [ "$$ARCH_NAME" = "arm64" ]; then \
+	    FILE=protoc-31.1-linux-aarch_64.zip; \
+	  elif [ "$$ARCH_NAME" = "ppc64le" ]; then \
+	    FILE=protoc-31.1-linux-ppcle_64.zip; \
+	  elif [ "$$ARCH_NAME" = "s390x" ]; then \
+	    FILE=protoc-31.1-linux-s390_64.zip; \
+	  elif [ "$$ARCH_NAME" = "i386" ] || [ "$$ARCH_NAME" = "x86" ]; then \
+	    FILE=protoc-31.1-linux-x86_32.zip; \
+	  else \
+	    echo "Unsupported Linux architecture: $$ARCH_NAME"; exit 1; \
+	  fi; \
+	else \
+	  echo "Unsupported OS: $$OS_NAME"; exit 1; \
+	fi; \
+	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
+	curl -L -s $$URL -o protoc.zip && \
 	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
 
 .PHONY: protogen-go

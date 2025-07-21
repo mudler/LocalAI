@@ -102,7 +102,7 @@ jobs:
 
           make -C backend/python/transformers
 
-          make backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
+          make backends/huggingface backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
         env:
           CUDA_VERSION: 12-4
       - name: Test
@@ -200,7 +200,7 @@ jobs:
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go
-          make build-api
+          make build
           bash scripts/build-llama-cpp-darwin.sh
           ls -la build/darwin.tar
           mv build/darwin.tar build/llama-cpp.tar

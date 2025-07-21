@@ -787,6 +787,10 @@ var _ = Describe("API test", func() {
 		})
 
 		It("shows the external backend", func() {
+			// Only run on linux
+			if runtime.GOOS != "linux" {
+				Skip("test supported only on linux")
+			}
 			// do an http request to the /system endpoint
 			resp, err := http.Get("http://127.0.0.1:9090/system")
 			Expect(err).ToNot(HaveOccurred())
@@ -871,6 +875,13 @@ var _ = Describe("API test", func() {
 
 		// See tests/integration/stores_test
 		Context("Stores", Label("stores"), func() {
+
+			BeforeEach(func() {
+				// Only run on linux
+				if runtime.GOOS != "linux" {
+					Skip("test supported only on linux")
+				}
+			})
 
 			It("sets, gets, finds and deletes entries", func() {
 				ks := [][]float32{
