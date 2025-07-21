@@ -96,7 +96,7 @@ jobs:
     - name: Start LocalAI
       run: |
         echo "Starting LocalAI..."
-        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master-ffmpeg-core run --debug $MODEL_NAME
+        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master run --debug $MODEL_NAME
         until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
       # Check the PR diff using the current branch and the base branch of the PR
     - uses: GrantBirki/git-diff-action@v2.8.1

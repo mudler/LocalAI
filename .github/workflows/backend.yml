@@ -43,7 +43,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-rerankers'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -55,7 +55,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -67,7 +67,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-vllm'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -79,7 +79,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-transformers'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -91,7 +91,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-diffusers'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -104,7 +104,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -116,7 +116,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-faster-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -128,7 +128,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-coqui'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -140,7 +140,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-bark'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -152,7 +152,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-chatterbox'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -165,7 +165,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -177,7 +177,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -189,7 +189,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -201,7 +201,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -213,7 +213,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -226,7 +226,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -238,7 +238,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -250,7 +250,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -262,7 +262,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -274,7 +274,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -287,7 +287,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -299,7 +299,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -311,7 +311,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -323,7 +323,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -335,7 +335,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -348,7 +348,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -360,7 +360,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -372,7 +372,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -384,7 +384,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-bark'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
@@ -397,7 +397,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-rerankers'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -409,7 +409,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-rerankers'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -421,7 +421,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -433,7 +433,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -445,7 +445,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-vllm'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -457,7 +457,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-vllm'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -469,7 +469,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-transformers'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -481,7 +481,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-transformers'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -493,7 +493,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-diffusers'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -506,7 +506,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -518,7 +518,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-kokoro'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -530,7 +530,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-faster-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -542,7 +542,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-faster-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -554,7 +554,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-coqui'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -566,7 +566,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-coqui'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -578,7 +578,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-bark'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -590,7 +590,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-bark'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -603,7 +603,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64,linux/arm64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-piper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -616,7 +616,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-bark-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -628,7 +628,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64,linux/arm64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-cpu-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -652,7 +652,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-llama-cpp'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -665,7 +665,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-cpu-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -677,7 +677,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -689,7 +689,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -701,7 +701,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -713,7 +713,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -725,7 +725,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -749,8 +749,8 @@ jobs:
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
-            platforms: 'linux/amd64'
-            tag-latest: 'true'
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
             tag-suffix: '-cpu-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -762,7 +762,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -774,7 +774,7 @@ jobs:
             cuda-major-version: "11"
             cuda-minor-version: "7"
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-11-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -786,7 +786,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -798,7 +798,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
@@ -810,7 +810,7 @@ jobs:
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
-            tag-latest: 'true'
+            tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
