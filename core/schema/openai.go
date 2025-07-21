@@ -58,15 +58,23 @@ type Choice struct {
 }
 
 type Content struct {
-	Type     string     `json:"type" yaml:"type"`
-	Text     string     `json:"text" yaml:"text"`
-	ImageURL ContentURL `json:"image_url" yaml:"image_url"`
-	AudioURL ContentURL `json:"audio_url" yaml:"audio_url"`
-	VideoURL ContentURL `json:"video_url" yaml:"video_url"`
+	Type       string     `json:"type" yaml:"type"`
+	Text       string     `json:"text" yaml:"text"`
+	ImageURL   ContentURL `json:"image_url" yaml:"image_url"`
+	AudioURL   ContentURL `json:"audio_url" yaml:"audio_url"`
+	VideoURL   ContentURL `json:"video_url" yaml:"video_url"`
+	InputAudio InputAudio `json:"input_audio" yaml:"input_audio"`
 }
 
 type ContentURL struct {
 	URL string `json:"url" yaml:"url"`
+}
+
+type InputAudio struct {
+	// Format identifies the audio format, e.g. 'wav'.
+	Format string `json:"format" yaml:"format"`
+	// Data holds the base64-encoded audio data.
+	Data string `json:"data" yaml:"data"`
 }
 
 type Message struct {
