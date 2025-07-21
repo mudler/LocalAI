@@ -11,7 +11,7 @@ import (
 
 func ffmpegCommand(args []string) (string, error) {
 	cmd := exec.Command("ffmpeg", args...) // Constrain this to ffmpeg to permit security scanner to see that the command is safe.
-	cmd.Env = os.Environ()
+	cmd.Env = []string{}
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
