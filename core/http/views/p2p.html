@@ -49,11 +49,11 @@
             </div>
         
             <!-- Warning box if p2p token is empty and p2p is enabled -->
-            {{ if and .IsP2PEnabled (eq .P2PToken "") }}
+            {{ if eq .P2PToken "" }}
             <div class="bg-gradient-to-r from-red-800/70 to-red-700/70 border border-red-600/50 p-6 rounded-xl shadow-lg mb-10 text-left">
                 <div class="flex items-center mb-2">
                     <i class="fa-solid fa-exclamation-triangle text-red-300 text-2xl mr-3"></i>
-                    <h3 class="text-xl font-bold text-white">Warning: P2P mode is disabled or no token was specified</h3>
+                    <h3 class="text-xl font-bold text-white">Warning: P2P token was not specified</h3>
                 </div>
                 <p class="mb-4 text-red-200">
                     You have to enable P2P mode by starting LocalAI with <code class="bg-red-900/50 px-2 py-0.5 rounded">--p2p</code>. Please restart the server with <code class="bg-red-900/50 px-2 py-0.5 rounded">--p2p</code> to generate a new token automatically that can be used to discover other nodes. If you already have a token, specify it with <code class="bg-red-900/50 px-2 py-0.5 rounded">export TOKEN=".."</code>

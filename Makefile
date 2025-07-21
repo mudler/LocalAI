@@ -92,9 +92,6 @@ build: grpcs install-go-tools ## Build the project
 	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
 
-build-api:
-	BUILD_API_ONLY=true GO_TAGS=p2p $(MAKE) build
-
 dev-dist:
 	$(GORELEASER) build --snapshot --single-target --clean
 

@@ -4,8 +4,6 @@ services:
       context: ..
       dockerfile: Dockerfile
       target: devcontainer
-      args:
-      - GO_TAGS=p2p tts
     env_file:
       - ../.env
     ports:

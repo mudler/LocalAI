@@ -15,7 +15,6 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/utils"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/rs/zerolog/log"
@@ -70,9 +69,7 @@ func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appCo
 			"AllTags":          tags,
 			"ProcessingModels": processingModelsData,
 			"AvailableModels":  len(models),
-			"IsP2PEnabled":     p2p.IsP2PEnabled(),
-
-			"TaskTypes": taskTypes,
+			"TaskTypes":        taskTypes,
 			//	"ApplicationConfig": appConfig,
 		}
 

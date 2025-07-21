@@ -1,6 +1,3 @@
-//go:build p2p
-// +build p2p
-
 package worker
 
 import (

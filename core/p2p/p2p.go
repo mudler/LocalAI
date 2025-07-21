@@ -1,6 +1,3 @@
-//go:build p2p
-// +build p2p
-
 package p2p
 
 import (
@@ -63,10 +60,6 @@ func generateNewConnectionData(DHTInterval, OTPInterval int) *node.YAMLConnectio
 func GenerateToken(DHTInterval, OTPInterval int) string {
 	// Generates a new config and exit
 	return generateNewConnectionData(DHTInterval, OTPInterval).Base64()
-}
-
-func IsP2PEnabled() bool {
-	return true
 }
 
 func nodeID(s string) string {

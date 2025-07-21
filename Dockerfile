@@ -193,7 +193,7 @@ RUN apt-get update && \
 
 FROM build-requirements AS builder-base
 
-ARG GO_TAGS="p2p"
+ARG GO_TAGS=""
 ARG GRPC_BACKENDS
 ARG MAKEFLAGS
 ARG LD_FLAGS="-s -w"
