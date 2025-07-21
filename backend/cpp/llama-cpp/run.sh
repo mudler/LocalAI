@@ -44,7 +44,7 @@ fi
 if [ "$(uname)" == "Darwin" ]; then
 	DYLD_FALLBACK_LIBRARY_PATH=$CURDIR/lib:$DYLD_FALLBACK_LIBRARY_PATH
 else
-	LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
+	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 fi
 
 # If there is a lib/ld.so, use it

@@ -15,20 +15,18 @@ import (
 type TranscriptCMD struct {
 	Filename string `arg:""`
 
-	Backend           string `short:"b" default:"whisper" help:"Backend to run the transcription model"`
-	Model             string `short:"m" required:"" help:"Model name to run the TTS"`
-	Language          string `short:"l" help:"Language of the audio file"`
-	Translate         bool   `short:"c" help:"Translate the transcription to english"`
-	Threads           int    `short:"t" default:"1" help:"Number of threads used for parallel computation"`
-	ModelsPath        string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	BackendAssetsPath string `env:"LOCALAI_BACKEND_ASSETS_PATH,BACKEND_ASSETS_PATH" type:"path" default:"/tmp/localai/backend_data" help:"Path used to extract libraries that are required by some of the backends in runtime" group:"storage"`
+	Backend    string `short:"b" default:"whisper" help:"Backend to run the transcription model"`
+	Model      string `short:"m" required:"" help:"Model name to run the TTS"`
+	Language   string `short:"l" help:"Language of the audio file"`
+	Translate  bool   `short:"c" help:"Translate the transcription to english"`
+	Threads    int    `short:"t" default:"1" help:"Number of threads used for parallel computation"`
+	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
 }
 
 func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 	opts := &config.ApplicationConfig{
-		ModelPath:         t.ModelsPath,
-		Context:           context.Background(),
-		AssetsDestination: t.BackendAssetsPath,
+		ModelPath: t.ModelsPath,
+		Context:   context.Background(),
 	}
 
 	cl := config.NewBackendConfigLoader(t.ModelsPath)

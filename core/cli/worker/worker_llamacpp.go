@@ -9,8 +9,6 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/pkg/assets"
-	"github.com/mudler/LocalAI/pkg/library"
 	"github.com/rs/zerolog/log"
 )
 
@@ -47,24 +45,17 @@ func findLLamaCPPBackend(backendSystemPath string) (string, error) {
 }
 
 func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
-	// Extract files from the embedded FS
-	err := assets.ExtractFiles(ctx.BackendAssets, r.BackendAssetsPath)
-	log.Debug().Msgf("Extracting backend assets files to %s", r.BackendAssetsPath)
-	if err != nil {
-		log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly)", err)
-	}
 
 	if len(os.Args) < 4 {
 		return fmt.Errorf("usage: local-ai worker llama-cpp-rpc -- <llama-rpc-server-args>")
 	}
 
-	grpcProcess, err := findLLamaCPPBackend(r.BackendAssetsPath)
+	grpcProcess, err := findLLamaCPPBackend(r.BackendsPath)
 	if err != nil {
 		return err
 	}
 
 	args := strings.Split(r.ExtraLLamaCPPArgs, " ")
-	args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
 
 	args = append([]string{grpcProcess}, args...)
 	return syscall.Exec(

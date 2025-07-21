@@ -75,7 +75,6 @@ jobs:
           rm protoc.zip
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
-          go install github.com/GeertJohan/go.rice/rice@latest
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Dependencies
         run: |
@@ -103,7 +102,7 @@ jobs:
 
           make -C backend/python/transformers
 
-          make backends/llama-cpp backends/piper backends/whisper backends/stablediffusion-ggml
+          make backends/llama-cpp backends/local-store backends/silero-vad backends/piper backends/whisper backends/stablediffusion-ggml
         env:
           CUDA_VERSION: 12-4
       - name: Test
@@ -164,11 +163,10 @@ jobs:
           rm protoc.zip
           go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
-          go install github.com/GeertJohan/go.rice/rice@latest
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - name: Test
         run: |
-            PATH="$PATH:$HOME/go/bin" make backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-aio e2e-aio
+            PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-aio e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
         uses: mxschmitt/action-tmate@v3.22
@@ -199,7 +197,6 @@ jobs:
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
           pip install --user --no-cache-dir grpcio-tools==1.71.0 grpcio==1.71.0
-          go install github.com/GeertJohan/go.rice/rice@latest
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go

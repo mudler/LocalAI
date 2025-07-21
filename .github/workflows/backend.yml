@@ -842,6 +842,45 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.go"
             context: "./"
+          #silero-vad
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-silero-vad'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "silero-vad"
+            dockerfile: "./backend/Dockerfile.go"
+            context: "./"
+          # local-store
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-local-store'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "local-store"
+            dockerfile: "./backend/Dockerfile.go"
+            context: "./"
+          # huggingface
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-huggingface'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "huggingface"
+            dockerfile: "./backend/Dockerfile.go"
+            context: "./"  
   llama-cpp-darwin:
     runs-on: macOS-14
     strategy:

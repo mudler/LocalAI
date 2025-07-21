@@ -23,7 +23,6 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
-	rice "github.com/GeertJohan/go.rice"
 	openaigo "github.com/otiai10/openaigo"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
@@ -264,16 +263,6 @@ func getRequest(url string, header http.Header) (error, int, []byte) {
 
 const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b87640e8644b09c2aee6e3b/raw/f0e8c26bb72edc16d9fbafbfd6638072126ff225/bert-embeddings-gallery.yaml`
 
-var backendAssets *rice.Box
-
-func init() {
-	var err error
-	backendAssets, err = rice.FindBox("backend-assets")
-	if err != nil {
-		panic(err)
-	}
-}
-
 var _ = Describe("API test", func() {
 
 	var app *fiber.App
@@ -299,9 +288,6 @@ var _ = Describe("API test", func() {
 
 			modelDir = filepath.Join(tmpdir, "models")
 			err = os.Mkdir(modelDir, 0750)
-			Expect(err).ToNot(HaveOccurred())
-			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
-			err = os.Mkdir(backendAssetsDir, 0750)
 			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())
@@ -341,8 +327,7 @@ var _ = Describe("API test", func() {
 					config.WithModelPath(modelDir),
 					config.WithBackendsPath(backendPath),
 					config.WithApiKeys([]string{apiKey}),
-					config.WithBackendAssets(backendAssets),
-					config.WithBackendAssetsOutput(backendAssetsDir))...)
+				)...)
 			Expect(err).ToNot(HaveOccurred())
 
 			app, err = API(application)
@@ -545,8 +530,7 @@ var _ = Describe("API test", func() {
 					config.WithBackendsPath(backendPath),
 					config.WithGalleries(galleries),
 					config.WithModelPath(modelDir),
-					config.WithBackendAssets(backendAssets),
-					config.WithBackendAssetsOutput(tmpdir))...,
+				)...,
 			)
 			Expect(err).ToNot(HaveOccurred())
 			app, err = API(application)

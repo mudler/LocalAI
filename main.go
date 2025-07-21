@@ -112,9 +112,6 @@ Version: ${version}
 		log.Trace().Msg("Setting logging to trace")
 	}
 
-	// Populate the application with the embedded backend assets
-	cli.CLI.Context.BackendAssets = backendAssets
-
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
 	if err != nil {

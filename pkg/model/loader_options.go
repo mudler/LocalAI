@@ -10,7 +10,6 @@ type Options struct {
 	backendString string
 	model         string
 	modelID       string
-	assetDir      string
 	context       context.Context
 
 	gRPCOptions *pb.ModelOptions
@@ -72,12 +71,6 @@ func WithModel(modelFile string) Option {
 func WithLoadGRPCLoadModelOpts(opts *pb.ModelOptions) Option {
 	return func(o *Options) {
 		o.gRPCOptions = opts
-	}
-}
-
-func WithAssetDir(assetDir string) Option {
-	return func(o *Options) {
-		o.assetDir = assetDir
 	}
 }
 

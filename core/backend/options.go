@@ -20,7 +20,6 @@ func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts ...
 	defOpts := []model.Option{
 		model.WithBackendString(c.Backend),
 		model.WithModel(c.Model),
-		model.WithAssetDir(so.AssetsDestination),
 		model.WithContext(so.Context),
 		model.WithModelID(name),
 	}

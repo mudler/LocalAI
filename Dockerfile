@@ -142,10 +142,9 @@ EOT
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin
 
-# Install grpc compilers and rice
+# Install grpc compilers
 RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
-    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af && \
-    go install github.com/GeertJohan/go.rice/rice@latest
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
@@ -249,7 +248,6 @@ COPY ./pkg/utils ./pkg/utils
 COPY ./pkg/langchain ./pkg/langchain
 
 RUN ls -l ./
-RUN make backend-assets
 RUN make grpcs
 
 # The builder target compiles LocalAI. This target is not the target that will be uploaded to the registry.

@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	rice "github.com/GeertJohan/go.rice"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
@@ -17,7 +16,6 @@ type ApplicationConfig struct {
 	ModelPath                           string
 	BackendsPath                        string
 	ExternalBackends                    []string
-	LibPath                             string
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
 	Debug                               bool
@@ -49,9 +47,6 @@ type ApplicationConfig struct {
 
 	Galleries        []Gallery
 	BackendGalleries []Gallery
-
-	BackendAssets     *rice.Box
-	AssetsDestination string
 
 	ExternalGRPCBackends map[string]string
 
@@ -140,12 +135,6 @@ func WithP2PToken(s string) AppOption {
 	}
 }
 
-func WithLibPath(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.LibPath = path
-	}
-}
-
 var EnableWatchDog = func(o *ApplicationConfig) {
 	o.WatchDog = true
 }
@@ -208,18 +197,6 @@ func WithExternalBackend(name string, uri string) AppOption {
 func WithCorsAllowOrigins(b string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.CORSAllowOrigins = b
-	}
-}
-
-func WithBackendAssetsOutput(out string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.AssetsDestination = out
-	}
-}
-
-func WithBackendAssets(f *rice.Box) AppOption {
-	return func(o *ApplicationConfig) {
-		o.BackendAssets = f
 	}
 }
 

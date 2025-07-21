@@ -9,9 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
-	"github.com/mudler/LocalAI/pkg/assets"
 
-	"github.com/mudler/LocalAI/pkg/library"
 	"github.com/mudler/LocalAI/pkg/model"
 	pkgStartup "github.com/mudler/LocalAI/pkg/startup"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
@@ -100,23 +98,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 	if options.Debug {
 		for _, v := range application.BackendLoader().GetAllBackendConfigs() {
 			log.Debug().Msgf("Model: %s (config: %+v)", v.Name, v)
-		}
-	}
-
-	if options.AssetsDestination != "" {
-		// Extract files from the embedded FS
-		err := assets.ExtractFiles(options.BackendAssets, options.AssetsDestination)
-		log.Debug().Msgf("Extracting backend assets files to %s", options.AssetsDestination)
-		if err != nil {
-			log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly)", err)
-		}
-	}
-
-	if options.LibPath != "" {
-		// If there is a lib directory, set LD_LIBRARY_PATH to include it
-		err := library.LoadExternal(options.LibPath)
-		if err != nil {
-			log.Error().Err(err).Str("LibPath", options.LibPath).Msg("Error while loading external libraries")
 		}
 	}
 

@@ -14,7 +14,6 @@ func StoreBackend(sl *model.ModelLoader, appConfig *config.ApplicationConfig, st
 
 	sc := []model.Option{
 		model.WithBackendString(model.LocalStoreBackend),
-		model.WithAssetDir(appConfig.AssetsDestination),
 		model.WithModel(storeName),
 	}
 
