@@ -68,7 +68,7 @@
     default: "cpu-stablediffusion-ggml"
     nvidia: "cuda12-stablediffusion-ggml"
     intel: "intel-sycl-f16-stablediffusion-ggml"
-    #amd: "rocm-stablediffusion-ggml"
+    # amd: "rocm-stablediffusion-ggml"
     vulkan: "vulkan-stablediffusion-ggml"
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml"
     # metal: "metal-stablediffusion-ggml"
@@ -289,7 +289,7 @@
   name: "silero-vad"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-silero-vad"
   icon: https://user-images.githubusercontent.com/12515440/89997349-b3523080-dc94-11ea-9906-ca2e8bc50535.png
-  urls: 
+  urls:
     - https://github.com/snakers4/silero-vad
   description: |
     Silero VAD: pre-trained enterprise-grade Voice Activity Detector.
