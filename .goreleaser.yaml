@@ -1,3 +1,4 @@
+version: 2
 before:
   hooks:
     - make protogen-go
@@ -22,11 +23,11 @@ builds:
       - amd64
       - arm64
 archives:
-  - format: binary # this removes the tar of the archives, leaving the binaries alone
+  - formats: [ 'binary' ] # this removes the tar of the archives, leaving the binaries alone
     name_template: local-ai-{{ .Tag }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
 checksum:
   name_template: '{{ .ProjectName }}-{{ .Tag }}-checksums.txt'
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  version_template: "{{ .Tag }}-next"
 changelog:
   use: github-native
