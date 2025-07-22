@@ -503,9 +503,6 @@
     amd: "rocm-vllm-development"
     intel: "intel-sycl-f16-vllm-development"
 - !!merge <<: *vllm
-  name: "cuda11-vllm"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-vllm"
-- !!merge <<: *vllm
   name: "cuda12-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm"
 - !!merge <<: *vllm
@@ -517,9 +514,6 @@
 - !!merge <<: *vllm
   name: "intel-sycl-f16-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f16-vllm"
-- !!merge <<: *vllm
-  name: "cuda11-vllm-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-11-vllm"
 - !!merge <<: *vllm
   name: "cuda12-vllm-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-vllm"
