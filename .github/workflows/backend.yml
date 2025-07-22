@@ -945,7 +945,7 @@ jobs:
             type=sha
           flavor: |
             latest=auto
-            suffix=metal-darwin-arm64-llama-cpp,onlatest=true
+            suffix=-metal-darwin-arm64-llama-cpp,onlatest=true
       - name: Docker meta
         id: quaymeta
         uses: docker/metadata-action@v5
@@ -958,7 +958,7 @@ jobs:
             type=sha
           flavor: |
             latest=auto
-            suffix=metal-darwin-arm64-llama-cpp,onlatest=true
+            suffix=-metal-darwin-arm64-llama-cpp,onlatest=true
       - name: Push Docker image (DockerHub)
         run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
@@ -1034,7 +1034,7 @@ jobs:
             type=sha
           flavor: |
             latest=auto
-            suffix=darwin-x86-llama-cpp,onlatest=true
+            suffix=-darwin-x86-llama-cpp,onlatest=true
       - name: Docker meta
         id: quaymeta
         uses: docker/metadata-action@v5
@@ -1047,7 +1047,7 @@ jobs:
             type=sha
           flavor: |
             latest=auto
-            suffix=darwin-x86-llama-cpp,onlatest=true
+            suffix=-darwin-x86-llama-cpp,onlatest=true
       - name: Push Docker image (DockerHub)
         run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
