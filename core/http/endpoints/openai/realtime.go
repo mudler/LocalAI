@@ -716,6 +716,15 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
 
+				sendEvent(c, types.InputAudioBufferSpeechStoppedEvent{
+					ServerEventBase: types.ServerEventBase{
+						EventID: "event_TODO",
+						Type: types.ServerEventTypeInputAudioBufferSpeechStopped,
+					},
+					AudioEndMs: time.Now().Sub(startTime).Milliseconds(),
+				})
+				speechStarted = false
+
 				sendEvent(c, types.InputAudioBufferCommittedEvent{
 					ServerEventBase: types.ServerEventBase{
 						EventID: "event_TODO",
@@ -728,14 +737,6 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				abytes := sound.Int16toBytesLE(aints)
 				// TODO: Remove prefix silence that is is over TurnDetectionParams.PrefixPaddingMs
 				go commitUtterance(vadContext, abytes, cfg, evaluator, session, conv, c)
-
-				sendEvent(c, types.InputAudioBufferSpeechStoppedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-						Type: types.ServerEventTypeInputAudioBufferSpeechStopped,
-					},
-					AudioEndMs: time.Now().Sub(startTime).Milliseconds(),
-				})
 			}
 		}
 	}
