@@ -2,6 +2,7 @@
 name: "phi-4-chat"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   function:
     json_regex_match:

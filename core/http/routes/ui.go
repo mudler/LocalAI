@@ -25,38 +25,39 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-	if p2p.IsP2PEnabled() {
-		app.Get("/p2p", func(c *fiber.Ctx) error {
-			summary := fiber.Map{
-				"Title":   "LocalAI - P2P dashboard",
-				"BaseURL": utils.BaseURL(c),
-				"Version": internal.PrintableVersion(),
-				//"Nodes":          p2p.GetAvailableNodes(""),
-				//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
-				"IsP2PEnabled": p2p.IsP2PEnabled(),
-				"P2PToken":     appConfig.P2PToken,
-				"NetworkID":    appConfig.P2PNetworkID,
-			}
+	// P2P
+	app.Get("/p2p", func(c *fiber.Ctx) error {
+		summary := fiber.Map{
+			"Title":   "LocalAI - P2P dashboard",
+			"BaseURL": utils.BaseURL(c),
+			"Version": internal.PrintableVersion(),
+			//"Nodes":          p2p.GetAvailableNodes(""),
+			//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
 
-			// Render index
-			return c.Render("views/p2p", summary)
-		})
+			"P2PToken":  appConfig.P2PToken,
+			"NetworkID": appConfig.P2PNetworkID,
+		}
 
-		/* show nodes live! */
-		app.Get("/p2p/ui/workers", func(c *fiber.Ctx) error {
-			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
-		})
-		app.Get("/p2p/ui/workers-federation", func(c *fiber.Ctx) error {
-			return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
-		})
+		// Render index
+		return c.Render("views/p2p", summary)
+	})
 
-		app.Get("/p2p/ui/workers-stats", func(c *fiber.Ctx) error {
-			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
-		})
-		app.Get("/p2p/ui/workers-federation-stats", func(c *fiber.Ctx) error {
-			return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
-		})
-	}
+	/* show nodes live! */
+	app.Get("/p2p/ui/workers", func(c *fiber.Ctx) error {
+		return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
+	})
+	app.Get("/p2p/ui/workers-federation", func(c *fiber.Ctx) error {
+		return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
+	})
+
+	app.Get("/p2p/ui/workers-stats", func(c *fiber.Ctx) error {
+		return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
+	})
+	app.Get("/p2p/ui/workers-federation-stats", func(c *fiber.Ctx) error {
+		return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
+	})
+
+	// End P2P
 
 	if !appConfig.DisableGalleryEndpoint {
 		registerGalleryRoutes(app, cl, appConfig, galleryService, processingOps)
@@ -76,8 +77,8 @@ func RegisterUIRoutes(app *fiber.App,
 			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": backendConfigs,
 			"Model":        backendConfigs[0],
-			"IsP2PEnabled": p2p.IsP2PEnabled(),
-			"Version":      internal.PrintableVersion(),
+
+			"Version": internal.PrintableVersion(),
 		}
 
 		// Render index
@@ -121,7 +122,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsConfig":        backendConfigs,
 			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),
-			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -151,7 +151,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
-			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -169,7 +168,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
-			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -203,7 +201,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),
-			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -221,7 +218,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
-			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 		}
 
 		// Render index
@@ -253,7 +249,6 @@ func RegisterUIRoutes(app *fiber.App,
 			"ModelsConfig":        backendConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               modelThatCanBeUsed,
-			"IsP2PEnabled":        p2p.IsP2PEnabled(),
 			"Version":             internal.PrintableVersion(),
 		}
 

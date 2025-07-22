@@ -2,6 +2,7 @@
 name: "chatml-hercules"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   function:
     # disable injecting the "answer" tool

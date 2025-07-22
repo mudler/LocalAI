@@ -1,6 +1,3 @@
-//go:build p2p
-// +build p2p
-
 package worker
 
 import (
@@ -13,8 +10,6 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/p2p"
-	"github.com/mudler/LocalAI/pkg/assets"
-	"github.com/mudler/LocalAI/pkg/library"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 )
@@ -29,12 +24,6 @@ type P2P struct {
 }
 
 func (r *P2P) Run(ctx *cliContext.Context) error {
-	// Extract files from the embedded FS
-	err := assets.ExtractFiles(ctx.BackendAssets, r.BackendAssetsPath)
-	log.Debug().Msgf("Extracting backend assets files to %s", r.BackendAssetsPath)
-	if err != nil {
-		log.Warn().Msgf("Failed extracting backend assets files: %s (might be required for some backends to work properly)", err)
-	}
 
 	// Check if the token is set
 	// as we always need it.
@@ -71,7 +60,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			for {
 				log.Info().Msgf("Starting llama-cpp-rpc-server on '%s:%d'", address, port)
 
-				grpcProcess, err := findLLamaCPPBackend(r.BackendAssetsPath)
+				grpcProcess, err := findLLamaCPPBackend(r.BackendsPath)
 				if err != nil {
 					log.Error().Err(err).Msg("Failed to find llama-cpp-rpc-server")
 					return
@@ -84,8 +73,6 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 				}
 				args := append([]string{"--host", address, "--port", fmt.Sprint(port)}, extraArgs...)
 				log.Debug().Msgf("Starting llama-cpp-rpc-server on '%s:%d' with args: %+v (%d)", address, port, args, len(args))
-
-				args, grpcProcess = library.LoadLDSO(r.BackendAssetsPath, args, grpcProcess)
 
 				cmd := exec.Command(
 					grpcProcess, args...,

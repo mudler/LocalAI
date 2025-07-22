@@ -44,7 +44,6 @@ The `sentencetransformers` backend uses Python [sentence-transformers](https://g
 {{% alert note %}}
 
 - The `sentencetransformers` backend is an optional backend of LocalAI and uses Python. If you are running `LocalAI` from the containers you are good to go and should be already configured for use.
-- If you are running `LocalAI` manually you must install the python dependencies (`make prepare-extra-conda-environments`). This requires `conda` to be installed.
 - For local execution, you also have to specify the extra backend in the `EXTERNAL_GRPC_BACKENDS` environment variable.
     - Example: `EXTERNAL_GRPC_BACKENDS="sentencetransformers:/path/to/LocalAI/backend/python/sentencetransformers/sentencetransformers.py"`
 - The `sentencetransformers` backend does support only embeddings of text, and not of tokens. If you need to embed tokens you can use the `bert` backend or `llama.cpp`.

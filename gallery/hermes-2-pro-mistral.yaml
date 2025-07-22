@@ -2,6 +2,7 @@
 name: "hermes-2-pro-mistral"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   context_size: 8192
   stopwords:

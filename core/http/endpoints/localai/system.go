@@ -13,10 +13,7 @@ import (
 // @Router /system [get]
 func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		availableBackends, err := ml.ListAvailableBackends(appConfig.AssetsDestination)
-		if err != nil {
-			return err
-		}
+		availableBackends := []string{}
 		loadedModels := ml.ListModels()
 		for b := range appConfig.ExternalGRPCBackends {
 			availableBackends = append(availableBackends, b)

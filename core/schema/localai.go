@@ -63,23 +63,29 @@ type VADResponse struct {
 	Segments []VADSegment `json:"segments" yaml:"segments"`
 }
 
+type StoreCommon struct {
+	Backend string `json:"backend,omitempty" yaml:"backend,omitempty"`
+}
 type StoresSet struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
 
 	Keys   [][]float32 `json:"keys" yaml:"keys"`
 	Values []string    `json:"values" yaml:"values"`
+	StoreCommon
 }
 
 type StoresDelete struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
 
 	Keys [][]float32 `json:"keys"`
+	StoreCommon
 }
 
 type StoresGet struct {
 	Store string `json:"store,omitempty" yaml:"store,omitempty"`
 
 	Keys [][]float32 `json:"keys" yaml:"keys"`
+	StoreCommon
 }
 
 type StoresGetResponse struct {
@@ -92,6 +98,7 @@ type StoresFind struct {
 
 	Key  []float32 `json:"key" yaml:"key"`
 	Topk int       `json:"topk" yaml:"topk"`
+	StoreCommon
 }
 
 type StoresFindResponse struct {

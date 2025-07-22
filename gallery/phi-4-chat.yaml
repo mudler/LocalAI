@@ -3,6 +3,7 @@ name: "phi-4-chat"
 
 config_file: |
   mmap: true
+  backend: "llama-cpp"
   template:
     chat_message: |
       <|im_start|>{{ .RoleName }}<|im_sep|>

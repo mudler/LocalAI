@@ -3,9 +3,7 @@ GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
 
-ONNX_VERSION?=1.20.0
-ONNX_ARCH?=x64
-ONNX_OS?=linux
+GORELEASER?=
 
 export BUILD_TYPE?=
 
@@ -35,76 +33,32 @@ WHITE  := $(shell tput -Txterm setaf 7)
 CYAN   := $(shell tput -Txterm setaf 6)
 RESET  := $(shell tput -Txterm sgr0)
 
-UPX?=
-# check if upx exists
-ifeq (, $(shell which upx))
-	UPX=
-else
-	UPX=$(shell which upx)
-endif
-
 # Default Docker bridge IP
 E2E_BRIDGE_IP?=172.17.0.1
 
 ifndef UNAME_S
 UNAME_S := $(shell uname -s)
 endif
-# Detect if we are running on arm64
-ifneq (,$(findstring aarch64,$(shell uname -m)))
-	ONNX_ARCH=aarch64
-endif
 
 ifeq ($(OS),Darwin)
-	ONNX_OS=osx
-	ifneq (,$(findstring aarch64,$(shell uname -m)))
-		ONNX_ARCH=arm64
-	else ifneq (,$(findstring arm64,$(shell uname -m)))
-		ONNX_ARCH=arm64
-	else
-		ONNX_ARCH=x86_64
-	endif
-
 	ifeq ($(OSX_SIGNING_IDENTITY),)
 		OSX_SIGNING_IDENTITY := $(shell security find-identity -v -p codesigning | grep '"' | head -n 1 | sed -E 's/.*"(.*)"/\1/')
 	endif
 endif
 
-ALL_GRPC_BACKENDS=backend-assets/grpc/huggingface
-ALL_GRPC_BACKENDS+=backend-assets/grpc/local-store
-ALL_GRPC_BACKENDS+=backend-assets/grpc/silero-vad
-ALL_GRPC_BACKENDS+=$(OPTIONAL_GRPC)
-# Use filter-out to remove the specified backends
-ALL_GRPC_BACKENDS := $(filter-out $(SKIP_GRPC_BACKEND),$(ALL_GRPC_BACKENDS))
+# check if goreleaser exists
+ifeq (, $(shell which goreleaser))
+	GORELEASER=curl -sfL https://goreleaser.com/static/run | bash -s --
+else
+	GORELEASER=$(shell which goreleaser)
+endif
 
-GRPC_BACKENDS?=$(ALL_GRPC_BACKENDS) $(OPTIONAL_GRPC)
 TEST_PATHS?=./api/... ./pkg/... ./core/...
 
-# If empty, then we build all
-ifeq ($(GRPC_BACKENDS),)
-	GRPC_BACKENDS=$(ALL_GRPC_BACKENDS)
-endif
-
-ifeq ($(BUILD_API_ONLY),true)
-	GRPC_BACKENDS=
-endif
 
 .PHONY: all test build vendor
 
 all: help
-
-sources/onnxruntime:
-	mkdir -p sources/onnxruntime
-	curl -L https://github.com/microsoft/onnxruntime/releases/download/v$(ONNX_VERSION)/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz -o sources/onnxruntime/onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
-	cd sources/onnxruntime && tar -xvf onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz && rm onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION).tgz
-	cd sources/onnxruntime && mv onnxruntime-$(ONNX_OS)-$(ONNX_ARCH)-$(ONNX_VERSION)/* ./
-
-backend-assets/lib/libonnxruntime.so.1: backend-assets/lib sources/onnxruntime
-	cp -rfv sources/onnxruntime/lib/* backend-assets/lib/
-ifeq ($(OS),Darwin)
-	mv backend-assets/lib/libonnxruntime.$(ONNX_VERSION).dylib backend-assets/lib/libonnxruntime.dylib
-else
-	mv backend-assets/lib/libonnxruntime.so.$(ONNX_VERSION) backend-assets/lib/libonnxruntime.so.1
-endif
 
 ## GENERIC
 rebuild: ## Rebuilds the project
@@ -116,58 +70,33 @@ clean: ## Remove build related file
 	rm -f prepare
 	rm -rf $(BINARY_NAME)
 	rm -rf release/
-	rm -rf backend-assets/*
-	$(MAKE) -C backend/cpp/grpc clean
 	$(MAKE) protogen-clean
 	rmdir pkg/grpc/proto || true
 
 clean-tests:
 	rm -rf test-models
 	rm -rf test-dir
-	rm -rf core/http/backend-assets
-
-clean-dc: clean
-	cp -r /build/backend-assets /workspace/backend-assets
 
 ## Install Go tools
 install-go-tools:
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
 	go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
-	go install github.com/GeertJohan/go.rice/rice@latest
 
 ## Build:
-build: backend-assets grpcs install-go-tools ## Build the project
+build: protogen-go install-go-tools ## Build the project
 	$(info ${GREEN}I local-ai build info:${RESET})
 	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
 	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 	$(info ${GREEN}I UPX: ${YELLOW}$(UPX)${RESET})
-ifneq ($(BACKEND_LIBS),)
-	$(MAKE) backend-assets/lib
-	cp -f $(BACKEND_LIBS) backend-assets/lib/
-endif
 	rm -rf $(BINARY_NAME) || true
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
-	rice append --exec $(BINARY_NAME)
 
-build-api:
-	BUILD_GRPC_FOR_BACKEND_LLAMA=true BUILD_API_ONLY=true GO_TAGS=p2p $(MAKE) build
-
-backend-assets/lib:
-	mkdir -p backend-assets/lib
+dev-dist:
+	$(GORELEASER) build --snapshot --clean
 
 dist:
-	GO_TAGS="p2p" $(MAKE) build
-	GO_TAGS="p2p" STATIC=true $(MAKE) build
-	mkdir -p release
-# if BUILD_ID is empty, then we don't append it to the binary name
-ifeq ($(BUILD_ID),)
-	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(OS)-$(ARCH)
-	shasum -a 256 release/$(BINARY_NAME)-$(OS)-$(ARCH) > release/$(BINARY_NAME)-$(OS)-$(ARCH).sha256
-else
-	cp $(BINARY_NAME) release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH)
-	shasum -a 256 release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH) > release/$(BINARY_NAME)-$(BUILD_ID)-$(OS)-$(ARCH).sha256
-endif
+	$(GORELEASER) build --clean
 
 osx-signed: build
 	codesign --deep --force --sign "$(OSX_SIGNING_IDENTITY)" --entitlements "./Entitlements.plist" "./$(BINARY_NAME)"
@@ -185,8 +114,7 @@ test-models/testmodel.ggml:
 	wget -q https://cdn.openai.com/whisper/draft-20220913a/micro-machines.wav -O test-dir/audio.wav
 	cp tests/models_fixtures/* test-models
 
-prepare-test: grpcs
-	cp -rf backend-assets core/http
+prepare-test: protogen-go
 	cp tests/models_fixtures/* test-models
 
 ########################################################
@@ -194,7 +122,7 @@ prepare-test: grpcs
 ########################################################
 
 ## Test targets
-test: test-models/testmodel.ggml grpcs
+test: test-models/testmodel.ggml protogen-go
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
@@ -204,17 +132,26 @@ test: test-models/testmodel.ggml grpcs
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
 
-backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build-api
+backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
-backends/piper: docker-build-piper docker-save-piper build-api
+backends/piper: docker-build-piper docker-save-piper build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/piper.tar)"
 
-backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build-api
+backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
 
-backends/whisper: docker-build-whisper docker-save-whisper build-api
+backends/whisper: docker-build-whisper docker-save-whisper build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/whisper.tar)"
+	
+backends/silero-vad: docker-build-silero-vad docker-save-silero-vad build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/silero-vad.tar)"
+
+backends/local-store: docker-build-local-store docker-save-local-store build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/local-store.tar)"
+
+backends/huggingface: docker-build-huggingface docker-save-huggingface build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/huggingface.tar)"
 
 ########################################################
 ## AIO tests
@@ -243,7 +180,7 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 --build-arg FFMPEG=true -t localai-tests .
+	docker build --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
@@ -275,9 +212,7 @@ test-stablediffusion: prepare-test
 	TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stablediffusion" --flake-attempts $(TEST_FLAKES) -v -r $(TEST_PATHS)
 
-test-stores: backend-assets/grpc/local-store
-	mkdir -p tests/integration/backend-assets/grpc
-	cp -f backend-assets/grpc/local-store tests/integration/backend-assets/grpc/
+test-stores:
 	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="stores" --flake-attempts $(TEST_FLAKES) -v -r tests/integration
 
 test-container:
@@ -310,10 +245,42 @@ protogen: protogen-go protogen-python
 .PHONY: protogen-clean
 protogen-clean: protogen-go-clean protogen-python-clean
 
+protoc:
+	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
+	ARCH_NAME=$$(uname -m); \
+	if [ "$$OS_NAME" = "darwin" ]; then \
+	  if [ "$$ARCH_NAME" = "arm64" ]; then \
+	    FILE=protoc-31.1-osx-aarch_64.zip; \
+	  elif [ "$$ARCH_NAME" = "x86_64" ]; then \
+	    FILE=protoc-31.1-osx-x86_64.zip; \
+	  else \
+	    echo "Unsupported macOS architecture: $$ARCH_NAME"; exit 1; \
+	  fi; \
+	elif [ "$$OS_NAME" = "linux" ]; then \
+	  if [ "$$ARCH_NAME" = "x86_64" ]; then \
+	    FILE=protoc-31.1-linux-x86_64.zip; \
+	  elif [ "$$ARCH_NAME" = "aarch64" ] || [ "$$ARCH_NAME" = "arm64" ]; then \
+	    FILE=protoc-31.1-linux-aarch_64.zip; \
+	  elif [ "$$ARCH_NAME" = "ppc64le" ]; then \
+	    FILE=protoc-31.1-linux-ppcle_64.zip; \
+	  elif [ "$$ARCH_NAME" = "s390x" ]; then \
+	    FILE=protoc-31.1-linux-s390_64.zip; \
+	  elif [ "$$ARCH_NAME" = "i386" ] || [ "$$ARCH_NAME" = "x86" ]; then \
+	    FILE=protoc-31.1-linux-x86_32.zip; \
+	  else \
+	    echo "Unsupported Linux architecture: $$ARCH_NAME"; exit 1; \
+	  fi; \
+	else \
+	  echo "Unsupported OS: $$OS_NAME"; exit 1; \
+	fi; \
+	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
+	curl -L -s $$URL -o protoc.zip && \
+	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
+
 .PHONY: protogen-go
-protogen-go: install-go-tools
+protogen-go: protoc install-go-tools
 	mkdir -p pkg/grpc/proto
-	protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
+	./protoc --experimental_allow_proto3_optional -Ibackend/ --go_out=pkg/grpc/proto/ --go_opt=paths=source_relative --go-grpc_out=pkg/grpc/proto/ --go-grpc_opt=paths=source_relative \
     backend/backend.proto
 
 .PHONY: protogen-go-clean
@@ -407,19 +374,6 @@ vllm-protogen:
 vllm-protogen-clean:
 	$(MAKE) -C backend/python/vllm protogen-clean
 
-## GRPC
-# Note: it is duplicated in the Dockerfile
-prepare-extra-conda-environments: protogen-python
-	$(MAKE) -C backend/python/bark
-	$(MAKE) -C backend/python/coqui
-	$(MAKE) -C backend/python/diffusers
-	$(MAKE) -C backend/python/chatterbox
-	$(MAKE) -C backend/python/faster-whisper
-	$(MAKE) -C backend/python/vllm
-	$(MAKE) -C backend/python/rerankers
-	$(MAKE) -C backend/python/transformers
-	$(MAKE) -C backend/python/kokoro
-	$(MAKE) -C backend/python/exllama2
 
 prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/transformers
@@ -432,37 +386,6 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/diffusers test
 	$(MAKE) -C backend/python/chatterbox test
 	$(MAKE) -C backend/python/vllm test
-
-backend-assets:
-	mkdir -p backend-assets
-ifeq ($(BUILD_API_ONLY),true)
-	touch backend-assets/keep
-endif
-
-
-backend-assets/grpc:
-	mkdir -p backend-assets/grpc
-
-backend-assets/grpc/huggingface: protogen-go backend-assets/grpc
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/huggingface ./backend/go/llm/langchain/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/huggingface
-endif
-
-backend-assets/grpc/silero-vad: protogen-go backend-assets/grpc backend-assets/lib/libonnxruntime.so.1
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" CPATH="$(CPATH):$(CURDIR)/sources/onnxruntime/include/" LIBRARY_PATH=$(CURDIR)/backend-assets/lib \
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/silero-vad ./backend/go/vad/silero
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/silero-vad
-endif
-
-backend-assets/grpc/local-store: backend-assets/grpc protogen-go
-	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o backend-assets/grpc/local-store ./backend/go/stores/
-ifneq ($(UPX),)
-	$(UPX) backend-assets/grpc/local-store
-endif
-
-grpcs: protogen-go $(GRPC_BACKENDS)
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
@@ -506,7 +429,6 @@ docker-image-intel:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
 docker-image-intel-xpu:
@@ -515,7 +437,6 @@ docker-image-intel-xpu:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg GRPC_BACKENDS="$(GRPC_BACKENDS)" \
 		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
 
 ########################################################
@@ -533,6 +454,24 @@ docker-build-bark-cpp:
 
 docker-build-piper:
 	docker build -t local-ai-backend:piper -f backend/Dockerfile.go --build-arg BACKEND=piper .
+
+docker-build-local-store:
+	docker build -t local-ai-backend:local-store -f backend/Dockerfile.go --build-arg BACKEND=local-store .
+
+docker-build-huggingface:
+	docker build -t local-ai-backend:huggingface -f backend/Dockerfile.go --build-arg BACKEND=huggingface .
+
+docker-save-huggingface: backend-images
+	docker save local-ai-backend:huggingface -o backend-images/huggingface.tar
+
+docker-save-local-store: backend-images
+	docker save local-ai-backend:local-store -o backend-images/local-store.tar
+
+docker-build-silero-vad:
+	docker build -t local-ai-backend:silero-vad -f backend/Dockerfile.go --build-arg BACKEND=silero-vad .
+
+docker-save-silero-vad: backend-images
+	docker save local-ai-backend:silero-vad -o backend-images/silero-vad.tar
 
 docker-save-piper: backend-images
 	docker save local-ai-backend:piper -o backend-images/piper.tar

@@ -5,7 +5,7 @@ services:
     # Available images with CUDA, ROCm, SYCL
     # Image list (quay.io): https://quay.io/repository/go-skynet/local-ai?tab=tags
     # Image list (dockerhub): https://hub.docker.com/r/localai/localai
-    image: quay.io/go-skynet/local-ai:master-ffmpeg-core
+    image: quay.io/go-skynet/local-ai:master
     build:
       context: .
       dockerfile: Dockerfile

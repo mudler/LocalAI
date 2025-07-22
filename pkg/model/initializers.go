@@ -5,18 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
-	"slices"
 	"strings"
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
-	"github.com/mudler/LocalAI/pkg/library"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
-
-	"github.com/elliotchance/orderedmap/v2"
 )
 
 const (
@@ -50,79 +44,6 @@ const (
 	TransformersBackend = "transformers"
 	LocalStoreBackend   = "local-store"
 )
-
-func backendPath(assetDir, backend string) string {
-	return filepath.Join(assetDir, "backend-assets", "grpc", backend)
-}
-
-// backendsInAssetDir returns the list of backends in the asset directory
-// that should be loaded
-func backendsInAssetDir(assetDir string) (map[string][]string, error) {
-	// Exclude backends from automatic loading
-	excludeBackends := []string{LocalStoreBackend}
-	entry, err := os.ReadDir(backendPath(assetDir, ""))
-	if err != nil {
-		return nil, err
-	}
-	backends := make(map[string][]string)
-ENTRY:
-	for _, e := range entry {
-		for _, exclude := range excludeBackends {
-			if e.Name() == exclude {
-				continue ENTRY
-			}
-		}
-		if e.IsDir() {
-			continue
-		}
-		if strings.HasSuffix(e.Name(), ".log") {
-			continue
-		}
-
-		backends[e.Name()] = []string{}
-	}
-
-	return backends, nil
-}
-
-func orderBackends(backends map[string][]string) ([]string, error) {
-	// order backends from the asset directory.
-	// as we scan for backends, we want to keep some order which backends are tried of.
-	// for example, llama.cpp should be tried first, and we want to keep the huggingface backend at the last.
-
-	// sets a priority list - first has more priority
-	priorityList := []string{}
-
-	toTheEnd := []string{
-		// last has to be huggingface
-		LCHuggingFaceBackend,
-	}
-
-	// create an ordered map
-	orderedBackends := orderedmap.NewOrderedMap[string, any]()
-	// add priorityList first
-	for _, p := range priorityList {
-		if _, ok := backends[p]; ok {
-			orderedBackends.Set(p, backends[p])
-		}
-	}
-
-	for k, v := range backends {
-		if !slices.Contains(toTheEnd, k) {
-			if _, ok := orderedBackends.Get(k); !ok {
-				orderedBackends.Set(k, v)
-			}
-		}
-	}
-
-	for _, t := range toTheEnd {
-		if _, ok := backends[t]; ok {
-			orderedBackends.Set(t, backends[t])
-		}
-	}
-
-	return orderedBackends.Keys(), nil
-}
 
 // starts the grpcModelProcess for the backend, and returns a grpc client
 // It also loads the model
@@ -177,35 +98,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				client = NewModel(modelID, uri, nil)
 			}
 		} else {
-			grpcProcess := backendPath(o.assetDir, backend)
-			if err := utils.VerifyPath(grpcProcess, o.assetDir); err != nil {
-				return nil, fmt.Errorf("referring to a backend not in asset dir: %s", err.Error())
-			}
-
-			// Check if the file exists
-			if _, err := os.Stat(grpcProcess); os.IsNotExist(err) {
-				return nil, fmt.Errorf("backend not found: %s", grpcProcess)
-			}
-
-			serverAddress, err := getFreeAddress()
-			if err != nil {
-				return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
-			}
-
-			args := []string{}
-
-			// Load the ld.so if it exists
-			args, grpcProcess = library.LoadLDSO(o.assetDir, args, grpcProcess)
-
-			// Make sure the process is executable in any circumstance
-			process, err := ml.startProcess(grpcProcess, modelID, serverAddress, args...)
-			if err != nil {
-				return nil, err
-			}
-
-			log.Debug().Msgf("GRPC Service Started")
-
-			client = NewModel(modelID, serverAddress, process)
+			return nil, fmt.Errorf("backend not found: %s", backend)
 		}
 
 		log.Debug().Msgf("Wait for the service to start up")
@@ -257,14 +150,6 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 
 		return client, nil
 	}
-}
-
-func (ml *ModelLoader) ListAvailableBackends(assetdir string) ([]string, error) {
-	backends, err := backendsInAssetDir(assetdir)
-	if err != nil {
-		return nil, err
-	}
-	return orderBackends(backends)
 }
 
 func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
@@ -346,15 +231,16 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	var err error
 
 	// get backends embedded in the binary
-	autoLoadBackends, err := ml.ListAvailableBackends(o.assetDir)
-	if err != nil {
-		ml.Close() // we failed, release the lock
-		return nil, err
-	}
+	autoLoadBackends := []string{}
 
 	// append externalBackends supplied by the user via the CLI
 	for b := range ml.GetAllExternalBackends(o) {
 		autoLoadBackends = append(autoLoadBackends, b)
+	}
+
+	if len(autoLoadBackends) == 0 {
+		log.Error().Msg("No backends found")
+		return nil, fmt.Errorf("no backends found")
 	}
 
 	log.Debug().Msgf("Loading from the following backends (in order): %+v", autoLoadBackends)

@@ -2,11 +2,9 @@ package integration_test
 
 import (
 	"context"
-	"embed"
 	"math"
 	"math/rand"
 	"os"
-	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -14,14 +12,10 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/pkg/assets"
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/store"
 )
-
-//go:embed backend-assets/*
-var backendAssets embed.FS
 
 func normalize(vecs [][]float32) {
 	for i, k := range vecs {
@@ -49,12 +43,6 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 
 			tmpdir, err = os.MkdirTemp("", "")
 			Expect(err).ToNot(HaveOccurred())
-			backendAssetsDir := filepath.Join(tmpdir, "backend-assets")
-			err = os.Mkdir(backendAssetsDir, 0750)
-			Expect(err).ToNot(HaveOccurred())
-
-			err = assets.ExtractFiles(backendAssets, backendAssetsDir)
-			Expect(err).ToNot(HaveOccurred())
 
 			debug := true
 
@@ -66,7 +54,6 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 
 			storeOpts := []model.Option{
 				model.WithBackendString(bc.Backend),
-				model.WithAssetDir(backendAssetsDir),
 				model.WithModel("test"),
 			}
 

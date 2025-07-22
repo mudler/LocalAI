@@ -2,6 +2,7 @@
 name: "deepseek-r1"
 
 config_file: |
+  backend: "llama-cpp"
   context_size: 131072
   mmap: true
   f16: true

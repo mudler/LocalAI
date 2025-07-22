@@ -2,6 +2,7 @@
 name: "wizardlm2"
 
 config_file: |
+  backend: "llama-cpp"
   mmap: true
   template:
     chat_message: |-

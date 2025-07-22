@@ -126,8 +126,9 @@ func InstallModelFromGallery(
 		if err != nil {
 			return err
 		}
-
+		log.Debug().Msgf("Installed model %q", installedModel.Name)
 		if automaticallyInstallBackend && installedModel.Backend != "" {
+			log.Debug().Msgf("Installing backend %q", installedModel.Backend)
 			systemState, err := system.GetSystemState()
 			if err != nil {
 				return err

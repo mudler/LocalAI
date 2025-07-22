@@ -2,6 +2,7 @@
 name: "rwkv"
 
 config_file: |
+    backend: "llama-cpp"
     parameters:
       top_k: 80
       temperature: 0.9

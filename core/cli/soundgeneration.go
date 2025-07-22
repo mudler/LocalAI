@@ -27,7 +27,6 @@ type SoundGenerationCMD struct {
 	DoSample               bool     `short:"s" default:"true" help:"Enables sampling from the model. Better quality at the cost of speed. Defaults to enabled."`
 	OutputFile             string   `short:"o" type:"path" help:"The path to write the output wav file"`
 	ModelsPath             string   `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
-	BackendAssetsPath      string   `env:"LOCALAI_BACKEND_ASSETS_PATH,BACKEND_ASSETS_PATH" type:"path" default:"/tmp/localai/backend_data" help:"Path used to extract libraries that are required by some of the backends in runtime" group:"storage"`
 	ExternalGRPCBackends   []string `env:"LOCALAI_EXTERNAL_GRPC_BACKENDS,EXTERNAL_GRPC_BACKENDS" help:"A list of external grpc backends" group:"backends"`
 }
 
@@ -51,11 +50,10 @@ func parseToInt32Ptr(input string) *int32 {
 
 func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 	outputFile := t.OutputFile
-	outputDir := t.BackendAssetsPath
+	outputDir := os.TempDir()
 	if outputFile != "" {
 		outputDir = filepath.Dir(outputFile)
 	}
-
 	text := strings.Join(t.Text, " ")
 
 	externalBackends := make(map[string]string)
@@ -71,7 +69,6 @@ func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 		ModelPath:            t.ModelsPath,
 		Context:              context.Background(),
 		GeneratedContentDir:  outputDir,
-		AssetsDestination:    t.BackendAssetsPath,
 		ExternalGRPCBackends: externalBackends,
 	}
 	ml := model.NewModelLoader(opts.ModelPath, opts.SingleBackend)

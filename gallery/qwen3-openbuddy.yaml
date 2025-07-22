@@ -3,6 +3,7 @@ name: "qwen3-openbuddy"
 
 config_file: |
   mmap: true
+  backend: "llama-cpp"
   template:
     chat_message: |
       <|role|>{{ .RoleName }}<|says|>

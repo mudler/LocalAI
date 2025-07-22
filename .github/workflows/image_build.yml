@@ -37,10 +37,6 @@ on:
         description: 'Tag suffix'
         default: ''
         type: string
-      ffmpeg:
-        description: 'FFMPEG'
-        default: ''
-        type: string
       skip-drivers:
         description: 'Skip drivers by default'
         default: 'false'
@@ -236,7 +232,6 @@ jobs:
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
-            FFMPEG=${{ inputs.ffmpeg }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target
@@ -264,7 +259,6 @@ jobs:
             BUILD_TYPE=${{ inputs.build-type }}
             CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
-            FFMPEG=${{ inputs.ffmpeg }}
             BASE_IMAGE=${{ inputs.base-image }}
             GRPC_BASE_IMAGE=${{ inputs.grpc-base-image || inputs.base-image }}
             GRPC_MAKEFLAGS=--jobs=4 --output-sync=target

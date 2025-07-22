@@ -2,6 +2,7 @@
 name: "vllm"
 
 config_file: |
+    backend: vllm
     context_size: 8192
     parameters:
       max_tokens: 8192

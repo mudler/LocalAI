@@ -268,7 +268,7 @@
                                     Command to connect (click to copy): 
                                 </p>
                                 <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >
-                                    docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span class="token" x-text="network.token"></span>" --net host -ti localai/localai:master-ffmpeg-core federated --debug
+                                    docker run -d --restart=always -e ADDRESS=":80" -e LOCALAI_P2P_NETWORK_ID=<span class="token" x-text="cluster.NetworkID"></span> -e LOCALAI_P2P_LOGLEVEL=debug --name local-ai -e TOKEN="<span class="token" x-text="network.token"></span>" --net host -ti localai/localai:master federated --debug
                                 </code>
                                 or via CLI:
                                 <code class="block bg-gray-700 text-yellow-300 p-4 rounded-lg break-words"  @click="copyToken($el.textContent)" >

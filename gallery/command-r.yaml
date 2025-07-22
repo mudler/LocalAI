@@ -2,6 +2,7 @@
 name: "command-r"
 
 config_file: |
+  backend: "llama-cpp"
   context_size: 131072
   stopwords:
   - "<|END_OF_TURN_TOKEN|>"

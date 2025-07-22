@@ -14,7 +14,6 @@ jobs:
     with:
       tag-latest: ${{ matrix.tag-latest }}
       tag-suffix: ${{ matrix.tag-suffix }}
-      ffmpeg: ${{ matrix.ffmpeg }}
       build-type: ${{ matrix.build-type }}
       cuda-major-version: ${{ matrix.cuda-major-version }}
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
@@ -40,8 +39,7 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            tag-suffix: '-gpu-nvidia-cuda12-ffmpeg'
-            ffmpeg: 'true'
+            tag-suffix: '-gpu-nvidia-cuda12'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"
@@ -49,7 +47,6 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-hipblas'
-            ffmpeg: 'false'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
@@ -59,15 +56,13 @@ jobs:
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
-            tag-suffix: 'sycl-f16-ffmpeg'
-            ffmpeg: 'true'
+            tag-suffix: 'sycl-f16'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            tag-suffix: '-vulkan-ffmpeg-core'
-            ffmpeg: 'true'
+            tag-suffix: '-vulkan-core'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"

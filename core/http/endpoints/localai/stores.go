@@ -17,7 +17,7 @@ func StoresSetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfi
 			return err
 		}
 
-		sb, err := backend.StoreBackend(sl, appConfig, input.Store)
+		sb, err := backend.StoreBackend(sl, appConfig, input.Store, input.Backend)
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func StoresDeleteEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationCo
 			return err
 		}
 
-		sb, err := backend.StoreBackend(sl, appConfig, input.Store)
+		sb, err := backend.StoreBackend(sl, appConfig, input.Store, input.Backend)
 		if err != nil {
 			return err
 		}
@@ -67,7 +67,7 @@ func StoresGetEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConfi
 			return err
 		}
 
-		sb, err := backend.StoreBackend(sl, appConfig, input.Store)
+		sb, err := backend.StoreBackend(sl, appConfig, input.Store, input.Backend)
 		if err != nil {
 			return err
 		}
@@ -99,7 +99,7 @@ func StoresFindEndpoint(sl *model.ModelLoader, appConfig *config.ApplicationConf
 			return err
 		}
 
-		sb, err := backend.StoreBackend(sl, appConfig, input.Store)
+		sb, err := backend.StoreBackend(sl, appConfig, input.Store, input.Backend)
 		if err != nil {
 			return err
 		}
