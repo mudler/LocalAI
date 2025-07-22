@@ -37,8 +37,8 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 
 	size := C.size_t(unsafe.Sizeof((*C.char)(nil)))
 	length := C.size_t(len(opts.Options))
-	options = (**C.char)(C.malloc(length * size))
-	view := (*[1 << 30]*C.char)(unsafe.Pointer(options))[0:len(opts.Options):len(opts.Options)]
+	options = (**C.char)(C.malloc((length + 1) * size))
+	view := (*[1 << 30]*C.char)(unsafe.Pointer(options))[0:len(opts.Options) + 1:len(opts.Options) + 1]
 
 	var diffusionModel int
 
@@ -66,6 +66,7 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	for i, x := range oo {
 		view[i] = C.CString(x)
 	}
+	view[len(oo)] = nil
 
 	sd.cfgScale = opts.CFGScale
 

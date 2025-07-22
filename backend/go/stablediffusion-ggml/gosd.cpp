@@ -104,6 +104,8 @@ int load_model(char *model, char* options[], int threads, int diff) {
     char *scheduler = "";
     char *sampler = "";
 
+    fprintf(stderr, "parsing options\n");
+
     // If options is not NULL, parse options
     for (int i = 0; options[i] != NULL; i++) {
         char *optname = strtok(options[i], ":");
@@ -132,10 +134,13 @@ int load_model(char *model, char* options[], int threads, int diff) {
         }
     }
 
+    fprintf(stderr, "parsed options\n");
+
     int sample_method_found = -1;
     for (int m = 0; m < SAMPLE_METHOD_COUNT; m++) {
         if (!strcmp(sampler, sample_method_str[m])) {
             sample_method_found = m;
+            fprintf(stderr, "Found sampler: %s\n", sampler);
         }
     }
     if (sample_method_found == -1) {
