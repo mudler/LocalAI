@@ -597,7 +597,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "piper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           # bark-cpp
           - build-type: ''
@@ -610,7 +610,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "bark-cpp"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: ''
             cuda-major-version: ""
@@ -659,7 +659,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -671,7 +671,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "11"
@@ -683,7 +683,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'sycl_f32'
             cuda-major-version: ""
@@ -695,7 +695,7 @@ jobs:
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'sycl_f16'
             cuda-major-version: ""
@@ -707,7 +707,7 @@ jobs:
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'vulkan'
             cuda-major-version: ""
@@ -719,7 +719,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -731,7 +731,7 @@ jobs:
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           # whisper
           - build-type: ''
@@ -744,7 +744,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -756,7 +756,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "11"
@@ -768,7 +768,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'sycl_f32'
             cuda-major-version: ""
@@ -780,7 +780,7 @@ jobs:
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'sycl_f16'
             cuda-major-version: ""
@@ -792,7 +792,7 @@ jobs:
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'vulkan'
             cuda-major-version: ""
@@ -804,7 +804,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -816,7 +816,7 @@ jobs:
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -828,7 +828,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
             backend: "whisper"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           #silero-vad
           - build-type: ''
@@ -841,7 +841,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "silero-vad"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           # local-store
           - build-type: ''
@@ -854,7 +854,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "local-store"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"
           # huggingface
           - build-type: ''
@@ -867,7 +867,7 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "huggingface"
-            dockerfile: "./backend/Dockerfile.go"
+            dockerfile: "./backend/Dockerfile.golang"
             context: "./"  
   llama-cpp-darwin:
     runs-on: macOS-14

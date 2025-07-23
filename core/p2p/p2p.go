@@ -278,6 +278,7 @@ func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string
 			port, err := freeport.GetFreePort()
 			if err != nil {
 				zlog.Error().Err(err).Msgf("Could not allocate a free port for %s", nd.ID)
+				cancel()
 				return
 			}
 
