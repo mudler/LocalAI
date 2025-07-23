@@ -242,10 +242,7 @@ help: ## Show this help.
 ########################################################
 
 .PHONY: protogen
-protogen: protogen-go protogen-python
-
-.PHONY: protogen-clean
-protogen-clean: protogen-go-clean protogen-python-clean
+protogen: protogen-go
 
 protoc:
 	@OS_NAME=$$(uname -s | tr '[:upper:]' '[:lower:]'); \
@@ -289,93 +286,6 @@ protogen-go: protoc install-go-tools
 protogen-go-clean:
 	$(RM) pkg/grpc/proto/backend.pb.go pkg/grpc/proto/backend_grpc.pb.go
 	$(RM) bin/*
-
-.PHONY: protogen-python
-protogen-python: bark-protogen coqui-protogen chatterbox-protogen diffusers-protogen exllama2-protogen rerankers-protogen transformers-protogen kokoro-protogen vllm-protogen faster-whisper-protogen
-
-.PHONY: protogen-python-clean
-protogen-python-clean: bark-protogen-clean coqui-protogen-clean chatterbox-protogen-clean diffusers-protogen-clean  exllama2-protogen-clean rerankers-protogen-clean transformers-protogen-clean kokoro-protogen-clean vllm-protogen-clean faster-whisper-protogen-clean
-
-.PHONY: bark-protogen
-bark-protogen:
-	$(MAKE) -C backend/python/bark protogen
-
-.PHONY: bark-protogen-clean
-bark-protogen-clean:
-	$(MAKE) -C backend/python/bark protogen-clean
-
-.PHONY: coqui-protogen
-coqui-protogen:
-	$(MAKE) -C backend/python/coqui protogen
-
-.PHONY: coqui-protogen-clean
-coqui-protogen-clean:
-	$(MAKE) -C backend/python/coqui protogen-clean
-
-.PHONY: diffusers-protogen
-diffusers-protogen:
-	$(MAKE) -C backend/python/diffusers protogen
-
-.PHONY: chatterbox-protogen
-chatterbox-protogen:
-	$(MAKE) -C backend/python/chatterbox protogen
-
-.PHONY: diffusers-protogen-clean
-diffusers-protogen-clean:
-	$(MAKE) -C backend/python/diffusers protogen-clean
-
-.PHONY: chatterbox-protogen-clean
-chatterbox-protogen-clean:
-	$(MAKE) -C backend/python/chatterbox protogen-clean
-
-.PHONY: faster-whisper-protogen
-faster-whisper-protogen:
-	$(MAKE) -C backend/python/faster-whisper protogen
-
-.PHONY: faster-whisper-protogen-clean
-faster-whisper-protogen-clean:
-	$(MAKE) -C backend/python/faster-whisper protogen-clean
-
-.PHONY: exllama2-protogen
-exllama2-protogen:
-	$(MAKE) -C backend/python/exllama2 protogen
-
-.PHONY: exllama2-protogen-clean
-exllama2-protogen-clean:
-	$(MAKE) -C backend/python/exllama2 protogen-clean
-
-.PHONY: rerankers-protogen
-rerankers-protogen:
-	$(MAKE) -C backend/python/rerankers protogen
-
-.PHONY: rerankers-protogen-clean
-rerankers-protogen-clean:
-	$(MAKE) -C backend/python/rerankers protogen-clean
-
-.PHONY: transformers-protogen
-transformers-protogen:
-	$(MAKE) -C backend/python/transformers protogen
-
-.PHONY: transformers-protogen-clean
-transformers-protogen-clean:
-	$(MAKE) -C backend/python/transformers protogen-clean
-
-.PHONY: kokoro-protogen
-kokoro-protogen:
-	$(MAKE) -C backend/python/kokoro protogen
-
-.PHONY: kokoro-protogen-clean
-kokoro-protogen-clean:
-	$(MAKE) -C backend/python/kokoro protogen-clean
-
-.PHONY: vllm-protogen
-vllm-protogen:
-	$(MAKE) -C backend/python/vllm protogen
-
-.PHONY: vllm-protogen-clean
-vllm-protogen-clean:
-	$(MAKE) -C backend/python/vllm protogen-clean
-
 
 prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/transformers
