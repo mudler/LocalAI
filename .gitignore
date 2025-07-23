@@ -12,6 +12,7 @@ prepare-sources
 /backends
 /backend-images
 /result.yaml
+protoc
 
 *.log
 

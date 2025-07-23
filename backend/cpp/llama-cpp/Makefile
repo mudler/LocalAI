@@ -7,6 +7,7 @@ BUILD_TYPE?=
 NATIVE?=false
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 TARGET?=--target grpc-server
+JOBS?=$(shell nproc)
 
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
@@ -160,8 +161,8 @@ grpc-server: llama.cpp llama.cpp/tools/grpc-server
 	@echo "Building grpc-server with $(BUILD_TYPE) build type and $(CMAKE_ARGS)"
 ifneq (,$(findstring sycl,$(BUILD_TYPE)))
 	+bash -c "source $(ONEAPI_VARS); \
-	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)"
+	cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release -j $(JOBS) $(TARGET)"
 else
-	+cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release $(TARGET)
+	+cd llama.cpp && mkdir -p build && cd build && cmake .. $(CMAKE_ARGS) && cmake --build . --config Release -j $(JOBS) $(TARGET)
 endif
 	cp llama.cpp/build/bin/grpc-server .
