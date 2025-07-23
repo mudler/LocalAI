@@ -268,6 +268,32 @@
       sha256: a015794bfb1d69cb03dbb86b185fb2b9b339f757df5f8f9dd9ebdab8f6ed5d32
       uri: huggingface://bartowski/Qwen_Qwen3-30B-A3B-GGUF/Qwen_Qwen3-30B-A3B-Q4_K_M.gguf
 - !!merge <<: *qwen3
+  name: "qwen3-235b-a22b-instruct-2507"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507
+    - https://huggingface.co/lmstudio-community/Qwen3-235B-A22B-Instruct-2507-GGUF
+  description: |
+    We introduce the updated version of the Qwen3-235B-A22B non-thinking mode, named Qwen3-235B-A22B-Instruct-2507, featuring the following key enhancements:
+
+        Significant improvements in general capabilities, including instruction following, logical reasoning, text comprehension, mathematics, science, coding and tool usage.
+        Substantial gains in long-tail knowledge coverage across multiple languages.
+        Markedly better alignment with user preferences in subjective and open-ended tasks, enabling more helpful responses and higher-quality text generation.
+        Enhanced capabilities in 256K long-context understanding.
+  overrides:
+    parameters:
+      model: Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00001-of-00003.gguf
+  files:
+    - filename: Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00001-of-00003.gguf
+      sha256: 5c17188a988abb3d35b7f5c579221d18235b55c455e737c417d67efc78212062
+      uri: huggingface://lmstudio-community/Qwen3-235B-A22B-Instruct-2507-GGUF/Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00001-of-00003.gguf
+    - filename: Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00002-of-00003.gguf
+      sha256: 631bf38fd0b13ed15663a653dde9e30ba985e465135ef2aba486a5f260a0fb2d
+      uri: huggingface://lmstudio-community/Qwen3-235B-A22B-Instruct-2507-GGUF/Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00002-of-00003.gguf
+    - filename: Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00003-of-00003.gguf
+      sha256: f8180d4c7bee10d8a7be6f8f0cd3dcb8529c79d0959d695d530b32f04da83731
+      uri: huggingface://lmstudio-community/Qwen3-235B-A22B-Instruct-2507-GGUF/Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00003-of-00003.gguf
+- !!merge <<: *qwen3
   name: "qwen3-32b"
   urls:
     - https://huggingface.co/Qwen/Qwen3-32B
