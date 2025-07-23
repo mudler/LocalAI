@@ -1726,6 +1726,21 @@
     - filename: Zhi-Create-Qwen3-32B.i1-Q4_K_M.gguf
       sha256: 7ed2a7e080b23570d2edce3fc27a88219749506dc431170cf67cbac5c9217ffb
       uri: huggingface://mradermacher/Zhi-Create-Qwen3-32B-i1-GGUF/Zhi-Create-Qwen3-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "omega-qwen3-atom-8b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/V26CJSyLm0ixHwNZQLlc_.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Omega-Qwen3-Atom-8B
+    - https://huggingface.co/prithivMLmods/Omega-Qwen3-Atom-8B-GGUF
+  description: |
+    Omega-Qwen3-Atom-8B is a powerful 8B-parameter model fine-tuned on Qwen3-8B using the curated Open-Omega-Atom-1.5M dataset, optimized for math and science reasoning. It excels at symbolic processing, scientific problem-solving, and structured output generation—making it a high-performance model for researchers, educators, and technical developers working in computational and analytical domains.
+  overrides:
+    parameters:
+      model: Omega-Qwen3-Atom-8B.Q4_K_M.gguf
+  files:
+    - filename: Omega-Qwen3-Atom-8B.Q4_K_M.gguf
+      sha256: ec3d531b985a619a36d117c2fdd049fd360ecbca70b6d3d6cc7e6127c1e5b6a4
+      uri: huggingface://prithivMLmods/Omega-Qwen3-Atom-8B-GGUF/Omega-Qwen3-Atom-8B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
