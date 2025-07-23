@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -15,6 +16,10 @@ import (
 type LLamaCPP struct {
 	WorkerFlags `embed:""`
 }
+
+const (
+	llamaCPPRPCBinaryName = "llama-cpp-rpc-server"
+)
 
 func findLLamaCPPBackend(backendSystemPath string) (string, error) {
 	backends, err := gallery.ListSystemBackends(backendSystemPath)
@@ -33,12 +38,12 @@ func findLLamaCPPBackend(backendSystemPath string) (string, error) {
 	}
 
 	if backendPath == "" {
-		return "", fmt.Errorf("llama-cpp backend not found")
+		return "", errors.New("llama-cpp backend not found, install it first")
 	}
 
 	grpcProcess := filepath.Join(
 		backendPath,
-		"grpc-server",
+		llamaCPPRPCBinaryName,
 	)
 
 	return grpcProcess, nil

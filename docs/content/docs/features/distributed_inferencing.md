@@ -152,6 +152,14 @@ LocalAI uses https://github.com/libp2p/go-libp2p under the hood, the same projec
 
 The weights are split proportional to the memory when running into worker mode, when in federation mode each request is split to every node which have to load the model fully.
 
+## Debugging
+
+To debug, it's often useful to run in debug mode, for instance:
+
+```
+LOCALAI_P2P_LOGLEVEL=debug LOCALAI_P2P_LIB_LOGLEVEL=debug LOCALAI_P2P_ENABLE_LIMITS=true LOCALAI_P2P_DISABLE_DHT=true LOCALAI_P2P_TOKEN="<TOKEN>" ./local-ai ...
+```
+
 ## Notes
 
 - If running in p2p mode with container images, make sure you start the container with `--net host` or `network_mode: host` in the docker-compose file.
