@@ -1763,6 +1763,39 @@
     - filename: Omega-Qwen3-Atom-8B.Q4_K_M.gguf
       sha256: ec3d531b985a619a36d117c2fdd049fd360ecbca70b6d3d6cc7e6127c1e5b6a4
       uri: huggingface://prithivMLmods/Omega-Qwen3-Atom-8B-GGUF/Omega-Qwen3-Atom-8B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "menlo_lucy"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65713d70f56f9538679e5a56/PA6JCiYLPJX_WFO42ClTd.jpeg
+  urls:
+    - https://huggingface.co/Menlo/Lucy
+    - https://huggingface.co/bartowski/Menlo_Lucy-GGUF
+  description: |
+    Lucy is a compact but capable 1.7B model focused on agentic web search and lightweight browsing. Built on Qwen3-1.7B, Lucy inherits deep research capabilities from larger models while being optimized to run efficiently on mobile devices, even with CPU-only configurations.
+    We achieved this through machine-generated task vectors that optimize thinking processes, smooth reward functions across multiple categories, and pure reinforcement learning without any supervised fine-tuning.
+  overrides:
+    parameters:
+      model: Menlo_Lucy-Q4_K_M.gguf
+  files:
+    - filename: Menlo_Lucy-Q4_K_M.gguf
+      sha256: 1cb1682a9dbea9a1c8406721695f3faf6a212554d283585f2ec4608921f7c8b7
+      uri: huggingface://bartowski/Menlo_Lucy-GGUF/Menlo_Lucy-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "menlo_lucy-128k"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65713d70f56f9538679e5a56/PA6JCiYLPJX_WFO42ClTd.jpeg
+  urls:
+    - https://huggingface.co/Menlo/Lucy-128k
+    - https://huggingface.co/bartowski/Menlo_Lucy-128k-GGUF
+  description: |
+    Lucy is a compact but capable 1.7B model focused on agentic web search and lightweight browsing. Built on Qwen3-1.7B, Lucy inherits deep research capabilities from larger models while being optimized to run efficiently on mobile devices, even with CPU-only configurations.
+
+    We achieved this through machine-generated task vectors that optimize thinking processes, smooth reward functions across multiple categories, and pure reinforcement learning without any supervised fine-tuning.
+  overrides:
+    parameters:
+      model: Menlo_Lucy-128k-Q4_K_M.gguf
+  files:
+    - filename: Menlo_Lucy-128k-Q4_K_M.gguf
+      sha256: fb3e591cccc5d2821f3c615fd6dc2ca86d409f56fbc124275510a9612a90e61f
+      uri: huggingface://bartowski/Menlo_Lucy-128k-GGUF/Menlo_Lucy-128k-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
