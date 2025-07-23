@@ -17,6 +17,8 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     include_directories("${HOMEBREW_DEFAULT_PREFIX}/include")
 endif()
 
+set(Protobuf_USE_STATIC_LIBS OFF)
+set(gRPC_USE_STATIC_LIBS OFF)
 find_package(absl CONFIG REQUIRED)
 find_package(Protobuf CONFIG REQUIRED)
 find_package(gRPC CONFIG REQUIRED)
