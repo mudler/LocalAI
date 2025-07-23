@@ -294,6 +294,40 @@
       sha256: f8180d4c7bee10d8a7be6f8f0cd3dcb8529c79d0959d695d530b32f04da83731
       uri: huggingface://lmstudio-community/Qwen3-235B-A22B-Instruct-2507-GGUF/Qwen3-235B-A22B-Instruct-2507-Q3_K_L-00003-of-00003.gguf
 - !!merge <<: *qwen3
+  name: "qwen3-coder-480b-a35b-instruct"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct
+    - https://huggingface.co/lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF
+  description: |
+    Today, we're announcing Qwen3-Coder, our most agentic code model to date. Qwen3-Coder is available in multiple sizes, but we're excited to introduce its most powerful variant first: Qwen3-Coder-480B-A35B-Instruct. featuring the following key enhancements:
+
+        Significant Performance among open models on Agentic Coding, Agentic Browser-Use, and other foundational coding tasks, achieving results comparable to Claude Sonnet.
+        Long-context Capabilities with native support for 256K tokens, extendable up to 1M tokens using Yarn, optimized for repository-scale understanding.
+        Agentic Coding supporting for most platform such as Qwen Code, CLINE, featuring a specially designed function call format.
+  overrides:
+    parameters:
+      model: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00006-of-00006.gguf
+  files:
+    - filename: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00001-of-00006.gguf
+      sha256: f634354fe7f22b7026f5eb80d5b3205f82b36debd5a86f05d7046add04533837
+      uri: huggingface://lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF/Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00001-of-00006.gguf
+    - filename: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00002-of-00006.gguf
+      sha256: 8d2d079bdf80ed9816b4cd6f6a95e917583dfe8463228bbad0a56594bdc2efb8
+      uri: huggingface://lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF/Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00002-of-00006.gguf
+    - filename: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00003-of-00006.gguf
+      sha256: 7bf5919cc86cad5d0452c99d0aab4bf5a41b49d1275ac58d9ede81d1d002223c
+      uri: huggingface://lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF/Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00003-of-00006.gguf
+    - filename: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00004-of-00006.gguf
+      sha256: a68264f9f4b94f74508eedb6d2c4aa3f88d389e4f1f48731039e6a8d8c1b560f
+      uri: huggingface://lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF/Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00004-of-00006.gguf
+    - filename: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00005-of-00006.gguf
+      sha256: daa808f115c09c18d2cb36a70d3f1186c0c98631cbfe45f7146cb6c939606809
+      uri: huggingface://lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF/Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00005-of-00006.gguf
+    - filename: Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00006-of-00006.gguf
+      sha256: 4889a1484994fd8d58d002315252e32b3d528ea250459f534868066216ed0712
+      uri: huggingface://lmstudio-community/Qwen3-Coder-480B-A35B-Instruct-GGUF/Qwen3-Coder-480B-A35B-Instruct-Q3_K_L-00006-of-00006.gguf
+- !!merge <<: *qwen3
   name: "qwen3-32b"
   urls:
     - https://huggingface.co/Qwen/Qwen3-32B
