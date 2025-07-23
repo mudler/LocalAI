@@ -1,4 +1,26 @@
 ---
+- name: "dream-org_dream-v0-instruct-7b"
+  # chatml
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  license: apache-2.0
+  tags:
+    - diffusion-large-language-model
+    - gguf
+    - gpu
+    - cpu
+  icon: https://hkunlp.github.io/assets/img/group_name.png
+  urls:
+    - https://huggingface.co/Dream-org/Dream-v0-Instruct-7B
+    - https://huggingface.co/bartowski/Dream-org_Dream-v0-Instruct-7B-GGUF
+  description: |
+      This is the instruct model of Dream 7B, which is an open diffusion large language model with top-tier performance.
+  overrides:
+    parameters:
+      model: Dream-org_Dream-v0-Instruct-7B-Q4_K_M.gguf
+  files:
+    - filename: Dream-org_Dream-v0-Instruct-7B-Q4_K_M.gguf
+      sha256: 9067645ad6c85ae3daa8fa75a1831b9c77d59086d08a04d2bbbd27cb38475a7d
+      uri: huggingface://bartowski/Dream-org_Dream-v0-Instruct-7B-GGUF/Dream-org_Dream-v0-Instruct-7B-Q4_K_M.gguf
 - &smollm3
   name: "huggingfacetb_smollm3-3b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
