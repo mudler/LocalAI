@@ -452,16 +452,16 @@ docker-build-llama-cpp:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg IMAGE_BASE=$(IMAGE_BASE) -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
 
 docker-build-bark-cpp:
-	docker build -t local-ai-backend:bark-cpp -f backend/Dockerfile.go --build-arg BACKEND=bark-cpp .
+	docker build -t local-ai-backend:bark-cpp -f backend/Dockerfile.golang --build-arg BACKEND=bark-cpp .
 
 docker-build-piper:
-	docker build -t local-ai-backend:piper -f backend/Dockerfile.go --build-arg BACKEND=piper .
+	docker build -t local-ai-backend:piper -f backend/Dockerfile.golang --build-arg BACKEND=piper .
 
 docker-build-local-store:
-	docker build -t local-ai-backend:local-store -f backend/Dockerfile.go --build-arg BACKEND=local-store .
+	docker build -t local-ai-backend:local-store -f backend/Dockerfile.golang --build-arg BACKEND=local-store .
 
 docker-build-huggingface:
-	docker build -t local-ai-backend:huggingface -f backend/Dockerfile.go --build-arg BACKEND=huggingface .
+	docker build -t local-ai-backend:huggingface -f backend/Dockerfile.golang --build-arg BACKEND=huggingface .
 
 docker-save-huggingface: backend-images
 	docker save local-ai-backend:huggingface -o backend-images/huggingface.tar
@@ -470,7 +470,7 @@ docker-save-local-store: backend-images
 	docker save local-ai-backend:local-store -o backend-images/local-store.tar
 
 docker-build-silero-vad:
-	docker build -t local-ai-backend:silero-vad -f backend/Dockerfile.go --build-arg BACKEND=silero-vad .
+	docker build -t local-ai-backend:silero-vad -f backend/Dockerfile.golang --build-arg BACKEND=silero-vad .
 
 docker-save-silero-vad: backend-images
 	docker save local-ai-backend:silero-vad -o backend-images/silero-vad.tar
@@ -485,7 +485,7 @@ docker-save-bark-cpp: backend-images
 	docker save local-ai-backend:bark-cpp -o backend-images/bark-cpp.tar
 
 docker-build-stablediffusion-ggml:
-	docker build -t local-ai-backend:stablediffusion-ggml -f backend/Dockerfile.go --build-arg BACKEND=stablediffusion-ggml .
+	docker build -t local-ai-backend:stablediffusion-ggml -f backend/Dockerfile.golang --build-arg BACKEND=stablediffusion-ggml .
 
 docker-save-stablediffusion-ggml: backend-images
 	docker save local-ai-backend:stablediffusion-ggml -o backend-images/stablediffusion-ggml.tar
@@ -506,7 +506,7 @@ docker-build-kokoro:
 	docker build -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
 
 docker-build-whisper:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper -f backend/Dockerfile.go --build-arg BACKEND=whisper  .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper -f backend/Dockerfile.golang --build-arg BACKEND=whisper  .
 
 docker-save-whisper: backend-images
 	docker save local-ai-backend:whisper -o backend-images/whisper.tar
