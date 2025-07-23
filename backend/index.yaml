@@ -130,6 +130,7 @@
     intel: "intel-sycl-f16-transformers"
     amd: "rocm-transformers"
 - &diffusers
+  name: "diffusers"
   icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
   description: |
     🤗 Diffusers is the go-to library for state-of-the-art pretrained diffusion models for generating images, audio, and even 3D structures of molecules. Whether you're looking for a simple inference solution or training your own diffusion models, 🤗 Diffusers is a modular toolbox that supports both.
