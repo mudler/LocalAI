@@ -13940,6 +13940,21 @@
     - filename: Impish_Magic_24B.i1-Q4_K_M.gguf
       sha256: 38f73fb17b67837ab8b3664a6c8b54133539f58ae7a7a02e816f6a358b688562
       uri: huggingface://mradermacher/Impish_Magic_24B-i1-GGUF/Impish_Magic_24B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "entfane_math-genius-7b"
+  icon: https://huggingface.co/entfane/math_genious-7B/resolve/main/math-genious.png
+  urls:
+    - https://huggingface.co/entfane/math-genius-7B
+    - https://huggingface.co/bartowski/entfane_math-genius-7B-GGUF
+  description: |
+    This model is a Math Chain-of-Thought fine-tuned version of Mistral 7B v0.3 Instruct model.
+  overrides:
+    parameters:
+      model: entfane_math-genius-7B-Q4_K_M.gguf
+  files:
+    - filename: entfane_math-genius-7B-Q4_K_M.gguf
+      sha256: cd3a3c898a2dfb03d17a66db81b743f2d66981e0ceb92e8669a4af61217feed7
+      uri: huggingface://bartowski/entfane_math-genius-7B-GGUF/entfane_math-genius-7B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
