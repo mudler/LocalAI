@@ -31,7 +31,7 @@ func generateNewConnectionData(DHTInterval, OTPInterval int) *node.YAMLConnectio
 	maxMessSize := 20 << 20 // 20MB
 	keyLength := 43
 	if DHTInterval == 0 {
-		DHTInterval = 360
+		DHTInterval = 30
 	}
 	if OTPInterval == 0 {
 		OTPInterval = 9000
@@ -377,7 +377,7 @@ func newNodeOpts(token string) ([]node.Option, error) {
 
 	// TODO: move this up, expose more config options when creating a node
 	noDHT := os.Getenv("LOCALAI_P2P_DISABLE_DHT") == "true"
-	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") == "true"
+	noLimits := os.Getenv("LOCALAI_P2P_ENABLE_LIMITS") != "true"
 
 	var listenMaddrs []string
 	var bootstrapPeers []string
