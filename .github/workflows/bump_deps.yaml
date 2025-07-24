@@ -21,7 +21,7 @@ jobs:
             variable: "BARKCPP_VERSION"
             branch: "main"
             file: "Makefile"
-          - repository: "richiejp/stable-diffusion.cpp"
+          - repository: "leejet/stable-diffusion.cpp"
             variable: "STABLEDIFFUSION_GGML_VERSION"
             branch: "master"
             file: "backend/go/stablediffusion-ggml/Makefile"
