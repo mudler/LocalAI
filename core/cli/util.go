@@ -72,7 +72,7 @@ func (u *CreateOCIImageCMD) Run(ctx *cliContext.Context) error {
 }
 
 func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
-	if u.Args == nil || len(u.Args) == 0 {
+	if len(u.Args) == 0 {
 		return fmt.Errorf("no GGUF file provided")
 	}
 	// We try to guess only if we don't have a template defined already

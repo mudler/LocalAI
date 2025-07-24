@@ -10,8 +10,8 @@ import (
 	"dario.cat/mergo"
 	"github.com/mudler/LocalAI/core/config"
 	lconfig "github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/system"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/rs/zerolog/log"

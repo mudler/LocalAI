@@ -16,12 +16,12 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
+	"github.com/mudler/LocalAI/core/templates"
 	laudio "github.com/mudler/LocalAI/pkg/audio"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/sound"
-	"github.com/mudler/LocalAI/pkg/templates"
 
 	"google.golang.org/grpc"
 
@@ -29,8 +29,8 @@ import (
 )
 
 const (
-	localSampleRate       = 16000
-	remoteSampleRate      = 24000
+	localSampleRate  = 16000
+	remoteSampleRate = 24000
 )
 
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
@@ -210,9 +210,9 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 					// TODO: Need some way to pass this to the backend
 					Threshold: 0.5,
 					// TODO: This is ignored and the amount of padding is random at present
-					PrefixPaddingMs: 30,
+					PrefixPaddingMs:   30,
 					SilenceDurationMs: 500,
-					CreateResponse: func() *bool { t := true; return &t }(),
+					CreateResponse:    func() *bool { t := true; return &t }(),
 				},
 			},
 			InputAudioTranscription: &types.InputAudioTranscription{
@@ -233,7 +233,7 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 		// TODO: The API has no way to configure the VAD model or other models that make up a pipeline to fake any-to-any
 		//       So possibly we could have a way to configure a composite model that can be used in situations where any-to-any is expected
 		pipeline := config.Pipeline{
-			VAD: "silero-vad",
+			VAD:           "silero-vad",
 			Transcription: session.InputAudioTranscription.Model,
 		}
 
@@ -567,8 +567,8 @@ func updateTransSession(session *Session, update *types.ClientSession, cl *confi
 	trCur := session.InputAudioTranscription
 
 	if trUpd != nil && trUpd.Model != "" && trUpd.Model != trCur.Model {
-		pipeline := config.Pipeline {
-			VAD: "silero-vad",
+		pipeline := config.Pipeline{
+			VAD:           "silero-vad",
 			Transcription: trUpd.Model,
 		}
 
@@ -684,7 +684,7 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				sendEvent(c, types.InputAudioBufferClearedEvent{
 					ServerEventBase: types.ServerEventBase{
 						EventID: "event_TODO",
-						Type: types.ServerEventTypeInputAudioBufferCleared,
+						Type:    types.ServerEventTypeInputAudioBufferCleared,
 					},
 				})
 
@@ -697,7 +697,7 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				sendEvent(c, types.InputAudioBufferSpeechStartedEvent{
 					ServerEventBase: types.ServerEventBase{
 						EventID: "event_TODO",
-						Type: types.ServerEventTypeInputAudioBufferSpeechStarted,
+						Type:    types.ServerEventTypeInputAudioBufferSpeechStarted,
 					},
 					AudioStartMs: time.Now().Sub(startTime).Milliseconds(),
 				})
@@ -719,7 +719,7 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				sendEvent(c, types.InputAudioBufferSpeechStoppedEvent{
 					ServerEventBase: types.ServerEventBase{
 						EventID: "event_TODO",
-						Type: types.ServerEventTypeInputAudioBufferSpeechStopped,
+						Type:    types.ServerEventTypeInputAudioBufferSpeechStopped,
 					},
 					AudioEndMs: time.Now().Sub(startTime).Milliseconds(),
 				})
@@ -728,9 +728,9 @@ func handleVAD(cfg *config.BackendConfig, evaluator *templates.Evaluator, sessio
 				sendEvent(c, types.InputAudioBufferCommittedEvent{
 					ServerEventBase: types.ServerEventBase{
 						EventID: "event_TODO",
-						Type: types.ServerEventTypeInputAudioBufferCommitted,
+						Type:    types.ServerEventTypeInputAudioBufferCommitted,
 					},
-					ItemID: generateItemID(),
+					ItemID:         generateItemID(),
 					PreviousItemID: "TODO",
 				})
 
@@ -833,9 +833,9 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.BackendConfig,
 
 func runVAD(ctx context.Context, session *Session, adata []int16) ([]*proto.VADSegment, error) {
 	soundIntBuffer := &audio.IntBuffer{
-		Format: &audio.Format{SampleRate: localSampleRate, NumChannels: 1},
+		Format:         &audio.Format{SampleRate: localSampleRate, NumChannels: 1},
 		SourceBitDepth: 16,
-		Data: sound.ConvertInt16ToInt(adata),
+		Data:           sound.ConvertInt16ToInt(adata),
 	}
 
 	float32Data := soundIntBuffer.AsFloat32Buffer().Data
