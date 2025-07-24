@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/config"
-	. "github.com/mudler/LocalAI/pkg/startup"
+	. "github.com/mudler/LocalAI/core/startup"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

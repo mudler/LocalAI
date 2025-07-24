@@ -9,8 +9,8 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/downloader"
-	"github.com/mudler/LocalAI/pkg/startup"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
 )

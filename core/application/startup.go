@@ -10,8 +10,8 @@ import (
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 
+	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/model"
-	pkgStartup "github.com/mudler/LocalAI/pkg/startup"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
@@ -55,11 +55,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	if err := pkgStartup.InstallModels(options.Galleries, options.BackendGalleries, options.ModelPath, options.BackendsPath, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
+	if err := coreStartup.InstallModels(options.Galleries, options.BackendGalleries, options.ModelPath, options.BackendsPath, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		log.Error().Err(err).Msg("error installing models")
 	}
 
-	if err := pkgStartup.InstallExternalBackends(options.BackendGalleries, options.BackendsPath, nil, options.ExternalBackends...); err != nil {
+	if err := coreStartup.InstallExternalBackends(options.BackendGalleries, options.BackendsPath, nil, options.ExternalBackends...); err != nil {
 		log.Error().Err(err).Msg("error installing external backends")
 	}
 
