@@ -2,8 +2,8 @@ package application
 
 import (
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/templates"
 )
 
 type Application struct {

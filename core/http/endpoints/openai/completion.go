@@ -15,9 +15,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/templates"
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )

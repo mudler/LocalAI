@@ -15,8 +15,8 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
 
+	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/templates"
 
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
@@ -175,7 +175,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
-		
+
 		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
 			return fiber.ErrBadRequest

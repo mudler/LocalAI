@@ -3,8 +3,8 @@ package templates_test
 import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
+	. "github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
-	. "github.com/mudler/LocalAI/pkg/templates"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
