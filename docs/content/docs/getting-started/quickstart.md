@@ -154,7 +154,7 @@ For instructions on using AIO images, see [Using container images]({{% relref "d
 
 LocalAI is part of the Local family stack, along with LocalAGI and LocalRecall.
 
-[LocalAGI](https://github.com/mudler/LocalAGI) is a powerful, self-hostable AI Agent platform designed for maximum privacy and flexibility which encompassess and uses all the softwre stack. It provides a complete drop-in replacement for OpenAI's Responses APIs with advanced agentic capabilities, working entirely locally on consumer-grade hardware (CPU and GPU).
+[LocalAGI](https://github.com/mudler/LocalAGI) is a powerful, self-hostable AI Agent platform designed for maximum privacy and flexibility which encompassess and uses all the software stack. It provides a complete drop-in replacement for OpenAI's Responses APIs with advanced agentic capabilities, working entirely locally on consumer-grade hardware (CPU and GPU).
 
 ### Quick Start
 
