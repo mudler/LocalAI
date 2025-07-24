@@ -2,7 +2,7 @@ package services
 
 import (
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/system"
+	"github.com/mudler/LocalAI/pkg/system"
 
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/rs/zerolog/log"

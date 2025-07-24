@@ -2,7 +2,7 @@ package gallery
 
 import (
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/system"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 // BackendMetadata represents the metadata stored in a JSON file for each installed backend
