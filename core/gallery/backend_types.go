@@ -24,6 +24,7 @@ type GalleryBackend struct {
 	Metadata        `json:",inline" yaml:",inline"`
 	Alias           string            `json:"alias,omitempty" yaml:"alias,omitempty"`
 	URI             string            `json:"uri,omitempty" yaml:"uri,omitempty"`
+	Mirrors         []string          `json:"mirrors,omitempty" yaml:"mirrors,omitempty"`
 	CapabilitiesMap map[string]string `json:"capabilities,omitempty" yaml:"capabilities,omitempty"`
 }
 

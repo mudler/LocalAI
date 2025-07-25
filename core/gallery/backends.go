@@ -146,7 +146,18 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 
 	uri := downloader.URI(config.URI)
 	if err := uri.DownloadFile(backendPath, "", 1, 1, downloadStatus); err != nil {
-		return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
+		success := false
+		// Try to download from mirrors
+		for _, mirror := range config.Mirrors {
+			if err := downloader.URI(mirror).DownloadFile(backendPath, "", 1, 1, downloadStatus); err == nil {
+				success = true
+				break
+			}
+		}
+
+		if !success {
+			return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
+		}
 	}
 
 	// Create metadata for the backend
