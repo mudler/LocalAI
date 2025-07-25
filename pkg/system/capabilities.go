@@ -25,20 +25,24 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 
 	// Check if the reported capability is in the map
 	if _, exists := capMap[reportedCapability]; exists {
+		log.Debug().Str("reportedCapability", reportedCapability).Any("capMap", capMap).Msg("Using reported capability")
 		return reportedCapability
 	}
 
+	log.Debug().Str("reportedCapability", reportedCapability).Any("capMap", capMap).Msg("The requested capability was not found, using default capability")
 	// Otherwise, return the default capability (catch-all)
 	return defaultCapability
 }
 
 func (s *SystemState) getSystemCapabilities() string {
 	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") != "" {
+		log.Debug().Str("LOCALAI_FORCE_META_BACKEND_CAPABILITY", os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")).Msg("Using forced capability")
 		return os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
 	}
 
 	capabilityRunFile := "/run/localai/capability"
 	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE") != "" {
+		log.Debug().Str("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE", os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE")).Msg("Using forced capability run file")
 		capabilityRunFile = os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE")
 	}
 
@@ -48,31 +52,37 @@ func (s *SystemState) getSystemCapabilities() string {
 	if _, err := os.Stat(capabilityRunFile); err == nil {
 		capability, err := os.ReadFile(capabilityRunFile)
 		if err == nil {
-			return string(capability)
+			log.Debug().Str("capability", string(capability)).Msg("Using capability from run file")
+			return strings.Trim(strings.TrimSpace(string(capability)), "\n")
 		}
 	}
 
 	// If we are on mac and arm64, we will return metal
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		log.Debug().Msg("Using metal capability")
 		return metal
 	}
 
 	// If we are on mac and x86, we will return darwin-x86
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
+		log.Debug().Msg("Using darwin-x86 capability")
 		return darwinX86
 	}
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
 		if s.GPUVendor == "nvidia" {
+			log.Debug().Msg("Using nvidia-l4t capability")
 			return nvidiaL4T
 		}
 	}
 
 	if s.GPUVendor == "" {
+		log.Debug().Msg("Using default capability")
 		return defaultCapability
 	}
 
+	log.Debug().Str("GPUVendor", s.GPUVendor).Msg("Using GPU vendor capability")
 	return s.GPUVendor
 }
 

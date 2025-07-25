@@ -3,6 +3,7 @@ package gallery
 import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/rs/zerolog/log"
 )
 
 // BackendMetadata represents the metadata stored in a JSON file for each installed backend
@@ -33,9 +34,11 @@ func (backend *GalleryBackend) FindBestBackendFromMeta(systemState *system.Syste
 
 	realBackend := backend.CapabilitiesMap[systemState.Capability(backend.CapabilitiesMap)]
 	if realBackend == "" {
+		log.Debug().Str("backend", backend.Name).Str("reportedCapability", systemState.Capability(backend.CapabilitiesMap)).Msg("No backend found for reported capability")
 		return nil
 	}
 
+	log.Debug().Str("backend", backend.Name).Str("reportedCapability", systemState.Capability(backend.CapabilitiesMap)).Msg("Found backend for reported capability")
 	return backends.FindByName(realBackend)
 }
 
