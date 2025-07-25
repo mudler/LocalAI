@@ -101,7 +101,7 @@ jobs:
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-12"
           - build-type: 'vulkan'
-            platforms: 'linux/amd64'
+            platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-vulkan'
             runs-on: 'ubuntu-latest'
