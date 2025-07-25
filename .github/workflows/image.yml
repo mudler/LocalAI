@@ -103,7 +103,7 @@ jobs:
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-vulkan'
+            tag-suffix: '-gpu-vulkan'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
