@@ -6,34 +6,9 @@ CURDIR=$(dirname "$(realpath $0)")
 
 cd /
 
-echo "CPU info:"
-grep -e "model\sname" /proc/cpuinfo | head -1
-grep -e "flags" /proc/cpuinfo | head -1
+BINARY=llama-cpp
 
-BINARY=llama-cpp-fallback
-
-if grep -q -e "\savx\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX    found OK"
-	if [ -e $CURDIR/llama-cpp-avx ]; then
-		BINARY=llama-cpp-avx
-	fi
-fi
-
-if grep -q -e "\savx2\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX2   found OK"
-	if [ -e $CURDIR/llama-cpp-avx2 ]; then
-		BINARY=llama-cpp-avx2
-	fi
-fi
-
-# Check avx 512
-if grep -q -e "\savx512f\s" /proc/cpuinfo ; then
-	echo "CPU:    AVX512F found OK"
-	if [ -e $CURDIR/llama-cpp-avx512 ]; then
-		BINARY=llama-cpp-avx512
-	fi
-fi
-
+## P2P/GRPC mode
 if [ -n "$LLAMACPP_GRPC_SERVERS" ]; then
 	if [ -e $CURDIR/llama-cpp-grpc ]; then
 		BINARY=llama-cpp-grpc
@@ -56,6 +31,3 @@ fi
 
 echo "Using binary: $BINARY"
 exec $CURDIR/$BINARY "$@"
-
-# In case we fail execing, just run fallback
-exec $CURDIR/llama-cpp-fallback "$@"
