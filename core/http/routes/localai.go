@@ -23,7 +23,7 @@ func RegisterLocalAIRoutes(router *fiber.App,
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
-		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.ModelPath, galleryService)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.ModelPath, galleryService)
 		router.Post("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
 		router.Post("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
 

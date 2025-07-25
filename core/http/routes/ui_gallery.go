@@ -180,6 +180,7 @@ func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appCo
 			ID:                 uid,
 			GalleryElementName: galleryID,
 			Galleries:          appConfig.Galleries,
+			BackendGalleries:   appConfig.BackendGalleries,
 		}
 		go func() {
 			galleryService.ModelGalleryChannel <- op
@@ -219,6 +220,7 @@ func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appCo
 			Delete:             true,
 			GalleryElementName: galleryName,
 			Galleries:          appConfig.Galleries,
+			BackendGalleries:   appConfig.BackendGalleries,
 		}
 		go func() {
 			galleryService.ModelGalleryChannel <- op

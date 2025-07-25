@@ -15,9 +15,10 @@ import (
 )
 
 type ModelGalleryEndpointService struct {
-	galleries      []config.Gallery
-	modelPath      string
-	galleryApplier *services.GalleryService
+	galleries        []config.Gallery
+	backendGalleries []config.Gallery
+	modelPath        string
+	galleryApplier   *services.GalleryService
 }
 
 type GalleryModel struct {
@@ -25,11 +26,12 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []config.Gallery, modelPath string, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, modelPath string, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
-		galleries:      galleries,
-		modelPath:      modelPath,
-		galleryApplier: galleryApplier,
+		galleries:        galleries,
+		backendGalleries: backendGalleries,
+		modelPath:        modelPath,
+		galleryApplier:   galleryApplier,
 	}
 }
 
@@ -79,6 +81,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
+			BackendGalleries:   mgs.backendGalleries,
 		}
 
 		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
