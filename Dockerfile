@@ -72,6 +72,12 @@ RUN <<EOT bash
     fi
 EOT
 
+RUN <<EOT bash
+    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
+        echo "nvidia-l4t" > /run/localai/capability
+    fi
+EOT
+
 # If we are building with clblas support, we need the libraries for the builds
 RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
         apt-get update && \
