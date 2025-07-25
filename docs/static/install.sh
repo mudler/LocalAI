@@ -757,7 +757,7 @@ install_binary_darwin() {
     [ "$(uname -s)" = "Darwin" ] || fatal 'This script is intended to run on macOS only.'
 
     info "Downloading LocalAI ${LOCALAI_VERSION}..."
-    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${LOCALAI_VERSION}/local-ai-Darwin-${ARCH}"
+    curl --fail --show-error --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${LOCALAI_VERSION}/local-ai-${LOCALAI_VERSION}-darwin-${ARCH}"
 
     info "Installing to /usr/local/bin/local-ai"
     install -o0 -g0 -m755 $TEMP_DIR/local-ai /usr/local/bin/local-ai
@@ -789,7 +789,7 @@ install_binary() {
     fi
 
     info "Downloading LocalAI ${LOCALAI_VERSION}..."
-    curl --fail --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${LOCALAI_VERSION}/local-ai-Linux-${ARCH}"
+    curl --fail --location --progress-bar -o $TEMP_DIR/local-ai "https://github.com/mudler/LocalAI/releases/download/${LOCALAI_VERSION}/local-ai-${LOCALAI_VERSION}-linux-${ARCH}"
 
     for BINDIR in /usr/local/bin /usr/bin /bin; do
         echo $PATH | grep -q $BINDIR && break || continue
@@ -868,7 +868,7 @@ OS="$(uname -s)"
 
 ARCH=$(uname -m)
 case "$ARCH" in
-    x86_64) ARCH="x86_64" ;;
+    x86_64) ARCH="amd64" ;;
     aarch64|arm64) ARCH="arm64" ;;
     *) fatal "Unsupported architecture: $ARCH" ;;
 esac
