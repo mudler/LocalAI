@@ -59,6 +59,10 @@ func (e *embedBackend) SoundGeneration(ctx context.Context, in *pb.SoundGenerati
 	return e.s.SoundGeneration(ctx, in)
 }
 
+func (e *embedBackend) Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.CallOption) (*pb.DetectResponse, error) {
+	return e.s.Detect(ctx, in)
+}
+
 func (e *embedBackend) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error) {
 	return e.s.AudioTranscription(ctx, in)
 }

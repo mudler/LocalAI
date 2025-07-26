@@ -22,7 +22,7 @@ import (
 // server is used to implement helloworld.GreeterServer.
 type server struct {
 	pb.UnimplementedBackendServer
-	llm LLM
+	llm AIModel
 }
 
 func (s *server) Health(ctx context.Context, in *pb.HealthMessage) (*pb.Reply, error) {
@@ -109,6 +109,18 @@ func (s *server) SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequ
 		return &pb.Result{Message: fmt.Sprintf("Error generating audio: %s", err.Error()), Success: false}, err
 	}
 	return &pb.Result{Message: "Sound Generation audio generated", Success: true}, nil
+}
+
+func (s *server) Detect(ctx context.Context, in *pb.DetectOptions) (*pb.DetectResponse, error) {
+	if s.llm.Locking() {
+		s.llm.Lock()
+		defer s.llm.Unlock()
+	}
+	res, err := s.llm.Detect(in)
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
 }
 
 func (s *server) AudioTranscription(ctx context.Context, in *pb.TranscriptRequest) (*pb.TranscriptResult, error) {
@@ -251,7 +263,7 @@ func (s *server) VAD(ctx context.Context, in *pb.VADRequest) (*pb.VADResponse, e
 	return &res, nil
 }
 
-func StartServer(address string, model LLM) error {
+func StartServer(address string, model AIModel) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return err
@@ -269,7 +281,7 @@ func StartServer(address string, model LLM) error {
 	return nil
 }
 
-func RunServer(address string, model LLM) (func() error, error) {
+func RunServer(address string, model AIModel) (func() error, error) {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
 		return nil, err

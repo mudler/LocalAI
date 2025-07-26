@@ -4,7 +4,7 @@ import (
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 )
 
-type LLM interface {
+type AIModel interface {
 	Busy() bool
 	Lock()
 	Unlock()
@@ -15,6 +15,7 @@ type LLM interface {
 	Embeddings(*pb.PredictOptions) ([]float32, error)
 	GenerateImage(*pb.GenerateImageRequest) error
 	GenerateVideo(*pb.GenerateVideoRequest) error
+	Detect(*pb.DetectOptions) (pb.DetectResponse, error)
 	AudioTranscription(*pb.TranscriptRequest) (pb.TranscriptResult, error)
 	TTS(*pb.TTSRequest) error
 	SoundGeneration(*pb.SoundGenerationRequest) error
