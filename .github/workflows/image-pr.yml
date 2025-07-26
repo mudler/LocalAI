@@ -39,7 +39,7 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            tag-suffix: '-gpu-nvidia-cuda12'
+            tag-suffix: '-gpu-nvidia-cuda-12'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"

@@ -163,9 +163,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda11` | `localai/localai:master-gpu-nvidia-cuda11`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-11` | `localai/localai:master-gpu-nvidia-cuda-11`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11` | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda11` | `localai/localai:{{< version >}}-gpu-nvidia-cuda11`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-11` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-11`             |
 
 {{% /tab %}}
 
@@ -173,9 +173,9 @@ Standard container images do not have pre-installed models.
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda12` | `localai/localai:master-gpu-nvidia-cuda12`                      |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-12` | `localai/localai:master-gpu-nvidia-cuda12`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-12` | `localai/localai:latest-gpu-nvidia-cuda-12`                 |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda12` | `localai/localai:{{< version >}}-gpu-nvidia-cuda12`             |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-12` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-12`             |
 
 {{% /tab %}}
 
