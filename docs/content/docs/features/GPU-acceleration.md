@@ -15,6 +15,16 @@ This section contains instruction on how to use LocalAI with GPU acceleration.
 For acceleration for AMD or Metal HW is still in development, for additional details see the [build]({{%relref "docs/getting-started/build#Acceleration" %}})
 {{% /alert %}}
 
+## Automatic Backend Detection
+
+When you install a model from the gallery (or a YAML file), LocalAI intelligently detects the required backend and your system's capabilities, then downloads the correct version for you. Whether you're running on a standard CPU, an NVIDIA GPU, an AMD GPU, or an Intel GPU, LocalAI handles it automatically.
+
+For advanced use cases or to override auto-detection, you can use the `LOCALAI_FORCE_META_BACKEND_CAPABILITY` environment variable. Here are the available options:
+
+- `default`: Forces CPU-only backend. This is the fallback if no specific hardware is detected.
+- `nvidia`: Forces backends compiled with CUDA support for NVIDIA GPUs.
+- `amd`: Forces backends compiled with ROCm support for AMD GPUs.
+- `intel`: Forces backends compiled with SYCL/oneAPI support for Intel GPUs.
 
 ## Model configuration
 
