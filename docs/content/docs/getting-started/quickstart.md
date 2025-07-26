@@ -106,6 +106,9 @@ local-ai run https://gist.githubusercontent.com/.../phi-2.yaml
 local-ai run oci://localai/phi-2:latest
 ```
 
+{{% alert icon="⚡" %}}
+**Automatic Backend Detection**: When you install models from the gallery or YAML files, LocalAI automatically detects your system's GPU capabilities (NVIDIA, AMD, Intel) and downloads the appropriate backend. For advanced configuration options, see [GPU Acceleration]({{% relref "docs/features/gpu-acceleration#automatic-backend-detection" %}}).
+{{% /alert %}}
 
 For a full list of options, refer to the [Installer Options]({{% relref "docs/advanced/installer" %}}) documentation.
 
