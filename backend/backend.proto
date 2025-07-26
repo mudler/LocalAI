@@ -20,6 +20,7 @@ service Backend {
   rpc SoundGeneration(SoundGenerationRequest) returns (Result) {}
   rpc TokenizeString(PredictOptions) returns (TokenizationResponse) {}
   rpc Status(HealthMessage) returns (StatusResponse) {}
+  rpc Detect(DetectOptions) returns (DetectResponse) {}
 
   rpc StoresSet(StoresSetOptions) returns (Result) {}
   rpc StoresDelete(StoresDeleteOptions) returns (Result) {}
@@ -375,4 +376,21 @@ message StatusResponse {
 message Message {
   string role = 1;
   string content = 2;
+}
+
+message DetectOptions {
+  string src = 1;
+}
+
+message Detection {
+  float x = 1;
+  float y = 2;
+  float width = 3;
+  float height = 4;
+  float confidence = 5;
+  string class_name = 6;
+}
+
+message DetectResponse {
+  repeated Detection Detections = 1;
 }

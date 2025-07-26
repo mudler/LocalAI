@@ -1,0 +1,9 @@
+rfdetr
+opencv-python
+accelerate
+compel
+peft
+inference
+sentencepiece
+torch==2.7.1
+optimum-quanto
