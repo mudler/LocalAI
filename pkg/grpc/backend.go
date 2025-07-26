@@ -9,7 +9,7 @@ import (
 
 var embeds = map[string]*embedBackend{}
 
-func Provide(addr string, llm LLM) {
+func Provide(addr string, llm AIModel) {
 	embeds[addr] = &embedBackend{s: &server{llm: llm}}
 }
 
@@ -42,6 +42,7 @@ type Backend interface {
 	GenerateVideo(ctx context.Context, in *pb.GenerateVideoRequest, opts ...grpc.CallOption) (*pb.Result, error)
 	TTS(ctx context.Context, in *pb.TTSRequest, opts ...grpc.CallOption) (*pb.Result, error)
 	SoundGeneration(ctx context.Context, in *pb.SoundGenerationRequest, opts ...grpc.CallOption) (*pb.Result, error)
+	Detect(ctx context.Context, in *pb.DetectOptions, opts ...grpc.CallOption) (*pb.DetectResponse, error)
 	AudioTranscription(ctx context.Context, in *pb.TranscriptRequest, opts ...grpc.CallOption) (*pb.TranscriptResult, error)
 	TokenizeString(ctx context.Context, in *pb.PredictOptions, opts ...grpc.CallOption) (*pb.TokenizationResponse, error)
 	Status(ctx context.Context) (*pb.StatusResponse, error)

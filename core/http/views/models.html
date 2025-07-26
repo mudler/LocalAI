@@ -115,6 +115,14 @@
                         hx-indicator=".htmx-indicator">
                         <i class="fas fa-headphones mr-2"></i>Audio transcription
                     </button>
+                    <button hx-post="browse/search/models"
+                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-red-900/60 text-red-200 border border-red-700/50 hover:bg-red-800 transition duration-200 ease-in-out"
+                        hx-target="#search-results" 
+                        hx-vals='{"search": "object-detection"}'
+                        onclick="hidePagination()"
+                        hx-indicator=".htmx-indicator">
+                        <i class="fas fa-eye mr-2"></i>Object detection
+                    </button>
                 </div>
             </div>
             

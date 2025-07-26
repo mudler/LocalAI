@@ -120,3 +120,20 @@ type SystemInformationResponse struct {
 	Backends []string       `json:"backends"`
 	Models   []SysInfoModel `json:"loaded_models"`
 }
+
+type DetectionRequest struct {
+	BasicModelRequest
+	Image string `json:"image"`
+}
+
+type DetectionResponse struct {
+	Detections []Detection `json:"detections"`
+}
+
+type Detection struct {
+	X         float32 `json:"x"`
+	Y         float32 `json:"y"`
+	Width     float32 `json:"width"`
+	Height    float32 `json:"height"`
+	ClassName string  `json:"class_name"`
+}

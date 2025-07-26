@@ -155,6 +155,9 @@ backends/local-store: docker-build-local-store docker-save-local-store build
 backends/huggingface: docker-build-huggingface docker-save-huggingface build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/huggingface.tar)"
 
+backends/rfdetr: docker-build-rfdetr docker-save-rfdetr build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/rfdetr.tar)"
+
 ########################################################
 ## AIO tests
 ########################################################
@@ -372,6 +375,12 @@ docker-build-local-store:
 
 docker-build-huggingface:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:huggingface -f backend/Dockerfile.golang --build-arg BACKEND=huggingface .
+
+docker-build-rfdetr:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:rfdetr -f backend/Dockerfile.python --build-arg BACKEND=rfdetr ./backend
+
+docker-save-rfdetr: backend-images
+	docker save local-ai-backend:rfdetr -o backend-images/rfdetr.tar
 
 docker-save-huggingface: backend-images
 	docker save local-ai-backend:huggingface -o backend-images/huggingface.tar

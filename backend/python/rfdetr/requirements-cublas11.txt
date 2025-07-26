@@ -1,0 +1,8 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+torch==2.7.1+cu118
+rfdetr
+opencv-python
+accelerate
+inference
+peft
+optimum-quanto

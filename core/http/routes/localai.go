@@ -41,6 +41,11 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Get("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
 	}
 
+	router.Post("/v1/detection",
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DETECTION)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetectionRequest) }),
+		localai.DetectionEndpoint(cl, ml, appConfig))
+
 	router.Post("/tts",
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),

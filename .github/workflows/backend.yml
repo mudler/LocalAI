@@ -868,7 +868,81 @@ jobs:
             skip-drivers: 'false'
             backend: "huggingface"
             dockerfile: "./backend/Dockerfile.golang"
-            context: "./"  
+            context: "./"
+          # rfdetr
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-rfdetr'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "rfdetr"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "rfdetr"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
+          - build-type: 'cublas'
+            cuda-major-version: "11"
+            cuda-minor-version: "7"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-11-rfdetr'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "rfdetr"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
+          - build-type: 'intel'
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-intel-rfdetr'
+            runs-on: 'ubuntu-latest'
+            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            skip-drivers: 'false'
+            backend: "rfdetr"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
+          - build-type: 'cublas'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            skip-drivers: 'true'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-arm64-rfdetr'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            runs-on: 'ubuntu-24.04-arm'
+            backend: "rfdetr"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
+          # runs out of space on the runner
+          # - build-type: 'hipblas'
+          #   cuda-major-version: ""
+          #   cuda-minor-version: ""
+          #   platforms: 'linux/amd64'
+          #   tag-latest: 'auto'
+          #   tag-suffix: '-gpu-hipblas-rfdetr'
+          #   base-image: "rocm/dev-ubuntu-22.04:6.1"
+          #   runs-on: 'ubuntu-latest'
+          #   skip-drivers: 'false'
+          #   backend: "rfdetr"
+          #   dockerfile: "./backend/Dockerfile.python"
+          #   context: "./backend"
   llama-cpp-darwin:
     runs-on: macOS-14
     strategy:

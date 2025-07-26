@@ -1,4 +1,26 @@
 ---
+- &rfdetr
+  name: "rfdetr-base"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  license: apache-2.0
+  description: |
+    RF-DETR is a real-time, transformer-based object detection model architecture developed by Roboflow and released under the Apache 2.0 license.
+    RF-DETR is the first real-time model to exceed 60 AP on the Microsoft COCO benchmark alongside competitive performance at base sizes. It also achieves state-of-the-art performance on RF100-VL, an object detection benchmark that measures model domain adaptability to real world problems. RF-DETR is fastest and most accurate for its size when compared current real-time objection models.
+    RF-DETR is small enough to run on the edge using Inference, making it an ideal model for deployments that need both strong accuracy and real-time performance.
+  tags:
+    - object-detection
+    - rfdetr
+    - gpu
+    - cpu
+  urls:
+    - https://github.com/roboflow/rf-detr
+  overrides:
+    backend: rfdetr
+    parameters:
+      model: rfdetr-base
+    known_usecases:
+      - detection
 - name: "dream-org_dream-v0-instruct-7b"
   # chatml
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
