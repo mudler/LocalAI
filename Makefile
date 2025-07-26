@@ -322,7 +322,7 @@ docker-cuda11:
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
-		-t $(DOCKER_IMAGE)-cuda11 .
+		-t $(DOCKER_IMAGE)-cuda-11 .
 
 docker-aio:
 	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"

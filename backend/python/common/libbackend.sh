@@ -111,7 +111,7 @@ function ensureVenv() {
 #  - requirements-${BUILD_TYPE}.txt
 #  - requirements-${BUILD_PROFILE}.txt
 #
-# BUILD_PROFILE is a pore specific version of BUILD_TYPE, ex: cuda11 or cuda12
+# BUILD_PROFILE is a pore specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
 # it can also include some options that we do not have BUILD_TYPES for, ex: intel
 #
 # NOTE: for BUILD_PROFILE==intel, this function does NOT automatically use the Intel python package index.
