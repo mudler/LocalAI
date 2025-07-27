@@ -10,10 +10,8 @@ import (
 
 	"github.com/dave-gray101/v2keyauth"
 	"github.com/gofiber/websocket/v2"
-	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	"github.com/mudler/LocalAI/core/http/endpoints/openai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
 
@@ -198,11 +196,6 @@ func API(application *application.Application) (*fiber.App, error) {
 		log.Debug().Msg("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
 		router.Use(csrf.New())
 	}
-
-	// Load config jsons
-	utils.LoadConfig(application.ApplicationConfig().UploadDir, openai.UploadedFilesFile, &openai.UploadedFiles)
-	utils.LoadConfig(application.ApplicationConfig().ConfigsDir, openai.AssistantsConfigFile, &openai.Assistants)
-	utils.LoadConfig(application.ApplicationConfig().ConfigsDir, openai.AssistantsFileConfigFile, &openai.AssistantFiles)
 
 	galleryService := services.NewGalleryService(application.ApplicationConfig(), application.ModelLoader())
 	err = galleryService.Start(application.ApplicationConfig().Context, application.BackendLoader())
