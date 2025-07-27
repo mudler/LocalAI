@@ -69,6 +69,10 @@ func (llm *Base) SoundGeneration(*pb.SoundGenerationRequest) error {
 	return fmt.Errorf("unimplemented")
 }
 
+func (llm *Base) Detect(*pb.DetectOptions) (pb.DetectResponse, error) {
+	return pb.DetectResponse{}, fmt.Errorf("unimplemented")
+}
+
 func (llm *Base) TokenizeString(opts *pb.PredictOptions) (pb.TokenizationResponse, error) {
 	return pb.TokenizationResponse{}, fmt.Errorf("unimplemented")
 }

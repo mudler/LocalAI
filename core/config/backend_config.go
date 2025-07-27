@@ -458,6 +458,7 @@ const (
 	FLAG_TOKENIZE         BackendConfigUsecases = 0b001000000000
 	FLAG_VAD              BackendConfigUsecases = 0b010000000000
 	FLAG_VIDEO            BackendConfigUsecases = 0b100000000000
+	FLAG_DETECTION        BackendConfigUsecases = 0b1000000000000
 
 	// Common Subsets
 	FLAG_LLM BackendConfigUsecases = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
@@ -479,6 +480,7 @@ func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
 		"FLAG_VAD":              FLAG_VAD,
 		"FLAG_LLM":              FLAG_LLM,
 		"FLAG_VIDEO":            FLAG_VIDEO,
+		"FLAG_DETECTION":        FLAG_DETECTION,
 	}
 }
 
@@ -568,6 +570,12 @@ func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
 	if (u & FLAG_TTS) == FLAG_TTS {
 		ttsBackends := []string{"bark-cpp", "piper", "transformers-musicgen"}
 		if !slices.Contains(ttsBackends, c.Backend) {
+			return false
+		}
+	}
+
+	if (u & FLAG_DETECTION) == FLAG_DETECTION {
+		if c.Backend != "rfdetr" {
 			return false
 		}
 	}

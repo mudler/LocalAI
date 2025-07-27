@@ -73,6 +73,28 @@
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml"
     # metal: "metal-stablediffusion-ggml"
     # darwin-x86: "darwin-x86-stablediffusion-ggml"
+- &rfdetr
+  name: "rfdetr"
+  alias: "rfdetr"
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/53104118?s=200&v=4
+  description: |
+    RF-DETR is a real-time, transformer-based object detection model architecture developed by Roboflow and released under the Apache 2.0 license.
+    RF-DETR is the first real-time model to exceed 60 AP on the Microsoft COCO benchmark alongside competitive performance at base sizes. It also achieves state-of-the-art performance on RF100-VL, an object detection benchmark that measures model domain adaptability to real world problems. RF-DETR is fastest and most accurate for its size when compared current real-time objection models.
+    RF-DETR is small enough to run on the edge using Inference, making it an ideal model for deployments that need both strong accuracy and real-time performance.
+  urls:
+    - https://github.com/roboflow/rf-detr
+  tags:
+    - object-detection
+    - rfdetr
+    - gpu
+    - cpu
+  capabilities:
+    nvidia: "cuda12-rfdetr"
+    intel: "intel-rfdetr"
+    #amd: "rocm-rfdetr"
+    nvidia-l4t: "nvidia-l4t-arm64-rfdetr"
+    default: "cpu-rfdetr"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -663,6 +685,65 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-vllm"
   mirrors:
     - localai/localai-backends:master-gpu-intel-sycl-f16-vllm
+# rfdetr
+- !!merge <<: *rfdetr
+  name: "rfdetr-development"
+  capabilities:
+    nvidia: "cuda12-rfdetr-development"
+    intel: "intel-rfdetr-development"
+    #amd: "rocm-rfdetr-development"
+    nvidia-l4t: "nvidia-l4t-arm64-rfdetr-development"
+    default: "cpu-rfdetr-development"
+- !!merge <<: *rfdetr
+  name: "cuda12-rfdetr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-rfdetr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-rfdetr
+- !!merge <<: *rfdetr
+  name: "intel-rfdetr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-rfdetr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-rfdetr
+# - !!merge <<: *rfdetr
+#   name: "rocm-rfdetr"
+#   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-hipblas-rfdetr"
+#   mirrors:
+#     - localai/localai-backends:latest-gpu-hipblas-rfdetr
+- !!merge <<: *rfdetr
+  name: "nvidia-l4t-arm64-rfdetr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-rfdetr"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-rfdetr
+- !!merge <<: *rfdetr
+  name: "cpu-rfdetr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-rfdetr"
+  mirrors:
+    - localai/localai-backends:latest-cpu-rfdetr
+- !!merge <<: *rfdetr
+  name: "cuda12-rfdetr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-rfdetr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-rfdetr
+- !!merge <<: *rfdetr
+  name: "intel-rfdetr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-rfdetr"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-rfdetr
+# - !!merge <<: *rfdetr
+#   name: "rocm-rfdetr-development"
+#   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-hipblas-rfdetr"
+#   mirrors:
+#     - localai/localai-backends:master-gpu-hipblas-rfdetr
+- !!merge <<: *rfdetr
+  name: "cpu-rfdetr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-rfdetr"
+  mirrors:
+    - localai/localai-backends:master-cpu-rfdetr
+- !!merge <<: *rfdetr
+  name: "intel-rfdetr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-rfdetr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-rfdetr
 ## Rerankers
 - !!merge <<: *rerankers
   name: "rerankers-development"

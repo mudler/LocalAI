@@ -1,0 +1,7 @@
+rfdetr
+opencv-python
+accelerate
+peft
+inference
+torch==2.7.1
+optimum-quanto
