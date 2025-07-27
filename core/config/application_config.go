@@ -21,8 +21,7 @@ type ApplicationConfig struct {
 	Debug                               bool
 	GeneratedContentDir                 string
 
-	ConfigsDir string
-	UploadDir  string
+	UploadDir string
 
 	DynamicConfigsDir             string
 	DynamicConfigsDirPollInterval time.Duration
@@ -299,12 +298,6 @@ func WithGeneratedContentDir(generatedContentDir string) AppOption {
 func WithUploadDir(uploadDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.UploadDir = uploadDir
-	}
-}
-
-func WithConfigsDir(configsDir string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.ConfigsDir = configsDir
 	}
 }
 
