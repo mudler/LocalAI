@@ -95,7 +95,7 @@ func FindGalleryElement[T GalleryElement](models []T, name string, basePath stri
 
 	if !strings.Contains(name, "@") {
 		for _, m := range models {
-			if strings.EqualFold(m.GetName(), name) {
+			if strings.EqualFold(strings.ToLower(m.GetName()), strings.ToLower(name)) {
 				model = m
 				break
 			}
@@ -103,7 +103,7 @@ func FindGalleryElement[T GalleryElement](models []T, name string, basePath stri
 
 	} else {
 		for _, m := range models {
-			if strings.EqualFold(name, fmt.Sprintf("%s@%s", m.GetGallery().Name, m.GetName())) {
+			if strings.EqualFold(strings.ToLower(name), strings.ToLower(fmt.Sprintf("%s@%s", m.GetGallery().Name, m.GetName()))) {
 				model = m
 				break
 			}
