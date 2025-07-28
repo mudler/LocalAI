@@ -7,7 +7,7 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
+func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
 
 	opts := ModelOptions(backendConfig, appConfig)
 	inferenceModel, err := loader.Load(
@@ -33,6 +33,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 				Dst:              dst,
 				Src:              src,
 				EnableParameters: backendConfig.Diffusers.EnableParameters,
+				RefImages:        refImages,
 			})
 		return err
 	}

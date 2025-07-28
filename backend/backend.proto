@@ -305,6 +305,9 @@ message GenerateImageRequest {
   // Diffusers
   string EnableParameters = 10;
   int32 CLIPSkip = 11;
+  
+  // Reference images for models that support them (e.g., Flux Kontext)
+  repeated string ref_images = 12;
 }
 
 message GenerateVideoRequest {
