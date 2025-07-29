@@ -6,7 +6,7 @@ CMAKE_ARGS?=
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp
-WHISPER_CPP_VERSION?=e7bf0294ec9099b5fc21f5ba969805dfb2108cea
+WHISPER_CPP_VERSION?=d0a9d8c7f8f7b91c51d77bbaa394b915f79cde6b
 
 export WHISPER_CMAKE_ARGS?=-DBUILD_SHARED_LIBS=OFF
 export WHISPER_DIR=$(abspath ./sources/whisper.cpp)
