@@ -1878,6 +1878,25 @@
     - filename: Menlo_Lucy-128k-Q4_K_M.gguf
       sha256: fb3e591cccc5d2821f3c615fd6dc2ca86d409f56fbc124275510a9612a90e61f
       uri: huggingface://bartowski/Menlo_Lucy-128k-GGUF/Menlo_Lucy-128k-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen_qwen3-30b-a3b-instruct-2507"
+  urls:
+    - https://huggingface.co/Qwen/Qwen3-30B-A3B-Instruct-2507
+    - https://huggingface.co/bartowski/Qwen_Qwen3-30B-A3B-Instruct-2507-GGUF
+  description: |
+    We introduce the updated version of the Qwen3-30B-A3B non-thinking mode, named Qwen3-30B-A3B-Instruct-2507, featuring the following key enhancements:
+
+        Significant improvements in general capabilities, including instruction following, logical reasoning, text comprehension, mathematics, science, coding and tool usage.
+        Substantial gains in long-tail knowledge coverage across multiple languages.
+        Markedly better alignment with user preferences in subjective and open-ended tasks, enabling more helpful responses and higher-quality text generation.
+        Enhanced capabilities in 256K long-context understanding.
+  overrides:
+    parameters:
+      model: Qwen_Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf
+  files:
+    - filename: Qwen_Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf
+      sha256: 382b4f5a164d200f93790ee0e339fae12852896d23485cfb203ce868fea33a95
+      uri: huggingface://bartowski/Qwen_Qwen3-30B-A3B-Instruct-2507-GGUF/Qwen_Qwen3-30B-A3B-Instruct-2507-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
