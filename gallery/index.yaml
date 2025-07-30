@@ -1,4 +1,32 @@
 ---
+- &afm
+  name: "arcee-ai_afm-4.5b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6435718aaaef013d1aec3b8b/Lj9YVLIKKdImV_jID0A1g.png
+  license: aml
+  urls:
+    - https://huggingface.co/arcee-ai/AFM-4.5B
+    - https://huggingface.co/bartowski/arcee-ai_AFM-4.5B-GGUF
+  tags:
+    - gguf
+    - gpu
+    - gpu
+    - text-generation
+  description: |
+    AFM-4.5B is a 4.5 billion parameter instruction-tuned model developed by Arcee.ai, designed for enterprise-grade performance across diverse deployment environments from cloud to edge. The base model was trained on a dataset of 8 trillion tokens, comprising 6.5 trillion tokens of general pretraining data followed by 1.5 trillion tokens of midtraining data with enhanced focus on mathematical reasoning and code generation. Following pretraining, the model underwent supervised fine-tuning on high-quality instruction datasets. The instruction-tuned model was further refined through reinforcement learning on verifiable rewards as well as for human preference. We use a modified version of TorchTitan for pretraining, Axolotl for supervised fine-tuning, and a modified version of Verifiers for reinforcement learning.
+
+    The development of AFM-4.5B prioritized data quality as a fundamental requirement for achieving robust model performance. We collaborated with DatologyAI, a company specializing in large-scale data curation. DatologyAI's curation pipeline integrates a suite of proprietary algorithms—model-based quality filtering, embedding-based curation, target distribution-matching, source mixing, and synthetic data. Their expertise enabled the creation of a curated dataset tailored to support strong real-world performance.
+
+    The model architecture follows a standard transformer decoder-only design based on Vaswani et al., incorporating several key modifications for enhanced performance and efficiency. Notable architectural features include grouped query attention for improved inference efficiency and ReLU^2 activation functions instead of SwiGLU to enable sparsification while maintaining or exceeding performance benchmarks.
+
+    The model available in this repo is the instruct model following supervised fine-tuning and reinforcement learning.
+  overrides:
+    parameters:
+      model: arcee-ai_AFM-4.5B-Q4_K_M.gguf
+  files:
+    - filename: arcee-ai_AFM-4.5B-Q4_K_M.gguf
+      sha256: f05516b323f581bebae1af2cbf900d83a2569b0a60c54366daf4a9c15ae30d4f
+      uri: huggingface://bartowski/arcee-ai_AFM-4.5B-GGUF/arcee-ai_AFM-4.5B-Q4_K_M.gguf
 - &rfdetr
   name: "rfdetr-base"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
