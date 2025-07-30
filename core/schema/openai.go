@@ -141,6 +141,10 @@ type OpenAIRequest struct {
 
 	// whisper
 	File string `json:"file" validate:"required"`
+	// Multiple input images for img2img or inpainting
+	Files []string `json:"files,omitempty"`
+	// Reference images for models that support them (e.g., Flux Kontext)
+	RefImages []string `json:"ref_images,omitempty"`
 	//whisper/image
 	ResponseFormat interface{} `json:"response_format,omitempty"`
 	// image
