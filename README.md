@@ -140,11 +140,7 @@ docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri 
 ### Intel GPU Images (oneAPI):
 
 ```bash
-# Intel GPU with FP16 support
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel-f16
-
-# Intel GPU with FP32 support
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel-f32
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel
 ```
 
 ### Vulkan GPU Images:
@@ -166,7 +162,7 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-ai
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
 
 # Intel GPU version
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel-f16
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
 
 # AMD GPU version
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas

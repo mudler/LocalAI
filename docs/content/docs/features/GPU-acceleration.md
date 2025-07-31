@@ -267,7 +267,7 @@ If building from source, you need to install [Intel oneAPI Base Toolkit](https:/
 
 ### Container images
 
-To use SYCL, use the images with the `gpu-intel-f16` or `gpu-intel-f32` tag, for example `{{< version >}}-gpu-intel-f32-core`, `{{< version >}}-gpu-intel-f16`, ...
+To use SYCL, use the images with `gpu-intel` in the tag, for example `{{< version >}}-gpu-intel`, ...
 
 The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=tags).
 
@@ -276,7 +276,7 @@ The image list is on [quay](https://quay.io/repository/go-skynet/local-ai?tab=ta
 To run LocalAI with Docker and sycl starting `phi-2`, you can use the following command as an example:
 
 ```bash
-docker run -e DEBUG=true --privileged -ti -v $PWD/models:/models -p 8080:8080  -v /dev/dri:/dev/dri --rm quay.io/go-skynet/local-ai:master-gpu-intel-f32 phi-2
+docker run -e DEBUG=true --privileged -ti -v $PWD/models:/models -p 8080:8080  -v /dev/dri:/dev/dri --rm quay.io/go-skynet/local-ai:master-gpu-intel phi-2
 ```
 
 ### Notes
@@ -284,7 +284,7 @@ docker run -e DEBUG=true --privileged -ti -v $PWD/models:/models -p 8080:8080  -
 In addition to the commands to run LocalAI normally, you need to specify `--device /dev/dri` to docker, for example:
 
 ```bash
-docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel-f16
+docker run --rm -ti --device /dev/dri -p 8080:8080 -e DEBUG=true -e MODELS_PATH=/models -e THREADS=1 -v $PWD/models:/models quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel
 ```
 
 Note also that sycl does have a known issue to hang with `mmap: true`. You have to disable it in the model configuration if explicitly enabled.

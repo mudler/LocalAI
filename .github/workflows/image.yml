@@ -109,24 +109,15 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-vulkan"
-          - build-type: 'sycl_f16'
+          - build-type: 'sycl'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
-            tag-suffix: '-gpu-intel-f16'
+            tag-suffix: '-gpu-intel'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            aio: "-aio-gpu-intel-f16"
-          - build-type: 'sycl_f32'
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
-            tag-suffix: '-gpu-intel-f32'
-            runs-on: 'ubuntu-latest'
-            makeflags: "--jobs=3 --output-sync=target"
-            aio: "-aio-gpu-intel-f32"
+            aio: "-aio-gpu-intel"
 
   gh-runner:
     uses: ./.github/workflows/image_build.yml
