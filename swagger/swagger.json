@@ -85,6 +85,129 @@
                 "responses": {}
             }
         },
+        "/backends": {
+            "get": {
+                "summary": "List all Backends",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/gallery.GalleryBackend"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/apply": {
+            "post": {
+                "summary": "Install backends to LocalAI.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/localai.GalleryBackend"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/available": {
+            "get": {
+                "summary": "List all available Backends",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/gallery.GalleryBackend"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/delete/{name}": {
+            "post": {
+                "summary": "delete backends from LocalAI.",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Backend name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.BackendResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/galleries": {
+            "get": {
+                "summary": "List all Galleries",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/config.Gallery"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/jobs": {
+            "get": {
+                "summary": "Returns all the jobs status progress",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "$ref": "#/definitions/services.GalleryOpStatus"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/backends/jobs/{uuid}": {
+            "get": {
+                "summary": "Returns the job status",
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/services.GalleryOpStatus"
+                        }
+                    }
+                }
+            }
+        },
         "/metrics": {
             "get": {
                 "summary": "Prometheus metrics endpoint",
@@ -167,56 +290,6 @@
         "/models/galleries": {
             "get": {
                 "summary": "List all Galleries",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/config.Gallery"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "summary": "Adds a gallery in LocalAI",
-                "parameters": [
-                    {
-                        "description": "Gallery details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/config.Gallery"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/config.Gallery"
-                            }
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "summary": "removes a gallery from LocalAI",
-                "parameters": [
-                    {
-                        "description": "Gallery details",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/config.Gallery"
-                        }
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "Response",
@@ -316,94 +389,6 @@
                         "description": "generated audio/wav file",
                         "schema": {
                             "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/assistants": {
-            "get": {
-                "summary": "List available assistents",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Limit the number of assistants returned",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Order of assistants returned",
-                        "name": "order",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Return assistants created after the given ID",
-                        "name": "after",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Return assistants created before the given ID",
-                        "name": "before",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/openai.Assistant"
-                            }
-                        }
-                    }
-                }
-            },
-            "post": {
-                "summary": "Create an assistant with a model and instructions.",
-                "parameters": [
-                    {
-                        "description": "query params",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/openai.AssistantRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/openai.Assistant"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/assistants/{assistant_id}": {
-            "get": {
-                "summary": "Get assistent data",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/openai.Assistant"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "summary": "Delete assistents",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/schema.DeleteAssistantResponse"
                         }
                     }
                 }
@@ -522,6 +507,30 @@
                 }
             }
         },
+        "/v1/detection": {
+            "post": {
+                "summary": "Detects objects in the input image.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetectionRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.DetectionResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/edits": {
             "post": {
                 "summary": "OpenAI edit endpoint",
@@ -565,56 +574,6 @@
                         "description": "Response",
                         "schema": {
                             "$ref": "#/definitions/schema.OpenAIResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/files": {
-            "get": {
-                "summary": "List files.",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/schema.ListFiles"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/files/{file_id}": {
-            "get": {
-                "summary": "Returns information about a specific file.",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/schema.File"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "summary": "Delete a file.",
-                "responses": {
-                    "200": {
-                        "description": "Response",
-                        "schema": {
-                            "$ref": "#/definitions/openai.DeleteStatus"
-                        }
-                    }
-                }
-            }
-        },
-        "/v1/files/{file_id}/content": {
-            "get": {
-                "summary": "Returns information about a specific file.",
-                "responses": {
-                    "200": {
-                        "description": "file",
-                        "schema": {
-                            "type": "string"
                         }
                     }
                 }
@@ -919,6 +878,75 @@
                 }
             }
         },
+        "gallery.GalleryBackend": {
+            "type": "object",
+            "properties": {
+                "alias": {
+                    "type": "string"
+                },
+                "capabilities": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "files": {
+                    "description": "AdditionalFiles are used to add additional files to the model",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/gallery.File"
+                    }
+                },
+                "gallery": {
+                    "description": "Gallery is a reference to the gallery which contains the model",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/config.Gallery"
+                        }
+                    ]
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "installed": {
+                    "description": "Installed is used to indicate if the model is installed or not",
+                    "type": "boolean"
+                },
+                "license": {
+                    "type": "string"
+                },
+                "mirrors": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "tags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "uri": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
         "gallery.GalleryModel": {
             "type": "object",
             "properties": {
@@ -980,34 +1008,11 @@
                 }
             }
         },
-        "services.GalleryOpStatus": {
+        "localai.GalleryBackend": {
             "type": "object",
             "properties": {
-                "deletion": {
-                    "description": "Deletion is true if the operation is a deletion",
-                    "type": "boolean"
-                },
-                "downloaded_size": {
+                "id": {
                     "type": "string"
-                },
-                "error": {},
-                "file_name": {
-                    "type": "string"
-                },
-                "file_size": {
-                    "type": "string"
-                },
-                "gallery_model_name": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "processed": {
-                    "type": "boolean"
-                },
-                "progress": {
-                    "type": "number"
                 }
             }
         },
@@ -1018,9 +1023,6 @@
                     "description": "config_file is read in the situation where URL is blank - and therefore this is a base config.",
                     "type": "object",
                     "additionalProperties": true
-                },
-                "config_url": {
-                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -1077,130 +1079,6 @@
                     }
                 }
             }
-        },
-        "openai.Assistant": {
-            "type": "object",
-            "properties": {
-                "created": {
-                    "description": "The time at which the assistant was created.",
-                    "type": "integer"
-                },
-                "description": {
-                    "description": "The description of the assistant.",
-                    "type": "string"
-                },
-                "file_ids": {
-                    "description": "A list of file IDs attached to this assistant.",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "id": {
-                    "description": "The unique identifier of the assistant.",
-                    "type": "string"
-                },
-                "instructions": {
-                    "description": "The system instructions that the assistant uses.",
-                    "type": "string"
-                },
-                "metadata": {
-                    "description": "Set of key-value pairs attached to the assistant.",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "model": {
-                    "description": "The model ID used by the assistant.",
-                    "type": "string"
-                },
-                "name": {
-                    "description": "The name of the assistant.",
-                    "type": "string"
-                },
-                "object": {
-                    "description": "Object type, which is \"assistant\".",
-                    "type": "string"
-                },
-                "tools": {
-                    "description": "A list of tools enabled on the assistant.",
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/openai.Tool"
-                    }
-                }
-            }
-        },
-        "openai.AssistantRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "file_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "instructions": {
-                    "type": "string"
-                },
-                "metadata": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
-                },
-                "model": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "tools": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/openai.Tool"
-                    }
-                }
-            }
-        },
-        "openai.DeleteStatus": {
-            "type": "object",
-            "properties": {
-                "deleted": {
-                    "type": "boolean"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "object": {
-                    "type": "string"
-                }
-            }
-        },
-        "openai.Tool": {
-            "type": "object",
-            "properties": {
-                "type": {
-                    "$ref": "#/definitions/openai.ToolType"
-                }
-            }
-        },
-        "openai.ToolType": {
-            "type": "string",
-            "enum": [
-                "code_interpreter",
-                "retrieval",
-                "function"
-            ],
-            "x-enum-varnames": [
-                "CodeInterpreter",
-                "Retrieval",
-                "Function"
-            ]
         },
         "p2p.NodeData": {
             "type": "object",
@@ -1292,6 +1170,17 @@
                 }
             }
         },
+        "schema.BackendResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "status_url": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.Choice": {
             "type": "object",
             "properties": {
@@ -1312,17 +1201,45 @@
                 }
             }
         },
-        "schema.DeleteAssistantResponse": {
+        "schema.Detection": {
             "type": "object",
             "properties": {
-                "deleted": {
-                    "type": "boolean"
-                },
-                "id": {
+                "class_name": {
                     "type": "string"
                 },
-                "object": {
+                "height": {
+                    "type": "number"
+                },
+                "width": {
+                    "type": "number"
+                },
+                "x": {
+                    "type": "number"
+                },
+                "y": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.DetectionRequest": {
+            "type": "object",
+            "properties": {
+                "image": {
                     "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.DetectionResponse": {
+            "type": "object",
+            "properties": {
+                "detections": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.Detection"
+                    }
                 }
             }
         },
@@ -1342,35 +1259,6 @@
                     "type": "number"
                 },
                 "text": {
-                    "type": "string"
-                }
-            }
-        },
-        "schema.File": {
-            "type": "object",
-            "properties": {
-                "bytes": {
-                    "description": "Size of the file in bytes",
-                    "type": "integer"
-                },
-                "created_at": {
-                    "description": "The time at which the file was created",
-                    "type": "string"
-                },
-                "filename": {
-                    "description": "The name of the file",
-                    "type": "string"
-                },
-                "id": {
-                    "description": "Unique identifier for the file",
-                    "type": "string"
-                },
-                "object": {
-                    "description": "Type of the object (e.g., \"file\")",
-                    "type": "string"
-                },
-                "purpose": {
-                    "description": "The purpose of the file (e.g., \"fine-tune\", \"classifications\", etc.)",
                     "type": "string"
                 }
             }
@@ -1494,20 +1382,6 @@
                 }
             }
         },
-        "schema.ListFiles": {
-            "type": "object",
-            "properties": {
-                "data": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/schema.File"
-                    }
-                },
-                "object": {
-                    "type": "string"
-                }
-            }
-        },
         "schema.Message": {
             "type": "object",
             "properties": {
@@ -1603,6 +1477,13 @@
                     "description": "whisper",
                     "type": "string"
                 },
+                "files": {
+                    "description": "Multiple input images for img2img or inpainting",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "frequency_penalty": {
                     "type": "number"
                 },
@@ -1676,6 +1557,13 @@
                 },
                 "quality": {
                     "type": "string"
+                },
+                "ref_images": {
+                    "description": "Reference images for models that support them (e.g., Flux Kontext)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "repeat_last_n": {
                     "type": "integer"
@@ -1914,6 +1802,37 @@
                 },
                 "model": {
                     "type": "string"
+                }
+            }
+        },
+        "services.GalleryOpStatus": {
+            "type": "object",
+            "properties": {
+                "deletion": {
+                    "description": "Deletion is true if the operation is a deletion",
+                    "type": "boolean"
+                },
+                "downloaded_size": {
+                    "type": "string"
+                },
+                "error": {},
+                "file_name": {
+                    "type": "string"
+                },
+                "file_size": {
+                    "type": "string"
+                },
+                "gallery_element_name": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "processed": {
+                    "type": "boolean"
+                },
+                "progress": {
+                    "type": "number"
                 }
             }
         }

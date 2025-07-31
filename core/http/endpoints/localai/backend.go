@@ -34,7 +34,7 @@ func CreateBackendEndpointService(galleries []config.Gallery, backendPath string
 
 // GetOpStatusEndpoint returns the job status
 // @Summary Returns the job status
-// @Success 200 {object} services.BackendOpStatus "Response"
+// @Success 200 {object} services.GalleryOpStatus "Response"
 // @Router /backends/jobs/{uuid} [get]
 func (mgs *BackendEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -48,7 +48,7 @@ func (mgs *BackendEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx) erro
 
 // GetAllStatusEndpoint returns all the jobs status progress
 // @Summary Returns all the jobs status progress
-// @Success 200 {object} map[string]services.BackendOpStatus "Response"
+// @Success 200 {object} map[string]services.GalleryOpStatus "Response"
 // @Router /backends/jobs [get]
 func (mgs *BackendEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
@@ -58,7 +58,7 @@ func (mgs *BackendEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx) err
 
 // ApplyBackendEndpoint installs a new backend to a LocalAI instance
 // @Summary Install backends to LocalAI.
-// @Param request body BackendModel true "query params"
+// @Param request body GalleryBackend true "query params"
 // @Success 200 {object} schema.BackendResponse "Response"
 // @Router /backends/apply [post]
 func (mgs *BackendEndpointService) ApplyBackendEndpoint() func(c *fiber.Ctx) error {
