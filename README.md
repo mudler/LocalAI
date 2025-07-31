@@ -1,8 +1,12 @@
-<h1 align="center">
-  <br>
-  <img width="300" src="./core/http/static/logo.png"> <br>
-<br>
-</h1>
+# Local MaxGPT 🚀
+
+<div align="center">
+  <h1>🤖 Local MaxGPT</h1>
+  <h3>Run AI Models Locally with MaxGPT Power</h3>
+  <img src="https://img.shields.io/badge/BETA-purple?style=for-the-badge">
+  <img src="https://img.shields.io/badge/GPU-NVIDIA_CUDA_12-green?style=for-the-badge">
+  <img src="https://img.shields.io/badge/Docker-Compose-blue?style=for-the-badge">
+</div>
 
 <p align="center">
 <a href="https://github.com/go-skynet/LocalAI/fork" target="blank">
