@@ -29,8 +29,13 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 
 	sd.threads = int(opts.Threads)
 
+	modelPath := opts.ModelPath
+
 	modelFile := C.CString(opts.ModelFile)
 	defer C.free(unsafe.Pointer(modelFile))
+
+	modelPathC := C.CString(modelPath)
+	defer C.free(unsafe.Pointer(modelPathC))
 
 	var options **C.char
 	// prepare the options array to pass to C
@@ -70,7 +75,7 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 
 	sd.cfgScale = opts.CFGScale
 
-	ret := C.load_model(modelFile, options, C.int(opts.Threads), C.int(diffusionModel))
+	ret := C.load_model(modelFile, modelPathC, options, C.int(opts.Threads), C.int(diffusionModel))
 	if ret != 0 {
 		return fmt.Errorf("could not load model")
 	}
