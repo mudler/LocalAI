@@ -1113,7 +1113,8 @@ const docTemplate = `{
                 "breakdown": {
                     "type": "object",
                     "additionalProperties": {
-                        "type": "integer"
+                        "type": "integer",
+                        "format": "int64"
                     }
                 },
                 "total": {
@@ -1134,6 +1135,7 @@ const docTemplate = `{
         },
         "proto.StatusResponse_State": {
             "type": "integer",
+            "format": "int32",
             "enum": [
                 0,
                 1,
