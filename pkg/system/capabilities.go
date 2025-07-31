@@ -18,6 +18,9 @@ const (
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
+
+	capabilityEnv        = "LOCALAI_FORCE_META_BACKEND_CAPABILITY"
+	capabilityRunFileEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE"
 )
 
 func (s *SystemState) Capability(capMap map[string]string) string {
@@ -35,15 +38,16 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 }
 
 func (s *SystemState) getSystemCapabilities() string {
-	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY") != "" {
-		log.Debug().Str("LOCALAI_FORCE_META_BACKEND_CAPABILITY", os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")).Msg("Using forced capability")
-		return os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
+	capability := os.Getenv(capabilityEnv)
+	if capability != "" {
+		log.Info().Str("capability", capability).Msgf("Using forced capability from environment variable (%s)", capabilityEnv)
+		return capability
 	}
 
 	capabilityRunFile := "/run/localai/capability"
-	if os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE") != "" {
-		log.Debug().Str("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE", os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE")).Msg("Using forced capability run file")
-		capabilityRunFile = os.Getenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE")
+	capabilityRunFileEnv := os.Getenv(capabilityRunFileEnv)
+	if capabilityRunFileEnv != "" {
+		capabilityRunFile = capabilityRunFileEnv
 	}
 
 	// Check if /run/localai/capability exists and use it
@@ -52,37 +56,37 @@ func (s *SystemState) getSystemCapabilities() string {
 	if _, err := os.Stat(capabilityRunFile); err == nil {
 		capability, err := os.ReadFile(capabilityRunFile)
 		if err == nil {
-			log.Debug().Str("capability", string(capability)).Msg("Using capability from run file")
+			log.Info().Str("capabilityRunFile", capabilityRunFile).Str("capability", string(capability)).Msgf("Using forced capability run file (%s)", capabilityRunFileEnv)
 			return strings.Trim(strings.TrimSpace(string(capability)), "\n")
 		}
 	}
 
 	// If we are on mac and arm64, we will return metal
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
-		log.Debug().Msg("Using metal capability")
+		log.Info().Msgf("Using metal capability (arm64 on mac), set %s to override", capabilityEnv)
 		return metal
 	}
 
 	// If we are on mac and x86, we will return darwin-x86
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
-		log.Debug().Msg("Using darwin-x86 capability")
+		log.Info().Msgf("Using darwin-x86 capability (amd64 on mac), set %s to override", capabilityEnv)
 		return darwinX86
 	}
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
 		if s.GPUVendor == "nvidia" {
-			log.Debug().Msg("Using nvidia-l4t capability")
+			log.Info().Msgf("Using nvidia-l4t capability (arm64 on linux), set %s to override", capabilityEnv)
 			return nvidiaL4T
 		}
 	}
 
 	if s.GPUVendor == "" {
-		log.Debug().Msg("Using default capability")
+		log.Info().Msgf("Default capability (no GPU detected), set %s to override", capabilityEnv)
 		return defaultCapability
 	}
 
-	log.Debug().Str("GPUVendor", s.GPUVendor).Msg("Using GPU vendor capability")
+	log.Info().Str("Capability", s.GPUVendor).Msgf("Capability automatically detected, set %s to override", capabilityEnv)
 	return s.GPUVendor
 }
 
