@@ -5,6 +5,7 @@
 #include <random>
 #include <string>
 #include <vector>
+#include <filesystem>
 #include "gosd.h"
 
 // #include "preprocessing.hpp"
@@ -85,7 +86,7 @@ void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
     fflush(stderr);
 }
 
-int load_model(char *model, char* options[], int threads, int diff) {
+int load_model(char *model, char *model_path, char* options[], int threads, int diff) {
     fprintf (stderr, "Loading model!\n");
 
     sd_set_log_callback(sd_log_cb, NULL);
@@ -103,6 +104,8 @@ int load_model(char *model, char* options[], int threads, int diff) {
     char *vae_path  = "";
     char *scheduler = "";
     char *sampler = "";
+    char *lora_dir = model_path;
+    bool lora_dir_allocated = false;
 
     fprintf(stderr, "parsing options\n");
 
@@ -131,6 +134,20 @@ int load_model(char *model, char* options[], int threads, int diff) {
         }
         if (!strcmp(optname, "sampler")) {
             sampler = optval;
+        }
+        if (!strcmp(optname, "lora_dir")) {
+            // Path join with model dir
+            if (model_path && strlen(model_path) > 0) {
+                std::filesystem::path model_path_str(model_path);
+                std::filesystem::path lora_path(optval);
+                std::filesystem::path full_lora_path = model_path_str / lora_path;
+                lora_dir = strdup(full_lora_path.string().c_str());
+                lora_dir_allocated = true;
+                fprintf(stderr, "Lora dir resolved to: %s\n", lora_dir);
+            } else {
+                lora_dir = optval;
+                fprintf(stderr, "No model path provided, using lora dir as-is: %s\n", lora_dir);
+            }
         }
     }
 
@@ -176,7 +193,7 @@ int load_model(char *model, char* options[], int threads, int diff) {
     ctx_params.vae_path = vae_path;
     ctx_params.taesd_path = "";
     ctx_params.control_net_path = "";
-    ctx_params.lora_model_dir = "";
+    ctx_params.lora_model_dir = lora_dir;
     ctx_params.embedding_dir = "";
     ctx_params.stacked_id_embed_dir = "";
     ctx_params.vae_decode_only = false;
@@ -189,11 +206,20 @@ int load_model(char *model, char* options[], int threads, int diff) {
 
     if (sd_ctx == NULL) {
         fprintf (stderr, "failed loading model (generic error)\n");
+        // Clean up allocated memory
+        if (lora_dir_allocated && lora_dir) {
+            free(lora_dir);
+        }
         return 1;
     }
     fprintf (stderr, "Created context: OK\n");
 
     sd_c = sd_ctx;
+
+    // Clean up allocated memory
+    if (lora_dir_allocated && lora_dir) {
+        free(lora_dir);
+    }
 
     return 0;
 }
