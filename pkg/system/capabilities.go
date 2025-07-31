@@ -18,9 +18,13 @@ const (
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
+	nvidia            = "nvidia"
+	amd               = "amd"
+	intel             = "intel"
 
 	capabilityEnv        = "LOCALAI_FORCE_META_BACKEND_CAPABILITY"
 	capabilityRunFileEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE"
+	defaultRunFile       = "/run/localai/capability"
 )
 
 func (s *SystemState) Capability(capMap map[string]string) string {
@@ -44,7 +48,7 @@ func (s *SystemState) getSystemCapabilities() string {
 		return capability
 	}
 
-	capabilityRunFile := "/run/localai/capability"
+	capabilityRunFile := defaultRunFile
 	capabilityRunFileEnv := os.Getenv(capabilityRunFileEnv)
 	if capabilityRunFileEnv != "" {
 		capabilityRunFile = capabilityRunFileEnv
@@ -110,18 +114,16 @@ func detectGPUVendor() (string, error) {
 			if gpu.DeviceInfo.Vendor != nil {
 				gpuVendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
 				if strings.Contains(gpuVendorName, "NVIDIA") {
-					return "nvidia", nil
+					return nvidia, nil
 				}
 				if strings.Contains(gpuVendorName, "AMD") {
-					return "amd", nil
+					return amd, nil
 				}
 				if strings.Contains(gpuVendorName, "INTEL") {
-					return "intel", nil
+					return intel, nil
 				}
-				return "nvidia", nil
 			}
 		}
-
 	}
 
 	return "", nil
