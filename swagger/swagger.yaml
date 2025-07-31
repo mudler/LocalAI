@@ -212,6 +212,7 @@ definitions:
     properties:
       breakdown:
         additionalProperties:
+          format: int64
           type: integer
         type: object
       total:
@@ -230,6 +231,7 @@ definitions:
     - 1
     - 2
     - -1
+    format: int32
     type: integer
     x-enum-varnames:
     - StatusResponse_UNINITIALIZED
