@@ -96,17 +96,6 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
-# Intel oneAPI requirements
-RUN <<EOT bash
-    if [[ "${BUILD_TYPE}" == sycl* ]] && [ "${SKIP_DRIVERS}" = "false" ]; then
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            intel-oneapi-runtime-libs && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/*
-    fi
-EOT
-
 # Install Go
 RUN curl -L -s https://go.dev/dl/go${GO_VERSION}.linux-${TARGETARCH}.tar.gz | tar -C /usr/local -xz
 ENV PATH=$PATH:/root/go/bin:/usr/local/go/bin:/usr/local/bin

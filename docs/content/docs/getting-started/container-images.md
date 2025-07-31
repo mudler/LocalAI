@@ -131,8 +131,7 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/models localai/lo
 | Latest images for Nvidia GPU (CUDA11) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-11` | `localai/localai:latest-aio-gpu-nvidia-cuda-11`                      |
 | Latest images for Nvidia GPU (CUDA12) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12` | `localai/localai:latest-aio-gpu-nvidia-cuda-12`                      |
 | Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-hipblas` | `localai/localai:latest-aio-gpu-hipblas`                      |
-| Latest images for Intel GPU (sycl f16) | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel-f16` | `localai/localai:latest-aio-gpu-intel-f16`                      |
-| Latest images for Intel GPU (sycl f32) | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel-f32` | `localai/localai:latest-aio-gpu-intel-f32`                      |
+| Latest images for Intel GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel` | `localai/localai:latest-aio-gpu-intel`                      |
 
 ### Available environment variables
 
@@ -179,23 +178,13 @@ Standard container images do not have pre-installed models.
 
 {{% /tab %}}
 
-{{% tab tabName="Intel GPU (sycl f16)" %}}
+{{% tab tabName="Intel GPU" %}}
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel-f16` | `localai/localai:master-gpu-intel-f16`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f16` | `localai/localai:latest-gpu-intel-f16`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel-f16` | `localai/localai:{{< version >}}-gpu-intel-f16`             |
-
-{{% /tab %}}
-
-{{% tab tabName="Intel GPU (sycl f32)" %}}
-
-| Description | Quay | Docker Hub                                                  |
-| --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel-f32` | `localai/localai:master-gpu-intel-f32`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel-f32` | `localai/localai:latest-gpu-intel-f32`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel-f32` | `localai/localai:{{< version >}}-gpu-intel-f32`             |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-intel` | `localai/localai:master-gpu-intel`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-intel` | `localai/localai:latest-gpu-intel`                      |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-intel` | `localai/localai:{{< version >}}-gpu-intel`             |
 
 {{% /tab %}}
 

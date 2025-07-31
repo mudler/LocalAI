@@ -5,8 +5,6 @@ BINARY_NAME=local-ai
 
 GORELEASER?=
 
-ONEAPI_VERSION?=2025.2
-
 export BUILD_TYPE?=
 
 GO_TAGS?=
@@ -340,19 +338,11 @@ docker-aio-all:
 
 docker-image-intel:
 	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:${ONEAPI_VERSION}.0-0-devel-ubuntu24.04 \
+		--build-arg BASE_IMAGE=quay.io/go-skynet/intel-oneapi-base:latest \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
-
-docker-image-intel-xpu:
-	docker build \
-		--build-arg BASE_IMAGE=intel/oneapi-basekit:${ONEAPI_VERSION}.0-0-devel-ubuntu22.04 \
-		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
-		--build-arg GO_TAGS="$(GO_TAGS)" \
-		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg BUILD_TYPE=sycl_f32 -t $(DOCKER_IMAGE) .
+		--build-arg BUILD_TYPE=sycl -t $(DOCKER_IMAGE) .
 
 ########################################################
 ## Backends

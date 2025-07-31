@@ -100,6 +100,11 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         ldconfig \
     ; fi
 
+RUN expr "${BUILD_TYPE}" : sycl && \
+      echo "intel" > /run/localai/capability || \
+      echo "Not Intel"
+
+
 # Cuda
 ENV PATH=/usr/local/cuda/bin:${PATH}
 

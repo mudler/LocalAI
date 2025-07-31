@@ -51,12 +51,12 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-          - build-type: 'sycl_f16'
+          - build-type: 'sycl'
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             grpc-base-image: "ubuntu:22.04"
-            tag-suffix: 'sycl-f16'
+            tag-suffix: 'sycl'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
           - build-type: 'vulkan'
