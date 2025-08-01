@@ -129,6 +129,7 @@ The server logs should indicate that new workers are being discovered.
 
 There are options that can be tweaked or parameters that can be set using environment variables
 
+{{< table "table-responsive" >}}
 | Environment Variable | Description |
 |----------------------|-------------|
 | **LOCALAI_P2P** | Set to "true" to enable p2p |
@@ -142,6 +143,7 @@ There are options that can be tweaked or parameters that can be set using enviro
 | **LOCALAI_P2P_TOKEN** | Set the token for the p2p network |
 | **LOCALAI_P2P_LOGLEVEL** | Set the loglevel for the LocalAI p2p stack (default: info) |
 | **LOCALAI_P2P_LIB_LOGLEVEL** | Set the loglevel for the underlying libp2p stack (default: fatal) |
+{{< /table >}}
 
 
 ## Architecture
