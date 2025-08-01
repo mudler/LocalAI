@@ -14,6 +14,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 
 {{% /alert %}}
 
+{{< table "table-responsive" >}}
 | Backend and Bindings                                                             | Compatible models     | Completion/Chat endpoint | Capability | Embeddings support                | Token stream support | Acceleration |
 |----------------------------------------------------------------------------------|-----------------------|--------------------------|---------------------------|-----------------------------------|----------------------|--------------|
 | [llama.cpp]({{%relref "docs/features/text-generation#llama.cpp" %}})        | LLama, Mamba, RWKV, Falcon, Starcoder, GPT-2, [and many others](https://github.com/ggerganov/llama.cpp?tab=readme-ov-file#description) | yes                      | GPT and Functions                        | yes | yes                  | CUDA, openCL, cuBLAS, Metal |
@@ -34,6 +35,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [bark-cpp](https://github.com/PABannier/bark.cpp)        | bark               | no                       | Audio-Only                 | no                                | no                   | yes |
 | [stablediffusion-cpp](https://github.com/leejet/stable-diffusion.cpp)         | stablediffusion-1, stablediffusion-2, stablediffusion-3, flux, PhotoMaker               | no                       | Image                 | no                                | no                   | N/A |
 | [silero-vad](https://github.com/snakers4/silero-vad) with [Golang bindings](https://github.com/streamer45/silero-vad-go) | Silero VAD    | no                       | Voice Activity Detection    | no                               | no                   | CPU |
+{{< /table >}}
 
 Note: any backend name listed above can be used in the `backend` field of the model configuration file (See [the advanced section]({{%relref "docs/advanced" %}})).
 

@@ -41,6 +41,7 @@ All-In-One images are images that come pre-configured with a set of models and b
 
 In the AIO images there are models configured with the names of OpenAI models, however, they are really backed by Open Source models. You can find the table below
 
+{{< table "table-responsive" >}}
 | Category | Model name | Real model (CPU) | Real model (GPU) |
 | ---- | ---- | ---- | ---- |
 | Text Generation | `gpt-4` | `phi-2` | `hermes-2-pro-mistral` |
@@ -49,6 +50,7 @@ In the AIO images there are models configured with the names of OpenAI models, h
 | Speech to Text | `whisper-1` | `whisper` with `whisper-base` model | <= same |
 | Text to Speech | `tts-1` | `en-us-amy-low.onnx` from `rhasspy/piper` | <= same |
 | Embeddings | `text-embedding-ada-002` | `all-MiniLM-L6-v2` in Q4 | `all-MiniLM-L6-v2` |
+{{< /table >}}
 
 ### Usage
 

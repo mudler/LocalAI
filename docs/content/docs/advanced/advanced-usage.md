@@ -445,6 +445,7 @@ make -C backend/python/vllm
 When LocalAI runs in a container,
 there are additional environment variables available that modify the behavior of LocalAI on startup:
 
+{{< table "table-responsive" >}}
 | Environment variable       | Default | Description                                                                                                |
 |----------------------------|---------|------------------------------------------------------------------------------------------------------------|
 | `REBUILD`                  | `false` | Rebuild LocalAI on startup                                                                                 |
@@ -454,6 +455,7 @@ there are additional environment variables available that modify the behavior of
 | `EXTRA_BACKENDS`          |         | A space separated list of backends to prepare. For example `EXTRA_BACKENDS="backend/python/diffusers backend/python/transformers"` prepares the python environment on start |
 | `DISABLE_AUTODETECT`       | `false` | Disable autodetect of CPU flagset on start                                                                     |
 | `LLAMACPP_GRPC_SERVERS`   |         | A list of llama.cpp workers to distribute the workload. For example `LLAMACPP_GRPC_SERVERS="address1:port,address2:port"` |
+{{< /table >}}
 
 Here is how to configure these variables:
 
@@ -471,12 +473,15 @@ You can control LocalAI with command line arguments, to specify a binding addres
 In the help text below, BASEPATH is the location that local-ai is being executed from
 
 #### Global Flags
+{{< table "table-responsive" >}}
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 |  -h, --help |  | Show context-sensitive help. |
 | --log-level | info | Set the level of logs to output [error,warn,info,debug] | $LOCALAI_LOG_LEVEL |
+{{< /table >}}
 
 #### Storage Flags
+{{< table "table-responsive" >}}
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | --models-path | BASEPATH/models | Path containing models used for inferencing  | $LOCALAI_MODELS_PATH |
@@ -487,8 +492,10 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --localai-config-dir | BASEPATH/configuration | Directory for dynamic loading of certain configuration files (currently api_keys.json and external_backends.json) | $LOCALAI_CONFIG_DIR |
 | --localai-config-dir-poll-interval |  | Typically the config path picks up changes automatically, but if your system has broken fsnotify events, set this to a time duration to poll the LocalAI Config Dir (example: 1m) | $LOCALAI_CONFIG_DIR_POLL_INTERVAL |
 | --models-config-file | STRING | YAML file containing a list of model backend configs | $LOCALAI_MODELS_CONFIG_FILE |
+{{< /table >}}
 
 #### Models Flags
+{{< table "table-responsive" >}}
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | --galleries | STRING | JSON list of galleries | $LOCALAI_GALLERIES |
@@ -497,15 +504,19 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --preload-models | STRING | A List of models to apply in JSON at start |$LOCALAI_PRELOAD_MODELS |
 | --models | MODELS,... | A List of model configuration URLs to load | $LOCALAI_MODELS |
 | --preload-models-config | STRING | A List of models to apply at startup. Path to a YAML config file | $LOCALAI_PRELOAD_MODELS_CONFIG |
+{{< /table >}}
 
 #### Performance Flags
+{{< table "table-responsive" >}}
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | --f16 |  | Enable GPU acceleration | $LOCALAI_F16 |
 | -t, --threads | 4 | Number of threads used for parallel computation. Usage of the number of physical cores in the system is suggested | $LOCALAI_THREADS |
 | --context-size | 512 | Default context size for models | $LOCALAI_CONTEXT_SIZE |
+{{< /table >}}
 
 #### API Flags
+{{< table "table-responsive" >}}
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | --address | ":8080" | Bind address for the API server | $LOCALAI_ADDRESS |
@@ -516,8 +527,10 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --disable-welcome |  | Disable welcome pages | $LOCALAI_DISABLE_WELCOME |
 | --disable-webui | false | Disables the web user interface. When set to true, the server will only expose API endpoints without serving the web interface | $LOCALAI_DISABLE_WEBUI |
 | --machine-tag |  | If not empty - put that string to Machine-Tag header in each response. Useful to track response from different machines using multiple P2P federated nodes | $LOCALAI_MACHINE_TAG |
+{{< /table >}}
 
 #### Backend Flags
+{{< table "table-responsive" >}}
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | --parallel-requests |  | Enable backends to handle multiple requests in parallel if they support it (e.g.: llama.cpp or vllm) | $LOCALAI_PARALLEL_REQUESTS |
@@ -528,6 +541,7 @@ In the help text below, BASEPATH is the location that local-ai is being executed
 | --watchdog-idle-timeout | 15m | Threshold beyond which an idle backend should be stopped | $LOCALAI_WATCHDOG_IDLE_TIMEOUT, $WATCHDOG_IDLE_TIMEOUT |
 | --enable-watchdog-busy |  | Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout | $LOCALAI_WATCHDOG_BUSY |
 | --watchdog-busy-timeout | 5m | Threshold beyond which a busy backend should be stopped | $LOCALAI_WATCHDOG_BUSY_TIMEOUT |
+{{< /table >}}
 
 ### .env files
 
