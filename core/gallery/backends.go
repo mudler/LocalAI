@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog/log"
 )
 
@@ -145,18 +146,27 @@ func InstallBackend(basePath string, config *GalleryBackend, downloadStatus func
 	}
 
 	uri := downloader.URI(config.URI)
-	if err := uri.DownloadFile(backendPath, "", 1, 1, downloadStatus); err != nil {
-		success := false
-		// Try to download from mirrors
-		for _, mirror := range config.Mirrors {
-			if err := downloader.URI(mirror).DownloadFile(backendPath, "", 1, 1, downloadStatus); err == nil {
-				success = true
-				break
-			}
+	// Check if it is a directory
+	if uri.LooksLikeDir() {
+		// It is a directory, we just copy it over in the backend folder
+		if err := cp.Copy(config.URI, backendPath); err != nil {
+			return fmt.Errorf("failed copying: %w", err)
 		}
+	} else {
+		uri := downloader.URI(config.URI)
+		if err := uri.DownloadFile(backendPath, "", 1, 1, downloadStatus); err != nil {
+			success := false
+			// Try to download from mirrors
+			for _, mirror := range config.Mirrors {
+				if err := downloader.URI(mirror).DownloadFile(backendPath, "", 1, 1, downloadStatus); err == nil {
+					success = true
+					break
+				}
+			}
 
-		if !success {
-			return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
+			if !success {
+				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
+			}
 		}
 	}
 

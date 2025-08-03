@@ -144,6 +144,11 @@ func (u URI) LooksLikeHTTPURL() bool {
 		strings.HasPrefix(string(u), HTTPSPrefix)
 }
 
+func (u URI) LooksLikeDir() bool {
+	f, err := os.Stat(string(u))
+	return err == nil && f.IsDir()
+}
+
 func (s URI) LooksLikeOCI() bool {
 	return strings.HasPrefix(string(s), "quay.io") ||
 		strings.HasPrefix(string(s), OCIPrefix) ||

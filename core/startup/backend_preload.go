@@ -22,6 +22,17 @@ func InstallExternalBackends(galleries []config.Gallery, backendPath string, dow
 	for _, backend := range backends {
 		uri := downloader.URI(backend)
 		switch {
+		case uri.LooksLikeDir():
+			name := filepath.Base(backend)
+			log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from path")
+			if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+				Metadata: gallery.Metadata{
+					Name: name,
+				},
+				URI: backend,
+			}, downloadStatus); err != nil {
+				errs = errors.Join(err, fmt.Errorf("error installing backend %s", backend))
+			}
 		case uri.LooksLikeOCI():
 			name, err := uri.FilenameFromUrl()
 			if err != nil {
