@@ -1,3 +1,5 @@
+#define GGML_MAX_NAME 128
+
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
