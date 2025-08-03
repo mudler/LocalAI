@@ -109,7 +109,7 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-vulkan"
-          - build-type: 'sycl'
+          - build-type: 'intel'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
