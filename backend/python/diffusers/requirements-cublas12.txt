@@ -1,5 +1,5 @@
-torch==2.4.1
-diffusers
+torch==2.7.1
+git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
 accelerate
