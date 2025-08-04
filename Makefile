@@ -342,7 +342,7 @@ docker-image-intel:
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
-		--build-arg BUILD_TYPE=sycl -t $(DOCKER_IMAGE) .
+		--build-arg BUILD_TYPE=intel -t $(DOCKER_IMAGE) .
 
 ########################################################
 ## Backends
