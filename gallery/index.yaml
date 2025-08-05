@@ -1,4 +1,45 @@
 ---
+- &gptoss
+  name: "gpt-oss-20b"
+  url: "github:mudler/LocalAI/gallery/harmony.yaml@master"
+  license: apache-2.0
+  tags:
+    - gguf
+    - gpu
+    - cpu
+    - gguf
+    - openai
+  icon: https://raw.githubusercontent.com/openai/gpt-oss/main/docs/gpt-oss-20b.svg
+  urls:
+    - https://huggingface.co/openai/gpt-oss-20b
+    - https://huggingface.co/ggml-org/gpt-oss-20b-GGUF
+  description: |
+    Welcome to the gpt-oss series, OpenAI’s open-weight models designed for powerful reasoning, agentic tasks, and versatile developer use cases.
+
+    We’re releasing two flavors of the open models:
+
+        gpt-oss-120b — for production, general purpose, high reasoning use cases that fits into a single H100 GPU (117B parameters with 5.1B active parameters)
+        gpt-oss-20b — for lower latency, and local or specialized use cases (21B parameters with 3.6B active parameters)
+
+    Both models were trained on our harmony response format and should only be used with the harmony format as it will not work correctly otherwise.
+
+        This model card is dedicated to the smaller gpt-oss-20b model. Check out gpt-oss-120b for the larger model.
+
+    Highlights
+
+        Permissive Apache 2.0 license: Build freely without copyleft restrictions or patent risk—ideal for experimentation, customization, and commercial deployment.
+        Configurable reasoning effort: Easily adjust the reasoning effort (low, medium, high) based on your specific use case and latency needs.
+        Full chain-of-thought: Gain complete access to the model’s reasoning process, facilitating easier debugging and increased trust in outputs. It’s not intended to be shown to end users.
+        Fine-tunable: Fully customize models to your specific use case through parameter fine-tuning.
+        Agentic capabilities: Use the models’ native capabilities for function calling, web browsing, Python code execution, and Structured Outputs.
+        Native MXFP4 quantization: The models are trained with native MXFP4 precision for the MoE layer, making gpt-oss-120b run on a single H100 GPU and the gpt-oss-20b model run within 16GB of memory.
+  overrides:
+    parameters:
+      model: gpt-oss-20b-mxfp4.gguf
+  files:
+    - filename: gpt-oss-20b-mxfp4.gguf
+      sha256: 52f57ab7d3df3ba9173827c1c6832e73375553a846f3e32b49f1ae2daad688d4
+      uri: huggingface://ggml-org/gpt-oss-20b-GGUF/gpt-oss-20b-mxfp4.gguf
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
