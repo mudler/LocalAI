@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
-torch==2.4.1+cu118
-diffusers
+torch==2.7.1+cu118
+git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
 accelerate

@@ -1,9 +1,9 @@
-diffusers
+git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
 accelerate
 compel
 peft
 sentencepiece
-torch==2.4.1
+torch==2.7.1
 optimum-quanto
