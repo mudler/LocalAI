@@ -73,4 +73,4 @@ config_file: |
   - '<dummy32000>'
   - '</s>'
   - '<|endoftext|>'
-  - '<|end|>s'
+  - '<|return|>'
