@@ -40,6 +40,26 @@
     - filename: gpt-oss-20b-mxfp4.gguf
       sha256: 52f57ab7d3df3ba9173827c1c6832e73375553a846f3e32b49f1ae2daad688d4
       uri: huggingface://ggml-org/gpt-oss-20b-GGUF/gpt-oss-20b-mxfp4.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-120b"
+  url: "github:mudler/LocalAI/gallery/harmony.yaml@master"
+  icon: https://raw.githubusercontent.com/openai/gpt-oss/main/docs/gpt-oss-120b.svg
+  urls:
+    - https://huggingface.co/openai/gpt-oss-120b
+    - https://huggingface.co/ggml-org/gpt-oss-120b-GGUF
+  overrides:
+    parameters:
+      model: gpt-oss-120b-mxfp4-00001-of-00003.gguf
+  files:
+    - filename: gpt-oss-120b-mxfp4-00001-of-00003.gguf
+      sha256: 40b630223b9fc43820fa0aae5d0ab61020f5858d1719642357753dca9e7df29f
+      uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00001-of-00003.gguf
+    - filename: gpt-oss-120b-mxfp4-00002-of-00003.gguf
+      sha256: fbdb8cdec70edb82c53bfc69cc0f54a34759a23d317fa0771a63be6571907b38
+      uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00002-of-00003.gguf
+    - filename: gpt-oss-120b-mxfp4-00003-of-00003.gguf
+      sha256: b326bfd8ac696c4b9a14e9e84d5529b2bb86847aea0e65443cbf075accba8b71
+      uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00003-of-00003.gguf
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
