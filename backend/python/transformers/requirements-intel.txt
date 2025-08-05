@@ -1,7 +1,7 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch==2.3.110+xpu
-torch==2.3.1+cxx11.abi
-oneccl_bind_pt==2.3.100+xpu
+torch==2.5.1+cxx11.abi
+oneccl_bind_pt==2.8.0+xpu
 optimum[openvino]
 llvmlite==0.43.0
 numba==0.60.0
@@ -9,5 +9,5 @@ transformers
 intel-extension-for-transformers
 bitsandbytes
 outetts
-sentence-transformers==4.1.0
+sentence-transformers==5.0.0
 protobuf==6.31.0
