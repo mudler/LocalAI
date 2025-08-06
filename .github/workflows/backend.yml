@@ -338,7 +338,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.1"
             skip-drivers: 'false'
             backend: "kokoro"
