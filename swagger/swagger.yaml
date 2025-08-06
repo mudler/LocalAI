@@ -491,6 +491,10 @@ definitions:
         items:
           $ref: '#/definitions/schema.Message'
         type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
       mode:
         description: Image (not supported by OpenAI)
         type: integer
@@ -513,6 +517,8 @@ definitions:
       prompt:
         description: Prompt is read only by completion/image API calls
       quality:
+        type: string
+      reasoning_effort:
         type: string
       ref_images:
         description: Reference images for models that support them (e.g., Flux Kontext)
