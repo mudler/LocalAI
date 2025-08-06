@@ -1,4 +1,26 @@
 ---
+- name: "kitten-tts"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://github.com/KittenML/KittenTTS
+  license: apache-2.0
+  tags:
+    - tts
+    - kitten-tts
+    - gpu
+    - cpu
+    - text-to-speech
+  description: |
+    Kitten TTS is an open-source realistic text-to-speech model with just 15 million parameters, designed for lightweight deployment and high-quality voice synthesis.
+  overrides:
+    backend: "kitten-tts"
+    name: "kitten-tts"
+    description: "Kitten TTS is a text-to-speech model that can generate speech from text."
+    parameters:
+      model: "KittenML/kitten-tts-nano-0.1"
+      voice: "expr-voice-5-f"
+    known_usecases:
+      - tts
 - &qwenimage
   name: "qwen-image"
   url: "github:mudler/LocalAI/gallery/qwen-image.yaml@master"

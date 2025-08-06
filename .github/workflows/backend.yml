@@ -920,6 +920,19 @@ jobs:
           #   backend: "rfdetr"
           #   dockerfile: "./backend/Dockerfile.python"
           #   context: "./backend"
+          # kitten-tts
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64,linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-kitten-tts'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            backend: "kitten-tts"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
   llama-cpp-darwin:
     runs-on: macOS-14
     strategy:
