@@ -1,4 +1,17 @@
 ---
+- &qwenimage
+  name: "qwen-image"
+  url: "github:mudler/LocalAI/gallery/qwen-image.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen-Image
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_logo.png
+  license: apache-2.0
+  tags:
+    - qwen-image
+    - gpu
+    - text-to-image
+  description: |
+    We are thrilled to release Qwen-Image, an image generation foundation model in the Qwen series that achieves significant advances in complex text rendering and precise image editing. Experiments show strong general capabilities in both image generation and editing, with exceptional performance in text rendering, especially for Chinese.
 - &gptoss
   name: "gpt-oss-20b"
   url: "github:mudler/LocalAI/gallery/harmony.yaml@master"
