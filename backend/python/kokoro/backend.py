@@ -1,101 +1,92 @@
 #!/usr/bin/env python3
 """
-Extra gRPC server for Kokoro models.
+This is an extra gRPC server of LocalAI for Kokoro TTS
 """
 from concurrent import futures
-
+import time
 import argparse
 import signal
 import sys
 import os
-import time
 import backend_pb2
 import backend_pb2_grpc
+
+import torch
+from kokoro import KPipeline
 import soundfile as sf
+
 import grpc
 
-from models import build_model
-from kokoro import generate
-import torch
 
-SAMPLE_RATE = 22050
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
+KOKORO_LANG_CODE = os.environ.get('KOKORO_LANG_CODE', 'a')
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
     """
-    A gRPC servicer for the backend service.
-
-    This class implements the gRPC methods for the backend service, including Health, LoadModel, and Embedding.
+    BackendServicer is the class that implements the gRPC service
     """
     def Health(self, request, context):
-        """
-        A gRPC method that returns the health status of the backend service.
-
-        Args:
-            request: A HealthRequest object that contains the request parameters.
-            context: A grpc.ServicerContext object that provides information about the RPC.
-
-        Returns:
-            A Reply object that contains the health status of the backend service.
-        """
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
-
+    
     def LoadModel(self, request, context):
-        """
-        A gRPC method that loads a model into memory.
+        # Get device
+        if torch.cuda.is_available():
+            print("CUDA is available", file=sys.stderr)
+            device = "cuda"
+        else:
+            print("CUDA is not available", file=sys.stderr)
+            device = "cpu"
 
-        Args:
-            request: A LoadModelRequest object that contains the request parameters.
-            context: A grpc.ServicerContext object that provides information about the RPC.
+        if not torch.cuda.is_available() and request.CUDA:
+            return backend_pb2.Result(success=False, message="CUDA is not available")
 
-        Returns:
-            A Result object that contains the result of the LoadModel operation.
-        """
-        model_name = request.Model
         try:
-            device = "cuda:0" if torch.cuda.is_available() else "cpu"
-            self.MODEL = build_model(request.ModelFile, device)
+            print("Preparing Kokoro TTS pipeline, please wait", file=sys.stderr)
+            # empty dict
+            self.options = {}
             options = request.Options
-            # Find the voice from the options, options are a list of strings in this form optname:optvalue:
-            VOICE_NAME = None
+            # The options are a list of strings in this form optname:optvalue
+            # We are storing all the options in a dict so we can use it later when
+            # generating the images
             for opt in options:
-                if opt.startswith("voice:"):
-                    VOICE_NAME = opt.split(":")[1]
-                    break
-            if VOICE_NAME is None:
-                return backend_pb2.Result(success=False, message=f"No voice specified in options")
-            MODELPATH = request.ModelPath
-            # If voice name contains a plus, split it and load the two models and combine them
-            if "+" in VOICE_NAME:
-                voice1, voice2 = VOICE_NAME.split("+")
-                voice1 = torch.load(f'{MODELPATH}/{voice1}.pt', weights_only=True).to(device)
-                voice2 = torch.load(f'{MODELPATH}/{voice2}.pt', weights_only=True).to(device)
-                self.VOICEPACK = torch.mean(torch.stack([voice1, voice2]), dim=0)
-            else:
-                self.VOICEPACK = torch.load(f'{MODELPATH}/{VOICE_NAME}.pt', weights_only=True).to(device)
+                if ":" not in opt:
+                    continue
+                key, value = opt.split(":")
+                self.options[key] = value
 
-            self.VOICE_NAME = VOICE_NAME
-
-            print(f'Loaded voice: {VOICE_NAME}')
+            # Initialize Kokoro pipeline with language code
+            lang_code = self.options.get("lang_code", KOKORO_LANG_CODE)
+            self.pipeline = KPipeline(lang_code=lang_code)
+            print(f"Kokoro TTS pipeline loaded with language code: {lang_code}", file=sys.stderr)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
-
-        return backend_pb2.Result(message="Model loaded successfully", success=True)
+        
+        return backend_pb2.Result(message="Kokoro TTS pipeline loaded successfully", success=True)
 
     def TTS(self, request, context):
-        model_name = request.model
-        if model_name == "":
-            return backend_pb2.Result(success=False, message="request.model is required")
         try:
-            audio, out_ps = generate(self.MODEL, request.text, self.VOICEPACK, lang=self.VOICE_NAME)
-            print(out_ps)
-            sf.write(request.dst, audio, SAMPLE_RATE)
+            # Get voice from request, default to 'af_heart' if not specified
+            voice = request.voice if request.voice else 'af_heart'
+            
+            # Generate audio using Kokoro pipeline
+            generator = self.pipeline(request.text, voice=voice)
+            
+            # Get the first (and typically only) audio segment
+            for i, (gs, ps, audio) in enumerate(generator):
+                # Save audio to the destination file
+                sf.write(request.dst, audio, 24000)
+                print(f"Generated audio segment {i}: gs={gs}, ps={ps}", file=sys.stderr)
+                # For now, we only process the first segment
+                # If you need to handle multiple segments, you might want to modify this
+                break
+                
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
+        
         return backend_pb2.Result(success=True)
 
 def serve(address):
@@ -108,11 +99,11 @@ def serve(address):
     backend_pb2_grpc.add_BackendServicer_to_server(BackendServicer(), server)
     server.add_insecure_port(address)
     server.start()
-    print("[Kokoro] Server started. Listening on: " + address, file=sys.stderr)
+    print("Server started. Listening on: " + address, file=sys.stderr)
 
     # Define the signal handler function
     def signal_handler(sig, frame):
-        print("[Kokoro] Received termination signal. Shutting down...")
+        print("Received termination signal. Shutting down...")
         server.stop(0)
         sys.exit(0)
 
@@ -132,5 +123,5 @@ if __name__ == "__main__":
         "--addr", default="localhost:50051", help="The address to bind the server to."
     )
     args = parser.parse_args()
-    print(f"[Kokoro] startup: {args}", file=sys.stderr)
+
     serve(args.addr)

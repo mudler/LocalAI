@@ -1,4 +1,36 @@
 ---
+- name: "kokoro"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://github.com/hexgrad/kokoro
+  license: apache-2.0
+  tags:
+    - tts
+    - kokoro
+    - gpu
+    - cpu
+    - text-to-speech
+  description: |
+    Kokoro is an open-weight TTS model with 82 million parametrs. Despite its lightweight architecture, it delivers comparable quality to larger models while being significantly faster and more cost-efficient. With Apache-licensed weights, Kokoro can be deployed anywhere from production environments to personal projects.
+  overrides:
+    backend: "kokoro"
+    name: "kokoro"
+    description: "Kokoro is an open-weight TTS model with 82 million parametrs. Despite its lightweight architecture, it delivers comparable quality to larger models while being significantly faster and more cost-efficient. With Apache-licensed weights, Kokoro can be deployed anywhere from production environments to personal projects."
+    parameters:
+      voice: "af_heart"
+    options:
+      # this is for american
+      # 🇺🇸 'a' => American English, 🇬🇧 'b' => British English
+      # 🇪🇸 'e' => Spanish es
+      # 🇫🇷 'f' => French fr-fr
+      # 🇮🇳 'h' => Hindi hi
+      # 🇮🇹 'i' => Italian it
+      # 🇯🇵 'j' => Japanese: pip install misaki[ja]
+      # 🇧🇷 'p' => Brazilian Portuguese pt-br
+      # 🇨🇳 'z' => Mandarin Chinese: pip install misaki[zh]
+      - lang_code:a
+    known_usecases:
+      - tts
 - name: "kitten-tts"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
