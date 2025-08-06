@@ -183,6 +183,10 @@ type OpenAIRequest struct {
 	Backend string `json:"backend" yaml:"backend"`
 
 	ModelBaseName string `json:"model_base_name" yaml:"model_base_name"`
+
+	ReasoningEffort string `json:"reasoning_effort" yaml:"reasoning_effort"`
+
+	Metadata map[string]string `json:"metadata" yaml:"metadata"`
 }
 
 type ModelsDataResponse struct {

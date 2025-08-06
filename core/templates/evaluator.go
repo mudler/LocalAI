@@ -21,6 +21,8 @@ type PromptTemplateData struct {
 	Instruction          string
 	Functions            []functions.Function
 	MessageIndex         int
+	ReasoningEffort      string
+	Metadata             map[string]string
 }
 
 type ChatMessageTemplateData struct {
@@ -133,7 +135,7 @@ func (e *Evaluator) evaluateJinjaTemplateForPrompt(templateType TemplateType, te
 	return e.cache.evaluateJinjaTemplate(templateType, templateName, conversation)
 }
 
-func (e *Evaluator) TemplateMessages(messages []schema.Message, config *config.BackendConfig, funcs []functions.Function, shouldUseFn bool) string {
+func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []schema.Message, config *config.BackendConfig, funcs []functions.Function, shouldUseFn bool) string {
 
 	if config.TemplateConfig.JinjaTemplate {
 		var messageData []ChatMessageTemplateData
@@ -283,6 +285,8 @@ func (e *Evaluator) TemplateMessages(messages []schema.Message, config *config.B
 		SuppressSystemPrompt: suppressConfigSystemPrompt,
 		Input:                predInput,
 		Functions:            funcs,
+		ReasoningEffort:      input.ReasoningEffort,
+		Metadata:             input.Metadata,
 	})
 	if err == nil {
 		predInput = templatedInput

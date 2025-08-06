@@ -109,8 +109,10 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 			predInput := config.PromptStrings[0]
 
 			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
-				Input:        predInput,
-				SystemPrompt: config.SystemPrompt,
+				Input:           predInput,
+				SystemPrompt:    config.SystemPrompt,
+				ReasoningEffort: input.ReasoningEffort,
+				Metadata:        input.Metadata,
 			})
 			if err == nil {
 				predInput = templatedInput
@@ -160,8 +162,10 @@ func CompletionEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, e
 
 		for k, i := range config.PromptStrings {
 			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.CompletionPromptTemplate, *config, templates.PromptTemplateData{
-				SystemPrompt: config.SystemPrompt,
-				Input:        i,
+				SystemPrompt:    config.SystemPrompt,
+				Input:           i,
+				ReasoningEffort: input.ReasoningEffort,
+				Metadata:        input.Metadata,
 			})
 			if err == nil {
 				i = templatedInput
