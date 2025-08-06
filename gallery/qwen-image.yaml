@@ -1,5 +1,5 @@
 ---
-name: "flux"
+name: "qwen-image"
 
 config_file: |
     backend: diffusers
