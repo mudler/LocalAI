@@ -219,7 +219,7 @@ var _ = Describe("Templates", func() {
 		for key := range chatMLTestMatch {
 			foo := chatMLTestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
@@ -232,7 +232,7 @@ var _ = Describe("Templates", func() {
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
@@ -245,7 +245,7 @@ var _ = Describe("Templates", func() {
 		for key := range jinjaTest {
 			foo := jinjaTest[key]
 			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}

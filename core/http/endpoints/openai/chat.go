@@ -305,7 +305,7 @@ func ChatEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 		// If we are using the tokenizer template, we don't need to process the messages
 		// unless we are processing functions
 		if !config.TemplateConfig.UseTokenizerTemplate || shouldUseFn {
-			predInput = evaluator.TemplateMessages(input.Messages, config, funcs, shouldUseFn)
+			predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
 
 			log.Debug().Msgf("Prompt (after templating): %s", predInput)
 			if config.Grammar != "" {

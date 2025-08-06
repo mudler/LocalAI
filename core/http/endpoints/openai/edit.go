@@ -47,9 +47,11 @@ func EditEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, evaluat
 
 		for _, i := range config.InputStrings {
 			templatedInput, err := evaluator.EvaluateTemplateForPrompt(templates.EditPromptTemplate, *config, templates.PromptTemplateData{
-				Input:        i,
-				Instruction:  input.Instruction,
-				SystemPrompt: config.SystemPrompt,
+				Input:           i,
+				Instruction:     input.Instruction,
+				SystemPrompt:    config.SystemPrompt,
+				ReasoningEffort: input.ReasoningEffort,
+				Metadata:        input.Metadata,
 			})
 			if err == nil {
 				i = templatedInput
