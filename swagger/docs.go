@@ -1535,6 +1535,12 @@ const docTemplate = `{
                         "$ref": "#/definitions/schema.Message"
                     }
                 },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
                 "mode": {
                     "description": "Image (not supported by OpenAI)",
                     "type": "integer"
@@ -1565,6 +1571,9 @@ const docTemplate = `{
                     "description": "Prompt is read only by completion/image API calls"
                 },
                 "quality": {
+                    "type": "string"
+                },
+                "reasoning_effort": {
                     "type": "string"
                 },
                 "ref_images": {
