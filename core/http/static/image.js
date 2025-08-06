@@ -11,6 +11,7 @@ async function promptDallE(input) {
   document.getElementById("input").disabled = true;
 
   const model = document.getElementById("image-model").value;
+  const size = document.getElementById("image-size").value;
   const response = await fetch("v1/images/generations", {
     method: "POST",
     headers: {
@@ -21,7 +22,7 @@ async function promptDallE(input) {
       steps: 10,
       prompt: input,
       n: 1,
-      size: "512x512",
+      size: size,
     }),
   });
   const json = await response.json();
@@ -48,4 +49,13 @@ async function promptDallE(input) {
 
 document.getElementById("input").focus();
 document.getElementById("genimage").addEventListener("submit", genImage);
+
+// Handle Enter key press in the prompt input
+document.getElementById("input").addEventListener("keypress", function(event) {
+    if (event.key === "Enter") {
+        event.preventDefault();
+        genImage(event);
+    }
+});
+
 document.getElementById("loader").style.display = "none";
