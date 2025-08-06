@@ -127,6 +127,30 @@
     - filename: gpt-oss-120b-mxfp4-00003-of-00003.gguf
       sha256: b326bfd8ac696c4b9a14e9e84d5529b2bb86847aea0e65443cbf075accba8b71
       uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00003-of-00003.gguf
+- !!merge <<: *gptoss
+  name: "openai_gpt-oss-20b-neo"
+  icon: https://huggingface.co/DavidAU/Openai_gpt-oss-20b-NEO-GGUF/resolve/main/matrix1.gif
+  urls:
+    - https://huggingface.co/DavidAU/Openai_gpt-oss-20b-NEO-GGUF
+  description: |
+    These are NEO Imatrix GGUFs, NEO dataset by DavidAU.
+
+    NEO dataset improves overall performance, and is for all use cases.
+
+    Example output below (creative), using settings below.
+
+    Model also passed "hard" coding test too (6 experts); no issues (IQ4_NL).
+
+    (Forcing the model to create code with no dependencies and limits of coding short cuts, with multiple loops, and in real time with no blocking in a language that does not support it normally.)
+
+    Due to quanting issues with this model (which result in oddball quant sizes / mixtures), only TESTED quants will be uploaded (at the moment).
+  overrides:
+    parameters:
+      model: OpenAI-20B-NEO-MXFP4_MOE4.gguf
+  files:
+    - filename: OpenAI-20B-NEO-MXFP4_MOE4.gguf
+      sha256: 066c84a0844b1f1f4515e5c64095fe4c67e86d5eb70db4e368e283b1134d9c1e
+      uri: huggingface://DavidAU/Openai_gpt-oss-20b-NEO-GGUF/OpenAI-20B-NEO-MXFP4_MOE4.gguf
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
