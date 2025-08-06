@@ -313,9 +313,11 @@ static void params_parse(const backend::ModelOptions* request,
         params.pooling_type = LLAMA_POOLING_TYPE_RANK;
     }
 
+    
     if (request->ropescaling() == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
     else if (request->ropescaling() == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
-    else { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
+    else if (request->ropescaling() == "linear")   {  params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
+
     if ( request->yarnextfactor() != 0.0f ) {
         params.yarn_ext_factor = request->yarnextfactor();
     }
