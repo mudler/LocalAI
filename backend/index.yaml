@@ -356,6 +356,24 @@
     - LLM
     - huggingface
   license: MIT
+- &kitten-tts
+  name: "kitten-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-kitten-tts"
+  mirrors:
+    - localai/localai-backends:latest-kitten-tts
+  urls:
+    - https://github.com/KittenML/KittenTTS
+  description: |
+    Kitten TTS is a text-to-speech model that can generate speech from text.
+  tags:
+    - text-to-speech
+    - TTS
+  license: apache-2.0
+- !!merge <<: *kitten-tts
+  name: "kitten-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-kitten-tts"
+  mirrors:
+    - localai/localai-backends:master-kitten-tts
 - !!merge <<: *huggingface
   name: "huggingface-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-huggingface"

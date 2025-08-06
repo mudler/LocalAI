@@ -156,6 +156,9 @@ backends/huggingface: docker-build-huggingface docker-save-huggingface build
 backends/rfdetr: docker-build-rfdetr docker-save-rfdetr build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/rfdetr.tar)"
 
+backends/kitten-tts: docker-build-kitten-tts docker-save-kitten-tts build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/kitten-tts.tar)"
+
 ########################################################
 ## AIO tests
 ########################################################
@@ -368,6 +371,12 @@ docker-build-huggingface:
 
 docker-build-rfdetr:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:rfdetr -f backend/Dockerfile.python --build-arg BACKEND=rfdetr ./backend
+
+docker-build-kitten-tts:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:kitten-tts -f backend/Dockerfile.python --build-arg BACKEND=kitten-tts ./backend
+
+docker-save-kitten-tts: backend-images
+	docker save local-ai-backend:kitten-tts -o backend-images/kitten-tts.tar
 
 docker-save-rfdetr: backend-images
 	docker save local-ai-backend:rfdetr -o backend-images/rfdetr.tar
