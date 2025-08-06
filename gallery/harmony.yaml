@@ -5,23 +5,22 @@ config_file: |
   mmap: true
   backend: "llama-cpp"
   template:
-    chat_message: |
-      <|start|>{{ if .FunctionCall -}}functions.{{ .FunctionCall.Name }} to=assistant{{ else if eq .RoleName "assistant"}}<|channel|>final<|message|>{{else}}{{ .RoleName }}{{end}}<|message|>
-      {{ if .Content -}}
-      {{.Content }}
-      {{ end -}}
-      {{ if .FunctionCall -}}
-      {{toJson .FunctionCall}}
-      {{ end -}}<|end|>
-    function: |
-      <|im_start|>system
-      You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
-
+    chat_message: |-
+      <|start|>{{ if .FunctionCall -}}functions.{{ .FunctionCall.Name }} to=assistant{{ else if eq .RoleName "assistant"}}assistant<|channel|>final<|message|>{{else}}{{ .RoleName }}{{end}}<|message|>
+      {{- if .Content -}}
+      {{- .Content -}}
+      {{- end -}}
+      {{- if .FunctionCall -}}
+      {{- toJson .FunctionCall -}}
+      {{- end -}}<|end|>
+    function: |-
       <|start|>system<|message|>You are ChatGPT, a large language model trained by OpenAI.
       Knowledge cutoff: 2024-06
-      Current date: {{ now | date }}
+      Current date: {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}
 
-      Reasoning: medium
+      Reasoning: {{if eq .ReasoningEffort ""}}medium{{else}}{{.ReasoningEffort}}{{end}}
+
+      # {{with .Metadata}}{{ if ne .system_prompt "" }}{{ .system_prompt }}{{ end }}{{else}}You are a friendly and helpful assistant.{{ end }}<|end|>{{- .Input -}}<|start|>assistant
 
       # Tools
 
@@ -49,21 +48,15 @@ config_file: |
 
       # Instructions
 
-      <|end|>
-      {{.Input -}}
-      <|start|>assistant
-    chat: |
+      <|end|>{{.Input -}}<|start|>assistant
+    chat: |-
       <|start|>system<|message|>You are ChatGPT, a large language model trained by OpenAI.
       Knowledge cutoff: 2024-06
-      Current date: {{ now | date }}
+      Current date: {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}
 
-      Reasoning: medium
+      Reasoning: {{if eq .ReasoningEffort ""}}medium{{else}}{{.ReasoningEffort}}{{end}}
 
-      # Instructions
-
-      <|end|>
-      {{.Input -}}
-      <|im_start|>assistant
+      # {{with .Metadata}}{{ if ne .system_prompt "" }}{{ .system_prompt }}{{ end }}{{else}}You are a friendly and helpful assistant.{{ end }}<|end|>{{- .Input -}}<|start|>assistant
     completion: |
       {{.Input}}
   context_size: 8192
