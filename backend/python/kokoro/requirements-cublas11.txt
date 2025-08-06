@@ -1,3 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
-torch==2.4.1+cu118
+torch==2.7.1+cu118
+torchaudio==2.7.1+cu118
 transformers
+accelerate
+kokoro
+soundfile

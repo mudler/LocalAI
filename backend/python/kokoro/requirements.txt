@@ -1,7 +1,6 @@
 grpcio==1.71.0
 protobuf
-phonemizer
-scipy
-munch
-setuptools
-soundfile
+certifi
+packaging==24.1
+pip
+chardet

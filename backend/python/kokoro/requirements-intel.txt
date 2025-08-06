@@ -1,5 +1,11 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
-intel-extension-for-pytorch==2.3.110+xpu
-torch==2.3.1+cxx11.abi
-oneccl_bind_pt==2.3.100+xpu
-transformers
+intel-extension-for-pytorch==2.8.10+xpu
+torch==2.5.1+cxx11.abi
+oneccl_bind_pt==2.8.0+xpu
+torchaudio==2.5.1+cxx11.abi
+optimum[openvino]
+setuptools
+transformers==4.48.3
+accelerate
+kokoro
+soundfile
