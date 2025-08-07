@@ -4,5 +4,6 @@ accelerate
 compel
 peft
 sentencepiece
-torch==2.4.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.4.1+cpu
 optimum-quanto
