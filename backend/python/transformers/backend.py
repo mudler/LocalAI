@@ -19,8 +19,8 @@ import grpc
 import torch
 import torch.cuda
 
-
-XPU=os.environ.get("XPU", "0") == "1"
+# Attempt to use XPU only if Torch says it is available when asking for it
+XPU = ((os.environ.get("XPU", "0") == "1") & (torch.xpu.is_available()))
 from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria, MambaConfig, MambaForCausalLM
 from transformers import AutoProcessor, MusicgenForConditionalGeneration
 from scipy.io import wavfile
@@ -97,6 +97,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         quantization = None
         autoTokenizer = True
 
+        if not (self.CUDA | XPU):
+            from transformers import BitsAndBytesConfig, AutoModelForCausalLM
         if self.CUDA:
             from transformers import BitsAndBytesConfig, AutoModelForCausalLM
             if request.MainGPU:
