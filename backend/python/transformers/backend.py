@@ -83,8 +83,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if os.path.exists(request.ModelFile):
             model_name = request.ModelFile
 
-        compute = torch.float16
-        if request.F16Memory == True:
+        # Use float32 for CPU inference
+        if (torch.cuda.is_available() | XPU):
+            compute = torch.float16
+        else:
+            compute = torch.float32
+
+        # Only use f16 if not running on CPU - forcing f16 on CPU causes freezes (https://github.com/pytorch/pytorch/issues/75458)
+        if (request.F16Memory & (torch.cuda.is_available() | XPU)) == True:
             compute=torch.bfloat16
 
         self.CUDA = torch.cuda.is_available()
