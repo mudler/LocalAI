@@ -2114,6 +2114,26 @@
     - filename: Qwen_Qwen3-4B-Instruct-2507-Q8_0.gguf
       sha256: 260b5b5b6ad73e44df81a43ea1f5c11c37007b6bac18eb3cd2016e8667c19662
       uri: huggingface://bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/Qwen_Qwen3-4B-Instruct-2507-Q8_0.gguf
+- !!merge <<: *qwen3
+  name: "qwen_qwen3-4b-thinking-2507"
+  urls:
+    - https://huggingface.co/bartowski/Qwen_Qwen3-4B-Thinking-2507-GGUF
+    - https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507
+  description: |
+    Over the past three months, we have continued to scale the thinking capability of Qwen3-4B, improving both the quality and depth of reasoning. We are pleased to introduce Qwen3-4B-Thinking-2507, featuring the following key enhancements:
+
+        Significantly improved performance on reasoning tasks, including logical reasoning, mathematics, science, coding, and academic benchmarks that typically require human expertise.
+        Markedly better general capabilities, such as instruction following, tool usage, text generation, and alignment with human preferences.
+        Enhanced 256K long-context understanding capabilities.
+
+    NOTE: This version has an increased thinking length. We strongly recommend its use in highly complex reasoning tasks.
+  overrides:
+    parameters:
+      model: Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
+  files:
+    - filename: Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
+      sha256: 2c08db093bc57c2c77222d27ffe8d41cb0b5648e66ba84e5fb9ceab429f6735c
+      uri: huggingface://bartowski/Qwen_Qwen3-4B-Thinking-2507-GGUF/Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
