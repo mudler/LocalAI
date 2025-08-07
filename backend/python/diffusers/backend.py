@@ -363,7 +363,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 # modify LoraAdapter to be relative to modelFileBase
                 request.LoraAdapter = os.path.join(request.ModelPath, request.LoraAdapter)
 
-            device = "cpu" if not request.CUDA else "cuda"
+            device = "cpu" if not (request.CUDA & torch.cuda.is_available()) else "cuda"
             if XPU:
                 device = "xpu"
             self.device = device
@@ -393,6 +393,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 self.pipe.to(device)
                 if self.controlnet:
                     self.controlnet.to(device)
+            else:
+                self.pipe.to("cpu")
 
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
