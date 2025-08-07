@@ -1,0 +1,64 @@
+ARG BASE_IMAGE=ubuntu:22.04
+
+FROM ${BASE_IMAGE} AS builder
+ARG BACKEND=vllm
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE}
+ARG FROM_SOURCE=true
+ENV FROM_SOURCE=${FROM_SOURCE}
+ARG CUDA_MAJOR_VERSION
+ARG CUDA_MINOR_VERSION
+ARG SKIP_DRIVERS=false
+ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
+ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
+ENV DEBIAN_FRONTEND=noninteractive
+ARG TARGETARCH
+ARG TARGETVARIANT
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        ccache \
+        ca-certificates \
+        espeak-ng \
+        curl \
+        libssl-dev \
+        git \
+        git-lfs \
+        unzip \
+        upx-ucl \
+        curl python3-pip \
+        python-is-python3 \
+        python3-dev llvm \
+        python3-venv make \
+        wget \
+        gcc-12 g++-12 \
+        libtcmalloc-minimal4 \
+        libnuma-dev \
+        ffmpeg \
+        libsm6 libxext6 \
+        libgl1 \
+        jq lsof && \
+    apt-get clean && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 10 --slave /usr/bin/g++ g++ /usr/bin/g++-12 && \
+    rm -rf /var/lib/apt/lists/* && \
+    pip install --upgrade pip
+
+# Install uv as a system package
+RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Install grpcio-tools (the version in 22.04 is too old)
+RUN pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
+
+COPY python/${BACKEND} /${BACKEND}
+COPY backend.proto /${BACKEND}/backend.proto
+COPY python/common/ /${BACKEND}/common
+
+RUN cd /${BACKEND} && make
+
+FROM scratch
+ARG BACKEND=vllm
+COPY --from=builder /${BACKEND}/ /
