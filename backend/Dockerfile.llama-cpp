@@ -11,6 +11,7 @@ ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.65.0
 ARG CMAKE_FROM_SOURCE=false
 ARG CMAKE_VERSION=3.26.4
+ARG PROTOBUF_VERSION=v21.12
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
@@ -45,6 +46,14 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
     cd /build/grpc/cmake/build && \
     sed -i "216i\  TESTONLY" "../../third_party/abseil-cpp/absl/container/CMakeLists.txt" && \
     cmake -DgRPC_INSTALL=ON -DgRPC_BUILD_TESTS=OFF -DCMAKE_INSTALL_PREFIX:PATH=/opt/grpc ../.. && \
+    make && \
+    make install && \
+    rm -rf /build
+
+RUN git clone --recurse-submodules --branch ${PROTOBUF_VERSION} https://github.com/protocolbuffers/protobuf.git && \
+    mkdir -p /build/protobuf/build && \
+    cd /build/protobuf/build && \
+    cmake -Dprotobuf_BUILD_SHARED_LIBS=ON -Dprotobuf_BUILD_TESTS=OFF .. && \
     make && \
     make install && \
     rm -rf /build
@@ -180,21 +189,9 @@ COPY --from=grpc /opt/grpc /usr/local
 
 COPY . /LocalAI
 
-## Otherwise just run the normal build
-RUN <<EOT bash
-if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-fallback && \
-        make llama-cpp-grpc && make llama-cpp-rpc-server; \
-    else \
-        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx && \
-        make llama-cpp-avx2 && \
-        make llama-cpp-avx512 && \
-        make llama-cpp-fallback && \
-        make llama-cpp-grpc && \
-        make llama-cpp-rpc-server; \
-    fi  
-EOT
-
+RUN make -C /LocalAI/backend/cpp/llama-cpp llama-cpp
+RUN make -C /LocalAI/backend/cpp/llama-cpp llama-cpp-grpc
+RUN make -C /LocalAI/backend/cpp/llama-cpp llama-cpp-rpc-server
 
 # Copy libraries using a script to handle architecture differences
 RUN make -C /LocalAI/backend/cpp/llama-cpp package
