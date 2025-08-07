@@ -167,7 +167,8 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             torchType = torch.float32
             variant = None
 
-            if request.F16Memory:
+            # Only use f16 if not running on CPU - forcing f16 on CPU causes freezes (https://github.com/pytorch/pytorch/issues/75458)
+            if (request.F16Memory & ((request.CUDA & torch.cuda.is_available()) | XPU)):
                 torchType = torch.float16
                 variant = "fp16"
 
@@ -190,12 +191,18 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     value = int(value)
                 self.options[key] = value
 
-            # From options, extract if present "torch_dtype" and set it to the appropriate type
+            # From options, extract if present "torch_dtype" and set it to the appropriate type; if on CPU, always force float32
             if "torch_dtype" in self.options:
                 if self.options["torch_dtype"] == "fp16":
-                    torchType = torch.float16
+                    if not ((request.CUDA & torch.cuda.is_available()) | XPU):
+                        torchType = torch.float32
+                    else:
+                        torchType = torch.float16
                 elif self.options["torch_dtype"] == "bf16":
-                    torchType = torch.bfloat16
+                    if not ((request.CUDA & torch.cuda.is_available()) | XPU):
+                        torchType = torch.float32
+                    else:
+                        torchType = torch.bfloat16
                 elif self.options["torch_dtype"] == "fp32":
                     torchType = torch.float32
                 # remove it from options
