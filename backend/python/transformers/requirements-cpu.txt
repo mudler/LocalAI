@@ -1,4 +1,5 @@
-torch==2.7.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.7.1+cpu
 llvmlite==0.43.0
 numba==0.60.0
 accelerate
