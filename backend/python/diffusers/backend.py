@@ -29,7 +29,8 @@ from safetensors.torch import load_file
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL = os.environ.get("COMPEL", "0") == "1"
-XPU = os.environ.get("XPU", "0") == "1"
+# Attempt to use XPU only if Torch says it is available when asking for it
+XPU = ((os.environ.get("XPU", "0") == "1") & (torch.xpu.is_available()))
 CLIPSKIP = os.environ.get("CLIPSKIP", "1") == "1"
 SAFETENSORS = os.environ.get("SAFETENSORS", "1") == "1"
 CHUNK_SIZE = os.environ.get("CHUNK_SIZE", "8")
