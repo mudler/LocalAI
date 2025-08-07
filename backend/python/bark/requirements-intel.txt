@@ -1,3 +1,4 @@
+bark==0.1.5
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch==2.3.110+xpu
 torch==2.3.1+cxx11.abi
