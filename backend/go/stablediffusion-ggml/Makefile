@@ -128,6 +128,15 @@ else
 	$(CXX) $(CXXFLAGS) gosd.cpp -o gosd.o -c
 endif
 
+gosd.so: sources/stablediffusion-ggml.cpp build/libstable-diffusion.a
+ifneq (,$(findstring sycl,$(BUILD_TYPE)))
+	+bash -c "source $(ONEAPI_VARS); \
+	$(CXX) $(CXXFLAGS) gosd.cpp -o gosd.so -shared -lggmlall -lstable-diffusion -L./ -L./build"
+else
+	$(CXX) $(CXXFLAGS) gosd.cpp -o gosd.so -shared -lggmlall -lstable-diffusion -L./ -L./build
+endif
+
+
 ## stablediffusion (ggml)
 sources/stablediffusion-ggml.cpp:
 	git clone --recursive $(STABLEDIFFUSION_GGML_REPO) sources/stablediffusion-ggml.cpp && \
@@ -143,6 +152,9 @@ stablediffusion-ggml: libsd.a
 	CGO_LDFLAGS="$(CGO_LDFLAGS) $(CGO_LDFLAGS_SYCL)" C_INCLUDE_PATH="$(INCLUDE_PATH)" LIBRARY_PATH="$(LIBRARY_PATH)" \
 	CC="$(CC)" CXX="$(CXX)" CGO_CXXFLAGS="$(CGO_CXXFLAGS)" \
 	$(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o stablediffusion-ggml ./
+
+stablediffusion-ggml-pure: main.go gosd.go gosd.so
+	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o stablediffusion-ggml-pure ./
 
 package:
 	bash package.sh
