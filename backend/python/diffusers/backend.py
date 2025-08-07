@@ -38,6 +38,11 @@ FPS = os.environ.get("FPS", "7")
 DISABLE_CPU_OFFLOAD = os.environ.get("DISABLE_CPU_OFFLOAD", "0") == "1"
 FRAMES = os.environ.get("FRAMES", "64")
 
+# Set Torch to use all logical CPU cores for CPU mode
+num_cores = os.cpu_count()
+torch.set_num_threads(max(1, num_cores // 2))
+torch.set_num_interop_threads(num_cores)
+
 if XPU:
     print(torch.xpu.get_device_name(0))
 
