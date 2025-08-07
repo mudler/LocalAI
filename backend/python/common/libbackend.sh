@@ -69,8 +69,8 @@ function getBuildProfile() {
         return 0
     fi
 
-    # If /opt/intel exists, then we are doing an intel/ARC build
-    if [ -d "/opt/intel" ]; then
+    # If /opt/intel exists and BUILD_TYPE is one of the Intel ones, then we are doing an intel/ARC build
+    if [[ -d "/opt/intel" && ( x"${BUILD_TYPE}" == "xintel" || ( x"${BUILD_TYPE}" == "xsycl_f16" || x"${BUILD_TYPE}" == "xsycl_f32" ) ) ]]; then
         echo "intel"
         return 0
     fi
