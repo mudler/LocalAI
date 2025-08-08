@@ -99,8 +99,8 @@ Thanks to the community efforts now we have a new [how-to website](https://io.mi
 
 #### 💡 More examples!
 
-- Open source autopilot? See the new addition by {{< github "gruberdev" >}} in our [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/continue) on how to use Continue with LocalAI!
-- Want to try LocalAI with Insomnia? Check out the new [Insomnia example](https://github.com/go-skynet/LocalAI/tree/master/examples/insomnia) by {{< github "dave-gray101" >}}!
+- Open source autopilot? See the new addition by {{< github "gruberdev" >}} in our [examples](https://github.com/mudler/LocalAI-examples/tree/main/continue) on how to use Continue with LocalAI!
+- Want to try LocalAI with Insomnia? Check out the new [Insomnia example](https://github.com/mudler/LocalAI-examples/tree/main/insomnia) by {{< github "dave-gray101" >}}!
 
 #### LocalAGI in discord!
 
@@ -258,7 +258,7 @@ And here when it actually picks to reply to the user instead of using functions!
 
 Note: functions are supported only with `llama.cpp`-compatible models.
 
-A full example is available here: https://github.com/go-skynet/LocalAI/tree/master/examples/functions
+A full example is available here: https://github.com/mudler/LocalAI-examples/tree/main/functions
 
 ### gRPC backends
 
@@ -377,9 +377,9 @@ We now support a vast variety of models, while being backward compatible with pr
 
 ### Examples
 
-- 💡 [AutoGPT](https://github.com/go-skynet/LocalAI/tree/master/examples/autoGPT) example ( [mudler](https://github.com/mudler) )
-- 💡 [PrivateGPT](https://github.com/go-skynet/LocalAI/tree/master/examples/privateGPT) example ( [mudler](https://github.com/mudler) )
-- 💡 [Flowise](https://github.com/go-skynet/LocalAI/tree/master/examples/flowise) example ( [mudler](https://github.com/mudler) )
+- 💡 [AutoGPT](https://github.com/mudler/LocalAI-examples/tree/main/autoGPT) example ( [mudler](https://github.com/mudler) )
+- 💡 [PrivateGPT](https://github.com/mudler/LocalAI-examples/tree/main/privateGPT) example ( [mudler](https://github.com/mudler) )
+- 💡 [Flowise](https://github.com/mudler/LocalAI-examples/tree/main/flowise) example ( [mudler](https://github.com/mudler) )
 
 Two new projects offer now direct integration with LocalAI!
 
@@ -449,7 +449,7 @@ Now LocalAI can generate images too:
 
 - 14-05-2023: __v1.11.1__ released! `rwkv` backend patch release
 - 13-05-2023: __v1.11.0__ released! 🔥 Updated `llama.cpp` bindings: This update includes a breaking change in the model files ( https://github.com/ggerganov/llama.cpp/pull/1405 ) - old models should still work with the `gpt4all-llama` backend.
-- 12-05-2023: __v1.10.0__ released! 🔥🔥 Updated `gpt4all` bindings. Added support for GPTNeox (experimental), RedPajama (experimental), Starcoder (experimental), Replit (experimental), MosaicML MPT. Also now `embeddings` endpoint supports tokens arrays. See the [langchain-chroma](https://github.com/go-skynet/LocalAI/tree/master/examples/langchain-chroma) example! Note - this update does NOT include https://github.com/ggerganov/llama.cpp/pull/1405 which makes models incompatible.
+- 12-05-2023: __v1.10.0__ released! 🔥🔥 Updated `gpt4all` bindings. Added support for GPTNeox (experimental), RedPajama (experimental), Starcoder (experimental), Replit (experimental), MosaicML MPT. Also now `embeddings` endpoint supports tokens arrays. See the [langchain-chroma](https://github.com/mudler/LocalAI-examples/tree/main/langchain-chroma) example! Note - this update does NOT include https://github.com/ggerganov/llama.cpp/pull/1405 which makes models incompatible.
 - 11-05-2023: __v1.9.0__ released! 🔥 Important whisper updates ( {{< pr "233" >}} {{< pr "229" >}} ) and extended gpt4all model families support ( {{< pr "232" >}} ). Redpajama/dolly experimental ( {{< pr "214" >}} )
 - 10-05-2023: __v1.8.0__ released! 🔥 Added support for fast and accurate embeddings with `bert.cpp` ( {{< pr "222" >}} )
 - 09-05-2023: Added experimental support for transcriptions endpoint ( {{< pr "211" >}} )

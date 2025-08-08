@@ -207,4 +207,4 @@ For instructions on building LocalAI from source, see the [Build Section]({{% re
 {{% /tab %}}
 {{< /tabs >}}
 
-For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI/tree/master/examples/configurations).
+For more model configurations, visit the [Examples Section](https://github.com/mudler/LocalAI-examples/tree/main/configurations).
