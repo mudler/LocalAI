@@ -165,6 +165,32 @@
     - filename: huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
       sha256: abca50d1bd95c49d71db36aad0f38090ea5465ce148634c496a48bc87030bdd9
       uri: huggingface://bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *gptoss
+  name: "openai-gpt-oss-20b-abliterated-uncensored-neo-imatrix"
+  icon: https://huggingface.co/DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/resolve/main/power-the-matrix.gif
+  urls:
+    - https://huggingface.co/DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf
+  description: |
+    These are NEO Imatrix GGUFs, NEO dataset by DavidAU.
+
+    NEO dataset improves overall performance, and is for all use cases.
+
+    This model uses Huihui-gpt-oss-20b-BF16-abliterated as a base which DE-CENSORS the model and removes refusals.
+
+    Example output below (creative; IQ4_NL), using settings below.
+
+    This model can be a little rough around the edges (due to abliteration) ; make sure you see the settings below for best operation.
+
+    It can also be creative, off the shelf crazy and rational too.
+
+    Enjoy!
+  overrides:
+    parameters:
+      model: OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+  files:
+    - filename: OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+      sha256: 274ffaaf0783270c071006842ffe60af73600fc63c2b6153c0701b596fc3b122
+      uri: huggingface://DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
