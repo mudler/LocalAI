@@ -230,6 +230,24 @@
     type: DiaForConditionalGeneration
     known_usecases:
       - tts
+- name: "outetts"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://github.com/edwko/OuteTTS
+  license: apache-2.0
+  tags:
+    - tts
+    - gpu
+    - text-to-speech
+  overrides:
+    backend: "transformers"
+    name: "outetts"
+    description: "OuteTTS is a 1.6B parameter text to speech model created by OuteAI."
+    parameters:
+      model: OuteAI/OuteTTS-0.3-1B
+    type: OuteTTS
+    known_usecases:
+      - tts
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
