@@ -75,4 +75,4 @@ curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json
 
 ## 💡 Examples
 
-- Example that uses LLamaIndex and LocalAI as embedding: [here](https://github.com/go-skynet/LocalAI/tree/master/examples/query_data/).
+- Example that uses LLamaIndex and LocalAI as embedding: [here](https://github.com/mudler/LocalAI-examples/tree/main/query_data).
