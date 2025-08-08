@@ -191,6 +191,24 @@
     - filename: OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
       sha256: 274ffaaf0783270c071006842ffe60af73600fc63c2b6153c0701b596fc3b122
       uri: huggingface://DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+- name: "chatterbox"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png
+  license: "mit"
+  urls:
+    - https://github.com/resemble-ai/chatterbox
+  tags:
+    - tts
+    - dia
+    - gpu
+    - text-to-speech
+  description: |
+    Chatterbox, Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
+  overrides:
+    backend: "chatterbox"
+    name: "chatterbox"
+    known_usecases:
+      - tts
 - name: "dia"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   icon: https://github.com/nari-labs/dia/raw/main/dia/static/images/banner.png
