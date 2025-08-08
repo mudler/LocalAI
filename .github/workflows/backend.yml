@@ -90,7 +90,7 @@ jobs:
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
-            platforms: 'linux/amd64'
+            platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-l4t-diffusers'
             runs-on: 'ubuntu-24.04-arm'
