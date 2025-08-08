@@ -11872,6 +11872,29 @@
     - filename: ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
       sha256: e217b2c39d4fae8499ca2a24ff8c7025ec93cd16883aa57f43ac9240222c4754
       uri: huggingface://bartowski/ockerman0_AnubisLemonade-70B-v1.1-GGUF/ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tarek07_nomad-llama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64909c086073a0cd172d0411/5F7S8kdO8NTMua6iCRTUO.png
+  urls:
+    - https://huggingface.co/Tarek07/Nomad-LLaMa-70B
+    - https://huggingface.co/bartowski/Tarek07_Nomad-LLaMa-70B-GGUF
+  description: |
+    I decided to make a simple model for a change, with some models I was curious to see work together.
+    models:
+      - model: ArliAI/DS-R1-Distill-70B-ArliAI-RpR-v4-Large
+      - model: TheDrummer/Anubis-70B-v1.1
+      - model: Mawdistical/Vulpine-Seduction-70B
+      - model: Darkhn/L3.3-70B-Animus-V5-Pro
+      - model: zerofata/L3.3-GeneticLemonade-Unleashed-v3-70B
+      - model: Sao10K/Llama-3.3-70B-Vulpecula-r1
+    base_model: nbeerbower/Llama-3.1-Nemotron-lorablated-70B
+  overrides:
+    parameters:
+      model: Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
+  files:
+    - filename: Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
+      sha256: 734c7042a84cd6c059c4ddd3ffb84b23752aeaaf670c5cbb0031f8128ec5ffc8
+      uri: huggingface://bartowski/Tarek07_Nomad-LLaMa-70B-GGUF/Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
