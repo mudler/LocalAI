@@ -151,6 +151,20 @@
     - filename: OpenAI-20B-NEO-MXFP4_MOE4.gguf
       sha256: 066c84a0844b1f1f4515e5c64095fe4c67e86d5eb70db4e368e283b1134d9c1e
       uri: huggingface://DavidAU/Openai_gpt-oss-20b-NEO-GGUF/OpenAI-20B-NEO-MXFP4_MOE4.gguf
+- !!merge <<: *gptoss
+  name: "huihui-ai_huihui-gpt-oss-20b-bf16-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF
+  description: |
+    This is an uncensored version of unsloth/gpt-oss-20b-BF16 created with abliteration (see remove-refusals-with-transformers to know more about it).
+  overrides:
+    parameters:
+      model: huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
+  files:
+    - filename: huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
+      sha256: abca50d1bd95c49d71db36aad0f38090ea5465ce148634c496a48bc87030bdd9
+      uri: huggingface://bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
