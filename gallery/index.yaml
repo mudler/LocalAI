@@ -191,6 +191,27 @@
     - filename: OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
       sha256: 274ffaaf0783270c071006842ffe60af73600fc63c2b6153c0701b596fc3b122
       uri: huggingface://DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+- name: "dia"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://github.com/nari-labs/dia/raw/main/dia/static/images/banner.png
+  urls:
+    - https://github.com/nari-labs/dia
+    - https://huggingface.co/nari-labs/Dia-1.6B-0626
+  license: apache-2.0
+  tags:
+    - tts
+    - dia
+    - gpu
+    - text-to-speech
+  overrides:
+    backend: "transformers"
+    name: "dia"
+    description: "Dia is a 1.6B parameter text to speech model created by Nari Labs."
+    parameters:
+      model: nari-labs/Dia-1.6B-0626
+    type: DiaForConditionalGeneration
+    known_usecases:
+      - tts
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
