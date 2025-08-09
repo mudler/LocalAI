@@ -151,6 +151,103 @@
     - filename: OpenAI-20B-NEO-MXFP4_MOE4.gguf
       sha256: 066c84a0844b1f1f4515e5c64095fe4c67e86d5eb70db4e368e283b1134d9c1e
       uri: huggingface://DavidAU/Openai_gpt-oss-20b-NEO-GGUF/OpenAI-20B-NEO-MXFP4_MOE4.gguf
+- !!merge <<: *gptoss
+  name: "huihui-ai_huihui-gpt-oss-20b-bf16-abliterated"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated
+    - https://huggingface.co/bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF
+  description: |
+    This is an uncensored version of unsloth/gpt-oss-20b-BF16 created with abliteration (see remove-refusals-with-transformers to know more about it).
+  overrides:
+    parameters:
+      model: huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
+  files:
+    - filename: huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
+      sha256: abca50d1bd95c49d71db36aad0f38090ea5465ce148634c496a48bc87030bdd9
+      uri: huggingface://bartowski/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-GGUF/huihui-ai_Huihui-gpt-oss-20b-BF16-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *gptoss
+  name: "openai-gpt-oss-20b-abliterated-uncensored-neo-imatrix"
+  icon: https://huggingface.co/DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/resolve/main/power-the-matrix.gif
+  urls:
+    - https://huggingface.co/DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf
+  description: |
+    These are NEO Imatrix GGUFs, NEO dataset by DavidAU.
+
+    NEO dataset improves overall performance, and is for all use cases.
+
+    This model uses Huihui-gpt-oss-20b-BF16-abliterated as a base which DE-CENSORS the model and removes refusals.
+
+    Example output below (creative; IQ4_NL), using settings below.
+
+    This model can be a little rough around the edges (due to abliteration) ; make sure you see the settings below for best operation.
+
+    It can also be creative, off the shelf crazy and rational too.
+
+    Enjoy!
+  overrides:
+    parameters:
+      model: OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+  files:
+    - filename: OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+      sha256: 274ffaaf0783270c071006842ffe60af73600fc63c2b6153c0701b596fc3b122
+      uri: huggingface://DavidAU/OpenAi-GPT-oss-20b-abliterated-uncensored-NEO-Imatrix-gguf/OpenAI-20B-NEOPlus-Uncensored-IQ4_NL.gguf
+- name: "chatterbox"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png
+  license: "mit"
+  urls:
+    - https://github.com/resemble-ai/chatterbox
+  tags:
+    - tts
+    - dia
+    - gpu
+    - text-to-speech
+  description: |
+    Chatterbox, Resemble AI's first production-grade open source TTS model. Licensed under MIT, Chatterbox has been benchmarked against leading closed-source systems like ElevenLabs, and is consistently preferred in side-by-side evaluations.
+  overrides:
+    backend: "chatterbox"
+    name: "chatterbox"
+    known_usecases:
+      - tts
+- name: "dia"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  icon: https://github.com/nari-labs/dia/raw/main/dia/static/images/banner.png
+  urls:
+    - https://github.com/nari-labs/dia
+    - https://huggingface.co/nari-labs/Dia-1.6B-0626
+  license: apache-2.0
+  tags:
+    - tts
+    - dia
+    - gpu
+    - text-to-speech
+  overrides:
+    backend: "transformers"
+    name: "dia"
+    description: "Dia is a 1.6B parameter text to speech model created by Nari Labs."
+    parameters:
+      model: nari-labs/Dia-1.6B-0626
+    type: DiaForConditionalGeneration
+    known_usecases:
+      - tts
+- name: "outetts"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://github.com/edwko/OuteTTS
+  license: apache-2.0
+  tags:
+    - tts
+    - gpu
+    - text-to-speech
+  overrides:
+    backend: "transformers"
+    name: "outetts"
+    description: "OuteTTS is a 1.6B parameter text to speech model created by OuteAI."
+    parameters:
+      model: OuteAI/OuteTTS-0.3-1B
+    type: OuteTTS
+    known_usecases:
+      - tts
 - &afm
   name: "arcee-ai_afm-4.5b"
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
@@ -11832,6 +11929,29 @@
     - filename: ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
       sha256: e217b2c39d4fae8499ca2a24ff8c7025ec93cd16883aa57f43ac9240222c4754
       uri: huggingface://bartowski/ockerman0_AnubisLemonade-70B-v1.1-GGUF/ockerman0_AnubisLemonade-70B-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "tarek07_nomad-llama-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64909c086073a0cd172d0411/5F7S8kdO8NTMua6iCRTUO.png
+  urls:
+    - https://huggingface.co/Tarek07/Nomad-LLaMa-70B
+    - https://huggingface.co/bartowski/Tarek07_Nomad-LLaMa-70B-GGUF
+  description: |
+    I decided to make a simple model for a change, with some models I was curious to see work together.
+    models:
+      - model: ArliAI/DS-R1-Distill-70B-ArliAI-RpR-v4-Large
+      - model: TheDrummer/Anubis-70B-v1.1
+      - model: Mawdistical/Vulpine-Seduction-70B
+      - model: Darkhn/L3.3-70B-Animus-V5-Pro
+      - model: zerofata/L3.3-GeneticLemonade-Unleashed-v3-70B
+      - model: Sao10K/Llama-3.3-70B-Vulpecula-r1
+    base_model: nbeerbower/Llama-3.1-Nemotron-lorablated-70B
+  overrides:
+    parameters:
+      model: Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
+  files:
+    - filename: Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
+      sha256: 734c7042a84cd6c059c4ddd3ffb84b23752aeaaf670c5cbb0031f8128ec5ffc8
+      uri: huggingface://bartowski/Tarek07_Nomad-LLaMa-70B-GGUF/Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"

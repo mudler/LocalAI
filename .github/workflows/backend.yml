@@ -87,6 +87,18 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+          - build-type: 'l4t'
+            cuda-major-version: "12"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-l4t-diffusers'
+            runs-on: 'ubuntu-24.04-arm'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            skip-drivers: 'true'
+            backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
           # CUDA 11 additional backends
           - build-type: 'cublas'
             cuda-major-version: "11"

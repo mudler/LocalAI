@@ -132,6 +132,9 @@ test: test-models/testmodel.ggml protogen-go
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
 
+backends/diffusers: docker-build-diffusers docker-save-diffusers build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/diffusers.tar)"
+
 backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
@@ -431,7 +434,10 @@ docker-build-transformers:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:transformers -f backend/Dockerfile.python --build-arg BACKEND=transformers .
 
 docker-build-diffusers:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:diffusers -f backend/Dockerfile.python --build-arg BACKEND=diffusers .
+	docker build --progress=plain --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:diffusers -f backend/Dockerfile.python --build-arg BACKEND=diffusers ./backend
+
+docker-save-diffusers: backend-images
+	docker save local-ai-backend:diffusers -o backend-images/diffusers.tar
 
 docker-build-whisper:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper -f backend/Dockerfile.golang --build-arg BACKEND=whisper  .

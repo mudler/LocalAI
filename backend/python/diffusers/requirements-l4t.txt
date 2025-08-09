@@ -1,0 +1,10 @@
+--extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/
+torch
+diffusers
+transformers
+accelerate
+compel
+peft
+optimum-quanto
+numpy<2
+sentencepiece

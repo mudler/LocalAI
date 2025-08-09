@@ -168,6 +168,7 @@
     nvidia: "cuda12-diffusers"
     intel: "intel-diffusers"
     amd: "rocm-diffusers"
+    nvidia-l4t: "nvidia-l4t-diffusers"
 - &exllama2
   name: "exllama2"
   urls:
@@ -294,6 +295,7 @@
   license: MIT
   icon: https://private-user-images.githubusercontent.com/660224/448166653-bd8c5f03-e91d-4ee5-b680-57355da204d1.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NTAxOTE0MDAsIm5iZiI6MTc1MDE5MTEwMCwicGF0aCI6Ii82NjAyMjQvNDQ4MTY2NjUzLWJkOGM1ZjAzLWU5MWQtNGVlNS1iNjgwLTU3MzU1ZGEyMDRkMS5wbmc_WC1BbXotQWxnb3JpdGhtPUFXUzQtSE1BQy1TSEEyNTYmWC1BbXotQ3JlZGVudGlhbD1BS0lBVkNPRFlMU0E1M1BRSzRaQSUyRjIwMjUwNjE3JTJGdXMtZWFzdC0xJTJGczMlMkZhd3M0X3JlcXVlc3QmWC1BbXotRGF0ZT0yMDI1MDYxN1QyMDExNDBaJlgtQW16LUV4cGlyZXM9MzAwJlgtQW16LVNpZ25hdHVyZT1hMmI1NGY3OGFiZTlhNGFkNTVlYTY4NTIwMWEzODRiZGE4YzdhNGQ5MGNhNzE3MDYyYTA2NDIxYTkyYzhiODkwJlgtQW16LVNpZ25lZEhlYWRlcnM9aG9zdCJ9.mR9kM9xX0TdzPuSpuspCllHYQiq79dFQ2rtuNvjrl6w
   name: "chatterbox"
+  alias: "chatterbox"
   capabilities:
     nvidia: "cuda12-chatterbox"
 - &piper
@@ -852,6 +854,17 @@
     nvidia: "cuda12-diffusers-development"
     intel: "intel-diffusers-development"
     amd: "rocm-diffusers-development"
+    nvidia-l4t: "nvidia-l4t-diffusers-development"
+- !!merge <<: *diffusers
+  name: "nvidia-l4t-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-l4t-diffusers"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-l4t-diffusers
+- !!merge <<: *diffusers
+  name: "nvidia-l4t-diffusers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-l4t-diffusers"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-l4t-diffusers
 - !!merge <<: *diffusers
   name: "cuda12-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-diffusers"

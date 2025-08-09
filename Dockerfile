@@ -9,7 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        python3 python-is-python3 ffmpeg && \
+        python3 python-is-python3 ffmpeg libopenblas-base libopenblas-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

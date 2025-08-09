@@ -95,7 +95,7 @@ Specifying a `config-file` via CLI allows to declare models in a single file as 
    chat: chat
 ```
 
-See also [chatbot-ui](https://github.com/go-skynet/LocalAI/tree/master/examples/chatbot-ui) as an example on how to use config files.
+See also [chatbot-ui](https://github.com/mudler/LocalAI-examples/tree/main/chatbot-ui) as an example on how to use config files.
 
 It is possible to specify a full URL or a short-hand URL to a YAML model configuration file and use it on start with local-ai, for example to use phi-2:
 
@@ -341,7 +341,7 @@ Below is an instruction that describes a task, paired with an input that provide
 
 Instead of installing models manually, you can use the LocalAI API endpoints and a model definition to install programmatically via API models in runtime.
 
-A curated collection of model files is in the [model-gallery](https://github.com/go-skynet/model-gallery) (work in progress!). The files of the model gallery are different from the model files used to configure LocalAI models. The model gallery files contains information about the model setup, and the files necessary to run the model locally.
+A curated collection of model files is in the [model-gallery](https://github.com/mudler/LocalAI/tree/master/gallery). The files of the model gallery are different from the model files used to configure LocalAI models. The model gallery files contains information about the model setup, and the files necessary to run the model locally.
 
 To install for example `lunademo`, you can send a POST call to the `/models/apply` endpoint with the model definition url (`url`) and the name of the model should have in LocalAI (`name`, optional):
 

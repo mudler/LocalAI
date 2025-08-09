@@ -46,7 +46,7 @@ There is the availability of localai-webui and chatbot-ui in the examples sectio
 
 ### Does it work with AutoGPT? 
 
-Yes, see the [examples](https://github.com/go-skynet/LocalAI/tree/master/examples/)!
+Yes, see the [examples](https://github.com/mudler/LocalAI-examples)!
 
 ### How can I troubleshoot when something is wrong?
 

@@ -57,6 +57,11 @@ function init() {
 # - hipblas
 # - intel
 function getBuildProfile() {
+    if [ "x${BUILD_TYPE}" == "xl4t" ]; then
+        echo "l4t"
+        return 0
+    fi
+
     # First check if we are a cublas build, and if so report the correct build profile
     if [ x"${BUILD_TYPE}" == "xcublas" ]; then
         if [ ! -z ${CUDA_MAJOR_VERSION} ]; then
