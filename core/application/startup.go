@@ -59,8 +59,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 		log.Error().Err(err).Msg("error installing models")
 	}
 
-	if err := coreStartup.InstallExternalBackends(options.BackendGalleries, options.BackendsPath, nil, options.ExternalBackends...); err != nil {
-		log.Error().Err(err).Msg("error installing external backends")
+	for _, backend := range options.ExternalBackends {
+		if err := coreStartup.InstallExternalBackends(options.BackendGalleries, options.BackendsPath, nil, backend, "", ""); err != nil {
+			log.Error().Err(err).Msg("error installing external backend")
+		}
 	}
 
 	configLoaderOpts := options.ToConfigLoaderOptions()

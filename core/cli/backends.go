@@ -23,7 +23,9 @@ type BackendsList struct {
 }
 
 type BackendsInstall struct {
-	BackendArgs []string `arg:"" optional:"" name:"backends" help:"Backend configuration URLs to load"`
+	BackendArgs string `arg:"" optional:"" name:"backend" help:"Backend configuration URL to load"`
+	Name        string `arg:"" optional:"" name:"name" help:"Name of the backend"`
+	Alias       string `arg:"" optional:"" name:"alias" help:"Alias of the backend"`
 
 	BackendsCMDFlags `embed:""`
 }
@@ -66,27 +68,25 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 		log.Error().Err(err).Msg("unable to load galleries")
 	}
 
-	for _, backendName := range bi.BackendArgs {
-
-		progressBar := progressbar.NewOptions(
-			1000,
-			progressbar.OptionSetDescription(fmt.Sprintf("downloading backend %s", backendName)),
-			progressbar.OptionShowBytes(false),
-			progressbar.OptionClearOnFinish(),
-		)
-		progressCallback := func(fileName string, current string, total string, percentage float64) {
-			v := int(percentage * 10)
-			err := progressBar.Set(v)
-			if err != nil {
-				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
-			}
-		}
-
-		err := startup.InstallExternalBackends(galleries, bi.BackendsPath, progressCallback, backendName)
+	progressBar := progressbar.NewOptions(
+		1000,
+		progressbar.OptionSetDescription(fmt.Sprintf("downloading backend %s", bi.BackendArgs)),
+		progressbar.OptionShowBytes(false),
+		progressbar.OptionClearOnFinish(),
+	)
+	progressCallback := func(fileName string, current string, total string, percentage float64) {
+		v := int(percentage * 10)
+		err := progressBar.Set(v)
 		if err != nil {
-			return err
+			log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
 		}
 	}
+
+	err := startup.InstallExternalBackends(galleries, bi.BackendsPath, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
