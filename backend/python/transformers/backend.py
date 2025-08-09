@@ -19,8 +19,8 @@ import grpc
 import torch
 import torch.cuda
 
-
-XPU=os.environ.get("XPU", "0") == "1"
+# Attempt to use XPU only if Torch says it is available when asking for it
+XPU = ((os.environ.get("XPU", "0") == "1") & (torch.xpu.is_available()))
 from transformers import AutoTokenizer, AutoModel, set_seed, TextIteratorStreamer, StoppingCriteriaList, StopStringCriteria, MambaConfig, MambaForCausalLM
 from transformers import AutoProcessor, MusicgenForConditionalGeneration, DiaForConditionalGeneration
 from scipy.io import wavfile
@@ -83,8 +83,14 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if os.path.exists(request.ModelFile):
             model_name = request.ModelFile
 
-        compute = torch.float16
-        if request.F16Memory == True:
+        # Use float32 for CPU inference
+        if (torch.cuda.is_available() | XPU):
+            compute = torch.float16
+        else:
+            compute = torch.float32
+
+        # Only use f16 if not running on CPU - forcing f16 on CPU causes freezes (https://github.com/pytorch/pytorch/issues/75458)
+        if (request.F16Memory & (torch.cuda.is_available() | XPU)) == True:
             compute=torch.bfloat16
 
         self.CUDA = torch.cuda.is_available()
@@ -121,6 +127,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             self.options[key] = value
 
         print(f"Parsed options: {self.options}", file=sys.stderr)
+
+        if not (self.CUDA | XPU):
+            from transformers import BitsAndBytesConfig, AutoModelForCausalLM
 
         if self.CUDA:
             from transformers import BitsAndBytesConfig, AutoModelForCausalLM

@@ -1,4 +1,6 @@
+bark==0.1.5
 transformers
 accelerate
-torch==2.4.1
-torchaudio==2.4.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.4.1+cpu
+torchaudio==2.4.1+cpu

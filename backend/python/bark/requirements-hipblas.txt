@@ -1,3 +1,4 @@
+bark==0.1.5
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
 torch==2.4.1+rocm6.0
 torchaudio==2.4.1+rocm6.0
