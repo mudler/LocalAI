@@ -7,3 +7,4 @@ compel
 peft
 optimum-quanto
 numpy<2
+sentencepiece
