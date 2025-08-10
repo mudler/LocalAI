@@ -1,7 +1,6 @@
 package startup
 
 import (
-	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -13,49 +12,68 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func InstallExternalBackends(galleries []config.Gallery, backendPath string, downloadStatus func(string, string, string, float64), backends ...string) error {
-	var errs error
+func InstallExternalBackends(galleries []config.Gallery, backendPath string, downloadStatus func(string, string, string, float64), backend, name, alias string) error {
 	systemState, err := system.GetSystemState()
 	if err != nil {
 		return fmt.Errorf("failed to get system state: %w", err)
 	}
-	for _, backend := range backends {
-		uri := downloader.URI(backend)
-		switch {
-		case uri.LooksLikeDir():
-			name := filepath.Base(backend)
-			log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from path")
-			if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
-				Metadata: gallery.Metadata{
-					Name: name,
-				},
-				URI: backend,
-			}, downloadStatus); err != nil {
-				errs = errors.Join(err, fmt.Errorf("error installing backend %s", backend))
-			}
-		case uri.LooksLikeOCI():
-			name, err := uri.FilenameFromUrl()
-			if err != nil {
-				return fmt.Errorf("failed to get filename from URL: %w", err)
-			}
-			// strip extension if any
-			name = strings.TrimSuffix(name, filepath.Ext(name))
+	uri := downloader.URI(backend)
+	switch {
+	case uri.LooksLikeDir():
+		if name == "" { // infer it from the path
+			name = filepath.Base(backend)
+		}
+		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from path")
+		if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+			Metadata: gallery.Metadata{
+				Name: name,
+			},
+			Alias: alias,
+			URI:   backend,
+		}, downloadStatus); err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	case uri.LooksLikeOCI() && !uri.LooksLikeOCIFile():
+		if name == "" {
+			return fmt.Errorf("specifying a name is required for OCI images")
+		}
+		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
+		if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+			Metadata: gallery.Metadata{
+				Name: name,
+			},
+			Alias: alias,
+			URI:   backend,
+		}, downloadStatus); err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	case uri.LooksLikeOCIFile():
+		name, err := uri.FilenameFromUrl()
+		if err != nil {
+			return fmt.Errorf("failed to get filename from URL: %w", err)
+		}
+		// strip extension if any
+		name = strings.TrimSuffix(name, filepath.Ext(name))
 
-			log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
-			if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
-				Metadata: gallery.Metadata{
-					Name: name,
-				},
-				URI: backend,
-			}, downloadStatus); err != nil {
-				errs = errors.Join(err, fmt.Errorf("error installing backend %s", backend))
-			}
-		default:
-			err := gallery.InstallBackendFromGallery(galleries, systemState, backend, backendPath, downloadStatus, true)
-			if err != nil {
-				errs = errors.Join(err, fmt.Errorf("error installing backend %s", backend))
-			}
+		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
+		if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+			Metadata: gallery.Metadata{
+				Name: name,
+			},
+			Alias: alias,
+			URI:   backend,
+		}, downloadStatus); err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
+		}
+	default:
+		if name != "" || alias != "" {
+			return fmt.Errorf("specifying a name or alias is not supported for this backend")
+		}
+		err := gallery.InstallBackendFromGallery(galleries, systemState, backend, backendPath, downloadStatus, true)
+		if err != nil {
+			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
 	}
-	return errs
+
+	return nil
 }
