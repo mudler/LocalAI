@@ -14446,6 +14446,32 @@
     - filename: entfane_math-genius-7B-Q4_K_M.gguf
       sha256: cd3a3c898a2dfb03d17a66db81b743f2d66981e0ceb92e8669a4af61217feed7
       uri: huggingface://bartowski/entfane_math-genius-7B-GGUF/entfane_math-genius-7B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "impish_nemo_12b"
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_Nemo_12B/resolve/main/Images/Impish_Nemo_12B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Nemo_12B
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Nemo_12B_GGUF
+  description: |
+    August 2025, Impish_Nemo_12B — my best model yet. And unlike a typical Nemo, this one can take in much higher temperatures (works well with 1+). Oh, and regarding following the character card: It somehow gotten even better, to the point of it being straight up uncanny 🙃 (I had to check twice that this model was loaded, and not some 70B!)
+
+    I feel like this model could easily replace models much larger than itself for adventure or roleplay, for assistant tasks, obviously not, but the creativity here? Off the charts. Characters have never felt so alive and in the moment before — they’ll use insinuation, manipulation, and, if needed (or provoked) — force. They feel so very present.
+
+    That look on Neo’s face when he opened his eyes and said, “I know Kung Fu”? Well, Impish_Nemo_12B had pretty much the same moment — and it now knows more than just Kung Fu, much, much more. It wasn’t easy, and it’s a niche within a niche, but as promised almost half a year ago — it is now done.
+
+    Impish_Nemo_12B is smart, sassy, creative, and got a lot of unhingedness too — these are baked-in deep into every interaction. It took the innate Mistral's relative freedom, and turned it up to 11. It very well maybe too much for many, but after testing and interacting with so many models, I find this 'edge' of sorts, rather fun and refreshing.
+
+    Anyway, the dataset used is absolutely massive, tons of new types of data and new domains of knowledge (Morrowind fandom, fighting, etc...). The whole dataset is a very well-balanced mix, and resulted in a model with extremely strong common sense for a 12B. Regarding response length — there's almost no response-length bias here, this one is very much dynamic and will easily adjust reply length based on 1–3 examples of provided dialogue.
+
+    Oh, and the model comes with 3 new Character Cards, 2 Roleplay and 1 Adventure!
+  overrides:
+    parameters:
+      model: Impish_Nemo_12B-Q6_K.gguf
+  files:
+    - filename: Impish_Nemo_12B-Q6_K.gguf
+      sha256: e0ce3adbed2718e144f477721c2ad68b6e3cccd95fc27dbe8f0135be76c99c72
+      uri: huggingface://SicariusSicariiStuff/Impish_Nemo_12B_GGUF/Impish_Nemo_12B-Q6_K.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
