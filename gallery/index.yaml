@@ -105,8 +105,8 @@
       model: gpt-oss-20b-mxfp4.gguf
   files:
     - filename: gpt-oss-20b-mxfp4.gguf
-      sha256: 52f57ab7d3df3ba9173827c1c6832e73375553a846f3e32b49f1ae2daad688d4
       uri: huggingface://ggml-org/gpt-oss-20b-GGUF/gpt-oss-20b-mxfp4.gguf
+      sha256: be37a636aca0fc1aae0d32325f82f6b4d21495f06823b5fbc1898ae0303e9935
 - !!merge <<: *gptoss
   name: "gpt-oss-120b"
   url: "github:mudler/LocalAI/gallery/harmony.yaml@master"
@@ -119,14 +119,14 @@
       model: gpt-oss-120b-mxfp4-00001-of-00003.gguf
   files:
     - filename: gpt-oss-120b-mxfp4-00001-of-00003.gguf
-      sha256: 40b630223b9fc43820fa0aae5d0ab61020f5858d1719642357753dca9e7df29f
       uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00001-of-00003.gguf
+      sha256: e2865eb6c1df7b2ffbebf305cd5d9074d5ccc0fe3b862f98d343a46dad1606f9
     - filename: gpt-oss-120b-mxfp4-00002-of-00003.gguf
-      sha256: fbdb8cdec70edb82c53bfc69cc0f54a34759a23d317fa0771a63be6571907b38
       uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00002-of-00003.gguf
+      sha256: 346492f65891fb27cac5c74a8c07626cbfeb4211cd391ec4de37dbbe3109a93b
     - filename: gpt-oss-120b-mxfp4-00003-of-00003.gguf
-      sha256: b326bfd8ac696c4b9a14e9e84d5529b2bb86847aea0e65443cbf075accba8b71
       uri: huggingface://ggml-org/gpt-oss-120b-GGUF/gpt-oss-120b-mxfp4-00003-of-00003.gguf
+      sha256: 66dca81040933f5a49177e82c479c51319cefb83bd22dad9f06dad45e25f1463
 - !!merge <<: *gptoss
   name: "openai_gpt-oss-20b-neo"
   icon: https://huggingface.co/DavidAU/Openai_gpt-oss-20b-NEO-GGUF/resolve/main/matrix1.gif
@@ -312,7 +312,7 @@
     - https://huggingface.co/Dream-org/Dream-v0-Instruct-7B
     - https://huggingface.co/bartowski/Dream-org_Dream-v0-Instruct-7B-GGUF
   description: |
-      This is the instruct model of Dream 7B, which is an open diffusion large language model with top-tier performance.
+    This is the instruct model of Dream 7B, which is an open diffusion large language model with top-tier performance.
   overrides:
     parameters:
       model: Dream-org_Dream-v0-Instruct-7B-Q4_K_M.gguf
@@ -14453,18 +14453,7 @@
   urls:
     - https://huggingface.co/SicariusSicariiStuff/Impish_Nemo_12B
     - https://huggingface.co/SicariusSicariiStuff/Impish_Nemo_12B_GGUF
-  description: |
-    August 2025, Impish_Nemo_12B — my best model yet. And unlike a typical Nemo, this one can take in much higher temperatures (works well with 1+). Oh, and regarding following the character card: It somehow gotten even better, to the point of it being straight up uncanny 🙃 (I had to check twice that this model was loaded, and not some 70B!)
-
-    I feel like this model could easily replace models much larger than itself for adventure or roleplay, for assistant tasks, obviously not, but the creativity here? Off the charts. Characters have never felt so alive and in the moment before — they’ll use insinuation, manipulation, and, if needed (or provoked) — force. They feel so very present.
-
-    That look on Neo’s face when he opened his eyes and said, “I know Kung Fu”? Well, Impish_Nemo_12B had pretty much the same moment — and it now knows more than just Kung Fu, much, much more. It wasn’t easy, and it’s a niche within a niche, but as promised almost half a year ago — it is now done.
-
-    Impish_Nemo_12B is smart, sassy, creative, and got a lot of unhingedness too — these are baked-in deep into every interaction. It took the innate Mistral's relative freedom, and turned it up to 11. It very well maybe too much for many, but after testing and interacting with so many models, I find this 'edge' of sorts, rather fun and refreshing.
-
-    Anyway, the dataset used is absolutely massive, tons of new types of data and new domains of knowledge (Morrowind fandom, fighting, etc...). The whole dataset is a very well-balanced mix, and resulted in a model with extremely strong common sense for a 12B. Regarding response length — there's almost no response-length bias here, this one is very much dynamic and will easily adjust reply length based on 1–3 examples of provided dialogue.
-
-    Oh, and the model comes with 3 new Character Cards, 2 Roleplay and 1 Adventure!
+  description: "August 2025, Impish_Nemo_12B — my best model yet. And unlike a typical Nemo, this one can take in much higher temperatures (works well with 1+). Oh, and regarding following the character card: It somehow gotten even better, to the point of it being straight up uncanny \U0001F643 (I had to check twice that this model was loaded, and not some 70B!)\n\nI feel like this model could easily replace models much larger than itself for adventure or roleplay, for assistant tasks, obviously not, but the creativity here? Off the charts. Characters have never felt so alive and in the moment before — they’ll use insinuation, manipulation, and, if needed (or provoked) — force. They feel so very present.\n\nThat look on Neo’s face when he opened his eyes and said, “I know Kung Fu”? Well, Impish_Nemo_12B had pretty much the same moment — and it now knows more than just Kung Fu, much, much more. It wasn’t easy, and it’s a niche within a niche, but as promised almost half a year ago — it is now done.\n\nImpish_Nemo_12B is smart, sassy, creative, and got a lot of unhingedness too — these are baked-in deep into every interaction. It took the innate Mistral's relative freedom, and turned it up to 11. It very well maybe too much for many, but after testing and interacting with so many models, I find this 'edge' of sorts, rather fun and refreshing.\n\nAnyway, the dataset used is absolutely massive, tons of new types of data and new domains of knowledge (Morrowind fandom, fighting, etc...). The whole dataset is a very well-balanced mix, and resulted in a model with extremely strong common sense for a 12B. Regarding response length — there's almost no response-length bias here, this one is very much dynamic and will easily adjust reply length based on 1–3 examples of provided dialogue.\n\nOh, and the model comes with 3 new Character Cards, 2 Roleplay and 1 Adventure!\n"
   overrides:
     parameters:
       model: Impish_Nemo_12B-Q6_K.gguf
@@ -19486,14 +19475,14 @@
   url: "github:mudler/LocalAI/gallery/flux-ggml.yaml@master"
   icon: https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev/media/main/teaser.png
   description: |
-      FLUX.1 Kontext [dev] is a 12 billion parameter rectified flow transformer capable of editing images based on text instructions. For more information, please read our blog post and our technical report. You can find information about the [pro] version in here.
-      Key Features
-          Change existing images based on an edit instruction.
-          Have character, style and object reference without any finetuning.
-          Robust consistency allows users to refine an image through multiple successive edits with minimal visual drift.
-          Trained using guidance distillation, making FLUX.1 Kontext [dev] more efficient.
-          Open weights to drive new scientific research, and empower artists to develop innovative workflows.
-          Generated outputs can be used for personal, scientific, and commercial purposes, as described in the FLUX.1 [dev] Non-Commercial License.
+    FLUX.1 Kontext [dev] is a 12 billion parameter rectified flow transformer capable of editing images based on text instructions. For more information, please read our blog post and our technical report. You can find information about the [pro] version in here.
+    Key Features
+        Change existing images based on an edit instruction.
+        Have character, style and object reference without any finetuning.
+        Robust consistency allows users to refine an image through multiple successive edits with minimal visual drift.
+        Trained using guidance distillation, making FLUX.1 Kontext [dev] more efficient.
+        Open weights to drive new scientific research, and empower artists to develop innovative workflows.
+        Generated outputs can be used for personal, scientific, and commercial purposes, as described in the FLUX.1 [dev] Non-Commercial License.
   urls:
     - https://huggingface.co/black-forest-labs/FLUX.1-Kontext-dev
     - https://huggingface.co/QuantStack/FLUX.1-Kontext-dev-GGUF
