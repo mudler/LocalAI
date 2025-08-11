@@ -8,6 +8,7 @@ import argparse
 import signal
 import sys
 import os
+import torch
 import backend_pb2
 import backend_pb2_grpc
 
@@ -31,14 +32,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     def LoadModel(self, request, context):
         device = "cpu"
+        precision = "float32"
         # Get device
         # device = "cuda" if request.CUDA else "cpu"
-        if request.CUDA:
+        # Detecting CUDA availability using Torch.
+        if (request.CUDA & torch.cuda.is_available()):
             device = "cuda"
+            precision="float16"
 
         try:
             print("Preparing models, please wait", file=sys.stderr)
-            self.model = WhisperModel(request.Model, device=device, compute_type="float16")
+            self.model = WhisperModel(request.Model, device=device, compute_type=precision)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         # Implement your logic here for the LoadModel service
