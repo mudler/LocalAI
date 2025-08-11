@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"unsafe"
 
@@ -20,9 +21,24 @@ type SDGGML struct {
 }
 
 var (
-	LoadModel func(model, model_apth string, options []string, threads int32, diff int) int
-	GenImage func(text, negativeText string, width, height, steps int, seed int64, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []string, refImagesCount int) int
+	LoadModel func(model, model_apth string, options []uintptr, threads int32, diff int) int
+	GenImage  func(text, negativeText string, width, height, steps int, seed int64, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []string, refImagesCount int) int
 )
+
+// Copied from Purego internal/strings
+// TODO: We should upstream sending []string
+func hasSuffix(s, suffix string) bool {
+	return len(s) >= len(suffix) && s[len(s)-len(suffix):] == suffix
+}
+
+func CString(name string) *byte {
+	if hasSuffix(name, "\x00") {
+		return &(*(*[]byte)(unsafe.Pointer(&name)))[0]
+	}
+	b := make([]byte, len(name)+1)
+	copy(b, name)
+	return &b[0]
+}
 
 func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 
@@ -56,8 +72,14 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 
 	fmt.Fprintf(os.Stderr, "Options: %+v\n", oo)
 
-	options := make([]string, len(oo), len(oo) + 1)
-	*(*uintptr)(unsafe.Add(unsafe.Pointer(&options), uintptr(len(oo)))) = 0
+	// At the time of writing Purego doesn't recurse into slices and convert Go strings to pointers so we need to do that
+	var keepAlive []any
+	options := make([]uintptr, len(oo), len(oo)+1)
+	for i, op := range oo {
+		bytep := CString(op)
+		options[i] = uintptr(unsafe.Pointer(bytep))
+		keepAlive = append(keepAlive, bytep)
+	}
 
 	sd.cfgScale = opts.CFGScale
 
@@ -65,6 +87,8 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	if ret != 0 {
 		return fmt.Errorf("could not load model")
 	}
+
+	runtime.KeepAlive(keepAlive)
 
 	return nil
 }
@@ -89,7 +113,7 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	}
 
 	refImagesCount := len(opts.RefImages)
-	refImages := make([]string, refImagesCount, refImagesCount + 1)
+	refImages := make([]string, refImagesCount, refImagesCount+1)
 	copy(refImages, opts.RefImages)
 	*(*uintptr)(unsafe.Add(unsafe.Pointer(&refImages), refImagesCount)) = 0
 

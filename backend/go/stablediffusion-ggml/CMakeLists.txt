@@ -1,10 +1,11 @@
 cmake_minimum_required(VERSION 3.12)
 project(gosd LANGUAGES C CXX)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(./sources/stablediffusion-ggml.cpp)
 
 add_library(gosd MODULE gosd.cpp)
-target_link_libraries(gosd PRIVATE stable-diffusion ggml zip stdc++fs)
+target_link_libraries(gosd PRIVATE stable-diffusion ggml stdc++fs)
 
 target_include_directories(gosd PUBLIC
     stable-diffusion.cpp

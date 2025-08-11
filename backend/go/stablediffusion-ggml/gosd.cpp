@@ -90,7 +90,7 @@ static void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
 }
 
 int load_model(const char *model, char *model_path, char* options[], int threads, int diff) {
-    fprintf (stderr, "Loading model!\n");
+    fprintf (stderr, "Loading model: %p=%s\n", model, model);
 
     sd_set_log_callback(sd_log_cb, NULL);
 
@@ -110,7 +110,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     char *lora_dir = model_path;
     bool lora_dir_allocated = false;
 
-    fprintf(stderr, "parsing options\n");
+    fprintf(stderr, "parsing options: %p\n", options);
 
     // If options is not NULL, parse options
     for (int i = 0; options[i] != NULL; i++) {
