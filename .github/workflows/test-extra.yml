@@ -19,7 +19,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Dependencies
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Dependencies
@@ -83,7 +83,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Dependencies
@@ -104,7 +104,7 @@ jobs:
   #  runs-on: ubuntu-latest
   #  steps:
   #    - name: Clone
-  #      uses: actions/checkout@v4
+  #      uses: actions/checkout@v5
   #      with:
   #        submodules: true
   #    - name: Dependencies
@@ -124,7 +124,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -186,7 +186,7 @@ jobs:
   #           sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
   #           df -h
   #     - name: Clone
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -211,7 +211,7 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Clone
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #       with:
   #         submodules: true
   #     - name: Dependencies
@@ -232,7 +232,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Dependencies

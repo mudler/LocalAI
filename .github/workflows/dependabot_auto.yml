@@ -20,7 +20,7 @@ jobs:
           skip-commit-verification: true
 
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Approve a PR if not already approved
         run: |
