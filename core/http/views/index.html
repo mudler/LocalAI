@@ -30,6 +30,12 @@
                         <span>Gallery</span>
                         <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
+                    <a href="/import-model" 
+                       class="group flex items-center bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        <i class="fas fa-plus mr-2"></i>
+                        <span>Import Custom Model</span>
+                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
+                    </a>
                 </div>
             </div>
         </div>
@@ -143,7 +149,11 @@
                             {{ end }}
                         </div>
                         
-                        <div class="mt-4 flex justify-end">
+                        <div class="mt-4 flex justify-end gap-2">
+                            <a href="/models/edit/{{.Name}}" 
+                               class="inline-flex items-center text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20 rounded-md px-2 py-1 transition-colors duration-200">
+                                <i class="fas fa-edit mr-1.5"></i>Edit
+                            </a>
                             <button
                                 class="inline-flex items-center text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md px-2 py-1 transition-colors duration-200"
                                 data-twe-ripple-init=""
@@ -174,6 +184,12 @@
                                 </span>
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-red-900/50 text-red-300 border border-red-700/50">
                                     No Configuration
+                                </span>
+                            </div>
+                            
+                            <div class="mt-4 flex justify-end">
+                                <span class="inline-flex items-center text-xs font-medium text-gray-400 px-2 py-1">
+                                    <i class="fas fa-info-circle mr-1.5"></i>Cannot edit (no config)
                                 </span>
                             </div>
                         </div>

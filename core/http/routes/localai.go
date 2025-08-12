@@ -23,6 +23,13 @@ func RegisterLocalAIRoutes(router *fiber.App,
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
+		// Import model page
+		router.Get("/import-model", func(c *fiber.Ctx) error {
+			return c.Render("views/import-model", fiber.Map{})
+		})
+
+		// Edit model page
+		router.Get("/models/edit/:name", localai.GetEditModelPage(cl, appConfig))
 		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService)
 		router.Post("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
 		router.Post("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
@@ -42,6 +49,11 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Get("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState))
 		router.Get("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint())
 		router.Get("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
+		// Custom model import endpoint
+		router.Post("/models/import", localai.ImportModelEndpoint(cl, appConfig))
+
+		// Custom model edit endpoint
+		router.Put("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
 	}
 
 	router.Post("/v1/detection",

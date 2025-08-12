@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<div class="flex flex-col min-h-screen">
+   
+    {{template "views/partials/navbar" .}}
+    
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Header -->
+        <div class="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-2xl shadow-xl p-6 mb-8">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                        Import Custom Model
+                    </span>
+                </h1>
+                <p class="text-lg text-gray-300 mb-2">
+                    Create and import your own model configuration
+                </p>
+            </div>
+        </div>
+
+        {{template "views/partials/inprogress" .}}
+
+        <!-- Import Form -->
+        <div class="bg-gray-800/70 rounded-xl p-6 mb-8 shadow-lg border border-gray-700/50">
+            <form id="import-form" hx-post="/models/import" hx-encoding="multipart/form-data" hx-target="#import-result" onsubmit="return validateForm()">
+                <!-- Basic Model Information -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-4">Basic Information</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Model Name *</label>
+                            <input type="text" id="name" name="name" required
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="my-custom-model">
+                        </div>
+                        <div>
+                            <label for="backend" class="block text-sm font-medium text-gray-300 mb-2">Backend *</label>
+                            <input type="text" id="backend" name="backend" required
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="e.g., llama.cpp, diffusers, whisper"
+                                oninput="updateBackendSpecificFields()">
+                        </div>
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                            <input type="text" id="description" name="description"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="Brief description of the model">
+                        </div>
+                        <div>
+                            <label for="usage" class="block text-sm font-medium text-gray-300 mb-2">Usage</label>
+                            <input type="text" id="usage" name="usage"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="How to use this model">
+                        </div>
+                        <div>
+                            <label for="system_prompt" class="block text-sm font-medium text-gray-300 mb-2">System Prompt</label>
+                            <textarea id="system_prompt" name="system_prompt" rows="2"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="System prompt for the model"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Files -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-4">Model Files</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="model" class="block text-sm font-medium text-gray-300 mb-2">Model File/URL *</label>
+                            <input type="text" id="model" name="model" required
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="model.gguf or https://...">
+                            <p class="text-xs text-gray-400 mt-1">Enter local file path or download URL</p>
+                        </div>
+                        <div id="mmproj-field" style="display: none;">
+                            <label for="mmproj" class="block text-sm font-medium text-gray-300 mb-2">MMProj File/URL</label>
+                            <input type="text" id="mmproj" name="mmproj"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="mmproj.gguf or https://...">
+                            <p class="text-xs text-gray-400 mt-1">Multimodal projection file (optional)</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Configuration -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-4">Template Configuration</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div>
+                            <label for="chat_template" class="block text-sm font-medium text-gray-300 mb-2">Chat Template</label>
+                            <textarea id="chat_template" name="chat_template" rows="3"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="Chat template for conversation"></textarea>
+                        </div>
+                        <div>
+                            <label for="completion_template" class="block text-sm font-medium text-gray-300 mb-2">Completion Template</label>
+                            <textarea id="completion_template" name="completion_template" rows="3"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="Completion template"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Parameters -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-4">Model Parameters</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="temperature" class="block text-sm font-medium text-gray-300 mb-2">Temperature</label>
+                            <input type="number" id="temperature" name="temperature" step="0.1" min="0" max="2"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                value="0.9">
+                        </div>
+                        <div>
+                            <label for="top_p" class="block text-sm font-medium text-gray-300 mb-2">Top P</label>
+                            <input type="number" id="top_p" name="top_p" step="0.01" min="0" max="1"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                value="0.95">
+                        </div>
+                        <div>
+                            <label for="top_k" class="block text-sm font-medium text-gray-300 mb-2">Top K</label>
+                            <input type="number" id="top_k" name="top_k" min="1" max="100"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                value="40">
+                        </div>
+                        <div>
+                            <label for="context_size" class="block text-sm font-medium text-gray-300 mb-2">Context Size</label>
+                            <input type="number" id="context_size" name="context_size" min="512" max="32768"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                placeholder="4096">
+                        </div>
+                        <div>
+                            <label for="threads" class="block text-sm font-medium text-gray-300 mb-2">Threads</label>
+                            <input type="number" id="threads" name="threads" min="1" max="32"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                value="4">
+                        </div>
+                        <div>
+                            <label for="seed" class="block text-sm font-medium text-gray-300 mb-2">Seed</label>
+                            <input type="number" id="seed" name="seed"
+                                class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50"
+                                value="-1">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backend-Specific Options -->
+                <div id="backend-specific" class="mb-6" style="display: none;">
+                    <h3 class="text-xl font-semibold text-white mb-4">Backend-Specific Options</h3>
+                    <div id="backend-options" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Options will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Feature Flags -->
+                <div class="mb-6">
+                    <h3 class="text-xl font-semibold text-white mb-4">Feature Flags</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <label class="flex items-center">
+                            <input type="checkbox" name="f16" class="mr-2 text-blue-500 bg-gray-900 border-gray-700 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-300">F16</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="cuda" class="mr-2 text-blue-500 bg-gray-900 border-gray-700 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-300">CUDA</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="embeddings" class="mr-2 text-blue-500 bg-gray-900 border-gray-700 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-300">Embeddings</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="debug" class="mr-2 text-blue-500 bg-gray-900 border-gray-700 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-300">Debug</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="mmap" class="mr-2 text-blue-500 bg-gray-900 border-gray-700 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-300">MMap</span>
+                        </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" name="mmlock" class="mr-2 text-blue-500 bg-gray-900 border-gray-700 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-300">MMLock</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex justify-center">
+                    <button type="submit" 
+                        class="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900">
+                        <i class="fas fa-upload mr-2"></i>Import Model
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Result Section -->
+        <div id="import-result" class="transition-all duration-300">
+            <!-- Success/Error messages will be displayed here -->
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+function updateBackendSpecificFields() {
+    const backend = document.getElementById('backend').value.toLowerCase().trim();
+    const mmprojField = document.getElementById('mmproj-field');
+    const backendSpecific = document.getElementById('backend-specific');
+    const backendOptions = document.getElementById('backend-options');
+    
+    // Show/hide MMProj field for multimodal models
+    if (backend === 'llama.cpp' || backend === 'transformers') {
+        mmprojField.style.display = 'block';
+    } else {
+        mmprojField.style.display = 'none';
+    }
+    
+    // Show/hide backend-specific options
+    if (backend) {
+        backendSpecific.style.display = 'block';
+        backendOptions.innerHTML = getBackendOptions(backend);
+    } else {
+        backendSpecific.style.display = 'none';
+    }
+}
+
+function getBackendOptions(backend) {
+    const options = {
+        'llama.cpp': `
+            <div>
+                <label for="lora_adapter" class="block text-sm font-medium text-gray-300 mb-2">LoRA Adapter</label>
+                <input type="text" name="lora_adapter" class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" placeholder="lora.gguf">
+            </div>
+            <div>
+                <label for="grammar" class="block text-sm font-medium text-gray-300 mb-2">Grammar File</label>
+                <input type="text" name="grammar" class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" placeholder="grammar.gbnf">
+            </div>
+        `,
+        'diffusers': `
+            <div>
+                <label for="pipeline_type" class="block text-sm font-medium text-gray-300 mb-2">Pipeline Type</label>
+                <select name="pipeline_type" class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50">
+                    <option value="text2img">Text to Image</option>
+                    <option value="img2img">Image to Image</option>
+                    <option value="inpaint">Inpainting</option>
+                </select>
+            </div>
+            <div>
+                <label for="scheduler_type" class="block text-sm font-medium text-gray-300 mb-2">Scheduler Type</label>
+                <input type="text" name="scheduler_type" class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" placeholder="euler_a">
+            </div>
+        `,
+        'whisper': `
+            <div>
+                <label for="audio_path" class="block text-sm font-medium text-gray-300 mb-2">Audio Path</label>
+                <input type="text" name="audio_path" class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" placeholder="/path/to/audio">
+            </div>
+        `,
+        'bark-cpp': `
+            <div>
+                <label for="voice" class="block text-sm font-medium text-gray-300 mb-2">Voice</label>
+                <input type="text" name="voice" class="w-full px-4 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50" placeholder="v2/en_speaker_6">
+            </div>
+        `
+    };
+    
+    // Handle case-insensitive matching and common variations
+    const normalizedBackend = backend.toLowerCase().trim();
+    
+    // Check for exact matches first
+    if (options[normalizedBackend]) {
+        return options[normalizedBackend];
+    }
+    
+    // Check for common variations
+    if (normalizedBackend.includes('llama') || normalizedBackend.includes('llama.cpp')) {
+        return options['llama.cpp'];
+    }
+    if (normalizedBackend.includes('diffuser')) {
+        return options['diffusers'];
+    }
+    if (normalizedBackend.includes('whisper')) {
+        return options['whisper'];
+    }
+    if (normalizedBackend.includes('bark')) {
+        return options['bark-cpp'];
+    }
+    
+    return '';
+}
+
+// Initialize form
+document.addEventListener('DOMContentLoaded', function() {
+    updateBackendSpecificFields();
+});
+
+// Form validation function
+function validateForm() {
+    const name = document.getElementById('name').value.trim();
+    const backend = document.getElementById('backend').value.trim();
+    const model = document.getElementById('model').value.trim();
+    
+    let errors = [];
+    
+    if (!name) {
+        errors.push('Model name is required');
+    } else if (!/^[a-zA-Z0-9-_]+$/.test(name)) {
+        errors.push('Model name can only contain letters, numbers, hyphens, and underscores');
+    }
+    
+    if (!backend) {
+        errors.push('Backend is required');
+    }
+    
+    if (!model) {
+        errors.push('Model file/URL is required');
+    }
+    
+    if (errors.length > 0) {
+        // Display validation errors
+        const resultDiv = document.getElementById('import-result');
+        resultDiv.innerHTML = `
+            <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-6 shadow-lg">
+                <div class="flex items-start">
+                    <i class="fas fa-exclamation-circle text-red-400 text-2xl mr-3 mt-1"></i>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-red-300">Form Validation Failed</h3>
+                        <ul class="list-disc list-inside mt-2 space-y-1">
+                            ${errors.map(error => `<li class="text-red-200 text-sm">${error}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        `;
+        return false;
+    }
+    
+    return true;
+}
+
+// Handle form submission response
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'import-result') {
+        const resultDiv = event.detail.target;
+        const response = JSON.parse(resultDiv.textContent);
+        
+        if (response.success) {
+            resultDiv.innerHTML = `
+                <div class="bg-green-900/30 border border-green-700/50 rounded-xl p-6 shadow-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-green-400 text-2xl mr-3"></i>
+                        <div>
+                            <h3 class="text-lg font-semibold text-green-300">${response.message}</h3>
+                            <p class="text-green-200 text-sm">Configuration file created: ${response.filename}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            let errorDetails = '';
+            if (response.details && Array.isArray(response.details)) {
+                errorDetails = '<ul class="list-disc list-inside mt-2 space-y-1">';
+                response.details.forEach(detail => {
+                    errorDetails += `<li class="text-red-200 text-sm">${detail}</li>`;
+                });
+                errorDetails += '</ul>';
+            }
+            
+            resultDiv.innerHTML = `
+                <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-6 shadow-lg">
+                    <div class="flex items-start">
+                        <i class="fas fa-exclamation-circle text-red-400 text-2xl mr-3 mt-1"></i>
+                        <div class="flex-1">
+                            <h3 class="text-lg font-semibold text-red-300">Import Failed</h3>
+                            <p class="text-red-200 text-sm">${response.error}</p>
+                            ${errorDetails}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    }
+});
+</script>
+
+</body>
+</html>
