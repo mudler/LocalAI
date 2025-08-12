@@ -6,5 +6,5 @@ accelerate
 compel
 peft
 optimum-quanto
-numpy<2
+numpy<3
 sentencepiece
