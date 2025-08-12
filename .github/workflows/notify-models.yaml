@@ -11,7 +11,7 @@ jobs:
         MODEL_NAME: gemma-3-12b-it
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
     - uses: mudler/localai-github-action@v1
@@ -90,7 +90,7 @@ jobs:
         MODEL_NAME: gemma-3-12b-it
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
     - name: Start LocalAI
