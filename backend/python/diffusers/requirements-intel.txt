@@ -1,5 +1,5 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
-intel-extension-for-pytorch==2.3.110+xpu
+intel-extension-for-pytorch==2.8.10+xpu
 torch==2.5.1+cxx11.abi
 torchvision==0.20.1+cxx11.abi
 oneccl_bind_pt==2.8.0+xpu
