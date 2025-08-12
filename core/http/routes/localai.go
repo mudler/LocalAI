@@ -25,7 +25,7 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page
 		router.Get("/import-model", func(c *fiber.Ctx) error {
-			return c.Render("views/import-model", fiber.Map{})
+			return c.Render("views/model-editor", fiber.Map{})
 		})
 
 		// Edit model page

@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+            <div class="max-w-4xl mx-auto text-center">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                        {{if .Config}}Edit Model{{else}}Import Custom Model{{end}}
+                    </span>
+                </h1>
+                <p class="text-xl text-gray-300 max-w-3xl mx-auto">
+                    {{if .Config}}
+                        Modify the configuration for model "{{.Config.Name}}"
+                    {{else}}
+                        Create a new model configuration by filling out the form below. The YAML configuration will be generated automatically.
+                    {{end}}
+                </p>
+            </div>
+        </div>
+
+        <!-- Model Editor Form -->
+        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl shadow-lg backdrop-blur-sm">
+            <form id="model-form" onsubmit="return validateForm()" class="p-8">
+                <!-- Basic Model Information -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-info-circle text-blue-400 mr-3"></i>
+                        Basic Information
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="name" class="block text-sm font-medium text-gray-300 mb-2">Model Name *</label>
+                            <input type="text" id="name" name="name" 
+                                value="{{if .Config}}{{.Config.Name}}{{end}}"
+                                {{if .Config}}readonly{{end}}
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="e.g., my-llama-model">
+                        </div>
+                        <div>
+                            <label for="backend" class="block text-sm font-medium text-gray-300 mb-2">Backend *</label>
+                            <input type="text" id="backend" name="backend" 
+                                value="{{if .Config}}{{.Config.Backend}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="e.g., llama.cpp, diffusers, whisper">
+                        </div>
+                        <div>
+                            <label for="description" class="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                            <input type="text" id="description" name="description" 
+                                value="{{if .Config}}{{.Config.Description}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Brief description of the model">
+                        </div>
+                        <div>
+                            <label for="usage" class="block text-sm font-medium text-gray-300 mb-2">Usage</label>
+                            <input type="text" id="usage" name="usage" 
+                                value="{{if .Config}}{{.Config.Usage}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="e.g., text generation, image generation">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Model Files -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-file-archive text-blue-400 mr-3"></i>
+                        Model Files
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="model" class="block text-sm font-medium text-gray-300 mb-2">Model File/URL *</label>
+                            <input type="text" id="model" name="model" 
+                                value="{{if .Config}}{{.Config.Model}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Path to model file or download URL">
+                        </div>
+                        <div>
+                            <label for="mmproj" class="block text-sm font-medium text-gray-300 mb-2">MMProj File (Optional)</label>
+                            <input type="text" id="mmproj" name="mmproj" 
+                                value="{{if .Config}}{{.Config.MMProj}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Path to MMProj file for multimodal models">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Template Configuration -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-code text-blue-400 mr-3"></i>
+                        Template Configuration
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="chat_template" class="block text-sm font-medium text-gray-300 mb-2">Chat Template</label>
+                            <textarea id="chat_template" name="chat_template" rows="3"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Chat template for conversation models">{{if .Config}}{{.Config.TemplateConfig.Chat}}{{end}}</textarea>
+                        </div>
+                        <div>
+                            <label for="completion_template" class="block text-sm font-medium text-gray-300 mb-2">Completion Template</label>
+                            <textarea id="completion_template" name="completion_template" rows="3"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Completion template for text generation">{{if .Config}}{{.Config.TemplateConfig.Completion}}{{end}}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Prompt -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-comment-dots text-blue-400 mr-3"></i>
+                        System Prompt
+                    </h3>
+                    <textarea id="system_prompt" name="system_prompt" rows="3"
+                        class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="System prompt for the model">{{if .Config}}{{.Config.SystemPrompt}}{{end}}</textarea>
+                </div>
+
+                <!-- Model Parameters -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-sliders-h text-blue-400 mr-3"></i>
+                        Model Parameters
+                    </h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div>
+                            <label for="temperature" class="block text-sm font-medium text-gray-300 mb-2">Temperature</label>
+                            <input type="number" id="temperature" name="temperature" step="0.1" min="0" max="2"
+                                value="{{if .Config}}{{.Config.Temperature}}{{else}}0.9{{end}}"
+                                class="w-full px-3 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                        <div>
+                            <label for="top_p" class="block text-sm font-medium text-gray-300 mb-2">Top P</label>
+                            <input type="number" id="top_p" name="top_p" step="0.05" min="0" max="1"
+                                value="{{if .Config}}{{.Config.TopP}}{{else}}0.95{{end}}"
+                                class="w-full px-3 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                        <div>
+                            <label for="top_k" class="block text-sm font-medium text-gray-300 mb-2">Top K</label>
+                            <input type="number" id="top_k" name="top_k" min="1" max="100"
+                                value="{{if .Config}}{{.Config.TopK}}{{else}}40{{end}}"
+                                class="w-full px-3 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                        <div>
+                            <label for="context_size" class="block text-sm font-medium text-gray-300 mb-2">Context Size</label>
+                            <input type="number" id="context_size" name="context_size" min="512" max="32768"
+                                value="{{if .Config}}{{.Config.ContextSize}}{{else}}4096{{end}}"
+                                class="w-full px-3 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                        <div>
+                            <label for="threads" class="block text-sm font-medium text-gray-300 mb-2">Threads</label>
+                            <input type="number" id="threads" name="threads" min="1" max="32"
+                                value="{{if .Config}}{{.Config.Threads}}{{else}}4{{end}}"
+                                class="w-full px-3 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                        <div>
+                            <label for="seed" class="block text-sm font-medium text-gray-300 mb-2">Seed</label>
+                            <input type="number" id="seed" name="seed"
+                                value="{{if .Config}}{{.Config.Seed}}{{else}}-1{{end}}"
+                                class="w-full px-3 py-2 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Backend-Specific Options -->
+                <div id="llama-options" class="mb-8 hidden">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-cog text-blue-400 mr-3"></i>
+                        LLaMA.cpp Options
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="lora_adapter" class="block text-sm font-medium text-gray-300 mb-2">LoRA Adapter</label>
+                            <input type="text" id="lora_adapter" name="lora_adapter" 
+                                value="{{if .Config}}{{.Config.LoraAdapter}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Path to LoRA adapter file">
+                        </div>
+                        <div>
+                            <label for="grammar" class="block text-sm font-medium text-gray-300 mb-2">Grammar File</label>
+                            <input type="text" id="grammar" name="grammar" 
+                                value="{{if .Config}}{{.Config.Grammar}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="Path to grammar file">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="diffusers-options" class="mb-8 hidden">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-image text-blue-400 mr-3"></i>
+                        Diffusers Options
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="pipeline_type" class="block text-sm font-medium text-gray-300 mb-2">Pipeline Type</label>
+                            <select id="pipeline_type" name="pipeline_type" 
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200">
+                                <option value="text2img" {{if and .Config (eq .Config.Diffusers.PipelineType "text2img")}}selected{{end}}>Text to Image</option>
+                                <option value="img2img" {{if and .Config (eq .Config.Diffusers.PipelineType "img2img")}}selected{{end}}>Image to Image</option>
+                                <option value="inpaint" {{if and .Config (eq .Config.Diffusers.PipelineType "inpaint")}}selected{{end}}>Inpainting</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="scheduler_type" class="block text-sm font-medium text-gray-300 mb-2">Scheduler Type</label>
+                            <input type="text" id="scheduler_type" name="scheduler_type" 
+                                value="{{if .Config}}{{.Config.Diffusers.SchedulerType}}{{end}}"
+                                class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                                placeholder="e.g., DDIM, Euler, DPM++">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="whisper-options" class="mb-8 hidden">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-microphone text-blue-400 mr-3"></i>
+                        Whisper Options
+                    </h3>
+                    <div>
+                        <label for="audio_path" class="block text-sm font-medium text-gray-300 mb-2">Audio Path</label>
+                        <input type="text" id="audio_path" name="audio_path" 
+                            value="{{if .Config}}{{.Config.AudioPath}}{{end}}"
+                            class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Path to audio file or directory">
+                    </div>
+                </div>
+
+                <div id="bark-options" class="mb-8 hidden">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-volume-up text-blue-400 mr-3"></i>
+                        Bark Options
+                    </h3>
+                    <div>
+                        <label for="voice" class="block text-sm font-medium text-gray-300 mb-2">Voice</label>
+                        <input type="text" id="voice" name="voice" 
+                            value="{{if .Config}}{{.Config.Voice}}{{end}}"
+                            class="w-full px-4 py-3 bg-gray-900/80 border border-gray-700/70 rounded-lg text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                            placeholder="Voice preset name">
+                    </div>
+                </div>
+
+                <!-- Feature Flags -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-toggle-on text-blue-400 mr-3"></i>
+                        Feature Flags
+                    </h3>
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" id="f16" name="f16" 
+                                {{if .Config}}{{if .Config.F16}}checked{{end}}{{end}}
+                                class="w-4 h-4 text-blue-600 bg-gray-900/80 border-gray-700/70 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="f16" class="ml-2 text-sm text-gray-300">F16</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="cuda" name="cuda" 
+                                {{if .Config}}{{if .Config.CUDA}}checked{{end}}{{end}}
+                                class="w-4 h-4 text-blue-600 bg-gray-900/80 border-gray-700/70 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="cuda" class="ml-2 text-sm text-gray-300">CUDA</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="embeddings" name="embeddings" 
+                                {{if .Config}}{{if .Config.Embeddings}}checked{{end}}{{end}}
+                                class="w-4 h-4 text-blue-600 bg-gray-900/80 border-gray-700/70 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="embeddings" class="ml-2 text-sm text-gray-300">Embeddings</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="debug" name="debug" 
+                                {{if .Config}}{{if .Config.Debug}}checked{{end}}{{end}}
+                                class="w-4 h-4 text-blue-600 bg-gray-900/80 border-gray-700/70 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="debug" class="ml-2 text-sm text-gray-300">Debug</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="mmap" name="mmap" 
+                                {{if .Config}}{{if .Config.MMap}}checked{{end}}{{end}}
+                                class="w-4 h-4 text-blue-600 bg-gray-900/80 border-gray-700/70 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="mmap" class="ml-2 text-sm text-gray-300">MMap</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" id="mmlock" name="mmlock" 
+                                {{if .Config}}{{if .Config.MMlock}}checked{{end}}{{end}}
+                                class="w-4 h-4 text-blue-600 bg-gray-900/80 border-gray-700/70 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="mmlock" class="ml-2 text-sm text-gray-300">MMlock</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- YAML Configuration Editor -->
+                <div class="mb-8">
+                    <h3 class="text-2xl font-semibold text-white mb-6 flex items-center">
+                        <i class="fas fa-file-code text-blue-400 mr-3"></i>
+                        YAML Configuration Editor
+                    </h3>
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-400">Edit the YAML directly or use the form above. Changes sync automatically in both directions.</p>
+                    </div>
+                    <div id="yaml-editor-container" class="border border-gray-300 rounded-lg overflow-hidden bg-white">
+                        <textarea id="yaml-editor" rows="15"
+                            class="w-full px-4 py-3 bg-white border-0 text-gray-800 font-mono text-sm focus:outline-none focus:ring-0"
+                            placeholder="YAML configuration will appear here..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <div class="flex justify-center">
+                    <button type="submit" 
+                        class="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-lg transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-900 flex items-center">
+                        <i class="fas fa-{{if .Config}}save{{else}}upload{{end}} mr-2"></i>{{if .Config}}Update Model{{else}}Import Model{{end}}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Result Display -->
+        <div id="result" class="mt-8"></div>
+    </div>
+</div>
+
+<script>
+        let codeMirrorEditor = null;
+
+        // Initialize form
+        document.addEventListener('DOMContentLoaded', function() {
+            updateBackendSpecificFields();
+            
+            // Initialize CodeMirror for YAML syntax highlighting
+            initializeCodeMirror();
+            
+            // Add event listeners to update YAML editor
+            const formInputs = document.querySelectorAll('#model-form input, #model-form textarea, #model-form select');
+            formInputs.forEach(input => {
+                input.addEventListener('input', updateYAMLEditor);
+                input.addEventListener('change', updateYAMLEditor);
+            });
+            
+            // Initial YAML editor content
+            updateYAMLEditor();
+        });
+
+        // Initialize CodeMirror for YAML syntax highlighting
+        function initializeCodeMirror() {
+            // Load CodeMirror from CDN if not already loaded
+            if (typeof CodeMirror === 'undefined') {
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css';
+                document.head.appendChild(link);
+                
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js';
+                script.onload = () => {
+                    const yamlScript = document.createElement('script');
+                    yamlScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/yaml/yaml.min.js';
+                    yamlScript.onload = createCodeMirrorEditor;
+                    document.head.appendChild(yamlScript);
+                };
+                document.head.appendChild(script);
+            } else {
+                createCodeMirrorEditor();
+            }
+        }
+
+        // Create CodeMirror editor instance
+        function createCodeMirrorEditor() {
+            const textarea = document.getElementById('yaml-editor');
+            codeMirrorEditor = CodeMirror.fromTextArea(textarea, {
+                mode: 'yaml',
+                theme: 'default',
+                lineNumbers: true,
+                lineWrapping: true,
+                indentUnit: 2,
+                tabSize: 2,
+                indentWithTabs: false,
+                extraKeys: {
+                    'Tab': function(cm) {
+                        cm.replaceSelection('  ', 'end');
+                    }
+                }
+            });
+
+            // Set custom styling for dark theme
+            codeMirrorEditor.setOption('theme', 'default');
+            
+            // Add custom CSS for light theme
+            const style = document.createElement('style');
+            style.textContent = `
+                .CodeMirror {
+                    background-color: #ffffff !important;
+                    color: #1f2937 !important;
+                    font-family: 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', monospace;
+                    font-size: 14px;
+                    line-height: 1.5;
+                    height: auto !important;
+                    min-height: 400px;
+                    border: 1px solid #d1d5db !important;
+                }
+                .CodeMirror-gutters {
+                    background-color: #f9fafb !important;
+                    border-right: 1px solid #e5e7eb !important;
+                }
+                .CodeMirror-linenumber {
+                    color: #6b7280 !important;
+                }
+                .CodeMirror-cursor {
+                    border-left: 2px solid #3b82f6 !important;
+                }
+                .CodeMirror-selected {
+                    background-color: #dbeafe !important;
+                }
+                .CodeMirror-focused .CodeMirror-selected {
+                    background-color: #bfdbfe !important;
+                }
+                .CodeMirror-matchingbracket {
+                    color: #059669 !important;
+                    font-weight: bold;
+                }
+                .CodeMirror-activeline-background {
+                    background-color: #f3f4f6 !important;
+                }
+                .CodeMirror-scrollbar-filler {
+                    background-color: #ffffff !important;
+                }
+                .CodeMirror-simplescroll-horizontal div,
+                .CodeMirror-simplescroll-vertical div {
+                    background-color: #9ca3af !important;
+                }
+                /* YAML-specific syntax highlighting */
+                .CodeMirror .cm-key {
+                    color: #7c3aed !important;
+                    font-weight: 600;
+                }
+                .CodeMirror .cm-string {
+                    color: #059669 !important;
+                }
+                .CodeMirror .cm-number {
+                    color: #dc2626 !important;
+                }
+                .CodeMirror .cm-atom {
+                    color: #7c2d12 !important;
+                }
+                .CodeMirror .cm-comment {
+                    color: #6b7280 !important;
+                    font-style: italic;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Add change event listener for automatic form syncing
+            codeMirrorEditor.on('change', function() {
+                // Debounce the sync to avoid too frequent updates
+                clearTimeout(window.yamlSyncTimeout);
+                window.yamlSyncTimeout = setTimeout(() => {
+                    syncFormFromYAML();
+                }, 500);
+            });
+
+            // Refresh the editor to ensure proper sizing
+            setTimeout(() => {
+                codeMirrorEditor.refresh();
+            }, 100);
+        }
+
+        // Update YAML editor as user types in form
+        function updateYAMLEditor() {
+            const formData = {
+                name: document.getElementById('name').value.trim(),
+                backend: document.getElementById('backend').value.trim(),
+                description: document.getElementById('description').value.trim(),
+                usage: document.getElementById('usage').value.trim(),
+                model: document.getElementById('model').value.trim(),
+                mmproj: document.getElementById('mmproj').value.trim(),
+                chat_template: document.getElementById('chat_template').value.trim(),
+                completion_template: document.getElementById('completion_template').value.trim(),
+                system_prompt: document.getElementById('system_prompt').value.trim(),
+                temperature: parseFloat(document.getElementById('temperature').value) || 0.9,
+                top_p: parseFloat(document.getElementById('top_p').value) || 0.95,
+                top_k: parseInt(document.getElementById('top_k').value) || 40,
+                context_size: parseInt(document.getElementById('context_size').value) || 4096,
+                threads: parseInt(document.getElementById('threads').value) || 4,
+                seed: parseInt(document.getElementById('seed').value) || -1,
+                f16: document.getElementById('f16').checked,
+                cuda: document.getElementById('cuda').checked,
+                embeddings: document.getElementById('embeddings').checked,
+                debug: document.getElementById('debug').checked,
+                mmap: document.getElementById('mmap').checked,
+                mmlock: document.getElementById('mmlock').checked
+            };
+
+            // Add backend-specific fields
+            const backend = formData.backend.toLowerCase();
+            if (backend === 'llama.cpp') {
+                formData.lora_adapter = document.getElementById('lora_adapter')?.value.trim() || '';
+                formData.grammar = document.getElementById('grammar')?.value.trim() || '';
+            } else if (backend === 'diffusers') {
+                formData.pipeline_type = document.getElementById('pipeline_type')?.value || 'text2img';
+                formData.scheduler_type = document.getElementById('scheduler_type')?.value.trim() || '';
+            } else if (backend === 'whisper') {
+                formData.audio_path = document.getElementById('audio_path')?.value.trim() || '';
+            } else if (backend === 'bark-cpp') {
+                formData.voice = document.getElementById('voice')?.value.trim() || '';
+            }
+
+            const yaml = generateYAML(formData);
+            
+            // Update CodeMirror if available, otherwise fallback to textarea
+            if (codeMirrorEditor) {
+                const currentValue = codeMirrorEditor.getValue();
+                if (currentValue !== yaml) {
+                    codeMirrorEditor.setValue(yaml);
+                }
+            } else {
+                document.getElementById('yaml-editor').value = yaml;
+            }
+        }
+
+        // Form validation function
+        function validateForm() {
+            const name = document.getElementById('name').value.trim();
+            const backend = document.getElementById('backend').value.trim();
+            const model = document.getElementById('model').value.trim();
+            
+            let errors = [];
+            
+            if (!name) {
+                errors.push('Model name is required');
+            } else if (!/^[a-zA-Z0-9-_]+$/.test(name)) {
+                errors.push('Model name can only contain letters, numbers, hyphens, and underscores');
+            }
+            
+            if (!backend) {
+                errors.push('Backend is required');
+            }
+            
+            if (!model) {
+                errors.push('Model file/URL is required');
+            }
+            
+            if (errors.length > 0) {
+                // Display validation errors
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-6 shadow-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-red-400 text-2xl mr-3 mt-1"></i>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-red-300">Form Validation Failed</h3>
+                                <ul class="list-disc list-inside mt-2 space-y-1">
+                                    ${errors.map(error => `<li class="text-red-200 text-sm">${error}</li>`).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                return false;
+            }
+            
+            // Generate and submit YAML
+            submitYAML();
+            return false; // Prevent default form submission
+        }
+
+        // Submit YAML from editor
+        function submitYAML() {
+            // Get YAML from editor (user may have manually edited it)
+            let yaml;
+            if (codeMirrorEditor) {
+                yaml = codeMirrorEditor.getValue().trim();
+            } else {
+                yaml = document.getElementById('yaml-editor').value.trim();
+            }
+            
+            if (!yaml) {
+                alert('Please ensure the YAML configuration is not empty.');
+                return;
+            }
+            
+            // Get model name for endpoint determination
+            const modelName = document.getElementById('name').value.trim();
+            if (!modelName) {
+                alert('Model name is required.');
+                return;
+            }
+            
+            // Determine endpoint based on whether we're editing or importing
+            const isEditing = document.getElementById('name').readOnly;
+            const endpoint = isEditing ? `/models/edit/${modelName}` : '/models/import';
+            const method = isEditing ? 'PUT' : 'POST';
+            
+            // Submit YAML data
+            fetch(endpoint, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/x-yaml',
+                },
+                body: yaml
+            })
+            .then(response => {
+                if (!response.ok) {
+                    // Try to get the error details from the response
+                    return response.json().then(errorData => {
+                        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                    }).catch(() => {
+                        // If we can't parse the response, throw a generic error
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                const resultDiv = document.getElementById('result');
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="bg-green-900/30 border border-green-700/50 rounded-xl p-6 shadow-lg">
+                            <div class="flex items-center">
+                                <i class="fas fa-check-circle text-green-400 text-2xl mr-3"></i>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-green-300">${data.message}</h3>
+                                    <p class="text-green-200 text-sm">Configuration file created: ${data.filename}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    let errorDetails = '';
+                    if (data.details && Array.isArray(data.details)) {
+                        errorDetails = '<ul class="list-disc list-inside mt-2 space-y-1">';
+                        data.details.forEach(detail => {
+                            errorDetails += `<li class="text-red-200 text-sm">${detail}</li>`;
+                        });
+                        errorDetails += '</ul>';
+                    }
+                    
+                    resultDiv.innerHTML = `
+                        <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-6 shadow-lg">
+                            <div class="flex items-start">
+                                <i class="fas fa-exclamation-circle text-red-400 text-2xl mr-3 mt-1"></i>
+                                <div class="flex-1">
+                                    <h3 class="text-lg font-semibold text-red-300">Operation Failed</h3>
+                                    <p class="text-red-200 text-sm">${data.error}</p>
+                                    ${errorDetails}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Operation error:', error);
+                const resultDiv = document.getElementById('result');
+                
+                // Try to extract more detailed error information
+                let errorMessage = error.message;
+                let errorDetails = '';
+                
+                // If it's a fetch error (network issue), show a more user-friendly message
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    errorMessage = 'Network error: Unable to connect to the server';
+                    errorDetails = 'Please check your connection and try again.';
+                }
+                
+                resultDiv.innerHTML = `
+                    <div class="bg-red-900/30 border border-red-700/50 rounded-xl p-6 shadow-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-exclamation-circle text-red-400 text-2xl mr-3 mt-1"></i>
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-red-300">Request Failed</h3>
+                                <p class="text-red-200 text-sm">${errorMessage}</p>
+                                ${errorDetails ? `<p class="text-red-200 text-sm mt-2">${errorDetails}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Generate YAML string from form data
+        function generateYAML(data) {
+            const yamlLines = [];
+            
+            // Basic fields
+            yamlLines.push(`name: ${data.name}`);
+            yamlLines.push(`backend: ${data.backend}`);
+            if (data.description) yamlLines.push(`description: ${data.description}`);
+            if (data.usage) yamlLines.push(`usage: ${data.usage}`);
+            yamlLines.push(`model: ${data.model}`);
+            if (data.mmproj) yamlLines.push(`mmproj: ${data.mmproj}`);
+            
+            // Template configuration
+            if (data.chat_template || data.completion_template) {
+                yamlLines.push(`template:`);
+                if (data.chat_template) yamlLines.push(`  chat: ${data.chat_template}`);
+                if (data.completion_template) yamlLines.push(`  completion: ${data.completion_template}`);
+            }
+            
+            // System prompt
+            if (data.system_prompt) yamlLines.push(`system_prompt: ${data.system_prompt}`);
+            
+            // Parameters
+            yamlLines.push(`parameters:`);
+            yamlLines.push(`  temperature: ${data.temperature}`);
+            yamlLines.push(`  top_p: ${data.top_p}`);
+            yamlLines.push(`  top_k: ${data.top_k}`);
+            yamlLines.push(`  context_size: ${data.context_size}`);
+            yamlLines.push(`  threads: ${data.threads}`);
+            yamlLines.push(`  seed: ${data.seed}`);
+            
+            // Feature flags
+            if (data.f16) yamlLines.push(`f16: true`);
+            if (data.cuda) yamlLines.push(`cuda: true`);
+            if (data.embeddings) yamlLines.push(`embeddings: true`);
+            if (data.debug) yamlLines.push(`debug: true`);
+            if (data.mmap) yamlLines.push(`mmap: true`);
+            if (data.mmlock) yamlLines.push(`mmlock: true`);
+            
+            // Backend-specific options
+            if (data.lora_adapter) yamlLines.push(`lora_adapter: ${data.lora_adapter}`);
+            if (data.grammar) yamlLines.push(`grammar: ${data.grammar}`);
+            if (data.pipeline_type) yamlLines.push(`pipeline_type: ${data.pipeline_type}`);
+            if (data.scheduler_type) yamlLines.push(`scheduler_type: ${data.scheduler_type}`);
+            if (data.audio_path) yamlLines.push(`audio_path: ${data.audio_path}`);
+            if (data.voice) yamlLines.push(`voice: ${data.voice}`);
+            
+            return yamlLines.join('\n');
+        }
+
+        // Show/hide backend-specific fields based on selected backend
+        function updateBackendSpecificFields() {
+            const backend = document.getElementById('backend').value.toLowerCase();
+            
+            // Hide all backend-specific sections
+            document.getElementById('llama-options').classList.add('hidden');
+            document.getElementById('diffusers-options').classList.add('hidden');
+            document.getElementById('whisper-options').classList.add('hidden');
+            document.getElementById('bark-options').classList.add('hidden');
+            
+            // Show relevant section based on backend
+            if (backend === 'llama.cpp') {
+                document.getElementById('llama-options').classList.remove('hidden');
+            } else if (backend === 'diffusers') {
+                document.getElementById('diffusers-options').classList.remove('hidden');
+            } else if (backend === 'whisper') {
+                document.getElementById('whisper-options').classList.remove('hidden');
+            } else if (backend === 'bark-cpp') {
+                document.getElementById('bark-options').classList.remove('hidden');
+            }
+        }
+
+        // Add event listener for backend field changes
+        document.getElementById('backend').addEventListener('input', updateBackendSpecificFields);
+
+        // Sync form fields from manually edited YAML
+        function syncFormFromYAML() {
+            let yamlText;
+            if (codeMirrorEditor) {
+                yamlText = codeMirrorEditor.getValue().trim();
+            } else {
+                yamlText = document.getElementById('yaml-editor').value.trim();
+            }
+            
+            if (!yamlText) {
+                return; // Don't show error for empty YAML during initialization
+            }
+
+            try {
+                // Parse the YAML to extract values
+                const lines = yamlText.split('\n');
+                const config = {};
+                
+                lines.forEach(line => {
+                    const trimmed = line.trim();
+                    if (trimmed && !trimmed.startsWith('#')) {
+                        const colonIndex = trimmed.indexOf(':');
+                        if (colonIndex > 0) {
+                            const key = trimmed.substring(0, colonIndex).trim();
+                            let value = trimmed.substring(colonIndex + 1).trim();
+                            
+                            // Remove quotes if present
+                            if ((value.startsWith('"') && value.endsWith('"')) || 
+                                (value.startsWith("'") && value.endsWith("'"))) {
+                                value = value.slice(1, -1);
+                            }
+                            
+                            config[key] = value;
+                        }
+                    }
+                });
+
+                // Update form fields with parsed values
+                if (config.name) document.getElementById('name').value = config.name;
+                if (config.backend) document.getElementById('backend').value = config.backend;
+                if (config.description) document.getElementById('description').value = config.description;
+                if (config.usage) document.getElementById('usage').value = config.usage;
+                if (config.model) document.getElementById('model').value = config.model;
+                if (config.mmproj) document.getElementById('mmproj').value = config.mmproj;
+                if (config.system_prompt) document.getElementById('system_prompt').value = config.system_prompt;
+                
+                // Handle nested template config
+                if (config['template.chat']) document.getElementById('chat_template').value = config['template.chat'];
+                if (config['template.completion']) document.getElementById('completion_template').value = config['template.completion'];
+                
+                // Handle nested parameters
+                if (config['parameters.temperature']) document.getElementById('temperature').value = config['parameters.temperature'];
+                if (config['parameters.top_p']) document.getElementById('top_p').value = config['parameters.top_p'];
+                if (config['parameters.top_k']) document.getElementById('top_k').value = config['parameters.top_k'];
+                if (config['parameters.context_size']) document.getElementById('context_size').value = config['parameters.context_size'];
+                if (config['parameters.threads']) document.getElementById('threads').value = config['parameters.threads'];
+                if (config['parameters.seed']) document.getElementById('seed').value = config['parameters.seed'];
+                
+                // Handle boolean flags
+                if (config.f16 !== undefined) document.getElementById('f16').checked = config.f16 === 'true';
+                if (config.cuda !== undefined) document.getElementById('cuda').checked = config.cuda === 'true';
+                if (config.embeddings !== undefined) document.getElementById('embeddings').checked = config.embeddings === 'true';
+                if (config.debug !== undefined) document.getElementById('debug').checked = config.debug === 'true';
+                if (config.mmap !== undefined) document.getElementById('mmap').checked = config.mmap === 'true';
+                if (config.mmlock !== undefined) document.getElementById('mmlock').checked = config.mmlock === 'true';
+                
+                // Handle backend-specific options
+                if (config.lora_adapter) document.getElementById('lora_adapter').value = config.lora_adapter;
+                if (config.grammar) document.getElementById('grammar').value = config.grammar;
+                if (config.pipeline_type) document.getElementById('pipeline_type').value = config.pipeline_type;
+                if (config.scheduler_type) document.getElementById('scheduler_type').value = config.scheduler_type;
+                if (config.audio_path) document.getElementById('audio_path').value = config.audio_path;
+                if (config.voice) document.getElementById('voice').value = config.voice;
+                
+                // Update backend-specific fields visibility
+                updateBackendSpecificFields();
+                
+            } catch (error) {
+                console.error('Failed to parse YAML:', error);
+            }
+        }
+    </script>
+</body>
+</html>
