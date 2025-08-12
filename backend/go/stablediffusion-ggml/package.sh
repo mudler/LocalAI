@@ -10,6 +10,7 @@ CURDIR=$(dirname "$(realpath $0)")
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
+cp -avrf $CURDIR/libgosd.so $CURDIR/package/
 cp -avrf $CURDIR/stablediffusion-ggml $CURDIR/package/
 cp -rfv $CURDIR/run.sh $CURDIR/package/
 
@@ -47,6 +48,6 @@ else
     exit 1
 fi
 
-echo "Packaging completed successfully" 
+echo "Packaging completed successfully"
 ls -liah $CURDIR/package/
 ls -liah $CURDIR/package/lib/
