@@ -1,4 +1,4 @@
-torch==2.7.1
+torch==2.8.0+rocm6.3
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
