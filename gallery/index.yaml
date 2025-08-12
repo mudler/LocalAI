@@ -9479,6 +9479,30 @@
     - uri: https://huggingface.co/bartowski/BAAI_RoboBrain2.0-7B-GGUF/resolve/main/mmproj-BAAI_RoboBrain2.0-7B-f16.gguf
       sha256: 7c62842afa6b90582acc5758578d5ab683610d33177c9b730f5489404cb28e4f
       filename: mmproj-BAAI_RoboBrain2.0-7B-f16.gguf
+- !!merge <<: *qwen25
+  name: "baichuan-inc_baichuan-m2-32b"
+  urls:
+    - https://huggingface.co/bartowski/baichuan-inc_Baichuan-M2-32B-GGUF
+    - https://huggingface.co/baichuan-inc/Baichuan-M2-32B
+  description: |
+    Baichuan-M2-32B is Baichuan AI's medical-enhanced reasoning model, the second medical model released by Baichuan. Designed for real-world medical reasoning tasks, this model builds upon Qwen2.5-32B with an innovative Large Verifier System. Through domain-specific fine-tuning on real-world medical questions, it achieves breakthrough medical performance while maintaining strong general capabilities.
+
+    Model Features:
+
+    Baichuan-M2 incorporates three core technical innovations: First, through the Large Verifier System, it combines medical scenario characteristics to design a comprehensive medical verification framework, including patient simulators and multi-dimensional verification mechanisms; second, through medical domain adaptation enhancement via Mid-Training, it achieves lightweight and efficient medical domain adaptation while preserving general capabilities; finally, it employs a multi-stage reinforcement learning strategy, decomposing complex RL tasks into hierarchical training stages to progressively enhance the model's medical knowledge, reasoning, and patient interaction capabilities.
+
+    Core Highlights:
+
+        🏆 World's Leading Open-Source Medical Model: Outperforms all open-source models and many proprietary models on HealthBench, achieving medical capabilities closest to GPT-5
+        🧠 Doctor-Thinking Alignment: Trained on real clinical cases and patient simulators, with clinical diagnostic thinking and robust patient interaction capabilities
+        ⚡ Efficient Deployment: Supports 4-bit quantization for single-RTX4090 deployment, with 58.5% higher token throughput in MTP version for single-user scenarios
+  overrides:
+    parameters:
+      model: baichuan-inc_Baichuan-M2-32B-Q4_K_M.gguf
+  files:
+    - filename: baichuan-inc_Baichuan-M2-32B-Q4_K_M.gguf
+      sha256: 51907419518e6f79c28f75e4097518e54c2efecd85cb4c714334395fa2d591c2
+      uri: huggingface://bartowski/baichuan-inc_Baichuan-M2-32B-GGUF/baichuan-inc_Baichuan-M2-32B-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
