@@ -3,7 +3,7 @@ intel-extension-for-pytorch==2.3.110+xpu
 transformers
 accelerate
 torch==2.3.1+cxx11.abi
-oneccl_bind_pt==2.3.100+xpu
+oneccl_bind_pt==2.8.0+xpu
 rerankers[transformers]
 optimum[openvino]
 setuptools
