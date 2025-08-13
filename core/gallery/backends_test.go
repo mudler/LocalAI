@@ -105,10 +105,11 @@ var _ = Describe("Gallery Backends", func() {
 					Name: "meta-backend",
 				},
 				CapabilitiesMap: map[string]string{
-					"nvidia": "nvidia-backend",
-					"amd":    "amd-backend",
-					"intel":  "intel-backend",
-					"metal":  "metal-backend",
+					"nvidia":  "nvidia-backend",
+					"amd":     "amd-backend",
+					"intel":   "intel-backend",
+					"metal":   "metal-backend",
+					"default": "default-backend",
 				},
 			}
 
@@ -133,7 +134,14 @@ var _ = Describe("Gallery Backends", func() {
 				URI: testImage,
 			}
 
-			backends := GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend}
+			defaultBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "default-backend",
+				},
+				URI: testImage,
+			}
+
+			backends := GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend, defaultBackend}
 
 			if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 				metal := &system.SystemState{}
@@ -142,15 +150,26 @@ var _ = Describe("Gallery Backends", func() {
 
 			} else {
 				// Test with NVIDIA system state
-				nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+				nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia", VRAM: 1000000000000}
 				bestBackend := metaBackend.FindBestBackendFromMeta(nvidiaSystemState, backends)
 				Expect(bestBackend).To(Equal(nvidiaBackend))
 
 				// Test with AMD system state
-				amdSystemState := &system.SystemState{GPUVendor: "amd"}
+				amdSystemState := &system.SystemState{GPUVendor: "amd", VRAM: 1000000000000}
 				bestBackend = metaBackend.FindBestBackendFromMeta(amdSystemState, backends)
 				Expect(bestBackend).To(Equal(amdBackend))
 
+				// Test with default system state (not enough VRAM)
+				defaultSystemState := &system.SystemState{GPUVendor: "amd"}
+				bestBackend = metaBackend.FindBestBackendFromMeta(defaultSystemState, backends)
+				Expect(bestBackend).To(Equal(defaultBackend))
+
+				// Test with default system state
+				defaultSystemState = &system.SystemState{GPUVendor: "default"}
+				bestBackend = metaBackend.FindBestBackendFromMeta(defaultSystemState, backends)
+				Expect(bestBackend).To(Equal(defaultBackend))
+
+				backends = GalleryElements[*GalleryBackend]{nvidiaBackend, amdBackend, metalBackend}
 				// Test with unsupported GPU vendor
 				unsupportedSystemState := &system.SystemState{GPUVendor: "unsupported"}
 				bestBackend = metaBackend.FindBestBackendFromMeta(unsupportedSystemState, backends)
@@ -201,7 +220,7 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia", VRAM: 1000000000000}
 			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, "meta-backend", tempDir, nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -272,7 +291,7 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia", VRAM: 1000000000000}
 			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, "meta-backend", tempDir, nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -344,7 +363,7 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Test with NVIDIA system state
-			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia"}
+			nvidiaSystemState := &system.SystemState{GPUVendor: "nvidia", VRAM: 1000000000000}
 			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, "meta-backend", tempDir, nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
