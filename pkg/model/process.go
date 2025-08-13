@@ -93,8 +93,14 @@ func (ml *ModelLoader) GetGRPCPID(id string) (int, error) {
 
 func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string, args ...string) (*process.Process, error) {
 	// Make sure the process is executable
-	if err := os.Chmod(grpcProcess, 0700); err != nil {
-		return nil, err
+	// Check first if it has executable permissions
+	if fi, err := os.Stat(grpcProcess); err == nil {
+		if fi.Mode()&0111 == 0 {
+			log.Debug().Msgf("Process %s is not executable. Making it executable.", grpcProcess)
+			if err := os.Chmod(grpcProcess, 0700); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	log.Debug().Msgf("Loading GRPC Process: %s", grpcProcess)
