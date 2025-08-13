@@ -7,7 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
+	httpUtils "github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/pkg/utils"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -64,6 +66,7 @@ func GetEditModelPage(cl *config.BackendConfigLoader, appConfig *config.Applicat
 		return c.Render("views/model-editor", fiber.Map{
 			"ModelName": modelName,
 			"Config":    backendConfig,
+			"BaseURL":   httpUtils.BaseURL(c),
 		})
 	}
 }

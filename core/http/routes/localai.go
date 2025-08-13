@@ -6,6 +6,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
+	httpUtils "github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
@@ -25,7 +26,9 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page
 		router.Get("/import-model", func(c *fiber.Ctx) error {
-			return c.Render("views/model-editor", fiber.Map{})
+			return c.Render("views/model-editor", fiber.Map{
+				"BaseURL": httpUtils.BaseURL(c),
+			})
 		})
 
 		// Edit model page
