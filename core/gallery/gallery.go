@@ -147,8 +147,7 @@ func AvailableBackends(galleries []config.Gallery, basePath string) (GalleryElem
 			if err != nil {
 				return false
 			}
-			_, exists := backends[backend.GetName()]
-			return exists
+			return backends.Exists(backend.GetName())
 		})
 		if err != nil {
 			return nil, err
