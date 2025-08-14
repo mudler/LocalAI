@@ -6,6 +6,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/system"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/startup"
@@ -14,8 +15,9 @@ import (
 )
 
 type BackendsCMDFlags struct {
-	BackendGalleries string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
-	BackendsPath     string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
+	BackendGalleries   string `env:"LOCALAI_BACKEND_GALLERIES,BACKEND_GALLERIES" help:"JSON list of backend galleries" group:"backends" default:"${backends}"`
+	BackendsPath       string `env:"LOCALAI_BACKENDS_PATH,BACKENDS_PATH" type:"path" default:"${basepath}/backends" help:"Path containing backends used for inferencing" group:"storage"`
+	BackendsSystemPath string `env:"LOCALAI_BACKENDS_SYSTEM_PATH,BACKEND_SYSTEM_PATH" type:"path" default:"/usr/share/localai/backends" help:"Path containing system backends used for inferencing" group:"backends"`
 }
 
 type BackendsList struct {
@@ -48,7 +50,15 @@ func (bl *BackendsList) Run(ctx *cliContext.Context) error {
 		log.Error().Err(err).Msg("unable to load galleries")
 	}
 
-	backends, err := gallery.AvailableBackends(galleries, bl.BackendsPath)
+	systemState, err := system.GetSystemState(
+		system.WithBackendSystemPath(bl.BackendsSystemPath),
+		system.WithBackendPath(bl.BackendsPath),
+	)
+	if err != nil {
+		return err
+	}
+
+	backends, err := gallery.AvailableBackends(galleries, systemState)
 	if err != nil {
 		return err
 	}
@@ -68,6 +78,14 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 		log.Error().Err(err).Msg("unable to load galleries")
 	}
 
+	systemState, err := system.GetSystemState(
+		system.WithBackendSystemPath(bi.BackendsSystemPath),
+		system.WithBackendPath(bi.BackendsPath),
+	)
+	if err != nil {
+		return err
+	}
+
 	progressBar := progressbar.NewOptions(
 		1000,
 		progressbar.OptionSetDescription(fmt.Sprintf("downloading backend %s", bi.BackendArgs)),
@@ -82,7 +100,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 		}
 	}
 
-	err := startup.InstallExternalBackends(galleries, bi.BackendsPath, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
+	err = startup.InstallExternalBackends(galleries, systemState, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
 	if err != nil {
 		return err
 	}
@@ -94,7 +112,15 @@ func (bu *BackendsUninstall) Run(ctx *cliContext.Context) error {
 	for _, backendName := range bu.BackendArgs {
 		log.Info().Str("backend", backendName).Msg("uninstalling backend")
 
-		err := gallery.DeleteBackendFromSystem(bu.BackendsPath, backendName)
+		systemState, err := system.GetSystemState(
+			system.WithBackendSystemPath(bu.BackendsSystemPath),
+			system.WithBackendPath(bu.BackendsPath),
+		)
+		if err != nil {
+			return err
+		}
+
+		err = gallery.DeleteBackendFromSystem(systemState, backendName)
 		if err != nil {
 			return err
 		}

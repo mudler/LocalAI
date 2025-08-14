@@ -7,9 +7,9 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func VideoGeneration(height, width int32, prompt, startImage, endImage, dst string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() error, error) {
+func VideoGeneration(height, width int32, prompt, startImage, endImage, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() error, error) {
 
-	opts := ModelOptions(backendConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig)
 	inferenceModel, err := loader.Load(
 		opts...,
 	)

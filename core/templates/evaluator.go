@@ -55,7 +55,7 @@ func NewEvaluator(modelPath string) *Evaluator {
 	}
 }
 
-func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config config.BackendConfig, in PromptTemplateData) (string, error) {
+func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config config.ModelConfig, in PromptTemplateData) (string, error) {
 	template := ""
 
 	// A model can have a "file.bin.tmpl" file associated with a prompt template prefix
@@ -135,7 +135,7 @@ func (e *Evaluator) evaluateJinjaTemplateForPrompt(templateType TemplateType, te
 	return e.cache.evaluateJinjaTemplate(templateType, templateName, conversation)
 }
 
-func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []schema.Message, config *config.BackendConfig, funcs []functions.Function, shouldUseFn bool) string {
+func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []schema.Message, config *config.ModelConfig, funcs []functions.Function, shouldUseFn bool) string {
 
 	if config.TemplateConfig.JinjaTemplate {
 		var messageData []ChatMessageTemplateData

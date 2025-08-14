@@ -11,7 +11,7 @@ import (
 
 func RegisterElevenLabsRoutes(app *fiber.App,
 	re *middleware.RequestExtractor,
-	cl *config.BackendConfigLoader,
+	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig) {
 

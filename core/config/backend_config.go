@@ -24,20 +24,20 @@ type TTSConfig struct {
 	AudioPath string `yaml:"audio_path"`
 }
 
-type BackendConfig struct {
+type ModelConfig struct {
 	schema.PredictionOptions `yaml:"parameters"`
 	Name                     string `yaml:"name"`
 
-	F16                 *bool                  `yaml:"f16"`
-	Threads             *int                   `yaml:"threads"`
-	Debug               *bool                  `yaml:"debug"`
-	Roles               map[string]string      `yaml:"roles"`
-	Embeddings          *bool                  `yaml:"embeddings"`
-	Backend             string                 `yaml:"backend"`
-	TemplateConfig      TemplateConfig         `yaml:"template"`
-	KnownUsecaseStrings []string               `yaml:"known_usecases"`
-	KnownUsecases       *BackendConfigUsecases `yaml:"-"`
-	Pipeline            Pipeline               `yaml:"pipeline"`
+	F16                 *bool                `yaml:"f16"`
+	Threads             *int                 `yaml:"threads"`
+	Debug               *bool                `yaml:"debug"`
+	Roles               map[string]string    `yaml:"roles"`
+	Embeddings          *bool                `yaml:"embeddings"`
+	Backend             string               `yaml:"backend"`
+	TemplateConfig      TemplateConfig       `yaml:"template"`
+	KnownUsecaseStrings []string             `yaml:"known_usecases"`
+	KnownUsecases       *ModelConfigUsecases `yaml:"-"`
+	Pipeline            Pipeline             `yaml:"pipeline"`
 
 	PromptStrings, InputStrings                []string               `yaml:"-"`
 	InputToken                                 [][]int                `yaml:"-"`
@@ -217,18 +217,18 @@ type TemplateConfig struct {
 	ReplyPrefix string `yaml:"reply_prefix"`
 }
 
-func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {
-	type BCAlias BackendConfig
+func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
+	type BCAlias ModelConfig
 	var aux BCAlias
 	if err := value.Decode(&aux); err != nil {
 		return err
 	}
-	*c = BackendConfig(aux)
+	*c = ModelConfig(aux)
 
 	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
 	// Make sure the usecases are valid, we rewrite with what we identified
 	c.KnownUsecaseStrings = []string{}
-	for k, usecase := range GetAllBackendConfigUsecases() {
+	for k, usecase := range GetAllModelConfigUsecases() {
 		if c.HasUsecases(usecase) {
 			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
 		}
@@ -236,25 +236,25 @@ func (c *BackendConfig) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func (c *BackendConfig) SetFunctionCallString(s string) {
+func (c *ModelConfig) SetFunctionCallString(s string) {
 	c.functionCallString = s
 }
 
-func (c *BackendConfig) SetFunctionCallNameString(s string) {
+func (c *ModelConfig) SetFunctionCallNameString(s string) {
 	c.functionCallNameString = s
 }
 
-func (c *BackendConfig) ShouldUseFunctions() bool {
+func (c *ModelConfig) ShouldUseFunctions() bool {
 	return ((c.functionCallString != "none" || c.functionCallString == "") || c.ShouldCallSpecificFunction())
 }
 
-func (c *BackendConfig) ShouldCallSpecificFunction() bool {
+func (c *ModelConfig) ShouldCallSpecificFunction() bool {
 	return len(c.functionCallNameString) > 0
 }
 
 // MMProjFileName returns the filename of the MMProj file
 // If the MMProj is a URL, it will return the MD5 of the URL which is the filename
-func (c *BackendConfig) MMProjFileName() string {
+func (c *ModelConfig) MMProjFileName() string {
 	uri := downloader.URI(c.MMProj)
 	if uri.LooksLikeURL() {
 		f, _ := uri.FilenameFromUrl()
@@ -264,19 +264,19 @@ func (c *BackendConfig) MMProjFileName() string {
 	return c.MMProj
 }
 
-func (c *BackendConfig) IsMMProjURL() bool {
+func (c *ModelConfig) IsMMProjURL() bool {
 	uri := downloader.URI(c.MMProj)
 	return uri.LooksLikeURL()
 }
 
-func (c *BackendConfig) IsModelURL() bool {
+func (c *ModelConfig) IsModelURL() bool {
 	uri := downloader.URI(c.Model)
 	return uri.LooksLikeURL()
 }
 
 // ModelFileName returns the filename of the model
 // If the model is a URL, it will return the MD5 of the URL which is the filename
-func (c *BackendConfig) ModelFileName() string {
+func (c *ModelConfig) ModelFileName() string {
 	uri := downloader.URI(c.Model)
 	if uri.LooksLikeURL() {
 		f, _ := uri.FilenameFromUrl()
@@ -286,7 +286,7 @@ func (c *BackendConfig) ModelFileName() string {
 	return c.Model
 }
 
-func (c *BackendConfig) FunctionToCall() string {
+func (c *ModelConfig) FunctionToCall() string {
 	if c.functionCallNameString != "" &&
 		c.functionCallNameString != "none" && c.functionCallNameString != "auto" {
 		return c.functionCallNameString
@@ -295,7 +295,7 @@ func (c *BackendConfig) FunctionToCall() string {
 	return c.functionCallString
 }
 
-func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
+func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	lo := &LoadOptions{}
 	lo.Apply(opts...)
 
@@ -411,7 +411,7 @@ func (cfg *BackendConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	guessDefaultsFromFile(cfg, lo.modelPath, ctx)
 }
 
-func (c *BackendConfig) Validate() bool {
+func (c *ModelConfig) Validate() bool {
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
@@ -438,34 +438,34 @@ func (c *BackendConfig) Validate() bool {
 	return true
 }
 
-func (c *BackendConfig) HasTemplate() bool {
+func (c *ModelConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
 }
 
-type BackendConfigUsecases int
+type ModelConfigUsecases int
 
 const (
-	FLAG_ANY              BackendConfigUsecases = 0b000000000000
-	FLAG_CHAT             BackendConfigUsecases = 0b000000000001
-	FLAG_COMPLETION       BackendConfigUsecases = 0b000000000010
-	FLAG_EDIT             BackendConfigUsecases = 0b000000000100
-	FLAG_EMBEDDINGS       BackendConfigUsecases = 0b000000001000
-	FLAG_RERANK           BackendConfigUsecases = 0b000000010000
-	FLAG_IMAGE            BackendConfigUsecases = 0b000000100000
-	FLAG_TRANSCRIPT       BackendConfigUsecases = 0b000001000000
-	FLAG_TTS              BackendConfigUsecases = 0b000010000000
-	FLAG_SOUND_GENERATION BackendConfigUsecases = 0b000100000000
-	FLAG_TOKENIZE         BackendConfigUsecases = 0b001000000000
-	FLAG_VAD              BackendConfigUsecases = 0b010000000000
-	FLAG_VIDEO            BackendConfigUsecases = 0b100000000000
-	FLAG_DETECTION        BackendConfigUsecases = 0b1000000000000
+	FLAG_ANY              ModelConfigUsecases = 0b000000000000
+	FLAG_CHAT             ModelConfigUsecases = 0b000000000001
+	FLAG_COMPLETION       ModelConfigUsecases = 0b000000000010
+	FLAG_EDIT             ModelConfigUsecases = 0b000000000100
+	FLAG_EMBEDDINGS       ModelConfigUsecases = 0b000000001000
+	FLAG_RERANK           ModelConfigUsecases = 0b000000010000
+	FLAG_IMAGE            ModelConfigUsecases = 0b000000100000
+	FLAG_TRANSCRIPT       ModelConfigUsecases = 0b000001000000
+	FLAG_TTS              ModelConfigUsecases = 0b000010000000
+	FLAG_SOUND_GENERATION ModelConfigUsecases = 0b000100000000
+	FLAG_TOKENIZE         ModelConfigUsecases = 0b001000000000
+	FLAG_VAD              ModelConfigUsecases = 0b010000000000
+	FLAG_VIDEO            ModelConfigUsecases = 0b100000000000
+	FLAG_DETECTION        ModelConfigUsecases = 0b1000000000000
 
 	// Common Subsets
-	FLAG_LLM BackendConfigUsecases = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
+	FLAG_LLM ModelConfigUsecases = FLAG_CHAT | FLAG_COMPLETION | FLAG_EDIT
 )
 
-func GetAllBackendConfigUsecases() map[string]BackendConfigUsecases {
-	return map[string]BackendConfigUsecases{
+func GetAllModelConfigUsecases() map[string]ModelConfigUsecases {
+	return map[string]ModelConfigUsecases{
 		"FLAG_ANY":              FLAG_ANY,
 		"FLAG_CHAT":             FLAG_CHAT,
 		"FLAG_COMPLETION":       FLAG_COMPLETION,
@@ -488,12 +488,12 @@ func stringToFlag(s string) string {
 	return "FLAG_" + strings.ToUpper(s)
 }
 
-func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
+func GetUsecasesFromYAML(input []string) *ModelConfigUsecases {
 	if len(input) == 0 {
 		return nil
 	}
 	result := FLAG_ANY
-	flags := GetAllBackendConfigUsecases()
+	flags := GetAllModelConfigUsecases()
 	for _, str := range input {
 		flag, exists := flags[stringToFlag(str)]
 		if exists {
@@ -503,8 +503,8 @@ func GetUsecasesFromYAML(input []string) *BackendConfigUsecases {
 	return &result
 }
 
-// HasUsecases examines a BackendConfig and determines which endpoints have a chance of success.
-func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
+// HasUsecases examines a ModelConfig and determines which endpoints have a chance of success.
+func (c *ModelConfig) HasUsecases(u ModelConfigUsecases) bool {
 	if (c.KnownUsecases != nil) && ((u & *c.KnownUsecases) == u) {
 		return true
 	}
@@ -514,7 +514,7 @@ func (c *BackendConfig) HasUsecases(u BackendConfigUsecases) bool {
 // GuessUsecases is a **heuristic based** function, as the backend in question may not be loaded yet, and the config may not record what it's useful at.
 // In its current state, this function should ideally check for properties of the config like templates, rather than the direct backend name checks for the lower half.
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
-func (c *BackendConfig) GuessUsecases(u BackendConfigUsecases) bool {
+func (c *ModelConfig) GuessUsecases(u ModelConfigUsecases) bool {
 	if (u & FLAG_CHAT) == FLAG_CHAT {
 		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
 			return false

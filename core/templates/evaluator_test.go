@@ -53,7 +53,7 @@ Function response:
 var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
 	"user": {
 		"expected": "<|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: llama3,
 			},
@@ -69,7 +69,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"assistant": {
 		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: llama3,
 			},
@@ -86,7 +86,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	"function_call": {
 
 		"expected": "<|start_header_id|>assistant<|end_header_id|>\n\nFunction call:\n{\"function\":\"test\"}<|eot_id|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: llama3,
 			},
@@ -102,7 +102,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"function_response": {
 		"expected": "<|start_header_id|>tool<|end_header_id|>\n\nFunction response:\nResponse from tool<|eot_id|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: llama3,
 			},
@@ -121,7 +121,7 @@ var llama3TestMatch map[string]map[string]interface{} = map[string]map[string]in
 var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]interface{}{
 	"user": {
 		"expected": "<|im_start|>user\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: chatML,
 			},
@@ -137,7 +137,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"assistant": {
 		"expected": "<|im_start|>assistant\nA long time ago in a galaxy far, far away...<|im_end|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: chatML,
 			},
@@ -153,7 +153,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"function_call": {
 		"expected": "<|im_start|>assistant\n<tool_call>\n{\"function\":\"test\"}\n</tool_call><|im_end|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: chatML,
 			},
@@ -175,7 +175,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 	"function_response": {
 		"expected": "<|im_start|>tool\n<tool_response>\nResponse from tool\n</tool_response><|im_end|>",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage: chatML,
 			},
@@ -194,7 +194,7 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 var jinjaTest map[string]map[string]interface{} = map[string]map[string]interface{}{
 	"user": {
 		"expected": "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
-		"config": &config.BackendConfig{
+		"config": &config.ModelConfig{
 			TemplateConfig: config.TemplateConfig{
 				ChatMessage:   toolCallJinja,
 				JinjaTemplate: true,
@@ -219,7 +219,7 @@ var _ = Describe("Templates", func() {
 		for key := range chatMLTestMatch {
 			foo := chatMLTestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.ModelConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
@@ -232,7 +232,7 @@ var _ = Describe("Templates", func() {
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
 			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.ModelConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}
@@ -245,7 +245,7 @@ var _ = Describe("Templates", func() {
 		for key := range jinjaTest {
 			foo := jinjaTest[key]
 			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.BackendConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
+				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.ModelConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)
 			})
 		}

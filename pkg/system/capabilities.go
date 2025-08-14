@@ -6,15 +6,8 @@ import (
 	"strings"
 
 	"github.com/jaypipes/ghw/pkg/gpu"
-	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
-
-type SystemState struct {
-	GPUVendor string
-	gpus      []*gpu.GraphicsCard
-	VRAM      uint64
-}
 
 const (
 	defaultCapability = "default"
@@ -101,22 +94,6 @@ func (s *SystemState) getSystemCapabilities() string {
 	}
 
 	return s.GPUVendor
-}
-
-func GetSystemState() (*SystemState, error) {
-	// Detection is best-effort here, we don't want to fail if it fails
-	gpus, _ := xsysinfo.GPUs()
-	log.Debug().Any("gpus", gpus).Msg("GPUs")
-	gpuVendor, _ := detectGPUVendor(gpus)
-	log.Debug().Str("gpuVendor", gpuVendor).Msg("GPU vendor")
-	vram, _ := xsysinfo.TotalAvailableVRAM()
-	log.Debug().Any("vram", vram).Msg("Total available VRAM")
-
-	return &SystemState{
-		GPUVendor: gpuVendor,
-		gpus:      gpus,
-		VRAM:      vram,
-	}, nil
 }
 
 func detectGPUVendor(gpus []*gpu.GraphicsCard) (string, error) {

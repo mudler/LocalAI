@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -21,7 +22,12 @@ var _ = Describe("ModelLoader", func() {
 		// Setup the model loader with a test directory
 		modelPath = "/tmp/test_model_path"
 		os.Mkdir(modelPath, 0755)
-		modelLoader = model.NewModelLoader(modelPath, false)
+
+		systemState, err := system.GetSystemState(
+			system.WithModelPath(modelPath),
+		)
+		Expect(err).ToNot(HaveOccurred())
+		modelLoader = model.NewModelLoader(systemState, false)
 	})
 
 	AfterEach(func() {

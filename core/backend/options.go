@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
+func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
 	name := c.Name
 	if name == "" {
 		name = c.Model
@@ -58,7 +58,7 @@ func ModelOptions(c config.BackendConfig, so *config.ApplicationConfig, opts ...
 	return append(defOpts, opts...)
 }
 
-func getSeed(c config.BackendConfig) int32 {
+func getSeed(c config.ModelConfig) int32 {
 	var seed int32 = config.RAND_SEED
 
 	if c.Seed != nil {
@@ -72,7 +72,7 @@ func getSeed(c config.BackendConfig) int32 {
 	return seed
 }
 
-func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
+func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
@@ -195,7 +195,7 @@ func grpcModelOpts(c config.BackendConfig) *pb.ModelOptions {
 	}
 }
 
-func gRPCPredictOpts(c config.BackendConfig, modelPath string) *pb.PredictOptions {
+func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {
 	promptCachePath := ""
 	if c.PromptCachePath != "" {
 		p := filepath.Join(modelPath, c.PromptCachePath)

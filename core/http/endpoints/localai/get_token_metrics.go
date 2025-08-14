@@ -21,7 +21,7 @@ import (
 //	@Success	200		{string}	binary				"generated audio/wav file"
 //	@Router		/v1/tokenMetrics [get]
 //	@Router		/tokenMetrics [get]
-func TokenMetricsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func TokenMetricsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.TokenMetricsRequest)
@@ -37,7 +37,7 @@ func TokenMetricsEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader,
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
 		}
 
-		cfg, err := cl.LoadBackendConfigFileByNameDefaultOptions(modelFile, appConfig)
+		cfg, err := cl.LoadModelConfigFileByNameDefaultOptions(modelFile, appConfig)
 
 		if err != nil {
 			log.Err(err)

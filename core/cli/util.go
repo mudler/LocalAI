@@ -17,6 +17,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/oci"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 type UtilCMD struct {
@@ -108,6 +109,14 @@ func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
 }
 
 func (hfscmd *HFScanCMD) Run(ctx *cliContext.Context) error {
+
+	systemState, err := system.GetSystemState(
+		system.WithModelPath(hfscmd.ModelsPath),
+	)
+	if err != nil {
+		return err
+	}
+
 	log.Info().Msg("LocalAI Security Scanner - This is BEST EFFORT functionality! Currently limited to huggingface models!")
 	if len(hfscmd.ToScan) == 0 {
 		log.Info().Msg("Checking all installed models against galleries")
@@ -116,7 +125,7 @@ func (hfscmd *HFScanCMD) Run(ctx *cliContext.Context) error {
 			log.Error().Err(err).Msg("unable to load galleries")
 		}
 
-		err := gallery.SafetyScanGalleryModels(galleries, hfscmd.ModelsPath)
+		err := gallery.SafetyScanGalleryModels(galleries, systemState)
 		if err == nil {
 			log.Info().Msg("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
 		} else {
@@ -150,17 +159,17 @@ func (uhcmd *UsecaseHeuristicCMD) Run(ctx *cliContext.Context) error {
 		log.Error().Msg("ModelsPath is a required parameter")
 		return fmt.Errorf("model path is a required parameter")
 	}
-	bcl := config.NewBackendConfigLoader(uhcmd.ModelsPath)
-	err := bcl.LoadBackendConfig(uhcmd.ConfigName)
+	bcl := config.NewModelConfigLoader(uhcmd.ModelsPath)
+	err := bcl.ReadModelConfig(uhcmd.ConfigName)
 	if err != nil {
 		log.Error().Err(err).Str("ConfigName", uhcmd.ConfigName).Msg("error while loading backend")
 		return err
 	}
-	bc, exists := bcl.GetBackendConfig(uhcmd.ConfigName)
+	bc, exists := bcl.GetModelConfig(uhcmd.ConfigName)
 	if !exists {
 		log.Error().Str("ConfigName", uhcmd.ConfigName).Msg("ConfigName not found")
 	}
-	for name, uc := range config.GetAllBackendConfigUsecases() {
+	for name, uc := range config.GetAllModelConfigUsecases() {
 		if bc.HasUsecases(uc) {
 			log.Info().Str("Usecase", name)
 		}

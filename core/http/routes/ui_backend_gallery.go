@@ -28,7 +28,7 @@ func registerBackendGalleryRoutes(app *fiber.App, appConfig *config.ApplicationC
 		page := c.Query("page")
 		items := c.Query("items")
 
-		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.BackendsPath)
+		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
 		if err != nil {
 			log.Error().Err(err).Msg("could not list backends from galleries")
 			return c.Status(fiber.StatusInternalServerError).Render("views/error", fiber.Map{
@@ -129,7 +129,7 @@ func registerBackendGalleryRoutes(app *fiber.App, appConfig *config.ApplicationC
 			return c.Status(fiber.StatusBadRequest).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
-		backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.BackendsPath)
+		backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
 
 		if page != "" {
 			// return a subset of the backends

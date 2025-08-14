@@ -7,7 +7,7 @@ import (
 )
 
 type Application struct {
-	backendLoader      *config.BackendConfigLoader
+	backendLoader      *config.ModelConfigLoader
 	modelLoader        *model.ModelLoader
 	applicationConfig  *config.ApplicationConfig
 	templatesEvaluator *templates.Evaluator
@@ -15,14 +15,14 @@ type Application struct {
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
 	return &Application{
-		backendLoader:      config.NewBackendConfigLoader(appConfig.ModelPath),
-		modelLoader:        model.NewModelLoader(appConfig.ModelPath, appConfig.SingleBackend),
+		backendLoader:      config.NewModelConfigLoader(appConfig.SystemState.Model.ModelsPath),
+		modelLoader:        model.NewModelLoader(appConfig.SystemState, appConfig.SingleBackend),
 		applicationConfig:  appConfig,
-		templatesEvaluator: templates.NewEvaluator(appConfig.ModelPath),
+		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),
 	}
 }
 
-func (a *Application) BackendLoader() *config.BackendConfigLoader {
+func (a *Application) BackendLoader() *config.ModelConfigLoader {
 	return a.backendLoader
 }
 

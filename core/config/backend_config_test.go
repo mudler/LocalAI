@@ -25,7 +25,7 @@ known_usecases:
 - COMPLETION
 `)
 			Expect(err).ToNot(HaveOccurred())
-			config, err := readBackendConfigFromFile(tmp.Name())
+			config, err := readModelConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			Expect(config.Validate()).To(BeFalse())
@@ -41,7 +41,7 @@ backend: "foo-bar"
 parameters:
   model: "foo-bar"`)
 			Expect(err).ToNot(HaveOccurred())
-			config, err := readBackendConfigFromFile(tmp.Name())
+			config, err := readModelConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -58,7 +58,7 @@ parameters:
 			defer os.Remove(tmp.Name())
 			_, err = io.Copy(tmp, resp.Body)
 			Expect(err).To(BeNil())
-			config, err = readBackendConfigFromFile(tmp.Name())
+			config, err = readModelConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -68,12 +68,12 @@ parameters:
 	})
 	It("Properly handles backend usecase matching", func() {
 
-		a := BackendConfig{
+		a := ModelConfig{
 			Name: "a",
 		}
 		Expect(a.HasUsecases(FLAG_ANY)).To(BeTrue()) // FLAG_ANY just means the config _exists_ essentially.
 
-		b := BackendConfig{
+		b := ModelConfig{
 			Name:    "b",
 			Backend: "stablediffusion",
 		}
@@ -81,7 +81,7 @@ parameters:
 		Expect(b.HasUsecases(FLAG_IMAGE)).To(BeTrue())
 		Expect(b.HasUsecases(FLAG_CHAT)).To(BeFalse())
 
-		c := BackendConfig{
+		c := ModelConfig{
 			Name:    "c",
 			Backend: "llama-cpp",
 			TemplateConfig: TemplateConfig{
@@ -93,7 +93,7 @@ parameters:
 		Expect(c.HasUsecases(FLAG_COMPLETION)).To(BeFalse())
 		Expect(c.HasUsecases(FLAG_CHAT)).To(BeTrue())
 
-		d := BackendConfig{
+		d := ModelConfig{
 			Name:    "d",
 			Backend: "llama-cpp",
 			TemplateConfig: TemplateConfig{
@@ -107,7 +107,7 @@ parameters:
 		Expect(d.HasUsecases(FLAG_CHAT)).To(BeTrue())
 
 		trueValue := true
-		e := BackendConfig{
+		e := ModelConfig{
 			Name:    "e",
 			Backend: "llama-cpp",
 			TemplateConfig: TemplateConfig{
@@ -122,7 +122,7 @@ parameters:
 		Expect(e.HasUsecases(FLAG_CHAT)).To(BeFalse())
 		Expect(e.HasUsecases(FLAG_EMBEDDINGS)).To(BeTrue())
 
-		f := BackendConfig{
+		f := ModelConfig{
 			Name:    "f",
 			Backend: "piper",
 		}
@@ -130,7 +130,7 @@ parameters:
 		Expect(f.HasUsecases(FLAG_TTS)).To(BeTrue())
 		Expect(f.HasUsecases(FLAG_CHAT)).To(BeFalse())
 
-		g := BackendConfig{
+		g := ModelConfig{
 			Name:    "g",
 			Backend: "whisper",
 		}
@@ -138,7 +138,7 @@ parameters:
 		Expect(g.HasUsecases(FLAG_TRANSCRIPT)).To(BeTrue())
 		Expect(g.HasUsecases(FLAG_TTS)).To(BeFalse())
 
-		h := BackendConfig{
+		h := ModelConfig{
 			Name:    "h",
 			Backend: "transformers-musicgen",
 		}
@@ -148,7 +148,7 @@ parameters:
 		Expect(h.HasUsecases(FLAG_SOUND_GENERATION)).To(BeTrue())
 
 		knownUsecases := FLAG_CHAT | FLAG_COMPLETION
-		i := BackendConfig{
+		i := ModelConfig{
 			Name:    "i",
 			Backend: "whisper",
 			// Earlier test checks parsing, this just needs to set final values

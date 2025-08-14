@@ -20,7 +20,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
 	application := newApplication(options)
 
-	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.ModelPath)
+	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.SystemState.Model.ModelsPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
 	caps, err := xsysinfo.CPUCapabilities()
 	if err == nil {
@@ -35,10 +35,11 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	// Make sure directories exists
-	if options.ModelPath == "" {
-		return nil, fmt.Errorf("options.ModelPath cannot be empty")
+	if options.SystemState.Model.ModelsPath == "" {
+		return nil, fmt.Errorf("models path cannot be empty")
 	}
-	err = os.MkdirAll(options.ModelPath, 0750)
+
+	err = os.MkdirAll(options.SystemState.Model.ModelsPath, 0750)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create ModelPath: %q", err)
 	}
@@ -55,50 +56,50 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	if err := coreStartup.InstallModels(options.Galleries, options.BackendGalleries, options.ModelPath, options.BackendsPath, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
+	if err := coreStartup.InstallModels(options.Galleries, options.BackendGalleries, options.SystemState, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		log.Error().Err(err).Msg("error installing models")
 	}
 
 	for _, backend := range options.ExternalBackends {
-		if err := coreStartup.InstallExternalBackends(options.BackendGalleries, options.BackendsPath, nil, backend, "", ""); err != nil {
+		if err := coreStartup.InstallExternalBackends(options.BackendGalleries, options.SystemState, nil, backend, "", ""); err != nil {
 			log.Error().Err(err).Msg("error installing external backend")
 		}
 	}
 
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
-	if err := application.BackendLoader().LoadBackendConfigsFromPath(options.ModelPath, configLoaderOpts...); err != nil {
+	if err := application.BackendLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
 		log.Error().Err(err).Msg("error loading config files")
 	}
 
-	if err := gallery.RegisterBackends(options.BackendsPath, application.ModelLoader()); err != nil {
+	if err := gallery.RegisterBackends(options.SystemState, application.ModelLoader()); err != nil {
 		log.Error().Err(err).Msg("error registering external backends")
 	}
 
 	if options.ConfigFile != "" {
-		if err := application.BackendLoader().LoadMultipleBackendConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
+		if err := application.BackendLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
 			log.Error().Err(err).Msg("error loading config file")
 		}
 	}
 
-	if err := application.BackendLoader().Preload(options.ModelPath); err != nil {
+	if err := application.BackendLoader().Preload(options.SystemState.Model.ModelsPath); err != nil {
 		log.Error().Err(err).Msg("error downloading models")
 	}
 
 	if options.PreloadJSONModels != "" {
-		if err := services.ApplyGalleryFromString(options.ModelPath, options.BackendsPath, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels); err != nil {
+		if err := services.ApplyGalleryFromString(options.SystemState, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadJSONModels); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.PreloadModelsFromPath != "" {
-		if err := services.ApplyGalleryFromFile(options.ModelPath, options.BackendsPath, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath); err != nil {
+		if err := services.ApplyGalleryFromFile(options.SystemState, options.EnforcePredownloadScans, options.AutoloadBackendGalleries, options.Galleries, options.BackendGalleries, options.PreloadModelsFromPath); err != nil {
 			return nil, err
 		}
 	}
 
 	if options.Debug {
-		for _, v := range application.BackendLoader().GetAllBackendConfigs() {
+		for _, v := range application.BackendLoader().GetAllModelsConfigs() {
 			log.Debug().Msgf("Model: %s (config: %+v)", v.Name, v)
 		}
 	}
@@ -131,7 +132,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {
-			cfg, err := application.BackendLoader().LoadBackendConfigFileByNameDefaultOptions(m, options)
+			cfg, err := application.BackendLoader().LoadModelConfigFileByNameDefaultOptions(m, options)
 			if err != nil {
 				return nil, err
 			}

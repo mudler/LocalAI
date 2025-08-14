@@ -14,14 +14,14 @@ import (
 // @Param request body schema.TokenizeRequest true "Request"
 // @Success 200 {object} schema.TokenizeResponse "Response"
 // @Router /v1/tokenize [post]
-func TokenizeEndpoint(cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func TokenizeEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		input, ok := ctx.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.TokenizeRequest)
 		if !ok || input.Model == "" {
 			return fiber.ErrBadRequest
 		}
 
-		cfg, ok := ctx.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+		cfg, ok := ctx.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
 			return fiber.ErrBadRequest
 		}

@@ -11,12 +11,12 @@ import (
 )
 
 func WelcomeEndpoint(appConfig *config.ApplicationConfig,
-	cl *config.BackendConfigLoader, ml *model.ModelLoader, opcache *services.OpCache) func(*fiber.Ctx) error {
+	cl *config.ModelConfigLoader, ml *model.ModelLoader, opcache *services.OpCache) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		galleryConfigs := map[string]*gallery.ModelConfig{}
 
-		for _, m := range backendConfigs {
+		for _, m := range modelConfigs {
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
@@ -34,7 +34,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			"Version":           internal.PrintableVersion(),
 			"BaseURL":           utils.BaseURL(c),
 			"Models":            modelsWithoutConfig,
-			"ModelsConfig":      backendConfigs,
+			"ModelsConfig":      modelConfigs,
 			"GalleryConfig":     galleryConfigs,
 			"ApplicationConfig": appConfig,
 			"ProcessingModels":  processingModels,

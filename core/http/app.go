@@ -198,7 +198,7 @@ func API(application *application.Application) (*fiber.App, error) {
 	}
 
 	galleryService := services.NewGalleryService(application.ApplicationConfig(), application.ModelLoader())
-	err = galleryService.Start(application.ApplicationConfig().Context, application.BackendLoader())
+	err = galleryService.Start(application.ApplicationConfig().Context, application.BackendLoader(), application.ApplicationConfig().SystemState)
 	if err != nil {
 		return nil, err
 	}

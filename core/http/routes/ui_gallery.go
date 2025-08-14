@@ -20,7 +20,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
+func registerGalleryRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
 
 	// Show the Models page (all models)
 	app.Get("/browse", func(c *fiber.Ctx) error {
@@ -28,7 +28,7 @@ func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appCo
 		page := c.Query("page")
 		items := c.Query("items")
 
-		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
 			log.Error().Err(err).Msg("could not list models from galleries")
 			return c.Status(fiber.StatusInternalServerError).Render("views/error", fiber.Map{
@@ -131,7 +131,7 @@ func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appCo
 			return c.Status(fiber.StatusBadRequest).SendString(bluemonday.StrictPolicy().Sanitize(err.Error()))
 		}
 
-		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.ModelPath)
+		models, _ := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 
 		if page != "" {
 			// return a subset of the models
@@ -224,7 +224,7 @@ func registerGalleryRoutes(app *fiber.App, cl *config.BackendConfigLoader, appCo
 		}
 		go func() {
 			galleryService.ModelGalleryChannel <- op
-			cl.RemoveBackendConfig(galleryName)
+			cl.RemoveModelConfig(galleryName)
 		}()
 
 		return c.SendString(elements.StartModelProgressBar(uid, "0", "Deletion"))

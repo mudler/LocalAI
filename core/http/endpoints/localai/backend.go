@@ -11,24 +11,27 @@ import (
 	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 )
 
 type BackendEndpointService struct {
-	galleries      []config.Gallery
-	backendPath    string
-	backendApplier *services.GalleryService
+	galleries         []config.Gallery
+	backendPath       string
+	backendSystemPath string
+	backendApplier    *services.GalleryService
 }
 
 type GalleryBackend struct {
 	ID string `json:"id"`
 }
 
-func CreateBackendEndpointService(galleries []config.Gallery, backendPath string, backendApplier *services.GalleryService) BackendEndpointService {
+func CreateBackendEndpointService(galleries []config.Gallery, systemState *system.SystemState, backendApplier *services.GalleryService) BackendEndpointService {
 	return BackendEndpointService{
-		galleries:      galleries,
-		backendPath:    backendPath,
-		backendApplier: backendApplier,
+		galleries:         galleries,
+		backendPath:       systemState.Backend.BackendsPath,
+		backendSystemPath: systemState.Backend.BackendsSystemPath,
+		backendApplier:    backendApplier,
 	}
 }
 
@@ -111,9 +114,9 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() func(c *fiber.Ctx) er
 // @Summary List all Backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends [get]
-func (mgs *BackendEndpointService) ListBackendsEndpoint() func(c *fiber.Ctx) error {
+func (mgs *BackendEndpointService) ListBackendsEndpoint(systemState *system.SystemState) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		backends, err := gallery.ListSystemBackends(mgs.backendPath)
+		backends, err := gallery.ListSystemBackends(systemState)
 		if err != nil {
 			return err
 		}
@@ -141,9 +144,9 @@ func (mgs *BackendEndpointService) ListBackendGalleriesEndpoint() func(c *fiber.
 // @Summary List all available Backends
 // @Success 200 {object} []gallery.GalleryBackend "Response"
 // @Router /backends/available [get]
-func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint() func(c *fiber.Ctx) error {
+func (mgs *BackendEndpointService) ListAvailableBackendsEndpoint(systemState *system.SystemState) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
-		backends, err := gallery.AvailableBackends(mgs.galleries, mgs.backendPath)
+		backends, err := gallery.AvailableBackends(mgs.galleries, systemState)
 		if err != nil {
 			return err
 		}
