@@ -72,10 +72,10 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 		}
 
 		// Validate required fields
-		if modelConfig.Name == "" || modelConfig.Backend == "" || modelConfig.Model == "" {
+		if modelConfig.Name == "" {
 			response := ModelResponse{
 				Success: false,
-				Error:   "Name, backend, and model are required fields",
+				Error:   "Name is required",
 			}
 			return c.Status(400).JSON(response)
 		}

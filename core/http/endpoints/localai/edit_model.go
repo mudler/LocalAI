@@ -167,10 +167,10 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 		}
 
 		// Validate required fields
-		if req.Backend == "" || req.Model == "" {
+		if req.Name == "" {
 			response := ModelResponse{
 				Success: false,
-				Error:   "Backend and model are required fields",
+				Error:   "Name is required",
 			}
 			return c.Status(400).JSON(response)
 		}
