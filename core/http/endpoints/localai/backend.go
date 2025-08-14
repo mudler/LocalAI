@@ -117,7 +117,7 @@ func (mgs *BackendEndpointService) ListBackendsEndpoint() func(c *fiber.Ctx) err
 		if err != nil {
 			return err
 		}
-		return c.JSON(backends)
+		return c.JSON(backends.GetAll())
 	}
 }
 

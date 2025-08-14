@@ -208,13 +208,16 @@ var _ = Describe("Gallery Backends", func() {
 			metaBackendPath := filepath.Join(tempDir, "meta-backend")
 			Expect(metaBackendPath).To(BeADirectory())
 
+			metaBackendPath = filepath.Join(tempDir, "meta-backend", "metadata.json")
+			Expect(metaBackendPath).To(BeARegularFile())
+
 			concreteBackendPath := filepath.Join(tempDir, "nvidia-backend")
 			Expect(concreteBackendPath).To(BeADirectory())
 
 			allBackends, err := ListSystemBackends(tempDir)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(allBackends).To(HaveKey("meta-backend"))
-			Expect(allBackends).To(HaveKey("nvidia-backend"))
+			Expect(allBackends.Exists("meta-backend")).To(BeTrue())
+			Expect(allBackends.Exists("nvidia-backend")).To(BeTrue())
 
 			// Delete meta backend by name
 			err = DeleteBackendFromSystem(tempDir, "meta-backend")
@@ -284,9 +287,14 @@ var _ = Describe("Gallery Backends", func() {
 
 			allBackends, err := ListSystemBackends(tempDir)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(allBackends).To(HaveKey("meta-backend"))
-			Expect(allBackends).To(HaveKey("nvidia-backend"))
-			Expect(allBackends["meta-backend"]).To(BeEmpty())
+			Expect(allBackends.Exists("meta-backend")).To(BeTrue())
+			Expect(allBackends.Exists("nvidia-backend")).To(BeTrue())
+
+			backend, ok := allBackends.Get("meta-backend")
+			Expect(ok).To(BeTrue())
+			Expect(backend.Metadata.MetaBackendFor).To(Equal("nvidia-backend"))
+			Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, "nvidia-backend", "run.sh")))
+			Expect(backend.IsMeta).To(BeTrue())
 
 			// Delete meta backend by name
 			err = DeleteBackendFromSystem(tempDir, "meta-backend")
@@ -356,9 +364,11 @@ var _ = Describe("Gallery Backends", func() {
 
 			allBackends, err := ListSystemBackends(tempDir)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(allBackends).To(HaveKey("meta-backend"))
-			Expect(allBackends).To(HaveKey("nvidia-backend"))
-			Expect(allBackends["meta-backend"]).To(Equal(filepath.Join(tempDir, "nvidia-backend", "run.sh")))
+			Expect(allBackends.Exists("meta-backend")).To(BeTrue())
+			Expect(allBackends.Exists("nvidia-backend")).To(BeTrue())
+			backend, ok := allBackends.Get("meta-backend")
+			Expect(ok).To(BeTrue())
+			Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, "nvidia-backend", "run.sh")))
 
 			// Delete meta backend by name
 			err = DeleteBackendFromSystem(tempDir, "meta-backend")
@@ -402,13 +412,21 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(err).NotTo(HaveOccurred())
 
 			// Should include both the meta backend name and concrete backend name
-			Expect(backends).To(HaveKey("meta-backend"))
-			Expect(backends).To(HaveKey("concrete-backend"))
+			Expect(backends.Exists("meta-backend")).To(BeTrue())
+			Expect(backends.Exists("concrete-backend")).To(BeTrue())
 
-			// meta-backend should be empty
-			Expect(backends["meta-backend"]).To(BeEmpty())
+			// meta-backend should point to concrete-backend
+			Expect(backends.Exists("meta-backend")).To(BeTrue())
+			backend, ok := backends.Get("meta-backend")
+			Expect(ok).To(BeTrue())
+			Expect(backend.Metadata.MetaBackendFor).To(Equal("concrete-backend"))
+			Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, "concrete-backend", "run.sh")))
+			Expect(backend.IsMeta).To(BeTrue())
+
 			// concrete-backend should point to its own run.sh
-			Expect(backends["concrete-backend"]).To(Equal(filepath.Join(tempDir, "concrete-backend", "run.sh")))
+			backend, ok = backends.Get("concrete-backend")
+			Expect(ok).To(BeTrue())
+			Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, "concrete-backend", "run.sh")))
 		})
 	})
 
@@ -457,8 +475,14 @@ var _ = Describe("Gallery Backends", func() {
 			// Check that the alias was recognized
 			backends, err := ListSystemBackends(tempDir)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(backends).To(HaveKeyWithValue("test-alias", filepath.Join(tempDir, "test-backend", "run.sh")))
-			Expect(backends).To(HaveKeyWithValue("test-backend", filepath.Join(tempDir, "test-backend", "run.sh")))
+			Expect(backends.Exists("test-alias")).To(BeTrue())
+			Expect(backends.Exists("test-backend")).To(BeTrue())
+			b, ok := backends.Get("test-alias")
+			Expect(ok).To(BeTrue())
+			Expect(b.RunFile).To(Equal(filepath.Join(tempDir, "test-backend", "run.sh")))
+			b, ok = backends.Get("test-backend")
+			Expect(ok).To(BeTrue())
+			Expect(b.RunFile).To(Equal(filepath.Join(tempDir, "test-backend", "run.sh")))
 		})
 	})
 
@@ -497,10 +521,13 @@ var _ = Describe("Gallery Backends", func() {
 
 			backends, err := ListSystemBackends(tempDir)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(backends).To(HaveLen(len(backendNames)))
+			Expect(backends.GetAll()).To(HaveLen(len(backendNames)))
 
 			for _, name := range backendNames {
-				Expect(backends).To(HaveKeyWithValue(name, filepath.Join(tempDir, name, "run.sh")))
+				Expect(backends.Exists(name)).To(BeTrue())
+				backend, ok := backends.Get(name)
+				Expect(ok).To(BeTrue())
+				Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, name, "run.sh")))
 			}
 		})
 
@@ -528,7 +555,10 @@ var _ = Describe("Gallery Backends", func() {
 
 			backends, err := ListSystemBackends(tempDir)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(backends).To(HaveKeyWithValue(alias, filepath.Join(tempDir, backendName, "run.sh")))
+			Expect(backends.Exists(alias)).To(BeTrue())
+			backend, ok := backends.Get(alias)
+			Expect(ok).To(BeTrue())
+			Expect(backend.RunFile).To(Equal(filepath.Join(tempDir, backendName, "run.sh")))
 		})
 
 		It("should return error when base path doesn't exist", func() {

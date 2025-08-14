@@ -30,12 +30,11 @@ func findLLamaCPPBackend(backendSystemPath string) (string, error) {
 	log.Debug().Msgf("System backends: %v", backends)
 
 	backendPath := ""
-	for b, path := range backends {
-		if b == "llama-cpp" {
-			backendPath = filepath.Dir(path)
-			break
-		}
+	backend, ok := backends.Get("llama-cpp")
+	if !ok {
+		return "", errors.New("llama-cpp backend not found, install it first")
 	}
+	backendPath = filepath.Dir(backend.RunFile)
 
 	if backendPath == "" {
 		return "", errors.New("llama-cpp backend not found, install it first")
