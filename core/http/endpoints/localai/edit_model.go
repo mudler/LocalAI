@@ -28,17 +28,8 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			return c.Status(400).JSON(response)
 		}
 
-		// Load the existing configuration
-		configPath := filepath.Join(appConfig.SystemState.Model.ModelsPath, modelName+".yaml")
-		if err := utils.InTrustedRoot(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration not trusted: " + err.Error(),
-			}
-			return c.Status(404).JSON(response)
-		}
-
-		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Model configuration not found",
@@ -46,21 +37,11 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			return c.Status(404).JSON(response)
 		}
 
-		// Read and parse the existing configuration
-		configData, err := os.ReadFile(configPath)
+		configData, err := yaml.Marshal(modelConfig)
 		if err != nil {
 			response := ModelResponse{
 				Success: false,
-				Error:   "Failed to read model configuration: " + err.Error(),
-			}
-			return c.Status(500).JSON(response)
-		}
-
-		var modelConfig config.ModelConfig
-		if err := yaml.Unmarshal(configData, &modelConfig); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Failed to parse model configuration: " + err.Error(),
+				Error:   "Failed to marshal configuration: " + err.Error(),
 			}
 			return c.Status(500).JSON(response)
 		}
