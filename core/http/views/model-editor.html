@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Header -->
+        <div class="mb-8">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold text-white">
+                        {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
+                    </h1>
+                    <p class="text-gray-400 mt-2">Configure your model settings using the form or YAML editor</p>
+                </div>
+                <div class="flex gap-3">
+                    <button id="validateBtn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition flex items-center gap-2">
+                        <i class="fas fa-check"></i>
+                        Validate
+                    </button>
+                    <button id="saveBtn" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition flex items-center gap-2">
+                        <i class="fas fa-save"></i>
+                        {{if .ModelName}}Update{{else}}Create{{end}}
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer" class="mb-6"></div>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-250px)]">
+            
+            <!-- Form Panel (Left) -->
+            <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden">
+                <div class="sticky top-0 bg-gray-800 border-b border-gray-700/50 p-4 flex items-center justify-between z-10">
+                    <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+                        <i class="fas fa-edit"></i>
+                        Configuration Form
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <button id="resetFormBtn" class="text-gray-400 hover:text-gray-200 text-sm">
+                            <i class="fas fa-undo"></i> Reset
+                        </button>
+                        <button id="expandAllBtn" class="text-gray-400 hover:text-gray-200 text-sm">
+                            <i class="fas fa-expand-alt"></i> Expand All
+                        </button>
+                    </div>
+                </div>
+                <div class="p-6 overflow-y-auto" style="height: calc(100% - 80px);">
+                    <form id="configForm" class="space-y-6">
+                        <!-- Form will be dynamically generated here -->
+                    </form>
+                    </div>
+                </div>
+
+            <!-- YAML Editor Panel (Right) -->
+            <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden">
+                <div class="sticky top-0 bg-gray-800 border-b border-gray-700/50 p-4 flex items-center justify-between z-10">
+                    <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+                        <i class="fas fa-code"></i>
+                        YAML Editor
+                    </h2>
+                    <div class="flex items-center gap-2">
+                        <button id="formatYamlBtn" class="text-gray-400 hover:text-gray-200 text-sm">
+                            <i class="fas fa-indent"></i> Format
+                                </button>
+                        <button id="copyYamlBtn" class="text-gray-400 hover:text-gray-200 text-sm">
+                            <i class="fas fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                <div class="relative" style="height: calc(100% - 80px);">
+                    <div id="yamlCodeMirror" class="h-full"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<!-- Include JS-YAML library -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
+
+<!-- Include CodeMirror for syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/yaml/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/display/autorefresh.min.js"></script>
+
+<style>
+.CodeMirror {
+    background: #111827 !important;
+    color: #e5e7eb !important;
+    border: none !important;
+    height: 100% !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace !important;
+    font-size: 14px !important;
+    border-radius: 0 !important;
+}
+.CodeMirror-cursor {
+    border-left: 1px solid #e5e7eb !important;
+}
+.CodeMirror-gutters {
+    background: #1f2937 !important;
+    border-right: 1px solid #374151 !important;
+    color: #6b7280 !important;
+}
+.CodeMirror-linenumber {
+    color: #6b7280 !important;
+    padding: 0 8px 0 0 !important;
+}
+.CodeMirror-activeline-background {
+    background: rgba(75, 85, 99, 0.3) !important;
+}
+.CodeMirror-selected {
+    background: rgba(59, 130, 246, 0.25) !important;
+}
+.CodeMirror-selectedtext {
+    background: rgba(59, 130, 246, 0.25) !important;
+}
+.CodeMirror-focused .CodeMirror-selected {
+    background: rgba(59, 130, 246, 0.3) !important;
+}
+.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
+    background: rgba(59, 130, 246, 0.3) !important;
+}
+.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection {
+    background: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* YAML Syntax Highlighting - Tailored for LocalAI's gray theme */
+.cm-keyword { color: #60a5fa !important; font-weight: 500 !important; } /* Blue for YAML keys */
+.cm-string { color: #34d399 !important; } /* Green for strings */
+.cm-number { color: #fbbf24 !important; } /* Amber for numbers */
+.cm-comment { color: #9ca3af !important; font-style: italic !important; } /* Gray for comments */
+.cm-property { color: #a78bfa !important; } /* Purple for properties */
+.cm-operator { color: #f87171 !important; } /* Red for operators */
+.cm-variable { color: #22d3ee !important; } /* Cyan for variables */
+.cm-tag { color: #60a5fa !important; font-weight: 500 !important; } /* Blue for tags */
+.cm-attribute { color: #fbbf24 !important; } /* Amber for attributes */
+.cm-def { color: #a78bfa !important; font-weight: 500 !important; } /* Purple for definitions */
+.cm-bracket { color: #d1d5db !important; } /* Light gray for brackets */
+.cm-punctuation { color: #d1d5db !important; } /* Light gray for punctuation */
+.cm-quote { color: #34d399 !important; } /* Green for quotes */
+.cm-meta { color: #9ca3af !important; } /* Gray for meta */
+.cm-builtin { color: #f472b6 !important; } /* Pink for builtins */
+.cm-atom { color: #fbbf24 !important; } /* Amber for atoms like true/false/null */
+
+/* Scrollbar styling to match theme */
+.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+    background: #1f2937 !important;
+}
+.CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
+    background: #1f2937 !important;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar, .CodeMirror-hscrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar-track, .CodeMirror-hscrollbar::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Focus ring styling */
+.CodeMirror-focused {
+    outline: 2px solid rgba(59, 130, 246, 0.5) !important;
+    outline-offset: -2px !important;
+}
+</style>
+
+<script>
+class ModelEditor {
+    constructor() {
+        this.config = {};
+        this.isUpdatingFromYaml = false;
+        this.isUpdatingFromForm = false;
+        this.modelName = '{{.ModelName}}';
+        this.isEditMode = !!this.modelName;
+        this.yamlEditor = null;
+        
+        this.init();
+    }
+
+    init() {
+        {{if .ConfigYAML}}
+        try {
+            this.config = jsyaml.load(`{{.ConfigYAML}}`);
+        } catch (e) {
+            console.error('Failed to parse initial YAML:', e);
+            this.config = {};
+        }
+        {{else}}
+        this.config = this.getDefaultConfig();
+        {{end}}
+
+        this.generateForm();
+        this.initializeCodeMirror();
+        this.bindEvents();
+    }
+
+    getDefaultConfig() {
+        return {
+            name: '',
+            backend: '',
+            parameters: {
+                model: ''
+            },
+            template: {},
+            diffusers: {},
+            grpc: {
+                attempts: 1,
+                attempts_sleep_time: 1000
+            },
+            tts: {},
+            pipeline: {},
+            function: {},
+            feature_flags: {},
+            download_files: [],
+            known_usecases: [],
+            options: [],
+            overrides: [],
+            stopwords: [],
+            cutstrings: [],
+            extract_regex: [],
+            trimspace: [],
+            trimsuffix: [],
+            lora_adapters: [],
+            lora_scales: [],
+            roles: {}
+        };
+    }
+
+    generateForm() {
+        const form = document.getElementById('configForm');
+        form.innerHTML = '';
+
+        const formSections = [
+            {
+                title: 'Basic Configuration',
+                icon: 'fas fa-cog',
+                fields: [
+                    { key: 'name', label: 'Model Name', type: 'text', required: true, description: 'Unique identifier for this model', readonly: this.isEditMode },
+                    { key: 'backend', label: 'Backend', type: 'text', required: true, 
+                      description: 'Backend engine to use (e.g., llama-cpp, transformers, diffusers, whisper, piper, bark-cpp, vllm, rerankers, exllama2, faster-whisper, stablediffusion-ggml)' },
+                    { key: 'parameters.model', label: 'Model File/Path', type: 'text', required: true, description: 'Path to model file or URL' },
+                    { key: 'description', label: 'Description', type: 'textarea', description: 'Description of the model' },
+                    { key: 'usage', label: 'Usage Instructions', type: 'textarea', description: 'How to use this model' }
+                ]
+            },
+            {
+                title: 'Model Parameters',
+                icon: 'fas fa-sliders-h',
+                collapsible: true,
+                fields: [
+                    { key: 'parameters.temperature', label: 'Temperature', type: 'number', step: 0.01, min: 0, max: 2, description: 'Controls randomness (0-2)' },
+                    { key: 'parameters.top_p', label: 'Top P', type: 'number', step: 0.01, min: 0, max: 1, description: 'Nucleus sampling (0-1)' },
+                    { key: 'parameters.top_k', label: 'Top K', type: 'number', min: 1, description: 'Top-k sampling' },
+                    { key: 'parameters.max_tokens', label: 'Max Tokens', type: 'number', min: 1, description: 'Maximum tokens to generate' },
+                    { key: 'parameters.seed', label: 'Seed', type: 'number', description: 'Random seed for reproducible results' },
+                    { key: 'parameters.repeat_penalty', label: 'Repeat Penalty', type: 'number', step: 0.01, min: 0, description: 'Penalty for repetition' },
+                    { key: 'parameters.frequency_penalty', label: 'Frequency Penalty', type: 'number', step: 0.01, description: 'Frequency-based penalty' },
+                    { key: 'parameters.presence_penalty', label: 'Presence Penalty', type: 'number', step: 0.01, description: 'Presence-based penalty' },
+                    { key: 'parameters.n', label: 'N (Number of results)', type: 'number', min: 1, description: 'Number of results to return' },
+                    { key: 'parameters.echo', label: 'Echo', type: 'checkbox', description: 'Echo back the prompt' },
+                    { key: 'parameters.batch', label: 'Batch Size', type: 'number', min: 1, description: 'Batch size for processing' },
+                    { key: 'parameters.ignore_eos', label: 'Ignore EOS', type: 'checkbox', description: 'Ignore end-of-sequence tokens' },
+                    { key: 'parameters.repeat_last_n', label: 'Repeat Last N', type: 'number', min: 0, description: 'Consider last N tokens for repeat penalty' },
+                    { key: 'parameters.n_keep', label: 'N Keep', type: 'number', min: 0, description: 'Number of tokens to keep from prompt' },
+                    { key: 'parameters.tfz', label: 'TFZ (Tail Free Sampling)', type: 'number', step: 0.01, min: 0, max: 1, description: 'Tail free sampling parameter' },
+                    { key: 'parameters.typical_p', label: 'Typical P', type: 'number', step: 0.01, min: 0, max: 1, description: 'Typical sampling parameter' },
+                    { key: 'parameters.negative_prompt', label: 'Negative Prompt', type: 'textarea', description: 'Negative prompt for image generation' },
+                    { key: 'parameters.rope_freq_base', label: 'RoPE Freq Base', type: 'number', step: 0.01, description: 'RoPE frequency base' },
+                    { key: 'parameters.rope_freq_scale', label: 'RoPE Freq Scale', type: 'number', step: 0.01, description: 'RoPE frequency scale' },
+                    { key: 'parameters.negative_prompt_scale', label: 'Negative Prompt Scale', type: 'number', step: 0.01, description: 'Scale for negative prompt' },
+                    { key: 'parameters.clip_skip', label: 'CLIP Skip', type: 'number', min: 0, description: 'CLIP layers to skip' },
+                    { key: 'parameters.language', label: 'Language', type: 'text', description: 'Language for transcription/TTS' },
+                    { key: 'parameters.translate', label: 'Translate', type: 'checkbox', description: 'Enable translation for audio transcription' },
+                    { key: 'parameters.tokenizer', label: 'Tokenizer', type: 'text', description: 'Tokenizer to use' }
+                ]
+            },
+            {
+                title: 'Advanced Configuration',
+                icon: 'fas fa-tools',
+                collapsible: true,
+                fields: [
+                    { key: 'f16', label: 'Use F16', type: 'checkbox', description: 'Use 16-bit floating point precision' },
+                    { key: 'threads', label: 'Threads', type: 'number', min: 1, description: 'Number of CPU threads to use' },
+                    { key: 'debug', label: 'Debug Mode', type: 'checkbox', description: 'Enable debug logging' },
+                    { key: 'embeddings', label: 'Embeddings Mode', type: 'checkbox', description: 'Enable embeddings generation' },
+                    { key: 'cuda', label: 'Enable CUDA', type: 'checkbox', description: 'Use CUDA acceleration' },
+                    { key: 'mmap', label: 'Memory Mapping', type: 'checkbox', description: 'Use memory mapping for model loading' },
+                    { key: 'mmlock', label: 'Memory Lock', type: 'checkbox', description: 'Lock model in memory' },
+                    { key: 'low_vram', label: 'Low VRAM Mode', type: 'checkbox', description: 'Optimize for low VRAM usage' },
+                    { key: 'numa', label: 'NUMA', type: 'checkbox', description: 'Enable NUMA support' },
+                    { key: 'context_size', label: 'Context Size', type: 'number', min: 1, description: 'Maximum context size' },
+                    { key: 'gpu_layers', label: 'GPU Layers', type: 'number', min: 0, description: 'Number of layers to offload to GPU' },
+                    { key: 'reranking', label: 'Reranking', type: 'checkbox', description: 'Enable reranking' }
+                ]
+            },
+            {
+                title: 'Templates',
+                icon: 'fas fa-file-alt',
+                collapsible: true,
+                fields: [
+                    { key: 'template.chat', label: 'Chat Template', type: 'textarea', description: 'Template for chat completion' },
+                    { key: 'template.completion', label: 'Completion Template', type: 'textarea', description: 'Template for completion requests' },
+                    { key: 'template.edit', label: 'Edit Template', type: 'textarea', description: 'Template for edit requests' }
+                ]
+            },
+            {
+                title: 'Use Cases',
+                icon: 'fas fa-tags',
+                collapsible: true,
+                fields: [
+                    { key: 'known_usecases', label: 'Known Use Cases', type: 'multiselect', 
+                      options: ['chat', 'completion', 'edit', 'embeddings', 'rerank', 'image', 'transcript', 'tts', 'sound_generation', 'tokenize', 'vad', 'video', 'detection'], 
+                      description: 'Supported model capabilities' }
+                ]
+            },
+            {
+                title: 'LLM Configuration',
+                icon: 'fas fa-brain',
+                collapsible: true,
+                fields: [
+                    { key: 'system_prompt', label: 'System Prompt', type: 'textarea', description: 'System prompt for the model' },
+                    { key: 'tensor_split', label: 'Tensor Split', type: 'text', description: 'GPU tensor split configuration' },
+                    { key: 'main_gpu', label: 'Main GPU', type: 'text', description: 'Primary GPU to use' },
+                    { key: 'mirostat', label: 'Mirostat', type: 'number', min: 0, max: 2, description: 'Mirostat sampling mode (0=disabled, 1=mirostat, 2=mirostat2)' },
+                    { key: 'mirostat_eta', label: 'Mirostat ETA', type: 'number', step: 0.01, description: 'Mirostat learning rate' },
+                    { key: 'mirostat_tau', label: 'Mirostat TAU', type: 'number', step: 0.01, description: 'Mirostat target entropy' },
+                    { key: 'lora_adapter', label: 'LoRA Adapter', type: 'text', description: 'Path to LoRA adapter' },
+                    { key: 'lora_base', label: 'LoRA Base', type: 'text', description: 'Base model for LoRA' },
+                    { key: 'lora_scale', label: 'LoRA Scale', type: 'number', step: 0.01, description: 'LoRA scaling factor' },
+                    { key: 'lora_adapters', label: 'LoRA Adapters', type: 'array', description: 'Multiple LoRA adapters' },
+                    { key: 'lora_scales', label: 'LoRA Scales', type: 'array', description: 'Scaling factors for multiple LoRA adapters' },
+                    { key: 'rope_scaling', label: 'RoPE Scaling', type: 'text', description: 'RoPE position scaling method' },
+                    { key: 'yarn_ext_factor', label: 'YARN Ext Factor', type: 'number', step: 0.01, description: 'YARN extension factor' },
+                    { key: 'yarn_attn_factor', label: 'YARN Attn Factor', type: 'number', step: 0.01, description: 'YARN attention factor' },
+                    { key: 'yarn_beta_fast', label: 'YARN Beta Fast', type: 'number', step: 0.01, description: 'YARN beta fast parameter' },
+                    { key: 'yarn_beta_slow', label: 'YARN Beta Slow', type: 'number', step: 0.01, description: 'YARN beta slow parameter' },
+                    { key: 'cfg_scale', label: 'CFG Scale', type: 'number', step: 0.01, description: 'Classifier-free guidance scale' },
+                    { key: 'grammar', label: 'Grammar', type: 'textarea', description: 'Grammar constraints for generation' },
+                    { key: 'quantization', label: 'Quantization', type: 'text', description: 'Quantization method (e.g., q4_0, q8_0)' },
+                    { key: 'load_format', label: 'Load Format', type: 'text', description: 'Model loading format' },
+                    { key: 'type', label: 'Model Type', type: 'text', description: 'Model architecture type' }
+                ]
+            },
+            {
+                title: 'vLLM Configuration',
+                icon: 'fas fa-server',
+                collapsible: true,
+                fields: [
+                    { key: 'gpu_memory_utilization', label: 'GPU Memory Utilization', type: 'number', step: 0.01, min: 0, max: 1, description: 'GPU memory utilization ratio (0-1)' },
+                    { key: 'trust_remote_code', label: 'Trust Remote Code', type: 'checkbox', description: 'Trust remote code execution' },
+                    { key: 'enforce_eager', label: 'Enforce Eager', type: 'checkbox', description: 'Enforce eager execution' },
+                    { key: 'swap_space', label: 'Swap Space', type: 'number', min: 0, description: 'Swap space in GB' },
+                    { key: 'max_model_len', label: 'Max Model Length', type: 'number', min: 1, description: 'Maximum model context length' },
+                    { key: 'tensor_parallel_size', label: 'Tensor Parallel Size', type: 'number', min: 1, description: 'Number of GPUs for tensor parallelism' },
+                    { key: 'disable_log_stats', label: 'Disable Log Stats', type: 'checkbox', description: 'Disable logging of statistics' },
+                    { key: 'dtype', label: 'Data Type', type: 'text', description: 'Model data type (e.g., float16, bfloat16)' }
+                ]
+            },
+            {
+                title: 'Text Processing',
+                icon: 'fas fa-text-width',
+                collapsible: true,
+                fields: [
+                    { key: 'stopwords', label: 'Stop Words', type: 'array', description: 'List of stop words' },
+                    { key: 'cutstrings', label: 'Cut Strings', type: 'array', description: 'Strings to cut from output' },
+                    { key: 'extract_regex', label: 'Extract Regex', type: 'array', description: 'Regex patterns for extraction' },
+                    { key: 'trimspace', label: 'Trim Space', type: 'array', description: 'Characters to trim' },
+                    { key: 'trimsuffix', label: 'Trim Suffix', type: 'array', description: 'Suffixes to trim' },
+                    { key: 'options', label: 'Options', type: 'array', description: 'Additional options' },
+                    { key: 'roles', label: 'Roles', type: 'keyvalue', description: 'Role mappings' }
+                ]
+            }
+        ];
+
+        formSections.forEach(section => {
+            const sectionEl = this.createFormSection(section);
+            form.appendChild(sectionEl);
+        });
+    }
+
+    createFormSection(section) {
+        const sectionDiv = document.createElement('div');
+        sectionDiv.className = 'bg-gray-700/30 rounded-lg border border-gray-600/50';
+        
+        const isCollapsible = section.collapsible;
+        const sectionId = section.title.toLowerCase().replace(/\s+/g, '-');
+        
+        sectionDiv.innerHTML = `
+            <div class="p-4 border-b border-gray-600/50 ${isCollapsible ? 'cursor-pointer' : ''}" ${isCollapsible ? `onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.collapse-icon').classList.toggle('rotate-180')"` : ''}>
+                <h3 class="text-lg font-semibold text-white flex items-center gap-2">
+                    <i class="${section.icon}"></i>
+                    ${section.title}
+                    ${isCollapsible ? '<i class="fas fa-chevron-down text-sm ml-auto collapse-icon transition-transform"></i>' : ''}
+                </h3>
+            </div>
+            <div class="p-4 space-y-4 ${isCollapsible ? 'hidden' : ''}" id="${sectionId}-content">
+                ${section.fields.map(field => this.createFormField(field)).join('')}
+            </div>
+        `;
+        
+        return sectionDiv;
+    }
+
+    createFormField(field) {
+        const value = this.getNestedValue(this.config, field.key) || '';
+        const fieldId = field.key.replace(/\./g, '_');
+        
+        let inputHtml = '';
+        
+        switch (field.type) {
+            case 'text':
+                const readonlyAttr = field.readonly ? 'readonly' : '';
+                const readonlyClass = field.readonly ? 'bg-gray-700 cursor-not-allowed' : 'bg-gray-800';
+                inputHtml = `<input type="text" id="${fieldId}" name="${field.key}" value="${value}" class="w-full p-3 ${readonlyClass} border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${field.required ? 'required' : ''} ${readonlyAttr}>`;
+                break;
+                
+            case 'textarea':
+                inputHtml = `<textarea id="${fieldId}" name="${field.key}" rows="3" class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical">${value}</textarea>`;
+                break;
+                
+            case 'number':
+                const step = field.step || '1';
+                const min = field.min !== undefined ? `min="${field.min}"` : '';
+                const max = field.max !== undefined ? `max="${field.max}"` : '';
+                inputHtml = `<input type="number" id="${fieldId}" name="${field.key}" value="${value}" step="${step}" ${min} ${max} class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent">`;
+                break;
+                
+            case 'checkbox':
+                const checked = value === true || value === 'true' ? 'checked' : '';
+                inputHtml = `
+                    <div class="flex items-center">
+                        <input type="checkbox" id="${fieldId}" name="${field.key}" ${checked} class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                        <label for="${fieldId}" class="ml-2 text-sm text-gray-300">Enable</label>
+                    </div>`;
+                break;
+                
+            case 'select':
+                const options = field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt || '(Select backend)'}</option>`).join('');
+                inputHtml = `<select id="${fieldId}" name="${field.key}" class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${field.required ? 'required' : ''}>${options}</select>`;
+                break;
+                
+            case 'multiselect':
+                const currentValues = Array.isArray(value) ? value : [];
+                const checkboxes = field.options.map(opt => {
+                    const isChecked = currentValues.includes(opt);
+                    return `
+                        <div class="flex items-center">
+                            <input type="checkbox" id="${fieldId}_${opt}" name="${field.key}" value="${opt}" ${isChecked ? 'checked' : ''} class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
+                            <label for="${fieldId}_${opt}" class="ml-2 text-sm text-gray-300">${opt}</label>
+                        </div>`;
+                }).join('');
+                inputHtml = `<div class="space-y-2 max-h-32 overflow-y-auto">${checkboxes}</div>`;
+                break;
+                
+            case 'array':
+                const arrayValues = Array.isArray(value) ? value : [];
+                inputHtml = `
+                    <div class="space-y-2">
+                        <div id="${fieldId}_container" class="space-y-2">
+                            ${arrayValues.map((item, index) => `
+                                <div class="flex gap-2">
+                                    <input type="text" value="${item}" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateArrayField('${field.key}', ${index}, this.value)">
+                                    <button type="button" onclick="modelEditor.removeArrayItem('${field.key}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button type="button" onclick="modelEditor.addArrayItem('${field.key}')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                            <i class="fas fa-plus"></i> Add Item
+                        </button>
+                    </div>`;
+                break;
+                
+            case 'keyvalue':
+                const kvPairs = typeof value === 'object' && value !== null ? value : {};
+                const kvEntries = Object.entries(kvPairs);
+                inputHtml = `
+                    <div class="space-y-2">
+                        <div id="${fieldId}_container" class="space-y-2">
+                            ${kvEntries.map(([key, val], index) => `
+                                <div class="flex gap-2">
+                                    <input type="text" value="${key}" placeholder="Key" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${field.key}', ${index}, this.value, this.nextElementSibling.value, 'key')">
+                                    <input type="text" value="${val}" placeholder="Value" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${field.key}', ${index}, this.previousElementSibling.value, this.value, 'value')">
+                                    <button type="button" onclick="modelEditor.removeKeyValueItem('${field.key}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button type="button" onclick="modelEditor.addKeyValueItem('${field.key}')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
+                            <i class="fas fa-plus"></i> Add Pair
+                        </button>
+                    </div>`;
+                break;
+        }
+        
+        return `
+            <div class="space-y-2">
+                <label for="${fieldId}" class="block text-sm font-medium text-gray-300">
+                    ${field.label}
+                    ${field.required ? '<span class="text-red-400">*</span>' : ''}
+                </label>
+                ${inputHtml}
+                ${field.description ? `<p class="text-xs text-gray-500">${field.description}</p>` : ''}
+            </div>
+        `;
+    }
+
+    initializeCodeMirror() {
+        this.yamlEditor = CodeMirror(document.getElementById('yamlCodeMirror'), {
+            mode: 'yaml',
+            theme: 'default',
+            lineNumbers: true,
+            autoRefresh: true,
+            indentUnit: 2,
+            tabSize: 2,
+            indentWithTabs: false,
+            lineWrapping: false,
+            styleActiveLine: true,
+            value: {{if .ConfigYAML}}`{{.ConfigYAML}}`{{else}}'# Configuration will appear here...'{{end}}
+        });
+
+        // Update config when YAML changes
+        this.yamlEditor.on('change', () => {
+            if (!this.isUpdatingFromForm) {
+                this.updateConfigFromYaml();
+            }
+        });
+
+        // If no initial YAML, set the default config
+        {{if not .ConfigYAML}}
+        setTimeout(() => {
+            this.updateYamlEditor();
+        }, 100);
+        {{end}}
+    }
+
+    configToYaml() {
+        try {
+            return jsyaml.dump(this.config, {
+                indent: 2,
+                lineWidth: 120,
+                noRefs: true,
+                sortKeys: false
+            });
+        } catch (error) {
+            console.error('Failed to generate YAML:', error);
+            return '';
+        }
+    }
+
+    bindEvents() {
+        // Form change events
+        document.getElementById('configForm').addEventListener('change', (e) => {
+            if (!this.isUpdatingFromYaml) {
+                this.updateConfigFromForm();
+            }
+        });
+
+        document.getElementById('configForm').addEventListener('input', (e) => {
+            if (!this.isUpdatingFromYaml && e.target.type !== 'checkbox') {
+                this.updateConfigFromForm();
+            }
+        });
+
+        // Button events
+        document.getElementById('saveBtn').addEventListener('click', () => this.saveConfig());
+        document.getElementById('validateBtn').addEventListener('click', () => this.validateConfig());
+        document.getElementById('resetFormBtn').addEventListener('click', () => this.resetForm());
+        document.getElementById('expandAllBtn').addEventListener('click', () => this.expandAllSections());
+        document.getElementById('formatYamlBtn').addEventListener('click', () => this.formatYaml());
+        document.getElementById('copyYamlBtn').addEventListener('click', () => this.copyYaml());
+    }
+
+
+
+    updateConfigFromForm() {
+        this.isUpdatingFromForm = true;
+        
+        const formData = new FormData(document.getElementById('configForm'));
+        const newConfig = {};
+        
+        for (let [key, value] of formData.entries()) {
+            this.setNestedValue(newConfig, key, value);
+        }
+        
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            if (checkbox.name && !checkbox.name.includes('known_usecases')) {
+                this.setNestedValue(newConfig, checkbox.name, checkbox.checked);
+            }
+        });
+        
+        const multiselectContainers = document.querySelectorAll('input[type="checkbox"][name*="known_usecases"]');
+        const usecases = [];
+        multiselectContainers.forEach(checkbox => {
+            if (checkbox.checked) {
+                usecases.push(checkbox.value);
+            }
+        });
+        if (usecases.length > 0) {
+            newConfig.known_usecases = usecases;
+        }
+        
+        this.config = this.deepMerge(this.config, newConfig);
+        
+        this.updateYamlEditor();
+        this.isUpdatingFromForm = false;
+    }
+
+    updateConfigFromYaml() {
+        if (this.isUpdatingFromForm) return;
+        
+        this.isUpdatingFromYaml = true;
+        
+        try {
+            const yamlContent = this.yamlEditor.getValue();
+            this.config = jsyaml.load(yamlContent) || {};
+            this.updateFormFromConfig();
+            this.clearAlert();
+        } catch (error) {
+            this.showAlert('error', 'YAML Syntax Error: ' + error.message);
+        }
+        
+        this.isUpdatingFromYaml = false;
+    }
+
+    updateFormFromConfig() {
+        const form = document.getElementById('configForm');
+        const inputs = form.querySelectorAll('input, textarea, select');
+        
+        inputs.forEach(input => {
+            if (input.name && !input.name.includes('known_usecases')) {
+                const value = this.getNestedValue(this.config, input.name);
+                
+                if (input.type === 'checkbox') {
+                    input.checked = value === true || value === 'true';
+                    } else {
+                    input.value = value || '';
+                }
+            }
+        });
+        
+        this.updateMultiselectFromConfig();
+        this.updateArraysFromConfig();
+        this.updateKeyValueFromConfig();
+    }
+
+    updateMultiselectFromConfig() {
+        const usecases = this.config.known_usecases || [];
+        const checkboxes = document.querySelectorAll('input[type="checkbox"][name="known_usecases"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = usecases.includes(checkbox.value);
+        });
+    }
+
+    updateArraysFromConfig() {
+        const arrayFields = ['stopwords', 'cutstrings', 'extract_regex', 'trimspace', 'trimsuffix', 'options', 'lora_adapters', 'lora_scales'];
+        
+        arrayFields.forEach(field => {
+            const container = document.getElementById(field.replace(/\./g, '_') + '_container');
+            if (container) {
+                const values = this.getNestedValue(this.config, field) || [];
+                this.regenerateArrayField(field, values);
+            }
+        });
+    }
+
+    updateKeyValueFromConfig() {
+        const kvFields = ['roles'];
+        
+        kvFields.forEach(field => {
+            const container = document.getElementById(field.replace(/\./g, '_') + '_container');
+            if (container) {
+                const values = this.getNestedValue(this.config, field) || {};
+                this.regenerateKeyValueField(field, values);
+            }
+        });
+    }
+
+    updateYamlEditor() {
+        if (!this.isUpdatingFromForm) return;
+        
+        try {
+            const yamlContent = jsyaml.dump(this.config, {
+                indent: 2,
+                lineWidth: 120,
+                noRefs: true,
+                sortKeys: false
+            });
+            this.yamlEditor.setValue(yamlContent);
+        } catch (error) {
+            console.error('Failed to generate YAML:', error);
+        }
+    }
+
+    // Array manipulation methods
+    addArrayItem(fieldKey) {
+        const values = this.getNestedValue(this.config, fieldKey) || [];
+        values.push('');
+        this.setNestedValue(this.config, fieldKey, values);
+        this.regenerateArrayField(fieldKey, values);
+        this.updateYamlEditor();
+    }
+
+    removeArrayItem(fieldKey, index) {
+        const values = this.getNestedValue(this.config, fieldKey) || [];
+        values.splice(index, 1);
+        this.setNestedValue(this.config, fieldKey, values);
+        this.regenerateArrayField(fieldKey, values);
+        this.updateYamlEditor();
+    }
+
+    updateArrayField(fieldKey, index, value) {
+        const values = this.getNestedValue(this.config, fieldKey) || [];
+        values[index] = value;
+        this.setNestedValue(this.config, fieldKey, values);
+        this.updateYamlEditor();
+    }
+
+    regenerateArrayField(fieldKey, values) {
+        const fieldId = fieldKey.replace(/\./g, '_');
+        const container = document.getElementById(fieldId + '_container');
+        if (!container) return;
+        
+        container.innerHTML = values.map((item, index) => `
+            <div class="flex gap-2">
+                <input type="text" value="${item}" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateArrayField('${fieldKey}', ${index}, this.value)">
+                <button type="button" onclick="modelEditor.removeArrayItem('${fieldKey}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // Key-value manipulation methods
+    addKeyValueItem(fieldKey) {
+        const values = this.getNestedValue(this.config, fieldKey) || {};
+        const newKey = 'new_key_' + Object.keys(values).length;
+        values[newKey] = '';
+        this.setNestedValue(this.config, fieldKey, values);
+        this.regenerateKeyValueField(fieldKey, values);
+        this.updateYamlEditor();
+    }
+
+    removeKeyValueItem(fieldKey, index) {
+        const values = this.getNestedValue(this.config, fieldKey) || {};
+        const keys = Object.keys(values);
+        delete values[keys[index]];
+        this.setNestedValue(this.config, fieldKey, values);
+        this.regenerateKeyValueField(fieldKey, values);
+        this.updateYamlEditor();
+    }
+
+    updateKeyValueField(fieldKey, index, key, value, changeType) {
+        const values = this.getNestedValue(this.config, fieldKey) || {};
+        const keys = Object.keys(values);
+        const oldKey = keys[index];
+        
+        if (changeType === 'key' && key !== oldKey) {
+            delete values[oldKey];
+            values[key] = value;
+        } else {
+            values[key] = value;
+        }
+        
+        this.setNestedValue(this.config, fieldKey, values);
+        this.updateYamlEditor();
+    }
+
+    regenerateKeyValueField(fieldKey, values) {
+        const fieldId = fieldKey.replace(/\./g, '_');
+        const container = document.getElementById(fieldId + '_container');
+        if (!container) return;
+        
+        const entries = Object.entries(values);
+        container.innerHTML = entries.map(([key, val], index) => `
+            <div class="flex gap-2">
+                <input type="text" value="${key}" placeholder="Key" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${fieldKey}', ${index}, this.value, this.nextElementSibling.value, 'key')">
+                <input type="text" value="${val}" placeholder="Value" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${fieldKey}', ${index}, this.previousElementSibling.value, this.value, 'value')">
+                <button type="button" onclick="modelEditor.removeKeyValueItem('${fieldKey}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    // Utility methods
+    getNestedValue(obj, path) {
+        return path.split('.').reduce((current, key) => current && current[key], obj);
+    }
+
+    setNestedValue(obj, path, value) {
+        const keys = path.split('.');
+        const lastKey = keys.pop();
+        const target = keys.reduce((current, key) => {
+            if (!current[key] || typeof current[key] !== 'object') {
+                current[key] = {};
+            }
+            return current[key];
+        }, obj);
+        
+        if (value === 'true') value = true;
+        else if (value === 'false') value = false;
+        else if (value === '' || value === null) value = undefined;
+        else if (!isNaN(value) && !isNaN(parseFloat(value)) && value !== '') {
+            value = parseFloat(value);
+        }
+        
+        if (value !== undefined) {
+            target[lastKey] = value;
+        } else {
+            delete target[lastKey];
+        }
+    }
+
+    deepMerge(target, source) {
+        const result = { ...target };
+        
+        for (const key in source) {
+            if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+                result[key] = this.deepMerge(result[key] || {}, source[key]);
+            } else {
+                result[key] = source[key];
+            }
+        }
+        
+        return result;
+    }
+
+    // Action methods
+    validateConfig() {
+        try {
+            const yamlContent = this.yamlEditor.getValue();
+            jsyaml.load(yamlContent);
+            
+            if (!this.config.name) {
+                throw new Error('Model name is required');
+            }
+            if (!this.config.backend) {
+                throw new Error('Backend is required');
+            }
+            if (!this.config.parameters || !this.config.parameters.model) {
+                throw new Error('Model file/path is required');
+            }
+            
+            this.showAlert('success', 'Configuration is valid!');
+        } catch (error) {
+            this.showAlert('error', 'Validation failed: ' + error.message);
+        }
+    }
+
+    async saveConfig() {
+        try {
+            this.validateConfig();
+            
+            const yamlContent = this.yamlEditor.getValue();
+            const endpoint = this.isEditMode ? `/models/edit/${this.modelName}` : '/models/import';
+                
+                const response = await fetch(endpoint, {
+                method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-yaml',
+                    },
+                body: yamlContent
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                this.showAlert('success', result.message || (this.isEditMode ? 'Model updated successfully!' : 'Model created successfully!'));
+                if (!this.isEditMode && this.config.name) {
+                    setTimeout(() => {
+                        window.location.href = `/models/edit/${this.config.name}`;
+                    }, 2000);
+                    }
+                } else {
+                this.showAlert('error', result.error || 'Failed to save configuration');
+                }
+            } catch (error) {
+            this.showAlert('error', 'Failed to save: ' + error.message);
+        }
+    }
+
+    resetForm() {
+        if (confirm('Are you sure you want to reset the form? All changes will be lost.')) {
+            // Set the flag to allow YAML editor updates
+            this.isUpdatingFromForm = true;
+            
+            {{if .ConfigYAML}}
+            try {
+                this.config = jsyaml.load(`{{.ConfigYAML}}`);
+            } catch (e) {
+                this.config = this.getDefaultConfig();
+            }
+            {{else}}
+            this.config = this.getDefaultConfig();
+            {{end}}
+            
+            this.updateFormFromConfig();
+            this.updateYamlEditor();
+            
+            // Reset the flag
+            this.isUpdatingFromForm = false;
+            
+            this.showAlert('info', 'Form has been reset');
+        }
+    }
+
+    expandAllSections() {
+        const collapsibleSections = document.querySelectorAll('.collapse-icon');
+        collapsibleSections.forEach(icon => {
+            const content = icon.closest('div').nextElementSibling;
+            if (content.classList.contains('hidden')) {
+                content.classList.remove('hidden');
+                icon.classList.add('rotate-180');
+            }
+        });
+    }
+
+    formatYaml() {
+        try {
+            const yamlContent = this.yamlEditor.getValue();
+            const parsed = jsyaml.load(yamlContent);
+            const formatted = jsyaml.dump(parsed, {
+                indent: 2,
+                lineWidth: 120,
+                noRefs: true,
+                sortKeys: true
+            });
+            this.yamlEditor.setValue(formatted);
+            this.showAlert('success', 'YAML formatted successfully');
+        } catch (error) {
+            this.showAlert('error', 'Failed to format YAML: ' + error.message);
+        }
+    }
+
+    copyYaml() {
+        const yamlContent = this.yamlEditor.getValue();
+        navigator.clipboard.writeText(yamlContent).then(() => {
+            this.showAlert('success', 'YAML copied to clipboard');
+        }).catch(err => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = yamlContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            this.showAlert('success', 'YAML copied to clipboard');
+        });
+    }
+
+    showAlert(type, message) {
+        const container = document.getElementById('alertContainer');
+        const alertClasses = {
+            success: 'bg-green-600/20 border-green-600/50 text-green-200',
+            error: 'bg-red-600/20 border-red-600/50 text-red-200',
+            warning: 'bg-yellow-600/20 border-yellow-600/50 text-yellow-200',
+            info: 'bg-blue-600/20 border-blue-600/50 text-blue-200'
+        };
+        
+        const alertIcons = {
+            success: 'fas fa-check-circle',
+            error: 'fas fa-exclamation-triangle',
+            warning: 'fas fa-exclamation-circle',
+            info: 'fas fa-info-circle'
+        };
+        
+        container.innerHTML = `
+            <div class="p-4 rounded-lg border ${alertClasses[type]}">
+                <div class="flex items-center">
+                    <i class="${alertIcons[type]} mr-2"></i>
+                    <span>${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-200">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        if (type === 'success' || type === 'info') {
+            setTimeout(() => {
+                const alert = container.querySelector('div');
+                if (alert) alert.remove();
+            }, 5000);
+        }
+    }
+
+    clearAlert() {
+        document.getElementById('alertContainer').innerHTML = '';
+    }
+}
+
+// Initialize the editor when the page loads
+let modelEditor;
+document.addEventListener('DOMContentLoaded', () => {
+    modelEditor = new ModelEditor();
+});
+</script>
+
+</body>
+</html>

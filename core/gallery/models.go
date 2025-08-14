@@ -316,17 +316,12 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		return fmt.Errorf("failed to verify path %s: %w", galleryFile, err)
 	}
 
+	var filesToRemove []string
+
 	// Delete all the files associated to the model
 	// read the model config
 	galleryconfig, err := ReadConfigFile[ModelConfig](galleryFile)
-	if err != nil {
-		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
-	}
-
-	var filesToRemove []string
-
-	// Remove additional files
-	if galleryconfig != nil {
+	if err == nil && galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
 			if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
@@ -334,6 +329,8 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 			}
 			filesToRemove = append(filesToRemove, fullPath)
 		}
+	} else {
+		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
 	}
 
 	for _, f := range additionalFiles {
@@ -344,7 +341,6 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		filesToRemove = append(filesToRemove, fullPath)
 	}
 
-	filesToRemove = append(filesToRemove, configFile)
 	filesToRemove = append(filesToRemove, galleryFile)
 
 	// skip duplicates
@@ -353,11 +349,11 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	// Removing files
 	for _, f := range filesToRemove {
 		if e := os.Remove(f); e != nil {
-			err = errors.Join(err, fmt.Errorf("failed to remove file %s: %w", f, e))
+			log.Error().Err(e).Msgf("failed to remove file %s", f)
 		}
 	}
 
-	return err
+	return os.Remove(configFile)
 }
 
 // This is ***NEVER*** going to be perfect or finished.

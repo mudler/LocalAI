@@ -19,67 +19,68 @@ const (
 type TTSConfig struct {
 
 	// Voice wav path or id
-	Voice string `yaml:"voice"`
+	Voice string `yaml:"voice" json:"voice"`
 
-	AudioPath string `yaml:"audio_path"`
+	AudioPath string `yaml:"audio_path" json:"audio_path"`
 }
 
+// ModelConfig represents a model configuration
 type ModelConfig struct {
-	schema.PredictionOptions `yaml:"parameters"`
-	Name                     string `yaml:"name"`
+	schema.PredictionOptions `yaml:"parameters" json:"parameters"`
+	Name                     string `yaml:"name" json:"name"`
 
-	F16                 *bool                `yaml:"f16"`
-	Threads             *int                 `yaml:"threads"`
-	Debug               *bool                `yaml:"debug"`
-	Roles               map[string]string    `yaml:"roles"`
-	Embeddings          *bool                `yaml:"embeddings"`
-	Backend             string               `yaml:"backend"`
-	TemplateConfig      TemplateConfig       `yaml:"template"`
-	KnownUsecaseStrings []string             `yaml:"known_usecases"`
-	KnownUsecases       *ModelConfigUsecases `yaml:"-"`
-	Pipeline            Pipeline             `yaml:"pipeline"`
+	F16                 *bool                `yaml:"f16" json:"f16"`
+	Threads             *int                 `yaml:"threads" json:"threads"`
+	Debug               *bool                `yaml:"debug" json:"debug"`
+	Roles               map[string]string    `yaml:"roles" json:"roles"`
+	Embeddings          *bool                `yaml:"embeddings" json:"embeddings"`
+	Backend             string               `yaml:"backend" json:"backend"`
+	TemplateConfig      TemplateConfig       `yaml:"template" json:"template"`
+	KnownUsecaseStrings []string             `yaml:"known_usecases" json:"known_usecases"`
+	KnownUsecases       *ModelConfigUsecases `yaml:"-" json:"-"`
+	Pipeline            Pipeline             `yaml:"pipeline" json:"pipeline"`
 
-	PromptStrings, InputStrings                []string               `yaml:"-"`
-	InputToken                                 [][]int                `yaml:"-"`
-	functionCallString, functionCallNameString string                 `yaml:"-"`
-	ResponseFormat                             string                 `yaml:"-"`
-	ResponseFormatMap                          map[string]interface{} `yaml:"-"`
+	PromptStrings, InputStrings                []string               `yaml:"-" json:"-"`
+	InputToken                                 [][]int                `yaml:"-" json:"-"`
+	functionCallString, functionCallNameString string                 `yaml:"-" json:"-"`
+	ResponseFormat                             string                 `yaml:"-" json:"-"`
+	ResponseFormatMap                          map[string]interface{} `yaml:"-" json:"-"`
 
-	FunctionsConfig functions.FunctionsConfig `yaml:"function"`
+	FunctionsConfig functions.FunctionsConfig `yaml:"function" json:"function"`
 
-	FeatureFlag FeatureFlag `yaml:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
+	FeatureFlag FeatureFlag `yaml:"feature_flags" json:"feature_flags"` // Feature Flag registry. We move fast, and features may break on a per model/backend basis. Registry for (usually temporary) flags that indicate aborting something early.
 	// LLM configs (GPT4ALL, Llama.cpp, ...)
-	LLMConfig `yaml:",inline"`
+	LLMConfig `yaml:",inline" json:",inline"`
 
 	// Diffusers
-	Diffusers Diffusers `yaml:"diffusers"`
-	Step      int       `yaml:"step"`
+	Diffusers Diffusers `yaml:"diffusers" json:"diffusers"`
+	Step      int       `yaml:"step" json:"step"`
 
 	// GRPC Options
-	GRPC GRPC `yaml:"grpc"`
+	GRPC GRPC `yaml:"grpc" json:"grpc"`
 
 	// TTS specifics
-	TTSConfig `yaml:"tts"`
+	TTSConfig `yaml:"tts" json:"tts"`
 
 	// CUDA
 	// Explicitly enable CUDA or not (some backends might need it)
-	CUDA bool `yaml:"cuda"`
+	CUDA bool `yaml:"cuda" json:"cuda"`
 
-	DownloadFiles []File `yaml:"download_files"`
+	DownloadFiles []File `yaml:"download_files" json:"download_files"`
 
-	Description string `yaml:"description"`
-	Usage       string `yaml:"usage"`
+	Description string `yaml:"description" json:"description"`
+	Usage       string `yaml:"usage" json:"usage"`
 
-	Options   []string `yaml:"options"`
-	Overrides []string `yaml:"overrides"`
+	Options   []string `yaml:"options" json:"options"`
+	Overrides []string `yaml:"overrides" json:"overrides"`
 }
 
 // Pipeline defines other models to use for audio-to-audio
 type Pipeline struct {
-	TTS           string `yaml:"tts"`
-	LLM           string `yaml:"llm"`
-	Transcription string `yaml:"transcription"`
-	VAD           string `yaml:"vad"`
+	TTS           string `yaml:"tts" json:"tts"`
+	LLM           string `yaml:"llm" json:"llm"`
+	Transcription string `yaml:"transcription" json:"transcription"`
+	VAD           string `yaml:"vad" json:"vad"`
 }
 
 type File struct {
@@ -91,130 +92,132 @@ type File struct {
 type FeatureFlag map[string]*bool
 
 func (ff FeatureFlag) Enabled(s string) bool {
-	v, exist := ff[s]
-	return exist && v != nil && *v
+	if v, exists := ff[s]; exists && v != nil {
+		return *v
+	}
+	return false
 }
 
 type GRPC struct {
-	Attempts          int `yaml:"attempts"`
-	AttemptsSleepTime int `yaml:"attempts_sleep_time"`
+	Attempts          int `yaml:"attempts" json:"attempts"`
+	AttemptsSleepTime int `yaml:"attempts_sleep_time" json:"attempts_sleep_time"`
 }
 
 type Diffusers struct {
-	CUDA             bool   `yaml:"cuda"`
-	PipelineType     string `yaml:"pipeline_type"`
-	SchedulerType    string `yaml:"scheduler_type"`
-	EnableParameters string `yaml:"enable_parameters"` // A list of comma separated parameters to specify
-	IMG2IMG          bool   `yaml:"img2img"`           // Image to Image Diffuser
-	ClipSkip         int    `yaml:"clip_skip"`         // Skip every N frames
-	ClipModel        string `yaml:"clip_model"`        // Clip model to use
-	ClipSubFolder    string `yaml:"clip_subfolder"`    // Subfolder to use for clip model
-	ControlNet       string `yaml:"control_net"`
+	CUDA             bool   `yaml:"cuda" json:"cuda"`
+	PipelineType     string `yaml:"pipeline_type" json:"pipeline_type"`
+	SchedulerType    string `yaml:"scheduler_type" json:"scheduler_type"`
+	EnableParameters string `yaml:"enable_parameters" json:"enable_parameters"` // A list of comma separated parameters to specify
+	IMG2IMG          bool   `yaml:"img2img" json:"img2img"`                     // Image to Image Diffuser
+	ClipSkip         int    `yaml:"clip_skip" json:"clip_skip"`                 // Skip every N frames
+	ClipModel        string `yaml:"clip_model" json:"clip_model"`               // Clip model to use
+	ClipSubFolder    string `yaml:"clip_subfolder" json:"clip_subfolder"`       // Subfolder to use for clip model
+	ControlNet       string `yaml:"control_net" json:"control_net"`
 }
 
 // LLMConfig is a struct that holds the configuration that are
 // generic for most of the LLM backends.
 type LLMConfig struct {
-	SystemPrompt    string   `yaml:"system_prompt"`
-	TensorSplit     string   `yaml:"tensor_split"`
-	MainGPU         string   `yaml:"main_gpu"`
-	RMSNormEps      float32  `yaml:"rms_norm_eps"`
-	NGQA            int32    `yaml:"ngqa"`
-	PromptCachePath string   `yaml:"prompt_cache_path"`
-	PromptCacheAll  bool     `yaml:"prompt_cache_all"`
-	PromptCacheRO   bool     `yaml:"prompt_cache_ro"`
-	MirostatETA     *float64 `yaml:"mirostat_eta"`
-	MirostatTAU     *float64 `yaml:"mirostat_tau"`
-	Mirostat        *int     `yaml:"mirostat"`
-	NGPULayers      *int     `yaml:"gpu_layers"`
-	MMap            *bool    `yaml:"mmap"`
-	MMlock          *bool    `yaml:"mmlock"`
-	LowVRAM         *bool    `yaml:"low_vram"`
-	Reranking       *bool    `yaml:"reranking"`
-	Grammar         string   `yaml:"grammar"`
-	StopWords       []string `yaml:"stopwords"`
-	Cutstrings      []string `yaml:"cutstrings"`
-	ExtractRegex    []string `yaml:"extract_regex"`
-	TrimSpace       []string `yaml:"trimspace"`
-	TrimSuffix      []string `yaml:"trimsuffix"`
+	SystemPrompt    string   `yaml:"system_prompt" json:"system_prompt"`
+	TensorSplit     string   `yaml:"tensor_split" json:"tensor_split"`
+	MainGPU         string   `yaml:"main_gpu" json:"main_gpu"`
+	RMSNormEps      float32  `yaml:"rms_norm_eps" json:"rms_norm_eps"`
+	NGQA            int32    `yaml:"ngqa" json:"ngqa"`
+	PromptCachePath string   `yaml:"prompt_cache_path" json:"prompt_cache_path"`
+	PromptCacheAll  bool     `yaml:"prompt_cache_all" json:"prompt_cache_all"`
+	PromptCacheRO   bool     `yaml:"prompt_cache_ro" json:"prompt_cache_ro"`
+	MirostatETA     *float64 `yaml:"mirostat_eta" json:"mirostat_eta"`
+	MirostatTAU     *float64 `yaml:"mirostat_tau" json:"mirostat_tau"`
+	Mirostat        *int     `yaml:"mirostat" json:"mirostat"`
+	NGPULayers      *int     `yaml:"gpu_layers" json:"gpu_layers"`
+	MMap            *bool    `yaml:"mmap" json:"mmap"`
+	MMlock          *bool    `yaml:"mmlock" json:"mmlock"`
+	LowVRAM         *bool    `yaml:"low_vram" json:"low_vram"`
+	Reranking       *bool    `yaml:"reranking" json:"reranking"`
+	Grammar         string   `yaml:"grammar" json:"grammar"`
+	StopWords       []string `yaml:"stopwords" json:"stopwords"`
+	Cutstrings      []string `yaml:"cutstrings" json:"cutstrings"`
+	ExtractRegex    []string `yaml:"extract_regex" json:"extract_regex"`
+	TrimSpace       []string `yaml:"trimspace" json:"trimspace"`
+	TrimSuffix      []string `yaml:"trimsuffix" json:"trimsuffix"`
 
-	ContextSize          *int             `yaml:"context_size"`
-	NUMA                 bool             `yaml:"numa"`
-	LoraAdapter          string           `yaml:"lora_adapter"`
-	LoraBase             string           `yaml:"lora_base"`
-	LoraAdapters         []string         `yaml:"lora_adapters"`
-	LoraScales           []float32        `yaml:"lora_scales"`
-	LoraScale            float32          `yaml:"lora_scale"`
-	NoMulMatQ            bool             `yaml:"no_mulmatq"`
-	DraftModel           string           `yaml:"draft_model"`
-	NDraft               int32            `yaml:"n_draft"`
-	Quantization         string           `yaml:"quantization"`
-	LoadFormat           string           `yaml:"load_format"`
-	GPUMemoryUtilization float32          `yaml:"gpu_memory_utilization"` // vLLM
-	TrustRemoteCode      bool             `yaml:"trust_remote_code"`      // vLLM
-	EnforceEager         bool             `yaml:"enforce_eager"`          // vLLM
-	SwapSpace            int              `yaml:"swap_space"`             // vLLM
-	MaxModelLen          int              `yaml:"max_model_len"`          // vLLM
-	TensorParallelSize   int              `yaml:"tensor_parallel_size"`   // vLLM
-	DisableLogStatus     bool             `yaml:"disable_log_stats"`      // vLLM
-	DType                string           `yaml:"dtype"`                  // vLLM
-	LimitMMPerPrompt     LimitMMPerPrompt `yaml:"limit_mm_per_prompt"`    // vLLM
-	MMProj               string           `yaml:"mmproj"`
+	ContextSize          *int             `yaml:"context_size" json:"context_size"`
+	NUMA                 bool             `yaml:"numa" json:"numa"`
+	LoraAdapter          string           `yaml:"lora_adapter" json:"lora_adapter"`
+	LoraBase             string           `yaml:"lora_base" json:"lora_base"`
+	LoraAdapters         []string         `yaml:"lora_adapters" json:"lora_adapters"`
+	LoraScales           []float32        `yaml:"lora_scales" json:"lora_scales"`
+	LoraScale            float32          `yaml:"lora_scale" json:"lora_scale"`
+	NoMulMatQ            bool             `yaml:"no_mulmatq" json:"no_mulmatq"`
+	DraftModel           string           `yaml:"draft_model" json:"draft_model"`
+	NDraft               int32            `yaml:"n_draft" json:"n_draft"`
+	Quantization         string           `yaml:"quantization" json:"quantization"`
+	LoadFormat           string           `yaml:"load_format" json:"load_format"`
+	GPUMemoryUtilization float32          `yaml:"gpu_memory_utilization" json:"gpu_memory_utilization"` // vLLM
+	TrustRemoteCode      bool             `yaml:"trust_remote_code" json:"trust_remote_code"`           // vLLM
+	EnforceEager         bool             `yaml:"enforce_eager" json:"enforce_eager"`                   // vLLM
+	SwapSpace            int              `yaml:"swap_space" json:"swap_space"`                         // vLLM
+	MaxModelLen          int              `yaml:"max_model_len" json:"max_model_len"`                   // vLLM
+	TensorParallelSize   int              `yaml:"tensor_parallel_size" json:"tensor_parallel_size"`     // vLLM
+	DisableLogStatus     bool             `yaml:"disable_log_stats" json:"disable_log_stats"`           // vLLM
+	DType                string           `yaml:"dtype" json:"dtype"`                                   // vLLM
+	LimitMMPerPrompt     LimitMMPerPrompt `yaml:"limit_mm_per_prompt" json:"limit_mm_per_prompt"`       // vLLM
+	MMProj               string           `yaml:"mmproj" json:"mmproj"`
 
-	FlashAttention bool   `yaml:"flash_attention"`
-	NoKVOffloading bool   `yaml:"no_kv_offloading"`
-	CacheTypeK     string `yaml:"cache_type_k"`
-	CacheTypeV     string `yaml:"cache_type_v"`
+	FlashAttention bool   `yaml:"flash_attention" json:"flash_attention"`
+	NoKVOffloading bool   `yaml:"no_kv_offloading" json:"no_kv_offloading"`
+	CacheTypeK     string `yaml:"cache_type_k" json:"cache_type_k"`
+	CacheTypeV     string `yaml:"cache_type_v" json:"cache_type_v"`
 
-	RopeScaling string `yaml:"rope_scaling"`
-	ModelType   string `yaml:"type"`
+	RopeScaling string `yaml:"rope_scaling" json:"rope_scaling"`
+	ModelType   string `yaml:"type" json:"type"`
 
-	YarnExtFactor  float32 `yaml:"yarn_ext_factor"`
-	YarnAttnFactor float32 `yaml:"yarn_attn_factor"`
-	YarnBetaFast   float32 `yaml:"yarn_beta_fast"`
-	YarnBetaSlow   float32 `yaml:"yarn_beta_slow"`
+	YarnExtFactor  float32 `yaml:"yarn_ext_factor" json:"yarn_ext_factor"`
+	YarnAttnFactor float32 `yaml:"yarn_attn_factor" json:"yarn_attn_factor"`
+	YarnBetaFast   float32 `yaml:"yarn_beta_fast" json:"yarn_beta_fast"`
+	YarnBetaSlow   float32 `yaml:"yarn_beta_slow" json:"yarn_beta_slow"`
 
-	CFGScale float32 `yaml:"cfg_scale"` // Classifier-Free Guidance Scale
+	CFGScale float32 `yaml:"cfg_scale" json:"cfg_scale"` // Classifier-Free Guidance Scale
 }
 
 // LimitMMPerPrompt is a struct that holds the configuration for the limit-mm-per-prompt config in vLLM
 type LimitMMPerPrompt struct {
-	LimitImagePerPrompt int `yaml:"image"`
-	LimitVideoPerPrompt int `yaml:"video"`
-	LimitAudioPerPrompt int `yaml:"audio"`
+	LimitImagePerPrompt int `yaml:"image" json:"image"`
+	LimitVideoPerPrompt int `yaml:"video" json:"video"`
+	LimitAudioPerPrompt int `yaml:"audio" json:"audio"`
 }
 
 // TemplateConfig is a struct that holds the configuration of the templating system
 type TemplateConfig struct {
 	// Chat is the template used in the chat completion endpoint
-	Chat string `yaml:"chat"`
+	Chat string `yaml:"chat" json:"chat"`
 
 	// ChatMessage is the template used for chat messages
-	ChatMessage string `yaml:"chat_message"`
+	ChatMessage string `yaml:"chat_message" json:"chat_message"`
 
 	// Completion is the template used for completion requests
-	Completion string `yaml:"completion"`
+	Completion string `yaml:"completion" json:"completion"`
 
 	// Edit is the template used for edit completion requests
-	Edit string `yaml:"edit"`
+	Edit string `yaml:"edit" json:"edit"`
 
 	// Functions is the template used when tools are present in the client requests
-	Functions string `yaml:"function"`
+	Functions string `yaml:"function" json:"function"`
 
 	// UseTokenizerTemplate is a flag that indicates if the tokenizer template should be used.
 	// Note: this is mostly consumed for backends such as vllm and transformers
 	// that can use the tokenizers specified in the JSON config files of the models
-	UseTokenizerTemplate bool `yaml:"use_tokenizer_template"`
+	UseTokenizerTemplate bool `yaml:"use_tokenizer_template" json:"use_tokenizer_template"`
 
 	// JoinChatMessagesByCharacter is a string that will be used to join chat messages together.
 	// It defaults to \n
-	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character"`
+	JoinChatMessagesByCharacter *string `yaml:"join_chat_messages_by_character" json:"join_chat_messages_by_character"`
 
-	Multimodal string `yaml:"multimodal"`
+	Multimodal string `yaml:"multimodal" json:"multimodal"`
 
-	JinjaTemplate bool `yaml:"jinja_template"`
+	JinjaTemplate bool `yaml:"jinja_template" json:"jinja_template"`
 
-	ReplyPrefix string `yaml:"reply_prefix"`
+	ReplyPrefix string `yaml:"reply_prefix" json:"reply_prefix"`
 }
 
 func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
