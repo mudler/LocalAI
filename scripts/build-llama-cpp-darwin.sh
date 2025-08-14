@@ -16,6 +16,8 @@ make llama-cpp-rpc-server
 popd
 
 mkdir -p build/darwin
+mkdir -p backend-images
+mkdir -p build/darwin/lib
 
 # cp -rf backend/cpp/llama-cpp/llama-cpp-avx build/darwin/
 # cp -rf backend/cpp/llama-cpp/llama-cpp-avx2 build/darwin/
@@ -24,11 +26,15 @@ cp -rf backend/cpp/llama-cpp/llama-cpp-fallback build/darwin/
 cp -rf backend/cpp/llama-cpp/llama-cpp-grpc build/darwin/
 cp -rf backend/cpp/llama-cpp/llama-cpp-rpc-server build/darwin/
 
+ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-$(ls /opt/homebrew/Cellar/protobuf/**/lib/libutf8_validity.dylib)}
+
+for file in $ADDITIONAL_LIBS; do
+  cp -rfv $file build/darwin/lib
+done
+
 for file in build/darwin/*; do
   LIBS="$(otool -L $file | awk 'NR > 1 { system("echo " $1) } ' | xargs echo)"
-
   for lib in $LIBS; do
-    mkdir -p build/darwin/lib
     # only libraries ending in dylib
     if [[ "$lib" == *.dylib ]]; then
         if [ -e "$lib" ]; then
@@ -38,13 +44,21 @@ for file in build/darwin/*; do
   done
 done
 
+echo "--------------------------------"
+echo "ADDITIONAL_LIBS: $ADDITIONAL_LIBS"
+echo "--------------------------------"
+
+echo "Bundled libraries:"
+ls -la build/darwin/lib
+
+
 cp -rf backend/cpp/llama-cpp/run.sh build/darwin/
 
 PLATFORMARCH="${PLATFORMARCH:-darwin/arm64}"
 
 ./local-ai util create-oci-image \
         build/darwin/. \
-        --output build/darwin.tar \
+        --output ./backend-images/llama-cpp.tar \
         --image-name $IMAGE_NAME \
         --platform $PLATFORMARCH
 

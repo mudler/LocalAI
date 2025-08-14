@@ -42,7 +42,8 @@ fi
  
 # Extend ld library path with the dir where this script is located/lib
 if [ "$(uname)" == "Darwin" ]; then
-	DYLD_FALLBACK_LIBRARY_PATH=$CURDIR/lib:$DYLD_FALLBACK_LIBRARY_PATH
+	export DYLD_LIBRARY_PATH=$CURDIR/lib:$DYLD_LIBRARY_PATH
+	#export DYLD_FALLBACK_LIBRARY_PATH=$CURDIR/lib:$DYLD_FALLBACK_LIBRARY_PATH
 else
 	export LD_LIBRARY_PATH=$CURDIR/lib:$LD_LIBRARY_PATH
 fi
@@ -57,5 +58,5 @@ fi
 echo "Using binary: $BINARY"
 exec $CURDIR/$BINARY "$@"
 
-# In case we fail execing, just run fallback
+# We should never reach this point, however just in case we do, run fallback
 exec $CURDIR/llama-cpp-fallback "$@"
