@@ -214,11 +214,7 @@ jobs:
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go
-          make build
-          bash scripts/build-llama-cpp-darwin.sh
-          ls -la build/darwin.tar
-          mv build/darwin.tar build/llama-cpp.tar
-          ./local-ai backends install "ocifile://$PWD/build/llama-cpp.tar"
+          make backends/llama-cpp-darwin
       - name: Test
         run: |
           export C_INCLUDE_PATH=/usr/local/include

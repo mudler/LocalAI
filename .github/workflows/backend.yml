@@ -969,10 +969,7 @@ jobs:
       - name: Build llama-cpp-darwin
         run: |
           make protogen-go
-          make build
-          bash scripts/build-llama-cpp-darwin.sh
-          ls -la build/darwin.tar
-          mv build/darwin.tar build/llama-cpp.tar
+          make backends/llama-cpp-darwin
       - name: Upload llama-cpp.tar
         uses: actions/upload-artifact@v4
         with:
@@ -1060,9 +1057,7 @@ jobs:
           make protogen-go
           make build
           export PLATFORMARCH=darwin/amd64
-          bash scripts/build-llama-cpp-darwin.sh
-          ls -la build/darwin.tar
-          mv build/darwin.tar build/llama-cpp.tar
+          make backends/llama-cpp-darwin
       - name: Upload llama-cpp.tar
         uses: actions/upload-artifact@v4
         with:

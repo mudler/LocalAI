@@ -165,6 +165,10 @@ backends/kitten-tts: docker-build-kitten-tts docker-save-kitten-tts build
 backends/kokoro: docker-build-kokoro docker-save-kokoro build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/kokoro.tar)"
 
+backends/llama-cpp-darwin: build
+	bash ./scripts/build-llama-cpp-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
 ########################################################
 ## AIO tests
 ########################################################
