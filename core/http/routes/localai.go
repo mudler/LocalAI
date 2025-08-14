@@ -27,7 +27,9 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		// Import model page
 		router.Get("/import-model", func(c *fiber.Ctx) error {
 			return c.Render("views/model-editor", fiber.Map{
+				"Title":   "LocalAI - Import Model",
 				"BaseURL": httpUtils.BaseURL(c),
+				"Version": internal.PrintableVersion(),
 			})
 		})
 
@@ -56,7 +58,7 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Post("/models/import", localai.ImportModelEndpoint(cl, appConfig))
 
 		// Custom model edit endpoint
-		router.Put("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
+		router.Post("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
 	}
 
 	router.Post("/v1/detection",
