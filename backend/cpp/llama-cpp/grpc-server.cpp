@@ -53,9 +53,9 @@ static void start_llama_server(server_context& ctx_server) {
     LOG_INF("%s: model loaded\n", __func__);
 
     // print sample chat example to make it clear which template is used
-    LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
-        common_chat_templates_source(ctx_server.chat_templates.get()),
-        common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja).c_str());
+    // LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
+    //     common_chat_templates_source(ctx_server.chat_templates.get()),
+    //     common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja).c_str(), ctx_server.params_base.default_template_kwargs);
 
     // Reset the chat templates
     // TODO: We should make this configurable by respecting the option that is already present in LocalAI for vLLM
