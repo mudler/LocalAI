@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/store"
+	"github.com/mudler/LocalAI/pkg/system"
 )
 
 func normalize(vecs [][]float32) {
@@ -46,7 +47,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 
 			debug := true
 
-			bc := config.BackendConfig{
+			bc := config.ModelConfig{
 				Name:    "store test",
 				Debug:   &debug,
 				Backend: model.LocalStoreBackend,
@@ -57,7 +58,12 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 				model.WithModel("test"),
 			}
 
-			sl = model.NewModelLoader("", false)
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tmpdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			sl = model.NewModelLoader(systemState, false)
 			sc, err = sl.Load(storeOpts...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sc).ToNot(BeNil())

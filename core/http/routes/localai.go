@@ -14,7 +14,7 @@ import (
 
 func RegisterLocalAIRoutes(router *fiber.App,
 	requestExtractor *middleware.RequestExtractor,
-	cl *config.BackendConfigLoader,
+	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService) {
@@ -23,20 +23,23 @@ func RegisterLocalAIRoutes(router *fiber.App,
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
-		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.ModelPath, galleryService)
+		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService)
 		router.Post("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
 		router.Post("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
 
-		router.Get("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint())
+		router.Get("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint(appConfig.SystemState))
 		router.Get("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint())
 		router.Get("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint())
 		router.Get("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
 
-		backendGalleryEndpointService := localai.CreateBackendEndpointService(appConfig.BackendGalleries, appConfig.BackendsPath, galleryService)
+		backendGalleryEndpointService := localai.CreateBackendEndpointService(
+			appConfig.BackendGalleries,
+			appConfig.SystemState,
+			galleryService)
 		router.Post("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint())
 		router.Post("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint())
-		router.Get("/backends", backendGalleryEndpointService.ListBackendsEndpoint())
-		router.Get("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint())
+		router.Get("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState))
+		router.Get("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState))
 		router.Get("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint())
 		router.Get("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
 	}

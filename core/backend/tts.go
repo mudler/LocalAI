@@ -19,9 +19,9 @@ func ModelTTS(
 	language string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	backendConfig config.BackendConfig,
+	modelConfig config.ModelConfig,
 ) (string, *proto.Result, error) {
-	opts := ModelOptions(backendConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig)
 	ttsModel, err := loader.Load(opts...)
 	if err != nil {
 		return "", nil, err
@@ -29,7 +29,7 @@ func ModelTTS(
 	defer loader.Close()
 
 	if ttsModel == nil {
-		return "", nil, fmt.Errorf("could not load tts model %q", backendConfig.Model)
+		return "", nil, fmt.Errorf("could not load tts model %q", modelConfig.Model)
 	}
 
 	audioDir := filepath.Join(appConfig.GeneratedContentDir, "audio")
@@ -47,14 +47,14 @@ func ModelTTS(
 	// Checking first that it exists and is not outside ModelPath
 	// TODO: we should actually first check if the modelFile is looking like
 	// a FS path
-	mp := filepath.Join(loader.ModelPath, backendConfig.Model)
+	mp := filepath.Join(loader.ModelPath, modelConfig.Model)
 	if _, err := os.Stat(mp); err == nil {
-		if err := utils.VerifyPath(mp, appConfig.ModelPath); err != nil {
+		if err := utils.VerifyPath(mp, appConfig.SystemState.Model.ModelsPath); err != nil {
 			return "", nil, err
 		}
 		modelPath = mp
 	} else {
-		modelPath = backendConfig.Model // skip this step if it fails?????
+		modelPath = modelConfig.Model // skip this step if it fails?????
 	}
 
 	res, err := ttsModel.TTS(context.Background(), &proto.TTSRequest{

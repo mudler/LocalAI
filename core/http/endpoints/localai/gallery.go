@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 )
 
@@ -26,11 +27,11 @@ type GalleryModel struct {
 	gallery.GalleryModel
 }
 
-func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, modelPath string, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
+func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGalleries []config.Gallery, systemState *system.SystemState, galleryApplier *services.GalleryService) ModelGalleryEndpointService {
 	return ModelGalleryEndpointService{
 		galleries:        galleries,
 		backendGalleries: backendGalleries,
-		modelPath:        modelPath,
+		modelPath:        systemState.Model.ModelsPath,
 		galleryApplier:   galleryApplier,
 	}
 }
@@ -115,10 +116,10 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 // @Summary List installable models.
 // @Success 200 {object} []gallery.GalleryModel "Response"
 // @Router /models/available [get]
-func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint() func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState *system.SystemState) func(c *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 
-		models, err := gallery.AvailableGalleryModels(mgs.galleries, mgs.modelPath)
+		models, err := gallery.AvailableGalleryModels(mgs.galleries, systemState)
 		if err != nil {
 			log.Error().Err(err).Msg("could not list models from galleries")
 			return err

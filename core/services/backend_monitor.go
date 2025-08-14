@@ -16,21 +16,21 @@ import (
 )
 
 type BackendMonitorService struct {
-	backendConfigLoader *config.BackendConfigLoader
-	modelLoader         *model.ModelLoader
-	options             *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
+	modelConfigLoader *config.ModelConfigLoader
+	modelLoader       *model.ModelLoader
+	options           *config.ApplicationConfig // Taking options in case we need to inspect ExternalGRPCBackends, though that's out of scope for now, hence the name.
 }
 
-func NewBackendMonitorService(modelLoader *model.ModelLoader, configLoader *config.BackendConfigLoader, appConfig *config.ApplicationConfig) *BackendMonitorService {
+func NewBackendMonitorService(modelLoader *model.ModelLoader, configLoader *config.ModelConfigLoader, appConfig *config.ApplicationConfig) *BackendMonitorService {
 	return &BackendMonitorService{
-		modelLoader:         modelLoader,
-		backendConfigLoader: configLoader,
-		options:             appConfig,
+		modelLoader:       modelLoader,
+		modelConfigLoader: configLoader,
+		options:           appConfig,
 	}
 }
 
 func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string) (string, error) {
-	config, exists := bms.backendConfigLoader.GetBackendConfig(modelName)
+	config, exists := bms.modelConfigLoader.GetModelConfig(modelName)
 	var backendId string
 	if exists {
 		backendId = config.Model
@@ -47,7 +47,7 @@ func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string)
 }
 
 func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
-	config, exists := bms.backendConfigLoader.GetBackendConfig(model)
+	config, exists := bms.modelConfigLoader.GetModelConfig(model)
 	var backend string
 	if exists {
 		backend = config.Model

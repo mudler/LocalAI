@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func guessDefaultsFromFile(cfg *BackendConfig, modelPath string, defaultCtx int) {
+func guessDefaultsFromFile(cfg *ModelConfig, modelPath string, defaultCtx int) {
 	if os.Getenv("LOCALAI_DISABLE_GUESSING") == "true" {
 		log.Debug().Msgf("guessDefaultsFromFile: %s", "guessing disabled with LOCALAI_DISABLE_GUESSING")
 		return

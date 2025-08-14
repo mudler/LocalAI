@@ -26,16 +26,16 @@ type correlationIDKeyType string
 const CorrelationIDKey correlationIDKeyType = "correlationID"
 
 type RequestExtractor struct {
-	backendConfigLoader *config.BackendConfigLoader
-	modelLoader         *model.ModelLoader
-	applicationConfig   *config.ApplicationConfig
+	modelConfigLoader *config.ModelConfigLoader
+	modelLoader       *model.ModelLoader
+	applicationConfig *config.ApplicationConfig
 }
 
-func NewRequestExtractor(backendConfigLoader *config.BackendConfigLoader, modelLoader *model.ModelLoader, applicationConfig *config.ApplicationConfig) *RequestExtractor {
+func NewRequestExtractor(modelConfigLoader *config.ModelConfigLoader, modelLoader *model.ModelLoader, applicationConfig *config.ApplicationConfig) *RequestExtractor {
 	return &RequestExtractor{
-		backendConfigLoader: backendConfigLoader,
-		modelLoader:         modelLoader,
-		applicationConfig:   applicationConfig,
+		modelConfigLoader: modelConfigLoader,
+		modelLoader:       modelLoader,
+		applicationConfig: applicationConfig,
 	}
 }
 
@@ -59,7 +59,7 @@ func (re *RequestExtractor) setModelNameFromRequest(ctx *fiber.Ctx) {
 		// Set model from bearer token, if available
 		bearer := strings.TrimLeft(ctx.Get("authorization"), "Bear ") // "Bearer " => "Bear" to please go-staticcheck. It looks dumb but we might as well take free performance on something called for nearly every request.
 		if bearer != "" {
-			exists, err := services.CheckIfModelExists(re.backendConfigLoader, re.modelLoader, bearer, services.ALWAYS_INCLUDE)
+			exists, err := services.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, services.ALWAYS_INCLUDE)
 			if err == nil && exists {
 				model = bearer
 			}
@@ -81,7 +81,7 @@ func (re *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModel
 	}
 }
 
-func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn config.BackendConfigFilterFn) fiber.Handler {
+func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn config.ModelConfigFilterFn) fiber.Handler {
 	return func(ctx *fiber.Ctx) error {
 		re.setModelNameFromRequest(ctx)
 		localModelName := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
@@ -89,7 +89,7 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 			return ctx.Next()
 		}
 
-		modelNames, err := services.ListModels(re.backendConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
+		modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
 		if err != nil {
 			log.Error().Err(err).Msg("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()")
 			return ctx.Next()
@@ -129,7 +129,7 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			}
 		}
 
-		cfg, err := re.backendConfigLoader.LoadBackendConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
+		cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
 
 		if err != nil {
 			log.Err(err)
@@ -152,7 +152,7 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 		return fiber.ErrBadRequest
 	}
 
-	cfg, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.BackendConfig)
+	cfg, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 	if !ok || cfg == nil {
 		return fiber.ErrBadRequest
 	}
@@ -168,7 +168,7 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 	input.Context = ctxWithCorrelationID
 	input.Cancel = cancel
 
-	err := mergeOpenAIRequestAndBackendConfig(cfg, input)
+	err := mergeOpenAIRequestAndModelConfig(cfg, input)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 	return ctx.Next()
 }
 
-func mergeOpenAIRequestAndBackendConfig(config *config.BackendConfig, input *schema.OpenAIRequest) error {
+func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
 	if input.Echo {
 		config.Echo = input.Echo
 	}

@@ -13,9 +13,9 @@ func Detection(
 	sourceFile string,
 	loader *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	backendConfig config.BackendConfig,
+	modelConfig config.ModelConfig,
 ) (*proto.DetectResponse, error) {
-	opts := ModelOptions(backendConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig)
 	detectionModel, err := loader.Load(opts...)
 	if err != nil {
 		return nil, err

@@ -9,6 +9,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 )
 
@@ -24,18 +25,24 @@ type TranscriptCMD struct {
 }
 
 func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
+	systemState, err := system.GetSystemState(
+		system.WithModelPath(t.ModelsPath),
+	)
+	if err != nil {
+		return err
+	}
 	opts := &config.ApplicationConfig{
-		ModelPath: t.ModelsPath,
-		Context:   context.Background(),
+		SystemState: systemState,
+		Context:     context.Background(),
 	}
 
-	cl := config.NewBackendConfigLoader(t.ModelsPath)
-	ml := model.NewModelLoader(opts.ModelPath, opts.SingleBackend)
-	if err := cl.LoadBackendConfigsFromPath(t.ModelsPath); err != nil {
+	cl := config.NewModelConfigLoader(t.ModelsPath)
+	ml := model.NewModelLoader(systemState, opts.SingleBackend)
+	if err := cl.LoadModelConfigsFromPath(t.ModelsPath); err != nil {
 		return err
 	}
 
-	c, exists := cl.GetBackendConfig(t.Model)
+	c, exists := cl.GetModelConfig(t.Model)
 	if !exists {
 		return errors.New("model not found")
 	}

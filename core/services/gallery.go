@@ -9,7 +9,6 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog/log"
 )
 
 type GalleryService struct {
@@ -52,7 +51,7 @@ func (g *GalleryService) GetAllStatus() map[string]*GalleryOpStatus {
 	return g.statuses
 }
 
-func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader) error {
+func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, systemState *system.SystemState) error {
 	// updates the status with an error
 	var updateError func(id string, e error)
 	if !g.appConfig.OpaqueErrors {
@@ -63,11 +62,6 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 		updateError = func(id string, _ error) {
 			g.UpdateStatus(id, &GalleryOpStatus{Error: fmt.Errorf("an error occurred"), Processed: true})
 		}
-	}
-
-	systemState, err := system.GetSystemState()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get system state")
 	}
 
 	go func() {
@@ -82,7 +76,7 @@ func (g *GalleryService) Start(c context.Context, cl *config.BackendConfigLoader
 				}
 
 			case op := <-g.ModelGalleryChannel:
-				err := g.modelHandler(&op, cl)
+				err := g.modelHandler(&op, cl, systemState)
 				if err != nil {
 					updateError(op.ID, err)
 				}

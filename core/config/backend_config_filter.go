@@ -2,11 +2,11 @@ package config
 
 import "regexp"
 
-type BackendConfigFilterFn func(string, *BackendConfig) bool
+type ModelConfigFilterFn func(string, *ModelConfig) bool
 
-func NoFilterFn(_ string, _ *BackendConfig) bool { return true }
+func NoFilterFn(_ string, _ *ModelConfig) bool { return true }
 
-func BuildNameFilterFn(filter string) (BackendConfigFilterFn, error) {
+func BuildNameFilterFn(filter string) (ModelConfigFilterFn, error) {
 	if filter == "" {
 		return NoFilterFn, nil
 	}
@@ -14,7 +14,7 @@ func BuildNameFilterFn(filter string) (BackendConfigFilterFn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return func(name string, config *BackendConfig) bool {
+	return func(name string, config *ModelConfig) bool {
 		if config != nil {
 			return rxp.MatchString(config.Name)
 		}
@@ -22,11 +22,11 @@ func BuildNameFilterFn(filter string) (BackendConfigFilterFn, error) {
 	}, nil
 }
 
-func BuildUsecaseFilterFn(usecases BackendConfigUsecases) BackendConfigFilterFn {
+func BuildUsecaseFilterFn(usecases ModelConfigUsecases) ModelConfigFilterFn {
 	if usecases == FLAG_ANY {
 		return NoFilterFn
 	}
-	return func(name string, config *BackendConfig) bool {
+	return func(name string, config *ModelConfig) bool {
 		if config == nil {
 			return false // TODO: Potentially make this a param, for now, no known usecase to include
 		}

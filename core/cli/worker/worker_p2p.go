@@ -10,6 +10,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
 )
@@ -24,6 +25,14 @@ type P2P struct {
 }
 
 func (r *P2P) Run(ctx *cliContext.Context) error {
+
+	systemState, err := system.GetSystemState(
+		system.WithBackendPath(r.BackendsPath),
+		system.WithBackendSystemPath(r.BackendsSystemPath),
+	)
+	if err != nil {
+		return err
+	}
 
 	// Check if the token is set
 	// as we always need it.
@@ -60,7 +69,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			for {
 				log.Info().Msgf("Starting llama-cpp-rpc-server on '%s:%d'", address, port)
 
-				grpcProcess, err := findLLamaCPPBackend(r.BackendsPath)
+				grpcProcess, err := findLLamaCPPBackend(systemState)
 				if err != nil {
 					log.Error().Err(err).Msg("Failed to find llama-cpp-rpc-server")
 					return

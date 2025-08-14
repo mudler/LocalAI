@@ -7,19 +7,19 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
-func ModelTokenize(s string, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
+func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (schema.TokenizeResponse, error) {
 
 	var inferenceModel grpc.Backend
 	var err error
 
-	opts := ModelOptions(backendConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig)
 	inferenceModel, err = loader.Load(opts...)
 	if err != nil {
 		return schema.TokenizeResponse{}, err
 	}
 	defer loader.Close()
 
-	predictOptions := gRPCPredictOpts(backendConfig, loader.ModelPath)
+	predictOptions := gRPCPredictOpts(modelConfig, loader.ModelPath)
 	predictOptions.Prompt = s
 
 	// tokenize the string

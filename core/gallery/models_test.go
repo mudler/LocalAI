@@ -7,6 +7,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -29,7 +30,11 @@ var _ = Describe("Model test", func() {
 			defer os.RemoveAll(tempdir)
 			c, err := ReadConfigFile[ModelConfig](filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
-			_, err = InstallModel(tempdir, "", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = InstallModel(systemState, "", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "cerebras.yaml"} {
@@ -71,15 +76,19 @@ var _ = Describe("Model test", func() {
 					URL:  "file://" + galleryFilePath,
 				},
 			}
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
 
-			models, err := AvailableGalleryModels(galleries, tempdir)
+			models, err := AvailableGalleryModels(galleries, systemState)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models)).To(Equal(1))
 			Expect(models[0].Name).To(Equal("bert"))
 			Expect(models[0].URL).To(Equal(bertEmbeddingsURL))
 			Expect(models[0].Installed).To(BeFalse())
 
-			err = InstallModelFromGallery(galleries, []config.Gallery{}, "test@bert", tempdir, "", GalleryModel{}, func(s1, s2, s3 string, f float64) {}, true, true)
+			err = InstallModelFromGallery(galleries, []config.Gallery{}, systemState, "test@bert", GalleryModel{}, func(s1, s2, s3 string, f float64) {}, true, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			dat, err := os.ReadFile(filepath.Join(tempdir, "bert.yaml"))
@@ -90,16 +99,16 @@ var _ = Describe("Model test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(content["usage"]).To(ContainSubstring("You can test this model with curl like this"))
 
-			models, err = AvailableGalleryModels(galleries, tempdir)
+			models, err = AvailableGalleryModels(galleries, systemState)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models)).To(Equal(1))
 			Expect(models[0].Installed).To(BeTrue())
 
 			// delete
-			err = DeleteModelFromSystem(tempdir, "bert", []string{})
+			err = DeleteModelFromSystem(systemState, "bert")
 			Expect(err).ToNot(HaveOccurred())
 
-			models, err = AvailableGalleryModels(galleries, tempdir)
+			models, err = AvailableGalleryModels(galleries, systemState)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(models)).To(Equal(1))
 			Expect(models[0].Installed).To(BeFalse())
@@ -116,7 +125,11 @@ var _ = Describe("Model test", func() {
 			c, err := ReadConfigFile[ModelConfig](filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = InstallModel(tempdir, "foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = InstallModel(systemState, "foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "foo.yaml"} {
@@ -132,7 +145,11 @@ var _ = Describe("Model test", func() {
 			c, err := ReadConfigFile[ModelConfig](filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = InstallModel(tempdir, "foo", c, map[string]interface{}{"backend": "foo"}, func(string, string, string, float64) {}, true)
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = InstallModel(systemState, "foo", c, map[string]interface{}{"backend": "foo"}, func(string, string, string, float64) {}, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "foo.yaml"} {
@@ -158,7 +175,11 @@ var _ = Describe("Model test", func() {
 			c, err := ReadConfigFile[ModelConfig](filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 
-			_, err = InstallModel(tempdir, "../../../foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = InstallModel(systemState, "../../../foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
 			Expect(err).To(HaveOccurred())
 		})
 	})

@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
@@ -13,8 +14,7 @@ import (
 type ApplicationConfig struct {
 	Context                             context.Context
 	ConfigFile                          string
-	ModelPath                           string
-	BackendsPath                        string
+	SystemState                         *system.SystemState
 	ExternalBackends                    []string
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
@@ -86,15 +86,9 @@ func WithModelsURL(urls ...string) AppOption {
 	}
 }
 
-func WithModelPath(path string) AppOption {
+func WithSystemState(state *system.SystemState) AppOption {
 	return func(o *ApplicationConfig) {
-		o.ModelPath = path
-	}
-}
-
-func WithBackendsPath(path string) AppOption {
-	return func(o *ApplicationConfig) {
-		o.BackendsPath = path
+		o.SystemState = state
 	}
 }
 
@@ -379,7 +373,7 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionDebug(o.Debug),
 		LoadOptionF16(o.F16),
 		LoadOptionThreads(o.Threads),
-		ModelPath(o.ModelPath),
+		ModelPath(o.SystemState.Model.ModelsPath),
 	}
 }
 

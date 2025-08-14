@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/rs/zerolog/log"
@@ -28,9 +29,9 @@ type ModelLoader struct {
 	externalBackends map[string]string
 }
 
-func NewModelLoader(modelPath string, singleActiveBackend bool) *ModelLoader {
+func NewModelLoader(system *system.SystemState, singleActiveBackend bool) *ModelLoader {
 	nml := &ModelLoader{
-		ModelPath:        modelPath,
+		ModelPath:        system.Model.ModelsPath,
 		models:           make(map[string]*Model),
 		singletonMode:    singleActiveBackend,
 		externalBackends: make(map[string]string),

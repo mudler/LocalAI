@@ -16,7 +16,7 @@ var _ = Describe("Test cases for config related functions", func() {
 	Context("Test Read configuration functions", func() {
 		configFile = os.Getenv("CONFIG_FILE")
 		It("Test readConfigFile", func() {
-			config, err := readMultipleBackendConfigsFromFile(configFile)
+			config, err := readMultipleModelConfigsFromFile(configFile)
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
@@ -26,11 +26,11 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test LoadConfigs", func() {
 
-			bcl := NewBackendConfigLoader(os.Getenv("MODELS_PATH"))
-			err := bcl.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
+			bcl := NewModelConfigLoader(os.Getenv("MODELS_PATH"))
+			err := bcl.LoadModelConfigsFromPath(os.Getenv("MODELS_PATH"))
 
 			Expect(err).To(BeNil())
-			configs := bcl.GetAllBackendConfigs()
+			configs := bcl.GetAllModelsConfigs()
 			loadedModelNames := []string{}
 			for _, v := range configs {
 				loadedModelNames = append(loadedModelNames, v.Name)
@@ -51,10 +51,10 @@ var _ = Describe("Test cases for config related functions", func() {
 
 		It("Test new loadconfig", func() {
 
-			bcl := NewBackendConfigLoader(os.Getenv("MODELS_PATH"))
-			err := bcl.LoadBackendConfigsFromPath(os.Getenv("MODELS_PATH"))
+			bcl := NewModelConfigLoader(os.Getenv("MODELS_PATH"))
+			err := bcl.LoadModelConfigsFromPath(os.Getenv("MODELS_PATH"))
 			Expect(err).To(BeNil())
-			configs := bcl.GetAllBackendConfigs()
+			configs := bcl.GetAllModelsConfigs()
 			loadedModelNames := []string{}
 			for _, v := range configs {
 				loadedModelNames = append(loadedModelNames, v.Name)
@@ -90,14 +90,14 @@ options:
 			err = os.WriteFile(modelFile, []byte(model), 0644)
 			Expect(err).ToNot(HaveOccurred())
 
-			err = bcl.LoadBackendConfigsFromPath(tmpdir)
+			err = bcl.LoadModelConfigsFromPath(tmpdir)
 			Expect(err).ToNot(HaveOccurred())
 
-			configs = bcl.GetAllBackendConfigs()
+			configs = bcl.GetAllModelsConfigs()
 			Expect(len(configs)).ToNot(Equal(totalModels))
 
 			loadedModelNames = []string{}
-			var testModel BackendConfig
+			var testModel ModelConfig
 			for _, v := range configs {
 				loadedModelNames = append(loadedModelNames, v.Name)
 				if v.Name == "test-model" {

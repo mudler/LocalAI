@@ -12,7 +12,7 @@ import (
 // @Summary List and describe the various models available in the API.
 // @Success 200 {object} schema.ModelsDataResponse "Response"
 // @Router /v1/models [get]
-func ListModelsEndpoint(bcl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(ctx *fiber.Ctx) error {
+func ListModelsEndpoint(bcl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(ctx *fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		// If blank, no filter is applied.
 		filter := c.Query("filter")

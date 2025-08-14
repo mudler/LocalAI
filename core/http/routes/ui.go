@@ -15,7 +15,7 @@ import (
 )
 
 func RegisterUIRoutes(app *fiber.App,
-	cl *config.BackendConfigLoader,
+	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService) {
@@ -65,9 +65,9 @@ func RegisterUIRoutes(app *fiber.App,
 	}
 
 	app.Get("/talk/", func(c *fiber.Ctx) error {
-		backendConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
+		modelConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
-		if len(backendConfigs) == 0 {
+		if len(modelConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
@@ -75,8 +75,8 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":        "LocalAI - Talk",
 			"BaseURL":      utils.BaseURL(c),
-			"ModelsConfig": backendConfigs,
-			"Model":        backendConfigs[0],
+			"ModelsConfig": modelConfigs,
+			"Model":        modelConfigs[0],
 
 			"Version": internal.PrintableVersion(),
 		}
@@ -86,17 +86,17 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/chat/", func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
+		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
 		modelThatCanBeUsed := ""
 		galleryConfigs := map[string]*gallery.ModelConfig{}
 
-		for _, m := range backendConfigs {
+		for _, m := range modelConfigs {
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
@@ -106,7 +106,7 @@ func RegisterUIRoutes(app *fiber.App,
 
 		title := "LocalAI - Chat"
 
-		for _, b := range backendConfigs {
+		for _, b := range modelConfigs {
 			if b.HasUsecases(config.FLAG_CHAT) {
 				modelThatCanBeUsed = b.Name
 				title = "LocalAI - Chat with " + modelThatCanBeUsed
@@ -119,7 +119,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"GalleryConfig":       galleryConfigs,
-			"ModelsConfig":        backendConfigs,
+			"ModelsConfig":        modelConfigs,
 			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),
 		}
@@ -130,12 +130,12 @@ func RegisterUIRoutes(app *fiber.App,
 
 	// Show the Chat page
 	app.Get("/chat/:model", func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		galleryConfigs := map[string]*gallery.ModelConfig{}
 
-		for _, m := range backendConfigs {
+		for _, m := range modelConfigs {
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
@@ -146,7 +146,7 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":               "LocalAI - Chat with " + c.Params("model"),
 			"BaseURL":             utils.BaseURL(c),
-			"ModelsConfig":        backendConfigs,
+			"ModelsConfig":        modelConfigs,
 			"GalleryConfig":       galleryConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
@@ -158,13 +158,13 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/text2image/:model", func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		summary := fiber.Map{
 			"Title":               "LocalAI - Generate images with " + c.Params("model"),
 			"BaseURL":             utils.BaseURL(c),
-			"ModelsConfig":        backendConfigs,
+			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
@@ -175,10 +175,10 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/text2image/", func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
+		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
@@ -186,7 +186,7 @@ func RegisterUIRoutes(app *fiber.App,
 		modelThatCanBeUsed := ""
 		title := "LocalAI - Generate images"
 
-		for _, b := range backendConfigs {
+		for _, b := range modelConfigs {
 			if b.HasUsecases(config.FLAG_IMAGE) {
 				modelThatCanBeUsed = b.Name
 				title = "LocalAI - Generate images with " + modelThatCanBeUsed
@@ -197,7 +197,7 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
-			"ModelsConfig":        backendConfigs,
+			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),
@@ -208,13 +208,13 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/tts/:model", func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		summary := fiber.Map{
 			"Title":               "LocalAI - Generate images with " + c.Params("model"),
 			"BaseURL":             utils.BaseURL(c),
-			"ModelsConfig":        backendConfigs,
+			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Params("model"),
 			"Version":             internal.PrintableVersion(),
@@ -225,10 +225,10 @@ func RegisterUIRoutes(app *fiber.App,
 	})
 
 	app.Get("/tts/", func(c *fiber.Ctx) error {
-		backendConfigs := cl.GetAllBackendConfigs()
+		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		if len(backendConfigs)+len(modelsWithoutConfig) == 0 {
+		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
 			return c.Redirect(utils.BaseURL(c))
 		}
@@ -236,7 +236,7 @@ func RegisterUIRoutes(app *fiber.App,
 		modelThatCanBeUsed := ""
 		title := "LocalAI - Generate audio"
 
-		for _, b := range backendConfigs {
+		for _, b := range modelConfigs {
 			if b.HasUsecases(config.FLAG_TTS) {
 				modelThatCanBeUsed = b.Name
 				title = "LocalAI - Generate audio with " + modelThatCanBeUsed
@@ -246,7 +246,7 @@ func RegisterUIRoutes(app *fiber.App,
 		summary := fiber.Map{
 			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
-			"ModelsConfig":        backendConfigs,
+			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               modelThatCanBeUsed,
 			"Version":             internal.PrintableVersion(),

@@ -11,6 +11,7 @@ import (
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 )
 
@@ -34,12 +35,20 @@ func (t *TTSCMD) Run(ctx *cliContext.Context) error {
 
 	text := strings.Join(t.Text, " ")
 
+	systemState, err := system.GetSystemState(
+		system.WithModelPath(t.ModelsPath),
+	)
+	if err != nil {
+		return err
+	}
+
 	opts := &config.ApplicationConfig{
-		ModelPath:           t.ModelsPath,
+		SystemState:         systemState,
 		Context:             context.Background(),
 		GeneratedContentDir: outputDir,
 	}
-	ml := model.NewModelLoader(opts.ModelPath, opts.SingleBackend)
+
+	ml := model.NewModelLoader(systemState, opts.SingleBackend)
 
 	defer func() {
 		err := ml.StopAllGRPC()
@@ -48,7 +57,7 @@ func (t *TTSCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	options := config.BackendConfig{}
+	options := config.ModelConfig{}
 	options.SetDefaults()
 	options.Backend = t.Backend
 	options.Model = t.Model

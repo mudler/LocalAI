@@ -22,14 +22,14 @@ var (
 // This means that we will fake an Any-to-Any model by overriding some of the gRPC client methods
 // which are for Any-To-Any models, but instead we will call a pipeline (for e.g STT->LLM->TTS)
 type wrappedModel struct {
-	TTSConfig           *config.BackendConfig
-	TranscriptionConfig *config.BackendConfig
-	LLMConfig           *config.BackendConfig
+	TTSConfig           *config.ModelConfig
+	TranscriptionConfig *config.ModelConfig
+	LLMConfig           *config.ModelConfig
 	TTSClient           grpcClient.Backend
 	TranscriptionClient grpcClient.Backend
 	LLMClient           grpcClient.Backend
 
-	VADConfig *config.BackendConfig
+	VADConfig *config.ModelConfig
 	VADClient grpcClient.Backend
 }
 
@@ -37,17 +37,17 @@ type wrappedModel struct {
 // We have to wrap this out as well because we want to load two models one for VAD and one for the actual model.
 // In the future there could be models that accept continous audio input only so this design will be useful for that
 type anyToAnyModel struct {
-	LLMConfig *config.BackendConfig
+	LLMConfig *config.ModelConfig
 	LLMClient grpcClient.Backend
 
-	VADConfig *config.BackendConfig
+	VADConfig *config.ModelConfig
 	VADClient grpcClient.Backend
 }
 
 type transcriptOnlyModel struct {
-	TranscriptionConfig *config.BackendConfig
+	TranscriptionConfig *config.ModelConfig
 	TranscriptionClient grpcClient.Backend
-	VADConfig           *config.BackendConfig
+	VADConfig           *config.ModelConfig
 	VADClient           grpcClient.Backend
 }
 
@@ -105,8 +105,8 @@ func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOpti
 	return m.LLMClient.PredictStream(ctx, in, f)
 }
 
-func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.BackendConfig, error) {
-	cfgVAD, err := cl.LoadBackendConfigFileByName(pipeline.VAD, ml.ModelPath)
+func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
+	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -122,7 +122,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.BackendConf
 		return nil, nil, fmt.Errorf("failed to load tts model: %w", err)
 	}
 
-	cfgSST, err := cl.LoadBackendConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -139,17 +139,17 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.BackendConf
 	}
 
 	return &transcriptOnlyModel{
-		VADConfig: cfgVAD,
-		VADClient: VADClient,
+		VADConfig:           cfgVAD,
+		VADClient:           VADClient,
 		TranscriptionConfig: cfgSST,
 		TranscriptionClient: transcriptionClient,
 	}, cfgSST, nil
 }
 
 // returns and loads either a wrapped model or a model that support audio-to-audio
-func newModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
+func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
 
-	cfgVAD, err := cl.LoadBackendConfigFileByName(pipeline.VAD, ml.ModelPath)
+	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -166,7 +166,7 @@ func newModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *mod
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
-	cfgSST, err := cl.LoadBackendConfigFileByName(pipeline.Transcription, ml.ModelPath)
+	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -185,7 +185,7 @@ func newModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *mod
 	// TODO: Decide when we have a real any-to-any model
 	if false {
 
-		cfgAnyToAny, err := cl.LoadBackendConfigFileByName(pipeline.LLM, ml.ModelPath)
+		cfgAnyToAny, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
 		if err != nil {
 
 			return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -212,7 +212,7 @@ func newModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *mod
 	log.Debug().Msg("Loading a wrapped model")
 
 	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
-	cfgLLM, err := cl.LoadBackendConfigFileByName(pipeline.LLM, ml.ModelPath)
+	cfgLLM, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -222,7 +222,7 @@ func newModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *mod
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	cfgTTS, err := cl.LoadBackendConfigFileByName(pipeline.TTS, ml.ModelPath)
+	cfgTTS, err := cl.LoadModelConfigFileByName(pipeline.TTS, ml.ModelPath)
 	if err != nil {
 
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
@@ -231,7 +231,6 @@ func newModel(pipeline *config.Pipeline, cl *config.BackendConfigLoader, ml *mod
 	if !cfgTTS.Validate() {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
-
 
 	opts = backend.ModelOptions(*cfgTTS, appConfig)
 	ttsClient, err := ml.Load(opts...)

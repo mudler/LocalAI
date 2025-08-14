@@ -12,14 +12,14 @@ import (
 var _ = Describe("LLM tests", func() {
 	Context("Finetune LLM output", func() {
 		var (
-			testConfig config.BackendConfig
+			testConfig config.ModelConfig
 			input      string
 			prediction string
 			result     string
 		)
 
 		BeforeEach(func() {
-			testConfig = config.BackendConfig{
+			testConfig = config.ModelConfig{
 				PredictionOptions: schema.PredictionOptions{
 					Echo: false,
 				},

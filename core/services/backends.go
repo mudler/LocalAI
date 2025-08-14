@@ -20,21 +20,21 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend], s
 
 	var err error
 	if op.Delete {
-		err = gallery.DeleteBackendFromSystem(g.appConfig.BackendsPath, op.GalleryElementName)
+		err = gallery.DeleteBackendFromSystem(g.appConfig.SystemState, op.GalleryElementName)
 		g.modelLoader.DeleteExternalBackend(op.GalleryElementName)
 	} else {
 		log.Warn().Msgf("installing backend %s", op.GalleryElementName)
 		log.Debug().Msgf("backend galleries: %v", g.appConfig.BackendGalleries)
-		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, op.GalleryElementName, g.appConfig.BackendsPath, progressCallback, true)
+		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, op.GalleryElementName, progressCallback, true)
 		if err == nil {
-			err = gallery.RegisterBackends(g.appConfig.BackendsPath, g.modelLoader)
+			err = gallery.RegisterBackends(systemState, g.modelLoader)
 		}
 	}
 	if err != nil {
 		log.Error().Err(err).Msgf("error installing backend %s", op.GalleryElementName)
 		if !op.Delete {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
-			gallery.DeleteBackendFromSystem(g.appConfig.BackendsPath, op.GalleryElementName)
+			gallery.DeleteBackendFromSystem(systemState, op.GalleryElementName)
 		}
 		return err
 	}

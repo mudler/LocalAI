@@ -13,8 +13,8 @@ func VAD(request *schema.VADRequest,
 	ctx context.Context,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	backendConfig config.BackendConfig) (*schema.VADResponse, error) {
-	opts := ModelOptions(backendConfig, appConfig)
+	modelConfig config.ModelConfig) (*schema.VADResponse, error) {
+	opts := ModelOptions(modelConfig, appConfig)
 	vadModel, err := ml.Load(opts...)
 	if err != nil {
 		return nil, err

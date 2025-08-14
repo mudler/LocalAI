@@ -18,15 +18,15 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type BackendConfigLoader struct {
-	configs   map[string]BackendConfig
+type ModelConfigLoader struct {
+	configs   map[string]ModelConfig
 	modelPath string
 	sync.Mutex
 }
 
-func NewBackendConfigLoader(modelPath string) *BackendConfigLoader {
-	return &BackendConfigLoader{
-		configs:   make(map[string]BackendConfig),
+func NewModelConfigLoader(modelPath string) *ModelConfigLoader {
+	return &ModelConfigLoader{
+		configs:   make(map[string]ModelConfig),
 		modelPath: modelPath,
 	}
 }
@@ -77,14 +77,14 @@ func (lo *LoadOptions) Apply(options ...ConfigLoaderOption) {
 }
 
 // TODO: either in the next PR or the next commit, I want to merge these down into a single function that looks at the first few characters of the file to determine if we need to deserialize to []BackendConfig or BackendConfig
-func readMultipleBackendConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*BackendConfig, error) {
-	c := &[]*BackendConfig{}
+func readMultipleModelConfigsFromFile(file string, opts ...ConfigLoaderOption) ([]*ModelConfig, error) {
+	c := &[]*ModelConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("readMultipleBackendConfigsFromFile cannot read config file %q: %w", file, err)
+		return nil, fmt.Errorf("readMultipleModelConfigsFromFile cannot read config file %q: %w", file, err)
 	}
 	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("readMultipleBackendConfigsFromFile cannot unmarshal config file %q: %w", file, err)
+		return nil, fmt.Errorf("readMultipleModelConfigsFromFile cannot unmarshal config file %q: %w", file, err)
 	}
 
 	for _, cc := range *c {
@@ -94,17 +94,17 @@ func readMultipleBackendConfigsFromFile(file string, opts ...ConfigLoaderOption)
 	return *c, nil
 }
 
-func readBackendConfigFromFile(file string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
+func readModelConfigFromFile(file string, opts ...ConfigLoaderOption) (*ModelConfig, error) {
 	lo := &LoadOptions{}
 	lo.Apply(opts...)
 
-	c := &BackendConfig{}
+	c := &ModelConfig{}
 	f, err := os.ReadFile(file)
 	if err != nil {
-		return nil, fmt.Errorf("readBackendConfigFromFile cannot read config file %q: %w", file, err)
+		return nil, fmt.Errorf("readModelConfigFromFile cannot read config file %q: %w", file, err)
 	}
 	if err := yaml.Unmarshal(f, c); err != nil {
-		return nil, fmt.Errorf("readBackendConfigFromFile cannot unmarshal config file %q: %w", file, err)
+		return nil, fmt.Errorf("readModelConfigFromFile cannot unmarshal config file %q: %w", file, err)
 	}
 
 	c.SetDefaults(opts...)
@@ -112,10 +112,10 @@ func readBackendConfigFromFile(file string, opts ...ConfigLoaderOption) (*Backen
 }
 
 // Load a config file for a model
-func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath string, opts ...ConfigLoaderOption) (*BackendConfig, error) {
+func (bcl *ModelConfigLoader) LoadModelConfigFileByName(modelName, modelPath string, opts ...ConfigLoaderOption) (*ModelConfig, error) {
 
 	// Load a config file if present after the model name
-	cfg := &BackendConfig{
+	cfg := &ModelConfig{
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
 				Model: modelName,
@@ -123,19 +123,19 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 		},
 	}
 
-	cfgExisting, exists := bcl.GetBackendConfig(modelName)
+	cfgExisting, exists := bcl.GetModelConfig(modelName)
 	if exists {
 		cfg = &cfgExisting
 	} else {
 		// Try loading a model config file
 		modelConfig := filepath.Join(modelPath, modelName+".yaml")
 		if _, err := os.Stat(modelConfig); err == nil {
-			if err := bcl.LoadBackendConfig(
+			if err := bcl.ReadModelConfig(
 				modelConfig, opts...,
 			); err != nil {
 				return nil, fmt.Errorf("failed loading model config (%s) %s", modelConfig, err.Error())
 			}
-			cfgExisting, exists = bcl.GetBackendConfig(modelName)
+			cfgExisting, exists = bcl.GetModelConfig(modelName)
 			if exists {
 				cfg = &cfgExisting
 			}
@@ -147,20 +147,20 @@ func (bcl *BackendConfigLoader) LoadBackendConfigFileByName(modelName, modelPath
 	return cfg, nil
 }
 
-func (bcl *BackendConfigLoader) LoadBackendConfigFileByNameDefaultOptions(modelName string, appConfig *ApplicationConfig) (*BackendConfig, error) {
-	return bcl.LoadBackendConfigFileByName(modelName, appConfig.ModelPath,
+func (bcl *ModelConfigLoader) LoadModelConfigFileByNameDefaultOptions(modelName string, appConfig *ApplicationConfig) (*ModelConfig, error) {
+	return bcl.LoadModelConfigFileByName(modelName, appConfig.SystemState.Model.ModelsPath,
 		LoadOptionDebug(appConfig.Debug),
 		LoadOptionThreads(appConfig.Threads),
 		LoadOptionContextSize(appConfig.ContextSize),
 		LoadOptionF16(appConfig.F16),
-		ModelPath(appConfig.ModelPath))
+		ModelPath(appConfig.SystemState.Model.ModelsPath))
 }
 
 // This format is currently only used when reading a single file at startup, passed in via ApplicationConfig.ConfigFile
-func (bcl *BackendConfigLoader) LoadMultipleBackendConfigsSingleFile(file string, opts ...ConfigLoaderOption) error {
+func (bcl *ModelConfigLoader) LoadMultipleModelConfigsSingleFile(file string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
-	c, err := readMultipleBackendConfigsFromFile(file, opts...)
+	c, err := readMultipleModelConfigsFromFile(file, opts...)
 	if err != nil {
 		return fmt.Errorf("cannot load config file: %w", err)
 	}
@@ -173,12 +173,12 @@ func (bcl *BackendConfigLoader) LoadMultipleBackendConfigsSingleFile(file string
 	return nil
 }
 
-func (bcl *BackendConfigLoader) LoadBackendConfig(file string, opts ...ConfigLoaderOption) error {
+func (bcl *ModelConfigLoader) ReadModelConfig(file string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
-	c, err := readBackendConfigFromFile(file, opts...)
+	c, err := readModelConfigFromFile(file, opts...)
 	if err != nil {
-		return fmt.Errorf("LoadBackendConfig cannot read config file %q: %w", file, err)
+		return fmt.Errorf("ReadModelConfig cannot read config file %q: %w", file, err)
 	}
 
 	if c.Validate() {
@@ -190,17 +190,17 @@ func (bcl *BackendConfigLoader) LoadBackendConfig(file string, opts ...ConfigLoa
 	return nil
 }
 
-func (bcl *BackendConfigLoader) GetBackendConfig(m string) (BackendConfig, bool) {
+func (bcl *ModelConfigLoader) GetModelConfig(m string) (ModelConfig, bool) {
 	bcl.Lock()
 	defer bcl.Unlock()
 	v, exists := bcl.configs[m]
 	return v, exists
 }
 
-func (bcl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
+func (bcl *ModelConfigLoader) GetAllModelsConfigs() []ModelConfig {
 	bcl.Lock()
 	defer bcl.Unlock()
-	var res []BackendConfig
+	var res []ModelConfig
 	for _, v := range bcl.configs {
 		res = append(res, v)
 	}
@@ -212,10 +212,10 @@ func (bcl *BackendConfigLoader) GetAllBackendConfigs() []BackendConfig {
 	return res
 }
 
-func (bcl *BackendConfigLoader) GetBackendConfigsByFilter(filter BackendConfigFilterFn) []BackendConfig {
+func (bcl *ModelConfigLoader) GetModelConfigsByFilter(filter ModelConfigFilterFn) []ModelConfig {
 	bcl.Lock()
 	defer bcl.Unlock()
-	var res []BackendConfig
+	var res []ModelConfig
 
 	if filter == nil {
 		filter = NoFilterFn
@@ -232,14 +232,14 @@ func (bcl *BackendConfigLoader) GetBackendConfigsByFilter(filter BackendConfigFi
 	return res
 }
 
-func (bcl *BackendConfigLoader) RemoveBackendConfig(m string) {
+func (bcl *ModelConfigLoader) RemoveModelConfig(m string) {
 	bcl.Lock()
 	defer bcl.Unlock()
 	delete(bcl.configs, m)
 }
 
 // Preload prepare models if they are not local but url or huggingface repositories
-func (bcl *BackendConfigLoader) Preload(modelPath string) error {
+func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 	bcl.Lock()
 	defer bcl.Unlock()
 
@@ -330,15 +330,15 @@ func (bcl *BackendConfigLoader) Preload(modelPath string) error {
 	return nil
 }
 
-// LoadBackendConfigsFromPath reads all the configurations of the models from a path
+// LoadModelConfigsFromPath reads all the configurations of the models from a path
 // (non-recursive)
-func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
+func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...ConfigLoaderOption) error {
 	bcl.Lock()
 	defer bcl.Unlock()
 
 	entries, err := os.ReadDir(path)
 	if err != nil {
-		return fmt.Errorf("LoadBackendConfigsFromPath cannot read directory '%s': %w", path, err)
+		return fmt.Errorf("LoadModelConfigsFromPath cannot read directory '%s': %w", path, err)
 	}
 	files := make([]fs.FileInfo, 0, len(entries))
 	for _, entry := range entries {
@@ -354,9 +354,9 @@ func (bcl *BackendConfigLoader) LoadBackendConfigsFromPath(path string, opts ...
 			strings.HasPrefix(file.Name(), ".") {
 			continue
 		}
-		c, err := readBackendConfigFromFile(filepath.Join(path, file.Name()), opts...)
+		c, err := readModelConfigFromFile(filepath.Join(path, file.Name()), opts...)
 		if err != nil {
-			log.Error().Err(err).Str("File Name", file.Name()).Msgf("LoadBackendConfigsFromPath cannot read config file")
+			log.Error().Err(err).Str("File Name", file.Name()).Msgf("LoadModelConfigsFromPath cannot read config file")
 			continue
 		}
 		if c.Validate() {

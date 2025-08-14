@@ -14,7 +14,7 @@ const (
 	ALWAYS_INCLUDE
 )
 
-func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter config.BackendConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
+func ListModels(bcl *config.ModelConfigLoader, ml *model.ModelLoader, filter config.ModelConfigFilterFn, looseFilePolicy LooseFilePolicy) ([]string, error) {
 
 	var skipMap map[string]interface{} = map[string]interface{}{}
 
@@ -22,7 +22,7 @@ func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter c
 
 	// Start with known configurations
 
-	for _, c := range bcl.GetBackendConfigsByFilter(filter) {
+	for _, c := range bcl.GetModelConfigsByFilter(filter) {
 		// Is this better than looseFilePolicy <= SKIP_IF_CONFIGURED ? less performant but more readable?
 		if (looseFilePolicy == SKIP_IF_CONFIGURED) || (looseFilePolicy == LOOSE_ONLY) {
 			skipMap[c.Model] = nil
@@ -50,7 +50,7 @@ func ListModels(bcl *config.BackendConfigLoader, ml *model.ModelLoader, filter c
 	return dataModels, nil
 }
 
-func CheckIfModelExists(bcl *config.BackendConfigLoader, ml *model.ModelLoader, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
+func CheckIfModelExists(bcl *config.ModelConfigLoader, ml *model.ModelLoader, modelName string, looseFilePolicy LooseFilePolicy) (bool, error) {
 	filter, err := config.BuildNameFilterFn(modelName)
 	if err != nil {
 		return false, err

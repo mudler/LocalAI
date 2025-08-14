@@ -9,9 +9,9 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendConfig config.BackendConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
+func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (func() ([]float32, error), error) {
 
-	opts := ModelOptions(backendConfig, appConfig)
+	opts := ModelOptions(modelConfig, appConfig)
 
 	inferenceModel, err := loader.Load(opts...)
 	if err != nil {
@@ -23,7 +23,7 @@ func ModelEmbedding(s string, tokens []int, loader *model.ModelLoader, backendCo
 	switch model := inferenceModel.(type) {
 	case grpc.Backend:
 		fn = func() ([]float32, error) {
-			predictOptions := gRPCPredictOpts(backendConfig, loader.ModelPath)
+			predictOptions := gRPCPredictOpts(modelConfig, loader.ModelPath)
 			if len(tokens) > 0 {
 				embeds := []int32{}
 

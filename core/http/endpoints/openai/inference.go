@@ -11,8 +11,8 @@ import (
 func ComputeChoices(
 	req *schema.OpenAIRequest,
 	predInput string,
-	config *config.BackendConfig,
-	bcl *config.BackendConfigLoader,
+	config *config.ModelConfig,
+	bcl *config.ModelConfigLoader,
 	o *config.ApplicationConfig,
 	loader *model.ModelLoader,
 	cb func(string, *[]schema.Choice),

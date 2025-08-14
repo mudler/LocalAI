@@ -8,6 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
@@ -89,7 +90,7 @@ func (gm GalleryElements[T]) Paginate(pageNum int, itemsNum int) GalleryElements
 	return gm[start:end]
 }
 
-func FindGalleryElement[T GalleryElement](models []T, name string, basePath string) T {
+func FindGalleryElement[T GalleryElement](models []T, name string) T {
 	var model T
 	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
 
@@ -116,13 +117,13 @@ func FindGalleryElement[T GalleryElement](models []T, name string, basePath stri
 // List available models
 // Models galleries are a list of yaml files that are hosted on a remote server (for example github).
 // Each yaml file contains a list of models that can be downloaded and optionally overrides to define a new model setting.
-func AvailableGalleryModels(galleries []config.Gallery, basePath string) (GalleryElements[*GalleryModel], error) {
+func AvailableGalleryModels(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryModel], error) {
 	var models []*GalleryModel
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements[*GalleryModel](gallery, basePath, func(model *GalleryModel) bool {
-			if _, err := os.Stat(filepath.Join(basePath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
+		galleryModels, err := getGalleryElements[*GalleryModel](gallery, systemState.Model.ModelsPath, func(model *GalleryModel) bool {
+			if _, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
 				return true
 			}
 			return false
@@ -137,13 +138,13 @@ func AvailableGalleryModels(galleries []config.Gallery, basePath string) (Galler
 }
 
 // List available backends
-func AvailableBackends(galleries []config.Gallery, basePath string) (GalleryElements[*GalleryBackend], error) {
-	var models []*GalleryBackend
+func AvailableBackends(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryBackend], error) {
+	var backends []*GalleryBackend
 
-	// Get models from galleries
+	// Get backends from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements[*GalleryBackend](gallery, basePath, func(backend *GalleryBackend) bool {
-			backends, err := ListSystemBackends(basePath)
+		galleryBackends, err := getGalleryElements[*GalleryBackend](gallery, systemState.Backend.BackendsPath, func(backend *GalleryBackend) bool {
+			backends, err := ListSystemBackends(systemState)
 			if err != nil {
 				return false
 			}
@@ -152,10 +153,10 @@ func AvailableBackends(galleries []config.Gallery, basePath string) (GalleryElem
 		if err != nil {
 			return nil, err
 		}
-		models = append(models, galleryModels...)
+		backends = append(backends, galleryBackends...)
 	}
 
-	return models, nil
+	return backends, nil
 }
 
 func findGalleryURLFromReferenceURL(url string, basePath string) (string, error) {

@@ -19,6 +19,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/system"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
@@ -320,12 +321,17 @@ var _ = Describe("API test", func() {
 				},
 			}
 
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(backendPath),
+				system.WithModelPath(modelDir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
 			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
+					config.WithSystemState(systemState),
 					config.WithGalleries(galleries),
-					config.WithModelPath(modelDir),
-					config.WithBackendsPath(backendPath),
 					config.WithApiKeys([]string{apiKey}),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
@@ -523,13 +529,18 @@ var _ = Describe("API test", func() {
 				},
 			}
 
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(backendPath),
+				system.WithModelPath(modelDir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
 			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
 					config.WithGeneratedContentDir(tmpdir),
-					config.WithBackendsPath(backendPath),
+					config.WithSystemState(systemState),
 					config.WithGalleries(galleries),
-					config.WithModelPath(modelDir),
 				)...,
 			)
 			Expect(err).ToNot(HaveOccurred())
@@ -729,12 +740,17 @@ var _ = Describe("API test", func() {
 
 			var err error
 
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(backendPath),
+				system.WithModelPath(modelPath),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
 			application, err := application.New(
 				append(commonOpts,
 					config.WithExternalBackend("transformers", os.Getenv("HUGGINGFACE_GRPC")),
 					config.WithContext(c),
-					config.WithBackendsPath(backendPath),
-					config.WithModelPath(modelPath),
+					config.WithSystemState(systemState),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
 			app, err = API(application)
@@ -960,11 +976,17 @@ var _ = Describe("API test", func() {
 			c, cancel = context.WithCancel(context.Background())
 
 			var err error
+
+			systemState, err := system.GetSystemState(
+				system.WithBackendPath(backendPath),
+				system.WithModelPath(modelPath),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
 			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
-					config.WithModelPath(modelPath),
-					config.WithBackendsPath(backendPath),
+					config.WithSystemState(systemState),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
 			Expect(err).ToNot(HaveOccurred())

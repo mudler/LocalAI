@@ -12,11 +12,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func InstallExternalBackends(galleries []config.Gallery, backendPath string, downloadStatus func(string, string, string, float64), backend, name, alias string) error {
-	systemState, err := system.GetSystemState()
-	if err != nil {
-		return fmt.Errorf("failed to get system state: %w", err)
-	}
+func InstallExternalBackends(galleries []config.Gallery, systemState *system.SystemState, downloadStatus func(string, string, string, float64), backend, name, alias string) error {
 	uri := downloader.URI(backend)
 	switch {
 	case uri.LooksLikeDir():
@@ -24,7 +20,7 @@ func InstallExternalBackends(galleries []config.Gallery, backendPath string, dow
 			name = filepath.Base(backend)
 		}
 		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from path")
-		if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+		if err := gallery.InstallBackend(systemState, &gallery.GalleryBackend{
 			Metadata: gallery.Metadata{
 				Name: name,
 			},
@@ -38,7 +34,7 @@ func InstallExternalBackends(galleries []config.Gallery, backendPath string, dow
 			return fmt.Errorf("specifying a name is required for OCI images")
 		}
 		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
-		if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+		if err := gallery.InstallBackend(systemState, &gallery.GalleryBackend{
 			Metadata: gallery.Metadata{
 				Name: name,
 			},
@@ -56,7 +52,7 @@ func InstallExternalBackends(galleries []config.Gallery, backendPath string, dow
 		name = strings.TrimSuffix(name, filepath.Ext(name))
 
 		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
-		if err := gallery.InstallBackend(backendPath, &gallery.GalleryBackend{
+		if err := gallery.InstallBackend(systemState, &gallery.GalleryBackend{
 			Metadata: gallery.Metadata{
 				Name: name,
 			},
@@ -69,7 +65,7 @@ func InstallExternalBackends(galleries []config.Gallery, backendPath string, dow
 		if name != "" || alias != "" {
 			return fmt.Errorf("specifying a name or alias is not supported for this backend")
 		}
-		err := gallery.InstallBackendFromGallery(galleries, systemState, backend, backendPath, downloadStatus, true)
+		err := gallery.InstallBackendFromGallery(galleries, systemState, backend, downloadStatus, true)
 		if err != nil {
 			return fmt.Errorf("error installing backend %s: %w", backend, err)
 		}
