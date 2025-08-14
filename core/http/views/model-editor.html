@@ -903,6 +903,9 @@ class ModelEditor {
 
     resetForm() {
         if (confirm('Are you sure you want to reset the form? All changes will be lost.')) {
+            // Set the flag to allow YAML editor updates
+            this.isUpdatingFromForm = true;
+            
             {{if .ConfigYAML}}
             try {
                 this.config = jsyaml.load(`{{.ConfigYAML}}`);
@@ -915,6 +918,10 @@ class ModelEditor {
             
             this.updateFormFromConfig();
             this.updateYamlEditor();
+            
+            // Reset the flag
+            this.isUpdatingFromForm = false;
+            
             this.showAlert('info', 'Form has been reset');
         }
     }
