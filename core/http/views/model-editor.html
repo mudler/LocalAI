@@ -34,7 +34,7 @@
         <div id="alertContainer" class="mb-6"></div>
 
         <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-300px)]">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-250px)]">
             
             <!-- Form Panel (Left) -->
             <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden">
@@ -52,7 +52,7 @@
                         </button>
                     </div>
                 </div>
-                <div class="p-6 overflow-y-auto h-full">
+                <div class="p-6 overflow-y-auto" style="height: calc(100% - 80px);">
                     <form id="configForm" class="space-y-6">
                         <!-- Form will be dynamically generated here -->
                     </form>
@@ -75,13 +75,8 @@
                         </button>
                     </div>
                 </div>
-                <div class="relative h-full">
-                    <textarea 
-                        id="yamlEditor" 
-                        class="w-full h-full p-4 bg-gray-900 text-gray-200 font-mono text-sm border-none outline-none resize-none pl-16"
-                        placeholder="# YAML configuration will appear here..."
-                        spellcheck="false">{{.ConfigYAML}}</textarea>
-                    <div id="yamlLineNumbers" class="absolute left-0 top-0 w-12 h-full bg-gray-800 border-r border-gray-700 text-gray-500 text-xs font-mono pointer-events-none overflow-hidden p-4 pt-4"></div>
+                <div class="relative" style="height: calc(100% - 80px);">
+                    <div id="yamlCodeMirror" class="h-full"></div>
                 </div>
             </div>
         </div>
@@ -93,6 +88,100 @@
 <!-- Include JS-YAML library -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/js-yaml/4.1.0/js-yaml.min.js"></script>
 
+<!-- Include CodeMirror for syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/mode/yaml/yaml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/display/autorefresh.min.js"></script>
+
+<style>
+.CodeMirror {
+    background: #111827 !important;
+    color: #e5e7eb !important;
+    border: none !important;
+    height: 100% !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace !important;
+    font-size: 14px !important;
+    border-radius: 0 !important;
+}
+.CodeMirror-cursor {
+    border-left: 1px solid #e5e7eb !important;
+}
+.CodeMirror-gutters {
+    background: #1f2937 !important;
+    border-right: 1px solid #374151 !important;
+    color: #6b7280 !important;
+}
+.CodeMirror-linenumber {
+    color: #6b7280 !important;
+    padding: 0 8px 0 0 !important;
+}
+.CodeMirror-activeline-background {
+    background: rgba(75, 85, 99, 0.3) !important;
+}
+.CodeMirror-selected {
+    background: rgba(59, 130, 246, 0.25) !important;
+}
+.CodeMirror-selectedtext {
+    background: rgba(59, 130, 246, 0.25) !important;
+}
+.CodeMirror-focused .CodeMirror-selected {
+    background: rgba(59, 130, 246, 0.3) !important;
+}
+.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
+    background: rgba(59, 130, 246, 0.3) !important;
+}
+.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection {
+    background: rgba(59, 130, 246, 0.3) !important;
+}
+
+/* YAML Syntax Highlighting - Tailored for LocalAI's gray theme */
+.cm-keyword { color: #60a5fa !important; font-weight: 500 !important; } /* Blue for YAML keys */
+.cm-string { color: #34d399 !important; } /* Green for strings */
+.cm-number { color: #fbbf24 !important; } /* Amber for numbers */
+.cm-comment { color: #9ca3af !important; font-style: italic !important; } /* Gray for comments */
+.cm-property { color: #a78bfa !important; } /* Purple for properties */
+.cm-operator { color: #f87171 !important; } /* Red for operators */
+.cm-variable { color: #22d3ee !important; } /* Cyan for variables */
+.cm-tag { color: #60a5fa !important; font-weight: 500 !important; } /* Blue for tags */
+.cm-attribute { color: #fbbf24 !important; } /* Amber for attributes */
+.cm-def { color: #a78bfa !important; font-weight: 500 !important; } /* Purple for definitions */
+.cm-bracket { color: #d1d5db !important; } /* Light gray for brackets */
+.cm-punctuation { color: #d1d5db !important; } /* Light gray for punctuation */
+.cm-quote { color: #34d399 !important; } /* Green for quotes */
+.cm-meta { color: #9ca3af !important; } /* Gray for meta */
+.cm-builtin { color: #f472b6 !important; } /* Pink for builtins */
+.cm-atom { color: #fbbf24 !important; } /* Amber for atoms like true/false/null */
+
+/* Scrollbar styling to match theme */
+.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+    background: #1f2937 !important;
+}
+.CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
+    background: #1f2937 !important;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar, .CodeMirror-hscrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar-track, .CodeMirror-hscrollbar::-webkit-scrollbar-track {
+    background: #1f2937;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
+    background: #4b5563;
+    border-radius: 4px;
+}
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
+}
+
+/* Focus ring styling */
+.CodeMirror-focused {
+    outline: 2px solid rgba(59, 130, 246, 0.5) !important;
+    outline-offset: -2px !important;
+}
+</style>
+
 <script>
 class ModelEditor {
     constructor() {
@@ -101,6 +190,7 @@ class ModelEditor {
         this.isUpdatingFromForm = false;
         this.modelName = '{{.ModelName}}';
         this.isEditMode = !!this.modelName;
+        this.yamlEditor = null;
         
         this.init();
     }
@@ -118,9 +208,8 @@ class ModelEditor {
         {{end}}
 
         this.generateForm();
-        this.updateYamlEditor();
+        this.initializeCodeMirror();
         this.bindEvents();
-        this.setupYamlLineNumbers();
     }
 
     getDefaultConfig() {
@@ -164,7 +253,7 @@ class ModelEditor {
                 title: 'Basic Configuration',
                 icon: 'fas fa-cog',
                 fields: [
-                    { key: 'name', label: 'Model Name', type: 'text', required: true, description: 'Unique identifier for this model' },
+                    { key: 'name', label: 'Model Name', type: 'text', required: true, description: 'Unique identifier for this model', readonly: this.isEditMode },
                     { key: 'backend', label: 'Backend', type: 'text', required: true, 
                       description: 'Backend engine to use (e.g., llama-cpp, transformers, diffusers, whisper, piper, bark-cpp, vllm, rerankers, exllama2, faster-whisper, stablediffusion-ggml)' },
                     { key: 'parameters.model', label: 'Model File/Path', type: 'text', required: true, description: 'Path to model file or URL' },
@@ -338,7 +427,9 @@ class ModelEditor {
         
         switch (field.type) {
             case 'text':
-                inputHtml = `<input type="text" id="${fieldId}" name="${field.key}" value="${value}" class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${field.required ? 'required' : ''}>`;
+                const readonlyAttr = field.readonly ? 'readonly' : '';
+                const readonlyClass = field.readonly ? 'bg-gray-700 cursor-not-allowed' : 'bg-gray-800';
+                inputHtml = `<input type="text" id="${fieldId}" name="${field.key}" value="${value}" class="w-full p-3 ${readonlyClass} border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${field.required ? 'required' : ''} ${readonlyAttr}>`;
                 break;
                 
             case 'textarea':
@@ -434,6 +525,49 @@ class ModelEditor {
         `;
     }
 
+    initializeCodeMirror() {
+        this.yamlEditor = CodeMirror(document.getElementById('yamlCodeMirror'), {
+            mode: 'yaml',
+            theme: 'default',
+            lineNumbers: true,
+            autoRefresh: true,
+            indentUnit: 2,
+            tabSize: 2,
+            indentWithTabs: false,
+            lineWrapping: false,
+            styleActiveLine: true,
+            value: {{if .ConfigYAML}}`{{.ConfigYAML}}`{{else}}'# Configuration will appear here...'{{end}}
+        });
+
+        // Update config when YAML changes
+        this.yamlEditor.on('change', () => {
+            if (!this.isUpdatingFromForm) {
+                this.updateConfigFromYaml();
+            }
+        });
+
+        // If no initial YAML, set the default config
+        {{if not .ConfigYAML}}
+        setTimeout(() => {
+            this.updateYamlEditor();
+        }, 100);
+        {{end}}
+    }
+
+    configToYaml() {
+        try {
+            return jsyaml.dump(this.config, {
+                indent: 2,
+                lineWidth: 120,
+                noRefs: true,
+                sortKeys: false
+            });
+        } catch (error) {
+            console.error('Failed to generate YAML:', error);
+            return '';
+        }
+    }
+
     bindEvents() {
         // Form change events
         document.getElementById('configForm').addEventListener('change', (e) => {
@@ -448,11 +582,6 @@ class ModelEditor {
             }
         });
 
-        // YAML editor events
-        document.getElementById('yamlEditor').addEventListener('input', () => {
-            this.updateConfigFromYaml();
-        });
-
         // Button events
         document.getElementById('saveBtn').addEventListener('click', () => this.saveConfig());
         document.getElementById('validateBtn').addEventListener('click', () => this.validateConfig());
@@ -460,46 +589,9 @@ class ModelEditor {
         document.getElementById('expandAllBtn').addEventListener('click', () => this.expandAllSections());
         document.getElementById('formatYamlBtn').addEventListener('click', () => this.formatYaml());
         document.getElementById('copyYamlBtn').addEventListener('click', () => this.copyYaml());
-
-        this.setupYamlEditor();
     }
 
-    setupYamlEditor() {
-        const yamlEditor = document.getElementById('yamlEditor');
-        
-        yamlEditor.addEventListener('scroll', () => {
-            this.updateLineNumbers();
-        });
-        
-        yamlEditor.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const start = yamlEditor.selectionStart;
-                const end = yamlEditor.selectionEnd;
-                const value = yamlEditor.value;
-                yamlEditor.value = value.substring(0, start) + '  ' + value.substring(end);
-                yamlEditor.selectionStart = yamlEditor.selectionEnd = start + 2;
-            }
-        });
-    }
 
-    setupYamlLineNumbers() {
-        this.updateLineNumbers();
-    }
-
-    updateLineNumbers() {
-        const yamlEditor = document.getElementById('yamlEditor');
-        const lineNumbers = document.getElementById('yamlLineNumbers');
-        const lines = yamlEditor.value.split('\n').length;
-        
-        let lineNumbersText = '';
-        for (let i = 1; i <= lines; i++) {
-            lineNumbersText += i + '\n';
-        }
-        lineNumbers.textContent = lineNumbersText;
-        
-        lineNumbers.scrollTop = yamlEditor.scrollTop;
-    }
 
     updateConfigFromForm() {
         this.isUpdatingFromForm = true;
@@ -541,7 +633,7 @@ class ModelEditor {
         this.isUpdatingFromYaml = true;
         
         try {
-            const yamlContent = document.getElementById('yamlEditor').value;
+            const yamlContent = this.yamlEditor.getValue();
             this.config = jsyaml.load(yamlContent) || {};
             this.updateFormFromConfig();
             this.clearAlert();
@@ -549,7 +641,6 @@ class ModelEditor {
             this.showAlert('error', 'YAML Syntax Error: ' + error.message);
         }
         
-        this.updateLineNumbers();
         this.isUpdatingFromYaml = false;
     }
 
@@ -616,8 +707,7 @@ class ModelEditor {
                 noRefs: true,
                 sortKeys: false
             });
-            document.getElementById('yamlEditor').value = yamlContent;
-            this.updateLineNumbers();
+            this.yamlEditor.setValue(yamlContent);
         } catch (error) {
             console.error('Failed to generate YAML:', error);
         }
@@ -760,7 +850,7 @@ class ModelEditor {
     // Action methods
     validateConfig() {
         try {
-            const yamlContent = document.getElementById('yamlEditor').value;
+            const yamlContent = this.yamlEditor.getValue();
             jsyaml.load(yamlContent);
             
             if (!this.config.name) {
@@ -783,7 +873,7 @@ class ModelEditor {
         try {
             this.validateConfig();
             
-            const yamlContent = document.getElementById('yamlEditor').value;
+            const yamlContent = this.yamlEditor.getValue();
             const endpoint = this.isEditMode ? `/models/edit/${this.modelName}` : '/models/import';
                 
                 const response = await fetch(endpoint, {
@@ -842,7 +932,7 @@ class ModelEditor {
 
     formatYaml() {
         try {
-            const yamlContent = document.getElementById('yamlEditor').value;
+            const yamlContent = this.yamlEditor.getValue();
             const parsed = jsyaml.load(yamlContent);
             const formatted = jsyaml.dump(parsed, {
                 indent: 2,
@@ -850,8 +940,7 @@ class ModelEditor {
                 noRefs: true,
                 sortKeys: true
             });
-            document.getElementById('yamlEditor').value = formatted;
-            this.updateLineNumbers();
+            this.yamlEditor.setValue(formatted);
             this.showAlert('success', 'YAML formatted successfully');
         } catch (error) {
             this.showAlert('error', 'Failed to format YAML: ' + error.message);
@@ -859,11 +948,19 @@ class ModelEditor {
     }
 
     copyYaml() {
-        const yamlEditor = document.getElementById('yamlEditor');
-        yamlEditor.select();
-        yamlEditor.setSelectionRange(0, 99999);
-        document.execCommand('copy');
-        this.showAlert('success', 'YAML copied to clipboard');
+        const yamlContent = this.yamlEditor.getValue();
+        navigator.clipboard.writeText(yamlContent).then(() => {
+            this.showAlert('success', 'YAML copied to clipboard');
+        }).catch(err => {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = yamlContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            this.showAlert('success', 'YAML copied to clipboard');
+        });
     }
 
     showAlert(type, message) {
