@@ -224,21 +224,7 @@
 function handleShutdownResponse(event, modelName) {
     const button = event.target;
     const response = event.detail.xhr;
-    
-    if (response.status === 200) {
-        // Success - hide the stop button since model is no longer loaded
-        button.style.display = 'none';
-        
-        // Optionally show a success message or update the UI
-        // You could also refresh the page to update the loaded models state
-        // window.location.reload();
-    } else {
-        // Error - show error message and keep button visible
-        console.error('Failed to shutdown model:', response.statusText);
-        
-        // You could show a toast notification here
-        // For now, just log to console and keep button visible
-    }
+    window.location.reload();
 }
 </script>
 
