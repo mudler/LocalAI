@@ -15,7 +15,7 @@ CGO_LDFLAGS?=
 # Avoid parent make file overwriting CGO_LDFLAGS which is needed for hipblas
 CGO_LDFLAGS_SYCL=
 GO_TAGS?=
-LD_FLAGS?=
+JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
