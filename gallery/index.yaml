@@ -3112,8 +3112,8 @@
       model: gemma-3-270m-it-qat-Q4_0.gguf
   files:
     - filename: gemma-3-270m-it-qat-Q4_0.gguf
-      sha256: 154546607c34d1509e95e2f9371bb0aef1dc6bc9ceba52a66112852cc65cf447
       uri: huggingface://ggml-org/gemma-3-270m-it-qat-GGUF/gemma-3-270m-it-qat-Q4_0.gguf
+      sha256: 3626e245220ca4a1c5911eb4010b3ecb7bdbf5bc53c79403c21355354d1e2dc6
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
@@ -9499,18 +9499,7 @@
   urls:
     - https://huggingface.co/bartowski/baichuan-inc_Baichuan-M2-32B-GGUF
     - https://huggingface.co/baichuan-inc/Baichuan-M2-32B
-  description: |
-    Baichuan-M2-32B is Baichuan AI's medical-enhanced reasoning model, the second medical model released by Baichuan. Designed for real-world medical reasoning tasks, this model builds upon Qwen2.5-32B with an innovative Large Verifier System. Through domain-specific fine-tuning on real-world medical questions, it achieves breakthrough medical performance while maintaining strong general capabilities.
-
-    Model Features:
-
-    Baichuan-M2 incorporates three core technical innovations: First, through the Large Verifier System, it combines medical scenario characteristics to design a comprehensive medical verification framework, including patient simulators and multi-dimensional verification mechanisms; second, through medical domain adaptation enhancement via Mid-Training, it achieves lightweight and efficient medical domain adaptation while preserving general capabilities; finally, it employs a multi-stage reinforcement learning strategy, decomposing complex RL tasks into hierarchical training stages to progressively enhance the model's medical knowledge, reasoning, and patient interaction capabilities.
-
-    Core Highlights:
-
-        🏆 World's Leading Open-Source Medical Model: Outperforms all open-source models and many proprietary models on HealthBench, achieving medical capabilities closest to GPT-5
-        🧠 Doctor-Thinking Alignment: Trained on real clinical cases and patient simulators, with clinical diagnostic thinking and robust patient interaction capabilities
-        ⚡ Efficient Deployment: Supports 4-bit quantization for single-RTX4090 deployment, with 58.5% higher token throughput in MTP version for single-user scenarios
+  description: "Baichuan-M2-32B is Baichuan AI's medical-enhanced reasoning model, the second medical model released by Baichuan. Designed for real-world medical reasoning tasks, this model builds upon Qwen2.5-32B with an innovative Large Verifier System. Through domain-specific fine-tuning on real-world medical questions, it achieves breakthrough medical performance while maintaining strong general capabilities.\n\nModel Features:\n\nBaichuan-M2 incorporates three core technical innovations: First, through the Large Verifier System, it combines medical scenario characteristics to design a comprehensive medical verification framework, including patient simulators and multi-dimensional verification mechanisms; second, through medical domain adaptation enhancement via Mid-Training, it achieves lightweight and efficient medical domain adaptation while preserving general capabilities; finally, it employs a multi-stage reinforcement learning strategy, decomposing complex RL tasks into hierarchical training stages to progressively enhance the model's medical knowledge, reasoning, and patient interaction capabilities.\n\nCore Highlights:\n\n    \U0001F3C6 World's Leading Open-Source Medical Model: Outperforms all open-source models and many proprietary models on HealthBench, achieving medical capabilities closest to GPT-5\n    \U0001F9E0 Doctor-Thinking Alignment: Trained on real clinical cases and patient simulators, with clinical diagnostic thinking and robust patient interaction capabilities\n    ⚡ Efficient Deployment: Supports 4-bit quantization for single-RTX4090 deployment, with 58.5% higher token throughput in MTP version for single-user scenarios\n"
   overrides:
     parameters:
       model: baichuan-inc_Baichuan-M2-32B-Q4_K_M.gguf
