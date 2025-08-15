@@ -290,7 +290,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
@@ -302,7 +302,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -314,7 +314,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
@@ -326,7 +326,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
@@ -338,7 +338,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
@@ -351,7 +351,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
@@ -363,7 +363,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
@@ -375,7 +375,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
@@ -387,7 +387,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-bark'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
@@ -752,7 +752,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas-whisper'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
             backend: "whisper"
@@ -914,7 +914,7 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas-exllama2'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             runs-on: 'ubuntu-latest'
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
@@ -926,7 +926,7 @@ jobs:
           #   platforms: 'linux/amd64'
           #   tag-latest: 'auto'
           #   tag-suffix: '-gpu-hipblas-rfdetr'
-          #   base-image: "rocm/dev-ubuntu-22.04:6.1"
+          #   base-image: "rocm/dev-ubuntu-22.04:6.4.3"
           #   runs-on: 'ubuntu-latest'
           #   skip-drivers: 'false'
           #   backend: "rfdetr"
