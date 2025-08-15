@@ -89,6 +89,7 @@
             
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {{$galleryConfig:=.GalleryConfig}}
+                {{ $loadedModels := .LoadedModels }}
                 {{$noicon:="https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"}}
                 
                 {{ range .ModelsConfig }}
@@ -149,7 +150,22 @@
                             {{ end }}
                         </div>
                         
+                        
                         <div class="mt-4 flex justify-end gap-2">
+
+                            {{ if index $loadedModels .Name }}
+                            <button class="inline-flex items-center text-xs font-medium text-red-400 hover:text-red-300 hover:bg-red-900/20 rounded-md px-2 py-1 transition-colors duration-200"
+                                data-twe-ripple-init=""
+                                hx-confirm="Are you sure you wish to stop this model?"
+                                hx-post="/backend/shutdown"
+                                hx-vals='{"model": "{{.Name}}"}'
+                                hx-target="this"
+                                hx-swap="none"
+                                hx-on::after-request="handleShutdownResponse(event, '{{.Name}}')">
+                                <i class="fas fa-stop mr-1.5"></i>Stop
+                            </button>
+                            {{ end }}
+                            
                             <a href="/models/edit/{{.Name}}" 
                                class="inline-flex items-center text-xs font-medium text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/20 rounded-md px-2 py-1 transition-colors duration-200">
                                 <i class="fas fa-edit mr-1.5"></i>Edit
@@ -203,6 +219,28 @@
 
     {{template "views/partials/footer" .}}
 </div>
+
+<script>
+function handleShutdownResponse(event, modelName) {
+    const button = event.target;
+    const response = event.detail.xhr;
+    
+    if (response.status === 200) {
+        // Success - hide the stop button since model is no longer loaded
+        button.style.display = 'none';
+        
+        // Optionally show a success message or update the UI
+        // You could also refresh the page to update the loaded models state
+        // window.location.reload();
+    } else {
+        // Error - show error message and keep button visible
+        console.error('Failed to shutdown model:', response.statusText);
+        
+        // You could show a toast notification here
+        // For now, just log to console and keep button visible
+    }
+}
+</script>
 
 </body>
 </html>

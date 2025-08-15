@@ -48,6 +48,24 @@ function submitSystemPrompt(event) {
   document.getElementById("systemPrompt").blur();
 }
 
+function handleShutdownResponse(event, modelName) {
+  // Check if the request was successful
+  if (event.detail.successful) {
+    // Show a success message (optional)
+    console.log(`Model ${modelName} stopped successfully`);
+    
+    // Refresh the page to update the UI
+    window.location.reload();
+  } else {
+    // Show an error message (optional)
+    console.error(`Failed to stop model ${modelName}`);
+    
+    // You could also show a user-friendly error message here
+    // For now, we'll still refresh to show the current state
+    window.location.reload();
+  }
+}
+
 var images = [];
 var audios = [];
 var fileContents = [];

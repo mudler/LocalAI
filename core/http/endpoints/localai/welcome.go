@@ -24,6 +24,12 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			galleryConfigs[m.Name] = cfg
 		}
 
+		loadedModels := ml.ListLoadedModels()
+		loadedModelsMap := map[string]bool{}
+		for _, m := range loadedModels {
+			loadedModelsMap[m.ID] = true
+		}
+
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		// Get model statuses to display in the UI the operation in progress
@@ -39,6 +45,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			"ApplicationConfig": appConfig,
 			"ProcessingModels":  processingModels,
 			"TaskTypes":         taskTypes,
+			"LoadedModels":      loadedModelsMap,
 		}
 
 		if string(c.Context().Request.Header.ContentType()) == "application/json" || len(c.Accepts("html")) == 0 {

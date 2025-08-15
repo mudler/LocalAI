@@ -14,7 +14,7 @@ import (
 func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		availableBackends := []string{}
-		loadedModels := ml.ListModels()
+		loadedModels := ml.ListLoadedModels()
 		for b := range appConfig.ExternalGRPCBackends {
 			availableBackends = append(availableBackends, b)
 		}
