@@ -1,4 +1,3 @@
-#include <cstdint>
 #define GGML_MAX_NAME 128
 
 #include <stdio.h>
@@ -58,7 +57,7 @@ sd_ctx_t* sd_c;
 sample_method_t sample_method;
 
 // Copied from the upstream CLI
-static void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
+void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
     //SDParams* params = (SDParams*)data;
     const char* level_str;
 
@@ -89,33 +88,33 @@ static void sd_log_cb(enum sd_log_level_t level, const char* log, void* data) {
     fflush(stderr);
 }
 
-int load_model(const char *model, char *model_path, char* options[], int threads, int diff) {
-    fprintf (stderr, "Loading model: %p=%s\n", model, model);
+int load_model(char *model, char *model_path, char* options[], int threads, int diff) {
+    fprintf (stderr, "Loading model!\n");
 
     sd_set_log_callback(sd_log_cb, NULL);
 
-    const char *stableDiffusionModel = "";
+    char *stableDiffusionModel = "";
     if (diff == 1 ) {
         stableDiffusionModel = model;
         model = "";
     }
 
     // decode options. Options are in form optname:optvale, or if booleans only optname.
-    const char *clip_l_path  = "";
-    const char *clip_g_path  = "";
-    const char *t5xxl_path  = "";
-    const char *vae_path  = "";
-    const char *scheduler = "";
-    const char *sampler = "";
+    char *clip_l_path  = "";
+    char *clip_g_path  = "";
+    char *t5xxl_path  = "";
+    char *vae_path  = "";
+    char *scheduler = "";
+    char *sampler = "";
     char *lora_dir = model_path;
     bool lora_dir_allocated = false;
 
-    fprintf(stderr, "parsing options: %p\n", options);
+    fprintf(stderr, "parsing options\n");
 
     // If options is not NULL, parse options
     for (int i = 0; options[i] != NULL; i++) {
-        const char *optname = strtok(options[i], ":");
-        const char *optval = strtok(NULL, ":");
+        char *optname = strtok(options[i], ":");
+        char *optval = strtok(NULL, ":");
         if (optval == NULL) {
             optval = "true";
         }
@@ -148,8 +147,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
                 lora_dir_allocated = true;
                 fprintf(stderr, "Lora dir resolved to: %s\n", lora_dir);
             } else {
-                lora_dir = strdup(optval);
-                lora_dir_allocated = true;
+                lora_dir = optval;
                 fprintf(stderr, "No model path provided, using lora dir as-is: %s\n", lora_dir);
             }
         }
@@ -228,7 +226,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     return 0;
 }
 
-int gen_image(char *text, char *negativeText, int width, int height, int steps, int64_t seed, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char **ref_images, int ref_images_count) {
+int gen_image(char *text, char *negativeText, int width, int height, int steps, int seed , char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char **ref_images, int ref_images_count) {
 
     sd_image_t* results;
 
@@ -254,14 +252,14 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
     // Handle input image for img2img
     bool has_input_image = (src_image != NULL && strlen(src_image) > 0);
     bool has_mask_image = (mask_image != NULL && strlen(mask_image) > 0);
-
+    
     uint8_t* input_image_buffer = NULL;
     uint8_t* mask_image_buffer = NULL;
     std::vector<uint8_t> default_mask_image_vec;
-
+    
     if (has_input_image) {
         fprintf(stderr, "Loading input image: %s\n", src_image);
-
+        
         int c = 0;
         int img_width = 0;
         int img_height = 0;
@@ -275,29 +273,29 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
             free(input_image_buffer);
             return 1;
         }
-
+        
         // Resize input image if dimensions don't match
         if (img_width != width || img_height != height) {
             fprintf(stderr, "Resizing input image from %dx%d to %dx%d\n", img_width, img_height, width, height);
-
+            
             uint8_t* resized_image_buffer = (uint8_t*)malloc(height * width * 3);
             if (resized_image_buffer == NULL) {
                 fprintf(stderr, "Failed to allocate memory for resized image\n");
                 free(input_image_buffer);
                 return 1;
             }
-
+            
             stbir_resize(input_image_buffer, img_width, img_height, 0,
                          resized_image_buffer, width, height, 0, STBIR_TYPE_UINT8,
                          3, STBIR_ALPHA_CHANNEL_NONE, 0,
                          STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
                          STBIR_FILTER_BOX, STBIR_FILTER_BOX,
                          STBIR_COLORSPACE_SRGB, nullptr);
-
+            
             free(input_image_buffer);
             input_image_buffer = resized_image_buffer;
         }
-
+        
         p.init_image = {(uint32_t)width, (uint32_t)height, 3, input_image_buffer};
         p.strength = strength;
         fprintf(stderr, "Using img2img with strength: %.2f\n", strength);
@@ -306,11 +304,11 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
         p.init_image = {(uint32_t)width, (uint32_t)height, 3, NULL};
         p.strength = 0.0f;
     }
-
+    
     // Handle mask image for inpainting
     if (has_mask_image) {
         fprintf(stderr, "Loading mask image: %s\n", mask_image);
-
+        
         int c = 0;
         int mask_width = 0;
         int mask_height = 0;
@@ -320,11 +318,11 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
             if (input_image_buffer) free(input_image_buffer);
             return 1;
         }
-
+        
         // Resize mask if dimensions don't match
         if (mask_width != width || mask_height != height) {
             fprintf(stderr, "Resizing mask image from %dx%d to %dx%d\n", mask_width, mask_height, width, height);
-
+            
             uint8_t* resized_mask_buffer = (uint8_t*)malloc(height * width);
             if (resized_mask_buffer == NULL) {
                 fprintf(stderr, "Failed to allocate memory for resized mask\n");
@@ -332,18 +330,18 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
                 if (input_image_buffer) free(input_image_buffer);
                 return 1;
             }
-
+            
             stbir_resize(mask_image_buffer, mask_width, mask_height, 0,
                          resized_mask_buffer, width, height, 0, STBIR_TYPE_UINT8,
                          1, STBIR_ALPHA_CHANNEL_NONE, 0,
                          STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
                          STBIR_FILTER_BOX, STBIR_FILTER_BOX,
                          STBIR_COLORSPACE_SRGB, nullptr);
-
+            
             free(mask_image_buffer);
             mask_image_buffer = resized_mask_buffer;
         }
-
+        
         p.mask_image = {(uint32_t)width, (uint32_t)height, 1, mask_image_buffer};
         fprintf(stderr, "Using inpainting with mask\n");
     } else {
@@ -355,17 +353,17 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
     // Handle reference images
     std::vector<sd_image_t> ref_images_vec;
     std::vector<uint8_t*> ref_image_buffers;
-
+    
     if (ref_images_count > 0 && ref_images != NULL) {
         fprintf(stderr, "Loading %d reference images\n", ref_images_count);
-
+        
         for (int i = 0; i < ref_images_count; i++) {
             if (ref_images[i] == NULL || strlen(ref_images[i]) == 0) {
                 continue;
             }
-
+            
             fprintf(stderr, "Loading reference image %d: %s\n", i + 1, ref_images[i]);
-
+            
             int c = 0;
             int ref_width = 0;
             int ref_height = 0;
@@ -379,33 +377,33 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
                 free(ref_image_buffer);
                 continue;
             }
-
+            
             // Resize reference image if dimensions don't match
             if (ref_width != width || ref_height != height) {
                 fprintf(stderr, "Resizing reference image from %dx%d to %dx%d\n", ref_width, ref_height, width, height);
-
+                
                 uint8_t* resized_ref_buffer = (uint8_t*)malloc(height * width * 3);
                 if (resized_ref_buffer == NULL) {
                     fprintf(stderr, "Failed to allocate memory for resized reference image\n");
                     free(ref_image_buffer);
                     continue;
                 }
-
+                
                 stbir_resize(ref_image_buffer, ref_width, ref_height, 0,
                              resized_ref_buffer, width, height, 0, STBIR_TYPE_UINT8,
                              3, STBIR_ALPHA_CHANNEL_NONE, 0,
                              STBIR_EDGE_CLAMP, STBIR_EDGE_CLAMP,
                              STBIR_FILTER_BOX, STBIR_FILTER_BOX,
                              STBIR_COLORSPACE_SRGB, nullptr);
-
+                
                 free(ref_image_buffer);
                 ref_image_buffer = resized_ref_buffer;
             }
-
+            
             ref_image_buffers.push_back(ref_image_buffer);
             ref_images_vec.push_back({(uint32_t)width, (uint32_t)height, 3, ref_image_buffer});
         }
-
+        
         if (!ref_images_vec.empty()) {
             p.ref_images = ref_images_vec.data();
             p.ref_images_count = ref_images_vec.size();
@@ -456,12 +454,12 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
     for (auto buffer : ref_image_buffers) {
         if (buffer) free(buffer);
     }
-    fprintf (stderr, "gen_image is done: %s", dst);
+    fprintf (stderr, "gen_image is done", dst);
 
     return 0;
 }
 
 int unload() {
     free_sd_ctx(sd_c);
-    return 0;
 }
+
