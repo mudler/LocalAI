@@ -2,30 +2,42 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<body class="bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-200">
 <div class="flex flex-col min-h-screen">
 
     {{template "views/partials/navbar" .}}
 
     <div class="container mx-auto px-4 py-8 flex-grow">
-        <!-- Header -->
-        <div class="mb-8">
-            <div class="flex items-center justify-between">
-                <div>
-                    <h1 class="text-3xl font-bold text-white">
-                        {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
-                    </h1>
-                    <p class="text-gray-400 mt-2">Configure your model settings using the form or YAML editor</p>
-                </div>
-                <div class="flex gap-3">
-                    <button id="validateBtn" class="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg transition flex items-center gap-2">
-                        <i class="fas fa-check"></i>
-                        Validate
-                    </button>
-                    <button id="saveBtn" class="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg transition flex items-center gap-2">
-                        <i class="fas fa-save"></i>
-                        {{if .ModelName}}Update{{else}}Create{{end}}
-                    </button>
+        <!-- Hero Header -->
+        <div class="relative bg-gradient-to-r from-violet-900/40 via-purple-900/30 to-fuchsia-900/40 rounded-3xl shadow-2xl p-8 mb-8 overflow-hidden">
+            <!-- Background Pattern -->
+            <div class="absolute inset-0 opacity-10">
+                <div class="absolute inset-0 bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20"></div>
+                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
+            </div>
+            
+            <div class="relative max-w-5xl mx-auto">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div class="mb-4 md:mb-0">
+                        <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                            <span class="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400">
+                                {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
+                            </span>
+                        </h1>
+                        <p class="text-lg text-gray-300 font-light">Configure your model settings using the form or YAML editor</p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button id="validateBtn" class="group relative inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25">
+                            <i class="fas fa-check mr-2 group-hover:animate-pulse"></i>
+                            <span>Validate</span>
+                            <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </button>
+                        <button id="saveBtn" class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
+                            <i class="fas fa-save mr-2 group-hover:animate-pulse"></i>
+                            <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
+                            <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -37,45 +49,53 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-250px)]">
             
             <!-- Form Panel (Left) -->
-            <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden">
-                <div class="sticky top-0 bg-gray-800 border-b border-gray-700/50 p-4 flex items-center justify-between z-10">
-                    <h2 class="text-xl font-semibold text-white flex items-center gap-2">
-                        <i class="fas fa-edit"></i>
+            <div class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm">
+                <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-violet-500/5 to-purple-500/5"></div>
+                
+                <div class="relative sticky top-0 bg-gray-800/95 border-b border-gray-700/50 p-6 flex items-center justify-between z-10 backdrop-blur-sm">
+                    <h2 class="text-xl font-semibold text-white flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                            <i class="fas fa-edit text-violet-400"></i>
+                        </div>
                         Configuration Form
                     </h2>
-                    <div class="flex items-center gap-2">
-                        <button id="resetFormBtn" class="text-gray-400 hover:text-gray-200 text-sm">
-                            <i class="fas fa-undo"></i> Reset
+                    <div class="flex items-center gap-3">
+                        <button id="resetFormBtn" class="group text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200">
+                            <i class="fas fa-undo mr-1.5 group-hover:animate-spin"></i> Reset
                         </button>
-                        <button id="expandAllBtn" class="text-gray-400 hover:text-gray-200 text-sm">
-                            <i class="fas fa-expand-alt"></i> Expand All
+                        <button id="expandAllBtn" class="group text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200">
+                            <i class="fas fa-expand-alt mr-1.5 group-hover:animate-pulse"></i> Expand All
                         </button>
                     </div>
                 </div>
-                <div class="p-6 overflow-y-auto" style="height: calc(100% - 80px);">
+                <div class="relative p-6 overflow-y-auto" style="height: calc(100% - 88px);">
                     <form id="configForm" class="space-y-6">
                         <!-- Form will be dynamically generated here -->
                     </form>
-                    </div>
                 </div>
+            </div>
 
             <!-- YAML Editor Panel (Right) -->
-            <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden">
-                <div class="sticky top-0 bg-gray-800 border-b border-gray-700/50 p-4 flex items-center justify-between z-10">
-                    <h2 class="text-xl font-semibold text-white flex items-center gap-2">
-                        <i class="fas fa-code"></i>
+            <div class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm">
+                <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-fuchsia-500/5 to-purple-500/5"></div>
+                
+                <div class="relative sticky top-0 bg-gray-800/95 border-b border-gray-700/50 p-6 flex items-center justify-between z-10 backdrop-blur-sm">
+                    <h2 class="text-xl font-semibold text-white flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-fuchsia-500/20 flex items-center justify-center">
+                            <i class="fas fa-code text-fuchsia-400"></i>
+                        </div>
                         YAML Editor
                     </h2>
-                    <div class="flex items-center gap-2">
-                        <button id="formatYamlBtn" class="text-gray-400 hover:text-gray-200 text-sm">
-                            <i class="fas fa-indent"></i> Format
-                                </button>
-                        <button id="copyYamlBtn" class="text-gray-400 hover:text-gray-200 text-sm">
-                            <i class="fas fa-copy"></i> Copy
+                    <div class="flex items-center gap-3">
+                        <button id="formatYamlBtn" class="group text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200">
+                            <i class="fas fa-indent mr-1.5 group-hover:animate-pulse"></i> Format
+                        </button>
+                        <button id="copyYamlBtn" class="group text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200">
+                            <i class="fas fa-copy mr-1.5 group-hover:animate-bounce"></i> Copy
                         </button>
                     </div>
                 </div>
-                <div class="relative" style="height: calc(100% - 80px);">
+                <div class="relative" style="height: calc(100% - 88px);">
                     <div id="yamlCodeMirror" class="h-full"></div>
                 </div>
             </div>
@@ -95,90 +115,238 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/6.65.7/addon/display/autorefresh.min.js"></script>
 
 <style>
+/* Enhanced CodeMirror styling */
 .CodeMirror {
-    background: #111827 !important;
+    background: linear-gradient(135deg, #111827 0%, #1f2937 100%) !important;
     color: #e5e7eb !important;
     border: none !important;
     height: 100% !important;
     font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace !important;
     font-size: 14px !important;
     border-radius: 0 !important;
+    line-height: 1.5 !important;
 }
+
 .CodeMirror-cursor {
-    border-left: 1px solid #e5e7eb !important;
+    border-left: 2px solid #a78bfa !important;
+    animation: blink 1s infinite;
 }
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
 .CodeMirror-gutters {
-    background: #1f2937 !important;
-    border-right: 1px solid #374151 !important;
-    color: #6b7280 !important;
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%) !important;
+    border-right: 1px solid rgba(75, 85, 99, 0.5) !important;
+    color: #9ca3af !important;
+    padding-right: 8px !important;
 }
+
 .CodeMirror-linenumber {
     color: #6b7280 !important;
-    padding: 0 8px 0 0 !important;
-}
-.CodeMirror-activeline-background {
-    background: rgba(75, 85, 99, 0.3) !important;
-}
-.CodeMirror-selected {
-    background: rgba(59, 130, 246, 0.25) !important;
-}
-.CodeMirror-selectedtext {
-    background: rgba(59, 130, 246, 0.25) !important;
-}
-.CodeMirror-focused .CodeMirror-selected {
-    background: rgba(59, 130, 246, 0.3) !important;
-}
-.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
-    background: rgba(59, 130, 246, 0.3) !important;
-}
-.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection {
-    background: rgba(59, 130, 246, 0.3) !important;
+    padding: 0 8px 0 4px !important;
+    font-size: 12px !important;
 }
 
-/* YAML Syntax Highlighting - Tailored for LocalAI's gray theme */
-.cm-keyword { color: #60a5fa !important; font-weight: 500 !important; } /* Blue for YAML keys */
-.cm-string { color: #34d399 !important; } /* Green for strings */
-.cm-number { color: #fbbf24 !important; } /* Amber for numbers */
-.cm-comment { color: #9ca3af !important; font-style: italic !important; } /* Gray for comments */
-.cm-property { color: #a78bfa !important; } /* Purple for properties */
-.cm-operator { color: #f87171 !important; } /* Red for operators */
-.cm-variable { color: #22d3ee !important; } /* Cyan for variables */
-.cm-tag { color: #60a5fa !important; font-weight: 500 !important; } /* Blue for tags */
-.cm-attribute { color: #fbbf24 !important; } /* Amber for attributes */
-.cm-def { color: #a78bfa !important; font-weight: 500 !important; } /* Purple for definitions */
+.CodeMirror-activeline-background {
+    background: rgba(139, 92, 246, 0.1) !important;
+}
+
+.CodeMirror-selected {
+    background: rgba(139, 92, 246, 0.25) !important;
+}
+
+.CodeMirror-selectedtext {
+    background: rgba(139, 92, 246, 0.25) !important;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+    background: rgba(139, 92, 246, 0.3) !important;
+}
+
+.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
+    background: rgba(139, 92, 246, 0.3) !important;
+}
+
+.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection {
+    background: rgba(139, 92, 246, 0.3) !important;
+}
+
+/* Enhanced YAML Syntax Highlighting */
+.cm-keyword { color: #8b5cf6 !important; font-weight: 600 !important; } /* Purple for YAML keys */
+.cm-string { color: #10b981 !important; } /* Emerald for strings */
+.cm-number { color: #f59e0b !important; } /* Amber for numbers */
+.cm-comment { color: #6b7280 !important; font-style: italic !important; } /* Gray for comments */
+.cm-property { color: #ec4899 !important; } /* Pink for properties */
+.cm-operator { color: #ef4444 !important; } /* Red for operators */
+.cm-variable { color: #06b6d4 !important; } /* Cyan for variables */
+.cm-tag { color: #8b5cf6 !important; font-weight: 600 !important; } /* Purple for tags */
+.cm-attribute { color: #f59e0b !important; } /* Amber for attributes */
+.cm-def { color: #ec4899 !important; font-weight: 600 !important; } /* Pink for definitions */
 .cm-bracket { color: #d1d5db !important; } /* Light gray for brackets */
 .cm-punctuation { color: #d1d5db !important; } /* Light gray for punctuation */
-.cm-quote { color: #34d399 !important; } /* Green for quotes */
-.cm-meta { color: #9ca3af !important; } /* Gray for meta */
+.cm-quote { color: #10b981 !important; } /* Emerald for quotes */
+.cm-meta { color: #6b7280 !important; } /* Gray for meta */
 .cm-builtin { color: #f472b6 !important; } /* Pink for builtins */
-.cm-atom { color: #fbbf24 !important; } /* Amber for atoms like true/false/null */
+.cm-atom { color: #f59e0b !important; } /* Amber for atoms like true/false/null */
 
-/* Scrollbar styling to match theme */
+/* Enhanced scrollbar styling */
 .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
     background: #1f2937 !important;
 }
+
 .CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
     background: #1f2937 !important;
 }
+
 .CodeMirror-vscrollbar::-webkit-scrollbar, .CodeMirror-hscrollbar::-webkit-scrollbar {
     width: 8px;
     height: 8px;
 }
+
 .CodeMirror-vscrollbar::-webkit-scrollbar-track, .CodeMirror-hscrollbar::-webkit-scrollbar-track {
     background: #1f2937;
-}
-.CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
-    background: #4b5563;
     border-radius: 4px;
 }
+
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+    border-radius: 4px;
+}
+
 .CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
-    background: #6b7280;
+    background: linear-gradient(135deg, #9ca3af 0%, #d1d5db 100%);
 }
 
 /* Focus ring styling */
 .CodeMirror-focused {
-    outline: 2px solid rgba(59, 130, 246, 0.5) !important;
+    outline: 2px solid rgba(139, 92, 246, 0.5) !important;
     outline-offset: -2px !important;
+    border-radius: 0.5rem !important;
+}
+
+/* Enhanced form styling */
+.form-section {
+    background: linear-gradient(135deg, rgba(55, 65, 81, 0.3) 0%, rgba(75, 85, 99, 0.3) 100%);
+    border: 1px solid rgba(107, 114, 128, 0.3);
+    border-radius: 1rem;
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
+}
+
+.form-section:hover {
+    border-color: rgba(139, 92, 246, 0.3);
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.1);
+}
+
+.form-section.expanded {
+    border-color: rgba(139, 92, 246, 0.4);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
+
+.section-header {
+    background: linear-gradient(135deg, rgba(75, 85, 99, 0.4) 0%, rgba(107, 114, 128, 0.4) 100%);
+    border-bottom: 1px solid rgba(107, 114, 128, 0.3);
+    padding: 1rem 1.5rem;
+    border-radius: 1rem 1rem 0 0;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.section-header:hover {
+    background: linear-gradient(135deg, rgba(107, 114, 128, 0.4) 0%, rgba(139, 92, 246, 0.2) 100%);
+}
+
+.form-input {
+    background: linear-gradient(135deg, rgba(17, 24, 39, 0.8) 0%, rgba(31, 41, 55, 0.8) 100%) !important;
+    border: 1px solid rgba(107, 114, 128, 0.4) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem 1rem !important;
+    color: #e5e7eb !important;
+    transition: all 0.3s ease !important;
+    backdrop-filter: blur(4px) !important;
+}
+
+.form-input:focus {
+    border-color: rgba(139, 92, 246, 0.6) !important;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1) !important;
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.9) 0%, rgba(55, 65, 81, 0.9) 100%) !important;
+}
+
+.form-input:hover {
+    border-color: rgba(139, 92, 246, 0.4) !important;
+}
+
+/* Enhanced button styling */
+.action-button {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border-radius: 0.75rem;
+    padding: 0.5rem 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.action-button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(139, 92, 246, 0.3);
+    background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 100%);
+}
+
+.danger-button {
+    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.danger-button:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+}
+
+/* Alert styling */
+.alert {
+    border-radius: 1rem;
+    padding: 1rem 1.5rem;
+    backdrop-filter: blur(8px);
+    border: 1px solid;
+    animation: slideInFromTop 0.3s ease-out;
+}
+
+@keyframes slideInFromTop {
+    from {
+        transform: translateY(-20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.alert-success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.alert-error {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #f59e0b;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
 }
 </style>
 
@@ -398,20 +566,22 @@ class ModelEditor {
 
     createFormSection(section) {
         const sectionDiv = document.createElement('div');
-        sectionDiv.className = 'bg-gray-700/30 rounded-lg border border-gray-600/50';
+        sectionDiv.className = 'form-section';
         
         const isCollapsible = section.collapsible;
         const sectionId = section.title.toLowerCase().replace(/\s+/g, '-');
         
         sectionDiv.innerHTML = `
-            <div class="p-4 border-b border-gray-600/50 ${isCollapsible ? 'cursor-pointer' : ''}" ${isCollapsible ? `onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.collapse-icon').classList.toggle('rotate-180')"` : ''}>
-                <h3 class="text-lg font-semibold text-white flex items-center gap-2">
-                    <i class="${section.icon}"></i>
+            <div class="section-header ${isCollapsible ? 'cursor-pointer' : ''}" ${isCollapsible ? `onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('.collapse-icon').classList.toggle('rotate-180'); this.closest('.form-section').classList.toggle('expanded')"` : ''}>
+                <h3 class="text-lg font-semibold text-white flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                        <i class="${section.icon} text-violet-400"></i>
+                    </div>
                     ${section.title}
-                    ${isCollapsible ? '<i class="fas fa-chevron-down text-sm ml-auto collapse-icon transition-transform"></i>' : ''}
+                    ${isCollapsible ? '<i class="fas fa-chevron-down text-sm ml-auto collapse-icon transition-transform duration-300"></i>' : ''}
                 </h3>
             </div>
-            <div class="p-4 space-y-4 ${isCollapsible ? 'hidden' : ''}" id="${sectionId}-content">
+            <div class="p-6 space-y-6 ${isCollapsible ? 'hidden' : ''}" id="${sectionId}-content">
                 ${section.fields.map(field => this.createFormField(field)).join('')}
             </div>
         `;
@@ -428,33 +598,33 @@ class ModelEditor {
         switch (field.type) {
             case 'text':
                 const readonlyAttr = field.readonly ? 'readonly' : '';
-                const readonlyClass = field.readonly ? 'bg-gray-700 cursor-not-allowed' : 'bg-gray-800';
-                inputHtml = `<input type="text" id="${fieldId}" name="${field.key}" value="${value}" class="w-full p-3 ${readonlyClass} border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${field.required ? 'required' : ''} ${readonlyAttr}>`;
+                const readonlyClass = field.readonly ? 'bg-gray-700 cursor-not-allowed opacity-60' : '';
+                inputHtml = `<input type="text" id="${fieldId}" name="${field.key}" value="${value}" class="form-input w-full ${readonlyClass}" ${field.required ? 'required' : ''} ${readonlyAttr}>`;
                 break;
                 
             case 'textarea':
-                inputHtml = `<textarea id="${fieldId}" name="${field.key}" rows="3" class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-vertical">${value}</textarea>`;
+                inputHtml = `<textarea id="${fieldId}" name="${field.key}" rows="3" class="form-input w-full resize-vertical">${value}</textarea>`;
                 break;
                 
             case 'number':
                 const step = field.step || '1';
                 const min = field.min !== undefined ? `min="${field.min}"` : '';
                 const max = field.max !== undefined ? `max="${field.max}"` : '';
-                inputHtml = `<input type="number" id="${fieldId}" name="${field.key}" value="${value}" step="${step}" ${min} ${max} class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent">`;
+                inputHtml = `<input type="number" id="${fieldId}" name="${field.key}" value="${value}" step="${step}" ${min} ${max} class="form-input w-full">`;
                 break;
                 
             case 'checkbox':
                 const checked = value === true || value === 'true' ? 'checked' : '';
                 inputHtml = `
                     <div class="flex items-center">
-                        <input type="checkbox" id="${fieldId}" name="${field.key}" ${checked} class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                        <label for="${fieldId}" class="ml-2 text-sm text-gray-300">Enable</label>
+                        <input type="checkbox" id="${fieldId}" name="${field.key}" ${checked} class="w-5 h-5 text-violet-600 bg-gray-800 border-gray-600 rounded focus:ring-violet-500 focus:ring-2">
+                        <label for="${fieldId}" class="ml-3 text-sm text-gray-300 font-medium">Enable</label>
                     </div>`;
                 break;
                 
             case 'select':
                 const options = field.options.map(opt => `<option value="${opt}" ${value === opt ? 'selected' : ''}>${opt || '(Select backend)'}</option>`).join('');
-                inputHtml = `<select id="${fieldId}" name="${field.key}" class="w-full p-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent" ${field.required ? 'required' : ''}>${options}</select>`;
+                inputHtml = `<select id="${fieldId}" name="${field.key}" class="form-input w-full" ${field.required ? 'required' : ''}>${options}</select>`;
                 break;
                 
             case 'multiselect':
@@ -462,30 +632,30 @@ class ModelEditor {
                 const checkboxes = field.options.map(opt => {
                     const isChecked = currentValues.includes(opt);
                     return `
-                        <div class="flex items-center">
-                            <input type="checkbox" id="${fieldId}_${opt}" name="${field.key}" value="${opt}" ${isChecked ? 'checked' : ''} class="w-4 h-4 text-blue-600 bg-gray-800 border-gray-600 rounded focus:ring-blue-500 focus:ring-2">
-                            <label for="${fieldId}_${opt}" class="ml-2 text-sm text-gray-300">${opt}</label>
+                        <div class="flex items-center p-2 rounded-lg hover:bg-violet-500/10 transition-colors">
+                            <input type="checkbox" id="${fieldId}_${opt}" name="${field.key}" value="${opt}" ${isChecked ? 'checked' : ''} class="w-4 h-4 text-violet-600 bg-gray-800 border-gray-600 rounded focus:ring-violet-500 focus:ring-2">
+                            <label for="${fieldId}_${opt}" class="ml-3 text-sm text-gray-300 font-medium">${opt}</label>
                         </div>`;
                 }).join('');
-                inputHtml = `<div class="space-y-2 max-h-32 overflow-y-auto">${checkboxes}</div>`;
+                inputHtml = `<div class="space-y-2 max-h-40 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-gray-800 p-2 border border-gray-600/50 rounded-lg bg-gray-800/30">${checkboxes}</div>`;
                 break;
                 
             case 'array':
                 const arrayValues = Array.isArray(value) ? value : [];
                 inputHtml = `
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <div id="${fieldId}_container" class="space-y-2">
                             ${arrayValues.map((item, index) => `
                                 <div class="flex gap-2">
-                                    <input type="text" value="${item}" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateArrayField('${field.key}', ${index}, this.value)">
-                                    <button type="button" onclick="modelEditor.removeArrayItem('${field.key}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                                    <input type="text" value="${item}" class="form-input flex-1" onchange="modelEditor.updateArrayField('${field.key}', ${index}, this.value)">
+                                    <button type="button" onclick="modelEditor.removeArrayItem('${field.key}', ${index})" class="danger-button px-3 py-2 text-white">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             `).join('')}
                         </div>
-                        <button type="button" onclick="modelEditor.addArrayItem('${field.key}')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
-                            <i class="fas fa-plus"></i> Add Item
+                        <button type="button" onclick="modelEditor.addArrayItem('${field.key}')" class="action-button px-4 py-2 text-white text-sm">
+                            <i class="fas fa-plus mr-2"></i> Add Item
                         </button>
                     </div>`;
                 break;
@@ -494,33 +664,33 @@ class ModelEditor {
                 const kvPairs = typeof value === 'object' && value !== null ? value : {};
                 const kvEntries = Object.entries(kvPairs);
                 inputHtml = `
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <div id="${fieldId}_container" class="space-y-2">
                             ${kvEntries.map(([key, val], index) => `
                                 <div class="flex gap-2">
-                                    <input type="text" value="${key}" placeholder="Key" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${field.key}', ${index}, this.value, this.nextElementSibling.value, 'key')">
-                                    <input type="text" value="${val}" placeholder="Value" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${field.key}', ${index}, this.previousElementSibling.value, this.value, 'value')">
-                                    <button type="button" onclick="modelEditor.removeKeyValueItem('${field.key}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                                    <input type="text" value="${key}" placeholder="Key" class="form-input flex-1" onchange="modelEditor.updateKeyValueField('${field.key}', ${index}, this.value, this.nextElementSibling.value, 'key')">
+                                    <input type="text" value="${val}" placeholder="Value" class="form-input flex-1" onchange="modelEditor.updateKeyValueField('${field.key}', ${index}, this.previousElementSibling.value, this.value, 'value')">
+                                    <button type="button" onclick="modelEditor.removeKeyValueItem('${field.key}', ${index})" class="danger-button px-3 py-2 text-white">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>
                             `).join('')}
                         </div>
-                        <button type="button" onclick="modelEditor.addKeyValueItem('${field.key}')" class="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm">
-                            <i class="fas fa-plus"></i> Add Pair
+                        <button type="button" onclick="modelEditor.addKeyValueItem('${field.key}')" class="action-button px-4 py-2 text-white text-sm">
+                            <i class="fas fa-plus mr-2"></i> Add Pair
                         </button>
                     </div>`;
                 break;
         }
         
         return `
-            <div class="space-y-2">
-                <label for="${fieldId}" class="block text-sm font-medium text-gray-300">
+            <div class="space-y-3">
+                <label for="${fieldId}" class="block text-sm font-semibold text-gray-300">
                     ${field.label}
-                    ${field.required ? '<span class="text-red-400">*</span>' : ''}
+                    ${field.required ? '<span class="text-red-400 ml-1">*</span>' : ''}
                 </label>
                 ${inputHtml}
-                ${field.description ? `<p class="text-xs text-gray-500">${field.description}</p>` : ''}
+                ${field.description ? `<p class="text-xs text-gray-500 leading-relaxed">${field.description}</p>` : ''}
             </div>
         `;
     }
@@ -536,6 +706,8 @@ class ModelEditor {
             indentWithTabs: false,
             lineWrapping: false,
             styleActiveLine: true,
+            matchBrackets: true,
+            autoCloseBrackets: true,
             value: {{if .ConfigYAML}}`{{.ConfigYAML}}`{{else}}'# Configuration will appear here...'{{end}}
         });
 
@@ -744,8 +916,8 @@ class ModelEditor {
         
         container.innerHTML = values.map((item, index) => `
             <div class="flex gap-2">
-                <input type="text" value="${item}" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateArrayField('${fieldKey}', ${index}, this.value)">
-                <button type="button" onclick="modelEditor.removeArrayItem('${fieldKey}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                <input type="text" value="${item}" class="form-input flex-1" onchange="modelEditor.updateArrayField('${fieldKey}', ${index}, this.value)">
+                <button type="button" onclick="modelEditor.removeArrayItem('${fieldKey}', ${index})" class="danger-button px-3 py-2 text-white">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -795,9 +967,9 @@ class ModelEditor {
         const entries = Object.entries(values);
         container.innerHTML = entries.map(([key, val], index) => `
             <div class="flex gap-2">
-                <input type="text" value="${key}" placeholder="Key" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${fieldKey}', ${index}, this.value, this.nextElementSibling.value, 'key')">
-                <input type="text" value="${val}" placeholder="Value" class="flex-1 p-2 bg-gray-800 border border-gray-600 rounded text-gray-200" onchange="modelEditor.updateKeyValueField('${fieldKey}', ${index}, this.previousElementSibling.value, this.value, 'value')">
-                <button type="button" onclick="modelEditor.removeKeyValueItem('${fieldKey}', ${index})" class="px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded">
+                <input type="text" value="${key}" placeholder="Key" class="form-input flex-1" onchange="modelEditor.updateKeyValueField('${fieldKey}', ${index}, this.value, this.nextElementSibling.value, 'key')">
+                <input type="text" value="${val}" placeholder="Value" class="form-input flex-1" onchange="modelEditor.updateKeyValueField('${fieldKey}', ${index}, this.previousElementSibling.value, this.value, 'value')">
+                <button type="button" onclick="modelEditor.removeKeyValueItem('${fieldKey}', ${index})" class="danger-button px-3 py-2 text-white">
                     <i class="fas fa-trash"></i>
                 </button>
             </div>
@@ -933,6 +1105,7 @@ class ModelEditor {
             if (content.classList.contains('hidden')) {
                 content.classList.remove('hidden');
                 icon.classList.add('rotate-180');
+                icon.closest('.form-section').classList.add('expanded');
             }
         });
     }
@@ -973,10 +1146,10 @@ class ModelEditor {
     showAlert(type, message) {
         const container = document.getElementById('alertContainer');
         const alertClasses = {
-            success: 'bg-green-600/20 border-green-600/50 text-green-200',
-            error: 'bg-red-600/20 border-red-600/50 text-red-200',
-            warning: 'bg-yellow-600/20 border-yellow-600/50 text-yellow-200',
-            info: 'bg-blue-600/20 border-blue-600/50 text-blue-200'
+            success: 'alert alert-success',
+            error: 'alert alert-error',
+            warning: 'alert alert-warning',
+            info: 'alert alert-info'
         };
         
         const alertIcons = {
@@ -987,11 +1160,11 @@ class ModelEditor {
         };
         
         container.innerHTML = `
-            <div class="p-4 rounded-lg border ${alertClasses[type]}">
+            <div class="${alertClasses[type]}">
                 <div class="flex items-center">
-                    <i class="${alertIcons[type]} mr-2"></i>
-                    <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-auto text-gray-400 hover:text-gray-200">
+                    <i class="${alertIcons[type]} mr-3 text-lg"></i>
+                    <span class="flex-1">${message}</span>
+                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-current hover:opacity-70 transition-opacity">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>

@@ -2,7 +2,7 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<body class="bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-200">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
@@ -10,94 +10,128 @@
     <div class="container mx-auto px-4 py-8 flex-grow">
 
         <!-- Hero Header -->
-        <div class="bg-gradient-to-r from-indigo-900/30 to-purple-900/30 rounded-2xl shadow-xl p-6 mb-8">
-            <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-3xl md:text-4xl font-bold text-white mb-3">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+        <div class="relative bg-gradient-to-r from-emerald-900/40 via-teal-900/30 to-cyan-900/40 rounded-3xl shadow-2xl p-8 mb-12 overflow-hidden">
+            <!-- Background Pattern -->
+            <div class="absolute inset-0 opacity-10">
+                <div class="absolute inset-0 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20"></div>
+                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
+            </div>
+            
+            <div class="relative max-w-5xl mx-auto text-center">
+                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400">
                         Backend Management
                     </span>
                 </h1>
-                <p class="text-lg text-gray-300 mb-2">
-                    <span class="font-semibold text-indigo-300">{{.AvailableBackends}}</span> backends available
-                    <a href="https://localai.io/backends/" target="_blank" class="ml-2 text-blue-400 hover:text-blue-300 transition">
-                        <i class="fas fa-circle-info"></i>
-                    </a>
+                <p class="text-lg md:text-xl text-gray-300 mb-6 font-light">
+                    Discover and install AI backends to power your models
                 </p>
+                <div class="flex flex-wrap justify-center items-center gap-6 text-sm md:text-base">
+                    <div class="flex items-center bg-white/10 rounded-full px-4 py-2">
+                        <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
+                        <span class="font-semibold text-emerald-300">{{.AvailableBackends}}</span>
+                        <span class="text-gray-300 ml-1">backends available</span>
+                    </div>
+                    <a href="https://localai.io/backends/" target="_blank" 
+                       class="flex items-center bg-cyan-600/80 hover:bg-cyan-600 text-white px-4 py-2 rounded-full transition-all duration-300 hover:scale-105">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>Documentation</span>
+                        <i class="fas fa-external-link-alt ml-2 text-xs"></i>
+                    </a>
+                </div>
             </div>
         </div>
         
         {{template "views/partials/inprogress" .}}
 
         <!-- Search and Filter Section -->
-        <div class="bg-gray-800/70 rounded-xl p-6 mb-8 shadow-lg border border-gray-700/50">
-            <!-- Search Input -->
-            <div class="relative mb-6">
-                <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
-                    <i class="fas fa-search text-gray-400"></i>
-                </div>
-                <input class="form-control block w-full pl-10 px-4 py-3 text-base font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none" 
-                    type="search" 
-                    name="search" 
-                    placeholder="Search backends by name, description or type..." 
-                    hx-post="browse/search/backends" 
-                    hx-trigger="input changed delay:500ms, search" 
-                    hx-target="#search-results"
-                    oninput="hidePagination()"
-                    onchange="hidePagination()"
-                    onsearch="hidePagination()"
-                    hx-indicator=".htmx-indicator">
-                <span class="htmx-indicator absolute right-3 top-3">
-                    <svg class="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                </span>
-            </div>
+        <div class="relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-2xl p-8 mb-8 shadow-xl border border-gray-700/50 backdrop-blur-sm">
+            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/5 to-cyan-500/5"></div>
             
-            <!-- Filter by Type -->
-            <div class="mb-4">
-                <h3 class="text-gray-200 font-medium mb-3">Filter by type:</h3>
-                <div class="flex flex-wrap gap-2">
-                    <button hx-post="browse/search/backends"
-                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-indigo-900/60 text-indigo-200 border border-indigo-700/50 hover:bg-indigo-800 transition duration-200 ease-in-out"
-                        hx-target="#search-results" 
-                        hx-vals='{"search": "llm"}'
-                        onclick="hidePagination()"
-                        hx-indicator=".htmx-indicator">
-                        <i class="fas fa-brain mr-2"></i>LLM
-                    </button>
-                    <button hx-post="browse/search/backends" 
-                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-purple-900/60 text-purple-200 border border-purple-700/50 hover:bg-purple-800 transition duration-200 ease-in-out"
-                        hx-target="#search-results" 
-                        hx-vals='{"search": "diffusion"}'
-                        onclick="hidePagination()"
-                        hx-indicator=".htmx-indicator">
-                        <i class="fas fa-image mr-2"></i>Diffusion
-                    </button>
-                    <button hx-post="browse/search/backends"
-                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-blue-900/60 text-blue-200 border border-blue-700/50 hover:bg-blue-800 transition duration-200 ease-in-out"
-                        hx-target="#search-results" 
-                        hx-vals='{"search": "tts"}'
-                        onclick="hidePagination()"
-                        hx-indicator=".htmx-indicator">
-                        <i class="fas fa-microphone mr-2"></i>TTS
-                    </button>
-                    <button hx-post="browse/search/backends" 
-                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-green-900/60 text-green-200 border border-green-700/50 hover:bg-green-800 transition duration-200 ease-in-out"
-                        hx-target="#search-results" 
-                        hx-vals='{"search": "whisper"}'
-                        onclick="hidePagination()"
-                        hx-indicator=".htmx-indicator">
-                        <i class="fas fa-headphones mr-2"></i>Whisper
-                    </button>
-                    <button hx-post="browse/search/backends" 
-                        class="inline-flex items-center rounded-full px-4 py-2 text-sm font-medium bg-red-900/60 text-red-200 border border-red-700/50 hover:bg-red-800 transition duration-200 ease-in-out"
-                        hx-target="#search-results" 
-                        hx-vals='{"search": "object-detection"}'
-                        onclick="hidePagination()"
-                        hx-indicator=".htmx-indicator">
-                        <i class="fas fa-eye mr-2"></i>Object detection
-                    </button>
+            <div class="relative">
+                <!-- Search Input -->
+                <div class="mb-8">
+                    <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
+                        <i class="fas fa-search mr-3 text-emerald-400"></i>
+                        Find Backend Components
+                    </h3>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:outline-none" 
+                            type="search" 
+                            name="search" 
+                            placeholder="Search backends by name, description or type..." 
+                            hx-post="browse/search/backends" 
+                            hx-trigger="input changed delay:500ms, search" 
+                            hx-target="#search-results"
+                            oninput="hidePagination()"
+                            onchange="hidePagination()"
+                            onsearch="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                        <span class="htmx-indicator absolute right-4 top-4">
+                            <svg class="animate-spin h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </div>
+                </div>
+                
+                <!-- Filter by Type -->
+                <div>
+                    <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
+                        <i class="fas fa-filter mr-3 text-teal-400"></i>
+                        Filter by Backend Type
+                    </h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        <button hx-post="browse/search/backends"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-indigo-600/80 to-indigo-700/80 hover:from-indigo-600 hover:to-indigo-700 text-indigo-100 border border-indigo-500/30 hover:border-indigo-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25"
+                            hx-target="#search-results" 
+                            hx-vals='{"search": "llm"}'
+                            onclick="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                            <i class="fas fa-brain mr-2 group-hover:animate-pulse"></i>
+                            <span>LLM</span>
+                        </button>
+                        <button hx-post="browse/search/backends" 
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-purple-100 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25"
+                            hx-target="#search-results" 
+                            hx-vals='{"search": "diffusion"}'
+                            onclick="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                            <i class="fas fa-image mr-2 group-hover:animate-pulse"></i>
+                            <span>Diffusion</span>
+                        </button>
+                        <button hx-post="browse/search/backends"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600/80 to-blue-700/80 hover:from-blue-600 hover:to-blue-700 text-blue-100 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25"
+                            hx-target="#search-results" 
+                            hx-vals='{"search": "tts"}'
+                            onclick="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                            <i class="fas fa-microphone mr-2 group-hover:animate-pulse"></i>
+                            <span>TTS</span>
+                        </button>
+                        <button hx-post="browse/search/backends" 
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600 hover:to-green-700 text-green-100 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25"
+                            hx-target="#search-results" 
+                            hx-vals='{"search": "whisper"}'
+                            onclick="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                            <i class="fas fa-headphones mr-2 group-hover:animate-pulse"></i>
+                            <span>Whisper</span>
+                        </button>
+                        <button hx-post="browse/search/backends" 
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-red-100 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25"
+                            hx-target="#search-results" 
+                            hx-vals='{"search": "object-detection"}'
+                            onclick="hidePagination()"
+                            hx-indicator=".htmx-indicator">
+                            <i class="fas fa-eye mr-2 group-hover:animate-pulse"></i>
+                            <span>Vision</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -109,21 +143,24 @@
 
         <!-- Pagination -->
         {{ if gt .AvailableBackends $numBackendsPerPage }}
-        <div id="paginate" class="flex justify-center mt-8">
-            <div class="flex items-center gap-4">
+        <div id="paginate" class="flex justify-center mt-12">
+            <div class="flex items-center gap-4 bg-gray-800/60 rounded-2xl p-4 backdrop-blur-sm border border-gray-700/50">
                 {{ if .PrevPage }}
                 <button onclick="window.location.href='browse/backends?page={{.PrevPage}}'" 
-                    class="flex items-center justify-center h-10 w-10 bg-gray-800/80 text-gray-300 hover:bg-indigo-900/70 hover:text-white rounded-lg shadow transition duration-300 ease-in-out">
-                    <i class="fas fa-chevron-left"></i>
+                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-emerald-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
+                    <i class="fas fa-chevron-left group-hover:animate-pulse"></i>
                 </button>
                 {{ end }}
-                <div class="text-gray-400 text-sm">
-                    Page <span class="text-white font-medium">{{.CurrentPage}}</span> of <span class="text-white font-medium">{{.TotalPages}}</span>
+                <div class="text-gray-300 text-sm font-medium px-4">
+                    <span class="text-gray-400">Page</span>
+                    <span class="text-white font-bold text-lg mx-2">{{.CurrentPage}}</span>
+                    <span class="text-gray-400">of</span>
+                    <span class="text-white font-bold text-lg mx-2">{{.TotalPages}}</span>
                 </div>
                 {{ if .NextPage }}
                 <button onclick="window.location.href='browse/backends?page={{.NextPage}}'" 
-                    class="flex items-center justify-center h-10 w-10 bg-gray-800/80 text-gray-300 hover:bg-indigo-900/70 hover:text-white rounded-lg shadow transition duration-300 ease-in-out">
-                    <i class="fas fa-chevron-right"></i>
+                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-emerald-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
+                    <i class="fas fa-chevron-right group-hover:animate-pulse"></i>
                 </button>
                 {{ end }}
             </div>
@@ -133,6 +170,135 @@
     </div>
     {{template "views/partials/footer" .}}
 </div>
+
+<style>
+/* Enhanced scrollbar styling */
+.scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+    background: rgba(31, 41, 55, 0.5);
+    border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+    background: rgba(107, 114, 128, 0.5);
+    border-radius: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: rgba(107, 114, 128, 0.8);
+}
+
+/* Add some custom CSS for backend cards to match our theme */
+#search-results .dark\:bg-gray-800 {
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.9) 0%, rgba(17, 24, 39, 0.9) 100%) !important;
+    border: 1px solid rgba(75, 85, 99, 0.5) !important;
+    border-radius: 1rem !important;
+    transition: all 0.5s ease !important;
+    backdrop-filter: blur(8px) !important;
+}
+
+#search-results .dark\:bg-gray-800:hover {
+    transform: translateY(-8px) !important;
+    box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.1) !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Style the install buttons */
+#search-results .bg-blue-600 {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25) !important;
+}
+
+#search-results .bg-blue-600:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Style the reinstall buttons specifically */
+#search-results .bg-primary {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.25) !important;
+}
+
+#search-results .bg-primary:hover {
+    background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4) !important;
+}
+
+/* Style the delete buttons */
+#search-results .bg-red-800 {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.25) !important;
+}
+
+#search-results .bg-red-800:hover {
+    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4) !important;
+}
+
+/* Style the info buttons */
+#search-results .bg-gray-700 {
+    background: linear-gradient(135deg, #374151 0%, #1f2937 100%) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.75rem 1.5rem !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 4px 15px rgba(55, 65, 81, 0.25) !important;
+}
+
+#search-results .bg-gray-700:hover {
+    background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 8px 25px rgba(55, 65, 81, 0.4) !important;
+}
+
+/* Style the backend images */
+#search-results img.rounded-t-lg {
+    border-radius: 1rem !important;
+    transition: transform 0.3s ease !important;
+}
+
+#search-results .dark\:bg-gray-800:hover img.rounded-t-lg {
+    transform: scale(1.05) !important;
+}
+
+/* Style the progress bars */
+#search-results .progress {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%) !important;
+    border-radius: 0.5rem !important;
+    border: 1px solid rgba(16, 185, 129, 0.3) !important;
+}
+
+/* Style action buttons */
+#search-results button[class*="primary"] {
+    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
+    border-radius: 0.5rem !important;
+    transition: all 0.2s ease !important;
+}
+
+#search-results button[class*="primary"]:hover {
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3) !important;
+}
+</style>
 
 <script>
     function hidePagination() {
@@ -149,7 +315,20 @@
         }
     });
 
-   
+    // Add loading state animation
+    document.body.addEventListener('htmx:beforeRequest', function(event) {
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput && event.detail.elt === searchInput) {
+            searchInput.classList.add('animate-pulse');
+        }
+    });
+
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        const searchInput = document.querySelector('input[name="search"]');
+        if (searchInput) {
+            searchInput.classList.remove('animate-pulse');
+        }
+    });
 </script>
 
 </body>
