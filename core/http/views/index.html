@@ -261,9 +261,53 @@
                     </div>
                 </div>
                 {{end}}
-            </div>
+            </div>            
             {{ end }}
         </div>
+
+        <div class="mt-8 flex flex-col md:flex-row md:items-center md:justify-between">
+            <div class="mb-4 md:mb-0">
+                <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                    Installed Backends
+                </h2>
+                <p class="text-gray-400">
+                    <span class="text-blue-400 font-semibold">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
+                </p>
+            </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+
+
+        {{ if ne (len .InstalledBackends) 0 }}
+        <!-- No backends, suggest to install one -->
+        {{ else }}
+        <div class="relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/50 rounded-2xl p-12 shadow-xl backdrop-blur-sm">
+            <div class="relative text-center max-w-4xl mx-auto">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 mb-6">
+                    <i class="text-yellow-400 text-3xl fas fa-robot"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-100 mb-6">No backends installed yet</h2>
+                <p class="text-xl text-gray-300 mb-8 leading-relaxed">Get started by installing backends from the gallery or check our documentation for guidance</p>
+            </div>
+        </div>
+        {{ end }}
+
+        <!-- Backends -->
+        {{ range .InstalledBackends }}
+        <div class="group relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/50 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1 hover:border-yellow-500/30">
+            <div class="p-6">
+                <div class="flex items-start space-x-4">
+                    <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-gray-700/50 to-gray-800/50 flex items-center justify-center">
+                        <i class="fas fa-cog text-2xl text-gray-400"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <h3 class="font-bold text-xl text-white truncate mb-2">{{.Name}}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {{end}}
+        </div> 
     </div>
 
     {{template "views/partials/footer" .}}
