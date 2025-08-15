@@ -26,7 +26,12 @@ cp -rf backend/cpp/llama-cpp/llama-cpp-fallback build/darwin/
 cp -rf backend/cpp/llama-cpp/llama-cpp-grpc build/darwin/
 cp -rf backend/cpp/llama-cpp/llama-cpp-rpc-server build/darwin/
 
-ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-$(ls /opt/homebrew/Cellar/protobuf/**/lib/libutf8_validity.dylib)}
+# Set default additional libs only for Darwin on M chips (arm64)
+if [[ "$(uname -s)" == "Darwin" && "$(uname -m)" == "arm64" ]]; then
+    ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-$(ls /opt/homebrew/Cellar/protobuf/**/lib/libutf8_validity.dylib 2>/dev/null || true)}
+else
+    ADDITIONAL_LIBS=${ADDITIONAL_LIBS:-""}
+fi
 
 for file in $ADDITIONAL_LIBS; do
   cp -rfv $file build/darwin/lib
