@@ -974,7 +974,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: llama-cpp-tar
-          path: build/llama-cpp.tar
+          path: backend-images/llama-cpp.tar
   llama-cpp-darwin-publish:
     needs: llama-cpp-darwin
     if: github.event_name != 'pull_request'
@@ -1062,7 +1062,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: llama-cpp-tar-x86
-          path: build/llama-cpp.tar
+          path: backend-images/llama-cpp.tar
   llama-cpp-darwin-x86-publish:
     if: github.event_name != 'pull_request'
     needs: llama-cpp-darwin-x86
