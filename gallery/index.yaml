@@ -3099,6 +3099,21 @@
     - filename: mmproj-google_medgemma-27b-it-f16.gguf
       sha256: b7bb3e607ed169bc2fbfb88d85c82903b10c49924a166ff84875768bb6f77821
       uri: https://huggingface.co/bartowski/google_medgemma-27b-it-GGUF/resolve/main/mmproj-google_medgemma-27b-it-f16.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-270m-it-qat"
+  urls:
+    - https://huggingface.co/google/gemma-3-270m-it
+    - https://huggingface.co/ggml-org/gemma-3-270m-it-qat-GGUF
+  description: |
+    Gemma is a family of lightweight, state-of-the-art open models from Google, built from the same research and technology used to create the Gemini models. Gemma 3 models are multimodal, handling text and image input and generating text output, with open weights for both pre-trained variants and instruction-tuned variants. Gemma 3 has a large, 128K context window, multilingual support in over 140 languages, and is available in more sizes than previous versions. Gemma 3 models are well-suited for a variety of text generation and image understanding tasks, including question answering, summarization, and reasoning. Their relatively small size makes it possible to deploy them in environments with limited resources such as laptops, desktops or your own cloud infrastructure, democratizing access to state of the art AI models and helping foster innovation for everyone.
+    This model is a QAT (Quantization Aware Training) version of the Gemma 3 270M model. It is quantized to 4-bit precision, which means that it uses 4-bit floating point numbers to represent the weights and activations of the model. This reduces the memory footprint of the model and makes it faster to run on GPUs.
+  overrides:
+    parameters:
+      model: gemma-3-270m-it-qat-Q4_0.gguf
+  files:
+    - filename: gemma-3-270m-it-qat-Q4_0.gguf
+      sha256: 154546607c34d1509e95e2f9371bb0aef1dc6bc9ceba52a66112852cc65cf447
+      uri: huggingface://ggml-org/gemma-3-270m-it-qat-GGUF/gemma-3-270m-it-qat-Q4_0.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
