@@ -39,7 +39,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas'
-            base-image: "rocm/dev-ubuntu-22.04:6.1"
+            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
