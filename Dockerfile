@@ -32,15 +32,28 @@ RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-            software-properties-common pciutils wget gpg-agent && \
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
-        wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
-        apt-get update && \
-        apt-get install -y \
-            vulkan-sdk && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        echo "vulkan" > /run/localai/capability
+            software-properties-common pciutils sudo wget gpg-agent curl xz-utils && \
+            echo "vulkan" > /run/localai/capability && \
+        if [ "amd64" = "$TARGETARCH" ]; then
+            wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
+            wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
+            apt-get update && \
+            apt-get install -y \
+                vulkan-sdk && \
+            apt-get clean && \
+            rm -rf /var/lib/apt/lists/*
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            # For ARM64, we need to build the Vulkan SDK manually as there are no packages available
+            mkdir vulkan && cd vulkan && curl -o vulkan-sdk.tar.xz https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.xz && \
+            tar -xJf vulkan-sdk.tar.xz && \
+            rm vulkan-sdk.tar.xz && \
+            cd * && \
+            sed -i 's/apt-get install/apt-get install -y/' vulkansdk && \
+            ./vulkansdk -j 1 && \
+            cd ../.. && \
+            rm -rf vulkan
+        fi
     fi
 EOT
 
