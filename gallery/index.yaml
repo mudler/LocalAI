@@ -12025,6 +12025,28 @@
     - filename: Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
       sha256: 734c7042a84cd6c059c4ddd3ffb84b23752aeaaf670c5cbb0031f8128ec5ffc8
       uri: huggingface://bartowski/Tarek07_Nomad-LLaMa-70B-GGUF/Tarek07_Nomad-LLaMa-70B-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "wingless_imp_8b-i1"
+  icon: https://huggingface.co/SicariusSicariiStuff/Wingless_Imp_8B/resolve/main/Images/Wingless_Imp_8B.jpeg
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Wingless_Imp_8B
+    - https://huggingface.co/mradermacher/Wingless_Imp_8B-i1-GGUF
+  description: |
+    Highest rated 8B model according to a closed external benchmark. See details at the buttom of the page.
+    High IFeval for an 8B model that is not too censored: 74.30.
+    Strong Roleplay internet RP format lovers will appriciate it, medium size paragraphs (as requested by some people).
+    Very coherent in long context thanks to llama 3.1 models.
+    Lots of knowledge from all the merged models.
+    Very good writing from lots of books data and creative writing in late SFT stage.
+    Feels smart — the combination of high IFeval and the knowledge from the merged models show up.
+    Unique feel due to the merged models, no SFT was done to alter it, because I liked it as it is.
+  overrides:
+    parameters:
+      model: Wingless_Imp_8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Wingless_Imp_8B.i1-Q4_K_M.gguf
+      sha256: 3a5ff776ab3286f43937c3c2d8e2e1e09c5ea1c91a79945c34ec071e23f31e3b
+      uri: huggingface://mradermacher/Wingless_Imp_8B-i1-GGUF/Wingless_Imp_8B.i1-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
