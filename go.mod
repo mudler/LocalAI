@@ -12,6 +12,7 @@ require (
 	github.com/chasefleming/elem-go v0.26.0
 	github.com/containerd/containerd v1.7.19
 	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2
+	github.com/ebitengine/purego v0.8.4
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/ggerganov/whisper.cpp/bindings/go v0.0.0-20240626202019-c118733a29ad
 	github.com/go-audio/wav v1.1.0
