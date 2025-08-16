@@ -17,8 +17,16 @@
 # LIMIT_TARGETS="cublas12"
 # source $(dirname $0)/../common/libbackend.sh
 #
+# You can switch between uv (conda-like) and pip installation methods by setting USE_PIP:
+# USE_PIP=true source $(dirname $0)/../common/libbackend.sh
+#
 
 PYTHON_VERSION="3.10"
+
+# Default to uv if USE_PIP is not set
+if [ "x${USE_PIP}" == "x" ]; then
+    USE_PIP=false
+fi
 
 function init() {
     # Name of the backend (directory name)
@@ -48,6 +56,11 @@ function init() {
     fi
 
     echo "Initializing libbackend for ${BACKEND_NAME}"
+    if [ "x${USE_PIP}" == "xtrue" ]; then
+        echo "Using pip and Python virtual environments"
+    else
+        echo "Using uv package manager"
+    fi
 }
 
 # getBuildProfile will inspect the system to determine which build profile is appropriate:
@@ -95,18 +108,33 @@ function getBuildProfile() {
 # This function is idempotent, so you can call it as many times as you want and it will
 # always result in an activated virtual environment
 function ensureVenv() {
-    if [ ! -d "${EDIR}/venv" ]; then
-        uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
-        echo "virtualenv created"
+    if [ "x${USE_PIP}" == "xtrue" ]; then
+        # Use Python virtual environment with pip
+        if [ ! -d "${EDIR}/venv" ]; then
+            python${PYTHON_VERSION} -m venv ${EDIR}/venv
+            echo "Python virtual environment created"
+        fi
+
+        # Source if we are not already in a Virtual env
+        if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
+            source ${EDIR}/venv/bin/activate
+            echo "Python virtual environment activated"
+        fi
+    else
+        # Use uv (conda-like)
+        if [ ! -d "${EDIR}/venv" ]; then
+            uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
+            echo "uv virtual environment created"
+        fi
+
+        # Source if we are not already in a Virtual env
+        if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
+            source ${EDIR}/venv/bin/activate
+            echo "uv virtual environment activated"
+        fi
     fi
 
-    # Source if we are not already in a Virtual env
-    if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
-        source ${EDIR}/venv/bin/activate
-        echo "virtualenv activated"
-    fi
-
-    echo "activated virtualenv has been ensured"
+    echo "activated virtual environment has been ensured"
 }
 
 # installRequirements looks for several requirements files and if they exist runs the install for them in order
@@ -116,7 +144,7 @@ function ensureVenv() {
 #  - requirements-${BUILD_TYPE}.txt
 #  - requirements-${BUILD_PROFILE}.txt
 #
-# BUILD_PROFILE is a pore specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
+# BUILD_PROFILE is a more specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
 # it can also include some options that we do not have BUILD_TYPES for, ex: intel
 #
 # NOTE: for BUILD_PROFILE==intel, this function does NOT automatically use the Intel python package index.
@@ -158,7 +186,13 @@ function installRequirements() {
     for reqFile in ${requirementFiles[@]}; do
         if [ -f ${reqFile} ]; then
             echo "starting requirements install for ${reqFile}"
-            uv pip install ${EXTRA_PIP_INSTALL_FLAGS} --requirement ${reqFile}
+            if [ "x${USE_PIP}" == "xtrue" ]; then
+                # Use pip for installation
+                pip install ${EXTRA_PIP_INSTALL_FLAGS} --requirement ${reqFile}
+            else
+                # Use uv for installation
+                uv pip install ${EXTRA_PIP_INSTALL_FLAGS} --requirement ${reqFile}
+            fi
             echo "finished requirements install for ${reqFile}"
         fi
     done
