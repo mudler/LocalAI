@@ -3129,6 +3129,21 @@
     - filename: TheDrummer_Gemma-3-R1-27B-v1-Q4_K_M.gguf
       sha256: c6e85f6ee294d46686c129a03355bb51020ff73a8dc3e1f1f61c8092448fc003
       uri: huggingface://bartowski/TheDrummer_Gemma-3-R1-27B-v1-GGUF/TheDrummer_Gemma-3-R1-27B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "thedrummer_gemma-3-r1-12b-v1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/stLJgTMretW2kdUMq-gIV.png
+  urls:
+    - https://huggingface.co/TheDrummer/Gemma-3-R1-12B-v1
+    - https://huggingface.co/bartowski/TheDrummer_Gemma-3-R1-12B-v1-GGUF
+  description: |
+    Gemma 3 27B reasoning tune that unlocks more capabilities and less positivity! Should be vision capable.
+  overrides:
+    parameters:
+      model: TheDrummer_Gemma-3-R1-12B-v1-Q4_K_M.gguf
+  files:
+    - filename: TheDrummer_Gemma-3-R1-12B-v1-Q4_K_M.gguf
+      sha256: 6517394bf14b85d6009e1ad8fd1fc6179fa3de3d091011cf14cacba1aee5b393
+      uri: huggingface://bartowski/TheDrummer_Gemma-3-R1-12B-v1-GGUF/TheDrummer_Gemma-3-R1-12B-v1-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
