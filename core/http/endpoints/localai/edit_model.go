@@ -158,7 +158,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 
 		// Load the existing configuration
 		configPath := filepath.Join(appConfig.SystemState.Model.ModelsPath, modelName+".yaml")
-		if err := utils.InTrustedRoot(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyPath(modelName+".yaml", appConfig.SystemState.Model.ModelsPath); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Model configuration not trusted: " + err.Error(),

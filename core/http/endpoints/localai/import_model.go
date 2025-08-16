@@ -94,7 +94,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 
 		// Create the configuration file
 		configPath := filepath.Join(appConfig.SystemState.Model.ModelsPath, modelConfig.Name+".yaml")
-		if err := utils.InTrustedRoot(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := utils.VerifyPath(modelConfig.Name+".yaml", appConfig.SystemState.Model.ModelsPath); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Model path not trusted: " + err.Error(),
