@@ -29,23 +29,6 @@ func NewBackendMonitorService(modelLoader *model.ModelLoader, configLoader *conf
 	}
 }
 
-func (bms BackendMonitorService) getModelLoaderIDFromModelName(modelName string) (string, error) {
-	config, exists := bms.modelConfigLoader.GetModelConfig(modelName)
-	var backendId string
-	if exists {
-		backendId = config.Model
-	} else {
-		// Last ditch effort: use it raw, see if a backend happens to match.
-		backendId = modelName
-	}
-
-	if !strings.HasSuffix(backendId, ".bin") {
-		backendId = fmt.Sprintf("%s.bin", backendId)
-	}
-
-	return backendId, nil
-}
-
 func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*schema.BackendMonitorResponse, error) {
 	config, exists := bms.modelConfigLoader.GetModelConfig(model)
 	var backend string
@@ -102,21 +85,17 @@ func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*sche
 }
 
 func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.StatusResponse, error) {
-	backendId, err := bms.getModelLoaderIDFromModelName(modelName)
-	if err != nil {
-		return nil, err
-	}
-	modelAddr := bms.modelLoader.CheckIsLoaded(backendId)
+	modelAddr := bms.modelLoader.CheckIsLoaded(modelName)
 	if modelAddr == nil {
-		return nil, fmt.Errorf("backend %s is not currently loaded", backendId)
+		return nil, fmt.Errorf("backend %s is not currently loaded", modelName)
 	}
 
 	status, rpcErr := modelAddr.GRPC(false, nil).Status(context.TODO())
 	if rpcErr != nil {
-		log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", backendId, rpcErr.Error())
-		val, slbErr := bms.SampleLocalBackendProcess(backendId)
+		log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", modelName, rpcErr.Error())
+		val, slbErr := bms.SampleLocalBackendProcess(modelName)
 		if slbErr != nil {
-			return nil, fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", backendId, rpcErr.Error(), slbErr.Error())
+			return nil, fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", modelName, rpcErr.Error(), slbErr.Error())
 		}
 		return &proto.StatusResponse{
 			State: proto.StatusResponse_ERROR,
@@ -132,9 +111,5 @@ func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.Status
 }
 
 func (bms BackendMonitorService) ShutdownModel(modelName string) error {
-	backendId, err := bms.getModelLoaderIDFromModelName(modelName)
-	if err != nil {
-		return err
-	}
-	return bms.modelLoader.ShutdownModel(backendId)
+	return bms.modelLoader.ShutdownModel(modelName)
 }

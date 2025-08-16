@@ -39,7 +39,7 @@ var _ = Describe("ModelLoader", func() {
 		It("should create a new ModelLoader with an empty model map", func() {
 			Expect(modelLoader).ToNot(BeNil())
 			Expect(modelLoader.ModelPath).To(Equal(modelPath))
-			Expect(modelLoader.ListModels()).To(BeEmpty())
+			Expect(modelLoader.ListLoadedModels()).To(BeEmpty())
 		})
 	})
 

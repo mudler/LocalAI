@@ -135,7 +135,7 @@ FILE:
 	return models, nil
 }
 
-func (ml *ModelLoader) ListModels() []*Model {
+func (ml *ModelLoader) ListLoadedModels() []*Model {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
 

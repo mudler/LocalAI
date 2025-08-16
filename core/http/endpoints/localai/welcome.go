@@ -16,12 +16,27 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		modelConfigs := cl.GetAllModelsConfigs()
 		galleryConfigs := map[string]*gallery.ModelConfig{}
 
+		backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+
+		installedBackends := gallery.GalleryElements[*gallery.GalleryBackend]{}
+		for _, b := range backends {
+			if b.Installed {
+				installedBackends = append(installedBackends, b)
+			}
+		}
+
 		for _, m := range modelConfigs {
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
 			if err != nil {
 				continue
 			}
 			galleryConfigs[m.Name] = cfg
+		}
+
+		loadedModels := ml.ListLoadedModels()
+		loadedModelsMap := map[string]bool{}
+		for _, m := range loadedModels {
+			loadedModelsMap[m.ID] = true
 		}
 
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
@@ -39,6 +54,8 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			"ApplicationConfig": appConfig,
 			"ProcessingModels":  processingModels,
 			"TaskTypes":         taskTypes,
+			"LoadedModels":      loadedModelsMap,
+			"InstalledBackends": installedBackends,
 		}
 
 		if string(c.Context().Request.Header.ContentType()) == "application/json" || len(c.Accepts("html")) == 0 {
