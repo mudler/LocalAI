@@ -14556,6 +14556,24 @@
     - filename: Impish_Nemo_12B-Q6_K.gguf
       sha256: e0ce3adbed2718e144f477721c2ad68b6e3cccd95fc27dbe8f0135be76c99c72
       uri: huggingface://SicariusSicariiStuff/Impish_Nemo_12B_GGUF/Impish_Nemo_12B-Q6_K.gguf
+- !!merge <<: *mistral03
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "impish_longtail_12b"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_Longtail_12B/resolve/main/Images/Impish_Longtail_12B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Longtail_12B
+    - https://huggingface.co/SicariusSicariiStuff/Impish_Longtail_12B_GGUF
+  description: |
+    This is a finetune on top of my Impish_Nemo_12B, the goal was to improve long context understanding, as well as adding support for slavic languages. For more details look at Impish_Nemo_12B's model card.
+    So is this model "better"?
+    Hard to say, tuning on top of a model often changes it in unpredictable ways, and I really like Impish_Nemo. In short, this tune might dillute some of the style that made it great, or for some, this might be a huge improvement, to each their own, as they say, so just use the one you have most fun with.
+  overrides:
+    parameters:
+      model: Impish_Longtail_12B-Q4_K_M.gguf
+  files:
+    - filename: Impish_Longtail_12B-Q4_K_M.gguf
+      sha256: 2cf0cacb65d71cfc5b4255f3273ad245bbcb11956a0f9e3aaa0e739df57c90df
+      uri: huggingface://SicariusSicariiStuff/Impish_Longtail_12B_GGUF/Impish_Longtail_12B-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
