@@ -20730,7 +20730,8 @@
     - filename: nomic-embed-text-v1.5.f16.gguf
       uri: https://huggingface.co/mradermacher/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.f16.gguf
       sha256: af8cb9e4ca0bf19eb54d08c612fdf325059264abbbd2c619527e5d2dda8de655
-- name: "silero-vad"
+- &silero
+  name: "silero-vad"
   icon: https://github.com/snakers4/silero-models/raw/master/files/silero_logo.jpg
   url: github:mudler/LocalAI/gallery/virtual.yaml@master
   urls:
@@ -20750,6 +20751,22 @@
     - filename: silero-vad.onnx
       uri: https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx
       sha256: a4a068cd6cf1ea8355b84327595838ca748ec29a25bc91fc82e6c299ccdc5808
+- !!merge <<: *silero
+  name: "silero-vad-ggml"
+  urls:
+    - https://github.com/snakers4/silero-vad
+    - https://github.com/ggml-org/whisper.cpp
+    - https://huggingface.co/ggml-org/whisper-vad
+  overrides:
+    backend: whisper-vad
+    parameters:
+      model: ggml-silero-v5.1.2.bin
+    options:
+      - "vad_only"
+  files:
+    - filename: ggml-silero-v5.1.2.bin
+      uri: https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin
+      sha256: 29940d98d42b91fbd05ce489f3ecf7c72f0a42f027e4875919a28fb4c04ea2cf
 - &bark
   name: "bark-cpp"
   icon: https://avatars.githubusercontent.com/u/99442120
