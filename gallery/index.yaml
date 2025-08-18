@@ -32,6 +32,22 @@
     - filename: mmproj-LFM2-VL-450M-F16.gguf
       sha256: 416a085c5c7ba0f8d02bb8326c719a6f8f2210c2641c6bf64194a57c11c76e59
       uri: huggingface://LiquidAI/LFM2-VL-450M-GGUF/mmproj-LFM2-VL-450M-F16.gguf
+- !!merge <<: *lfm2
+  name: "lfm2-vl-1.6b"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-VL-1.6B
+    - https://huggingface.co/LiquidAI/LFM2-VL-1.6B-GGUF
+  overrides:
+    parameters:
+      model: LFM2-VL-1.6B-F16.gguf
+    mmproj: mmproj-LFM2-VL-1.6B-F16.gguf
+  files:
+    - filename: LFM2-VL-1.6B-F16.gguf
+      sha256: 0a82498edc354b50247fee78081c8954ae7f4deee9068f8464a5ee774e82118a
+      uri: huggingface://LiquidAI/LFM2-VL-1.6B-GGUF/LFM2-VL-1.6B-F16.gguf
+    - filename: mmproj-LFM2-VL-1.6B-F16.gguf
+      sha256: b637bfa6060be2bc7503ec23ba48b407843d08c2ca83f52be206ea8563ccbae2
+      uri: huggingface://LiquidAI/LFM2-VL-1.6B-GGUF/mmproj-LFM2-VL-1.6B-F16.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
