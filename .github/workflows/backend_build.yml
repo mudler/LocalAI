@@ -55,9 +55,9 @@ on:
         type: string
     secrets:
       dockerUsername:
-        required: true
+        required: false
       dockerPassword:
-        required: true
+        required: false
       quayUsername:
         required: true
       quayPassword:
@@ -66,6 +66,8 @@ on:
 jobs:
   backend-build:
     runs-on: ${{ inputs.runs-on }}
+    env:
+        quay_username: ${{ secrets.quayUsername }}
     steps:
 
 
@@ -187,7 +189,7 @@ jobs:
           password: ${{ secrets.dockerPassword }}
 
       - name: Login to Quay.io
-        # if: github.event_name != 'pull_request'
+        if: ${{ env.quay_username != '' }}
         uses: docker/login-action@v3
         with:
           registry: quay.io
@@ -230,7 +232,7 @@ jobs:
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
-          push: true
+          push: ${{ env.quay_username != '' }}
           tags: ${{ steps.meta_pull_request.outputs.tags }}
           labels: ${{ steps.meta_pull_request.outputs.labels }}
 
@@ -238,4 +240,4 @@ jobs:
 
       - name: job summary
         run: |
-          echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY 
+          echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY
