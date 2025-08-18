@@ -1,4 +1,37 @@
 ---
+- &lfm2
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "lfm2-vl-450m"
+  license: lfm1.0
+  tags:
+    - multimodal
+    - image-to-text
+    - gguf
+    - cpu
+    - gpu
+    - edge
+  icon: https://cdn-uploads.huggingface.co/production/uploads/61b8e2ba285851687028d395/7_6D7rWrLxp2hb6OHSV1p.png
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-VL-450M
+    - https://huggingface.co/LiquidAI/LFM2-VL-450M-GGUF
+  description: |
+    LFM2‑VL is Liquid AI's first series of multimodal models, designed to process text and images with variable resolutions. Built on the LFM2 backbone, it is optimized for low-latency and edge AI applications.
+    We're releasing the weights of two post-trained checkpoints with 450M (for highly constrained devices) and 1.6B (more capable yet still lightweight) parameters.
+
+        2× faster inference speed on GPUs compared to existing VLMs while maintaining competitive accuracy
+        Flexible architecture with user-tunable speed-quality tradeoffs at inference time
+        Native resolution processing up to 512×512 with intelligent patch-based handling for larger images, avoiding upscaling and distortion
+  overrides:
+    parameters:
+      model: LFM2-VL-450M-F16.gguf
+    mmproj: mmproj-LFM2-VL-450M-F16.gguf
+  files:
+    - filename: LFM2-VL-450M-F16.gguf
+      sha256: 0197edb886bb25136b52ac47e8c75a1d51e7ba41deda7eb18e8258b193b59a3b
+      uri: huggingface://LiquidAI/LFM2-VL-450M-GGUF/LFM2-VL-450M-F16.gguf
+    - filename: mmproj-LFM2-VL-450M-F16.gguf
+      sha256: 416a085c5c7ba0f8d02bb8326c719a6f8f2210c2641c6bf64194a57c11c76e59
+      uri: huggingface://LiquidAI/LFM2-VL-450M-GGUF/mmproj-LFM2-VL-450M-F16.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
