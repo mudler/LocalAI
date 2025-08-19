@@ -15,11 +15,11 @@
                 <div class="text-overlay">
                     <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
                         <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
-                            <i class="fa-solid fa-circle-nodes mr-2"></i> Distributed inference with P2P
+                            <i class="fa-solid fa-circle-nodes mr-2"></i> Distributed AI Computing
                         </span>
                     </h1>
                     <p class="text-xl text-gray-300">
-                        Distribute computation by sharing and loadbalancing instances or sharding model weights
+                        Scale your AI workloads across multiple devices with peer-to-peer distribution
                         <a href="https://localai.io/features/distribute/" target="_blank" class="text-blue-400 hover:text-blue-300 transition-colors">
                             <i class="fas fa-circle-info ml-2"></i>
                         </a>
@@ -27,10 +27,90 @@
                 </div>
             </div>
             
-            <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-6 mb-10">
-                <p class="text-lg mb-4 text-gray-300">
-                    LocalAI uses P2P technologies to enable distribution of work between peers. It is possible to share an instance with Federation and/or split the weights of a model across peers (only available with llama.cpp models). You can now share computational resources between your devices or your friends!
-                </p>
+            <!-- How P2P Distribution Works -->
+            <div class="relative bg-gradient-to-br from-indigo-900/40 via-purple-900/30 to-blue-900/40 rounded-3xl shadow-2xl p-8 mb-12 overflow-hidden">
+                <!-- Background Pattern -->
+                <div class="absolute inset-0 opacity-10">
+                    <div class="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20"></div>
+                    <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
+                </div>
+                
+                <div class="relative">
+                    <div class="text-center mb-10">
+                        <h2 class="text-3xl md:text-4xl font-bold text-white mb-4">
+                            <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
+                                How P2P Distribution Works
+                            </span>
+                        </h2>
+                        <p class="text-lg text-gray-300 max-w-3xl mx-auto">
+                            LocalAI leverages cutting-edge peer-to-peer technologies to distribute AI workloads intelligently across your network
+                        </p>
+                    </div>
+
+                    <!-- Key Features Grid -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- Federation -->
+                        <div class="bg-white/10 rounded-2xl p-6 backdrop-blur-sm border border-white/20 hover:bg-white/15 transition-all duration-300 group">
+                            <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-network-wired text-blue-400 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-3">Instance Federation</h3>
+                            <p class="text-gray-300 text-sm leading-relaxed">
+                                Share complete LocalAI instances across your network for load balancing and redundancy. Perfect for scaling across multiple devices.
+                            </p>
+                        </div>
+
+                        <!-- Model Sharding -->
+                        <div class="bg-white/10 rounded-2xl p-6 backdrop-blur-sm border border-white/20 hover:bg-white/15 transition-all duration-300 group">
+                            <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-puzzle-piece text-purple-400 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-3">Model Sharding</h3>
+                            <p class="text-gray-300 text-sm leading-relaxed">
+                                Split large model weights across multiple workers. Currently supported with llama.cpp backends for efficient memory usage.
+                            </p>
+                        </div>
+
+                        <!-- Resource Sharing -->
+                        <div class="bg-white/10 rounded-2xl p-6 backdrop-blur-sm border border-white/20 hover:bg-white/15 transition-all duration-300 group">
+                            <div class="w-12 h-12 bg-green-500/20 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-share-alt text-green-400 text-xl"></i>
+                            </div>
+                            <h3 class="text-xl font-bold text-white mb-3">Resource Sharing</h3>
+                            <p class="text-gray-300 text-sm leading-relaxed">
+                                Pool computational resources from multiple devices, including your friends' machines, to handle larger workloads collaboratively.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Benefits -->
+                    <div class="mt-10 grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-blue-400 mb-1">
+                                <i class="fas fa-tachometer-alt mr-2"></i>Faster
+                            </div>
+                            <p class="text-gray-400 text-sm">Parallel processing</p>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-purple-400 mb-1">
+                                <i class="fas fa-expand-arrows-alt mr-2"></i>Scalable
+                            </div>
+                            <p class="text-gray-400 text-sm">Add more nodes</p>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-green-400 mb-1">
+                                <i class="fas fa-shield-alt mr-2"></i>Resilient
+                            </div>
+                            <p class="text-gray-400 text-sm">Fault tolerant</p>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-2xl font-bold text-yellow-400 mb-1">
+                                <i class="fas fa-coins mr-2"></i>Efficient
+                            </div>
+                            <p class="text-gray-400 text-sm">Resource optimization</p>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Network Token Card -->
@@ -64,21 +144,106 @@
             </div>
             {{ else }}
 
-            <!-- Federation Box -->
-            <div class="bg-gradient-to-r from-gray-800/90 to-gray-800/80 border border-gray-700/50 rounded-xl overflow-hidden shadow-xl mb-10 transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20">
-                <div class="p-6 border-b border-gray-700/50">
-                    <div class="flex items-center mb-3">
-                        <i class="text-blue-400 fa-solid fa-circle-nodes text-2xl mr-3 fa-spin-pulse"></i>
-                        <h2 class="text-2xl font-bold text-white">Federated Nodes: 
-                            <span class="text-blue-400" hx-get="p2p/ui/workers-federation-stats" hx-trigger="every 1s"></span>
-                        </h2>
+            <!-- Network Status Overview -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+                <!-- Federation Status -->
+                <div class="bg-gradient-to-br from-blue-800/60 to-blue-900/40 border border-blue-700/50 rounded-2xl p-6 shadow-xl transition-all duration-300 hover:shadow-blue-900/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-blue-500/20 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-network-wired text-blue-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Federation</h3>
+                                <p class="text-blue-300 text-sm">Instance sharing</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold" hx-get="p2p/ui/workers-federation-stats" hx-trigger="every 1s"></div>
+                            <p class="text-blue-300 text-sm">nodes</p>
+                        </div>
                     </div>
-                    <p class="text-gray-300 mb-4">
-                        You can start LocalAI in federated mode to share your instance, or start the federated server to balance requests between nodes of the federation.
-                    </p>
+                    <div class="flex items-center text-sm text-blue-200">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>Load balanced instances</span>
+                    </div>
+                </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                        <div hx-get="p2p/ui/workers-federation" hx-trigger="every 1s"></div>
+                <!-- Workers Status -->
+                <div class="bg-gradient-to-br from-purple-800/60 to-purple-900/40 border border-purple-700/50 rounded-2xl p-6 shadow-xl transition-all duration-300 hover:shadow-purple-900/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-purple-500/20 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-puzzle-piece text-purple-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Workers</h3>
+                                <p class="text-purple-300 text-sm">Model sharding</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-2xl font-bold" hx-get="p2p/ui/workers-stats" hx-trigger="every 1s"></div>
+                            <p class="text-purple-300 text-sm">workers</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center text-sm text-purple-200">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>Distributed computation</span>
+                    </div>
+                </div>
+
+                <!-- Network Token -->
+                <div class="bg-gradient-to-br from-yellow-800/60 to-yellow-900/40 border border-yellow-700/50 rounded-2xl p-6 shadow-xl transition-all duration-300 hover:shadow-yellow-900/30">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-yellow-500/20 rounded-xl flex items-center justify-center mr-3">
+                                <i class="fas fa-key text-yellow-400 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold text-white">Network</h3>
+                                <p class="text-yellow-300 text-sm">Connection token</p>
+                            </div>
+                        </div>
+                        <button onclick="copyClipboard('{{.P2PToken}}')" class="bg-yellow-600/30 hover:bg-yellow-600/50 text-yellow-300 p-2 rounded-lg transition-colors duration-200">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                    </div>
+                    <div class="flex items-center text-sm text-yellow-200">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>Ready to connect</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Federation Box -->
+            <div class="bg-gradient-to-br from-gray-800/90 to-gray-800/80 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl mb-10 transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 backdrop-blur-sm">
+                <div class="p-8 border-b border-gray-700/50">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="w-14 h-14 bg-blue-500/20 rounded-2xl flex items-center justify-center mr-4">
+                                <i class="text-blue-400 fa-solid fa-circle-nodes text-2xl fa-spin-pulse"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold text-white">Federation Network</h2>
+                                <p class="text-blue-300 text-sm">Instance load balancing and sharing</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-400 mb-1">Active Nodes</div>
+                            <div class="text-3xl font-bold text-blue-400" hx-get="p2p/ui/workers-federation-stats" hx-trigger="every 1s"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-blue-900/20 rounded-xl p-4 mb-6 border border-blue-700/30">
+                        <p class="text-gray-300 text-sm leading-relaxed">
+                            <i class="fas fa-lightbulb text-blue-400 mr-2"></i>
+                            Start LocalAI in federated mode to share your instance, or launch a federated server to distribute requests intelligently across multiple nodes in your network.
+                        </p>
+                    </div>
+
+                    <!-- Federation Nodes Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" hx-get="p2p/ui/workers-federation" hx-trigger="every 1s">
+                        <!-- Nodes will be loaded here -->
                     </div>
                 </div>
 
@@ -168,38 +333,52 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
                 </div>
             </div>
 
-            <!-- Llama.cpp Box -->
-            <div class="bg-gradient-to-r from-gray-800/90 to-gray-800/80 border border-gray-700/50 rounded-xl overflow-hidden shadow-xl mb-10 transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20">
-                <div class="p-6 border-b border-gray-700/50">
-                    <div class="flex items-center mb-3">
-                        <i class="text-indigo-400 fa-solid fa-circle-nodes text-2xl mr-3 fa-spin-pulse"></i>
-                        <h2 class="text-2xl font-bold text-white">Workers (llama.cpp): 
-                            <span class="text-indigo-400" hx-get="p2p/ui/workers-stats" hx-trigger="every 1s"></span>
-                        </h2>
+            <!-- Workers Box -->
+            <div class="bg-gradient-to-br from-gray-800/90 to-gray-800/80 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl mb-10 transition-all duration-300 hover:shadow-lg hover:shadow-purple-900/20 backdrop-blur-sm">
+                <div class="p-8 border-b border-gray-700/50">
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="flex items-center">
+                            <div class="w-14 h-14 bg-purple-500/20 rounded-2xl flex items-center justify-center mr-4">
+                                <i class="text-purple-400 fa-solid fa-puzzle-piece text-2xl fa-spin-pulse"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-2xl font-bold text-white">Worker Network</h2>
+                                <p class="text-purple-300 text-sm">Distributed model computation (llama.cpp)</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-sm text-gray-400 mb-1">Active Workers</div>
+                            <div class="text-3xl font-bold text-purple-400" hx-get="p2p/ui/workers-stats" hx-trigger="every 1s"></div>
+                        </div>
                     </div>
-                    <p class="text-gray-300 mb-4">
-                        You can start llama.cpp workers to distribute weights between the workers and offload part of the computation. To start a new worker, you can use the CLI or Docker.
-                    </p>
+                    
+                    <div class="bg-purple-900/20 rounded-xl p-4 mb-6 border border-purple-700/30">
+                        <p class="text-gray-300 text-sm leading-relaxed">
+                            <i class="fas fa-lightbulb text-purple-400 mr-2"></i>
+                            Deploy llama.cpp workers to split model weights across multiple devices. This enables processing larger models by distributing computational load and memory requirements.
+                        </p>
+                    </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-                        <div hx-get="p2p/ui/workers" hx-trigger="every 1s"></div>
+                    <!-- Workers Grid -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" hx-get="p2p/ui/workers" hx-trigger="every 1s">
+                        <!-- Workers will be loaded here -->
                     </div>
                 </div>
 
-                <div class="p-6">
+                <div class="p-8">
                     <h3 class="text-2xl font-bold text-white mb-6">
-                        <i class="fa-solid fa-book text-indigo-400 mr-2"></i> Start a new llama.cpp P2P worker
+                        <i class="fa-solid fa-book text-purple-400 mr-2"></i> Start a new llama.cpp worker
                     </h3>
                     
                     <!-- Tabs navigation -->
                     <ul class="mb-5 flex list-none flex-row flex-wrap ps-0 border border-gray-700/50 rounded-lg overflow-hidden" role="tablist" data-twe-nav-ref>
                         <li role="presentation" class="flex-auto text-center">
-                            <a href="#tabs-cli" class="tablink block border-0 bg-gray-800 px-7 py-4 text-sm font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-indigo-500 data-[twe-nav-active]:text-indigo-400 data-[twe-nav-active]:bg-gray-700 active transition-all duration-200" data-twe-toggle="pill" data-twe-target="#tabs-cli" data-twe-nav-active role="tab" aria-controls="tabs-cli" aria-selected="true">
+                            <a href="#tabs-cli" class="tablink block border-0 bg-gray-800 px-7 py-4 text-sm font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-purple-500 data-[twe-nav-active]:text-purple-400 data-[twe-nav-active]:bg-gray-700 active transition-all duration-200" data-twe-toggle="pill" data-twe-target="#tabs-cli" data-twe-nav-active role="tab" aria-controls="tabs-cli" aria-selected="true">
                                 <i class="fa-solid fa-terminal mr-2"></i> CLI
                             </a>
                         </li>
                         <li role="presentation" class="flex-auto text-center">
-                            <a href="#tabs-docker" class="tablink block border-0 bg-gray-800 px-7 py-4 text-sm font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-indigo-500 data-[twe-nav-active]:text-indigo-400 data-[twe-nav-active]:bg-gray-700 transition-all duration-200" data-twe-toggle="pill" data-twe-target="#tabs-docker" role="tab" aria-controls="tabs-docker" aria-selected="false">
+                            <a href="#tabs-docker" class="tablink block border-0 bg-gray-800 px-7 py-4 text-sm font-medium uppercase leading-tight text-white hover:bg-gray-700 focus:bg-gray-700 data-[twe-nav-active]:border-purple-500 data-[twe-nav-active]:text-purple-400 data-[twe-nav-active]:bg-gray-700 transition-all duration-200" data-twe-toggle="pill" data-twe-target="#tabs-docker" role="tab" aria-controls="tabs-docker" aria-selected="false">
                                 <i class="fa-solid fa-box-open mr-2"></i> Container images
                             </a>
                         </li>
@@ -221,7 +400,7 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
 export TOKEN="<span class="token">{{.P2PToken}}</span>"<br>
 local-ai worker p2p-llama-cpp-rpc</code>
 
-                                <p class="text-gray-300 mt-4">For all the options available, please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-indigo-400 hover:text-indigo-300 transition-colors">documentation</a>.</p>
+                                <p class="text-gray-300 mt-4">For all the options available, please refer to the <a href="https://localai.io/features/distribute/#starting-workers" target="_blank" class="text-purple-400 hover:text-purple-300 transition-colors">documentation</a>.</p>
                             </div>
                         </div>
                         <div class="tabcontent hidden opacity-0 transition-opacity duration-150 ease-linear data-[twe-tab-active]:block p-4" id="tabs-docker" role="tabpanel" aria-labelledby="tabs-docker">
@@ -237,7 +416,7 @@ local-ai worker p2p-llama-cpp-rpc</code>
                                 <code class="block bg-gray-800 text-yellow-300 p-4 rounded-lg break-words mb-4 border border-gray-700/50">
 docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --name local-ai -p 8080:8080 localai/localai:latest-cpu worker p2p-llama-cpp-rpc</code>
 
-                                <p class="text-gray-300 mt-4">For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-indigo-400 hover:text-indigo-300 transition-colors">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-indigo-400 hover:text-indigo-300 transition-colors">CLI parameters documentation</a>.</p>
+                                <p class="text-gray-300 mt-4">For all the options available and see what image to use, please refer to the <a href="https://localai.io/basics/container/" target="_blank" class="text-purple-400 hover:text-purple-300 transition-colors">Container images documentation</a> and <a href="https://localai.io/advanced/#cli-parameters" target="_blank" class="text-purple-400 hover:text-purple-300 transition-colors">CLI parameters documentation</a>.</p>
                             </div>
                         </div>
                     </div>
@@ -256,22 +435,147 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
     .token {
         word-break: break-all;
     }
-    .workers .grid div {
-        display: flex;
-        flex-direction: column;
-        justify-content: space-between;
+    
+    /* Enhanced scrollbar styling */
+    .scrollbar-thin::-webkit-scrollbar {
+        width: 6px;
     }
+    
+    .scrollbar-thin::-webkit-scrollbar-track {
+        background: rgba(31, 41, 55, 0.5);
+        border-radius: 6px;
+    }
+    
+    .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: rgba(107, 114, 128, 0.5);
+        border-radius: 6px;
+    }
+    
+    .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+        background: rgba(107, 114, 128, 0.8);
+    }
+    
+    /* Animation enhancements */
     .fa-circle-nodes {
         animation: pulseGlow 2s ease-in-out infinite;
     }
-    @keyframes pulseGlow {
-        0%, 100% { filter: drop-shadow(0 0 2px rgba(96, 165, 250, 0.3)); }
-        50% { filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.7)); }
+    
+    .fa-puzzle-piece {
+        animation: rotateGlow 3s ease-in-out infinite;
     }
+    
+    @keyframes pulseGlow {
+        0%, 100% { 
+            filter: drop-shadow(0 0 2px rgba(96, 165, 250, 0.3));
+            transform: scale(1);
+        }
+        50% { 
+            filter: drop-shadow(0 0 8px rgba(96, 165, 250, 0.7));
+            transform: scale(1.05);
+        }
+    }
+    
+    @keyframes rotateGlow {
+        0%, 100% { 
+            filter: drop-shadow(0 0 2px rgba(147, 51, 234, 0.3));
+            transform: rotate(0deg) scale(1);
+        }
+        33% { 
+            filter: drop-shadow(0 0 6px rgba(147, 51, 234, 0.6));
+            transform: rotate(10deg) scale(1.05);
+        }
+        66% { 
+            filter: drop-shadow(0 0 4px rgba(147, 51, 234, 0.4));
+            transform: rotate(-5deg) scale(1.02);
+        }
+    }
+    
+    /* Copy button enhancements */
     .copy-icon:hover, button:hover .fa-copy {
         color: #60a5fa;
         transform: scale(1.1);
         transition: all 0.2s ease;
+    }
+    
+    /* Node card hover effects */
+    .workers .grid > div {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .workers .grid > div:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Status indicator animations */
+    .animate-pulse {
+        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: .5;
+        }
+    }
+    
+    /* Enhanced tab styling */
+    .tablink {
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .tablink::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
+        transition: left 0.5s ease;
+    }
+    
+    .tablink:hover::before {
+        left: 100%;
+    }
+    
+    /* Loading spinner for HTMX */
+    .htmx-indicator {
+        display: none;
+    }
+    
+    .htmx-request .htmx-indicator {
+        display: inline;
+    }
+    
+    /* Card gradient overlays */
+    .card-overlay {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+    }
+    
+    /* Enhanced button styles */
+    button[onclick*="copyClipboard"] {
+        transition: all 0.2s ease;
+        backdrop-filter: blur(8px);
+    }
+    
+    button[onclick*="copyClipboard"]:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+    }
+    
+    /* Code block enhancements */
+    code {
+        position: relative;
+        transition: all 0.2s ease;
+    }
+    
+    code:hover {
+        box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
+        border-color: rgba(234, 179, 8, 0.3) !important;
     }
 </style>
 
