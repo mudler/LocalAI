@@ -15,7 +15,7 @@ import (
 )
 
 func syncState(ctx context.Context, n *node.Node, app *application.Application) error {
-	zlog.Info().Msg("Syncing state")
+	zlog.Debug().Msg("[p2p-sync] Syncing state")
 
 	whatWeHave := []string{}
 	for _, model := range app.ModelConfigLoader().GetAllModelsConfigs() {
@@ -23,16 +23,21 @@ func syncState(ctx context.Context, n *node.Node, app *application.Application) 
 	}
 
 	ledger, _ := n.Ledger()
+	currentData := ledger.CurrentData()
+	zlog.Debug().Msgf("[p2p-sync] Current data: %v", currentData)
 	data, exists := ledger.GetKey("shared_state", "models")
 	if !exists {
-		zlog.Info().Msg("No models found")
-		// we announce ours
 		ledger.AnnounceUpdate(ctx, time.Minute, "shared_state", "models", whatWeHave)
-		zlog.Info().Msgf("Announced our models: %v", whatWeHave)
+		zlog.Debug().Msgf("No models found in the ledger, announced our models: %v", whatWeHave)
 	}
 
 	models := []string{}
-	data.Unmarshal(models)
+	if err := data.Unmarshal(&models); err != nil {
+		zlog.Warn().Err(err).Msg("error unmarshalling models")
+		return nil
+	}
+
+	zlog.Debug().Msgf("[p2p-sync] Models that are present in this instance: %v\nModels that are in the ledger: %v", whatWeHave, models)
 
 	// Sync with our state
 	whatIsNotThere := []string{}
@@ -42,18 +47,25 @@ func syncState(ctx context.Context, n *node.Node, app *application.Application) 
 		}
 	}
 	if len(whatIsNotThere) > 0 {
-		zlog.Info().Msgf("Announcing our models: %v", append(models, whatIsNotThere...))
-		ledger.AnnounceUpdate(ctx, time.Minute, "shared_state", "models", append(models, whatIsNotThere...))
+		zlog.Debug().Msgf("[p2p-sync] Announcing our models: %v", append(models, whatIsNotThere...))
+		ledger.AnnounceUpdate(
+			ctx,
+			1*time.Minute,
+			"shared_state",
+			"models",
+			append(models, whatIsNotThere...),
+		)
 	}
 
 	// Check if we have a model that is not in our state, otherwise install it
 	for _, model := range models {
 		if slices.Contains(whatWeHave, model) {
+			zlog.Debug().Msgf("[p2p-sync] Model %s is already present in this instance", model)
 			continue
 		}
 
 		// we install model
-		zlog.Info().Msgf("Installing model: %s", model)
+		zlog.Info().Msgf("[p2p-sync] Installing model which is not present in this instance: %s", model)
 
 		uuid, err := uuid.NewUUID()
 		if err != nil {
