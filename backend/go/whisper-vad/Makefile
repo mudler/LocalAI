@@ -4,6 +4,7 @@ NATIVE?=false
 
 GOCMD?=go
 GO_TAGS?=
+JOBS?=$(shell nproc --ignore=1)
 
 # whisper.cpp version
 WHISPER_REPO?=https://github.com/ggml-org/whisper.cpp

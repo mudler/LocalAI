@@ -1,0 +1,6 @@
+.cache/
+sources/
+build/
+whisper
+libgowhisper.so
+
