@@ -195,19 +195,6 @@ definitions:
           type: string
         type: array
     type: object
-  p2p.NodeData:
-    properties:
-      id:
-        type: string
-      lastSeen:
-        type: string
-      name:
-        type: string
-      serviceID:
-        type: string
-      tunnelAddress:
-        type: string
-    type: object
   proto.MemoryUsageData:
     properties:
       breakdown:
@@ -434,6 +421,19 @@ definitions:
       object:
         type: string
     type: object
+  schema.NodeData:
+    properties:
+      id:
+        type: string
+      lastSeen:
+        type: string
+      name:
+        type: string
+      serviceID:
+        type: string
+      tunnelAddress:
+        type: string
+    type: object
   schema.OpenAIModel:
     properties:
       id:
@@ -611,11 +611,11 @@ definitions:
     properties:
       federated_nodes:
         items:
-          $ref: '#/definitions/p2p.NodeData'
+          $ref: '#/definitions/schema.NodeData'
         type: array
       nodes:
         items:
-          $ref: '#/definitions/p2p.NodeData'
+          $ref: '#/definitions/schema.NodeData'
         type: array
     type: object
   schema.SysInfoModel:

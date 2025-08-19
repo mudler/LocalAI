@@ -1087,26 +1087,6 @@ const docTemplate = `{
                 }
             }
         },
-        "p2p.NodeData": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                },
-                "lastSeen": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "serviceID": {
-                    "type": "string"
-                },
-                "tunnelAddress": {
-                    "type": "string"
-                }
-            }
-        },
         "proto.MemoryUsageData": {
             "type": "object",
             "properties": {
@@ -1451,6 +1431,26 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.NodeData": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "lastSeen": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "serviceID": {
+                    "type": "string"
+                },
+                "tunnelAddress": {
+                    "type": "string"
+                }
+            }
+        },
         "schema.OpenAIModel": {
             "type": "object",
             "properties": {
@@ -1704,13 +1704,13 @@ const docTemplate = `{
                 "federated_nodes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/p2p.NodeData"
+                        "$ref": "#/definitions/schema.NodeData"
                     }
                 },
                 "nodes": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/p2p.NodeData"
+                        "$ref": "#/definitions/schema.NodeData"
                     }
                 }
             }
