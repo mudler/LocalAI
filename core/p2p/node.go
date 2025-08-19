@@ -1,6 +1,8 @@
 package p2p
 
 import (
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/mudler/LocalAI/core/schema"
@@ -24,6 +26,11 @@ func GetAvailableNodes(serviceID string) []schema.NodeData {
 	for _, v := range nodes[serviceID] {
 		availableNodes = append(availableNodes, v)
 	}
+
+	slices.SortFunc(availableNodes, func(a, b schema.NodeData) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
 	return availableNodes
 }
 
