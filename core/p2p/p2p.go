@@ -13,6 +13,7 @@ import (
 
 	"github.com/ipfs/go-log"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/edgevpn/pkg/config"
 	"github.com/mudler/edgevpn/pkg/node"
@@ -169,7 +170,7 @@ func allocateLocalService(ctx context.Context, node *node.Node, listenAddr, serv
 
 // This is the main of the server (which keeps the env variable updated)
 // This starts a goroutine that keeps LLAMACPP_GRPC_SERVERS updated with the discovered services
-func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func(serviceID string, node NodeData), allocate bool) error {
+func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID string, discoveryFunc func(serviceID string, node schema.NodeData), allocate bool) error {
 	if servicesID == "" {
 		servicesID = defaultServicesID
 	}
@@ -200,8 +201,8 @@ func ServiceDiscoverer(ctx context.Context, n *node.Node, token, servicesID stri
 	return nil
 }
 
-func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan NodeData, error) {
-	tunnels := make(chan NodeData)
+func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID string, allocate bool) (chan schema.NodeData, error) {
+	tunnels := make(chan schema.NodeData)
 
 	ledger, err := n.Ledger()
 	if err != nil {
@@ -234,7 +235,7 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 
 				for k, v := range data {
 					// New worker found in the ledger data as k (worker id)
-					nd := &NodeData{}
+					nd := &schema.NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						zlog.Error().Msg("cannot unmarshal node data")
 						continue
@@ -254,14 +255,14 @@ func discoveryTunnels(ctx context.Context, n *node.Node, token, servicesID strin
 }
 
 type nodeServiceData struct {
-	NodeData   NodeData
+	NodeData   schema.NodeData
 	CancelFunc context.CancelFunc
 }
 
 var service = map[string]nodeServiceData{}
 var muservice sync.Mutex
 
-func ensureService(ctx context.Context, n *node.Node, nd *NodeData, sserv string, allocate bool) {
+func ensureService(ctx context.Context, n *node.Node, nd *schema.NodeData, sserv string, allocate bool) {
 	muservice.Lock()
 	defer muservice.Unlock()
 	nd.ServiceID = sserv
@@ -346,7 +347,7 @@ func ExposeService(ctx context.Context, host, port, token, servicesID string) (*
 		20*time.Second,
 		func() {
 			updatedMap := map[string]interface{}{}
-			updatedMap[name] = &NodeData{
+			updatedMap[name] = &schema.NodeData{
 				Name:     name,
 				LastSeen: time.Now(),
 				ID:       nodeID(name),

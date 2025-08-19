@@ -239,7 +239,7 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 
 		m, cfg, err := newTranscriptionOnlyModel(
 			&pipeline,
-			application.BackendLoader(),
+			application.ModelConfigLoader(),
 			application.ModelLoader(),
 			application.ApplicationConfig(),
 		)
@@ -313,7 +313,7 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 				if err := updateTransSession(
 					session,
 					&sessionUpdate,
-					application.BackendLoader(),
+					application.ModelConfigLoader(),
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 				); err != nil {
@@ -342,7 +342,7 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 				if err := updateSession(
 					session,
 					&sessionUpdate,
-					application.BackendLoader(),
+					application.ModelConfigLoader(),
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 				); err != nil {

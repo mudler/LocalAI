@@ -10,6 +10,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/edgevpn/pkg/blockchain"
 )
 
@@ -177,7 +178,7 @@ func (s *DiscoveryServer) retrieveNetworkData(c context.Context, ledger *blockch
 				atLeastOneWorker := false
 			DATA:
 				for _, v := range data[d] {
-					nd := &p2p.NodeData{}
+					nd := &schema.NodeData{}
 					if err := v.Unmarshal(nd); err != nil {
 						continue DATA
 					}

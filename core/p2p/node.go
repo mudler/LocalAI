@@ -1,8 +1,11 @@
 package p2p
 
 import (
+	"slices"
+	"strings"
 	"sync"
-	"time"
+
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 const (
@@ -10,57 +13,48 @@ const (
 	WorkerID          = "worker"
 )
 
-type NodeData struct {
-	Name          string
-	ID            string
-	TunnelAddress string
-	ServiceID     string
-	LastSeen      time.Time
-}
-
-func (d NodeData) IsOnline() bool {
-	now := time.Now()
-	// if the node was seen in the last 40 seconds, it's online
-	return now.Sub(d.LastSeen) < 40*time.Second
-}
-
 var mu sync.Mutex
-var nodes = map[string]map[string]NodeData{}
+var nodes = map[string]map[string]schema.NodeData{}
 
-func GetAvailableNodes(serviceID string) []NodeData {
+func GetAvailableNodes(serviceID string) []schema.NodeData {
 	if serviceID == "" {
 		serviceID = defaultServicesID
 	}
 	mu.Lock()
 	defer mu.Unlock()
-	var availableNodes = []NodeData{}
+	var availableNodes = []schema.NodeData{}
 	for _, v := range nodes[serviceID] {
 		availableNodes = append(availableNodes, v)
 	}
+
+	slices.SortFunc(availableNodes, func(a, b schema.NodeData) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
 	return availableNodes
 }
 
-func GetNode(serviceID, nodeID string) (NodeData, bool) {
+func GetNode(serviceID, nodeID string) (schema.NodeData, bool) {
 	if serviceID == "" {
 		serviceID = defaultServicesID
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	if _, ok := nodes[serviceID]; !ok {
-		return NodeData{}, false
+		return schema.NodeData{}, false
 	}
 	nd, exists := nodes[serviceID][nodeID]
 	return nd, exists
 }
 
-func AddNode(serviceID string, node NodeData) {
+func AddNode(serviceID string, node schema.NodeData) {
 	if serviceID == "" {
 		serviceID = defaultServicesID
 	}
 	mu.Lock()
 	defer mu.Unlock()
 	if nodes[serviceID] == nil {
-		nodes[serviceID] = map[string]NodeData{}
+		nodes[serviceID] = map[string]schema.NodeData{}
 	}
 	nodes[serviceID][node.ID] = node
 }

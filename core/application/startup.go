@@ -68,7 +68,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
-	if err := application.BackendLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
+	if err := application.ModelConfigLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
 		log.Error().Err(err).Msg("error loading config files")
 	}
 
@@ -77,12 +77,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	if options.ConfigFile != "" {
-		if err := application.BackendLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
+		if err := application.ModelConfigLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
 			log.Error().Err(err).Msg("error loading config file")
 		}
 	}
 
-	if err := application.BackendLoader().Preload(options.SystemState.Model.ModelsPath); err != nil {
+	if err := application.ModelConfigLoader().Preload(options.SystemState.Model.ModelsPath); err != nil {
 		log.Error().Err(err).Msg("error downloading models")
 	}
 
@@ -99,7 +99,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	if options.Debug {
-		for _, v := range application.BackendLoader().GetAllModelsConfigs() {
+		for _, v := range application.ModelConfigLoader().GetAllModelsConfigs() {
 			log.Debug().Msgf("Model: %s (config: %+v)", v.Name, v)
 		}
 	}
@@ -132,7 +132,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {
-			cfg, err := application.BackendLoader().LoadModelConfigFileByNameDefaultOptions(m, options)
+			cfg, err := application.ModelConfigLoader().LoadModelConfigFileByNameDefaultOptions(m, options)
 			if err != nil {
 				return nil, err
 			}
@@ -151,6 +151,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Watch the configuration directory
 	startWatcher(options)
+
+	if err := application.start(); err != nil {
+		return nil, err
+	}
 
 	log.Info().Msg("core/startup process completed!")
 	return application, nil
