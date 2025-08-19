@@ -1,4 +1,4 @@
-torch==2.8.0
+torch==2.4.1
 torchaudio==2.4.1
 transformers==4.55.2
 accelerate
