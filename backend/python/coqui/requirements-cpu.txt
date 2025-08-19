@@ -1,4 +1,4 @@
-transformers==4.48.3
+transformers==4.55.2
 accelerate
 torch==2.8.0
 coqui-tts
