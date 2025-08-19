@@ -1,6 +1,7 @@
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
+torchvision==0.22.1
 accelerate
 compel
 peft
