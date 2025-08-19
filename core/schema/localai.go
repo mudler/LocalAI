@@ -1,7 +1,8 @@
 package schema
 
 import (
-	"github.com/mudler/LocalAI/core/p2p"
+	"time"
+
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
 
@@ -107,9 +108,23 @@ type StoresFindResponse struct {
 	Similarities []float32   `json:"similarities" yaml:"similarities"`
 }
 
+type NodeData struct {
+	Name          string
+	ID            string
+	TunnelAddress string
+	ServiceID     string
+	LastSeen      time.Time
+}
+
+func (d NodeData) IsOnline() bool {
+	now := time.Now()
+	// if the node was seen in the last 40 seconds, it's online
+	return now.Sub(d.LastSeen) < 40*time.Second
+}
+
 type P2PNodesResponse struct {
-	Nodes          []p2p.NodeData `json:"nodes" yaml:"nodes"`
-	FederatedNodes []p2p.NodeData `json:"federated_nodes" yaml:"federated_nodes"`
+	Nodes          []NodeData `json:"nodes" yaml:"nodes"`
+	FederatedNodes []NodeData `json:"federated_nodes" yaml:"federated_nodes"`
 }
 
 type SysInfoModel struct {

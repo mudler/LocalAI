@@ -7,7 +7,7 @@ import (
 	"github.com/chasefleming/elem-go"
 	"github.com/chasefleming/elem-go/attrs"
 	"github.com/microcosm-cc/bluemonday"
-	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 func renderElements(n []elem.Node) string {
@@ -18,7 +18,7 @@ func renderElements(n []elem.Node) string {
 	return render
 }
 
-func P2PNodeStats(nodes []p2p.NodeData) string {
+func P2PNodeStats(nodes []schema.NodeData) string {
 	online := 0
 	for _, n := range nodes {
 		if n.IsOnline() {
@@ -49,7 +49,7 @@ func P2PNodeStats(nodes []p2p.NodeData) string {
 	return renderElements(nodesElements)
 }
 
-func P2PNodeBoxes(nodes []p2p.NodeData) string {
+func P2PNodeBoxes(nodes []schema.NodeData) string {
 	nodesElements := []elem.Node{}
 
 	for _, n := range nodes {

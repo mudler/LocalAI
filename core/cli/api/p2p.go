@@ -7,13 +7,15 @@ import (
 	"os"
 	"strings"
 
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/edgevpn/pkg/node"
 
 	"github.com/rs/zerolog/log"
 )
 
-func StartP2PStack(ctx context.Context, address, token, networkID string, federated bool) error {
+func StartP2PStack(ctx context.Context, address, token, networkID string, federated bool, app *application.Application) error {
 	var n *node.Node
 	// Here we are avoiding creating multiple nodes:
 	// - if the federated mode is enabled, we create a federated node and expose a service
@@ -39,6 +41,11 @@ func StartP2PStack(ctx context.Context, address, token, networkID string, federa
 		}
 
 		n = node
+
+		// start node sync in the background
+		if err := p2p.Sync(ctx, node, app); err != nil {
+			return err
+		}
 	}
 
 	// If the p2p mode is enabled, we start the service discovery
@@ -58,7 +65,7 @@ func StartP2PStack(ctx context.Context, address, token, networkID string, federa
 
 		// Attach a ServiceDiscoverer to the p2p node
 		log.Info().Msg("Starting P2P server discovery...")
-		if err := p2p.ServiceDiscoverer(ctx, n, token, p2p.NetworkID(networkID, p2p.WorkerID), func(serviceID string, node p2p.NodeData) {
+		if err := p2p.ServiceDiscoverer(ctx, n, token, p2p.NetworkID(networkID, p2p.WorkerID), func(serviceID string, node schema.NodeData) {
 			var tunnelAddresses []string
 			for _, v := range p2p.GetAvailableNodes(p2p.NetworkID(networkID, p2p.WorkerID)) {
 				if v.IsOnline() {

@@ -144,10 +144,6 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	backgroundCtx := context.Background()
 
-	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated); err != nil {
-		return err
-	}
-
 	idleWatchDog := r.EnableWatchdogIdle
 	busyWatchDog := r.EnableWatchdogBusy
 
@@ -213,6 +209,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	appHTTP, err := http.API(app)
 	if err != nil {
 		log.Error().Err(err).Msg("error during HTTP App construction")
+		return err
+	}
+
+	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated, app); err != nil {
 		return err
 	}
 
