@@ -8,3 +8,4 @@ peft
 optimum-quanto
 numpy<2
 sentencepiece
+torchvision

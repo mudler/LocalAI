@@ -1,5 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 torch==2.7.1+cu118
+torchvision==0.22.1+cu118
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
