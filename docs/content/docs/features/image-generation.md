@@ -262,6 +262,27 @@ IMAGE_PATH=/path/to/your/image
 curl -H "Content-Type: application/json" -d @-  http://localhost:8080/v1/images/generations
 ```
 
+##### 🖼️ Flux kontext with `stable-diffusion.cpp`
+
+LocalAI supports Flux Kontext and can be used to edit images via the API:
+
+Install with:
+
+```local-ai run flux.1-kontext-dev```
+
+To test:
+
+```
+curl http://localhost:8080/v1/images/generations -H "Content-Type: application/json" -d '{
+  "model": "flux.1-kontext-dev",
+  "prompt": "change 'flux.cpp' to 'LocalAI'",
+  "size": "256x256",
+  "ref_images": [
+  	"https://raw.githubusercontent.com/leejet/stable-diffusion.cpp/master/assets/flux/flux1-dev-q8_0.png"
+  ]
+}'
+```
+
 #### Depth to Image
 
 https://huggingface.co/docs/diffusers/using-diffusers/depth2img
