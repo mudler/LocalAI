@@ -18,7 +18,7 @@ import backend_pb2_grpc
 import grpc
 
 from diffusers import SanaPipeline, StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
-    EulerAncestralDiscreteScheduler, FluxPipeline, FluxTransformer2DModel
+    EulerAncestralDiscreteScheduler, FluxPipeline, FluxTransformer2DModel, QwenImageEditPipeline
 from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline, Lumina2Text2ImgPipeline
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image, export_to_video
@@ -263,6 +263,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             elif request.PipelineType == "DiffusionPipeline":
                 self.pipe = DiffusionPipeline.from_pretrained(request.Model,
                                                               torch_dtype=torchType)
+            elif request.PipelineType == "QwenImageEditPipeline":
+                self.pipe = QwenImageEditPipeline.from_pretrained(request.Model,
+                                                                 torch_dtype=torchType)
             elif request.PipelineType == "VideoDiffusionPipeline":
                 self.txt2vid = True
                 self.pipe = DiffusionPipeline.from_pretrained(request.Model,
