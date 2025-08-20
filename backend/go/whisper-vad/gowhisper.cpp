@@ -34,6 +34,8 @@ int vad(float pcmf32[], size_t pcmf32_size, float **segs_out, size_t *segs_out_l
   struct whisper_vad_segments *segs = whisper_vad_segments_from_probs(vctx, params);
   size_t segn = whisper_vad_segments_n_segments(segs);
 
+  fprintf(stderr, "Got segments %zd\n", segn);
+
   flat_segs.clear();
 
   for (int i = 0; i < segn; i++) {
@@ -41,10 +43,15 @@ int vad(float pcmf32[], size_t pcmf32_size, float **segs_out, size_t *segs_out_l
     flat_segs.push_back(whisper_vad_segments_get_segment_t1(segs, i));
   }
 
+  fprintf(stderr, "setting out variables: %p=%p -> %p, %p=%zx -> %zx\n",
+          segs_out, *segs_out, flat_segs.data(),
+          segs_out_len, *segs_out_len, flat_segs.size());
   *segs_out = flat_segs.data();
   *segs_out_len = flat_segs.size();
 
+  fprintf(stderr, "freeing segs\n");
   whisper_vad_free_segments(segs);
 
+  fprintf(stderr, "returning\n");
   return 0;
 }

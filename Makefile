@@ -450,6 +450,9 @@ docker-save-diffusers: backend-images
 docker-build-whisper:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper -f backend/Dockerfile.golang --build-arg BACKEND=whisper  .
 
+docker-build-whisper-vad:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper-vad -f backend/Dockerfile.golang --build-arg BACKEND=whisper-vad  .
+
 docker-save-whisper: backend-images
 	docker save local-ai-backend:whisper -o backend-images/whisper.tar
 

@@ -6,6 +6,9 @@ models
 backends
 examples/chatbot-ui/models
 backend/go/image/stablediffusion-ggml/build/
+backend/go/*/build
+backend/go/*/.cache
+backend/go/*/sources
 examples/rwkv/models
 examples/**/models
 Dockerfile*
