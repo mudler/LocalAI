@@ -111,6 +111,8 @@ function ensureVenv() {
                 fi
                 echo "Using interpreter: ${interpreter}"
                 ${interpreter} -m venv ${EDIR}/venv
+                source ${EDIR}/venv/bin/activate
+                ${interpreter} -m pip install --upgrade pip
                 echo "Python virtual environment created"
         else
                 echo "Using uv package manager"

@@ -362,8 +362,11 @@ backends/llama-cpp-darwin: build
 	bash ./scripts/build/llama-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
+build-darwin-python-backend:
+	bash ./scripts/build/python-darwin.sh
+
 backends/mlx: build
-	BACKEND=mlx BUILD_TYPE=mps bash ./scripts/build/python-darwin.sh
+	BACKEND=mlx BUILD_TYPE=mps $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx.tar)"
 
 backend-images:
