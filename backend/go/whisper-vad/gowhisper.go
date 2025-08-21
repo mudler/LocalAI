@@ -32,13 +32,13 @@ func (w *Whisper) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 	segsPtr, segsLen := uintptr(0xdeadbeef), uintptr(0xdeadbeef)
   segsPtrPtr, segsLenPtr := unsafe.Pointer(&segsPtr), unsafe.Pointer(&segsLen)
 
-	fmt.Fprintf(os.Stderr, "sending segsPtr %v, segsLen %v", segsPtrPtr, segsLenPtr)
+	fmt.Fprintf(os.Stderr, "sending segsPtr %v, segsLen %v\n", segsPtrPtr, segsLenPtr)
 
 	if ret := CppVAD(audio, uintptr(len(audio)), segsPtrPtr, segsLenPtr); ret != 0 {
 		return pb.VADResponse{}, fmt.Errorf("Failed VAD")
 	}
 
-	fmt.Fprintf(os.Stderr, "got segsLen: %v", segsLen)
+	fmt.Fprintf(os.Stderr, "got segsLen: %v\n", segsLen)
 	fmt.Fprintf(os.Stderr, "casting segs pointer: 0x%x\n", segsPtr);
 
 	// Happens when CPP vector has not had any elements pushed to it
@@ -54,10 +54,14 @@ func (w *Whisper) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 
 	vadSegments := []*pb.VADSegment{}
 	for i := range len(segs) >> 1 {
+		s := segs[2*i]/100
+		t := segs[2*i + 1]/100
 		vadSegments = append(vadSegments, &pb.VADSegment{
-			Start: segs[2*i],
-			End: segs[2*i + 1],
+			Start: s,
+			End: t,
 		})
+
+		fmt.Fprintf(os.Stderr, "Segment %d: (%f, %f)\n", i, s, t)
 	}
 
 	return pb.VADResponse{
