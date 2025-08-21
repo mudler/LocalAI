@@ -6,19 +6,16 @@ import signal
 import sys
 import os
 from typing import List
-from PIL import Image
+import time
 
 import backend_pb2
 import backend_pb2_grpc
 
 import grpc
-from vllm.engine.arg_utils import AsyncEngineArgs
-from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.sampling_params import SamplingParams
-from vllm.utils import random_uuid
-from vllm.transformers_utils.tokenizer import get_tokenizer
-from vllm.multimodal.utils import fetch_image
-from vllm.assets.video import VideoAsset
+from mlx_lm import load, generate, stream_generate
+from mlx_lm.sample_utils import make_sampler
+from mlx_lm.models.cache import make_prompt_cache
+import mlx.core as mx
 import base64
 import io
 
@@ -32,38 +29,22 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     """
     A gRPC servicer that implements the Backend service defined in backend.proto.
     """
-    def generate(self,prompt, max_new_tokens):
-        """
-        Generates text based on the given prompt and maximum number of new tokens.
 
-        Args:
-            prompt (str): The prompt to generate text from.
-            max_new_tokens (int): The maximum number of new tokens to generate.
+    def _is_float(self, s):
+        """Check if a string can be converted to float."""
+        try:
+            float(s)
+            return True
+        except ValueError:
+            return False
 
-        Returns:
-            str: The generated text.
-        """
-        self.generator.end_beam_search()
-
-        # Tokenizing the input
-        ids = self.generator.tokenizer.encode(prompt)
-
-        self.generator.gen_begin_reuse(ids)
-        initial_len = self.generator.sequence[0].shape[0]
-        has_leading_space = False
-        decoded_text = ''
-        for i in range(max_new_tokens):
-            token = self.generator.gen_single_token()
-            if i == 0 and self.generator.tokenizer.tokenizer.IdToPiece(int(token)).startswith('▁'):
-                has_leading_space = True
-
-            decoded_text = self.generator.tokenizer.decode(self.generator.sequence[0][initial_len:])
-            if has_leading_space:
-                decoded_text = ' ' + decoded_text
-
-            if token.item() == self.generator.tokenizer.eos_token_id:
-                break
-        return decoded_text
+    def _is_int(self, s):
+        """Check if a string can be converted to int."""
+        try:
+            int(s)
+            return True
+        except ValueError:
+            return False
 
     def Health(self, request, context):
         """
@@ -80,7 +61,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     async def LoadModel(self, request, context):
         """
-        Loads a language model.
+        Loads a language model using MLX.
 
         Args:
             request: The load model request.
@@ -89,60 +70,70 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             backend_pb2.Result: The load model result.
         """
-        engine_args = AsyncEngineArgs(
-            model=request.Model,
-        )
-
-        if request.Quantization != "":
-            engine_args.quantization = request.Quantization
-        if request.LoadFormat != "":
-            engine_args.load_format = request.LoadFormat
-        if request.GPUMemoryUtilization != 0:
-            engine_args.gpu_memory_utilization = request.GPUMemoryUtilization
-        if request.TrustRemoteCode:
-            engine_args.trust_remote_code = request.TrustRemoteCode
-        if request.EnforceEager:
-            engine_args.enforce_eager = request.EnforceEager
-        if request.TensorParallelSize:
-            engine_args.tensor_parallel_size = request.TensorParallelSize
-        if request.SwapSpace != 0:
-            engine_args.swap_space = request.SwapSpace
-        if request.MaxModelLen != 0:
-            engine_args.max_model_len = request.MaxModelLen
-        if request.DisableLogStatus:
-            engine_args.disable_log_status = request.DisableLogStatus
-        if request.DType != "":
-            engine_args.dtype = request.DType
-        if request.LimitImagePerPrompt != 0 or request.LimitVideoPerPrompt != 0 or request.LimitAudioPerPrompt != 0:
-            # limit-mm-per-prompt defaults to 1 per modality, based on vLLM docs
-            engine_args.limit_mm_per_prompt = {
-                "image": max(request.LimitImagePerPrompt, 1),
-                "video": max(request.LimitVideoPerPrompt, 1),
-                "audio": max(request.LimitAudioPerPrompt, 1)
-            }
-
         try:
-            self.llm = AsyncLLMEngine.from_engine_args(engine_args)
+            print(f"Loading MLX model: {request.Model}", file=sys.stderr)
+            print(f"Request: {request}", file=sys.stderr)
+            
+            # Parse options like in the diffusers backend
+            options = request.Options
+            self.options = {}
+            
+            # The options are a list of strings in this form optname:optvalue
+            # We store all the options in a dict for later use
+            for opt in options:
+                if ":" not in opt:
+                    continue
+                key, value = opt.split(":", 1)  # Split only on first colon to handle values with colons
+                
+                # Convert numeric values to appropriate types
+                if self._is_float(value):
+                    value = float(value)
+                elif self._is_int(value):
+                    value = int(value)
+                elif value.lower() in ["true", "false"]:
+                    value = value.lower() == "true"
+                    
+                self.options[key] = value
+            
+            print(f"Options: {self.options}", file=sys.stderr)
+            
+            # Build tokenizer config for MLX using options
+            tokenizer_config = {}
+            
+            # Handle trust_remote_code from request or options
+            if request.TrustRemoteCode or self.options.get("trust_remote_code", False):
+                tokenizer_config["trust_remote_code"] = True
+            
+            # Handle EOS token from options
+            if "eos_token" in self.options:
+                tokenizer_config["eos_token"] = self.options["eos_token"]
+            
+            # Handle other tokenizer config options
+            for key in ["pad_token", "bos_token", "unk_token", "sep_token", "cls_token", "mask_token"]:
+                if key in self.options:
+                    tokenizer_config[key] = self.options[key]
+            
+            # Load model and tokenizer using MLX
+            if tokenizer_config:
+                print(f"Loading with tokenizer_config: {tokenizer_config}", file=sys.stderr)
+                self.model, self.tokenizer = load(request.Model, tokenizer_config=tokenizer_config)
+            else:
+                self.model, self.tokenizer = load(request.Model)
+            
+            # Initialize prompt cache for efficient generation
+            max_kv_size = self.options.get("max_kv_size", None)
+            self.prompt_cache = make_prompt_cache(self.model, max_kv_size)
+                
         except Exception as err:
-            print(f"Unexpected {err=}, {type(err)=}", file=sys.stderr)
-            return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
+            print(f"Error loading MLX model {err=}, {type(err)=}", file=sys.stderr)
+            return backend_pb2.Result(success=False, message=f"Error loading MLX model: {err}")
 
-        try:
-           engine_model_config = await self.llm.get_model_config()
-           self.tokenizer = get_tokenizer(
-               engine_model_config.tokenizer,
-               tokenizer_mode=engine_model_config.tokenizer_mode,
-               trust_remote_code=engine_model_config.trust_remote_code,
-               truncation_side="left",
-           )
-        except Exception as err:
-            return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
-        print("Model loaded successfully", file=sys.stderr)
-        return backend_pb2.Result(message="Model loaded successfully", success=True)
+        print("MLX model loaded successfully", file=sys.stderr)
+        return backend_pb2.Result(message="MLX model loaded successfully", success=True)
 
     async def Predict(self, request, context):
         """
-        Generates text based on the given prompt and sampling parameters.
+        Generates text based on the given prompt and sampling parameters using MLX.
 
         Args:
             request: The predict request.
@@ -151,13 +142,42 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             backend_pb2.Reply: The predict result.
         """
-        gen = self._predict(request, context, streaming=False)
-        res = await gen.__anext__()
-        return res
+        try:
+            # Prepare the prompt
+            prompt = self._prepare_prompt(request)
+            
+            # Build generation parameters using request attributes and options
+            max_tokens, sampler_params = self._build_generation_params(request)
+            
+            print(f"Generating text with MLX - max_tokens: {max_tokens}, sampler_params: {sampler_params}", file=sys.stderr)
+            
+            # Create sampler with parameters
+            sampler = make_sampler(**sampler_params)
+            
+            # Generate text using MLX with proper parameters
+            response = generate(
+                self.model,
+                self.tokenizer,
+                prompt=prompt,
+                max_tokens=max_tokens,
+                sampler=sampler,
+                prompt_cache=self.prompt_cache,
+                verbose=False
+            )
+            
+            return backend_pb2.Reply(message=bytes(response, encoding='utf-8'))
+            
+        except Exception as e:
+            print(f"Error in MLX Predict: {e}", file=sys.stderr)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Generation failed: {str(e)}")
+            return backend_pb2.Reply(message=bytes("", encoding='utf-8'))
 
     def Embedding(self, request, context):
         """
         A gRPC method that calculates embeddings for a given sentence.
+        
+        Note: MLX-LM doesn't support embeddings directly. This method returns an error.
 
         Args:
             request: An EmbeddingRequest object that contains the request parameters.
@@ -166,170 +186,159 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         Returns:
             An EmbeddingResult object that contains the calculated embeddings.
         """
-        print("Calculated embeddings for: " + request.Embeddings, file=sys.stderr)
-        outputs = self.model.encode(request.Embeddings)
-        # Check if we have one result at least
-        if len(outputs) == 0:
-            context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
-            context.set_details("No embeddings were calculated.")
-            return backend_pb2.EmbeddingResult()
-        return backend_pb2.EmbeddingResult(embeddings=outputs[0].outputs.embedding)
+        print("Embeddings not supported in MLX backend", file=sys.stderr)
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Embeddings are not supported in the MLX backend.")
+        return backend_pb2.EmbeddingResult()
 
     async def PredictStream(self, request, context):
         """
-        Generates text based on the given prompt and sampling parameters, and streams the results.
+        Generates text based on the given prompt and sampling parameters, and streams the results using MLX.
 
         Args:
             request: The predict stream request.
             context: The gRPC context.
 
-        Returns:
-            backend_pb2.Result: The predict stream result.
+        Yields:
+            backend_pb2.Reply: Streaming predict results.
         """
-        iterations = self._predict(request, context, streaming=True)
         try:
-            async for iteration in iterations:
-                yield iteration
-        finally:
-            await iterations.aclose()
+            # Prepare the prompt
+            prompt = self._prepare_prompt(request)
+            
+            # Build generation parameters using request attributes and options
+            max_tokens, sampler_params = self._build_generation_params(request, default_max_tokens=512)
+            
+            print(f"Streaming text with MLX - max_tokens: {max_tokens}, sampler_params: {sampler_params}", file=sys.stderr)
+            
+            # Create sampler with parameters
+            sampler = make_sampler(**sampler_params)
+            
+            # Stream text generation using MLX with proper parameters
+            for response in stream_generate(
+                self.model,
+                self.tokenizer,
+                prompt=prompt,
+                max_tokens=max_tokens,
+                sampler=sampler,
+                prompt_cache=self.prompt_cache,
+            ):
+                yield backend_pb2.Reply(message=bytes(response.text, encoding='utf-8'))
+                
+        except Exception as e:
+            print(f"Error in MLX PredictStream: {e}", file=sys.stderr)
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"Streaming generation failed: {str(e)}")
+            yield backend_pb2.Reply(message=bytes("", encoding='utf-8'))
 
-    async def _predict(self, request, context, streaming=False):
-        # Build the sampling parameters
-        # NOTE: this must stay in sync with the vllm backend
-        request_to_sampling_params = {
-            "N": "n",
-            "PresencePenalty": "presence_penalty",
-            "FrequencyPenalty": "frequency_penalty",
-            "RepetitionPenalty": "repetition_penalty",
-            "Temperature": "temperature",
-            "TopP": "top_p",
-            "TopK": "top_k",
-            "MinP": "min_p",
-            "Seed": "seed",
-            "StopPrompts": "stop",
-            "StopTokenIds": "stop_token_ids",
-            "BadWords": "bad_words",
-            "IncludeStopStrInOutput": "include_stop_str_in_output",
-            "IgnoreEOS": "ignore_eos",
-            "Tokens": "max_tokens",
-            "MinTokens": "min_tokens",
-            "Logprobs": "logprobs",
-            "PromptLogprobs": "prompt_logprobs",
-            "SkipSpecialTokens": "skip_special_tokens",
-            "SpacesBetweenSpecialTokens": "spaces_between_special_tokens",
-            "TruncatePromptTokens": "truncate_prompt_tokens",
-            "GuidedDecoding": "guided_decoding",
-        }
+    def _prepare_prompt(self, request):
+        """
+        Prepare the prompt for MLX generation, handling chat templates if needed.
 
-        sampling_params = SamplingParams(top_p=0.9, max_tokens=200)
+        Args:
+            request: The gRPC request containing prompt and message information.
 
-        for request_field, param_field in request_to_sampling_params.items():
-            if hasattr(request, request_field):
-                value = getattr(request, request_field)
-                if value not in (None, 0, [], False):
-                    setattr(sampling_params, param_field, value)
-
-        # Extract image paths and process images
-        prompt = request.Prompt
-
-        image_paths = request.Images
-        image_data = [self.load_image(img_path) for img_path in image_paths]
-
-        videos_path = request.Videos
-        video_data = [self.load_video(video_path) for video_path in videos_path]
-
+        Returns:
+            str: The prepared prompt.
+        """
         # If tokenizer template is enabled and messages are provided instead of prompt, apply the tokenizer template
         if not request.Prompt and request.UseTokenizerTemplate and request.Messages:
-            prompt = self.tokenizer.apply_chat_template(request.Messages, tokenize=False, add_generation_prompt=True)
+            # Convert gRPC messages to the format expected by apply_chat_template
+            messages = []
+            for msg in request.Messages:
+                messages.append({"role": msg.role, "content": msg.content})
+            
+            prompt = self.tokenizer.apply_chat_template(
+                messages, 
+                tokenize=False, 
+                add_generation_prompt=True
+            )
+            return prompt
+        else:
+            return request.Prompt
 
-        # Generate text using the LLM engine
-        request_id = random_uuid()
-        print(f"Generating text with request_id: {request_id}", file=sys.stderr)
-        multi_modal_data = {}
-        if image_data:
-            multi_modal_data["image"] = image_data
-        if video_data:
-            multi_modal_data["video"] = video_data
-        outputs = self.llm.generate(
-            {
-            "prompt": prompt,
-            "multi_modal_data": multi_modal_data if multi_modal_data else None,
-            },
-            sampling_params=sampling_params,
-            request_id=request_id,
-        )
 
-        # Stream the results
-        generated_text = ""
-        try:
-            async for request_output in outputs:
-                iteration_text = request_output.outputs[0].text
 
-                if streaming:
-                    # Remove text already sent as vllm concatenates the text from previous yields
-                    delta_iteration_text = iteration_text.removeprefix(generated_text)
-                    # Send the partial result
-                    yield backend_pb2.Reply(message=bytes(delta_iteration_text, encoding='utf-8'))
 
-                # Keep track of text generated
-                generated_text = iteration_text
-        finally:
-            await outputs.aclose()
 
-        # If streaming, we already sent everything
-        if streaming:
-            return
-
-        # Remove the image files from /tmp folder
-        for img_path in image_paths:
-            try:
-                os.remove(img_path)
-            except Exception as e:
-                print(f"Error removing image file: {img_path}, {e}", file=sys.stderr)
-
-        # Sending the final generated text
-        yield backend_pb2.Reply(message=bytes(generated_text, encoding='utf-8'))
-
-    def load_image(self, image_path: str):
+    def _build_generation_params(self, request, default_max_tokens=200):
         """
-        Load an image from the given file path or base64 encoded data.
+        Build generation parameters from request attributes and options.
 
         Args:
-            image_path (str): The path to the image file or base64 encoded data.
+            request: The gRPC request.
+            default_max_tokens: Default max_tokens if not specified.
 
         Returns:
-            Image: The loaded image.
+            tuple: (max_tokens, sampler_params dict)
         """
+        # Extract max_tokens
+        max_tokens = getattr(request, 'Tokens', default_max_tokens)
+        if max_tokens == 0:
+            max_tokens = default_max_tokens
+        
+        # Extract sampler parameters from request attributes
+        temp = getattr(request, 'Temperature', 0.0)
+        if temp == 0.0:
+            temp = 0.6  # Default temperature
+        
+        top_p = getattr(request, 'TopP', 0.0)
+        if top_p == 0.0:
+            top_p = 1.0  # Default top_p
+        
+        # Initialize sampler parameters
+        sampler_params = {
+            'temp': temp,
+            'top_p': top_p,
+            'xtc_threshold': 0.0,
+            'xtc_probability': 0.0,
+        }
+        
+        # Add seed if specified
+        seed = getattr(request, 'Seed', 0)
+        if seed != 0:
+            mx.random.seed(seed)
+        
+        # Override with options if available
+        if hasattr(self, 'options'):
+            # Max tokens from options
+            if 'max_tokens' in self.options:
+                max_tokens = self.options['max_tokens']
+            
+            # Sampler parameters from options
+            sampler_option_mapping = {
+                'temp': 'temp',
+                'temperature': 'temp',  # alias
+                'top_p': 'top_p', 
+                'xtc_threshold': 'xtc_threshold',
+                'xtc_probability': 'xtc_probability',
+            }
+            
+            for option_key, param_key in sampler_option_mapping.items():
+                if option_key in self.options:
+                    sampler_params[param_key] = self.options[option_key]
+            
+            # Handle seed from options
+            if 'seed' in self.options:
+                mx.random.seed(self.options['seed'])
+        
+        # Special tokens for XTC sampling (if tokenizer has eos_token_ids)
+        xtc_special_tokens = []
+        if hasattr(self.tokenizer, 'eos_token_ids') and self.tokenizer.eos_token_ids:
+            xtc_special_tokens = list(self.tokenizer.eos_token_ids)
+        elif hasattr(self.tokenizer, 'eos_token_id') and self.tokenizer.eos_token_id is not None:
+            xtc_special_tokens = [self.tokenizer.eos_token_id]
+        
+        # Add newline token if available
         try:
-
-            image_data = base64.b64decode(image_path)
-            image = Image.open(io.BytesIO(image_data))
-            return image
-        except Exception as e:
-            print(f"Error loading image {image_path}: {e}", file=sys.stderr)
-            return None
-
-    def load_video(self, video_path: str):
-        """
-        Load a video from the given file path.
-
-        Args:
-            video_path (str): The path to the image file.
-
-        Returns:
-            Video: The loaded video.
-        """
-        try:
-            timestamp = str(int(time.time() * 1000))  # Generate timestamp
-            p = f"/tmp/vl-{timestamp}.data"  # Use timestamp in filename
-            with open(p, "wb") as f:
-                f.write(base64.b64decode(video_path))
-            video = VideoAsset(name=p).np_ndarrays
-            os.remove(p)
-            return video
-        except Exception as e:
-            print(f"Error loading video {video_path}: {e}", file=sys.stderr)
-            return None
+            newline_tokens = self.tokenizer.encode("\n")
+            xtc_special_tokens.extend(newline_tokens)
+        except:
+            pass  # Skip if encoding fails
+        
+        sampler_params['xtc_special_tokens'] = xtc_special_tokens
+        
+        return max_tokens, sampler_params
 
 async def serve(address):
     # Start asyncio gRPC server

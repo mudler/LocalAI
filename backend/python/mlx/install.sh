@@ -2,6 +2,7 @@
 set -e
 
 USE_PIP=true
+PYTHON_VERSION=""
 
 backend_dir=$(dirname $0)
 
