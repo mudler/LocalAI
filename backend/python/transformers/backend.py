@@ -94,7 +94,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         self.SentenceTransformer = False
 
         device_map="cpu"
-
+        mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        if mps_available:
+            device_map = "mps"
         quantization = None
         autoTokenizer = True
 

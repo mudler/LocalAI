@@ -40,7 +40,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         else:
             print("CUDA is not available", file=sys.stderr)
             device = "cpu"
-
+        mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        if mps_available:
+            device = "mps"
         if not torch.cuda.is_available() and request.CUDA:
             return backend_pb2.Result(success=False, message="CUDA is not available")
 

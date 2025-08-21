@@ -368,6 +368,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             device = "cpu" if not request.CUDA else "cuda"
             if XPU:
                 device = "xpu"
+            mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+            if mps_available:
+                device = "mps"
             self.device = device
             if request.LoraAdapter:
                 # Check if its a local file and not a directory ( we load lora differently for a safetensor file )

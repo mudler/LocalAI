@@ -10,7 +10,7 @@ import sys
 import os
 import backend_pb2
 import backend_pb2_grpc
-
+import torch
 from faster_whisper import WhisperModel
 
 import grpc
@@ -35,7 +35,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # device = "cuda" if request.CUDA else "cpu"
         if request.CUDA:
             device = "cuda"
-
+        mps_available = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+        if mps_available:
+            device = "mps"
         try:
             print("Preparing models, please wait", file=sys.stderr)
             self.model = WhisperModel(request.Model, device=device, compute_type="float16")
