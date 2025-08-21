@@ -369,10 +369,6 @@ backends/mlx: build
 	BACKEND=mlx BUILD_TYPE=mps $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx.tar)"
 
-backends/mlx-vlm: build
-	BACKEND=mlx-vlm BUILD_TYPE=mps bash ./scripts/build/python-darwin.sh
-	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-vlm.tar)"
-
 backend-images:
 	mkdir -p backend-images
 
