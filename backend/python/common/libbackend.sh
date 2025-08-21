@@ -21,7 +21,7 @@
 # USE_PIP=true source $(dirname $0)/../common/libbackend.sh
 #
 
-PYTHON_VERSION="3.10"
+PYTHON_VERSION="${PYTHON_VERSION:-3.10}"
 
 # Default to uv if USE_PIP is not set
 if [ "x${USE_PIP}" == "x" ]; then
@@ -56,11 +56,6 @@ function init() {
     fi
 
     echo "Initializing libbackend for ${BACKEND_NAME}"
-    if [ "x${USE_PIP}" == "xtrue" ]; then
-        echo "Using pip and Python virtual environments"
-    else
-        echo "Using uv package manager"
-    fi
 }
 
 # getBuildProfile will inspect the system to determine which build profile is appropriate:
@@ -70,11 +65,6 @@ function init() {
 # - hipblas
 # - intel
 function getBuildProfile() {
-    if [ "x${BUILD_TYPE}" == "xl4t" ]; then
-        echo "l4t"
-        return 0
-    fi
-
     # First check if we are a cublas build, and if so report the correct build profile
     if [ x"${BUILD_TYPE}" == "xcublas" ]; then
         if [ ! -z ${CUDA_MAJOR_VERSION} ]; then
@@ -94,7 +84,7 @@ function getBuildProfile() {
     fi
 
     # If for any other values of BUILD_TYPE, we don't need any special handling/discovery
-    if [ ! -z ${BUILD_TYPE} ]; then
+    if [ -n ${BUILD_TYPE} ]; then
         echo ${BUILD_TYPE}
         return 0
     fi
@@ -108,33 +98,46 @@ function getBuildProfile() {
 # This function is idempotent, so you can call it as many times as you want and it will
 # always result in an activated virtual environment
 function ensureVenv() {
-    if [ "x${USE_PIP}" == "xtrue" ]; then
-        # Use Python virtual environment with pip
-        if [ ! -d "${EDIR}/venv" ]; then
-            python${PYTHON_VERSION} -m venv ${EDIR}/venv
-            echo "Python virtual environment created"
-        fi
+     if [ ! -d "${EDIR}/venv" ]; then
+        if [ "x${USE_PIP}" == "xtrue" ]; then
+                echo "Using pip and Python virtual environments"
 
-        # Source if we are not already in a Virtual env
-        if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
-            source ${EDIR}/venv/bin/activate
-            echo "Python virtual environment activated"
+                # Use Python virtual environment with pip
+                interpreter="python3"
+                # if there is no python , call python${PYTHON_VERSION}
+                
+                if command -v python${PYTHON_VERSION} &> /dev/null; then
+                    interpreter="python${PYTHON_VERSION}"
+                fi
+                echo "Using interpreter: ${interpreter}"
+                ${interpreter} -m venv ${EDIR}/venv
+                echo "Python virtual environment created"
+        else
+                echo "Using uv package manager"
+                uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
+                echo "uv virtual environment created"
         fi
-    else
-        # Use uv (conda-like)
-        if [ ! -d "${EDIR}/venv" ]; then
-            uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
-            echo "uv virtual environment created"
-        fi
-
-        # Source if we are not already in a Virtual env
-        if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
-            source ${EDIR}/venv/bin/activate
-            echo "uv virtual environment activated"
-        fi
+    fi
+    # Source if we are not already in a Virtual env
+    if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
+        source ${EDIR}/venv/bin/activate
+        echo "Python virtual environment activated"
     fi
 
     echo "activated virtual environment has been ensured"
+}
+
+function runProtogen() {
+    ensureVenv
+
+    if [ "x${USE_PIP}" == "xtrue" ]; then
+        pip install grpcio-tools
+    else
+        uv pip install grpcio-tools
+    fi
+    pushd ${EDIR}
+        python3 -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
+    popd
 }
 
 # installRequirements looks for several requirements files and if they exist runs the install for them in order
@@ -196,6 +199,8 @@ function installRequirements() {
             echo "finished requirements install for ${reqFile}"
         fi
     done
+
+    runProtogen
 }
 
 # startBackend discovers and runs the backend GRPC server
