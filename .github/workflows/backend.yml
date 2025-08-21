@@ -1119,3 +1119,89 @@ jobs:
           for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do
             crane push llama-cpp.tar $tag
           done
+  mlx-darwin:
+    runs-on: macOS-14
+    strategy:
+      matrix:
+        go-version: ['1.24.x']
+    steps:
+      - name: Clone
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Setup Go ${{ matrix.go-version }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: false
+      # You can test your matrix by printing the current Go version
+      - name: Display Go version
+        run: go version
+      - name: Dependencies
+        run: |
+          brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
+      - name: Build mlx-darwin
+        run: |
+          make protogen-go
+          make backends/mlx
+      - name: Upload mlx.tar
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlx-tar
+          path: backend-images/mlx.tar
+  mlx-darwin-publish:
+    needs: mlx-darwin
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download mlx.tar
+        uses: actions/download-artifact@v5
+        with:
+          name: mlx-tar
+          path: .
+      - name: Install crane
+        run: |
+          curl -L https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar -xz
+          sudo mv crane /usr/local/bin/
+      - name: Log in to DockerHub
+        run: |
+          echo "${{ secrets.DOCKERHUB_PASSWORD }}" | crane auth login docker.io -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+      - name: Log in to quay.io
+        run: |
+          echo "${{ secrets.LOCALAI_REGISTRY_PASSWORD }}" | crane auth login quay.io -u "${{ secrets.LOCALAI_REGISTRY_USERNAME }}" --password-stdin
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            localai/localai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=auto
+            suffix=-metal-darwin-arm64-mlx,onlatest=true
+      - name: Docker meta
+        id: quaymeta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/local-ai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=auto
+            suffix=-metal-darwin-arm64-mlx,onlatest=true
+      - name: Push Docker image (DockerHub)
+        run: |
+          for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
+            crane push mlx.tar $tag
+          done
+      - name: Push Docker image (Quay)
+        run: |
+          for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do
+            crane push mlx.tar $tag
+          done
