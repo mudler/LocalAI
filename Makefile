@@ -362,8 +362,9 @@ backends/llama-cpp-darwin: build
 	bash ./scripts/build/llama-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
-backends/nemo: docker-build-nemo docker-save-nemo build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/nemo.tar)"
+backends/mlx: build
+	BACKEND=mlx BUILD_TYPE=mps bash ./scripts/build/python-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx.tar)"
 
 backend-images:
 	mkdir -p backend-images
@@ -394,12 +395,6 @@ docker-save-kitten-tts: backend-images
 
 docker-build-kokoro:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro ./backend
-
-docker-build-nemo:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:nemo -f backend/Dockerfile.python --build-arg BACKEND=nemo ./backend
-
-docker-save-nemo: backend-images
-	docker save local-ai-backend:nemo -o backend-images/nemo.tar
 
 docker-save-kokoro: backend-images
 	docker save local-ai-backend:kokoro -o backend-images/kokoro.tar

@@ -141,14 +141,15 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 func AvailableBackends(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryBackend], error) {
 	var backends []*GalleryBackend
 
+	systemBackends, err := ListSystemBackends(systemState)
+	if err != nil {
+		return nil, err
+	}
+
 	// Get backends from galleries
 	for _, gallery := range galleries {
-		galleryBackends, err := getGalleryElements[*GalleryBackend](gallery, systemState.Backend.BackendsPath, func(backend *GalleryBackend) bool {
-			backends, err := ListSystemBackends(systemState)
-			if err != nil {
-				return false
-			}
-			return backends.Exists(backend.GetName())
+		galleryBackends, err := getGalleryElements(gallery, systemState.Backend.BackendsPath, func(backend *GalleryBackend) bool {
+			return systemBackends.Exists(backend.GetName())
 		})
 		if err != nil {
 			return nil, err
