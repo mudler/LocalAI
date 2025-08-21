@@ -1,15 +1,15 @@
 .PHONY: kokoro
-kokoro: protogen
+kokoro:
 	bash install.sh
 
 .PHONY: run
-run: protogen
+run: kokoro
 	@echo "Running kokoro..."
 	bash run.sh
 	@echo "kokoro run."
 
 .PHONY: test
-test: protogen
+test: kokoro
 	@echo "Testing kokoro..."
 	bash test.sh
 	@echo "kokoro tested."
