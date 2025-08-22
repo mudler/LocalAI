@@ -17,8 +17,16 @@
 # LIMIT_TARGETS="cublas12"
 # source $(dirname $0)/../common/libbackend.sh
 #
+# You can switch between uv (conda-like) and pip installation methods by setting USE_PIP:
+# USE_PIP=true source $(dirname $0)/../common/libbackend.sh
+#
 
-PYTHON_VERSION="3.10"
+PYTHON_VERSION="${PYTHON_VERSION:-3.10}"
+
+# Default to uv if USE_PIP is not set
+if [ "x${USE_PIP}" == "x" ]; then
+    USE_PIP=false
+fi
 
 function init() {
     # Name of the backend (directory name)
@@ -57,11 +65,6 @@ function init() {
 # - hipblas
 # - intel
 function getBuildProfile() {
-    if [ "x${BUILD_TYPE}" == "xl4t" ]; then
-        echo "l4t"
-        return 0
-    fi
-
     # First check if we are a cublas build, and if so report the correct build profile
     if [ x"${BUILD_TYPE}" == "xcublas" ]; then
         if [ ! -z ${CUDA_MAJOR_VERSION} ]; then
@@ -81,7 +84,7 @@ function getBuildProfile() {
     fi
 
     # If for any other values of BUILD_TYPE, we don't need any special handling/discovery
-    if [ ! -z ${BUILD_TYPE} ]; then
+    if [ -n ${BUILD_TYPE} ]; then
         echo ${BUILD_TYPE}
         return 0
     fi
@@ -95,18 +98,48 @@ function getBuildProfile() {
 # This function is idempotent, so you can call it as many times as you want and it will
 # always result in an activated virtual environment
 function ensureVenv() {
-    if [ ! -d "${EDIR}/venv" ]; then
-        uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
-        echo "virtualenv created"
-    fi
+     if [ ! -d "${EDIR}/venv" ]; then
+        if [ "x${USE_PIP}" == "xtrue" ]; then
+                echo "Using pip and Python virtual environments"
 
+                # Use Python virtual environment with pip
+                interpreter="python3"
+                # if there is no python , call python${PYTHON_VERSION}
+                
+                if command -v python${PYTHON_VERSION} &> /dev/null; then
+                    interpreter="python${PYTHON_VERSION}"
+                fi
+                echo "Using interpreter: ${interpreter}"
+                ${interpreter} -m venv ${EDIR}/venv
+                source ${EDIR}/venv/bin/activate
+                ${interpreter} -m pip install --upgrade pip
+                echo "Python virtual environment created"
+        else
+                echo "Using uv package manager"
+                uv venv --python ${PYTHON_VERSION} ${EDIR}/venv
+                echo "uv virtual environment created"
+        fi
+    fi
     # Source if we are not already in a Virtual env
     if [ "x${VIRTUAL_ENV}" != "x${EDIR}/venv" ]; then
         source ${EDIR}/venv/bin/activate
-        echo "virtualenv activated"
+        echo "Python virtual environment activated"
     fi
 
-    echo "activated virtualenv has been ensured"
+    echo "activated virtual environment has been ensured"
+}
+
+function runProtogen() {
+    ensureVenv
+
+    if [ "x${USE_PIP}" == "xtrue" ]; then
+        pip install grpcio-tools
+    else
+        uv pip install grpcio-tools
+    fi
+    pushd ${EDIR}
+        python3 -m grpc_tools.protoc -I../../ -I./ --python_out=. --grpc_python_out=. backend.proto
+    popd
 }
 
 # installRequirements looks for several requirements files and if they exist runs the install for them in order
@@ -116,7 +149,7 @@ function ensureVenv() {
 #  - requirements-${BUILD_TYPE}.txt
 #  - requirements-${BUILD_PROFILE}.txt
 #
-# BUILD_PROFILE is a pore specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
+# BUILD_PROFILE is a more specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
 # it can also include some options that we do not have BUILD_TYPES for, ex: intel
 #
 # NOTE: for BUILD_PROFILE==intel, this function does NOT automatically use the Intel python package index.
@@ -158,10 +191,18 @@ function installRequirements() {
     for reqFile in ${requirementFiles[@]}; do
         if [ -f ${reqFile} ]; then
             echo "starting requirements install for ${reqFile}"
-            uv pip install ${EXTRA_PIP_INSTALL_FLAGS} --requirement ${reqFile}
+            if [ "x${USE_PIP}" == "xtrue" ]; then
+                # Use pip for installation
+                pip install ${EXTRA_PIP_INSTALL_FLAGS} --requirement ${reqFile}
+            else
+                # Use uv for installation
+                uv pip install ${EXTRA_PIP_INSTALL_FLAGS} --requirement ${reqFile}
+            fi
             echo "finished requirements install for ${reqFile}"
         fi
     done
+
+    runProtogen
 }
 
 # startBackend discovers and runs the backend GRPC server

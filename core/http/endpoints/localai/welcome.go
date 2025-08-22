@@ -16,13 +16,9 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		modelConfigs := cl.GetAllModelsConfigs()
 		galleryConfigs := map[string]*gallery.ModelConfig{}
 
-		backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
-
-		installedBackends := gallery.GalleryElements[*gallery.GalleryBackend]{}
-		for _, b := range backends {
-			if b.Installed {
-				installedBackends = append(installedBackends, b)
-			}
+		installedBackends, err := gallery.ListSystemBackends(appConfig.SystemState)
+		if err != nil {
+			return err
 		}
 
 		for _, m := range modelConfigs {

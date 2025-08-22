@@ -12,27 +12,21 @@ export SKIP_CONDA=1
 endif
 
 .PHONY: diffusers
-diffusers: protogen
+diffusers:
 	bash install.sh
 
 .PHONY: run
-run: protogen
+run: diffusers
 	@echo "Running diffusers..."
 	bash run.sh
 	@echo "Diffusers run."
 
-test: protogen
+test: diffusers
 	bash test.sh
-
-.PHONY: protogen
-protogen: backend_pb2_grpc.py backend_pb2.py
 
 .PHONY: protogen-clean
 protogen-clean:
 	$(RM) backend_pb2_grpc.py backend_pb2.py
-
-backend_pb2_grpc.py backend_pb2.py:
-	python3 -m grpc_tools.protoc -I../.. -I./ --python_out=. --grpc_python_out=. backend.proto
 
 .PHONY: clean
 clean: protogen-clean

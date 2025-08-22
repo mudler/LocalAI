@@ -1,18 +1,18 @@
-.PHONY: kitten-tts
-kitten-tts:
+.PHONY: mlx
+mlx:
 	bash install.sh
 
 .PHONY: run
-run: kitten-tts
-	@echo "Running kitten-tts..."
+run:
+	@echo "Running mlx..."
 	bash run.sh
-	@echo "kitten-tts run."
+	@echo "mlx run."
 
 .PHONY: test
-test: kitten-tts
-	@echo "Testing kitten-tts..."
+test:
+	@echo "Testing mlx..."
 	bash test.sh
-	@echo "kitten-tts tested."
+	@echo "mlx tested."
 
 .PHONY: protogen-clean
 protogen-clean:

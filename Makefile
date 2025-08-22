@@ -132,43 +132,6 @@ test: test-models/testmodel.ggml protogen-go
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
 
-backends/diffusers: docker-build-diffusers docker-save-diffusers build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/diffusers.tar)"
-
-backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
-
-backends/piper: docker-build-piper docker-save-piper build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/piper.tar)"
-
-backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
-
-backends/whisper: docker-build-whisper docker-save-whisper build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/whisper.tar)"
-
-backends/silero-vad: docker-build-silero-vad docker-save-silero-vad build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/silero-vad.tar)"
-
-backends/local-store: docker-build-local-store docker-save-local-store build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/local-store.tar)"
-
-backends/huggingface: docker-build-huggingface docker-save-huggingface build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/huggingface.tar)"
-
-backends/rfdetr: docker-build-rfdetr docker-save-rfdetr build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/rfdetr.tar)"
-
-backends/kitten-tts: docker-build-kitten-tts docker-save-kitten-tts build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/kitten-tts.tar)"
-
-backends/kokoro: docker-build-kokoro docker-save-kokoro build
-	./local-ai backends install "ocifile://$(abspath ./backend-images/kokoro.tar)"
-
-backends/llama-cpp-darwin: build
-	bash ./scripts/build-llama-cpp-darwin.sh
-	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
-
 ########################################################
 ## AIO tests
 ########################################################
@@ -360,6 +323,51 @@ docker-image-intel:
 ########################################################
 ## Backends
 ########################################################
+
+
+backends/diffusers: docker-build-diffusers docker-save-diffusers build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/diffusers.tar)"
+
+backends/llama-cpp: docker-build-llama-cpp docker-save-llama-cpp build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
+backends/piper: docker-build-piper docker-save-piper build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/piper.tar)"
+
+backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-stablediffusion-ggml build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
+
+backends/whisper: docker-build-whisper docker-save-whisper build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/whisper.tar)"
+
+backends/silero-vad: docker-build-silero-vad docker-save-silero-vad build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/silero-vad.tar)"
+
+backends/local-store: docker-build-local-store docker-save-local-store build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/local-store.tar)"
+
+backends/huggingface: docker-build-huggingface docker-save-huggingface build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/huggingface.tar)"
+
+backends/rfdetr: docker-build-rfdetr docker-save-rfdetr build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/rfdetr.tar)"
+
+backends/kitten-tts: docker-build-kitten-tts docker-save-kitten-tts build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/kitten-tts.tar)"
+
+backends/kokoro: docker-build-kokoro docker-save-kokoro build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/kokoro.tar)"
+
+backends/llama-cpp-darwin: build
+	bash ./scripts/build/llama-cpp-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
+
+build-darwin-python-backend:
+	bash ./scripts/build/python-darwin.sh
+
+backends/mlx: build
+	BACKEND=mlx BUILD_TYPE=mps $(MAKE) build-darwin-python-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx.tar)"
 
 backend-images:
 	mkdir -p backend-images

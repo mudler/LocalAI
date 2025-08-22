@@ -33,18 +33,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
     def LoadModel(self, request, context):
 
-        # Get device
-        # device = "cuda" if request.CUDA else "cpu"
-        if torch.cuda.is_available():
-            print("CUDA is available", file=sys.stderr)
-            device = "cuda"
-        else:
-            print("CUDA is not available", file=sys.stderr)
-            device = "cpu"
-
-        if not torch.cuda.is_available() and request.CUDA:
-            return backend_pb2.Result(success=False, message="CUDA is not available")
-
         self.AudioPath = None
         # List available KittenTTS models
         print("Available KittenTTS voices: expr-voice-2-m, expr-voice-2-f, expr-voice-3-m, expr-voice-3-f, expr-voice-4-m, expr-voice-4-f, expr-voice-5-m, expr-voice-5-f")
