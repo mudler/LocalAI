@@ -373,6 +373,10 @@ backends/diffuser-darwin:
 	USE_PIP=true BACKEND=diffusers BUILD_TYPE=mps $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/diffusers.tar)"
 
+backends/mlx-vlm: build
+	BACKEND=mlx-vlm BUILD_TYPE=mps bash ./scripts/build/python-darwin.sh
+	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-vlm.tar)"
+
 backend-images:
 	mkdir -p backend-images
 
