@@ -945,6 +945,20 @@ jobs:
             backend: "kitten-tts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+  diffusers-darwin:
+    uses: ./.github/workflows/backend_build_darwin.yml
+    with:
+      backend: "diffusers"
+      build-type: "mps"
+      go-version: "1.24.x"
+      tag-suffix: "-metal-darwin-arm64-diffusers"
+      use-pip: true
+      runs-on: "macOS-14"
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
   mlx-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
     with:
