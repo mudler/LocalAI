@@ -184,6 +184,7 @@
     intel: "intel-diffusers"
     amd: "rocm-diffusers"
     nvidia-l4t: "nvidia-l4t-diffusers"
+    metal: "metal-diffusers"
 - &exllama2
   name: "exllama2"
   urls:
@@ -875,6 +876,7 @@
     intel: "intel-diffusers-development"
     amd: "rocm-diffusers-development"
     nvidia-l4t: "nvidia-l4t-diffusers-development"
+    metal: "metal-diffusers-development"
 - !!merge <<: *diffusers
   name: "nvidia-l4t-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-l4t-diffusers"
@@ -925,6 +927,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-diffusers"
   mirrors:
     - localai/localai-backends:master-gpu-intel-diffusers
+- !!merge <<: *diffusers
+  name: "metal-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-diffusers"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-diffusers
+- !!merge <<: *diffusers
+  name: "metal-diffusers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-diffusers"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-diffusers
   ## exllama2
 - !!merge <<: *exllama2
   name: "exllama2-development"
