@@ -47,13 +47,13 @@ async function getChangedFiles() {
 // Infer backend path
 function inferBackendPath(item) {
   if (item.dockerfile.endsWith("python")) {
-    return `backend/python/${item.backend}`;
+    return `backend/python/${item.backend}/`;
   }
   if (item.dockerfile.endsWith("golang")) {
-    return `backend/go/${item.backend}`;
+    return `backend/go/${item.backend}/`;
   }
   if (item.dockerfile.endsWith("llama-cpp")) {
-    return `backend/cpp/llama-cpp`;
+    return `backend/cpp/llama-cpp/`;
   }
   return null;
 }
