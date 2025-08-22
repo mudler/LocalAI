@@ -3,8 +3,6 @@ package main
 // Note: this is started internally by LocalAI and a server is allocated for each model
 import (
 	"flag"
-	"fmt"
-	"runtime"
 
 	"github.com/ebitengine/purego"
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
@@ -14,23 +12,31 @@ var (
 	addr = flag.String("addr", "localhost:50051", "the address to connect to")
 )
 
-func getLibrary() string {
-	switch runtime.GOOS {
-	case "linux":
-		return "./libgowhisper.so"
-	default:
-		panic(fmt.Errorf("GOOS=%s is not supported", runtime.GOOS))
-	}
+type LibFuncs struct {
+	FuncPtr any
+	Name    string
 }
 
 func main() {
-	gosd, err := purego.Dlopen(getLibrary(), purego.RTLD_NOW|purego.RTLD_GLOBAL)
+	gosd, err := purego.Dlopen("./libgowhisper.so", purego.RTLD_NOW|purego.RTLD_GLOBAL)
 	if err != nil {
 		panic(err)
 	}
 
-	purego.RegisterLibFunc(&CppLoadModel, gosd, "load_model")
-	purego.RegisterLibFunc(&CppVAD, gosd, "vad")
+	libFuncs := []LibFuncs{
+		{&CppLoadModel, "load_model"},
+		{&CppVAD, "vad"},
+		{&CppTranscribe, "transcribe"},
+		{&CppGetSegmentText, "get_segment_text"},
+		{&CppGetSegmentStart, "get_segment_t0"},
+		{&CppGetSegmentEnd, "get_segment_t1"},
+		{&CppNTokens, "n_tokens"},
+		{&CppGetTokenID, "get_token_id"},
+	}
+
+	for _, lf := range libFuncs {
+		purego.RegisterLibFunc(lf.FuncPtr, gosd, lf.Name)
+	}
 
 	flag.Parse()
 
