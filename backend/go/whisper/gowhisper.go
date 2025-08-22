@@ -15,6 +15,7 @@ import (
 
 var (
 	CppLoadModel       func(modelPath string) int
+	CppLoadModelVAD    func(modelPath string) int
 	CppVAD             func(pcmf32 []float32, pcmf32Size uintptr, segsOut unsafe.Pointer, segsOutLen unsafe.Pointer) int
 	CppTranscribe      func(threads uint32, lang string, translate bool, pcmf32 []float32, pcmf32Len uintptr, segsOutLen unsafe.Pointer) int
 	CppGetSegmentText  func(i int) string
@@ -29,8 +30,16 @@ type Whisper struct {
 }
 
 func (w *Whisper) Load(opts *pb.ModelOptions) error {
+	if strings.Contains(opts.Model, "silero") {
+		if ret := CppLoadModelVAD(opts.ModelFile); ret != 0 {
+			return fmt.Errorf("Failed to load Whisper VAD model")
+		}
+
+		return nil
+	}
+
 	if ret := CppLoadModel(opts.ModelFile); ret != 0 {
-		return fmt.Errorf("Failed to load VAD model")
+		return fmt.Errorf("Failed to load Whisper transcription model")
 	}
 
 	return nil

@@ -1,7 +1,7 @@
+#include "gowhisper.h"
 #include "ggml-backend.h"
 #include "whisper.h"
 #include <vector>
-#include "gowhisper.h"
 
 static struct whisper_vad_context *vctx;
 static struct whisper_context *ctx;
@@ -9,19 +9,6 @@ static std::vector<float> flat_segs;
 
 int load_model(const char *const model_path) {
   ggml_backend_load_all();
-
-  // struct whisper_context_params cparams = whisper_context_default_params();
-  struct whisper_vad_context_params vcparams = whisper_vad_default_context_params();
-
-  // XXX: Overridden to false in upstream due to performance?
-  // vcparams.use_gpu = true;
-
-  vctx = whisper_vad_init_from_file_with_params(model_path, vcparams);
-  if (vctx == nullptr) {
-    fprintf(stderr, "info: Failed to init model as VAD\n");
-  } else {
-    return 0;
-  }
 
   struct whisper_context_params cparams = whisper_context_default_params();
 
@@ -34,14 +21,34 @@ int load_model(const char *const model_path) {
   return 0;
 }
 
-int vad(float pcmf32[], size_t pcmf32_len, float **segs_out, size_t *segs_out_len) {
+int load_model_vad(const char *const model_path) {
+  ggml_backend_load_all();
+
+  struct whisper_vad_context_params vcparams =
+      whisper_vad_default_context_params();
+
+  // XXX: Overridden to false in upstream due to performance?
+  // vcparams.use_gpu = true;
+
+  vctx = whisper_vad_init_from_file_with_params(model_path, vcparams);
+  if (vctx == nullptr) {
+    fprintf(stderr, "error: Failed to init model as VAD\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+int vad(float pcmf32[], size_t pcmf32_len, float **segs_out,
+        size_t *segs_out_len) {
   if (!whisper_vad_detect_speech(vctx, pcmf32, pcmf32_len)) {
     fprintf(stderr, "error: failed to detect speech\n");
     return 1;
   }
 
   struct whisper_vad_params params = whisper_vad_default_params();
-  struct whisper_vad_segments *segs = whisper_vad_segments_from_probs(vctx, params);
+  struct whisper_vad_segments *segs =
+      whisper_vad_segments_from_probs(vctx, params);
   size_t segn = whisper_vad_segments_n_segments(segs);
 
   fprintf(stderr, "Got segments %zd\n", segn);
@@ -54,8 +61,8 @@ int vad(float pcmf32[], size_t pcmf32_len, float **segs_out, size_t *segs_out_le
   }
 
   fprintf(stderr, "setting out variables: %p=%p -> %p, %p=%zx -> %zx\n",
-          segs_out, *segs_out, flat_segs.data(),
-          segs_out_len, *segs_out_len, flat_segs.size());
+          segs_out, *segs_out, flat_segs.data(), segs_out_len, *segs_out_len,
+          flat_segs.size());
   *segs_out = flat_segs.data();
   *segs_out_len = flat_segs.size();
 
@@ -66,8 +73,10 @@ int vad(float pcmf32[], size_t pcmf32_len, float **segs_out, size_t *segs_out_le
   return 0;
 }
 
-int transcribe(uint32_t threads, char *lang, bool translate, float pcmf32[], size_t pcmf32_len, size_t *segs_out_len) {
-  whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+int transcribe(uint32_t threads, char *lang, bool translate, float pcmf32[],
+               size_t pcmf32_len, size_t *segs_out_len) {
+  whisper_full_params wparams =
+      whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
 
   wparams.n_threads = threads;
   if (*lang != '\0')
@@ -93,17 +102,11 @@ const char *get_segment_text(int i) {
   return whisper_full_get_segment_text(ctx, i);
 }
 
-int64_t get_segment_t0(int i) {
-  return whisper_full_get_segment_t0(ctx, i);
-}
+int64_t get_segment_t0(int i) { return whisper_full_get_segment_t0(ctx, i); }
 
-int64_t get_segment_t1(int i) {
-  return whisper_full_get_segment_t1(ctx, i);
-}
+int64_t get_segment_t1(int i) { return whisper_full_get_segment_t1(ctx, i); }
 
-int n_tokens(int i) {
-  return whisper_full_n_tokens(ctx, i);
-}
+int n_tokens(int i) { return whisper_full_n_tokens(ctx, i); }
 
 int32_t get_token_id(int i, int j) {
   return whisper_full_get_token_id(ctx, i, j);
