@@ -2,6 +2,7 @@ GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
 BINARY_NAME=local-ai
+LAUNCHER_BINARY_NAME=local-ai-launcher
 
 GORELEASER?=
 
@@ -90,7 +91,17 @@ build: protogen-go install-go-tools ## Build the project
 	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
 	$(info ${GREEN}I UPX: ${YELLOW}$(UPX)${RESET})
 	rm -rf $(BINARY_NAME) || true
-	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(BINARY_NAME) ./cli/local-ai
+
+build-launcher: ## Build the launcher application
+	$(info ${GREEN}I local-ai launcher build info:${RESET})
+	$(info ${GREEN}I BUILD_TYPE: ${YELLOW}$(BUILD_TYPE)${RESET})
+	$(info ${GREEN}I GO_TAGS: ${YELLOW}$(GO_TAGS)${RESET})
+	$(info ${GREEN}I LD_FLAGS: ${YELLOW}$(LD_FLAGS)${RESET})
+	rm -rf $(LAUNCHER_BINARY_NAME) || true
+	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) build -ldflags "$(LD_FLAGS)" -tags "$(GO_TAGS)" -o $(LAUNCHER_BINARY_NAME) ./
+
+build-all: build build-launcher ## Build both server and launcher
 
 dev-dist:
 	$(GORELEASER) build --snapshot --clean
@@ -507,3 +518,59 @@ docs-clean:
 .PHONY: docs
 docs: docs/static/gallery.html
 	cd docs && hugo serve
+
+########################################################
+## Platform-specific builds
+########################################################
+
+# macOS builds
+build-launcher-darwin-amd64: ## Build launcher for macOS AMD64
+	GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-darwin-amd64 ./
+
+build-launcher-darwin-arm64: ## Build launcher for macOS ARM64
+	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-darwin-arm64 ./
+
+# Linux builds
+build-launcher-linux-amd64: ## Build launcher for Linux AMD64
+	GOOS=linux GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-linux-amd64 ./
+
+build-launcher-linux-arm64: ## Build launcher for Linux ARM64
+	GOOS=linux GOARCH=arm64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-linux-arm64 ./
+
+# Windows builds
+build-launcher-windows-amd64: ## Build launcher for Windows AMD64
+	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-windows-amd64.exe ./
+
+# macOS DMG creation (requires macOS)
+create-dmg: build-launcher-darwin-amd64 build-launcher-darwin-arm64 ## Create macOS DMG
+ifeq ($(OS),Darwin)
+	@echo "Creating macOS DMG package..."
+	mkdir -p dist/LocalAI-Launcher
+	cp $(LAUNCHER_BINARY_NAME)-darwin-$(shell uname -m) dist/LocalAI-Launcher/LocalAI-Launcher
+	ln -sf /Applications dist/LocalAI-Launcher/Applications
+	hdiutil create -volname "LocalAI Launcher" -srcfolder dist/LocalAI-Launcher -ov -format UDZO dist/LocalAI-Launcher.dmg
+	rm -rf dist/LocalAI-Launcher
+	@echo "DMG created: dist/LocalAI-Launcher.dmg"
+else
+	@echo "DMG creation requires macOS"
+endif
+
+# Linux package creation
+create-linux-package: build-launcher-linux-amd64 build-launcher-linux-arm64 ## Create Linux packages
+	@echo "Creating Linux packages..."
+	mkdir -p dist/linux-amd64/usr/local/bin
+	mkdir -p dist/linux-arm64/usr/local/bin
+	cp $(LAUNCHER_BINARY_NAME)-linux-amd64 dist/linux-amd64/usr/local/bin/local-ai-launcher
+	cp $(LAUNCHER_BINARY_NAME)-linux-arm64 dist/linux-arm64/usr/local/bin/local-ai-launcher
+	chmod +x dist/linux-amd64/usr/local/bin/local-ai-launcher
+	chmod +x dist/linux-arm64/usr/local/bin/local-ai-launcher
+	cd dist && tar -czf LocalAI-Launcher-linux-amd64.tar.gz -C linux-amd64 .
+	cd dist && tar -czf LocalAI-Launcher-linux-arm64.tar.gz -C linux-arm64 .
+	rm -rf dist/linux-amd64 dist/linux-arm64
+	@echo "Linux packages created in dist/"
+
+# Cross-platform builds
+build-launcher-all: build-launcher-darwin-amd64 build-launcher-darwin-arm64 build-launcher-linux-amd64 build-launcher-linux-arm64 build-launcher-windows-amd64 ## Build launcher for all platforms
+
+# Package creation for all platforms
+package-launcher: build-launcher-all create-dmg create-linux-package ## Create packages for all platforms
