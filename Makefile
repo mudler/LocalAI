@@ -366,12 +366,16 @@ build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
 backends/mlx:
-	BACKEND=mlx BUILD_TYPE=mps $(MAKE) build-darwin-python-backend
+	BACKEND=mlx $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx.tar)"
 
 backends/diffuser-darwin:
-	USE_PIP=true BACKEND=diffusers BUILD_TYPE=mps $(MAKE) build-darwin-python-backend
+	BACKEND=diffusers $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/diffusers.tar)"
+
+backends/mlx-vlm:
+	BACKEND=mlx-vlm $(MAKE) build-darwin-python-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-vlm.tar)"
 
 backend-images:
 	mkdir -p backend-images

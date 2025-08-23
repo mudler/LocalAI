@@ -142,6 +142,23 @@
     - text-to-text
     - LLM
     - MLX
+- &mlx-vlm
+  name: "mlx-vlm"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx-vlm"
+  icon: https://avatars.githubusercontent.com/u/102832242?s=200&v=4
+  urls:
+    - https://github.com/ml-explore/mlx-vlm
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-mlx-vlm
+  license: MIT
+  description: |
+      Run Vision-Language Models with MLX
+  tags:
+    - text-to-text
+    - multimodal
+    - vision-language
+    - LLM
+    - MLX
 - &rerankers
   name: "rerankers"
   alias: "rerankers"
@@ -392,6 +409,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx"
   mirrors:
     - localai/localai-backends:master-metal-darwin-arm64-mlx
+- !!merge <<: *mlx-vlm
+  name: "mlx-vlm-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx-vlm"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-mlx-vlm
 - !!merge <<: *kitten-tts
   name: "kitten-tts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-kitten-tts"
