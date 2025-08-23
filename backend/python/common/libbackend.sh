@@ -282,7 +282,9 @@ function ensureVenv() {
         else
             uv venv --python "${interpreter}" "${EDIR}/venv"
         fi
-        _makeVenvPortable
+        if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+            _makeVenvPortable
+        fi
     fi
 
     if [ "x${VIRTUAL_ENV:-}" != "x${EDIR}/venv" ]; then
