@@ -192,7 +192,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "vllm"
