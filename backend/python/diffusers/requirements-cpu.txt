@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
