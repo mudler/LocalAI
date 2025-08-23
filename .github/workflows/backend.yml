@@ -2,7 +2,6 @@
 name: 'build backend container images'
 
 on:
-  pull_request:
   push:
     branches:
       - master
