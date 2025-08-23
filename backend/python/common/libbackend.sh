@@ -81,6 +81,22 @@ function _portable_python() {
     fi
 }
 
+
+# macOS loader env for the portable CPython
+_macosPortableEnv() {
+  if [ "$(uname -s)" = "Darwin" ]; then
+    export DYLD_LIBRARY_PATH="$(_portable_dir)/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+    export DYLD_FALLBACK_LIBRARY_PATH="$(_portable_dir)/lib${DYLD_FALLBACK_LIBRARY_PATH:+:${DYLD_FALLBACK_LIBRARY_PATH}}"
+  fi
+}
+
+# Good hygiene on macOS for downloaded/extracted trees
+_unquarantinePortablePython() {
+  if [ "$(uname -s)" = "Darwin" ]; then
+    command -v xattr >/dev/null 2>&1 && xattr -dr com.apple.quarantine "$(_portable_dir)" || true
+  fi
+}
+
 # ------------------ ### PORTABLE PYTHON ------------------
 function ensurePortablePython() {
     local pdir="$(_portable_dir)"
@@ -88,6 +104,7 @@ function ensurePortablePython() {
     local pyexe
 
     if [ -x "${pbin}/python3" ] || [ -x "${pbin}/python" ]; then
+        _macosPortableEnv
         return 0
     fi
 
@@ -138,6 +155,8 @@ function ensurePortablePython() {
         fi
     fi
 
+    _unquarantinePortablePython
+    _macosPortableEnv
     # Make sure it's runnable
     pyexe="$(_portable_python)"
     "${pyexe}" -V
@@ -191,7 +210,7 @@ function getBuildProfile() {
 
 
 # Make the venv relocatable:
-# - rewrite venv/bin/python{,3} to relative symlinks into ${PORTABLE_PY_DIR}
+# - rewrite venv/bin/python{,3} to relative symlinks into $(_portable_dir)
 # - normalize entrypoint shebangs to /usr/bin/env python3
 _makeVenvPortable() {
     local venv_dir="${EDIR}/venv"
@@ -199,8 +218,8 @@ _makeVenvPortable() {
 
     [ -d "${vbin}" ] || return 0
 
-    # 1) Replace python symlinks with relative ones to ../../.python/bin/python3
-    #    (venv/bin -> venv -> EDIR -> .python/bin)
+    # 1) Replace python symlinks with relative ones to ../../python/bin/python3
+    #    (venv/bin -> venv -> EDIR -> python/bin)
     local rel_py='../../python/bin/python3'
 
     for name in python3 python; do
