@@ -287,6 +287,11 @@ function ensureVenv() {
         fi
     fi
 
+    # We call it here to make sure that when we source a venv we can still use python as expected
+    if [ -x "$(_portable_python)" ]; then
+        _macosPortableEnv
+    fi
+
     if [ "x${VIRTUAL_ENV:-}" != "x${EDIR}/venv" ]; then
         source "${EDIR}/venv/bin/activate"
     fi
