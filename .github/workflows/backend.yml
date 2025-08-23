@@ -314,7 +314,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
             backend: "vllm"
@@ -436,7 +436,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vllm'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             skip-drivers: 'false'
             backend: "vllm"
