@@ -8,9 +8,9 @@ import (
 	"fyne.io/fyne/v2/driver/desktop"
 )
 
-func Run() {
-	// Create the application
-	myApp := app.New()
+func main() {
+	// Create the application with unique ID
+	myApp := app.NewWithID("com.localai.launcher")
 	myApp.SetIcon(resourceIconPng)
 	myWindow := myApp.NewWindow("LocalAI Launcher")
 	myWindow.Resize(fyne.NewSize(800, 600))
@@ -54,6 +54,6 @@ func Run() {
 		}
 	}()
 
-	// Show and run the application
-	myWindow.ShowAndRun()
+	// Run the application in background (window only shown when "Settings" is clicked)
+	myApp.Run()
 }

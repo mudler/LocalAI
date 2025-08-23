@@ -33,6 +33,7 @@ type LauncherUI struct {
 	backendsPathEntry *widget.Entry
 	addressEntry      *widget.Entry
 	logLevelSelect    *widget.Select
+	startOnBootCheck  *widget.Check
 
 	// Environment Variables
 	envVarsList              *widget.List
@@ -66,56 +67,27 @@ func NewLauncherUI() *LauncherUI {
 		backendsPathEntry: widget.NewEntry(),
 		addressEntry:      widget.NewEntry(),
 		logLevelSelect:    widget.NewSelect([]string{"error", "warn", "info", "debug", "trace"}, nil),
+		startOnBootCheck:  widget.NewCheck("Start LocalAI on system boot", nil),
 		logText:           widget.NewMultiLineEntry(),
 		progressBar:       widget.NewProgressBar(),
 	}
 }
 
 // CreateMainUI creates the main UI layout
-func (ui *LauncherUI) CreateMainUI(launcher *Launcher) *container.AppTabs {
+func (ui *LauncherUI) CreateMainUI(launcher *Launcher) *fyne.Container {
 	ui.launcher = launcher
 	ui.setupBindings()
 
 	// Main tab with status and controls
-	mainTab := ui.createMainTab()
-
-	// Configuration tab
+	// Configuration is now the main content
 	configTab := ui.createConfigTab()
 
-	// Logs tab
-	logsTab := ui.createLogsTab()
-
-	// Updates tab
-	updatesTab := ui.createUpdatesTab()
-
-	tabs := container.NewAppTabs(
-		container.NewTabItem("Main", mainTab),
-		container.NewTabItem("Configuration", configTab),
-		container.NewTabItem("Logs", logsTab),
-		container.NewTabItem("Updates", updatesTab),
+	// Create a simple container instead of tabs since we only have settings
+	tabs := container.NewVBox(
+		widget.NewCard("LocalAI Launcher Settings", "", configTab),
 	)
 
 	return tabs
-}
-
-// createMainTab creates the main control tab
-func (ui *LauncherUI) createMainTab() *fyne.Container {
-	// Status section
-	statusCard := widget.NewCard("Status", "", container.NewVBox(
-		ui.statusLabel,
-		ui.versionLabel,
-	))
-
-	// Control buttons
-	controlsCard := widget.NewCard("Controls", "", container.NewHBox(
-		ui.startStopButton,
-		ui.webUIButton,
-	))
-
-	return container.NewVBox(
-		statusCard,
-		controlsCard,
-	)
 }
 
 // createConfigTab creates the configuration tab
@@ -129,11 +101,14 @@ func (ui *LauncherUI) createConfigTab() *fyne.Container {
 	))
 
 	// Server configuration
-	serverCard := widget.NewCard("Server", "", container.NewGridWithColumns(2,
-		widget.NewLabel("Address:"),
-		ui.addressEntry,
-		widget.NewLabel("Log Level:"),
-		ui.logLevelSelect,
+	serverCard := widget.NewCard("Server", "", container.NewVBox(
+		container.NewGridWithColumns(2,
+			widget.NewLabel("Address:"),
+			ui.addressEntry,
+			widget.NewLabel("Log Level:"),
+			ui.logLevelSelect,
+		),
+		ui.startOnBootCheck,
 	))
 
 	// Save button
@@ -289,47 +264,6 @@ func (ui *LauncherUI) confirmDeleteEnvironmentVariable(index int) {
 	}
 }
 
-// createLogsTab creates the logs display tab
-func (ui *LauncherUI) createLogsTab() *fyne.Container {
-	ui.logText.SetPlaceHolder("LocalAI logs will appear here...")
-	ui.logText.Wrapping = fyne.TextWrapWord
-
-	// Clear logs button
-	clearButton := widget.NewButton("Clear Logs", func() {
-		ui.logText.SetText("")
-	})
-
-	return container.NewVBox(
-		clearButton,
-		ui.logText,
-	)
-}
-
-// createUpdatesTab creates the updates management tab
-func (ui *LauncherUI) createUpdatesTab() *fyne.Container {
-	// Update status
-	updateStatus := widget.NewLabel("Click 'Check for Updates' to check for new versions")
-
-	// Update controls
-	checkButton := widget.NewButton("Check for Updates", func() {
-		ui.checkForUpdates()
-	})
-
-	ui.downloadButton = widget.NewButton("Download Latest", func() {
-		ui.downloadUpdate()
-	})
-	ui.downloadButton.Disable()
-
-	// Progress bar
-	ui.progressBar.Hide()
-
-	return container.NewVBox(
-		updateStatus,
-		container.NewHBox(checkButton, ui.downloadButton),
-		ui.progressBar,
-	)
-}
-
 // setupBindings sets up event handlers for UI elements
 func (ui *LauncherUI) setupBindings() {
 	// Start/Stop button
@@ -433,6 +367,7 @@ func (ui *LauncherUI) saveConfiguration() {
 	config.BackendsPath = ui.backendsPathEntry.Text
 	config.Address = ui.addressEntry.Text
 	config.LogLevel = ui.logLevelSelect.Selected
+	config.StartOnBoot = ui.startOnBootCheck.Checked
 
 	// Ensure environment variables are included in the configuration
 	config.EnvironmentVars = make(map[string]string)
@@ -599,6 +534,7 @@ func (ui *LauncherUI) LoadConfiguration() {
 	ui.backendsPathEntry.SetText(config.BackendsPath)
 	ui.addressEntry.SetText(config.Address)
 	ui.logLevelSelect.SetSelected(config.LogLevel)
+	ui.startOnBootCheck.SetChecked(config.StartOnBoot)
 
 	// Load environment variables
 	ui.envVarsData = []EnvVar{}

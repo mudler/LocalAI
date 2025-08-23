@@ -5,11 +5,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -21,6 +23,7 @@ type Config struct {
 	BackendsPath    string            `json:"backends_path"`
 	Address         string            `json:"address"`
 	AutoStart       bool              `json:"auto_start"`
+	StartOnBoot     bool              `json:"start_on_boot"`
 	LogLevel        string            `json:"log_level"`
 	EnvironmentVars map[string]string `json:"environment_vars"`
 }
@@ -42,6 +45,10 @@ type Launcher struct {
 	logMutex      sync.RWMutex
 	statusChannel chan string
 
+	// Logging
+	logFile *os.File
+	logPath string
+
 	// UI state
 	lastUpdateCheck time.Time
 }
@@ -57,8 +64,35 @@ func NewLauncher() *Launcher {
 	}
 }
 
+// setupLogging sets up log file for LocalAI process output
+func (l *Launcher) setupLogging() error {
+	// Create logs directory in data folder
+	dataPath := l.GetDataPath()
+	logsDir := filepath.Join(dataPath, "logs")
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
+	// Create log file with timestamp
+	timestamp := time.Now().Format("2006-01-02_15-04-05")
+	l.logPath = filepath.Join(logsDir, fmt.Sprintf("localai_%s.log", timestamp))
+
+	logFile, err := os.Create(l.logPath)
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+
+	l.logFile = logFile
+	return nil
+}
+
 // Initialize sets up the launcher
 func (l *Launcher) Initialize() error {
+	// Setup logging
+	if err := l.setupLogging(); err != nil {
+		return fmt.Errorf("failed to setup logging: %w", err)
+	}
+
 	// Load configuration
 	if err := l.loadConfig(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
@@ -98,7 +132,12 @@ func (l *Launcher) Initialize() error {
 				time.Sleep(1 * time.Second) // Wait for UI to be ready
 				available, version, err := l.CheckForUpdates()
 				if err == nil && available {
-					l.ui.NotifyUpdateAvailable(version)
+					if l.systray != nil {
+						l.systray.NotifyUpdateAvailable(version)
+					}
+					if l.ui != nil {
+						l.ui.NotifyUpdateAvailable(version)
+					}
 				}
 			}()
 		}
@@ -165,8 +204,9 @@ func (l *Launcher) StartLocalAI() error {
 	go l.monitorLogs(stdout, "STDOUT")
 	go l.monitorLogs(stderr, "STDERR")
 
-	// Monitor process
+	// Monitor process with startup timeout
 	go func() {
+		// Wait for process to start or fail
 		err := l.localaiCmd.Wait()
 		l.isRunning = false
 		l.updateRunningState(false)
@@ -174,6 +214,22 @@ func (l *Launcher) StartLocalAI() error {
 			l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
 		} else {
 			l.updateStatus("LocalAI stopped")
+		}
+	}()
+
+	// Add startup timeout detection
+	go func() {
+		time.Sleep(10 * time.Second) // Wait 10 seconds for startup
+		if l.isRunning {
+			// Check if process is still alive
+			if l.localaiCmd.Process != nil {
+				if err := l.localaiCmd.Process.Signal(syscall.Signal(0)); err != nil {
+					// Process is dead, mark as not running
+					l.isRunning = false
+					l.updateRunningState(false)
+					l.updateStatus("LocalAI failed to start properly")
+				}
+			}
 		}
 	}()
 
@@ -212,6 +268,22 @@ func (l *Launcher) GetLogs() string {
 	return l.logBuffer.String()
 }
 
+// GetRecentLogs returns the most recent logs (last 50 lines) for better error display
+func (l *Launcher) GetRecentLogs() string {
+	l.logMutex.RLock()
+	defer l.logMutex.RUnlock()
+
+	content := l.logBuffer.String()
+	lines := strings.Split(content, "\n")
+
+	// Get last 50 lines
+	if len(lines) > 50 {
+		lines = lines[len(lines)-50:]
+	}
+
+	return strings.Join(lines, "\n")
+}
+
 // GetConfig returns the current configuration
 func (l *Launcher) GetConfig() *Config {
 	return l.config
@@ -233,6 +305,23 @@ func (l *Launcher) GetWebUIURL() string {
 		address = "http://" + address
 	}
 	return address
+}
+
+// GetDataPath returns the path where LocalAI data and logs are stored
+func (l *Launcher) GetDataPath() string {
+	// LocalAI typically stores data in the current working directory or a models directory
+	// First check if models path is configured
+	if l.config != nil && l.config.ModelsPath != "" {
+		// Return the parent directory of models path
+		return filepath.Dir(l.config.ModelsPath)
+	}
+
+	// Fallback to home directory LocalAI folder
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "."
+	}
+	return filepath.Join(homeDir, ".localai")
 }
 
 // CheckForUpdates checks if there are any available updates
@@ -275,6 +364,13 @@ func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 			}
 		}
 		l.logMutex.Unlock()
+
+		// Write to log file if available
+		if l.logFile != nil {
+			if _, err := l.logFile.WriteString(logLine); err != nil {
+				log.Printf("Failed to write to log file: %v", err)
+			}
+		}
 
 		// Notify UI of new log content
 		if l.ui != nil {
@@ -323,6 +419,9 @@ func (l *Launcher) periodicUpdateCheck() {
 			available, version, err := l.CheckForUpdates()
 			if err == nil && available {
 				l.updateStatus(fmt.Sprintf("Update available: %s", version))
+				if l.systray != nil {
+					l.systray.NotifyUpdateAvailable(version)
+				}
 				if l.ui != nil {
 					l.ui.NotifyUpdateAvailable(version)
 				}
