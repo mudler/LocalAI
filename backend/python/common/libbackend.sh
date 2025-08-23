@@ -1,6 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# 
+# use the library by adding the following line to a script:
+# source $(dirname $0)/../common/libbackend.sh
+#
+# If you want to limit what targets a backend can be used on, set the variable LIMIT_TARGETS to a
+# space separated list of valid targets BEFORE sourcing the library, for example to only allow a backend
+# to be used on CUDA and CPU backends:
+#
+# LIMIT_TARGETS="cublas cpu"
+# source $(dirname $0)/../common/libbackend.sh
+#
+# You can use any valid BUILD_TYPE or BUILD_PROFILE, if you need to limit a backend to CUDA 12 only:
+#
+# LIMIT_TARGETS="cublas12"
+# source $(dirname $0)/../common/libbackend.sh
+#
+# You can switch between uv (conda-like) and pip installation methods by setting USE_PIP:
+# USE_PIP=true source $(dirname $0)/../common/libbackend.sh
+#
 # ===================== user-configurable defaults =====================
 PYTHON_VERSION="${PYTHON_VERSION:-3.10}"      # e.g. 3.10 / 3.11 / 3.12 / 3.13
 PYTHON_PATCH="${PYTHON_PATCH:-18}"            # e.g. 18 -> 3.10.18 ; 13 -> 3.11.13
@@ -162,8 +181,7 @@ function ensurePortablePython() {
     "${pyexe}" -V
 }
 
-# ---------------- existing code (with small edits) ----------------
-
+# init handles the setup of the library
 function init() {
     BACKEND_NAME=${PWD##*/}
     MY_DIR=$(realpath "$(dirname "$0")")
@@ -185,6 +203,13 @@ function init() {
     echo "Initializing libbackend for ${BACKEND_NAME}"
 }
 
+
+# getBuildProfile will inspect the system to determine which build profile is appropriate:
+# returns one of the following:
+# - cublas11
+# - cublas12
+# - hipblas
+# - intel
 function getBuildProfile() {
     if [ x"${BUILD_TYPE:-}" == "xcublas" ]; then
         if [ ! -z "${CUDA_MAJOR_VERSION:-}" ]; then
@@ -254,7 +279,10 @@ _makeVenvPortable() {
 }
 
 
-# ensureVenv now uses the shipped (portable) Python first.
+# ensureVenv makes sure that the venv for the backend both exists, and is activated.
+#
+# This function is idempotent, so you can call it as many times as you want and it will
+# always result in an activated virtual environment
 function ensureVenv() {
     local interpreter=""
 
@@ -280,7 +308,11 @@ function ensureVenv() {
             source "${EDIR}/venv/bin/activate"
             "${interpreter}" -m pip install --upgrade pip
         else
-            uv venv --python "${interpreter}" "${EDIR}/venv"
+            if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+                uv venv --python "${interpreter}" "${EDIR}/venv"
+            else
+                uv venv --python "${PYTHON_VERSION}" "${EDIR}/venv"
+            fi
         fi
         if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
             _makeVenvPortable
@@ -311,6 +343,28 @@ function runProtogen() {
     popd >/dev/null
 }
 
+
+# installRequirements looks for several requirements files and if they exist runs the install for them in order
+#
+#  - requirements-install.txt
+#  - requirements.txt
+#  - requirements-${BUILD_TYPE}.txt
+#  - requirements-${BUILD_PROFILE}.txt
+#
+# BUILD_PROFILE is a more specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
+# it can also include some options that we do not have BUILD_TYPES for, ex: intel
+#
+# NOTE: for BUILD_PROFILE==intel, this function does NOT automatically use the Intel python package index.
+# you may want to add the following line to a requirements-intel.txt if you use one:
+#
+# --index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+#
+# If you need to add extra flags into the pip install command you can do so by setting the variable EXTRA_PIP_INSTALL_FLAGS
+# before calling installRequirements.  For example:
+#
+# source $(dirname $0)/../common/libbackend.sh
+# EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
+# installRequirements
 function installRequirements() {
     ensureVenv
     declare -a requirementFiles=(
@@ -345,6 +399,19 @@ function installRequirements() {
     runProtogen
 }
 
+# startBackend discovers and runs the backend GRPC server
+#
+# You can specify a specific backend file to execute by setting BACKEND_FILE before calling startBackend.
+# example:
+#
+# source ../common/libbackend.sh
+# BACKEND_FILE="${MY_DIR}/source/backend.py"
+# startBackend $@
+#
+# valid filenames for autodiscovered backend servers are:
+#  - server.py
+#  - backend.py
+#  - ${BACKEND_NAME}.py
 function startBackend() {
     ensureVenv
     if [ ! -z "${BACKEND_FILE:-}" ]; then
@@ -358,6 +425,17 @@ function startBackend() {
     fi
 }
 
+
+# runUnittests discovers and runs python unittests
+#
+# You can specify a specific test file to use by setting TEST_FILE before calling runUnittests.
+# example:
+#
+# source ../common/libbackend.sh
+# TEST_FILE="${MY_DIR}/source/test.py"
+# runUnittests $@
+#
+# be default a file named test.py in the backends directory will be used
 function runUnittests() {
     ensureVenv
     if [ ! -z "${TEST_FILE:-}" ]; then
@@ -375,6 +453,12 @@ function runUnittests() {
     fi
 }
 
+
+##################################################################################
+# Below here are helper functions not intended to be used outside of the library #
+##################################################################################
+
+# checkTargets determines if the current BUILD_TYPE or BUILD_PROFILE is in a list of valid targets
 function checkTargets() {
     targets=$@
     declare -a targets=($targets)
