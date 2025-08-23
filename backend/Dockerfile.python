@@ -23,7 +23,7 @@ RUN apt-get update && \
         libssl-dev \
         git \
         git-lfs \
-        unzip \
+        unzip clang \
         upx-ucl \
         curl python3-pip \
         python-is-python3 \
@@ -116,7 +116,7 @@ COPY python/${BACKEND} /${BACKEND}
 COPY backend.proto /${BACKEND}/backend.proto
 COPY python/common/ /${BACKEND}/common
 
-RUN cd /${BACKEND} && make
+RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
 
 FROM scratch
 ARG BACKEND=rerankers

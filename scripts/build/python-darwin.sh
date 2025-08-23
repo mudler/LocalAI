@@ -2,6 +2,7 @@
 
 set -ex
 
+export PORTABLE_PYTHON=true
 IMAGE_NAME="${IMAGE_NAME:-localai/llama-cpp-darwin}"
 mkdir -p backend-images
 make -C backend/python/${BACKEND}
