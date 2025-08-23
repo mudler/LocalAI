@@ -437,24 +437,7 @@ public:
                 }
             }
 
-            // process files
-            mtmd::bitmaps bitmaps;
             const bool has_mtmd = ctx_server.mctx != nullptr;
-            {
-                if (!has_mtmd && !files.empty()) {
-                    throw std::runtime_error("This server does not support multimodal");
-                }
-                for (auto & file : files) {
-                    mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_buf(ctx_server.mctx, file.data(), file.size()));
-                    if (!bmp.ptr) {
-                        throw std::runtime_error("Failed to load image/audio");
-                    }
-                    // calculate bitmap hash (for KV caching)
-                    std::string hash = fnv_hash(bmp.data(), bmp.n_bytes());
-                    bmp.set_id(hash.c_str());
-                    bitmaps.entries.push_back(std::move(bmp));
-                }
-            }
 
             // process prompt
             std::vector<server_tokens> inputs;
@@ -464,32 +447,10 @@ public:
 
             if (has_mtmd) {
                 // multimodal
-                std::string prompt_str = prompt.get<std::string>();
-                mtmd_input_text inp_txt = {
-                    prompt_str.c_str(),
-                    /* add_special */   true,
-                    /* parse_special */ true,
-                };
-                mtmd::input_chunks chunks(mtmd_input_chunks_init());
-                auto bitmaps_c_ptr = bitmaps.c_ptr();
-                int32_t tokenized = mtmd_tokenize(ctx_server.mctx,
-                                                    chunks.ptr.get(),
-                                                    &inp_txt,
-                                                    bitmaps_c_ptr.data(),
-                                                    bitmaps_c_ptr.size());
-                if (tokenized != 0) {
-                    throw std::runtime_error("Failed to tokenize prompt");
-                }
-
-                server_tokens tmp(chunks, true);
-                inputs.push_back(std::move(tmp));
+                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files));
             } else {
-                // non-multimodal version
-                auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, prompt, true, true);
-                for (auto & p : tokenized_prompts) {
-                    auto tmp = server_tokens(p, ctx_server.mctx != nullptr);
-                    inputs.push_back(std::move(tmp));
-                }
+                 // Everything else, including multimodal completions.
+                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
             }
 
             tasks.reserve(inputs.size());
@@ -630,23 +591,7 @@ public:
             }
 
             // process files
-            mtmd::bitmaps bitmaps;
             const bool has_mtmd = ctx_server.mctx != nullptr;
-            {
-                if (!has_mtmd && !files.empty()) {
-                    throw std::runtime_error("This server does not support multimodal");
-                }
-                for (auto & file : files) {
-                    mtmd::bitmap bmp(mtmd_helper_bitmap_init_from_buf(ctx_server.mctx, file.data(), file.size()));
-                    if (!bmp.ptr) {
-                        throw std::runtime_error("Failed to load image/audio");
-                    }
-                    // calculate bitmap hash (for KV caching)
-                    std::string hash = fnv_hash(bmp.data(), bmp.n_bytes());
-                    bmp.set_id(hash.c_str());
-                    bitmaps.entries.push_back(std::move(bmp));
-                }
-            }
 
             // process prompt
             std::vector<server_tokens> inputs;
@@ -657,33 +602,10 @@ public:
 
             if (has_mtmd) {
                 // multimodal
-                std::string prompt_str = prompt.get<std::string>();
-                mtmd_input_text inp_txt = {
-                    prompt_str.c_str(),
-                    /* add_special */   true,
-                    /* parse_special */ true,
-                };
-                mtmd::input_chunks chunks(mtmd_input_chunks_init());
-                auto bitmaps_c_ptr = bitmaps.c_ptr();
-                int32_t tokenized = mtmd_tokenize(ctx_server.mctx,
-                                                    chunks.ptr.get(),
-                                                    &inp_txt,
-                                                    bitmaps_c_ptr.data(),
-                                                    bitmaps_c_ptr.size());
-                if (tokenized != 0) {
-                    std::cout << "[PREDICT] Failed to tokenize prompt" << std::endl;
-                    throw std::runtime_error("Failed to tokenize prompt");
-                }
-
-                server_tokens tmp(chunks, true);
-                inputs.push_back(std::move(tmp));
+                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files));
             } else {
-                // non-multimodal version
-                auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, prompt, true, true);
-                for (auto & p : tokenized_prompts) {
-                    auto tmp = server_tokens(p, ctx_server.mctx != nullptr);
-                    inputs.push_back(std::move(tmp));
-                }
+                 // Everything else, including multimodal completions.
+                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
             }
 
             tasks.reserve(inputs.size());
@@ -774,7 +696,7 @@ public:
         json prompt = body.at("prompt");
 
 
-        auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, prompt, true, true);
+        auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
         for (const auto & tokens : tokenized_prompts) {
             // this check is necessary for models that do not add BOS token to the input
             if (tokens.empty()) {
@@ -793,7 +715,7 @@ public:
 
                 task.id            = ctx_server.queue_tasks.get_new_id();
                 task.index         = i;
-                task.prompt_tokens = server_tokens(tokenized_prompts[i], ctx_server.mctx != nullptr);
+                task.prompt_tokens = std::move(tokenized_prompts[i]);
 
                 // OAI-compat
                 task.params.oaicompat = OAICOMPAT_TYPE_EMBEDDING;
@@ -849,8 +771,10 @@ public:
         }
 
         // Tokenize the query
-        llama_tokens tokenized_query = tokenize_input_prompts(ctx_server.vocab, request->query(), /* add_special */ false, true)[0];
-
+        auto tokenized_query = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, request->query(), /* add_special */ false, true);
+        if (tokenized_query.size() != 1) {
+            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "\"query\" must contain only a single prompt");
+        }
         // Create and queue the task
         json responses = json::array();
         bool error = false;
@@ -862,14 +786,14 @@ public:
                 documents.push_back(request->documents(i));
             }
             
-            auto tokenized_docs = tokenize_input_prompts(ctx_server.vocab, documents, /* add_special */ false, true);
+            auto tokenized_docs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, documents, /* add_special */ false, true);
             tasks.reserve(tokenized_docs.size());
             for (size_t i = 0; i < tokenized_docs.size(); i++) {
-                auto tmp = format_rerank(ctx_server.vocab, tokenized_query, tokenized_docs[i]);
+                auto tmp = format_rerank(ctx_server.vocab, tokenized_query[0], tokenized_docs[i]);
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = ctx_server.queue_tasks.get_new_id();
                 task.index = i;
-                task.prompt_tokens = server_tokens(tmp, ctx_server.mctx != nullptr);
+                task.prompt_tokens = std::move(tmp);
                 tasks.push_back(std::move(task));
             }
 
