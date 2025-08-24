@@ -34,9 +34,15 @@ jobs:
           go-version: 1.23
       - name: Build launcher for macOS ARM64
         run: |
-          go install github.com/fyne-io/fyne-cross@latest
-          make build-launcher-darwin-arm64
-          ls -liah
+          make create-dmg
+          ls -liah dist
+      - name: Upload macOS launcher artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-macos
+          path: dist/
+          retention-days: 30
+      
   launcher-build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -50,6 +56,10 @@ jobs:
           go-version: 1.23
       - name: Build launcher for Linux
         run: |
-          go install github.com/fyne-io/fyne-cross@latest
           make build-launcher-linux
-          ls -liah
+      - name: Upload Linux launcher artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-linux
+          path: local-ai-launcher-linux.tar.xz
+          retention-days: 30

@@ -524,18 +524,18 @@ docs: docs/static/gallery.html
 ########################################################
 
 ## fyne cross-platform build
-build-launcher-darwin-arm64:
-	go run github.com/fyne-io/fyne-cross@latest darwin -app-id com.localai.launcher --output $(LAUNCHER_BINARY_NAME)-darwin-arm64 ./cmd/launcher  -arch=arm64
+build-launcher-darwin:
+	cd cli/launcher && go run fyne.io/tools/cmd/fyne@latest package -os darwin -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-darwin && mv launcher.app ../../$(LAUNCHER_BINARY_NAME)-darwin.app
 
 build-launcher-linux:
-	go run github.com/fyne-io/fyne-cross@latest linux -app-id com.localai.launcher --output $(LAUNCHER_BINARY_NAME)-linux ./cmd/launcher  -arch=amd64,arm64	
+	cd cli/launcher && go run fyne.io/tools/cmd/fyne@latest package -os linux -icon ../../core/http/static/logo.png --executable $(LAUNCHER_BINARY_NAME)-linux && mv launcher.tar.xz ../../$(LAUNCHER_BINARY_NAME)-linux.tar.xz
 
 # macOS DMG creation (requires macOS)
-create-dmg: build-launcher-darwin-arm64 ## Create macOS DMG
+create-dmg: build-launcher-darwin ## Create macOS DMG
 ifeq ($(OS),Darwin)
 	@echo "Creating macOS DMG package..."
 	mkdir -p dist/LocalAI-Launcher
-	cp $(LAUNCHER_BINARY_NAME)-darwin-$(shell uname -m) dist/LocalAI-Launcher/LocalAI-Launcher
+	cp -rfv $(LAUNCHER_BINARY_NAME)-darwin.app dist/LocalAI-Launcher/LocalAI-Launcher
 	ln -sf /Applications dist/LocalAI-Launcher/Applications
 	hdiutil create -volname "LocalAI Launcher" -srcfolder dist/LocalAI-Launcher -ov -format UDZO dist/LocalAI-Launcher.dmg
 	rm -rf dist/LocalAI-Launcher
