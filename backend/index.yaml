@@ -202,6 +202,7 @@
     amd: "rocm-diffusers"
     nvidia-l4t: "nvidia-l4t-diffusers"
     metal: "metal-diffusers"
+    default: "cpu-diffusers"
 - &exllama2
   name: "exllama2"
   urls:
@@ -899,6 +900,17 @@
     amd: "rocm-diffusers-development"
     nvidia-l4t: "nvidia-l4t-diffusers-development"
     metal: "metal-diffusers-development"
+    default: "cpu-diffusers-development"
+- !!merge <<: *diffusers
+  name: "cpu-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-diffusers"
+  mirrors:
+    - localai/localai-backends:latest-cpu-diffusers
+- !!merge <<: *diffusers
+  name: "cpu-diffusers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-diffusers"
+  mirrors:
+    - localai/localai-backends:master-cpu-diffusers
 - !!merge <<: *diffusers
   name: "nvidia-l4t-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-l4t-diffusers"

@@ -99,6 +99,18 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-diffusers'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'true'
+            backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
           # CUDA 11 additional backends
           - build-type: 'cublas'
             cuda-major-version: "11"
