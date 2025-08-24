@@ -125,22 +125,24 @@ func (sm *SystrayManager) recreateMenu() {
 
 	menuItems := []*fyne.MenuItem{}
 
-	// Add status and version at the top (clickable for details)
+	// Add status at the top (clickable for details)
 	status := sm.launcher.GetLastStatus()
-	version := sm.launcher.GetCurrentVersion()
-
-	// Truncate long text to prevent menu overflow
 	statusText := sm.truncateText(status, 30)
-	versionText := sm.truncateText(version, 25)
-
 	statusItem := fyne.NewMenuItem("📊 Status: "+statusText, func() {
-		sm.showStatusDetails(status, version)
+		sm.showStatusDetails(status, "")
 	})
-	versionItem := fyne.NewMenuItem("🔧 Version: "+versionText, func() {
-		sm.showStatusDetails(status, version)
-	})
+	menuItems = append(menuItems, statusItem)
 
-	menuItems = append(menuItems, statusItem, versionItem)
+	// Only show version if LocalAI is installed
+	if sm.launcher.GetReleaseManager().IsLocalAIInstalled() {
+		version := sm.launcher.GetCurrentVersion()
+		versionText := sm.truncateText(version, 25)
+		versionItem := fyne.NewMenuItem("🔧 Version: "+versionText, func() {
+			sm.showStatusDetails(status, version)
+		})
+		menuItems = append(menuItems, versionItem)
+	}
+
 	menuItems = append(menuItems, fyne.NewMenuItemSeparator())
 
 	// Add update notification if available
@@ -277,10 +279,14 @@ func (sm *SystrayManager) showStatusDetails(status, version string) {
 		statusValue := widget.NewLabel(status)
 		statusValue.Wrapping = fyne.TextWrapWord
 
-		// Version information
-		versionLabel := widget.NewLabel("Installed Version:")
-		versionValue := widget.NewLabel(version)
-		versionValue.Wrapping = fyne.TextWrapWord
+		// Version information (only show if version exists)
+		var versionContainer fyne.CanvasObject
+		if version != "" {
+			versionLabel := widget.NewLabel("Installed Version:")
+			versionValue := widget.NewLabel(version)
+			versionValue.Wrapping = fyne.TextWrapWord
+			versionContainer = container.NewVBox(versionLabel, versionValue)
+		}
 
 		// Running state
 		runningLabel := widget.NewLabel("Running State:")
@@ -311,7 +317,10 @@ func (sm *SystrayManager) showStatusDetails(status, version string) {
 		refreshButton := widget.NewButton("Refresh", func() {
 			// Refresh the status information
 			statusValue.SetText(sm.launcher.GetLastStatus())
-			versionValue.SetText(sm.launcher.GetCurrentVersion())
+
+			// Note: Version refresh is not implemented for simplicity
+			// The version will be updated when the status details window is reopened
+
 			if sm.launcher.IsRunning() {
 				runningValue.SetText("🟢 Running")
 			} else {
@@ -327,15 +336,24 @@ func (sm *SystrayManager) showStatusDetails(status, version string) {
 		// Layout
 		buttons := container.NewHBox(closeButton, refreshButton, openWebUIButton)
 
-		infoContainer := container.NewVBox(
+		// Build info container dynamically
+		infoItems := []fyne.CanvasObject{
 			statusLabel, statusValue,
 			widget.NewSeparator(),
-			versionLabel, versionValue,
-			widget.NewSeparator(),
+		}
+
+		// Add version section if it exists
+		if versionContainer != nil {
+			infoItems = append(infoItems, versionContainer, widget.NewSeparator())
+		}
+
+		infoItems = append(infoItems,
 			runningLabel, runningValue,
 			widget.NewSeparator(),
 			webuiLabel, webuiValue,
 		)
+
+		infoContainer := container.NewVBox(infoItems...)
 
 		content := container.NewVBox(
 			infoContainer,
