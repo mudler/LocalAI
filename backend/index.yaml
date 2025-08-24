@@ -183,6 +183,8 @@
     nvidia: "cuda12-transformers"
     intel: "intel-transformers"
     amd: "rocm-transformers"
+    metal: "metal-transformers"
+    default: "cpu-transformers"
 - &diffusers
   name: "diffusers"
   icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
@@ -851,6 +853,28 @@
     nvidia: "cuda12-transformers-development"
     intel: "intel-transformers-development"
     amd: "rocm-transformers-development"
+    default: "cpu-transformers-development"
+    metal: "metal-transformers-development"
+- !!merge <<: *transformers
+  name: "cpu-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-transformers"
+  mirrors:
+    - localai/localai-backends:latest-cpu-transformers
+- !!merge <<: *transformers
+  name: "cpu-transformers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-transformers"
+  mirrors:
+    - localai/localai-backends:master-cpu-transformers
+- !!merge <<: *transformers
+  name: "metal-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-transformers"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-transformers
+- !!merge <<: *transformers
+  name: "metal-transformers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-transformers"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-transformers
 - !!merge <<: *transformers
   name: "cuda12-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-transformers"

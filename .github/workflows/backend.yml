@@ -63,6 +63,18 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-transformers'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'true'
+            backend: "transformers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -957,6 +969,20 @@ jobs:
             backend: "kitten-tts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+  transformers-darwin:
+    uses: ./.github/workflows/backend_build_darwin.yml
+    with:
+      backend: "transformers"
+      build-type: "mps"
+      go-version: "1.24.x"
+      tag-suffix: "-metal-darwin-arm64-transformers"
+      use-pip: true
+      runs-on: "macOS-14"
+    secrets:
+      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
+      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
   diffusers-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
     with:
