@@ -108,6 +108,12 @@ func (l *Launcher) Initialize() error {
 	log.Printf("Configuration loaded, current state: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
 		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
 
+	// Clean up any partial downloads
+	log.Printf("Cleaning up partial downloads...")
+	if err := l.releaseManager.CleanupPartialDownloads(); err != nil {
+		log.Printf("Warning: failed to cleanup partial downloads: %v", err)
+	}
+
 	if l.config.StartOnBoot {
 		l.StartLocalAI()
 	}
@@ -166,6 +172,16 @@ func (l *Launcher) Initialize() error {
 func (l *Launcher) StartLocalAI() error {
 	if l.isRunning {
 		return fmt.Errorf("LocalAI is already running")
+	}
+
+	// Verify binary integrity before starting
+	if err := l.releaseManager.VerifyInstalledBinary(); err != nil {
+		// Binary is corrupted, remove it and offer to reinstall
+		binaryPath := l.releaseManager.GetBinaryPath()
+		if removeErr := os.Remove(binaryPath); removeErr != nil {
+			log.Printf("Failed to remove corrupted binary: %v", removeErr)
+		}
+		return fmt.Errorf("LocalAI binary is corrupted: %v. Please reinstall LocalAI", err)
 	}
 
 	binaryPath := l.releaseManager.GetBinaryPath()
@@ -441,6 +457,9 @@ func (l *Launcher) showDownloadLocalAIDialog() {
 		downloadButton := widget.NewButton("Download & Install", func() {
 			dialogWindow.Close()
 			l.downloadAndInstallLocalAI()
+			if l.systray != nil {
+				l.systray.recreateMenu()
+			}
 		})
 		downloadButton.Importance = widget.HighImportance
 
