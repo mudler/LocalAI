@@ -1,4 +1,4 @@
-package launcher
+package main
 
 import (
 	"log"
@@ -6,6 +6,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/driver/desktop"
+	coreLauncher "github.com/mudler/LocalAI/core/launcher"
 )
 
 func main() {
@@ -16,12 +17,12 @@ func main() {
 	myWindow.Resize(fyne.NewSize(800, 600))
 
 	// Create the launcher UI
-	ui := NewLauncherUI()
+	ui := coreLauncher.NewLauncherUI()
 
 	// Initialize the launcher with UI context
-	launcher := NewLauncher()
-	launcher.ui = ui
-	launcher.window = myWindow
+	launcher := coreLauncher.NewLauncher()
+	launcher.SetUI(ui)
+	launcher.SetWindow(myWindow)
 
 	// Setup the UI
 	content := ui.CreateMainUI(launcher)
@@ -32,25 +33,24 @@ func main() {
 		myWindow.Hide()
 	})
 
-	// Setup system tray using Fyne's built-in approach
+	// Setup system tray using Fyne's built-in approach``
 	if desk, ok := myApp.(desktop.App); ok {
 		// Create a dynamic systray manager
-		systray := NewSystrayManager(launcher, myWindow, myApp)
-		systray.setupMenu(desk)
-		launcher.systray = systray
+		systray := coreLauncher.NewSystrayManager(launcher, myWindow, desk, myApp, resourceIconPng)
+		launcher.SetSystray(systray)
 	}
 
 	// Initialize the launcher state
 	go func() {
 		if err := launcher.Initialize(); err != nil {
 			log.Printf("Failed to initialize launcher: %v", err)
-			if launcher.ui != nil {
-				launcher.ui.UpdateStatus("Failed to initialize: " + err.Error())
+			if launcher.GetUI() != nil {
+				launcher.GetUI().UpdateStatus("Failed to initialize: " + err.Error())
 			}
 		} else {
 			// Load configuration into UI
-			launcher.ui.LoadConfiguration()
-			launcher.ui.UpdateStatus("Ready")
+			launcher.GetUI().LoadConfiguration()
+			launcher.GetUI().UpdateStatus("Ready")
 		}
 	}()
 

@@ -1,4 +1,4 @@
-package launcher
+package main
 
 import (
 	_ "embed"

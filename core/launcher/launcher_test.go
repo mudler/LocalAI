@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/cli/launcher"
+	"github.com/mudler/LocalAI/core/launcher"
 )
 
 var _ = Describe("Launcher", func() {

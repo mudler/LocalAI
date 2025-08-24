@@ -295,6 +295,22 @@ func (l *Launcher) SetConfig(config *Config) error {
 	return l.saveConfig()
 }
 
+func (l *Launcher) SetUI(ui *LauncherUI) {
+	l.ui = ui
+}
+
+func (l *Launcher) GetUI() *LauncherUI {
+	return l.ui
+}
+
+func (l *Launcher) SetWindow(window fyne.Window) {
+	l.window = window
+}
+
+func (l *Launcher) SetSystray(systray *SystrayManager) {
+	l.systray = systray
+}
+
 // GetWebUIURL returns the URL for the WebUI
 func (l *Launcher) GetWebUIURL() string {
 	address := l.config.Address

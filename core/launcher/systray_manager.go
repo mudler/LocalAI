@@ -24,15 +24,20 @@ type SystrayManager struct {
 	updateStatusItem   *fyne.MenuItem
 	hasUpdateAvailable bool
 	latestVersion      string
+	icon               *fyne.StaticResource
 }
 
 // NewSystrayManager creates a new systray manager
-func NewSystrayManager(launcher *Launcher, window fyne.Window, app fyne.App) *SystrayManager {
-	return &SystrayManager{
+func NewSystrayManager(launcher *Launcher, window fyne.Window, desktop desktop.App, app fyne.App, icon *fyne.StaticResource) *SystrayManager {
+	sm := &SystrayManager{
 		launcher: launcher,
 		window:   window,
 		app:      app,
+		desk:     desktop,
+		icon:     icon,
 	}
+	sm.setupMenu(desktop)
+	return sm
 }
 
 // setupMenu sets up the system tray menu
@@ -44,7 +49,7 @@ func (sm *SystrayManager) setupMenu(desk desktop.App) {
 		sm.toggleLocalAI()
 	})
 
-	desk.SetSystemTrayIcon(resourceIconPng)
+	desk.SetSystemTrayIcon(sm.icon)
 
 	// Initialize the menu state using recreateMenu
 	sm.recreateMenu()
