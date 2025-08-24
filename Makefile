@@ -523,26 +523,15 @@ docs: docs/static/gallery.html
 ## Platform-specific builds
 ########################################################
 
-# macOS builds
-build-launcher-darwin-amd64: ## Build launcher for macOS AMD64
-	GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-darwin-amd64 ./
+## fyne cross-platform build
+build-launcher-darwin-arm64:
+	go run github.com/fyne-io/fyne-cross@latest darwin -app-id com.localai.launcher --output $(LAUNCHER_BINARY_NAME)-darwin-arm64 ./cmd/launcher  -arch=arm64
 
-build-launcher-darwin-arm64: ## Build launcher for macOS ARM64
-	GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-darwin-arm64 ./
-
-# Linux builds
-build-launcher-linux-amd64: ## Build launcher for Linux AMD64
-	GOOS=linux GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-linux-amd64 ./
-
-build-launcher-linux-arm64: ## Build launcher for Linux ARM64
-	GOOS=linux GOARCH=arm64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-linux-arm64 ./
-
-# Windows builds
-build-launcher-windows-amd64: ## Build launcher for Windows AMD64
-	GOOS=windows GOARCH=amd64 CGO_ENABLED=1 $(GOCMD) build -ldflags "$(LD_FLAGS)" -o $(LAUNCHER_BINARY_NAME)-windows-amd64.exe ./
+build-launcher-linux:
+	go run github.com/fyne-io/fyne-cross@latest linux -app-id com.localai.launcher --output $(LAUNCHER_BINARY_NAME)-linux ./cmd/launcher  -arch=amd64,arm64	
 
 # macOS DMG creation (requires macOS)
-create-dmg: build-launcher-darwin-amd64 build-launcher-darwin-arm64 ## Create macOS DMG
+create-dmg: build-launcher-darwin-arm64 ## Create macOS DMG
 ifeq ($(OS),Darwin)
 	@echo "Creating macOS DMG package..."
 	mkdir -p dist/LocalAI-Launcher
@@ -554,23 +543,3 @@ ifeq ($(OS),Darwin)
 else
 	@echo "DMG creation requires macOS"
 endif
-
-# Linux package creation
-create-linux-package: build-launcher-linux-amd64 build-launcher-linux-arm64 ## Create Linux packages
-	@echo "Creating Linux packages..."
-	mkdir -p dist/linux-amd64/usr/local/bin
-	mkdir -p dist/linux-arm64/usr/local/bin
-	cp $(LAUNCHER_BINARY_NAME)-linux-amd64 dist/linux-amd64/usr/local/bin/local-ai-launcher
-	cp $(LAUNCHER_BINARY_NAME)-linux-arm64 dist/linux-arm64/usr/local/bin/local-ai-launcher
-	chmod +x dist/linux-amd64/usr/local/bin/local-ai-launcher
-	chmod +x dist/linux-arm64/usr/local/bin/local-ai-launcher
-	cd dist && tar -czf LocalAI-Launcher-linux-amd64.tar.gz -C linux-amd64 .
-	cd dist && tar -czf LocalAI-Launcher-linux-arm64.tar.gz -C linux-arm64 .
-	rm -rf dist/linux-amd64 dist/linux-arm64
-	@echo "Linux packages created in dist/"
-
-# Cross-platform builds
-build-launcher-all: build-launcher-darwin-amd64 build-launcher-darwin-arm64 build-launcher-linux-amd64 build-launcher-linux-arm64 build-launcher-windows-amd64 ## Build launcher for all platforms
-
-# Package creation for all platforms
-package-launcher: build-launcher-all create-dmg create-linux-package ## Create packages for all platforms

@@ -21,3 +21,35 @@ jobs:
       - name: Run GoReleaser
         run: |
           make dev-dist
+  launcher-build-darwin:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+      - name: Build launcher for macOS ARM64
+        run: |
+          go install github.com/fyne-io/fyne-cross@latest
+          make build-launcher-darwin-arm64
+          ls -liah
+  launcher-build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.23
+      - name: Build launcher for Linux
+        run: |
+          go install github.com/fyne-io/fyne-cross@latest
+          make build-launcher-linux
+          ls -liah
