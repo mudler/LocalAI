@@ -327,15 +327,16 @@ func (rm *ReleaseManager) VerifyChecksum(filePath, checksumPath, binaryName stri
 
 // GetInstalledVersion returns the currently installed version
 func (rm *ReleaseManager) GetInstalledVersion() string {
-	// First try to get version from metadata
-	if version := rm.loadVersionMetadata(); version != "" {
-		return version
-	}
 
 	// Fallback: Check if the LocalAI binary exists and try to get its version
 	binaryPath := rm.GetBinaryPath()
 	if _, err := os.Stat(binaryPath); os.IsNotExist(err) {
 		return "" // No version installed
+	}
+
+	// try to get version from metadata
+	if version := rm.loadVersionMetadata(); version != "" {
+		return version
 	}
 
 	// Try to run the binary to get the version (fallback method)
