@@ -8,7 +8,7 @@ source:
   enabled: true
   name_template: '{{ .ProjectName }}-{{ .Tag }}-source'
 builds:
-  -
+  - main: ./cmd/local-ai
     env:
       - CGO_ENABLED=0
     ldflags:
