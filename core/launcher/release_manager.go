@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -270,18 +271,27 @@ func (rm *ReleaseManager) GetBinaryPath() string {
 
 // IsUpdateAvailable checks if an update is available
 func (rm *ReleaseManager) IsUpdateAvailable() (bool, string, error) {
+	log.Printf("IsUpdateAvailable: checking for updates...")
+
 	latest, err := rm.GetLatestRelease()
 	if err != nil {
+		log.Printf("IsUpdateAvailable: failed to get latest release: %v", err)
 		return false, "", err
 	}
+	log.Printf("IsUpdateAvailable: latest release version: %s", latest.Version)
 
 	current := rm.GetInstalledVersion()
+	log.Printf("IsUpdateAvailable: current installed version: %s", current)
+
 	if current == "" {
 		// No version installed, offer to download latest
+		log.Printf("IsUpdateAvailable: no version installed, offering latest: %s", latest.Version)
 		return true, latest.Version, nil
 	}
 
-	return latest.Version != current, latest.Version, nil
+	updateAvailable := latest.Version != current
+	log.Printf("IsUpdateAvailable: update available: %v (latest: %s, current: %s)", updateAvailable, latest.Version, current)
+	return updateAvailable, latest.Version, nil
 }
 
 // IsLocalAIInstalled checks if LocalAI binary exists

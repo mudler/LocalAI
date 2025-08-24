@@ -104,10 +104,23 @@ func (sm *SystrayManager) recreateMenu() {
 		return
 	}
 
-	// Determine the start/stop text based on current state
-	startStopText := "Start LocalAI"
-	if sm.launcher.IsRunning() {
-		startStopText = "Stop LocalAI"
+	// Determine the action based on LocalAI installation and running state
+	var actionItem *fyne.MenuItem
+	if !sm.launcher.GetReleaseManager().IsLocalAIInstalled() {
+		// LocalAI not installed - show install option
+		actionItem = fyne.NewMenuItem("📥 Install Latest Version", func() {
+			sm.launcher.showDownloadLocalAIDialog()
+		})
+	} else if sm.launcher.IsRunning() {
+		// LocalAI is running - show stop option
+		actionItem = fyne.NewMenuItem("🛑 Stop LocalAI", func() {
+			sm.toggleLocalAI()
+		})
+	} else {
+		// LocalAI is installed but not running - show start option
+		actionItem = fyne.NewMenuItem("▶️ Start LocalAI", func() {
+			sm.toggleLocalAI()
+		})
 	}
 
 	menuItems := []*fyne.MenuItem{}
@@ -141,12 +154,19 @@ func (sm *SystrayManager) recreateMenu() {
 
 	// Core actions
 	menuItems = append(menuItems,
-		fyne.NewMenuItem(startStopText, func() {
-			sm.toggleLocalAI()
-		}),
-		fyne.NewMenuItem("Open WebUI", func() {
-			sm.openWebUI()
-		}),
+		actionItem,
+	)
+
+	// Only show WebUI option if LocalAI is installed
+	if sm.launcher.GetReleaseManager().IsLocalAIInstalled() {
+		menuItems = append(menuItems,
+			fyne.NewMenuItem("Open WebUI", func() {
+				sm.openWebUI()
+			}),
+		)
+	}
+
+	menuItems = append(menuItems,
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Check for Updates", func() {
 			sm.checkForUpdates()

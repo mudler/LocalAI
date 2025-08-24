@@ -16,6 +16,9 @@ import (
 	"time"
 
 	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/dialog"
+	"fyne.io/fyne/v2/widget"
 )
 
 // Config represents the launcher configuration
@@ -38,6 +41,7 @@ type Launcher struct {
 	systray        *SystrayManager
 	ctx            context.Context
 	window         fyne.Window
+	app            fyne.App
 
 	// Process management
 	localaiCmd    *exec.Cmd
@@ -144,21 +148,11 @@ func (l *Launcher) Initialize() error {
 
 	// Check if LocalAI is installed
 	if !l.releaseManager.IsLocalAIInstalled() {
+		log.Printf("No LocalAI installation found")
 		l.updateStatus("No LocalAI installation found")
 		if l.ui != nil {
-			// Offer to download the latest version
-			go func() {
-				time.Sleep(1 * time.Second) // Wait for UI to be ready
-				available, version, err := l.CheckForUpdates()
-				if err == nil && available {
-					if l.systray != nil {
-						l.systray.NotifyUpdateAvailable(version)
-					}
-					if l.ui != nil {
-						l.ui.NotifyUpdateAvailable(version)
-					}
-				}
-			}()
+			// Show dialog offering to download LocalAI
+			l.showDownloadLocalAIDialog()
 		}
 	}
 
@@ -326,8 +320,17 @@ func (l *Launcher) SetWindow(window fyne.Window) {
 	l.window = window
 }
 
+func (l *Launcher) SetApp(app fyne.App) {
+	l.app = app
+}
+
 func (l *Launcher) SetSystray(systray *SystrayManager) {
 	l.systray = systray
+}
+
+// GetReleaseManager returns the release manager
+func (l *Launcher) GetReleaseManager() *ReleaseManager {
+	return l.releaseManager
 }
 
 // GetWebUIURL returns the URL for the WebUI
@@ -361,10 +364,13 @@ func (l *Launcher) GetDataPath() string {
 
 // CheckForUpdates checks if there are any available updates
 func (l *Launcher) CheckForUpdates() (bool, string, error) {
+	log.Printf("CheckForUpdates: checking for available updates...")
 	available, version, err := l.releaseManager.IsUpdateAvailable()
 	if err != nil {
+		log.Printf("CheckForUpdates: error occurred: %v", err)
 		return false, "", err
 	}
+	log.Printf("CheckForUpdates: result - available=%v, version=%s", available, version)
 	l.lastUpdateCheck = time.Now()
 	return available, version, nil
 }
@@ -397,7 +403,198 @@ func (l *Launcher) GetLastStatus() string {
 	if l.isRunning {
 		return "LocalAI is running"
 	}
+
+	// Check if LocalAI is installed
+	if !l.releaseManager.IsLocalAIInstalled() {
+		return "LocalAI not installed"
+	}
+
 	return "Ready"
+}
+
+// showDownloadLocalAIDialog shows a dialog offering to download LocalAI
+func (l *Launcher) showDownloadLocalAIDialog() {
+	if l.app == nil {
+		log.Printf("Cannot show download dialog: app is nil")
+		return
+	}
+
+	fyne.DoAndWait(func() {
+		// Create a standalone window for the download dialog
+		dialogWindow := l.app.NewWindow("LocalAI Installation Required")
+		dialogWindow.Resize(fyne.NewSize(500, 300))
+		dialogWindow.CenterOnScreen()
+		dialogWindow.SetCloseIntercept(func() {
+			dialogWindow.Close()
+		})
+
+		// Create the dialog content
+		titleLabel := widget.NewLabel("LocalAI Not Found")
+		titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+		titleLabel.Alignment = fyne.TextAlignCenter
+
+		messageLabel := widget.NewLabel("LocalAI is not installed on your system.\n\nWould you like to download and install the latest version?")
+		messageLabel.Wrapping = fyne.TextWrapWord
+		messageLabel.Alignment = fyne.TextAlignCenter
+
+		// Buttons
+		downloadButton := widget.NewButton("Download & Install", func() {
+			dialogWindow.Close()
+			l.downloadAndInstallLocalAI()
+		})
+		downloadButton.Importance = widget.HighImportance
+
+		skipButton := widget.NewButton("Skip for Now", func() {
+			dialogWindow.Close()
+		})
+
+		// Layout
+		buttons := container.NewHBox(skipButton, downloadButton)
+		content := container.NewVBox(
+			titleLabel,
+			widget.NewSeparator(),
+			messageLabel,
+			widget.NewSeparator(),
+			buttons,
+		)
+
+		dialogWindow.SetContent(content)
+		dialogWindow.Show()
+	})
+}
+
+// downloadAndInstallLocalAI downloads and installs the latest LocalAI version
+func (l *Launcher) downloadAndInstallLocalAI() {
+	if l.app == nil {
+		log.Printf("Cannot download LocalAI: app is nil")
+		return
+	}
+
+	// First check what the latest version is
+	go func() {
+		log.Printf("Checking for latest LocalAI version...")
+		available, version, err := l.CheckForUpdates()
+		if err != nil {
+			log.Printf("Failed to check for updates: %v", err)
+			l.showDownloadError("Failed to check for latest version", err.Error())
+			return
+		}
+
+		if !available {
+			log.Printf("No updates available, but LocalAI is not installed")
+			l.showDownloadError("No Version Available", "Could not determine the latest LocalAI version. Please check your internet connection and try again.")
+			return
+		}
+
+		log.Printf("Latest version available: %s", version)
+		// Show progress window with the specific version
+		l.showDownloadProgress(version, fmt.Sprintf("Downloading LocalAI %s...", version))
+	}()
+}
+
+// showDownloadError shows an error dialog for download failures
+func (l *Launcher) showDownloadError(title, message string) {
+	fyne.DoAndWait(func() {
+		// Create error window
+		errorWindow := l.app.NewWindow("Download Error")
+		errorWindow.Resize(fyne.NewSize(400, 200))
+		errorWindow.CenterOnScreen()
+		errorWindow.SetCloseIntercept(func() {
+			errorWindow.Close()
+		})
+
+		// Error content
+		titleLabel := widget.NewLabel(title)
+		titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+		titleLabel.Alignment = fyne.TextAlignCenter
+
+		messageLabel := widget.NewLabel(message)
+		messageLabel.Wrapping = fyne.TextWrapWord
+		messageLabel.Alignment = fyne.TextAlignCenter
+
+		// Close button
+		closeButton := widget.NewButton("Close", func() {
+			errorWindow.Close()
+		})
+
+		// Layout
+		content := container.NewVBox(
+			titleLabel,
+			widget.NewSeparator(),
+			messageLabel,
+			widget.NewSeparator(),
+			closeButton,
+		)
+
+		errorWindow.SetContent(content)
+		errorWindow.Show()
+	})
+}
+
+// showDownloadProgress shows a standalone progress window for downloading LocalAI
+func (l *Launcher) showDownloadProgress(version, title string) {
+	fyne.DoAndWait(func() {
+		// Create progress window
+		progressWindow := l.app.NewWindow("Downloading LocalAI")
+		progressWindow.Resize(fyne.NewSize(400, 200))
+		progressWindow.CenterOnScreen()
+		progressWindow.SetCloseIntercept(func() {
+			progressWindow.Close()
+		})
+
+		// Progress bar
+		progressBar := widget.NewProgressBar()
+		progressBar.SetValue(0)
+
+		// Status label
+		statusLabel := widget.NewLabel("Preparing download...")
+
+		// Progress container
+		progressContainer := container.NewVBox(
+			widget.NewLabel(title),
+			progressBar,
+			statusLabel,
+		)
+
+		progressWindow.SetContent(progressContainer)
+		progressWindow.Show()
+
+		// Start download in background
+		go func() {
+			err := l.DownloadUpdate(version, func(progress float64) {
+				// Update progress bar
+				fyne.Do(func() {
+					progressBar.SetValue(progress)
+					percentage := int(progress * 100)
+					statusLabel.SetText(fmt.Sprintf("Downloading... %d%%", percentage))
+				})
+			})
+
+			// Handle completion
+			fyne.Do(func() {
+				if err != nil {
+					statusLabel.SetText(fmt.Sprintf("Download failed: %v", err))
+					// Show error dialog
+					dialog.ShowError(err, progressWindow)
+				} else {
+					statusLabel.SetText("Download completed successfully!")
+					progressBar.SetValue(1.0)
+
+					// Show success dialog
+					dialog.ShowConfirm("Installation Complete",
+						"LocalAI has been downloaded and installed successfully. You can now start LocalAI from the launcher.",
+						func(close bool) {
+							progressWindow.Close()
+							// Update status and refresh systray menu
+							l.updateStatus("LocalAI installed successfully")
+							if l.systray != nil {
+								l.systray.recreateMenu()
+							}
+						}, progressWindow)
+				}
+			})
+		}()
+	})
 }
 
 // monitorLogs monitors the output of LocalAI and adds it to the log buffer
@@ -470,7 +667,7 @@ func (l *Launcher) updateRunningState(isRunning bool) {
 
 // periodicUpdateCheck checks for updates periodically
 func (l *Launcher) periodicUpdateCheck() {
-	ticker := time.NewTicker(4 * time.Hour)
+	ticker := time.NewTicker(1 * time.Hour)
 	defer ticker.Stop()
 
 	for {

@@ -23,6 +23,7 @@ func main() {
 	launcher := coreLauncher.NewLauncher()
 	launcher.SetUI(ui)
 	launcher.SetWindow(myWindow)
+	launcher.SetApp(myApp)
 
 	// Setup the UI
 	content := ui.CreateMainUI(launcher)
