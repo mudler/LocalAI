@@ -21,7 +21,6 @@ type SystrayManager struct {
 
 	// Menu items that need dynamic updates
 	startStopItem      *fyne.MenuItem
-	updateStatusItem   *fyne.MenuItem
 	hasUpdateAvailable bool
 	latestVersion      string
 	icon               *fyne.StaticResource
@@ -113,6 +112,24 @@ func (sm *SystrayManager) recreateMenu() {
 
 	menuItems := []*fyne.MenuItem{}
 
+	// Add status and version at the top (clickable for details)
+	status := sm.launcher.GetLastStatus()
+	version := sm.launcher.GetCurrentVersion()
+
+	// Truncate long text to prevent menu overflow
+	statusText := sm.truncateText(status, 30)
+	versionText := sm.truncateText(version, 25)
+
+	statusItem := fyne.NewMenuItem("📊 Status: "+statusText, func() {
+		sm.showStatusDetails(status, version)
+	})
+	versionItem := fyne.NewMenuItem("🔧 Version: "+versionText, func() {
+		sm.showStatusDetails(status, version)
+	})
+
+	menuItems = append(menuItems, statusItem, versionItem)
+	menuItems = append(menuItems, fyne.NewMenuItemSeparator())
+
 	// Add update notification if available
 	if sm.hasUpdateAvailable {
 		updateItem := fyne.NewMenuItem("🔔 New version available ("+sm.latestVersion+")", func() {
@@ -158,6 +175,11 @@ func (sm *SystrayManager) recreateMenu() {
 // UpdateRunningState updates the systray based on running state
 func (sm *SystrayManager) UpdateRunningState(isRunning bool) {
 	sm.updateStartStopItem()
+}
+
+// UpdateStatus updates the systray menu to reflect status changes
+func (sm *SystrayManager) UpdateStatus(status string) {
+	sm.recreateMenu()
 }
 
 // checkForUpdates checks for available updates
@@ -208,6 +230,101 @@ func (sm *SystrayManager) NotifyUpdateAvailable(version string) {
 	sm.hasUpdateAvailable = true
 	sm.latestVersion = version
 	sm.recreateMenu()
+}
+
+// truncateText truncates text to specified length and adds ellipsis if needed
+func (sm *SystrayManager) truncateText(text string, maxLength int) string {
+	if len(text) <= maxLength {
+		return text
+	}
+	return text[:maxLength-3] + "..."
+}
+
+// showStatusDetails shows a detailed status window with full information
+func (sm *SystrayManager) showStatusDetails(status, version string) {
+	fyne.DoAndWait(func() {
+		// Create status details window
+		statusWindow := sm.app.NewWindow("LocalAI Status Details")
+		statusWindow.Resize(fyne.NewSize(500, 400))
+		statusWindow.CenterOnScreen()
+
+		// Status information
+		statusLabel := widget.NewLabel("Current Status:")
+		statusValue := widget.NewLabel(status)
+		statusValue.Wrapping = fyne.TextWrapWord
+
+		// Version information
+		versionLabel := widget.NewLabel("Installed Version:")
+		versionValue := widget.NewLabel(version)
+		versionValue.Wrapping = fyne.TextWrapWord
+
+		// Running state
+		runningLabel := widget.NewLabel("Running State:")
+		runningValue := widget.NewLabel("")
+		if sm.launcher.IsRunning() {
+			runningValue.SetText("🟢 Running")
+		} else {
+			runningValue.SetText("🔴 Stopped")
+		}
+
+		// WebUI URL
+		webuiLabel := widget.NewLabel("WebUI URL:")
+		webuiValue := widget.NewLabel(sm.launcher.GetWebUIURL())
+		webuiValue.Wrapping = fyne.TextWrapWord
+
+		// Recent logs (last 20 lines)
+		logsLabel := widget.NewLabel("Recent Logs:")
+		logsText := widget.NewMultiLineEntry()
+		logsText.SetText(sm.launcher.GetRecentLogs())
+		logsText.Wrapping = fyne.TextWrapWord
+		logsText.Disable() // Make it read-only
+
+		// Buttons
+		closeButton := widget.NewButton("Close", func() {
+			statusWindow.Close()
+		})
+
+		refreshButton := widget.NewButton("Refresh", func() {
+			// Refresh the status information
+			statusValue.SetText(sm.launcher.GetLastStatus())
+			versionValue.SetText(sm.launcher.GetCurrentVersion())
+			if sm.launcher.IsRunning() {
+				runningValue.SetText("🟢 Running")
+			} else {
+				runningValue.SetText("🔴 Stopped")
+			}
+			logsText.SetText(sm.launcher.GetRecentLogs())
+		})
+
+		openWebUIButton := widget.NewButton("Open WebUI", func() {
+			sm.openWebUI()
+		})
+
+		// Layout
+		buttons := container.NewHBox(closeButton, refreshButton, openWebUIButton)
+
+		infoContainer := container.NewVBox(
+			statusLabel, statusValue,
+			widget.NewSeparator(),
+			versionLabel, versionValue,
+			widget.NewSeparator(),
+			runningLabel, runningValue,
+			widget.NewSeparator(),
+			webuiLabel, webuiValue,
+		)
+
+		content := container.NewVBox(
+			infoContainer,
+			widget.NewSeparator(),
+			logsLabel,
+			logsText,
+			widget.NewSeparator(),
+			buttons,
+		)
+
+		statusWindow.SetContent(content)
+		statusWindow.Show()
+	})
 }
 
 // showErrorDialog shows a simple error dialog

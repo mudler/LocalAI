@@ -3,6 +3,7 @@ package launcher
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -88,38 +89,56 @@ func (l *Launcher) setupLogging() error {
 
 // Initialize sets up the launcher
 func (l *Launcher) Initialize() error {
+	log.Printf("Initializing launcher...")
+
 	// Setup logging
 	if err := l.setupLogging(); err != nil {
 		return fmt.Errorf("failed to setup logging: %w", err)
 	}
 
 	// Load configuration
+	log.Printf("Loading configuration...")
 	if err := l.loadConfig(); err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
 	}
+	log.Printf("Configuration loaded, current state: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
+		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
 
-	// Set default paths if not configured
+	if l.config.StartOnBoot {
+		l.StartLocalAI()
+	}
+	// Set default paths if not configured (only if not already loaded from config)
 	if l.config.ModelsPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		l.config.ModelsPath = filepath.Join(homeDir, ".localai", "models")
+		log.Printf("Setting default ModelsPath: %s", l.config.ModelsPath)
 	}
 	if l.config.BackendsPath == "" {
 		homeDir, _ := os.UserHomeDir()
 		l.config.BackendsPath = filepath.Join(homeDir, ".localai", "backends")
+		log.Printf("Setting default BackendsPath: %s", l.config.BackendsPath)
 	}
 	if l.config.Address == "" {
 		l.config.Address = ":8080"
+		log.Printf("Setting default Address: %s", l.config.Address)
 	}
 	if l.config.LogLevel == "" {
 		l.config.LogLevel = "info"
+		log.Printf("Setting default LogLevel: %s", l.config.LogLevel)
 	}
 	if l.config.EnvironmentVars == nil {
 		l.config.EnvironmentVars = make(map[string]string)
+		log.Printf("Initializing empty EnvironmentVars map")
 	}
 
 	// Create directories
 	os.MkdirAll(l.config.ModelsPath, 0755)
 	os.MkdirAll(l.config.BackendsPath, 0755)
+
+	// Save the configuration with default values
+	if err := l.saveConfig(); err != nil {
+		log.Printf("Warning: failed to save default configuration: %v", err)
+	}
 
 	// System tray is now handled in main.go using Fyne's built-in approach
 
@@ -360,6 +379,27 @@ func (l *Launcher) GetCurrentVersion() string {
 	return l.releaseManager.GetInstalledVersion()
 }
 
+// GetCurrentStatus returns the current status
+func (l *Launcher) GetCurrentStatus() string {
+	select {
+	case status := <-l.statusChannel:
+		return status
+	default:
+		if l.isRunning {
+			return "LocalAI is running"
+		}
+		return "Ready"
+	}
+}
+
+// GetLastStatus returns the last known status without consuming from channel
+func (l *Launcher) GetLastStatus() string {
+	if l.isRunning {
+		return "LocalAI is running"
+	}
+	return "Ready"
+}
+
 // monitorLogs monitors the output of LocalAI and adds it to the log buffer
 func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 	scanner := bufio.NewScanner(reader)
@@ -411,6 +451,10 @@ func (l *Launcher) updateStatus(status string) {
 	if l.ui != nil {
 		l.ui.UpdateStatus(status)
 	}
+
+	if l.systray != nil {
+		l.systray.UpdateStatus(status)
+	}
 }
 
 // updateRunningState updates the running state in UI and systray
@@ -450,26 +494,69 @@ func (l *Launcher) periodicUpdateCheck() {
 
 // loadConfig loads configuration from file
 func (l *Launcher) loadConfig() error {
-	homeDir, _ := os.UserHomeDir()
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+
 	configPath := filepath.Join(homeDir, ".localai", "launcher.json")
+	log.Printf("Loading config from: %s", configPath)
 
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		log.Printf("Config file not found, creating default config")
 		// Create default config
 		return l.saveConfig()
 	}
 
-	// Load existing config (simplified - would use json.Unmarshal in real implementation)
-	// For now, return nil to use defaults
+	// Load existing config
+	configData, err := os.ReadFile(configPath)
+	if err != nil {
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	log.Printf("Config file content: %s", string(configData))
+
+	log.Printf("loadConfig: about to unmarshal JSON data")
+	if err := json.Unmarshal(configData, l.config); err != nil {
+		return fmt.Errorf("failed to parse config file: %w", err)
+	}
+	log.Printf("loadConfig: JSON unmarshaled successfully")
+
+	log.Printf("Loaded config: ModelsPath=%s, BackendsPath=%s, Address=%s, LogLevel=%s",
+		l.config.ModelsPath, l.config.BackendsPath, l.config.Address, l.config.LogLevel)
+	log.Printf("Environment vars: %v", l.config.EnvironmentVars)
+
 	return nil
 }
 
 // saveConfig saves configuration to file
 func (l *Launcher) saveConfig() error {
-	homeDir, _ := os.UserHomeDir()
-	configDir := filepath.Join(homeDir, ".localai")
-	os.MkdirAll(configDir, 0755)
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
 
-	// Save config (simplified - would use json.Marshal in real implementation)
-	// For now, just return nil
+	configDir := filepath.Join(homeDir, ".localai")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Marshal config to JSON
+	log.Printf("saveConfig: marshaling config with EnvironmentVars: %v", l.config.EnvironmentVars)
+	configData, err := json.MarshalIndent(l.config, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal config: %w", err)
+	}
+	log.Printf("saveConfig: JSON marshaled successfully, length: %d", len(configData))
+
+	configPath := filepath.Join(configDir, "launcher.json")
+	log.Printf("Saving config to: %s", configPath)
+	log.Printf("Config content: %s", string(configData))
+
+	if err := os.WriteFile(configPath, configData, 0644); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	log.Printf("Config saved successfully")
 	return nil
 }
