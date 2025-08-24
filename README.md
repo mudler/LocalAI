@@ -233,6 +233,60 @@ Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3A
 - 🔊 Voice activity detection (Silero-VAD support)
 - 🌍 Integrated WebUI!
 
+## 🧩 Supported Backends & Acceleration
+
+LocalAI supports a comprehensive range of AI backends with multiple acceleration options:
+
+### Text Generation & Language Models
+| Backend | Description | Acceleration Support |
+|---------|-------------|---------------------|
+| **llama.cpp** | LLM inference in C/C++ | CUDA 11/12, ROCm, Intel SYCL, Vulkan, Metal, CPU |
+| **vLLM** | Fast LLM inference with PagedAttention | CUDA 12, ROCm, Intel |
+| **transformers** | HuggingFace transformers framework | CUDA 11/12, ROCm, Intel, CPU |
+| **exllama2** | GPTQ inference library | CUDA 12 |
+| **MLX** | Apple Silicon LLM inference | Metal (M1/M2/M3+) |
+| **MLX-VLM** | Apple Silicon Vision-Language Models | Metal (M1/M2/M3+) |
+
+### Audio & Speech Processing
+| Backend | Description | Acceleration Support |
+|---------|-------------|---------------------|
+| **whisper.cpp** | OpenAI Whisper in C/C++ | CUDA 12, ROCm, Intel SYCL, Vulkan, CPU |
+| **faster-whisper** | Fast Whisper with CTranslate2 | CUDA 12, ROCm, Intel, CPU |
+| **bark** | Text-to-audio generation | CUDA 12, ROCm, Intel |
+| **bark-cpp** | C++ implementation of Bark | CUDA, Metal, CPU |
+| **coqui** | Advanced TTS with 1100+ languages | CUDA 12, ROCm, Intel, CPU |
+| **kokoro** | Lightweight TTS model | CUDA 12, ROCm, Intel, CPU |
+| **chatterbox** | Production-grade TTS | CUDA 11/12, CPU |
+| **piper** | Fast neural TTS system | CPU |
+| **kitten-tts** | Kitten TTS models | CPU |
+| **silero-vad** | Voice Activity Detection | CPU |
+
+### Image & Video Generation
+| Backend | Description | Acceleration Support |
+|---------|-------------|---------------------|
+| **stablediffusion.cpp** | Stable Diffusion in C/C++ | CUDA 12, Intel SYCL, Vulkan, CPU |
+| **diffusers** | HuggingFace diffusion models | CUDA 11/12, ROCm, Intel, Metal, CPU |
+
+### Specialized AI Tasks
+| Backend | Description | Acceleration Support |
+|---------|-------------|---------------------|
+| **rfdetr** | Real-time object detection | CUDA 12, Intel, CPU |
+| **rerankers** | Document reranking API | CUDA 11/12, ROCm, Intel, CPU |
+| **local-store** | Vector database | CPU |
+| **huggingface** | HuggingFace API integration | API-based |
+
+### Hardware Acceleration Matrix
+
+| Acceleration Type | Supported Backends | Hardware Support |
+|-------------------|-------------------|------------------|
+| **NVIDIA CUDA 11** | llama.cpp, whisper, stablediffusion, diffusers, rerankers, bark, chatterbox | Nvidia hardware |
+| **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
+| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark | AMD Graphics |
+| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark | Intel Arc, Intel iGPUs |
+| **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, bark-cpp | Apple M1/M2/M3+ |
+| **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
+| **NVIDIA Jetson** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI |
+| **CPU Optimized** | All backends | AVX/AVX2/AVX512, quantization support |
 
 ### 🔗 Community and integrations
 
