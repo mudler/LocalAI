@@ -1,3 +1,4 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 rfdetr
 opencv-python
 accelerate
