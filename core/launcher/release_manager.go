@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -250,9 +251,16 @@ func (rm *ReleaseManager) GetInstalledVersion() string {
 		return "" // No version installed
 	}
 
-	// Try to execute the binary to get version
-	// For now, return the build version as fallback
-	return rm.CurrentVersion
+	// Run the binary to get the version
+	version, err := exec.Command(binaryPath, "--version").Output()
+	if err != nil {
+		return ""
+	}
+
+	stringVersion := strings.TrimSpace(string(version))
+	stringVersion = strings.TrimRight(stringVersion, "\n")
+
+	return stringVersion
 }
 
 // GetBinaryPath returns the path to the LocalAI binary
