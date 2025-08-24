@@ -184,6 +184,10 @@ func (sm *SystrayManager) recreateMenu() {
 		}),
 		fyne.NewMenuItemSeparator(),
 		fyne.NewMenuItem("Quit", func() {
+			// Perform cleanup before quitting
+			if err := sm.launcher.Shutdown(); err != nil {
+				log.Printf("Error during shutdown: %v", err)
+			}
 			sm.app.Quit()
 		}),
 	)

@@ -290,6 +290,29 @@ func (l *Launcher) IsRunning() bool {
 	return l.isRunning
 }
 
+// Shutdown performs cleanup when the application is closing
+func (l *Launcher) Shutdown() error {
+	log.Printf("Launcher shutting down, stopping LocalAI...")
+
+	// Stop LocalAI if it's running
+	if l.isRunning {
+		if err := l.StopLocalAI(); err != nil {
+			log.Printf("Error stopping LocalAI during shutdown: %v", err)
+		}
+	}
+
+	// Close log file if open
+	if l.logFile != nil {
+		if err := l.logFile.Close(); err != nil {
+			log.Printf("Error closing log file: %v", err)
+		}
+		l.logFile = nil
+	}
+
+	log.Printf("Launcher shutdown complete")
+	return nil
+}
+
 // GetLogs returns the current log buffer
 func (l *Launcher) GetLogs() string {
 	l.logMutex.RLock()
