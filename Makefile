@@ -377,6 +377,10 @@ backends/mlx-vlm:
 	BACKEND=mlx-vlm $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-vlm.tar)"
 
+backends/mlx-audio:
+	BACKEND=mlx-audio $(MAKE) build-darwin-python-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-audio.tar)"
+
 backend-images:
 	mkdir -p backend-images
 
