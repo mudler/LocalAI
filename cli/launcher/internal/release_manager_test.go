@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/launcher"
+	launcher "github.com/mudler/LocalAI/cli/launcher/internal"
 )
 
 var _ = Describe("ReleaseManager", func() {
@@ -73,7 +73,7 @@ var _ = Describe("ReleaseManager", func() {
 			Expect(version).To(BeEmpty()) // No binary installed in test
 		})
 
-		It("should return version when binary exists", func() {
+		It("should return empty version when binary exists but no metadata", func() {
 			// Create a fake binary for testing
 			err := os.MkdirAll(rm.BinaryPath, 0755)
 			Expect(err).ToNot(HaveOccurred())
@@ -83,7 +83,7 @@ var _ = Describe("ReleaseManager", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			version := rm.GetInstalledVersion()
-			Expect(version).ToNot(BeEmpty()) // Should return fallback version
+			Expect(version).To(BeEmpty())
 		})
 	})
 

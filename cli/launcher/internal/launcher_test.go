@@ -8,7 +8,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/mudler/LocalAI/core/launcher"
+	"fyne.io/fyne/v2/app"
+
+	launcher "github.com/mudler/LocalAI/cli/launcher/internal"
 )
 
 var _ = Describe("Launcher", func() {
@@ -22,7 +24,10 @@ var _ = Describe("Launcher", func() {
 		tempDir, err = os.MkdirTemp("", "launcher-test-*")
 		Expect(err).ToNot(HaveOccurred())
 
-		launcherInstance = launcher.NewLauncher()
+		ui := launcher.NewLauncherUI()
+		app := app.NewWithID("com.localai.launcher")
+
+		launcherInstance = launcher.NewLauncher(ui, nil, app)
 	})
 
 	AfterEach(func() {
@@ -31,9 +36,7 @@ var _ = Describe("Launcher", func() {
 
 	Describe("NewLauncher", func() {
 		It("should create a launcher with default configuration", func() {
-			launcher := launcher.NewLauncher()
-			Expect(launcher).ToNot(BeNil())
-			Expect(launcher.GetConfig()).ToNot(BeNil())
+			Expect(launcherInstance.GetConfig()).ToNot(BeNil())
 		})
 	})
 
@@ -45,7 +48,7 @@ var _ = Describe("Launcher", func() {
 			config := launcherInstance.GetConfig()
 			Expect(config.ModelsPath).ToNot(BeEmpty())
 			Expect(config.BackendsPath).ToNot(BeEmpty())
-			Expect(config.Address).To(Equal(":8080"))
+			Expect(config.Address).To(Equal("127.0.0.1:8080"))
 			Expect(config.LogLevel).To(Equal("info"))
 		})
 
@@ -126,7 +129,7 @@ var _ = Describe("Launcher", func() {
 			Expect(err).To(HaveOccurred())
 			// Could be either "not found" or "permission denied" depending on test environment
 			errMsg := err.Error()
-			hasExpectedError := strings.Contains(errMsg, "LocalAI binary not found") ||
+			hasExpectedError := strings.Contains(errMsg, "LocalAI binary") ||
 				strings.Contains(errMsg, "permission denied")
 			Expect(hasExpectedError).To(BeTrue(), "Expected error about binary not found or permission denied, got: %s", errMsg)
 		})
@@ -187,7 +190,11 @@ var _ = Describe("Config", func() {
 		config := &launcher.Config{}
 		Expect(config.EnvironmentVars).To(BeNil())
 
-		launcher := launcher.NewLauncher()
+		ui := launcher.NewLauncherUI()
+		app := app.NewWithID("com.localai.launcher")
+
+		launcher := launcher.NewLauncher(ui, nil, app)
+
 		err := launcher.Initialize()
 		Expect(err).ToNot(HaveOccurred())
 

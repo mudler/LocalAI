@@ -9,7 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/driver/desktop"
-	coreLauncher "github.com/mudler/LocalAI/core/launcher"
+	coreLauncher "github.com/mudler/LocalAI/cli/launcher/internal"
 )
 
 func main() {
@@ -23,10 +23,7 @@ func main() {
 	ui := coreLauncher.NewLauncherUI()
 
 	// Initialize the launcher with UI context
-	launcher := coreLauncher.NewLauncher()
-	launcher.SetUI(ui)
-	launcher.SetWindow(myWindow)
-	launcher.SetApp(myApp)
+	launcher := coreLauncher.NewLauncher(ui, myWindow, myApp)
 
 	// Setup the UI
 	content := ui.CreateMainUI(launcher)

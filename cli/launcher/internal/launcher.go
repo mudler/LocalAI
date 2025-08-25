@@ -60,13 +60,16 @@ type Launcher struct {
 }
 
 // NewLauncher creates a new launcher instance
-func NewLauncher() *Launcher {
+func NewLauncher(ui *LauncherUI, window fyne.Window, app fyne.App) *Launcher {
 	return &Launcher{
 		releaseManager: NewReleaseManager(),
 		config:         &Config{},
 		logBuffer:      &strings.Builder{},
 		statusChannel:  make(chan string, 100),
 		ctx:            context.Background(),
+		ui:             ui,
+		window:         window,
+		app:            app,
 	}
 }
 
@@ -94,6 +97,9 @@ func (l *Launcher) setupLogging() error {
 
 // Initialize sets up the launcher
 func (l *Launcher) Initialize() error {
+	if l.app == nil {
+		return fmt.Errorf("app is nil")
+	}
 	log.Printf("Initializing launcher...")
 
 	// Setup logging
@@ -359,20 +365,8 @@ func (l *Launcher) SetConfig(config *Config) error {
 	return l.saveConfig()
 }
 
-func (l *Launcher) SetUI(ui *LauncherUI) {
-	l.ui = ui
-}
-
 func (l *Launcher) GetUI() *LauncherUI {
 	return l.ui
-}
-
-func (l *Launcher) SetWindow(window fyne.Window) {
-	l.window = window
-}
-
-func (l *Launcher) SetApp(app fyne.App) {
-	l.app = app
 }
 
 func (l *Launcher) SetSystray(systray *SystrayManager) {
