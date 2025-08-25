@@ -13,6 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -73,9 +74,16 @@ type RunCMD struct {
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
+
+	Version bool
 }
 
 func (r *RunCMD) Run(ctx *cliContext.Context) error {
+	if r.Version {
+		fmt.Println(internal.Version)
+		return nil
+	}
+
 	os.MkdirAll(r.BackendsPath, 0750)
 	os.MkdirAll(r.ModelsPath, 0750)
 
