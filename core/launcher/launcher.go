@@ -129,7 +129,7 @@ func (l *Launcher) Initialize() error {
 		log.Printf("Setting default BackendsPath: %s", l.config.BackendsPath)
 	}
 	if l.config.Address == "" {
-		l.config.Address = ":8080"
+		l.config.Address = "127.0.0.1:8080"
 		log.Printf("Setting default Address: %s", l.config.Address)
 	}
 	if l.config.LogLevel == "" {
