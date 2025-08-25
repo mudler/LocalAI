@@ -160,7 +160,7 @@ func (sm *SystrayManager) recreateMenu() {
 	)
 
 	// Only show WebUI option if LocalAI is installed
-	if sm.launcher.GetReleaseManager().IsLocalAIInstalled() {
+	if sm.launcher.GetReleaseManager().IsLocalAIInstalled() && sm.launcher.IsRunning() {
 		menuItems = append(menuItems,
 			fyne.NewMenuItem("Open WebUI", func() {
 				sm.openWebUI()
