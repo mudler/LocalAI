@@ -595,7 +595,7 @@ func (ui *LauncherUI) showDownloadProgress(version, title string) {
 	fyne.DoAndWait(func() {
 		// Create progress window using the launcher's app
 		progressWindow := ui.launcher.app.NewWindow("Downloading LocalAI")
-		progressWindow.Resize(fyne.NewSize(400, 200))
+		progressWindow.Resize(fyne.NewSize(400, 250))
 		progressWindow.CenterOnScreen()
 
 		// Progress bar
@@ -605,11 +605,24 @@ func (ui *LauncherUI) showDownloadProgress(version, title string) {
 		// Status label
 		statusLabel := widget.NewLabel("Preparing download...")
 
+		// Release notes button
+		releaseNotesButton := widget.NewButton("View Release Notes", func() {
+			releaseNotesURL, err := ui.launcher.githubReleaseNotesURL(version)
+			if err != nil {
+				log.Printf("Failed to parse URL: %v", err)
+				return
+			}
+
+			ui.launcher.app.OpenURL(releaseNotesURL)
+		})
+
 		// Progress container
 		progressContainer := container.NewVBox(
 			widget.NewLabel(title),
 			progressBar,
 			statusLabel,
+			widget.NewSeparator(),
+			releaseNotesButton,
 		)
 
 		progressWindow.SetContent(progressContainer)

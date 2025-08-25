@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -462,6 +463,17 @@ func (l *Launcher) GetLastStatus() string {
 	return "Ready"
 }
 
+func (l *Launcher) githubReleaseNotesURL(version string) (*url.URL, error) {
+	// Construct GitHub release URL
+	releaseURL := fmt.Sprintf("https://github.com/%s/%s/releases/tag/%s",
+		l.releaseManager.GitHubOwner,
+		l.releaseManager.GitHubRepo,
+		version)
+
+	// Convert string to *url.URL
+	return url.Parse(releaseURL)
+}
+
 // showDownloadLocalAIDialog shows a dialog offering to download LocalAI
 func (l *Launcher) showDownloadLocalAIDialog() {
 	if l.app == nil {
@@ -472,7 +484,7 @@ func (l *Launcher) showDownloadLocalAIDialog() {
 	fyne.DoAndWait(func() {
 		// Create a standalone window for the download dialog
 		dialogWindow := l.app.NewWindow("LocalAI Installation Required")
-		dialogWindow.Resize(fyne.NewSize(500, 300))
+		dialogWindow.Resize(fyne.NewSize(500, 350))
 		dialogWindow.CenterOnScreen()
 		dialogWindow.SetCloseIntercept(func() {
 			dialogWindow.Close()
@@ -497,18 +509,40 @@ func (l *Launcher) showDownloadLocalAIDialog() {
 		})
 		downloadButton.Importance = widget.HighImportance
 
+		// Release notes button
+		releaseNotesButton := widget.NewButton("View Release Notes", func() {
+			// Get latest release info and open release notes
+			go func() {
+				release, err := l.releaseManager.GetLatestRelease()
+				if err != nil {
+					log.Printf("Failed to get latest release info: %v", err)
+					return
+				}
+
+				releaseNotesURL, err := l.githubReleaseNotesURL(release.Version)
+				if err != nil {
+					log.Printf("Failed to parse URL: %v", err)
+					return
+				}
+
+				l.app.OpenURL(releaseNotesURL)
+			}()
+		})
+
 		skipButton := widget.NewButton("Skip for Now", func() {
 			dialogWindow.Close()
 		})
 
-		// Layout
-		buttons := container.NewHBox(skipButton, downloadButton)
+		// Layout - put release notes button above the main action buttons
+		actionButtons := container.NewHBox(skipButton, downloadButton)
 		content := container.NewVBox(
 			titleLabel,
 			widget.NewSeparator(),
 			messageLabel,
 			widget.NewSeparator(),
-			buttons,
+			releaseNotesButton,
+			widget.NewSeparator(),
+			actionButtons,
 		)
 
 		dialogWindow.SetContent(content)
@@ -589,7 +623,7 @@ func (l *Launcher) showDownloadProgress(version, title string) {
 	fyne.DoAndWait(func() {
 		// Create progress window
 		progressWindow := l.app.NewWindow("Downloading LocalAI")
-		progressWindow.Resize(fyne.NewSize(400, 200))
+		progressWindow.Resize(fyne.NewSize(400, 250))
 		progressWindow.CenterOnScreen()
 		progressWindow.SetCloseIntercept(func() {
 			progressWindow.Close()
@@ -602,11 +636,24 @@ func (l *Launcher) showDownloadProgress(version, title string) {
 		// Status label
 		statusLabel := widget.NewLabel("Preparing download...")
 
+		// Release notes button
+		releaseNotesButton := widget.NewButton("View Release Notes", func() {
+			releaseNotesURL, err := l.githubReleaseNotesURL(version)
+			if err != nil {
+				log.Printf("Failed to parse URL: %v", err)
+				return
+			}
+
+			l.app.OpenURL(releaseNotesURL)
+		})
+
 		// Progress container
 		progressContainer := container.NewVBox(
 			widget.NewLabel(title),
 			progressBar,
 			statusLabel,
+			widget.NewSeparator(),
+			releaseNotesButton,
 		)
 
 		progressWindow.SetContent(progressContainer)

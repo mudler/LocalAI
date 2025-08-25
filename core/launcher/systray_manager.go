@@ -437,7 +437,7 @@ func (sm *SystrayManager) showStartupErrorDialog(err error) {
 func (sm *SystrayManager) showDownloadProgress(version string) {
 	// Create a new window for download progress
 	progressWindow := sm.app.NewWindow("Downloading LocalAI Update")
-	progressWindow.Resize(fyne.NewSize(400, 200))
+	progressWindow.Resize(fyne.NewSize(400, 250))
 	progressWindow.CenterOnScreen()
 
 	// Progress bar
@@ -447,11 +447,24 @@ func (sm *SystrayManager) showDownloadProgress(version string) {
 	// Status label
 	statusLabel := widget.NewLabel("Preparing download...")
 
+	// Release notes button
+	releaseNotesButton := widget.NewButton("View Release Notes", func() {
+		releaseNotesURL, err := sm.launcher.githubReleaseNotesURL(version)
+		if err != nil {
+			log.Printf("Failed to parse URL: %v", err)
+			return
+		}
+
+		sm.app.OpenURL(releaseNotesURL)
+	})
+
 	// Progress container
 	progressContainer := container.NewVBox(
 		widget.NewLabel(fmt.Sprintf("Downloading LocalAI version %s", version)),
 		progressBar,
 		statusLabel,
+		widget.NewSeparator(),
+		releaseNotesButton,
 	)
 
 	progressWindow.SetContent(progressContainer)
