@@ -155,11 +155,13 @@ func (l *Launcher) Initialize() error {
 	// Check if LocalAI is installed
 	if !l.releaseManager.IsLocalAIInstalled() {
 		log.Printf("No LocalAI installation found")
-		l.updateStatus("No LocalAI installation found")
-		if l.ui != nil {
-			// Show dialog offering to download LocalAI
-			l.showDownloadLocalAIDialog()
-		}
+		fyne.Do(func() {
+			l.updateStatus("No LocalAI installation found")
+			if l.ui != nil {
+				// Show dialog offering to download LocalAI
+				l.showDownloadLocalAIDialog()
+			}
+		})
 	}
 
 	// Check for updates periodically
