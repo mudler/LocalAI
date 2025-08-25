@@ -228,8 +228,11 @@ func (l *Launcher) StartLocalAI() error {
 	}
 
 	l.isRunning = true
-	l.updateStatus("LocalAI is starting...")
-	l.updateRunningState(true)
+
+	fyne.Do(func() {
+		l.updateStatus("LocalAI is starting...")
+		l.updateRunningState(true)
+	})
 
 	// Start log monitoring
 	go l.monitorLogs(stdout, "STDOUT")
@@ -240,12 +243,14 @@ func (l *Launcher) StartLocalAI() error {
 		// Wait for process to start or fail
 		err := l.localaiCmd.Wait()
 		l.isRunning = false
-		l.updateRunningState(false)
-		if err != nil {
-			l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
-		} else {
-			l.updateStatus("LocalAI stopped")
-		}
+		fyne.Do(func() {
+			l.updateRunningState(false)
+			if err != nil {
+				l.updateStatus(fmt.Sprintf("LocalAI stopped with error: %v", err))
+			} else {
+				l.updateStatus("LocalAI stopped")
+			}
+		})
 	}()
 
 	// Add startup timeout detection
@@ -257,8 +262,10 @@ func (l *Launcher) StartLocalAI() error {
 				if err := l.localaiCmd.Process.Signal(syscall.Signal(0)); err != nil {
 					// Process is dead, mark as not running
 					l.isRunning = false
-					l.updateRunningState(false)
-					l.updateStatus("LocalAI failed to start properly")
+					fyne.Do(func() {
+						l.updateRunningState(false)
+						l.updateStatus("LocalAI failed to start properly")
+					})
 				}
 			}
 		}
@@ -282,8 +289,10 @@ func (l *Launcher) StopLocalAI() error {
 	}
 
 	l.isRunning = false
-	l.updateRunningState(false)
-	l.updateStatus("LocalAI stopped")
+	fyne.Do(func() {
+		l.updateRunningState(false)
+		l.updateStatus("LocalAI stopped")
+	})
 	return nil
 }
 
@@ -631,6 +640,7 @@ func (l *Launcher) showDownloadProgress(version, title string) {
 							progressWindow.Close()
 							// Update status and refresh systray menu
 							l.updateStatus("LocalAI installed successfully")
+
 							if l.systray != nil {
 								l.systray.recreateMenu()
 							}
@@ -669,15 +679,17 @@ func (l *Launcher) monitorLogs(reader io.Reader, prefix string) {
 			}
 		}
 
-		// Notify UI of new log content
-		if l.ui != nil {
-			l.ui.OnLogUpdate(logLine)
-		}
+		fyne.Do(func() {
+			// Notify UI of new log content
+			if l.ui != nil {
+				l.ui.OnLogUpdate(logLine)
+			}
 
-		// Check for startup completion
-		if strings.Contains(line, "API server listening") {
-			l.updateStatus("LocalAI is running")
-		}
+			// Check for startup completion
+			if strings.Contains(line, "API server listening") {
+				l.updateStatus("LocalAI is running")
+			}
+		})
 	}
 }
 
@@ -719,13 +731,15 @@ func (l *Launcher) periodicUpdateCheck() {
 		case <-ticker.C:
 			available, version, err := l.CheckForUpdates()
 			if err == nil && available {
-				l.updateStatus(fmt.Sprintf("Update available: %s", version))
-				if l.systray != nil {
-					l.systray.NotifyUpdateAvailable(version)
-				}
-				if l.ui != nil {
-					l.ui.NotifyUpdateAvailable(version)
-				}
+				fyne.Do(func() {
+					l.updateStatus(fmt.Sprintf("Update available: %s", version))
+					if l.systray != nil {
+						l.systray.NotifyUpdateAvailable(version)
+					}
+					if l.ui != nil {
+						l.ui.NotifyUpdateAvailable(version)
+					}
+				})
 			}
 		case <-l.ctx.Done():
 			return
