@@ -60,6 +60,8 @@ jobs:
           go-version: 1.23
       - name: Build launcher for Linux
         run: |
+          sudo apt-get update
+          sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
           make build-launcher-linux
       - name: Upload Linux launcher artifacts
         uses: actions/upload-release-asset@v1
