@@ -9,7 +9,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/driver/desktop"
-	coreLauncher "github.com/mudler/LocalAI/cli/launcher/internal"
+	coreLauncher "github.com/mudler/LocalAI/cmd/launcher/internal"
 )
 
 func main() {
