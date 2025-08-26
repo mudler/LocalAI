@@ -17,6 +17,125 @@ const (
 	testImage = "quay.io/mudler/tests:localai-backend-test"
 )
 
+var _ = Describe("Runtime capability-based backend selection", func() {
+	var tempDir string
+
+	BeforeEach(func() {
+		var err error
+		tempDir, err = os.MkdirTemp("", "gallery-caps-*")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	It("ResolveBestBackendName selects default CPU or NVIDIA backend from meta", func() {
+		// Arrange: create installed concrete backends so AvailableBackends considers them
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		// cpu-llama-cpp (alias: llama-cpp)
+		cpuDir := filepath.Join(tempDir, "cpu-llama-cpp")
+		must(os.MkdirAll(cpuDir, 0o750))
+		cpuMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cpu-llama-cpp"}
+		b, _ := json.Marshal(cpuMeta)
+		must(os.WriteFile(filepath.Join(cpuDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cpuDir, "run.sh"), []byte(""), 0o755))
+
+		// cuda12-llama-cpp (alias: llama-cpp)
+		cudaDir := filepath.Join(tempDir, "cuda12-llama-cpp")
+		must(os.MkdirAll(cudaDir, 0o750))
+		cudaMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cuda12-llama-cpp"}
+		b, _ = json.Marshal(cudaMeta)
+		must(os.WriteFile(filepath.Join(cudaDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cudaDir, "run.sh"), []byte(""), 0o755))
+
+		// Create a gallery file with a meta backend mapping
+		meta := &GalleryBackend{Metadata: Metadata{Name: "llama-cpp"}, CapabilitiesMap: map[string]string{
+			"default": "cpu-llama-cpp",
+			"nvidia":  "cuda12-llama-cpp",
+		}}
+		cpu := &GalleryBackend{Metadata: Metadata{Name: "cpu-llama-cpp"}, URI: "quay.io/mudler/tests:localai-backend-test"}
+		cuda := &GalleryBackend{Metadata: Metadata{Name: "cuda12-llama-cpp"}, URI: "quay.io/mudler/tests:localai-backend-test"}
+		entries := GalleryBackends{cpu, cuda, meta}
+		dat, err := yaml.Marshal(entries)
+		must(err)
+		galPath := filepath.Join(tempDir, "backend-gallery.yaml")
+		must(os.WriteFile(galPath, dat, 0o644))
+		galleries := []config.Gallery{{Name: "test", URL: "file://" + galPath}}
+
+		// CPU/default case (no GPU)
+		sysDefault, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysDefault.GPUVendor = "" // ensure default capability
+		name, err := ResolveBestBackendName(galleries, sysDefault, "llama-cpp")
+		must(err)
+		Expect(name).To(Equal("cpu-llama-cpp"))
+
+		// NVIDIA case (ensure VRAM high enough to not fallback to CPU)
+		sysNvidia, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysNvidia.GPUVendor = "nvidia"
+		sysNvidia.VRAM = 8 * 1024 * 1024 * 1024 // 8GB
+		name, err = ResolveBestBackendName(galleries, sysNvidia, "llama-cpp")
+		must(err)
+		Expect(name).To(Equal("cuda12-llama-cpp"))
+	})
+
+	It("ListSystemBackendsSelected prefers optimal alias candidate", func() {
+		// Arrange two installed backends sharing the same alias
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		cpuDir := filepath.Join(tempDir, "cpu-llama-cpp")
+		must(os.MkdirAll(cpuDir, 0o750))
+		cpuMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cpu-llama-cpp"}
+		b, _ := json.Marshal(cpuMeta)
+		must(os.WriteFile(filepath.Join(cpuDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cpuDir, "run.sh"), []byte(""), 0o755))
+
+		cudaDir := filepath.Join(tempDir, "cuda12-llama-cpp")
+		must(os.MkdirAll(cudaDir, 0o750))
+		cudaMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cuda12-llama-cpp"}
+		b, _ = json.Marshal(cudaMeta)
+		must(os.WriteFile(filepath.Join(cudaDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cudaDir, "run.sh"), []byte(""), 0o755))
+
+		// Default system: alias should point to CPU
+		sysDefault, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysDefault.GPUVendor = "" // force default selection
+		backs, err := ListSystemBackendsSelected(sysDefault)
+		must(err)
+		aliasBack, ok := backs.Get("llama-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(cpuDir, "run.sh")))
+		// concrete entries remain
+		_, ok = backs.Get("cpu-llama-cpp")
+		Expect(ok).To(BeTrue())
+		_, ok = backs.Get("cuda12-llama-cpp")
+		Expect(ok).To(BeTrue())
+
+		// NVIDIA system: alias should point to CUDA
+		sysNvidia, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysNvidia.GPUVendor = "nvidia"
+		sysNvidia.VRAM = 8 * 1024 * 1024 * 1024
+		backs, err = ListSystemBackendsSelected(sysNvidia)
+		must(err)
+		aliasBack, ok = backs.Get("llama-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(cudaDir, "run.sh")))
+	})
+})
+
 var _ = Describe("Gallery Backends", func() {
 	var (
 		tempDir   string
