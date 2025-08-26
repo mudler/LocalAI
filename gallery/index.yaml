@@ -139,6 +139,22 @@
     - filename: mmproj-OpenGVLab_InternVL3_5-4B-f16.gguf
       sha256: 0f9704972fcb9cb0a4f2c0f4eb7fe4f58e53ccd4b06ec17cf7a80271aa963eb7
       uri: huggingface://bartowski/OpenGVLab_InternVL3_5-8B-GGUF/mmproj-OpenGVLab_InternVL3_5-4B-f16.gguf
+- !!merge <<: *internvl35
+  name: "opengvlab_internvl3_5-2b"
+  urls:
+    - https://huggingface.co/OpenGVLab/InternVL3_5-2B
+    - https://huggingface.co/bartowski/OpenGVLab_InternVL3_5-2B-GGUF
+  overrides:
+    mmproj: mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf
+    parameters:
+      model: OpenGVLab_InternVL3_5-2B-Q8_0.gguf
+  files:
+    - filename: OpenGVLab_InternVL3_5-2B-Q8_0.gguf
+      sha256: 6997c6e3a1fe5920ac1429a21a3ec15d545e14eb695ee3656834859e617800b5
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-2B-GGUF/OpenGVLab_InternVL3_5-2B-Q8_0.gguf
+    - filename: mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf
+      sha256: e83ba6e675b747f7801557dc24594f43c17a7850b6129d4972d55e3e9b010359
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-8B-GGUF/mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf
 - &lfm2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "lfm2-vl-450m"
