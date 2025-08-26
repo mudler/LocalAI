@@ -384,6 +384,11 @@ function installRequirements() {
         requirementFiles+=("${EDIR}/requirements-${BUILD_PROFILE}-after.txt")
     fi
 
+    # This is needed to build wheels that e.g. depends on Python.h
+    if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+        export C_INCLUDE_PATH="${C_INCLUDE_PATH:-}:$(_portable_dir)/include/python${PYTHON_VERSION}"
+    fi
+
     for reqFile in ${requirementFiles[@]}; do
         if [ -f "${reqFile}" ]; then
             echo "starting requirements install for ${reqFile}"
