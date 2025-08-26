@@ -43,6 +43,38 @@
     - filename: mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
       sha256: fa362a7396c3dddecf6f9a714144ed86207211d6c68ef39ea0d7dfe21b969b8d
       uri: huggingface://bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF/mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
+- !!merge <<: *internvl35
+  name: "opengvlab_internvl3_5-14b-q8_0"
+  urls:
+    - https://huggingface.co/OpenGVLab/InternVL3_5-14B
+    - https://huggingface.co/bartowski/OpenGVLab_InternVL3_5-14B-GGUF
+  overrides:
+    parameters:
+      model: OpenGVLab_InternVL3_5-14B-Q8_0.gguf
+    mmproj: mmproj-OpenGVLab_InternVL3_5-14B-f16.gguf
+  files:
+    - filename: OpenGVLab_InternVL3_5-14B-Q8_0.gguf
+      sha256: e097b9c837347ec8050f9ed95410d1001030a4701eb9551c1be04793af16677a
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-14B-GGUF/OpenGVLab_InternVL3_5-14B-Q8_0.gguf
+    - filename: mmproj-OpenGVLab_InternVL3_5-14B-f16.gguf
+      sha256: c9625c981969d267052464e2d345f8ff5bc7e841871f5284a2bd972461c7356d
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-14B-GGUF/mmproj-OpenGVLab_InternVL3_5-14B-f16.gguf
+- !!merge <<: *internvl35
+  name: "opengvlab_internvl3_5-14b"
+  urls:
+    - https://huggingface.co/OpenGVLab/InternVL3_5-14B
+    - https://huggingface.co/bartowski/OpenGVLab_InternVL3_5-14B-GGUF
+  overrides:
+    mmproj: mmproj-OpenGVLab_InternVL3_5-14B-f16.gguf
+    parameters:
+      model: OpenGVLab_InternVL3_5-14B-Q4_K_M.gguf
+  files:
+    - filename: OpenGVLab_InternVL3_5-14B-Q4_K_M.gguf
+      sha256: 5bb86ab56ee543bb72ba0cab58658ecb54713504f1bc9d1d075d202a35419032
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-14B-GGUF/OpenGVLab_InternVL3_5-14B-Q4_K_M.gguf
+    - filename: mmproj-OpenGVLab_InternVL3_5-14B-f16.gguf
+      sha256: c9625c981969d267052464e2d345f8ff5bc7e841871f5284a2bd972461c7356d
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-14B-GGUF/mmproj-OpenGVLab_InternVL3_5-14B-f16.gguf
 - &lfm2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "lfm2-vl-450m"
