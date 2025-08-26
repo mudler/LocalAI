@@ -1,4 +1,48 @@
 ---
+- &internvl35
+  name: "opengvlab_internvl3_5-30b-a3b"
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/64006c09330a45b03605bba3/zJsd2hqd3EevgXo6fNgC-.png
+  urls:
+    - https://huggingface.co/OpenGVLab/InternVL3_5-30B-A3B
+    - https://huggingface.co/bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF
+  license: apache-2.0
+  tags:
+    - multimodal
+    - gguf
+    - GPU
+    - Cpu
+    - image-to-text
+    - text-to-text
+  description: |
+    We introduce InternVL3.5, a new family of open-source multimodal models that significantly advances versatility, reasoning capability, and inference efficiency along the InternVL series. A key innovation is the Cascade Reinforcement Learning (Cascade RL) framework, which enhances reasoning through a two-stage process: offline RL for stable convergence and online RL for refined alignment. This coarse-to-fine training strategy leads to substantial improvements on downstream reasoning tasks, e.g., MMMU and MathVista. To optimize efficiency, we propose a Visual Resolution Router (ViR) that dynamically adjusts the resolution of visual tokens without compromising performance. Coupled with ViR, our Decoupled Vision-Language Deployment (DvD) strategy separates the vision encoder and language model across different GPUs, effectively balancing computational load. These contributions collectively enable InternVL3.5 to achieve up to a +16.0% gain in overall reasoning performance and a 4.05 ×\times× inference speedup compared to its predecessor, i.e., InternVL3. In addition, InternVL3.5 supports novel capabilities such as GUI interaction and embodied agency. Notably, our largest model, i.e., InternVL3.5-241B-A28B, attains state-of-the-art results among open-source MLLMs across general multimodal, reasoning, text, and agentic tasks—narrowing the performance gap with leading commercial models like GPT-5. All models and code are publicly released.
+  overrides:
+    parameters:
+      model: OpenGVLab_InternVL3_5-30B-A3B-Q4_K_M.gguf
+    mmproj: mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
+  files:
+    - filename: OpenGVLab_InternVL3_5-30B-A3B-Q4_K_M.gguf
+      sha256: c352004ac811cf9aa198e11f698ebd5fd3c49b483cb31a2b081fb415dd8347c2
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF/OpenGVLab_InternVL3_5-30B-A3B-Q4_K_M.gguf
+    - filename: mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
+      sha256: fa362a7396c3dddecf6f9a714144ed86207211d6c68ef39ea0d7dfe21b969b8d
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF/mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
+- !!merge <<: *internvl35
+  name: "opengvlab_internvl3_5-30b-a3b-q8_0"
+  urls:
+    - https://huggingface.co/OpenGVLab/InternVL3_5-30B-A3B
+    - https://huggingface.co/bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF
+  overrides:
+    parameters:
+      model: OpenGVLab_InternVL3_5-30B-A3B-Q8_0.gguf
+    mmproj: mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
+  files:
+    - filename: OpenGVLab_InternVL3_5-30B-A3B-Q8_0.gguf
+      sha256: 79ac13df1d3f784cd5702b2835ede749cdfd274f141d1e0df25581af2a2a6720
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF/OpenGVLab_InternVL3_5-30B-A3B-Q8_0.gguf
+    - filename: mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
+      sha256: fa362a7396c3dddecf6f9a714144ed86207211d6c68ef39ea0d7dfe21b969b8d
+      uri: huggingface://bartowski/OpenGVLab_InternVL3_5-30B-A3B-GGUF/mmproj-OpenGVLab_InternVL3_5-30B-A3B-f16.gguf
 - &lfm2
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "lfm2-vl-450m"
