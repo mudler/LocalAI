@@ -188,7 +188,7 @@ var _ = Describe("E2E test", func() {
 									{
 										Type: openai.ChatMessagePartTypeImageURL,
 										ImageURL: &openai.ChatMessageImageURL{
-											URL:    "https://upload.wikimedia.org/wikipedia/commons/thumb/d/dd/Gfp-wisconsin-madison-the-nature-boardwalk.jpg/2560px-Gfp-wisconsin-madison-the-nature-boardwalk.jpg",
+											URL:    "https://picsum.photos/id/22/4434/3729",
 											Detail: openai.ImageURLDetailLow,
 										},
 									},
@@ -197,7 +197,7 @@ var _ = Describe("E2E test", func() {
 						}})
 				Expect(err).ToNot(HaveOccurred())
 				Expect(len(resp.Choices)).To(Equal(1), fmt.Sprint(resp))
-				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("wooden"), ContainSubstring("grass")), fmt.Sprint(resp.Choices[0].Message.Content))
+				Expect(resp.Choices[0].Message.Content).To(Or(ContainSubstring("man"), ContainSubstring("road")), fmt.Sprint(resp.Choices[0].Message.Content))
 			})
 		})
 		Context("text to audio", func() {
