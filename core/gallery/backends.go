@@ -1,3 +1,5 @@
+// Package gallery provides installation and registration utilities for LocalAI backends,
+// including meta-backend resolution based on system capabilities.
 package gallery
 
 import (
@@ -5,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -19,6 +22,12 @@ const (
 	metadataFile = "metadata.json"
 	runFile      = "run.sh"
 )
+
+// backendCandidate represents an installed concrete backend option for a given alias
+type backendCandidate struct {
+	name    string
+	runFile string
+}
 
 // readBackendMetadata reads the metadata JSON file for a backend
 func readBackendMetadata(backendPath string) (*BackendMetadata, error) {
@@ -58,7 +67,8 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	return nil
 }
 
-// Installs a model from the gallery
+// InstallBackendFromGallery installs a backend from galleries.
+// If the backend is a meta backend, it selects the best concrete backend using system capabilities.
 func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, name string, downloadStatus func(string, string, string, float64), force bool) error {
 	if !force {
 		// check if we already have the backend installed
@@ -371,7 +381,8 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 }
 
 func RegisterBackends(systemState *system.SystemState, modelLoader *model.ModelLoader) error {
-	backends, err := ListSystemBackends(systemState)
+	// Prefer optimal alias resolution when multiple concrete backends share the same alias
+	backends, err := ListSystemBackendsSelected(systemState)
 	if err != nil {
 		return err
 	}
@@ -382,4 +393,181 @@ func RegisterBackends(systemState *system.SystemState, modelLoader *model.ModelL
 	}
 
 	return nil
+}
+
+// ResolveBestBackendName returns the concrete backend name to use for a given meta or concrete backend name,
+// based on the current system state and gallery metadata. If the provided name is already concrete, it is returned as-is.
+func ResolveBestBackendName(galleries []config.Gallery, systemState *system.SystemState, name string) (string, error) {
+	backends, err := AvailableBackends(galleries, systemState)
+	if err != nil {
+		return "", err
+	}
+	be := FindGalleryElement(backends, name)
+	if be == nil {
+		return "", fmt.Errorf("no backend found with name %q", name)
+	}
+	if !be.IsMeta() {
+		return be.Name, nil
+	}
+	best := be.FindBestBackendFromMeta(systemState, backends)
+	if best == nil {
+		return "", fmt.Errorf("no backend found with capabilities %v", be.CapabilitiesMap)
+	}
+	return best.Name, nil
+}
+
+// ListSystemBackendsSelected lists system backends and, when multiple concrete backends share the same alias
+// (e.g., cpu-llama-cpp and cuda12-llama-cpp both alias to "llama-cpp"), selects the optimal one based on the
+// detected system capability (GPU vendor/platform). Concrete backend names are always included.
+func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends, error) {
+	// First, include system-provided backends
+	backends := make(SystemBackends)
+
+	systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath)
+	if err == nil {
+		for _, systemBackend := range systemBackends {
+			if systemBackend.IsDir() {
+				systemBackendRunFile := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
+				if _, err := os.Stat(systemBackendRunFile); err == nil {
+					backends[systemBackend.Name()] = SystemBackend{
+						Name:     systemBackend.Name(),
+						RunFile:  systemBackendRunFile,
+						IsMeta:   false,
+						IsSystem: true,
+						Metadata: nil,
+					}
+				}
+			}
+		}
+	} else {
+		log.Warn().Err(err).Msg("Failed to read system backends, proceeding with user-managed backends")
+	}
+
+	// Scan user-managed backends and group alias candidates
+	entries, err := os.ReadDir(systemState.Backend.BackendsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	aliasGroups := make(map[string][]backendCandidate)
+	metaMap := make(map[string]*BackendMetadata)
+
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := e.Name()
+		run := filepath.Join(systemState.Backend.BackendsPath, dir, runFile)
+
+		var metadata *BackendMetadata
+		metadataPath := filepath.Join(systemState.Backend.BackendsPath, dir, metadataFile)
+		if _, err := os.Stat(metadataPath); os.IsNotExist(err) {
+			metadata = &BackendMetadata{Name: dir}
+		} else {
+			m, rerr := readBackendMetadata(filepath.Join(systemState.Backend.BackendsPath, dir))
+			if rerr != nil {
+				return nil, rerr
+			}
+			if m == nil {
+				metadata = &BackendMetadata{Name: dir}
+			} else {
+				metadata = m
+			}
+		}
+
+		metaMap[dir] = metadata
+
+		// Always include the concrete backend name
+		if _, err := os.Stat(run); err == nil {
+			backends[dir] = SystemBackend{
+				Name:     dir,
+				RunFile:  run,
+				IsMeta:   false,
+				Metadata: metadata,
+			}
+		}
+
+		// Collect alias candidates
+		if metadata.Alias != "" {
+			aliasGroups[metadata.Alias] = append(aliasGroups[metadata.Alias], backendCandidate{name: dir, runFile: run})
+		}
+
+		// Meta backend indirection (meta dir -> real dir run.sh)
+		if metadata.MetaBackendFor != "" {
+			backends[metadata.Name] = SystemBackend{
+				Name:     metadata.Name,
+				RunFile:  filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor, runFile),
+				IsMeta:   true,
+				Metadata: metadata,
+			}
+		}
+	}
+
+	// For each alias, choose the best candidate for this system
+	for alias, cands := range aliasGroups {
+		selected := selectBestCandidate(systemState, cands)
+		if selected.runFile == "" {
+			// Skip if the candidate has no runnable file
+			continue
+		}
+		// Attach metadata of the selected concrete backend, if known
+		md := metaMap[selected.name]
+		backends[alias] = SystemBackend{
+			Name:     alias,
+			RunFile:  selected.runFile,
+			IsMeta:   false,
+			Metadata: md,
+		}
+	}
+
+	return backends, nil
+}
+
+func selectBestCandidate(systemState *system.SystemState, cands []backendCandidate) backendCandidate {
+	if len(cands) == 0 {
+		return backendCandidate{}
+	}
+	if len(cands) == 1 {
+		return cands[0]
+	}
+
+	// Determine capability
+	capStr := systemState.GPUVendor
+	if capStr == "" {
+		capStr = "default"
+	}
+
+	for _, token := range capabilityPriority(capStr) {
+		for _, c := range cands {
+			lname := strings.ToLower(c.name)
+			if strings.Contains(lname, token) {
+				return c
+			}
+		}
+	}
+	// Fallback: first one with a runfile
+	for _, c := range cands {
+		if c.runFile != "" {
+			return c
+		}
+	}
+	return cands[0]
+}
+
+func capabilityPriority(capStr string) []string {
+	capStr = strings.ToLower(capStr)
+	switch {
+	case strings.HasPrefix(capStr, "nvidia"):
+		return []string{"cuda", "vulkan", "cpu"}
+	case strings.HasPrefix(capStr, "amd"):
+		return []string{"rocm", "hip", "vulkan", "cpu"}
+	case strings.HasPrefix(capStr, "intel"):
+		return []string{"sycl", "intel", "cpu"}
+	case strings.HasPrefix(capStr, "metal"):
+		return []string{"metal", "cpu"}
+	case strings.HasPrefix(capStr, "darwin-x86"):
+		return []string{"darwin-x86", "cpu"}
+	default:
+		return []string{"cpu"}
+	}
 }
