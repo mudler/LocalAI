@@ -42,7 +42,7 @@ func main() {
 
 	for _, envFile := range envFiles {
 		if _, err := os.Stat(envFile); err == nil {
-			log.Info().Str("envFile", envFile).Msg("env file found, loading environment variables from file")
+			log.Debug().Str("envFile", envFile).Msg("env file found, loading environment variables from file")
 			err = godotenv.Load(envFile)
 			if err != nil {
 				log.Error().Err(err).Str("envFile", envFile).Msg("failed to load environment variables from file")
@@ -97,19 +97,19 @@ Version: ${version}
 	switch *cli.CLI.LogLevel {
 	case "error":
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-		log.Info().Msg("Setting logging to error")
+		log.Debug().Msg("Setting logging to error")
 	case "warn":
 		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-		log.Info().Msg("Setting logging to warn")
+		log.Debug().Msg("Setting logging to warn")
 	case "info":
 		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		log.Info().Msg("Setting logging to info")
+		log.Debug().Msg("Setting logging to info")
 	case "debug":
 		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		log.Debug().Msg("Setting logging to debug")
 	case "trace":
 		zerolog.SetGlobalLevel(zerolog.TraceLevel)
-		log.Trace().Msg("Setting logging to trace")
+		log.Debug().Msg("Setting logging to trace")
 	}
 
 	// Run the thing!
