@@ -75,6 +75,12 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		Expect(name).To(Equal("cpu-llama-cpp"))
 
 		// NVIDIA case (ensure VRAM high enough to not fallback to CPU)
+		if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+			// On macOS arm64, capability is forced to "metal"; this meta mapping lacks metal,
+			// so it correctly falls back to default. Skip CUDA assertion on this platform.
+			Skip("CUDA selection not applicable on darwin/arm64 (metal)")
+		}
+
 		sysNvidia, err := system.GetSystemState(
 			system.WithBackendPath(tempDir),
 		)
