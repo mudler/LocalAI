@@ -72,13 +72,6 @@ def is_float(s):
     except ValueError:
         return False
 
-def is_int(s):
-    try:
-        int(s)
-        return True
-    except ValueError:
-        return False
-
 # The scheduler list mapping was taken from here: https://github.com/neggles/animatediff-cli/blob/6f336f5f4b5e38e85d7f06f1744ef42d0a45f2a7/src/animatediff/schedulers.py#L39
 # Credits to https://github.com/neggles
 # See https://github.com/huggingface/diffusers/issues/4167 for more details on sched mapping from A1111
@@ -184,9 +177,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 key, value = opt.split(":")
                 # if value is a number, convert it to the appropriate type
                 if is_float(value):
-                    value = float(value)
-                elif is_int(value):
-                    value = int(value)
+                    if value.is_integer():
+                        value = int(value)
+                    else:
+                        value = float(value)
                 self.options[key] = value
 
             # From options, extract if present "torch_dtype" and set it to the appropriate type
