@@ -69,10 +69,6 @@ type PromptTemplate struct {
 	Content string `yaml:"content"`
 }
 
-func (mc *ModelConfig) ToYAML() ([]byte, error) {
-	return yaml.Marshal(mc)
-}
-
 // Installs a model from the gallery
 func InstallModelFromGallery(
 	modelGalleries, backendGalleries []config.Gallery,
@@ -169,28 +165,26 @@ func InstallModel(systemState *system.SystemState, nameOverride string, config *
 	}
 
 	// Download files and verify their SHA
-	if downloadStatus != nil {
-		for i, file := range config.Files {
-			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+	for i, file := range config.Files {
+		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
-			if err := utils.VerifyPath(file.Filename, basePath); err != nil {
+		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
+			return nil, err
+		}
+
+		// Create file path
+		filePath := filepath.Join(basePath, file.Filename)
+
+		if enforceScan {
+			scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
+			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
+				log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
 				return nil, err
 			}
-
-			// Create file path
-			filePath := filepath.Join(basePath, file.Filename)
-
-			if enforceScan {
-				scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
-				if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
-					log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
-					return nil, err
-				}
-			}
-			uri := downloader.URI(file.URI)
-			if err := uri.DownloadFile(filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
-				return nil, err
-			}
+		}
+		uri := downloader.URI(file.URI)
+		if err := uri.DownloadFile(filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
+			return nil, err
 		}
 	}
 
