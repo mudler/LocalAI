@@ -159,7 +159,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            quay.io/go-skynet/ci-tests
+            ttl.sh/localaici-tests
           tags: |
             type=ref,event=branch,suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
             type=semver,pattern={{raw}},suffix=localai${{ github.event.number }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
@@ -269,7 +269,7 @@ jobs:
           file: ./Dockerfile
           cache-from: type=gha
           platforms: ${{ inputs.platforms }}
-          #push: true
+          push: true
           tags: ${{ steps.meta_pull_request.outputs.tags }}
           labels: ${{ steps.meta_pull_request.outputs.labels }}
 ## End testing image
