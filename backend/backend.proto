@@ -312,15 +312,17 @@ message GenerateImageRequest {
 
 message GenerateVideoRequest {
   string prompt = 1;
-  string start_image = 2;  // Path or base64 encoded image for the start frame
-  string end_image = 3;    // Path or base64 encoded image for the end frame
-  int32 width = 4;
-  int32 height = 5;
-  int32 num_frames = 6;    // Number of frames to generate
-  int32 fps = 7;          // Frames per second
-  int32 seed = 8;
-  float cfg_scale = 9;    // Classifier-free guidance scale
-  string dst = 10;        // Output path for the generated video
+  string negative_prompt = 2;  // Negative prompt for video generation
+  string start_image = 3;  // Path or base64 encoded image for the start frame
+  string end_image = 4;    // Path or base64 encoded image for the end frame
+  int32 width = 5;
+  int32 height = 6;
+  int32 num_frames = 7;    // Number of frames to generate
+  int32 fps = 8;          // Frames per second
+  int32 seed = 9;
+  float cfg_scale = 10;    // Classifier-free guidance scale
+  int32 step = 11;         // Number of inference steps
+  string dst = 12;        // Output path for the generated video
 }
 
 message TTSRequest {

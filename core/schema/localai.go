@@ -28,6 +28,7 @@ type GalleryResponse struct {
 type VideoRequest struct {
 	BasicModelRequest
 	Prompt         string  `json:"prompt" yaml:"prompt"`
+	NegativePrompt string  `json:"negative_prompt" yaml:"negative_prompt"`
 	StartImage     string  `json:"start_image" yaml:"start_image"`
 	EndImage       string  `json:"end_image" yaml:"end_image"`
 	Width          int32   `json:"width" yaml:"width"`
@@ -36,6 +37,7 @@ type VideoRequest struct {
 	FPS            int32   `json:"fps" yaml:"fps"`
 	Seed           int32   `json:"seed" yaml:"seed"`
 	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`
+	Step           int32   `json:"step" yaml:"step"`
 	ResponseFormat string  `json:"response_format" yaml:"response_format"`
 }
 
