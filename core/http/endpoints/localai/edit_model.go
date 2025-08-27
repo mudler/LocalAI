@@ -226,3 +226,33 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 		return c.JSON(response)
 	}
 }
+
+// ReloadModelsEndpoint handles reloading model configurations from disk
+func ReloadModelsEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		// Reload configurations
+		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath); err != nil {
+			response := ModelResponse{
+				Success: false,
+				Error:   "Failed to reload configurations: " + err.Error(),
+			}
+			return c.Status(500).JSON(response)
+		}
+
+		// Preload the models
+		if err := cl.Preload(appConfig.SystemState.Model.ModelsPath); err != nil {
+			response := ModelResponse{
+				Success: false,
+				Error:   "Failed to preload models: " + err.Error(),
+			}
+			return c.Status(500).JSON(response)
+		}
+
+		// Return success response
+		response := ModelResponse{
+			Success: true,
+			Message: "Model configurations reloaded successfully",
+		}
+		return c.Status(fiber.StatusOK).JSON(response)
+	}
+}
