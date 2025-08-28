@@ -782,7 +782,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/schema.OpenAIRequest"
+                            "$ref": "#/definitions/schema.VideoRequest"
                         }
                     }
                 ],
@@ -1820,6 +1820,50 @@ const docTemplate = `{
                 },
                 "model": {
                     "type": "string"
+                }
+            }
+        },
+        "schema.VideoRequest": {
+            "type": "object",
+            "properties": {
+                "cfg_scale": {
+                    "type": "number"
+                },
+                "end_image": {
+                    "type": "string"
+                },
+                "fps": {
+                    "type": "integer"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "negative_prompt": {
+                    "type": "string"
+                },
+                "num_frames": {
+                    "type": "integer"
+                },
+                "prompt": {
+                    "type": "string"
+                },
+                "response_format": {
+                    "type": "string"
+                },
+                "seed": {
+                    "type": "integer"
+                },
+                "start_image": {
+                    "type": "string"
+                },
+                "step": {
+                    "type": "integer"
+                },
+                "width": {
+                    "type": "integer"
                 }
             }
         },
