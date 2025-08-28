@@ -40,14 +40,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         except ValueError:
             return False
 
-    def _is_int(self, s):
-        """Check if a string can be converted to int."""
-        try:
-            int(s)
-            return True
-        except ValueError:
-            return False
-
     def Health(self, request, context):
         """
         Returns a health check message.
@@ -89,9 +81,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 
                 # Convert numeric values to appropriate types
                 if self._is_float(value):
-                    value = float(value)
-                elif self._is_int(value):
-                    value = int(value)
+                    if float(value).is_integer():
+                        value = int(value)
+                    else:
+                        value = float(value)
                 elif value.lower() in ["true", "false"]:
                     value = value.lower() == "true"
                     

@@ -8,3 +8,4 @@ compel
 peft
 sentencepiece
 optimum-quanto
+ftfy
