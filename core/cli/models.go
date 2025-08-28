@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
@@ -125,7 +126,8 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
 
-		err = startup.InstallModels(galleries, backendGalleries, systemState, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
+		modelLoader := model.NewModelLoader(systemState, true)
+		err = startup.InstallModels(galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
 		if err != nil {
 			return err
 		}

@@ -88,7 +88,7 @@ var _ = Describe("Model test", func() {
 			Expect(models[0].URL).To(Equal(bertEmbeddingsURL))
 			Expect(models[0].Installed).To(BeFalse())
 
-			err = InstallModelFromGallery(galleries, []config.Gallery{}, systemState, "test@bert", GalleryModel{}, func(s1, s2, s3 string, f float64) {}, true, true)
+			err = InstallModelFromGallery(galleries, []config.Gallery{}, systemState, nil, "test@bert", GalleryModel{}, func(s1, s2, s3 string, f float64) {}, true, true)
 			Expect(err).ToNot(HaveOccurred())
 
 			dat, err := os.ReadFile(filepath.Join(tempdir, "bert.yaml"))

@@ -11,6 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	lconfig "github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
@@ -73,6 +74,7 @@ type PromptTemplate struct {
 func InstallModelFromGallery(
 	modelGalleries, backendGalleries []config.Gallery,
 	systemState *system.SystemState,
+	modelLoader *model.ModelLoader,
 	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend bool) error {
 
 	applyModel := func(model *GalleryModel) error {
@@ -131,7 +133,7 @@ func InstallModelFromGallery(
 		if automaticallyInstallBackend && installedModel.Backend != "" {
 			log.Debug().Msgf("Installing backend %q", installedModel.Backend)
 
-			if err := InstallBackendFromGallery(backendGalleries, systemState, installedModel.Backend, downloadStatus, false); err != nil {
+			if err := InstallBackendFromGallery(backendGalleries, systemState, modelLoader, installedModel.Backend, downloadStatus, false); err != nil {
 				return err
 			}
 		}

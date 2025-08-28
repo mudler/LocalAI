@@ -98,6 +98,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				client = NewModel(modelID, uri, nil)
 			}
 		} else {
+			log.Error().Msgf("Backend not found: %s", backend)
 			return nil, fmt.Errorf("backend not found: %s", backend)
 		}
 
@@ -172,6 +173,7 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
+		log.Error().Str("modelID", o.modelID).Err(err).Msgf("Failed to load model %s with backend %s", o.modelID, o.backendString)
 		return nil, err
 	}
 

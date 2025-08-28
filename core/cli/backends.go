@@ -6,6 +6,7 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
 	"github.com/mudler/LocalAI/core/gallery"
@@ -100,7 +101,8 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 		}
 	}
 
-	err = startup.InstallExternalBackends(galleries, systemState, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
+	modelLoader := model.NewModelLoader(systemState, true)
+	err = startup.InstallExternalBackends(galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
 	if err != nil {
 		return err
 	}
