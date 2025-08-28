@@ -2,10 +2,10 @@
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
-torchvision==0.22.1
+torchvision
 accelerate
 compel
 peft
 sentencepiece
-torch==2.7.1
+torch
 ftfy
