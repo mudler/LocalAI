@@ -301,6 +301,9 @@ WebUIs:
 Model galleries
 - https://github.com/go-skynet/model-gallery
 
+Voice:
+- https://github.com/richiejp/VoxInput
+
 Other:
 - Helm chart https://github.com/go-skynet/helm-charts
 - VSCode extension https://github.com/badgooooor/localai-vscode-plugin
