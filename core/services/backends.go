@@ -25,10 +25,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend], s
 	} else {
 		log.Warn().Msgf("installing backend %s", op.GalleryElementName)
 		log.Debug().Msgf("backend galleries: %v", g.appConfig.BackendGalleries)
-		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, op.GalleryElementName, progressCallback, true)
-		if err == nil {
-			err = gallery.RegisterBackends(systemState, g.modelLoader)
-		}
+		err = gallery.InstallBackendFromGallery(g.appConfig.BackendGalleries, systemState, g.modelLoader, op.GalleryElementName, progressCallback, true)
 	}
 	if err != nil {
 		log.Error().Err(err).Msgf("error installing backend %s", op.GalleryElementName)

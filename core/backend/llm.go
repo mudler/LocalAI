@@ -47,7 +47,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		if !slices.Contains(modelNames, c.Name) {
 			utils.ResetDownloadTimers()
 			// if we failed to load the model, we try to download it
-			err := gallery.InstallModelFromGallery(o.Galleries, o.BackendGalleries, o.SystemState, c.Name, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
+			err := gallery.InstallModelFromGallery(o.Galleries, o.BackendGalleries, o.SystemState, loader, c.Name, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
 			if err != nil {
 				log.Error().Err(err).Msgf("failed to install model %q from gallery", modelFile)
 				//return nil, err
