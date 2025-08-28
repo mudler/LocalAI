@@ -30,7 +30,7 @@ import (
 func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 	created := int(time.Now().Unix())
 
-	process := func(id string, s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) {
+	process := func(id string, s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
 		tokenCallback := func(s string, tokenUsage backend.TokenUsage) bool {
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
@@ -59,8 +59,9 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			responses <- resp
 			return true
 		}
-		ComputeChoices(req, s, config, cl, appConfig, loader, func(s string, c *[]schema.Choice) {}, tokenCallback)
+		_, _, err := ComputeChoices(req, s, config, cl, appConfig, loader, func(s string, c *[]schema.Choice) {}, tokenCallback)
 		close(responses)
+		return err
 	}
 
 	return func(c *fiber.Ctx) error {
@@ -121,18 +122,37 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 			responses := make(chan schema.OpenAIResponse)
 
-			go process(id, predInput, input, config, ml, responses, extraUsage)
+			ended := make(chan error)
+			go func() {
+				ended <- process(id, predInput, input, config, ml, responses, extraUsage)
+			}()
 
 			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
 
-				for ev := range responses {
-					var buf bytes.Buffer
-					enc := json.NewEncoder(&buf)
-					enc.Encode(ev)
+			LOOP:
+				for {
+					select {
+					case ev := <-responses:
+						if len(ev.Choices) == 0 {
+							log.Debug().Msgf("No choices in the response, skipping")
+							continue
+						}
+						var buf bytes.Buffer
+						enc := json.NewEncoder(&buf)
+						enc.Encode(ev)
 
-					log.Debug().Msgf("Sending chunk: %s", buf.String())
-					fmt.Fprintf(w, "data: %v\n", buf.String())
-					w.Flush()
+						log.Debug().Msgf("Sending chunk: %s", buf.String())
+						fmt.Fprintf(w, "data: %v\n", buf.String())
+						w.Flush()
+					case err := <-ended:
+						if err == nil {
+							break LOOP
+						}
+						log.Error().Msgf("Stream ended with error: %v", err)
+						fmt.Fprintf(w, "data: %v\n", "Internal error: "+err.Error())
+						w.Flush()
+						break LOOP
+					}
 				}
 
 				resp := &schema.OpenAIResponse{
@@ -153,7 +173,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				w.WriteString("data: [DONE]\n\n")
 				w.Flush()
 			}))
-			return nil
+			return <-ended
 		}
 
 		var result []schema.Choice
