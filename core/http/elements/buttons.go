@@ -70,6 +70,24 @@ func infoButton(m *gallery.GalleryModel) elem.Node {
 	)
 }
 
+func getConfigButton(galleryName string) elem.Node {
+	return elem.Button(
+		attrs.Props{
+			"data-twe-ripple-init":  "",
+			"data-twe-ripple-color": "light",
+			"class":                 "float-right ml-2 inline-flex items-center rounded-lg bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out",
+			"hx-swap":               "outerHTML",
+			"hx-post":               "browse/config/model/" + galleryName,
+		},
+		elem.I(
+			attrs.Props{
+				"class": "fa-solid fa-download pr-2",
+			},
+		),
+		elem.Text("Get Config"),
+	)
+}
+
 func deleteButton(galleryID string) elem.Node {
 	return elem.Button(
 		attrs.Props{

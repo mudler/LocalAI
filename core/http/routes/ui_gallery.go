@@ -189,6 +189,34 @@ func registerGalleryRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConf
 		return c.SendString(elements.StartModelProgressBar(uid, "0", "Installation"))
 	})
 
+	app.Post("/browse/config/model/:id", func(c *fiber.Ctx) error {
+		galleryID := strings.Clone(c.Params("id")) // note: strings.Clone is required for multiple requests!
+		log.Debug().Msgf("UI job submitted to get config for : %+v\n", galleryID)
+
+		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
+		if err != nil {
+			return err
+		}
+
+		model := gallery.FindGalleryElement(models, galleryID)
+		if model == nil {
+			return fmt.Errorf("model not found")
+		}
+
+		config, err := gallery.GetGalleryConfigFromURL[gallery.ModelConfig](model.URL, appConfig.SystemState.Model.ModelsPath)
+		if err != nil {
+			return err
+		}
+
+		// Save the config file
+		_, err = gallery.InstallModel(appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
+		if err != nil {
+			return err
+		}
+
+		return c.SendString("Configuration file saved.")
+	})
+
 	// This route is used when the "Install" button is pressed, we submit here a new job to the gallery service
 	// https://htmx.org/examples/progress-bar/
 	app.Post("/browse/delete/model/:id", func(c *fiber.Ctx) error {
