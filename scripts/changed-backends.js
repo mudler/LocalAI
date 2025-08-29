@@ -5,10 +5,10 @@ import { Octokit } from "@octokit/core";
 // Load backend.yml and parse matrix.include
 const backendYml = yaml.load(fs.readFileSync(".github/workflows/backend.yml", "utf8"));
 const jobs = backendYml.jobs;
-const backendJob = jobs["backend-jobs"];
-const strategy = backendJob.strategy;
-const matrix = strategy.matrix;
-const includes = matrix.include;
+const backendJobs = jobs["backend-jobs"];
+const backendJobsDarwin = jobs["backend-jobs-darwin"];
+const includes = backendJobs.strategy.matrix.include;
+const includesDarwin = backendJobsDarwin.strategy.matrix.include;
 
 // Set up Octokit for PR changed files
 const token = process.env.GITHUB_TOKEN;
@@ -58,6 +58,14 @@ function inferBackendPath(item) {
   return null;
 }
 
+function inferBackendPathDarwin(item) {
+  if (!item.lang) {
+    return `backend/python/${item.backend}/`;
+  }
+
+  return `backend/${item.lang}/${item.backend}/`;
+}
+
 (async () => {
   const changedFiles = await getChangedFiles();
 
@@ -69,11 +77,21 @@ function inferBackendPath(item) {
     return changedFiles.some(file => file.startsWith(backendPath));
   });
 
+  const filteredDarwin = includesDarwin.filter(item => {
+    const backendPath = inferBackendPathDarwin(item);
+    return changedFiles.some(file => file.startsWith(backendPath));
+  })
+
   console.log("Filtered files:", filtered);
+  console.log("Filtered files Darwin:", filteredDarwin);
 
   const hasBackends = filtered.length > 0 ? 'true' : 'false';
+  const hasBackendsDarwin = filteredDarwin.length > 0 ? 'true' : 'false';
   console.log("Has backends?:", hasBackends);
+  console.log("Has Darwin backends?:", hasBackendsDarwin);
 
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends=${hasBackends}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `has-backends-darwin=${hasBackendsDarwin}\n`);
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix=${JSON.stringify({ include: filtered })}\n`);
+  fs.appendFileSync(process.env.GITHUB_OUTPUT, `matrix-darwin=${JSON.stringify({ include: filteredDarwin })}\n`);
 })();
