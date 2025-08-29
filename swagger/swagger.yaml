@@ -690,6 +690,35 @@ definitions:
       model:
         type: string
     type: object
+  schema.VideoRequest:
+    properties:
+      cfg_scale:
+        type: number
+      end_image:
+        type: string
+      fps:
+        type: integer
+      height:
+        type: integer
+      model:
+        type: string
+      negative_prompt:
+        type: string
+      num_frames:
+        type: integer
+      prompt:
+        type: string
+      response_format:
+        type: string
+      seed:
+        type: integer
+      start_image:
+        type: string
+      step:
+        type: integer
+      width:
+        type: integer
+    type: object
   services.GalleryOpStatus:
     properties:
       deletion:
@@ -1203,7 +1232,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/schema.OpenAIRequest'
+          $ref: '#/definitions/schema.VideoRequest'
       responses:
         "200":
           description: Response
