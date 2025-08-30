@@ -376,6 +376,9 @@ backends/llama-cpp-darwin: build
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
+build-darwin-go-backend: build
+	bash ./scripts/build/golang-darwin.sh
+
 backends/mlx:
 	BACKEND=mlx $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx.tar)"
@@ -391,6 +394,10 @@ backends/mlx-vlm:
 backends/mlx-audio:
 	BACKEND=mlx-audio $(MAKE) build-darwin-python-backend
 	./local-ai backends install "ocifile://$(abspath ./backend-images/mlx-audio.tar)"
+
+backends/stablediffusion-ggml-darwin:
+	BACKEND=stablediffusion-ggml BUILD_TYPE=metal $(MAKE) build-darwin-go-backend
+	./local-ai backends install "ocifile://$(abspath ./backend-images/stablediffusion-ggml.tar)"
 
 backend-images:
 	mkdir -p backend-images
