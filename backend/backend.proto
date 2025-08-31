@@ -242,7 +242,7 @@ message ModelOptions {
 
   string Type = 49;
 
-  bool FlashAttention = 56;
+  string FlashAttention = 56;
   bool NoKVOffload = 57;
 
   string ModelPath = 59;
