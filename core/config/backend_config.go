@@ -164,10 +164,10 @@ type LLMConfig struct {
 	LimitMMPerPrompt     LimitMMPerPrompt `yaml:"limit_mm_per_prompt" json:"limit_mm_per_prompt"`       // vLLM
 	MMProj               string           `yaml:"mmproj" json:"mmproj"`
 
-	FlashAttention bool   `yaml:"flash_attention" json:"flash_attention"`
-	NoKVOffloading bool   `yaml:"no_kv_offloading" json:"no_kv_offloading"`
-	CacheTypeK     string `yaml:"cache_type_k" json:"cache_type_k"`
-	CacheTypeV     string `yaml:"cache_type_v" json:"cache_type_v"`
+	FlashAttention *string `yaml:"flash_attention" json:"flash_attention"`
+	NoKVOffloading bool    `yaml:"no_kv_offloading" json:"no_kv_offloading"`
+	CacheTypeK     string  `yaml:"cache_type_k" json:"cache_type_k"`
+	CacheTypeV     string  `yaml:"cache_type_v" json:"cache_type_v"`
 
 	RopeScaling string `yaml:"rope_scaling" json:"rope_scaling"`
 	ModelType   string `yaml:"type" json:"type"`

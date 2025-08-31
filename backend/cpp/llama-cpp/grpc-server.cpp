@@ -304,7 +304,15 @@ static void params_parse(const backend::ModelOptions* request,
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
-    params.flash_attn = request->flashattention();
+
+    if (request->flashattention() == "on" || request->flashattention() == "enabled") {
+        params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_ENABLED;
+    } else if (request->flashattention() == "off" || request->flashattention() == "disabled") {
+        params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_DISABLED;
+    } else if (request->flashattention() == "auto") {
+        params.flash_attn_type = LLAMA_FLASH_ATTN_TYPE_AUTO;
+    }
+
     params.no_kv_offload = request->nokvoffload();
     params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
 
