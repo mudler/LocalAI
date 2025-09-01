@@ -975,7 +975,11 @@ jobs:
             tag-suffix: "-metal-darwin-arm64-mlx-audio"
             build-type: "mps"
           - backend: "stablediffusion-ggml"
-            tag-suffix: "-metal-darwin-arm64-mlx-audio"
+            tag-suffix: "-metal-darwin-arm64-stablediffusion-ggml"
+            build-type: "metal"
+            lang: "go"
+          - backend: "whisper"
+            tag-suffix: "-metal-darwin-arm64-whisper"
             build-type: "metal"
             lang: "go"
     with:
