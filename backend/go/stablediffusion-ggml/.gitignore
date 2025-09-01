@@ -1,0 +1,4 @@
+package/
+sources/
+libgosd.so
+stablediffusion-ggml
