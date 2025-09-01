@@ -68,10 +68,10 @@ libgowhisper.so: sources/whisper.cpp CMakeLists.txt gowhisper.cpp gowhisper.h
 whisper: main.go gowhisper.go libgowhisper.so
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o whisper ./
 
-package:
+package: whisper
 	bash package.sh
 
-build: whisper package
+build: package
 
 clean:
 	rm -rf libgowhisper.o build whisper

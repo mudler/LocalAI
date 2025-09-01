@@ -16,6 +16,10 @@ on:
         description: 'Use pip to install dependencies'
         default: false
         type: boolean
+      lang:
+        description: 'Programming language (e.g. go)'
+        default: 'python'
+        type: string
       go-version:
         description: 'Go version to use'
         default: '1.24.x'
@@ -49,26 +53,26 @@ jobs:
         uses: actions/checkout@v5
         with:
           submodules: true
-          
+
       - name: Setup Go ${{ matrix.go-version }}
         uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           cache: false
-          
+
       # You can test your matrix by printing the current Go version
       - name: Display Go version
         run: go version
-        
+
       - name: Dependencies
         run: |
           brew install protobuf grpc make protoc-gen-go protoc-gen-go-grpc libomp llvm
-          
+
       - name: Build ${{ inputs.backend }}-darwin
         run: |
           make protogen-go
-          BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-python-backend
-          
+          BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend
+
       - name: Upload ${{ inputs.backend }}.tar
         uses: actions/upload-artifact@v4
         with:
@@ -85,20 +89,20 @@ jobs:
         with:
           name: ${{ inputs.backend }}-tar
           path: .
-          
+
       - name: Install crane
         run: |
           curl -L https://github.com/google/go-containerregistry/releases/latest/download/go-containerregistry_Linux_x86_64.tar.gz | tar -xz
           sudo mv crane /usr/local/bin/
-          
+
       - name: Log in to DockerHub
         run: |
           echo "${{ secrets.dockerPassword }}" | crane auth login docker.io -u "${{ secrets.dockerUsername }}" --password-stdin
-          
+
       - name: Log in to quay.io
         run: |
           echo "${{ secrets.quayPassword }}" | crane auth login quay.io -u "${{ secrets.quayUsername }}" --password-stdin
-          
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -112,7 +116,7 @@ jobs:
           flavor: |
             latest=auto
             suffix=${{ inputs.tag-suffix }},onlatest=true
-            
+
       - name: Docker meta
         id: quaymeta
         uses: docker/metadata-action@v5
@@ -126,13 +130,13 @@ jobs:
           flavor: |
             latest=auto
             suffix=${{ inputs.tag-suffix }},onlatest=true
-            
+
       - name: Push Docker image (DockerHub)
         run: |
           for tag in $(echo "${{ steps.meta.outputs.tags }}" | tr ',' '\n'); do
             crane push ${{ inputs.backend }}.tar $tag
           done
-          
+
       - name: Push Docker image (Quay)
         run: |
           for tag in $(echo "${{ steps.quaymeta.outputs.tags }}" | tr ',' '\n'); do

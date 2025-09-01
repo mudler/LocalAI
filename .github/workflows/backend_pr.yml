@@ -12,7 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
       has-backends: ${{ steps.set-matrix.outputs.has-backends }}
+      has-backends-darwin: ${{ steps.set-matrix.outputs.has-backends-darwin }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
@@ -56,3 +58,21 @@ jobs:
     strategy:
       fail-fast: true
       matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+  backend-jobs-darwin:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build_darwin.yml
+    if: needs.generate-matrix.outputs.has-backends-darwin == 'true'
+    with:
+      backend: ${{ matrix.backend }}
+      build-type: ${{ matrix.build-type }}
+      go-version: "1.24.x"
+      tag-suffix: ${{ matrix.tag-suffix }}
+      lang: ${{ matrix.lang || '' }}
+      use-pip: ${{ matrix.backend == 'diffusers' }}
+      runs-on: "macOS-14"
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix-darwin) }}

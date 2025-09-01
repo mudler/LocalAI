@@ -29,8 +29,6 @@ else ifeq ($(BUILD_TYPE),clblas)
 # If it's hipblas we do have also to set CC=/opt/rocm/llvm/bin/clang CXX=/opt/rocm/llvm/bin/clang++
 else ifeq ($(BUILD_TYPE),hipblas)
 	CMAKE_ARGS+=-DSD_HIPBLAS=ON -DGGML_HIPBLAS=ON
-# If it's OSX, DO NOT embed the metal library - -DGGML_METAL_EMBED_LIBRARY=ON requires further investigation
-# But if it's OSX without metal, disable it here
 else ifeq ($(BUILD_TYPE),vulkan)
 	CMAKE_ARGS+=-DSD_VULKAN=ON -DGGML_VULKAN=ON
 else ifeq ($(OS),Darwin)
@@ -74,10 +72,10 @@ libgosd.so: sources/stablediffusion-ggml.cpp CMakeLists.txt gosd.cpp gosd.h
 stablediffusion-ggml: main.go gosd.go libgosd.so
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o stablediffusion-ggml ./
 
-package:
+package: stablediffusion-ggml
 	bash package.sh
 
-build: stablediffusion-ggml package
+build: package
 
 clean:
-	rm -rf libgosd.o build stablediffusion-ggml
+	rm -rf libgosd.so build stablediffusion-ggml package sources
