@@ -31,6 +31,7 @@ import (
 const (
 	localSampleRate  = 16000
 	remoteSampleRate = 24000
+	vadModel         = "silero-vad-ggml"
 )
 
 // A model can be "emulated" that is: transcribe audio to text -> feed text to the LLM -> generate audio as result
@@ -233,7 +234,7 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 		// TODO: The API has no way to configure the VAD model or other models that make up a pipeline to fake any-to-any
 		//       So possibly we could have a way to configure a composite model that can be used in situations where any-to-any is expected
 		pipeline := config.Pipeline{
-			VAD:           "silero-vad",
+			VAD:           vadModel,
 			Transcription: session.InputAudioTranscription.Model,
 		}
 
@@ -568,7 +569,7 @@ func updateTransSession(session *Session, update *types.ClientSession, cl *confi
 
 	if trUpd != nil && trUpd.Model != "" && trUpd.Model != trCur.Model {
 		pipeline := config.Pipeline{
-			VAD:           "silero-vad",
+			VAD:           vadModel,
 			Transcription: trUpd.Model,
 		}
 

@@ -134,8 +134,7 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 
 ### Recommendations
 
-- Do not use on a system running Wayland.
-- If running with Xorg do not use GPU assigned for compute for desktop rendering.
+- Make sure to do not use GPU assigned for compute for desktop rendering.
 - Ensure at least 100GB of free space on disk hosting container runtime and storing images prior to installation.
 
 ### Limitations

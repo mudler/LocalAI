@@ -59,6 +59,9 @@ func RegisterLocalAIRoutes(router *fiber.App,
 
 		// Custom model edit endpoint
 		router.Post("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
+
+		// Reload models endpoint
+		router.Post("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig))
 	}
 
 	router.Post("/v1/detection",

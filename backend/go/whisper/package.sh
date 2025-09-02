@@ -10,8 +10,8 @@ CURDIR=$(dirname "$(realpath $0)")
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
-cp -avrf $CURDIR/whisper $CURDIR/package/
-cp -rfv $CURDIR/run.sh $CURDIR/package/
+cp -avf $CURDIR/whisper $CURDIR/libgowhisper.so $CURDIR/package/
+cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries
 if [ -f "/lib64/ld-linux-x86-64.so.2" ]; then
@@ -42,11 +42,13 @@ elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
     cp -arfLv /lib/aarch64-linux-gnu/libdl.so.2 $CURDIR/package/lib/libdl.so.2
     cp -arfLv /lib/aarch64-linux-gnu/librt.so.1 $CURDIR/package/lib/librt.so.1
     cp -arfLv /lib/aarch64-linux-gnu/libpthread.so.0 $CURDIR/package/lib/libpthread.so.0
+elif [ $(uname -s) = "Darwin" ]; then
+    echo "Detected Darwin"
 else
     echo "Error: Could not detect architecture"
     exit 1
 fi
 
-echo "Packaging completed successfully" 
+echo "Packaging completed successfully"
 ls -liah $CURDIR/package/
 ls -liah $CURDIR/package/lib/

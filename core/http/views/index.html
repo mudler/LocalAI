@@ -41,13 +41,21 @@
                         <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </a>
                     
-                    <a href="/import-model" 
+                    <a href="/import-model"
                        class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
                         <i class="fas fa-plus mr-3 text-lg"></i>
                         <span>Import Model</span>
                         <i class="fas fa-upload ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
                         <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </a>
+
+                    <button id="reload-models-btn"
+                       class="group relative inline-flex items-center bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25">
+                        <i class="fas fa-sync-alt mr-3 text-lg"></i>
+                        <span>Update Models</span>
+                        <i class="fas fa-refresh ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                        <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    </button>
                 </div>
             </div>
         </div>
@@ -319,6 +327,72 @@ function handleShutdownResponse(event, modelName) {
     const response = event.detail.xhr;
     window.location.reload();
 }
+
+// Handle reload models button
+document.addEventListener('DOMContentLoaded', function() {
+    const reloadBtn = document.getElementById('reload-models-btn');
+    if (reloadBtn) {
+        reloadBtn.addEventListener('click', function() {
+            const button = this;
+            const originalText = button.querySelector('span').textContent;
+            const icon = button.querySelector('i');
+
+            // Show loading state
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Updating...';
+            icon.classList.add('fa-spin');
+
+            // Make the API call
+            fetch('/models/reload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success state briefly
+                    button.querySelector('span').textContent = 'Updated!';
+                    icon.classList.remove('fa-spin', 'fa-sync-alt');
+                    icon.classList.add('fa-check');
+
+                    // Reload the page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    // Show error state
+                    button.querySelector('span').textContent = 'Error!';
+                    icon.classList.remove('fa-spin');
+                    console.error('Failed to reload models:', data.error);
+
+                    // Reset button after delay
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.querySelector('span').textContent = originalText;
+                        icon.classList.remove('fa-check');
+                        icon.classList.add('fa-sync-alt');
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                // Show error state
+                button.querySelector('span').textContent = 'Error!';
+                icon.classList.remove('fa-spin');
+                console.error('Error reloading models:', error);
+
+                // Reset button after delay
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.querySelector('span').textContent = originalText;
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-sync-alt');
+                }, 3000);
+            });
+        });
+    }
+});
 </script>
 
 </body>

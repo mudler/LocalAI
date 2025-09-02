@@ -339,7 +339,12 @@ func modelActionItems(m *gallery.GalleryModel, processTracker ProcessTracker, ga
 							reInstallButton(m.ID()),
 							deleteButton(m.ID()),
 						)),
-						installButton(m.ID()),
+						// otherwise, show the install button, and the get config button
+						elem.Node(elem.Div(
+							attrs.Props{},
+							getConfigButton(m.ID()),
+							installButton(m.ID()),
+						)),
 					),
 				),
 			),

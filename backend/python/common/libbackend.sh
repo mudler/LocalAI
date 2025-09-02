@@ -286,7 +286,8 @@ _makeVenvPortable() {
 function ensureVenv() {
     local interpreter=""
 
-    if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+    if [ "x${PORTABLE_PYTHON}" == "xtrue" ] || [ -e "$(_portable_python)" ]; then
+        echo "Using portable Python"
         ensurePortablePython
         interpreter="$(_portable_python)"
     else

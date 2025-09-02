@@ -45,6 +45,7 @@
     default: "cpu-whisper"
     nvidia: "cuda12-whisper"
     intel: "intel-sycl-f16-whisper"
+    metal: "metal-whisper"
     amd: "rocm-whisper"
     vulkan: "vulkan-whisper"
     nvidia-l4t: "nvidia-l4t-arm64-whisper"
@@ -71,7 +72,7 @@
     # amd: "rocm-stablediffusion-ggml"
     vulkan: "vulkan-stablediffusion-ggml"
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml"
-    # metal: "metal-stablediffusion-ggml"
+    metal: "metal-stablediffusion-ggml"
     # darwin-x86: "darwin-x86-stablediffusion-ggml"
 - &rfdetr
   name: "rfdetr"
@@ -580,6 +581,16 @@
   mirrors:
     - localai/localai-backends:latest-cpu-whisper
 - !!merge <<: *whispercpp
+  name: "metal-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-whisper"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-whisper
+- !!merge <<: *whispercpp
+  name: "metal-whisper-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-whisper"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-whisper
+- !!merge <<: *whispercpp
   name: "cpu-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-whisper"
   mirrors:
@@ -665,6 +676,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:master-cpu-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "metal-stablediffusion-ggml"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "metal-stablediffusion-ggml-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
   name: "vulkan-stablediffusion-ggml"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-vulkan-stablediffusion-ggml"

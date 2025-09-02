@@ -78,6 +78,12 @@ func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 		b = c.Batch
 	}
 
+	flashAttention := "auto"
+
+	if c.FlashAttention != nil {
+		flashAttention = *c.FlashAttention
+	}
+
 	f16 := false
 	if c.F16 != nil {
 		f16 = *c.F16
@@ -166,7 +172,7 @@ func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 		LimitVideoPerPrompt: int32(c.LimitMMPerPrompt.LimitVideoPerPrompt),
 		LimitAudioPerPrompt: int32(c.LimitMMPerPrompt.LimitAudioPerPrompt),
 		MMProj:              c.MMProj,
-		FlashAttention:      c.FlashAttention,
+		FlashAttention:      flashAttention,
 		CacheTypeKey:        c.CacheTypeK,
 		CacheTypeValue:      c.CacheTypeV,
 		NoKVOffload:         c.NoKVOffloading,

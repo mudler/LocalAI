@@ -67,9 +67,8 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	return nil
 }
 
-// InstallBackendFromGallery installs a backend from galleries.
-// If the backend is a meta backend, it selects the best concrete backend using system capabilities.
-func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, name string, downloadStatus func(string, string, string, float64), force bool) error {
+// Installs a model from the gallery
+func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force bool) error {
 	if !force {
 		// check if we already have the backend installed
 		backends, err := ListSystemBackends(systemState)
@@ -109,7 +108,7 @@ func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.S
 		log.Debug().Str("name", name).Str("bestBackend", bestBackend.Name).Msg("Installing backend from meta backend")
 
 		// Then, let's install the best backend
-		if err := InstallBackend(systemState, bestBackend, downloadStatus); err != nil {
+		if err := InstallBackend(systemState, modelLoader, bestBackend, downloadStatus); err != nil {
 			return err
 		}
 
@@ -134,10 +133,10 @@ func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.S
 		return nil
 	}
 
-	return InstallBackend(systemState, backend, downloadStatus)
+	return InstallBackend(systemState, modelLoader, backend, downloadStatus)
 }
 
-func InstallBackend(systemState *system.SystemState, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
+func InstallBackend(systemState *system.SystemState, modelLoader *model.ModelLoader, config *GalleryBackend, downloadStatus func(string, string, string, float64)) error {
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(systemState.Backend.BackendsPath, 0750)
 	if err != nil {
@@ -195,7 +194,7 @@ func InstallBackend(systemState *system.SystemState, config *GalleryBackend, dow
 		return fmt.Errorf("failed to write metadata for backend %q: %v", name, err)
 	}
 
-	return nil
+	return RegisterBackends(systemState, modelLoader)
 }
 
 func DeleteBackendFromSystem(systemState *system.SystemState, name string) error {
