@@ -67,7 +67,7 @@ jobs:
       build-type: ${{ matrix.build-type }}
       go-version: "1.24.x"
       tag-suffix: ${{ matrix.tag-suffix }}
-      lang: ${{ matrix.lang || '' }}
+      lang: ${{ matrix.lang || 'python' }}
       use-pip: ${{ matrix.backend == 'diffusers' }}
       runs-on: "macOS-14"
     secrets:
