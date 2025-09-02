@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
-func ModelTranscription(audio, language string, translate bool, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
+func ModelTranscription(audio, language string, translate bool, diarize bool, ml *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig) (*schema.TranscriptionResult, error) {
 
 	if modelConfig.Backend == "" {
 		modelConfig.Backend = model.WhisperBackend
@@ -34,6 +34,7 @@ func ModelTranscription(audio, language string, translate bool, ml *model.ModelL
 		Dst:       audio,
 		Language:  language,
 		Translate: translate,
+		Diarize:   diarize,
 		Threads:   uint32(*modelConfig.Threads),
 	})
 	if err != nil {

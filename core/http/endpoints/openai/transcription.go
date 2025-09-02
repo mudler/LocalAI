@@ -36,6 +36,8 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return fiber.ErrBadRequest
 		}
 
+		diarize := c.FormValue("diarize", "false") != "false"
+
 		// retrieve the file data from the request
 		file, err := c.FormFile("file")
 		if err != nil {
@@ -67,7 +69,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, ml, *config, appConfig)
+		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, diarize, ml, *config, appConfig)
 		if err != nil {
 			return err
 		}
