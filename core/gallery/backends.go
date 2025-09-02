@@ -67,7 +67,7 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	return nil
 }
 
-// Installs a model from the gallery
+// InstallBackendFromGallery installs a backend from the gallery.
 func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force bool) error {
 	if !force {
 		// check if we already have the backend installed
@@ -291,146 +291,18 @@ func (b SystemBackends) GetAll() []SystemBackend {
 }
 
 func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error) {
-	potentialBackends, err := os.ReadDir(systemState.Backend.BackendsPath)
-	if err != nil {
-		return nil, err
-	}
-
+	// Gather backends from system and user paths, then resolve alias conflicts by capability.
 	backends := make(SystemBackends)
 
-	systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath)
-	if err == nil {
-		// system backends are special, they are provided by the system and not managed by LocalAI
+	// System-provided backends
+	if systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath); err == nil {
 		for _, systemBackend := range systemBackends {
 			if systemBackend.IsDir() {
-				systemBackendRunFile := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
-				if _, err := os.Stat(systemBackendRunFile); err == nil {
+				run := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
+				if _, err := os.Stat(run); err == nil {
 					backends[systemBackend.Name()] = SystemBackend{
 						Name:     systemBackend.Name(),
-						RunFile:  filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile),
-						IsMeta:   false,
-						IsSystem: true,
-						Metadata: nil,
-					}
-				}
-			}
-		}
-	} else {
-		log.Warn().Err(err).Msg("Failed to read system backends, but that's ok, we will just use the backends managed by LocalAI")
-	}
-
-	for _, potentialBackend := range potentialBackends {
-		if potentialBackend.IsDir() {
-			potentialBackendRunFile := filepath.Join(systemState.Backend.BackendsPath, potentialBackend.Name(), runFile)
-
-			var metadata *BackendMetadata
-
-			// If metadata file does not exist, we just use the directory name
-			// and we do not fill the other metadata (such as potential backend Aliases)
-			metadataFilePath := filepath.Join(systemState.Backend.BackendsPath, potentialBackend.Name(), metadataFile)
-			if _, err := os.Stat(metadataFilePath); os.IsNotExist(err) {
-				metadata = &BackendMetadata{
-					Name: potentialBackend.Name(),
-				}
-			} else {
-				// Check for alias in metadata
-				metadata, err = readBackendMetadata(filepath.Join(systemState.Backend.BackendsPath, potentialBackend.Name()))
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			if !backends.Exists(potentialBackend.Name()) {
-				// We don't want to override aliases if already set, and if we are meta backend
-				if _, err := os.Stat(potentialBackendRunFile); err == nil {
-					backends[potentialBackend.Name()] = SystemBackend{
-						Name:     potentialBackend.Name(),
-						RunFile:  potentialBackendRunFile,
-						IsMeta:   false,
-						Metadata: metadata,
-					}
-				}
-			}
-
-			if metadata == nil {
-				continue
-			}
-
-			if metadata.Alias != "" {
-				backends[metadata.Alias] = SystemBackend{
-					Name:     metadata.Alias,
-					RunFile:  potentialBackendRunFile,
-					IsMeta:   false,
-					Metadata: metadata,
-				}
-			}
-
-			if metadata.MetaBackendFor != "" {
-				backends[metadata.Name] = SystemBackend{
-					Name:     metadata.Name,
-					RunFile:  filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor, runFile),
-					IsMeta:   true,
-					Metadata: metadata,
-				}
-			}
-		}
-	}
-
-	return backends, nil
-}
-
-func RegisterBackends(systemState *system.SystemState, modelLoader *model.ModelLoader) error {
-	// Prefer optimal alias resolution when multiple concrete backends share the same alias
-	backends, err := ListSystemBackendsSelected(systemState)
-	if err != nil {
-		return err
-	}
-
-	for _, backend := range backends {
-		log.Debug().Str("name", backend.Name).Str("runFile", backend.RunFile).Msg("Registering backend")
-		modelLoader.SetExternalBackend(backend.Name, backend.RunFile)
-	}
-
-	return nil
-}
-
-// ResolveBestBackendName returns the concrete backend name to use for a given meta or concrete backend name,
-// based on the current system state and gallery metadata. If the provided name is already concrete, it is returned as-is.
-func ResolveBestBackendName(galleries []config.Gallery, systemState *system.SystemState, name string) (string, error) {
-	backends, err := AvailableBackends(galleries, systemState)
-	if err != nil {
-		return "", err
-	}
-	be := FindGalleryElement(backends, name)
-	if be == nil {
-		return "", fmt.Errorf("no backend found with name %q", name)
-	}
-	if !be.IsMeta() {
-		return be.Name, nil
-	}
-	best := be.FindBestBackendFromMeta(systemState, backends)
-	if best == nil {
-		return "", fmt.Errorf("no backend found with capabilities %v", be.CapabilitiesMap)
-	}
-	return best.Name, nil
-}
-
-// ListSystemBackendsSelected lists system backends and, when multiple concrete backends share the same alias
-// (e.g., cpu-llama-cpp and cuda12-llama-cpp both alias to "llama-cpp"), selects the optimal one based on the
-// detected system capability (GPU vendor/platform). Concrete backend names are always included.
-func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends, error) {
-	// First, include system-provided backends
-	backends := make(SystemBackends)
-
-	systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath)
-	if err == nil {
-		for _, systemBackend := range systemBackends {
-			if systemBackend.IsDir() {
-				systemBackendRunFile := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
-				if _, err := os.Stat(systemBackendRunFile); err == nil {
-					backends[systemBackend.Name()] = SystemBackend{
-						Name:     systemBackend.Name(),
-						RunFile:  systemBackendRunFile,
+						RunFile:  run,
 						IsMeta:   false,
 						IsSystem: true,
 						Metadata: nil,
@@ -442,7 +314,7 @@ func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends
 		log.Warn().Err(err).Msg("Failed to read system backends, proceeding with user-managed backends")
 	}
 
-	// Scan user-managed backends and group alias candidates
+	// User-managed backends and alias collection
 	entries, err := os.ReadDir(systemState.Backend.BackendsPath)
 	if err != nil {
 		return nil, err
@@ -476,7 +348,7 @@ func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends
 
 		metaMap[dir] = metadata
 
-		// Always include the concrete backend name
+		// Concrete backend entry
 		if _, err := os.Stat(run); err == nil {
 			backends[dir] = SystemBackend{
 				Name:     dir,
@@ -486,12 +358,12 @@ func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends
 			}
 		}
 
-		// Collect alias candidates
+		// Alias candidates
 		if metadata.Alias != "" {
 			aliasGroups[metadata.Alias] = append(aliasGroups[metadata.Alias], backendCandidate{name: dir, runFile: run})
 		}
 
-		// Meta backend indirection (meta dir -> real dir run.sh)
+		// Meta backends indirection
 		if metadata.MetaBackendFor != "" {
 			backends[metadata.Name] = SystemBackend{
 				Name:     metadata.Name,
@@ -502,18 +374,38 @@ func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends
 		}
 	}
 
-	// For each alias, choose the best candidate for this system
+	// Resolve aliases using system capability preferences
+	tokens := systemState.BackendPreferenceTokens()
 	for alias, cands := range aliasGroups {
-		selected := selectBestCandidate(systemState, cands)
-		if selected.runFile == "" {
-			// Skip if the candidate has no runnable file
+		chosen := backendCandidate{}
+		// Try preference tokens
+		for _, t := range tokens {
+			for _, c := range cands {
+				if strings.Contains(strings.ToLower(c.name), t) && c.runFile != "" {
+					chosen = c
+					break
+				}
+			}
+			if chosen.runFile != "" {
+				break
+			}
+		}
+		// Fallback: first runnable
+		if chosen.runFile == "" {
+			for _, c := range cands {
+				if c.runFile != "" {
+					chosen = c
+					break
+				}
+			}
+		}
+		if chosen.runFile == "" {
 			continue
 		}
-		// Attach metadata of the selected concrete backend, if known
-		md := metaMap[selected.name]
+		md := metaMap[chosen.name]
 		backends[alias] = SystemBackend{
 			Name:     alias,
-			RunFile:  selected.runFile,
+			RunFile:  chosen.runFile,
 			IsMeta:   false,
 			Metadata: md,
 		}
@@ -522,51 +414,38 @@ func ListSystemBackendsSelected(systemState *system.SystemState) (SystemBackends
 	return backends, nil
 }
 
-func selectBestCandidate(systemState *system.SystemState, cands []backendCandidate) backendCandidate {
-	if len(cands) == 0 {
-		return backendCandidate{}
-	}
-	if len(cands) == 1 {
-		return cands[0]
+func RegisterBackends(systemState *system.SystemState, modelLoader *model.ModelLoader) error {
+	backends, err := ListSystemBackends(systemState)
+	if err != nil {
+		return err
 	}
 
-	// Determine capability
-	capStr := systemState.GPUVendor
-	if capStr == "" {
-		capStr = "default"
+	for _, backend := range backends {
+		log.Debug().Str("name", backend.Name).Str("runFile", backend.RunFile).Msg("Registering backend")
+		modelLoader.SetExternalBackend(backend.Name, backend.RunFile)
 	}
 
-	for _, token := range capabilityPriority(capStr) {
-		for _, c := range cands {
-			lname := strings.ToLower(c.name)
-			if strings.Contains(lname, token) {
-				return c
-			}
-		}
-	}
-	// Fallback: first one with a runfile
-	for _, c := range cands {
-		if c.runFile != "" {
-			return c
-		}
-	}
-	return cands[0]
+	return nil
 }
 
-func capabilityPriority(capStr string) []string {
-	capStr = strings.ToLower(capStr)
-	switch {
-	case strings.HasPrefix(capStr, "nvidia"):
-		return []string{"cuda", "vulkan", "cpu"}
-	case strings.HasPrefix(capStr, "amd"):
-		return []string{"rocm", "hip", "vulkan", "cpu"}
-	case strings.HasPrefix(capStr, "intel"):
-		return []string{"sycl", "intel", "cpu"}
-	case strings.HasPrefix(capStr, "metal"):
-		return []string{"metal", "cpu"}
-	case strings.HasPrefix(capStr, "darwin-x86"):
-		return []string{"darwin-x86", "cpu"}
-	default:
-		return []string{"cpu"}
+// ResolveBestBackendName returns the concrete backend name to use for a given meta or concrete backend name,
+// based on the current system state and gallery metadata. If the provided name is already concrete, it is returned as-is.
+func ResolveBestBackendName(galleries []config.Gallery, systemState *system.SystemState, name string) (string, error) {
+	backends, err := AvailableBackends(galleries, systemState)
+	if err != nil {
+		return "", err
 	}
+	be := FindGalleryElement(backends, name)
+	if be == nil {
+		return "", fmt.Errorf("no backend found with name %q", name)
+	}
+	if !be.IsMeta() {
+		return be.Name, nil
+	}
+	best := be.FindBestBackendFromMeta(systemState, backends)
+	if best == nil {
+		return "", fmt.Errorf("no backend found with capabilities %v", be.CapabilitiesMap)
+	}
+	return best.Name, nil
 }
+

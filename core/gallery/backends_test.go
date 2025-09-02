@@ -93,7 +93,7 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		Expect(name).To(Equal("cuda12-llama-cpp"))
 	})
 
-	It("ListSystemBackendsSelected prefers optimal alias candidate", func() {
+	It("ListSystemBackends prefers optimal alias candidate", func() {
 		// Arrange two installed backends sharing the same alias
 		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
 
@@ -117,7 +117,7 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		)
 		must(err)
 		sysDefault.GPUVendor = "" // force default selection
-		backs, err := ListSystemBackendsSelected(sysDefault)
+	backs, err := ListSystemBackends(sysDefault)
 		must(err)
 		aliasBack, ok := backs.Get("llama-cpp")
 		Expect(ok).To(BeTrue())
@@ -135,7 +135,7 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		must(err)
 		sysNvidia.GPUVendor = "nvidia"
 		sysNvidia.VRAM = 8 * 1024 * 1024 * 1024
-		backs, err = ListSystemBackendsSelected(sysNvidia)
+	backs, err = ListSystemBackends(sysNvidia)
 		must(err)
 		aliasBack, ok = backs.Get("llama-cpp")
 		Expect(ok).To(BeTrue())
