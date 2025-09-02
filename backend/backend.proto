@@ -276,6 +276,7 @@ message TranscriptRequest {
   string language = 3;
   uint32 threads = 4;
   bool translate = 5;
+  bool diarize = 6;
 }
 
 message TranscriptResult {
@@ -305,7 +306,7 @@ message GenerateImageRequest {
   // Diffusers
   string EnableParameters = 10;
   int32 CLIPSkip = 11;
-  
+
   // Reference images for models that support them (e.g., Flux Kontext)
   repeated string ref_images = 12;
 }

@@ -187,6 +187,8 @@ type OpenAIRequest struct {
 	ReasoningEffort string `json:"reasoning_effort" yaml:"reasoning_effort"`
 
 	Metadata map[string]string `json:"metadata" yaml:"metadata"`
+
+	Diarize bool `json:"diarize" yaml:"diarize"`
 }
 
 type ModelsDataResponse struct {

@@ -67,7 +67,7 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 
 		log.Debug().Msgf("Audio file copied to: %+v", dst)
 
-		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, ml, *config, appConfig)
+		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, input.Diarize, ml, *config, appConfig)
 		if err != nil {
 			return err
 		}
