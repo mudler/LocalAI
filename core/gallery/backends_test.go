@@ -129,6 +129,10 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		Expect(ok).To(BeTrue())
 
 		// NVIDIA system: alias should point to CUDA
+		// Force capability to nvidia to make the test deterministic on platforms like darwin/arm64 (which default to metal)
+		os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia")
+		defer os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
+
 		sysNvidia, err := system.GetSystemState(
 			system.WithBackendPath(tempDir),
 		)
