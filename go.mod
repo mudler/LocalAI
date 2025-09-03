@@ -43,7 +43,7 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.22.0
 	github.com/rs/zerolog v1.33.0
-	github.com/russross/blackfriday v1.6.0
+	github.com/russross/blackfriday v2.0.0+incompatible
 	github.com/sashabaranov/go-openai v1.26.2
 	github.com/schollz/progressbar/v3 v3.14.4
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -133,6 +133,7 @@ require (
 	github.com/rymdport/portal v0.4.1 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
 	github.com/shirou/gopsutil/v4 v4.24.7 // indirect
+	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
