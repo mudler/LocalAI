@@ -39,14 +39,9 @@ jobs:
         run: |
           make build-launcher-darwin
       - name: Upload DMG to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          url: ${{ github.event.release.upload_url }}
-          asset_path: ./dist/LocalAI-Launcher.dmg
-          asset_name: LocalAI.dmg
-          asset_content_type: application/octet-stream
+          files: ./dist/LocalAI-Launcher.dmg
   launcher-build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -64,11 +59,6 @@ jobs:
           sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
           make build-launcher-linux
       - name: Upload Linux launcher artifacts
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          url: ${{ github.event.release.upload_url }}
-          asset_path: ./local-ai-launcher-linux.tar.xz
-          asset_name: LocalAI-Launcher-linux.tar.xz
-          asset_content_type: application/octet-stream
+          files: ./local-ai-launcher-linux.tar.xz
