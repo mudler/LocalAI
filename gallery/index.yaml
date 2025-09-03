@@ -12284,6 +12284,34 @@
     - filename: Wingless_Imp_8B.i1-Q4_K_M.gguf
       sha256: 3a5ff776ab3286f43937c3c2d8e2e1e09c5ea1c91a79945c34ec071e23f31e3b
       uri: huggingface://mradermacher/Wingless_Imp_8B-i1-GGUF/Wingless_Imp_8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nousresearch_hermes-4-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/roT9o5bMYBtQziRMlaSDf.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-4-70B
+    - https://huggingface.co/bartowski/NousResearch_Hermes-4-70B-GGUF
+  description: |
+    Hermes 4 70B is a frontier, hybrid-mode reasoning model based on Llama-3.1-70B by Nous Research that is aligned to you.
+
+    Read the Hermes 4 technical report here: Hermes 4 Technical Report
+
+    Chat with Hermes in Nous Chat: https://chat.nousresearch.com
+
+    Training highlights include a newly synthesized post-training corpus emphasizing verified reasoning traces, massive improvements in math, code, STEM, logic, creativity, and format-faithful outputs, while preserving general assistant quality and broadly neutral alignment.
+    What’s new vs Hermes 3
+
+        Post-training corpus: Massively increased dataset size from 1M samples and 1.2B tokens to ~5M samples / ~60B tokens blended across reasoning and non-reasoning data.
+        Hybrid reasoning mode with explicit <think>…</think> segments when the model decides to deliberate, and options to make your responses faster when you want.
+        Reasoning that is top quality, expressive, improves math, code, STEM, logic, and even creative writing and subjective responses.
+        Schema adherence & structured outputs: trained to produce valid JSON for given schemas and to repair malformed objects.
+        Much easier to steer and align: extreme improvements on steerability, especially on reduced refusal rates.
+  overrides:
+    parameters:
+      model: NousResearch_Hermes-4-70B-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_Hermes-4-70B-Q4_K_M.gguf
+      sha256: ab9b59dd1df27c039952915aa4669a82b5f45e5e9532b98679c65dffe2fe9ee2
+      uri: huggingface://bartowski/NousResearch_Hermes-4-70B-GGUF/NousResearch_Hermes-4-70B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
