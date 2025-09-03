@@ -1,4 +1,25 @@
 ---
+- &mimo
+  license: mit
+  tags:
+    - gguf
+    - GPU
+    - CPU
+    - text-to-text
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/9Bnn2AnIjfQFWBGkhDNmI.png
+  name: "aurore-reveil_koto-small-7b-it"
+  urls:
+    - https://huggingface.co/Aurore-Reveil/Koto-Small-7B-IT
+    - https://huggingface.co/bartowski/Aurore-Reveil_Koto-Small-7B-IT-GGUF
+  description: |
+    Koto-Small-7B-IT is an instruct-tuned version of Koto-Small-7B-PT, which was trained on MiMo-7B-Base for almost a billion tokens of creative-writing data. This model is meant for roleplaying and instruct usecases.
+  overrides:
+    parameters:
+      model: Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
+  files:
+    - filename: Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
+      sha256: c5c38bfa5d8d5100e91a2e0050a0b2f3e082cd4bfd423cb527abc3b6f1ae180c
+      uri: huggingface://bartowski/Aurore-Reveil_Koto-Small-7B-IT-GGUF/Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
 - &internvl35
   name: "opengvlab_internvl3_5-30b-a3b"
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
@@ -4785,6 +4806,25 @@
     - filename: sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
       sha256: f0ca05ca40b8133f2fd5c7ae2e5c42af9200f559e54f37b46a76146ba09fa422
       uri: huggingface://bartowski/sophosympatheia_Strawberrylemonade-70B-v1.1-GGUF/sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  icon: https://huggingface.co/invisietch/L3.3-Ignition-v0.1-70B/resolve/main/header.png
+  name: "invisietch_l3.3-ignition-v0.1-70b"
+  urls:
+    - https://huggingface.co/invisietch/L3.3-Ignition-v0.1-70B
+    - https://huggingface.co/bartowski/invisietch_L3.3-Ignition-v0.1-70B-GGUF
+  description: |
+    Ignition v0.1 is a Llama 3.3-based model merge designed for creative roleplay and fiction writing purposes. The model underwent a multi-stage merge process designed to optimise for creative writing capability, minimising slop, and improving coherence when compared with its constituent models.
+
+    The model shows a preference for detailed character cards and is sensitive to detailed system prompting. If you want a specific behavior from the model, try prompting for it directly.
+
+    Inferencing has been tested at fp8 and fp16, and both are coherent up to ~64k context.
+  overrides:
+    parameters:
+      model: invisietch_L3.3-Ignition-v0.1-70B-Q4_K_M.gguf
+  files:
+    - filename: invisietch_L3.3-Ignition-v0.1-70B-Q4_K_M.gguf
+      sha256: 55fad5010cb16193ca05a90ef5a76d06de79cd5fd7d16ff474ca4ddb008dbe75
+      uri: huggingface://bartowski/invisietch_L3.3-Ignition-v0.1-70B-GGUF/invisietch_L3.3-Ignition-v0.1-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -12284,6 +12324,34 @@
     - filename: Wingless_Imp_8B.i1-Q4_K_M.gguf
       sha256: 3a5ff776ab3286f43937c3c2d8e2e1e09c5ea1c91a79945c34ec071e23f31e3b
       uri: huggingface://mradermacher/Wingless_Imp_8B-i1-GGUF/Wingless_Imp_8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nousresearch_hermes-4-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/roT9o5bMYBtQziRMlaSDf.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-4-70B
+    - https://huggingface.co/bartowski/NousResearch_Hermes-4-70B-GGUF
+  description: |
+    Hermes 4 70B is a frontier, hybrid-mode reasoning model based on Llama-3.1-70B by Nous Research that is aligned to you.
+
+    Read the Hermes 4 technical report here: Hermes 4 Technical Report
+
+    Chat with Hermes in Nous Chat: https://chat.nousresearch.com
+
+    Training highlights include a newly synthesized post-training corpus emphasizing verified reasoning traces, massive improvements in math, code, STEM, logic, creativity, and format-faithful outputs, while preserving general assistant quality and broadly neutral alignment.
+    What’s new vs Hermes 3
+
+        Post-training corpus: Massively increased dataset size from 1M samples and 1.2B tokens to ~5M samples / ~60B tokens blended across reasoning and non-reasoning data.
+        Hybrid reasoning mode with explicit <think>…</think> segments when the model decides to deliberate, and options to make your responses faster when you want.
+        Reasoning that is top quality, expressive, improves math, code, STEM, logic, and even creative writing and subjective responses.
+        Schema adherence & structured outputs: trained to produce valid JSON for given schemas and to repair malformed objects.
+        Much easier to steer and align: extreme improvements on steerability, especially on reduced refusal rates.
+  overrides:
+    parameters:
+      model: NousResearch_Hermes-4-70B-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_Hermes-4-70B-Q4_K_M.gguf
+      sha256: ab9b59dd1df27c039952915aa4669a82b5f45e5e9532b98679c65dffe2fe9ee2
+      uri: huggingface://bartowski/NousResearch_Hermes-4-70B-GGUF/NousResearch_Hermes-4-70B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
