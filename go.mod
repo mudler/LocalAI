@@ -51,7 +51,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.3
 	github.com/testcontainers/testcontainers-go v0.35.0
-	github.com/tmc/langchaingo v0.1.12
+	github.com/tmc/langchaingo v0.1.13
 	github.com/valyala/fasthttp v1.55.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.50.0
