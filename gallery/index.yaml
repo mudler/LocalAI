@@ -20079,145 +20079,145 @@
   name: "whisper-base-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-base-q5_1.bin
+      model: ggml-base-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-base-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base-q5_1.bin"
+    - filename: "ggml-base-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base-q5_1.bin"
       sha256: 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898
 - !!merge <<: *whisper
   name: "whisper-base"
   overrides:
     parameters:
-      model: ggml-model-whisper-base.bin
+      model: ggml-base.bin
   files:
-    - filename: "ggml-model-whisper-base.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.bin"
+    - filename: "ggml-base.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base.bin"
       sha256: 60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe
 - !!merge <<: *whisper
   name: "whisper-base-en-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-base.en-q5_1.bin
+      model: ggml-base.en-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-base.en-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.en-q5_1.bin"
+    - filename: "ggml-base.en-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base.en-q5_1.bin"
       sha256: 4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f
 - !!merge <<: *whisper
   name: "whisper-base-en"
   overrides:
     parameters:
-      model: ggml-model-whisper-base.en.bin
+      model: ggml-base.en.bin
   files:
-    - filename: "ggml-model-whisper-base.en.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.en.bin"
+    - filename: "ggml-base.en.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base.en.bin"
       sha256: a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002
 - !!merge <<: *whisper
   name: "whisper-large-q5_0"
   overrides:
     parameters:
-      model: ggml-model-whisper-large-q5_0.bin
+      model: ggml-large-q5_0.bin
   files:
-    - filename: "ggml-model-whisper-large-q5_0.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-large-q5_0.bin"
+    - filename: "ggml-large-q5_0.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-large-q5_0.bin"
       sha256: 3a214837221e4530dbc1fe8d734f302af393eb30bd0ed046042ebf4baf70f6f2
 - !!merge <<: *whisper
   name: "whisper-medium-q5_0"
   overrides:
     parameters:
-      model: ggml-model-whisper-medium-q5_0.bin
+      model: ggml-medium-q5_0.bin
   files:
-    - filename: "ggml-model-whisper-medium-q5_0.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-medium-q5_0.bin"
+    - filename: "ggml-medium-q5_0.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-medium-q5_0.bin"
       sha256: 19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f
 - !!merge <<: *whisper
   name: "whisper-small-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-small-q5_1.bin
+      model: ggml-small-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-small-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small-q5_1.bin"
+    - filename: "ggml-small-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small-q5_1.bin"
       sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
 - !!merge <<: *whisper
   name: "whisper-small"
   overrides:
     parameters:
-      model: ggml-model-whisper-small.bin
+      model: ggml-small.bin
   files:
-    - filename: "ggml-model-whisper-small.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.bin"
+    - filename: "ggml-small.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small.bin"
       sha256: 1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b
 - !!merge <<: *whisper
   name: "whisper-small-en-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-small.en-q5_1.bin
+      model: ggml-small.en-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-small.en-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.en-q5_1.bin"
+    - filename: "ggml-small.en-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small.en-q5_1.bin"
       sha256: bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30
 - !!merge <<: *whisper
   name: "whisper-small"
   overrides:
     parameters:
-      model: ggml-model-whisper-small.en.bin
+      model: ggml-small.en.bin
   files:
-    - filename: "ggml-model-whisper-small.en.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.en.bin"
+    - filename: "ggml-small.en.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small.en.bin"
       sha256: c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d
 - !!merge <<: *whisper
   name: "whisper-small-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-small-q5_1.bin
+      model: ggml-small-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-small-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small-q5_1.bin"
+    - filename: "ggml-small-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small-q5_1.bin"
       sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
 - !!merge <<: *whisper
   name: "whisper-tiny"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.bin
+      model: ggml-tiny.bin
   files:
-    - filename: "ggml-model-whisper-tiny.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.bin"
+    - filename: "ggml-tiny.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.bin"
       sha256: be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21
 - !!merge <<: *whisper
   name: "whisper-tiny-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny-q5_1.bin
+      model: ggml-tiny-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-tiny-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny-q5_1.bin"
+    - filename: "ggml-tiny-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny-q5_1.bin"
       sha256: 818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7
 - !!merge <<: *whisper
   name: "whisper-tiny-en-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.en-q5_1.bin
+      model: ggml-tiny.en-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-tiny.en-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q5_1.bin"
+    - filename: "ggml-tiny.en-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.en-q5_1.bin"
       sha256: c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b
 - !!merge <<: *whisper
   name: "whisper-tiny-en"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.en.bin
+      model: ggml-tiny.en.bin
   files:
-    - filename: "ggml-model-whisper-tiny.en.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en.bin"
+    - filename: "ggml-tiny.en.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.en.bin"
       sha256: 921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f
 - !!merge <<: *whisper
   name: "whisper-tiny-en-q8_0"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.en-q8_0.bin
+      model: ggml-tiny.en-q8_0.bin
   files:
-    - filename: "ggml-model-whisper-tiny.en-q8_0.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q8_0.bin"
+    - filename: "ggml-tiny.en-q8_0.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.en-q8_0.bin"
       sha256: 5bc2b3860aa151a4c6e7bb095e1fcce7cf12c7b020ca08dcec0c6d018bb7dd94
 ## Bert embeddings (llama3.2 drop-in)
 - !!merge <<: *llama32
