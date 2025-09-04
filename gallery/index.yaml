@@ -2489,6 +2489,34 @@
     - filename: Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
       sha256: 2c08db093bc57c2c77222d27ffe8d41cb0b5648e66ba84e5fb9ceab429f6735c
       uri: huggingface://bartowski/Qwen_Qwen3-4B-Thinking-2507-GGUF/Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
+- !!merge <<: *qwen3
+  name: "nousresearch_hermes-4-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/7B7nMvHJiL72QzVBEPKOG.png
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-4-14B
+    - https://huggingface.co/bartowski/NousResearch_Hermes-4-14B-GGUF
+  description: |
+    Hermes 4 14B is a frontier, hybrid-mode reasoning model based on Qwen 3 14B by Nous Research that is aligned to you.
+
+    Read the Hermes 4 technical report here: Hermes 4 Technical Report
+
+    Chat with Hermes in Nous Chat: https://chat.nousresearch.com
+
+    Training highlights include a newly synthesized post-training corpus emphasizing verified reasoning traces, massive improvements in math, code, STEM, logic, creativity, and format-faithful outputs, while preserving general assistant quality and broadly neutral alignment.
+    What’s new vs Hermes 3
+
+        Post-training corpus: Massively increased dataset size from 1M samples and 1.2B tokens to ~5M samples / ~60B tokens blended across reasoning and non-reasoning data.
+        Hybrid reasoning mode with explicit <think>…</think> segments when the model decides to deliberate, and options to make your responses faster when you want.
+        Reasoning that is top quality, expressive, improves math, code, STEM, logic, and even creative writing and subjective responses.
+        Schema adherence & structured outputs: trained to produce valid JSON for given schemas and to repair malformed objects.
+        Much easier to steer and align: extreme improvements on steerability, especially on reduced refusal rates.
+  overrides:
+    parameters:
+      model: NousResearch_Hermes-4-14B-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_Hermes-4-14B-Q4_K_M.gguf
+      sha256: 7ad9be1e446e3da0c149fdf55284c90be666d3e13c6e2581587853f4f9538073
+      uri: huggingface://bartowski/NousResearch_Hermes-4-14B-GGUF/NousResearch_Hermes-4-14B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
