@@ -5,6 +5,7 @@ import (
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/core/http"
 )
@@ -44,6 +45,8 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	appHTTP := http.Explorer(db)
+
+	signals.Handler(nil)
 
 	return appHTTP.Listen(e.Address)
 }
