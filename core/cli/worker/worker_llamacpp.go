@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
@@ -69,6 +70,9 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 	args := strings.Split(r.ExtraLLamaCPPArgs, " ")
 
 	args = append([]string{grpcProcess}, args...)
+
+	signals.Handler(nil)
+
 	return syscall.Exec(
 		grpcProcess,
 		args,
