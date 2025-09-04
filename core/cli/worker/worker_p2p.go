@@ -9,6 +9,7 @@ import (
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/phayes/freeport"
@@ -105,6 +106,8 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			return err
 		}
 	}
+
+	signals.Handler(nil)
 
 	for {
 		time.Sleep(1 * time.Second)

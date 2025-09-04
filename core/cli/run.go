@@ -10,6 +10,7 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
@@ -223,6 +224,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated, app); err != nil {
 		return err
 	}
+
+	// Catch signals from the OS requesting us to exit, and stop all backends
+	signals.Handler(app.ModelLoader())
 
 	return appHTTP.Listen(r.Address)
 }
