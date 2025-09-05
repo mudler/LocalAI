@@ -139,7 +139,7 @@ Due to the nature of ROCm it is best to run all implementations in containers as
 
 ### Limitations
 
-Ongoing verification testing of ROCm compatability with integrated backends.
+Ongoing verification testing of ROCm compatibility with integrated backends.
 Please note the following list of verified backends and devices.
 
 LocalAI hipblas images are built against the following targets: gfx900,gfx906,gfx908,gfx940,gfx941,gfx942,gfx90a,gfx1030,gfx1031,gfx1100,gfx1101
@@ -172,7 +172,7 @@ The devices in the following list have been tested with `hipblas` images running
 ### System Prep
 
 1. Check your GPU LLVM target is compatible with the version of ROCm. This can be found in the [LLVM Docs](https://llvm.org/docs/AMDGPUUsage.html).
-2. Check which ROCm version is compatible with your LLVM target and your chosen OS (pay special attention to supported kernel versions). See the following for compatability for ([ROCm 6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/reference/system-requirements.html)) or ([ROCm 6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html))
+2. Check which ROCm version is compatible with your LLVM target and your chosen OS (pay special attention to supported kernel versions). See the following for compatibility for ([ROCm 6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/reference/system-requirements.html)) or ([ROCm 6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/reference/system-requirements.html))
 3. Install you chosen version of the `dkms` and `rocm` (it is recommended that the native package manager be used for this process for any OS as version changes are executed more easily via this method if updates are required). Take care to restart after installing `amdgpu-dkms` and before installing `rocm`, for details regarding this see the installation documentation for your chosen OS ([6.0.2](https://rocm.docs.amd.com/projects/install-on-linux/en/latest/how-to/native-install/index.html) or [6.0.0](https://rocm.docs.amd.com/projects/install-on-linux/en/docs-6.0.0/how-to/native-install/index.html))
 4. Deploy. Yes it's that easy.
 
@@ -216,7 +216,7 @@ The rebuild process will take some time to complete when deploying these contain
 #### Example (k8s) (Advanced Deployment/WIP)
 
 For k8s deployments there is an additional step required before deployment, this is the deployment of the [ROCm/k8s-device-plugin](https://artifacthub.io/packages/helm/amd-gpu-helm/amd-gpu).
-For any k8s environment the documentation provided by AMD from the ROCm project should be successful. It is recommended that if you use rke2 or OpenShift that you deploy the SUSE or RedHat provided version of this resource to ensure compatability.
+For any k8s environment the documentation provided by AMD from the ROCm project should be successful. It is recommended that if you use rke2 or OpenShift that you deploy the SUSE or RedHat provided version of this resource to ensure compatibility.
 After this has been completed the [helm chart from go-skynet](https://github.com/go-skynet/helm-charts) can be configured and deployed mostly un-edited.
 
 The following are details of the changes that should be made to ensure proper function.
@@ -241,7 +241,7 @@ spec:
               value: '0'
               # This variable indicates the devices available to container (0:device1 1:device2 2:device3) etc.
               # For multiple devices (say device 1 and 3) the value would be equivalent to HIP_VISIBLE_DEVICES="0,2"
-              # Please take note of this when an iGPU is present in host system as compatability is not assured.
+              # Please take note of this when an iGPU is present in host system as compatibility is not assured.
           ...
           resources:
             limits:
@@ -250,7 +250,7 @@ spec:
               amd.com/gpu: '1'
 ```
 
-This configuration has been tested on a 'custom' cluster managed by SUSE Rancher that was deployed on top of Ubuntu 22.04.4, certification of other configuration is ongoing and compatability is not guaranteed.
+This configuration has been tested on a 'custom' cluster managed by SUSE Rancher that was deployed on top of Ubuntu 22.04.4, certification of other configuration is ongoing and compatibility is not guaranteed.
 
 ### Notes
 

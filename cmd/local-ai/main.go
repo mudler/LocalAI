@@ -22,7 +22,7 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	// handle loading environment variabled from .env files
+	// handle loading environment variables from .env files
 	envFiles := []string{".env", "localai.env"}
 	homeDir, err := os.UserHomeDir()
 	if err == nil {
