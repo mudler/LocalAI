@@ -2517,6 +2517,33 @@
     - filename: NousResearch_Hermes-4-14B-Q4_K_M.gguf
       sha256: 7ad9be1e446e3da0c149fdf55284c90be666d3e13c6e2581587853f4f9538073
       uri: huggingface://bartowski/NousResearch_Hermes-4-14B-GGUF/NousResearch_Hermes-4-14B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "minicpm-v-4_5"
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4_5-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-4_5
+  description: |
+    MiniCPM-V 4.5 is the latest and most capable model in the MiniCPM-V series. The model is built on Qwen3-8B and SigLIP2-400M with a total of 8B parameters.
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen3
+    - cpu
+  overrides:
+    mmproj: minicpm-v-4_5-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-4_5-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-4_5-Q4_K_M.gguf
+      sha256: c1c3c33100b15b4caf7319acce4e23c0eb0ce1cbd12f70e8d24f05aa67b7512f
+      uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-4_5-mmproj-f16.gguf
+      uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/mmproj-model-f16.gguf
+      sha256: 251abb778cf7a23b83774ee6ef34cb3652729a95624e088948f2e8a5a0cd03a1
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
