@@ -2543,7 +2543,7 @@
       uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/ggml-model-Q4_K_M.gguf
     - filename: minicpm-v-4_5-mmproj-f16.gguf
       uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/mmproj-model-f16.gguf
-      sha256: 251abb778cf7a23b83774ee6ef34cb3652729a95624e088948f2e8a5a0cd03a1
+      sha256: 7a7225a32e8d453aaa3d22d8c579b5bf833c253f784cdb05c99c9a76fd616df8
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
