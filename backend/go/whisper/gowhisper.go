@@ -72,7 +72,7 @@ func (w *Whisper) VAD(req *pb.VADRequest) (pb.VADResponse, error) {
 		}, nil
 	}
 
-	// unsafeptr warning is caused by segsPtr being on the stack and therefor being subject to stack copying AFAICT
+	// unsafeptr warning is caused by segsPtr being on the stack and therefore being subject to stack copying AFAICT
 	// however the stack shouldn't have grown between setting segsPtr and now, also the memory pointed to is allocated by C++
 	segs := unsafe.Slice((*float32)(unsafe.Pointer(segsPtr)), segsLen)
 

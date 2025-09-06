@@ -7,11 +7,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 )
 
-// SystemInformations returns the system informations
+// SystemInformation returns the system information
 // @Summary Show the LocalAI instance information
 // @Success 200 {object} schema.SystemInformationResponse "Response"
 // @Router /system [get]
-func SystemInformations(ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(*fiber.Ctx) error {
+func SystemInformation(ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(*fiber.Ctx) error {
 	return func(c *fiber.Ctx) error {
 		availableBackends := []string{}
 		loadedModels := ml.ListLoadedModels()

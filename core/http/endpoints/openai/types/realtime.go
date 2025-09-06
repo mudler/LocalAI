@@ -1,6 +1,6 @@
 package types
 
-// Most of this file was coppied from https://github.com/WqyJh/go-openai-realtime
+// Most of this file was copied from https://github.com/WqyJh/go-openai-realtime
 // Copyright (c) 2024 Qiying Wang MIT License
 
 import (

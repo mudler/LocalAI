@@ -35,7 +35,7 @@ type wrappedModel struct {
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
 // We have to wrap this out as well because we want to load two models one for VAD and one for the actual model.
-// In the future there could be models that accept continous audio input only so this design will be useful for that
+// In the future there could be models that accept continuous audio input only so this design will be useful for that
 type anyToAnyModel struct {
 	LLMConfig *config.ModelConfig
 	LLMClient grpcClient.Backend
@@ -211,7 +211,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 	log.Debug().Msg("Loading a wrapped model")
 
-	// Otherwise we want to return a wrapped model, which is a "virtual" model that re-uses other models to perform operations
+	// Otherwise we want to return a wrapped model, which is a "virtual" model that reuses other models to perform operations
 	cfgLLM, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
 	if err != nil {
 

@@ -201,7 +201,7 @@ Pipelines types available:
 
 ##### Advanced: Additional parameters
 
-Additional arbitrarly parameters can be specified in the option field in key/value separated by `:`:
+Additional arbitrarily parameters can be specified in the option field in key/value separated by `:`:
 
 ```yaml
 name: animagine-xl
@@ -210,7 +210,7 @@ options:
 - "cfg_scale:6"
 ```
 
-**Note**: There is no complete parameter list. Any parameter can be passed arbitrarly and is passed to the model directly as argument to the pipeline. Different pipelines/implementations support different parameters.
+**Note**: There is no complete parameter list. Any parameter can be passed arbitrarily and is passed to the model directly as argument to the pipeline. Different pipelines/implementations support different parameters.
 
 The example above, will result in the following python code when generating images:
 
