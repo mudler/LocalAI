@@ -44,7 +44,7 @@ const char* sample_method_str[] = {
 };
 
 // Names of the sigma schedule overrides, same order as sample_schedule in stable-diffusion.h
-const char* schedule_str[] = {
+const char* schedulers[] = {
     "default",
     "discrete",
     "karras",
@@ -54,6 +54,8 @@ const char* schedule_str[] = {
 };
 
 sd_ctx_t* sd_c;
+// Moved from the context (load time) to generation time params
+scheduler_t scheduler = scheduler_t::DEFAULT;
 
 sample_method_t sample_method;
 
@@ -105,7 +107,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *clip_g_path  = "";
     const char *t5xxl_path  = "";
     const char *vae_path  = "";
-    const char *scheduler = "";
+    const char *scheduler_str = "";
     const char *sampler = "";
     char *lora_dir = model_path;
     bool lora_dir_allocated = false;
@@ -133,7 +135,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
             vae_path = optval;
         }
         if (!strcmp(optname, "scheduler")) {
-            scheduler = optval;
+            scheduler_str = optval;
         }
         if (!strcmp(optname, "sampler")) {
             sampler = optval;
@@ -170,21 +172,12 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     }
     sample_method = (sample_method_t)sample_method_found;
 
-    int schedule_found            = -1;
     for (int d = 0; d < SCHEDULE_COUNT; d++) {
-        if (!strcmp(scheduler, schedule_str[d])) {
-            schedule_found = d;
-                fprintf (stderr, "Found scheduler: %s\n", scheduler);
-
+        if (!strcmp(scheduler_str, schedulers[d])) {
+            scheduler = (scheduler_t)d;
+            fprintf (stderr, "Found scheduler: %s\n", scheduler_str);
         }
     }
-
-    if (schedule_found == -1) {
-        fprintf (stderr, "Invalid scheduler! using DEFAULT\n");
-        schedule_found = DEFAULT;
-    }
-
-    schedule_t schedule = (schedule_t)schedule_found;
 
     fprintf (stderr, "Creating context\n");
     sd_ctx_params_t ctx_params;
@@ -205,7 +198,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.free_params_immediately = false;
     ctx_params.n_threads = threads;
     ctx_params.rng_type = STD_DEFAULT_RNG;
-    ctx_params.schedule = schedule;
     sd_ctx_t* sd_ctx = new_sd_ctx(&ctx_params);
 
     if (sd_ctx == NULL) {
@@ -241,15 +233,16 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
 
     p.prompt = text;
     p.negative_prompt = negativeText;
-    p.guidance.txt_cfg = cfg_scale;
-    p.guidance.slg.layers = skip_layers.data();
-    p.guidance.slg.layer_count = skip_layers.size();
+    p.sample_params.guidance.txt_cfg = cfg_scale;
+    p.sample_params.guidance.slg.layers = skip_layers.data();
+    p.sample_params.guidance.slg.layer_count = skip_layers.size();
     p.width = width;
     p.height = height;
-    p.sample_method = sample_method;
-    p.sample_steps = steps;
+    p.sample_params.sample_method = sample_method;
+    p.sample_params.sample_steps = steps;
     p.seed = seed;
     p.input_id_images_path = "";
+    p.sample_params.scheduler = scheduler;
 
     // Handle input image for img2img
     bool has_input_image = (src_image != NULL && strlen(src_image) > 0);
