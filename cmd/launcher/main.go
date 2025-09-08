@@ -55,6 +55,12 @@ func main() {
 			// Load configuration into UI
 			launcher.GetUI().LoadConfiguration()
 			launcher.GetUI().UpdateStatus("Ready")
+
+			// Show welcome window if configured to do so
+			config := launcher.GetConfig()
+			if *config.ShowWelcome {
+				launcher.GetUI().ShowWelcomeWindow()
+			}
 		}
 	}()
 

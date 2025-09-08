@@ -48,6 +48,14 @@ var _ = Describe("Launcher", func() {
 			config := launcherInstance.GetConfig()
 			Expect(config.ModelsPath).ToNot(BeEmpty())
 			Expect(config.BackendsPath).ToNot(BeEmpty())
+		})
+
+		It("should set default ShowWelcome to true", func() {
+			err := launcherInstance.Initialize()
+			Expect(err).ToNot(HaveOccurred())
+
+			config := launcherInstance.GetConfig()
+			Expect(config.ShowWelcome).To(BeTrue())
 			Expect(config.Address).To(Equal("127.0.0.1:8080"))
 			Expect(config.LogLevel).To(Equal("info"))
 		})
