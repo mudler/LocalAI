@@ -43,6 +43,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [chatterbox](https://github.com/resemble-ai/chatterbox) | Chatterbox TTS    | no                       | Text-to-speech    | no                               | no                   | CUDA 11/12, CPU |
 | [kitten-tts](https://github.com/KittenML/KittenTTS) | Kitten TTS    | no                       | Text-to-speech    | no                               | no                   | CPU |
 | [silero-vad](https://github.com/snakers4/silero-vad) with [Golang bindings](https://github.com/streamer45/silero-vad-go) | Silero VAD    | no                       | Voice Activity Detection    | no                               | no                   | CPU |
+| [mlx-audio](https://github.com/Blaizzy/mlx-audio) | MLX | no                       | Text-tospeech    | no                               | no                   | Metal (Apple Silicon) |
 {{< /table >}}
 
 ## Image & Video Generation
