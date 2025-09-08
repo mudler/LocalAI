@@ -56,6 +56,12 @@ The fastest way to get started is with our one-line installer:
 curl https://localai.io/install.sh | sh
 ```
 
+### macOS Download
+
+<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
+  <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
+</a>
+
 Or use Docker for a quick start:
 
 ```bash
