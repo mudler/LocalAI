@@ -675,3 +675,121 @@ func (ui *LauncherUI) UpdateRunningState(isRunning bool) {
 		}
 	})
 }
+
+// ShowWelcomeWindow displays the welcome window with helpful information
+func (ui *LauncherUI) ShowWelcomeWindow() {
+	if ui.launcher == nil || ui.launcher.window == nil {
+		log.Printf("Cannot show welcome window: launcher or window is nil")
+		return
+	}
+
+	fyne.DoAndWait(func() {
+		// Create welcome window
+		welcomeWindow := ui.launcher.app.NewWindow("Welcome to LocalAI Launcher")
+		welcomeWindow.Resize(fyne.NewSize(600, 500))
+		welcomeWindow.CenterOnScreen()
+		welcomeWindow.SetCloseIntercept(func() {
+			welcomeWindow.Close()
+		})
+
+		// Title
+		titleLabel := widget.NewLabel("Welcome to LocalAI Launcher!")
+		titleLabel.TextStyle = fyne.TextStyle{Bold: true}
+		titleLabel.Alignment = fyne.TextAlignCenter
+
+		// Welcome message
+		welcomeText := `LocalAI Launcher makes it easy to run LocalAI on your system.
+
+What you can do:
+• Start and stop LocalAI server
+• Configure models and backends paths
+• Set environment variables
+• Check for updates automatically
+• Access LocalAI WebUI when running
+
+Getting Started:
+1. Configure your models and backends paths
+2. Click "Start LocalAI" to begin
+3. Use "Open WebUI" to access the interface
+4. Check the system tray for quick access`
+
+		welcomeLabel := widget.NewLabel(welcomeText)
+		welcomeLabel.Wrapping = fyne.TextWrapWord
+
+		// Useful links section
+		linksTitle := widget.NewLabel("Useful Links:")
+		linksTitle.TextStyle = fyne.TextStyle{Bold: true}
+
+		// Create link buttons
+		docsButton := widget.NewButton("📚 Documentation", func() {
+			ui.openURL("https://localai.io/docs/")
+		})
+
+		githubButton := widget.NewButton("🐙 GitHub Repository", func() {
+			ui.openURL("https://github.com/mudler/LocalAI")
+		})
+
+		modelsButton := widget.NewButton("🤖 Model Gallery", func() {
+			ui.openURL("https://localai.io/models/")
+		})
+
+		communityButton := widget.NewButton("💬 Community", func() {
+			ui.openURL("https://discord.gg/XgwjKptP7Z")
+		})
+
+		// Checkbox to disable welcome window
+		dontShowAgainCheck := widget.NewCheck("Don't show this welcome window again", func(checked bool) {
+			if ui.launcher != nil {
+				config := ui.launcher.GetConfig()
+				v := !checked
+				config.ShowWelcome = &v
+				ui.launcher.SetConfig(config)
+			}
+		})
+
+		config := ui.launcher.GetConfig()
+		if config.ShowWelcome != nil {
+			dontShowAgainCheck.SetChecked(*config.ShowWelcome)
+		}
+
+		// Close button
+		closeButton := widget.NewButton("Get Started", func() {
+			welcomeWindow.Close()
+		})
+		closeButton.Importance = widget.HighImportance
+
+		// Layout
+		linksContainer := container.NewVBox(
+			linksTitle,
+			docsButton,
+			githubButton,
+			modelsButton,
+			communityButton,
+		)
+
+		content := container.NewVBox(
+			titleLabel,
+			widget.NewSeparator(),
+			welcomeLabel,
+			widget.NewSeparator(),
+			linksContainer,
+			widget.NewSeparator(),
+			dontShowAgainCheck,
+			widget.NewSeparator(),
+			closeButton,
+		)
+
+		welcomeWindow.SetContent(content)
+		welcomeWindow.Show()
+	})
+}
+
+// openURL opens a URL in the default browser
+func (ui *LauncherUI) openURL(urlString string) {
+	parsedURL, err := url.Parse(urlString)
+	if err != nil {
+		log.Printf("Failed to parse URL %s: %v", urlString, err)
+		return
+	}
+	fyne.CurrentApp().OpenURL(parsedURL)
+}
