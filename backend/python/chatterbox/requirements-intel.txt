@@ -3,9 +3,8 @@ intel-extension-for-pytorch==2.3.110+xpu
 torch==2.3.1+cxx11.abi
 torchaudio==2.3.1+cxx11.abi
 transformers==4.46.3
-chatterbox-tts
+chatterbox-tts==0.1.2
 accelerate
 oneccl_bind_pt==2.3.100+xpu
 optimum[openvino]
 setuptools
-accelerate
