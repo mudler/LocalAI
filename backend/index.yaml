@@ -350,6 +350,8 @@
   alias: "chatterbox"
   capabilities:
     nvidia: "cuda12-chatterbox"
+    metal: "metal-chatterbox"
+    default: "cpu-chatterbox"
 - &piper
   name: "piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
@@ -1223,6 +1225,28 @@
   name: "chatterbox-development"
   capabilities:
     nvidia: "cuda12-chatterbox-development"
+    metal: "metal-chatterbox-development"
+    default: "cpu-chatterbox-development"
+- !!merge <<: *chatterbox
+  name: "cpu-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-chatterbox"
+  mirrors:
+    - localai/localai-backends:latest-cpu-chatterbox
+- !!merge <<: *chatterbox
+  name: "cpu-chatterbox-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-chatterbox"
+  mirrors:
+    - localai/localai-backends:master-cpu-chatterbox
+- !!merge <<: *chatterbox
+  name: "metal-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-chatterbox"
+  mirrors:
+    - localai/localai-backends:latest-metal-darwin-arm64-chatterbox
+- !!merge <<: *chatterbox
+  name: "metal-chatterbox-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-chatterbox"
+  mirrors:
+    - localai/localai-backends:master-metal-darwin-arm64-chatterbox
 - !!merge <<: *chatterbox
   name: "cuda12-chatterbox-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-chatterbox"

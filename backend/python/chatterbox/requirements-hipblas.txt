@@ -2,5 +2,5 @@
 torch==2.6.0+rocm6.1
 torchaudio==2.6.0+rocm6.1
 transformers==4.46.3
-chatterbox-tts
+chatterbox-tts==0.1.2
 accelerate
