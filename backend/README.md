@@ -111,7 +111,7 @@ docker build -f backend/Dockerfile.python \
   --build-arg BACKEND=transformers \
   --build-arg BUILD_TYPE=cublas12 \
   --build-arg CUDA_MAJOR_VERSION=12 \
-  --build-arg CUDA_MINOR_VERSION=0 \
+  --build-arg CUDA_MINOR_VERSION=8 \
   -t localai-backend-transformers .
 
 # Build Go backend
