@@ -33,6 +33,7 @@ func main() {
 		{&CppGetSegmentEnd, "get_segment_t1"},
 		{&CppNTokens, "n_tokens"},
 		{&CppGetTokenID, "get_token_id"},
+		{&CppGetSegmentSpeakerTurnNext, "get_segment_speaker_turn_next"},
 	}
 
 	for _, lf := range libFuncs {

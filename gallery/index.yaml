@@ -20175,6 +20175,15 @@
       uri: "huggingface://ggerganov/whisper.cpp/ggml-small.bin"
       sha256: 1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b
 - !!merge <<: *whisper
+  name: "whisper-small-en-tdrz"
+  overrides:
+    parameters:
+      model: ggml-small.en-tdrz.bin
+  files:
+    - filename: "ggml-small.bin"
+      uri: "huggingface://akashmjn/tinydiarize-whisper.cpp/ggml-small.en-tdrz.bin"
+      sha256: ceac3ec06d1d98ef71aec665283564631055fd6129b79d8e1be4f9cc33cc54b4
+- !!merge <<: *whisper
   name: "whisper-small-en-q5_1"
   overrides:
     parameters:

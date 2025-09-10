@@ -14,15 +14,16 @@ import (
 )
 
 var (
-	CppLoadModel       func(modelPath string) int
-	CppLoadModelVAD    func(modelPath string) int
-	CppVAD             func(pcmf32 []float32, pcmf32Size uintptr, segsOut unsafe.Pointer, segsOutLen unsafe.Pointer) int
-	CppTranscribe      func(threads uint32, lang string, translate bool, pcmf32 []float32, pcmf32Len uintptr, segsOutLen unsafe.Pointer) int
-	CppGetSegmentText  func(i int) string
-	CppGetSegmentStart func(i int) int64
-	CppGetSegmentEnd   func(i int) int64
-	CppNTokens         func(i int) int
-	CppGetTokenID      func(i int, j int) int
+	CppLoadModel                 func(modelPath string) int
+	CppLoadModelVAD              func(modelPath string) int
+	CppVAD                       func(pcmf32 []float32, pcmf32Size uintptr, segsOut unsafe.Pointer, segsOutLen unsafe.Pointer) int
+	CppTranscribe                func(threads uint32, lang string, translate bool, diarize bool, pcmf32 []float32, pcmf32Len uintptr, segsOutLen unsafe.Pointer) int
+	CppGetSegmentText            func(i int) string
+	CppGetSegmentStart           func(i int) int64
+	CppGetSegmentEnd             func(i int) int64
+	CppNTokens                   func(i int) int
+	CppGetTokenID                func(i int, j int) int
+	CppGetSegmentSpeakerTurnNext func(i int) bool
 )
 
 type Whisper struct {
@@ -122,7 +123,7 @@ func (w *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 	segsLen := uintptr(0xdeadbeef)
 	segsLenPtr := unsafe.Pointer(&segsLen)
 
-	if ret := CppTranscribe(opts.Threads, opts.Language, opts.Translate, data, uintptr(len(data)), segsLenPtr); ret != 0 {
+	if ret := CppTranscribe(opts.Threads, opts.Language, opts.Translate, opts.Diarize, data, uintptr(len(data)), segsLenPtr); ret != 0 {
 		return pb.TranscriptResult{}, fmt.Errorf("Failed Transcribe")
 	}
 
@@ -133,6 +134,10 @@ func (w *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 		t := CppGetSegmentEnd(i)
 		txt := strings.Clone(CppGetSegmentText(i))
 		tokens := make([]int32, CppNTokens(i))
+
+		if opts.Diarize && CppGetSegmentSpeakerTurnNext(i) {
+			txt += " [SPEAKER_TURN]"
+		}
 
 		for j := range tokens {
 			tokens[j] = int32(CppGetTokenID(i, j))
@@ -151,6 +156,6 @@ func (w *Whisper) AudioTranscription(opts *pb.TranscriptRequest) (pb.TranscriptR
 
 	return pb.TranscriptResult{
 		Segments: segments,
-		Text: strings.TrimSpace(text),
+		Text:     strings.TrimSpace(text),
 	}, nil
 }
