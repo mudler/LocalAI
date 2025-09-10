@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -9,7 +10,10 @@ import (
 	"syscall"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
 )
@@ -20,9 +24,10 @@ type LLamaCPP struct {
 
 const (
 	llamaCPPRPCBinaryName = "llama-cpp-rpc-server"
+	llamaCPPGalleryName   = "llama-cpp"
 )
 
-func findLLamaCPPBackend(systemState *system.SystemState) (string, error) {
+func findLLamaCPPBackend(galleries string, systemState *system.SystemState) (string, error) {
 	backends, err := gallery.ListSystemBackends(systemState)
 	if err != nil {
 		log.Warn().Msgf("Failed listing system backends: %s", err)
@@ -30,9 +35,19 @@ func findLLamaCPPBackend(systemState *system.SystemState) (string, error) {
 	}
 	log.Debug().Msgf("System backends: %v", backends)
 
-	backend, ok := backends.Get("llama-cpp")
+	backend, ok := backends.Get(llamaCPPGalleryName)
 	if !ok {
-		return "", errors.New("llama-cpp backend not found, install it first")
+		ml := model.NewModelLoader(systemState, true)
+		var gals []config.Gallery
+		if err := json.Unmarshal([]byte(galleries), &gals); err != nil {
+			log.Error().Err(err).Msg("failed loading galleries")
+			return "", err
+		}
+		err := gallery.InstallBackendFromGallery(gals, systemState, ml, llamaCPPGalleryName, nil, true)
+		if err != nil {
+			log.Error().Err(err).Msg("llama-cpp backend not found, failed to install it")
+			return "", err
+		}
 	}
 	backendPath := filepath.Dir(backend.RunFile)
 
@@ -61,7 +76,7 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
-	grpcProcess, err := findLLamaCPPBackend(systemState)
+	grpcProcess, err := findLLamaCPPBackend(r.BackendGalleries, systemState)
 	if err != nil {
 		return err
 	}
@@ -69,6 +84,9 @@ func (r *LLamaCPP) Run(ctx *cliContext.Context) error {
 	args := strings.Split(r.ExtraLLamaCPPArgs, " ")
 
 	args = append([]string{grpcProcess}, args...)
+
+	signals.Handler(nil)
+
 	return syscall.Exec(
 		grpcProcess,
 		args,

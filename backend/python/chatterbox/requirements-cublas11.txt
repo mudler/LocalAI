@@ -2,5 +2,5 @@
 torch==2.6.0+cu118
 torchaudio==2.6.0+cu118
 transformers==4.46.3
-chatterbox-tts
+chatterbox-tts==0.1.2
 accelerate

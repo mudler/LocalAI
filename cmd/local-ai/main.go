@@ -2,9 +2,7 @@ package main
 
 import (
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 
 	"github.com/alecthomas/kong"
 	"github.com/joho/godotenv"
@@ -24,15 +22,7 @@ func main() {
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 	zerolog.SetGlobalLevel(zerolog.InfoLevel)
 
-	// Catch signals from the OS requesting us to exit
-	go func() {
-		c := make(chan os.Signal, 1) // we need to reserve to buffer size 1, so the notifier are not blocked
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
-		os.Exit(1)
-	}()
-
-	// handle loading environment variabled from .env files
+	// handle loading environment variables from .env files
 	envFiles := []string{".env", "localai.env"}
 	homeDir, err := os.UserHomeDir()
 	if err == nil {

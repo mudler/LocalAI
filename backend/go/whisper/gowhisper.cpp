@@ -7,34 +7,35 @@ static struct whisper_vad_context *vctx;
 static struct whisper_context *ctx;
 static std::vector<float> flat_segs;
 
-static void ggml_log_cb(enum ggml_log_level level, const char* log, void* data) {
-    const char* level_str;
+static void ggml_log_cb(enum ggml_log_level level, const char *log,
+                        void *data) {
+  const char *level_str;
 
-    if (!log) {
-        return;
-    }
+  if (!log) {
+    return;
+  }
 
-    switch (level) {
-        case GGML_LOG_LEVEL_DEBUG:
-            level_str = "DEBUG";
-            break;
-        case GGML_LOG_LEVEL_INFO:
-            level_str = "INFO";
-            break;
-        case GGML_LOG_LEVEL_WARN:
-            level_str = "WARN";
-            break;
-        case GGML_LOG_LEVEL_ERROR:
-            level_str = "ERROR";
-            break;
-        default: /* Potential future-proofing */
-            level_str = "?????";
-            break;
-    }
+  switch (level) {
+  case GGML_LOG_LEVEL_DEBUG:
+    level_str = "DEBUG";
+    break;
+  case GGML_LOG_LEVEL_INFO:
+    level_str = "INFO";
+    break;
+  case GGML_LOG_LEVEL_WARN:
+    level_str = "WARN";
+    break;
+  case GGML_LOG_LEVEL_ERROR:
+    level_str = "ERROR";
+    break;
+  default: /* Potential future-proofing */
+    level_str = "?????";
+    break;
+  }
 
-    fprintf(stderr, "[%-5s] ", level_str);
-    fputs(log, stderr);
-    fflush(stderr);
+  fprintf(stderr, "[%-5s] ", level_str);
+  fputs(log, stderr);
+  fflush(stderr);
 }
 
 int load_model(const char *const model_path) {
@@ -105,8 +106,8 @@ int vad(float pcmf32[], size_t pcmf32_len, float **segs_out,
   return 0;
 }
 
-int transcribe(uint32_t threads, char *lang, bool translate, float pcmf32[],
-               size_t pcmf32_len, size_t *segs_out_len) {
+int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
+               float pcmf32[], size_t pcmf32_len, size_t *segs_out_len) {
   whisper_full_params wparams =
       whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
 
@@ -120,6 +121,9 @@ int transcribe(uint32_t threads, char *lang, bool translate, float pcmf32[],
   wparams.translate = translate;
   wparams.debug_mode = true;
   wparams.print_progress = true;
+  wparams.tdrz_enable = tdrz;
+
+  fprintf(stderr, "info: Enable tdrz: %d\n", tdrz);
 
   if (whisper_full(ctx, wparams, pcmf32, pcmf32_len)) {
     fprintf(stderr, "error: transcription failed\n");
@@ -143,4 +147,8 @@ int n_tokens(int i) { return whisper_full_n_tokens(ctx, i); }
 
 int32_t get_token_id(int i, int j) {
   return whisper_full_get_token_id(ctx, i, j);
+}
+
+bool get_segment_speaker_turn_next(int i) {
+  return whisper_full_get_segment_speaker_turn_next(ctx, i);
 }

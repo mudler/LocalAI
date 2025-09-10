@@ -4,6 +4,7 @@ import (
 	"context"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/p2p"
 )
 
@@ -18,6 +19,8 @@ type FederatedCLI struct {
 func (f *FederatedCLI) Run(ctx *cliContext.Context) error {
 
 	fs := p2p.NewFederatedServer(f.Address, p2p.NetworkID(f.Peer2PeerNetworkID, p2p.FederatedID), f.Peer2PeerToken, !f.RandomWorker, f.TargetWorker)
+
+	signals.Handler(nil)
 
 	return fs.Start(context.Background())
 }

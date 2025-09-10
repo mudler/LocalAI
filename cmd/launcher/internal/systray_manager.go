@@ -177,6 +177,9 @@ func (sm *SystrayManager) recreateMenu() {
 		fyne.NewMenuItem("Settings", func() {
 			sm.showSettings()
 		}),
+		fyne.NewMenuItem("Show Welcome Window", func() {
+			sm.showWelcomeWindow()
+		}),
 		fyne.NewMenuItem("Open Data Folder", func() {
 			sm.openDataFolder()
 		}),
@@ -241,6 +244,13 @@ func (sm *SystrayManager) downloadUpdate() {
 func (sm *SystrayManager) showSettings() {
 	sm.window.Show()
 	sm.window.RequestFocus()
+}
+
+// showWelcomeWindow shows the welcome window
+func (sm *SystrayManager) showWelcomeWindow() {
+	if sm.launcher.GetUI() != nil {
+		sm.launcher.GetUI().ShowWelcomeWindow()
+	}
 }
 
 // openDataFolder opens the data folder in file manager

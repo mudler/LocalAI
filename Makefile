@@ -170,7 +170,7 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 -t localai-tests .
+	docker build --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=8 -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
@@ -369,6 +369,9 @@ backends/kitten-tts: docker-build-kitten-tts docker-save-kitten-tts build
 backends/kokoro: docker-build-kokoro docker-save-kokoro build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/kokoro.tar)"
 
+backends/chatterbox: docker-build-chatterbox docker-save-chatterbox build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/chatterbox.tar)"
+
 backends/llama-cpp-darwin: build
 	bash ./scripts/build/llama-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
@@ -493,7 +496,7 @@ docker-build-bark:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:bark -f backend/Dockerfile.python --build-arg BACKEND=bark .
 
 docker-build-chatterbox:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox ./backend
 
 docker-build-exllama2:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .

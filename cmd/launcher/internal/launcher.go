@@ -31,6 +31,7 @@ type Config struct {
 	StartOnBoot     bool              `json:"start_on_boot"`
 	LogLevel        string            `json:"log_level"`
 	EnvironmentVars map[string]string `json:"environment_vars"`
+	ShowWelcome     *bool             `json:"show_welcome"`
 }
 
 // Launcher represents the main launcher application
@@ -146,6 +147,13 @@ func (l *Launcher) Initialize() error {
 	if l.config.EnvironmentVars == nil {
 		l.config.EnvironmentVars = make(map[string]string)
 		log.Printf("Initializing empty EnvironmentVars map")
+	}
+
+	// Set default welcome window preference
+	if l.config.ShowWelcome == nil {
+		true := true
+		l.config.ShowWelcome = &true
+		log.Printf("Setting default ShowWelcome: true")
 	}
 
 	// Create directories

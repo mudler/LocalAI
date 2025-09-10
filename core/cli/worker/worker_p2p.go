@@ -9,6 +9,7 @@ import (
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
+	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/phayes/freeport"
@@ -69,7 +70,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			for {
 				log.Info().Msgf("Starting llama-cpp-rpc-server on '%s:%d'", address, port)
 
-				grpcProcess, err := findLLamaCPPBackend(systemState)
+				grpcProcess, err := findLLamaCPPBackend(r.BackendGalleries, systemState)
 				if err != nil {
 					log.Error().Err(err).Msg("Failed to find llama-cpp-rpc-server")
 					return
@@ -105,6 +106,8 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			return err
 		}
 	}
+
+	signals.Handler(nil)
 
 	for {
 		time.Sleep(1 * time.Second)

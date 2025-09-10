@@ -89,7 +89,7 @@ jobs:
             context: "./backend"
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-l4t-diffusers'
@@ -109,6 +109,18 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'true'
             backend: "diffusers"
+            dockerfile: "./backend/Dockerfile.python"
+            context: "./backend"
+          - build-type: ''
+            cuda-major-version: ""
+            cuda-minor-version: ""
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-cpu-chatterbox'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'true'
+            backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
           # CUDA 11 additional backends
@@ -175,7 +187,7 @@ jobs:
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
@@ -187,7 +199,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
@@ -199,7 +211,7 @@ jobs:
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
@@ -211,7 +223,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
@@ -223,7 +235,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
@@ -236,7 +248,7 @@ jobs:
           # CUDA 12 additional backends
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
@@ -248,7 +260,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
@@ -260,7 +272,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
@@ -272,7 +284,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
@@ -284,7 +296,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
@@ -566,7 +578,7 @@ jobs:
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -603,7 +615,7 @@ jobs:
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
@@ -663,7 +675,7 @@ jobs:
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -688,7 +700,7 @@ jobs:
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisper'
@@ -748,7 +760,7 @@ jobs:
             context: "./"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -824,7 +836,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
@@ -860,7 +872,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -885,7 +897,7 @@ jobs:
             context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "8"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
@@ -968,6 +980,9 @@ jobs:
           - backend: "mlx"
             tag-suffix: "-metal-darwin-arm64-mlx"
             build-type: "mps"
+          - backend: "chatterbox"
+            tag-suffix: "-metal-darwin-arm64-chatterbox"
+            build-type: "mps"
           - backend: "mlx-vlm"
             tag-suffix: "-metal-darwin-arm64-mlx-vlm"
             build-type: "mps"
@@ -987,7 +1002,7 @@ jobs:
       build-type: ${{ matrix.build-type }}
       go-version: "1.24.x"
       tag-suffix: ${{ matrix.tag-suffix }}
-      lang: ${{ matrix.lang || '' }}
+      lang: ${{ matrix.lang || 'python' }}
       use-pip: ${{ matrix.backend == 'diffusers' }}
       runs-on: "macOS-14"
     secrets:

@@ -1,4 +1,25 @@
 ---
+- &mimo
+  license: mit
+  tags:
+    - gguf
+    - GPU
+    - CPU
+    - text-to-text
+  icon: https://cdn-uploads.huggingface.co/production/uploads/634262af8d8089ebaefd410e/9Bnn2AnIjfQFWBGkhDNmI.png
+  name: "aurore-reveil_koto-small-7b-it"
+  urls:
+    - https://huggingface.co/Aurore-Reveil/Koto-Small-7B-IT
+    - https://huggingface.co/bartowski/Aurore-Reveil_Koto-Small-7B-IT-GGUF
+  description: |
+    Koto-Small-7B-IT is an instruct-tuned version of Koto-Small-7B-PT, which was trained on MiMo-7B-Base for almost a billion tokens of creative-writing data. This model is meant for roleplaying and instruct usecases.
+  overrides:
+    parameters:
+      model: Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
+  files:
+    - filename: Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
+      sha256: c5c38bfa5d8d5100e91a2e0050a0b2f3e082cd4bfd423cb527abc3b6f1ae180c
+      uri: huggingface://bartowski/Aurore-Reveil_Koto-Small-7B-IT-GGUF/Aurore-Reveil_Koto-Small-7B-IT-Q4_K_M.gguf
 - &internvl35
   name: "opengvlab_internvl3_5-30b-a3b"
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
@@ -2468,6 +2489,61 @@
     - filename: Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
       sha256: 2c08db093bc57c2c77222d27ffe8d41cb0b5648e66ba84e5fb9ceab429f6735c
       uri: huggingface://bartowski/Qwen_Qwen3-4B-Thinking-2507-GGUF/Qwen_Qwen3-4B-Thinking-2507-Q8_0.gguf
+- !!merge <<: *qwen3
+  name: "nousresearch_hermes-4-14b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/7B7nMvHJiL72QzVBEPKOG.png
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-4-14B
+    - https://huggingface.co/bartowski/NousResearch_Hermes-4-14B-GGUF
+  description: |
+    Hermes 4 14B is a frontier, hybrid-mode reasoning model based on Qwen 3 14B by Nous Research that is aligned to you.
+
+    Read the Hermes 4 technical report here: Hermes 4 Technical Report
+
+    Chat with Hermes in Nous Chat: https://chat.nousresearch.com
+
+    Training highlights include a newly synthesized post-training corpus emphasizing verified reasoning traces, massive improvements in math, code, STEM, logic, creativity, and format-faithful outputs, while preserving general assistant quality and broadly neutral alignment.
+    What’s new vs Hermes 3
+
+        Post-training corpus: Massively increased dataset size from 1M samples and 1.2B tokens to ~5M samples / ~60B tokens blended across reasoning and non-reasoning data.
+        Hybrid reasoning mode with explicit <think>…</think> segments when the model decides to deliberate, and options to make your responses faster when you want.
+        Reasoning that is top quality, expressive, improves math, code, STEM, logic, and even creative writing and subjective responses.
+        Schema adherence & structured outputs: trained to produce valid JSON for given schemas and to repair malformed objects.
+        Much easier to steer and align: extreme improvements on steerability, especially on reduced refusal rates.
+  overrides:
+    parameters:
+      model: NousResearch_Hermes-4-14B-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_Hermes-4-14B-Q4_K_M.gguf
+      sha256: 7ad9be1e446e3da0c149fdf55284c90be666d3e13c6e2581587853f4f9538073
+      uri: huggingface://bartowski/NousResearch_Hermes-4-14B-GGUF/NousResearch_Hermes-4-14B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "minicpm-v-4_5"
+  license: apache-2.0
+  icon: https://avatars.githubusercontent.com/u/89920203
+  urls:
+    - https://huggingface.co/openbmb/MiniCPM-V-4_5-gguf
+    - https://huggingface.co/openbmb/MiniCPM-V-4_5
+  description: |
+    MiniCPM-V 4.5 is the latest and most capable model in the MiniCPM-V series. The model is built on Qwen3-8B and SigLIP2-400M with a total of 8B parameters.
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - gpu
+    - qwen3
+    - cpu
+  overrides:
+    mmproj: minicpm-v-4_5-mmproj-f16.gguf
+    parameters:
+      model: minicpm-v-4_5-Q4_K_M.gguf
+  files:
+    - filename: minicpm-v-4_5-Q4_K_M.gguf
+      sha256: c1c3c33100b15b4caf7319acce4e23c0eb0ce1cbd12f70e8d24f05aa67b7512f
+      uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/ggml-model-Q4_K_M.gguf
+    - filename: minicpm-v-4_5-mmproj-f16.gguf
+      uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/mmproj-model-f16.gguf
+      sha256: 7a7225a32e8d453aaa3d22d8c579b5bf833c253f784cdb05c99c9a76fd616df8
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
@@ -4785,6 +4861,25 @@
     - filename: sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
       sha256: f0ca05ca40b8133f2fd5c7ae2e5c42af9200f559e54f37b46a76146ba09fa422
       uri: huggingface://bartowski/sophosympatheia_Strawberrylemonade-70B-v1.1-GGUF/sophosympatheia_Strawberrylemonade-70B-v1.1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  icon: https://huggingface.co/invisietch/L3.3-Ignition-v0.1-70B/resolve/main/header.png
+  name: "invisietch_l3.3-ignition-v0.1-70b"
+  urls:
+    - https://huggingface.co/invisietch/L3.3-Ignition-v0.1-70B
+    - https://huggingface.co/bartowski/invisietch_L3.3-Ignition-v0.1-70B-GGUF
+  description: |
+    Ignition v0.1 is a Llama 3.3-based model merge designed for creative roleplay and fiction writing purposes. The model underwent a multi-stage merge process designed to optimise for creative writing capability, minimising slop, and improving coherence when compared with its constituent models.
+
+    The model shows a preference for detailed character cards and is sensitive to detailed system prompting. If you want a specific behavior from the model, try prompting for it directly.
+
+    Inferencing has been tested at fp8 and fp16, and both are coherent up to ~64k context.
+  overrides:
+    parameters:
+      model: invisietch_L3.3-Ignition-v0.1-70B-Q4_K_M.gguf
+  files:
+    - filename: invisietch_L3.3-Ignition-v0.1-70B-Q4_K_M.gguf
+      sha256: 55fad5010cb16193ca05a90ef5a76d06de79cd5fd7d16ff474ca4ddb008dbe75
+      uri: huggingface://bartowski/invisietch_L3.3-Ignition-v0.1-70B-GGUF/invisietch_L3.3-Ignition-v0.1-70B-Q4_K_M.gguf
 - &rwkv
   url: "github:mudler/LocalAI/gallery/rwkv.yaml@master"
   name: "rwkv-6-world-7b"
@@ -12284,6 +12379,34 @@
     - filename: Wingless_Imp_8B.i1-Q4_K_M.gguf
       sha256: 3a5ff776ab3286f43937c3c2d8e2e1e09c5ea1c91a79945c34ec071e23f31e3b
       uri: huggingface://mradermacher/Wingless_Imp_8B-i1-GGUF/Wingless_Imp_8B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "nousresearch_hermes-4-70b"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6317aade83d8d2fd903192d9/roT9o5bMYBtQziRMlaSDf.jpeg
+  urls:
+    - https://huggingface.co/NousResearch/Hermes-4-70B
+    - https://huggingface.co/bartowski/NousResearch_Hermes-4-70B-GGUF
+  description: |
+    Hermes 4 70B is a frontier, hybrid-mode reasoning model based on Llama-3.1-70B by Nous Research that is aligned to you.
+
+    Read the Hermes 4 technical report here: Hermes 4 Technical Report
+
+    Chat with Hermes in Nous Chat: https://chat.nousresearch.com
+
+    Training highlights include a newly synthesized post-training corpus emphasizing verified reasoning traces, massive improvements in math, code, STEM, logic, creativity, and format-faithful outputs, while preserving general assistant quality and broadly neutral alignment.
+    What’s new vs Hermes 3
+
+        Post-training corpus: Massively increased dataset size from 1M samples and 1.2B tokens to ~5M samples / ~60B tokens blended across reasoning and non-reasoning data.
+        Hybrid reasoning mode with explicit <think>…</think> segments when the model decides to deliberate, and options to make your responses faster when you want.
+        Reasoning that is top quality, expressive, improves math, code, STEM, logic, and even creative writing and subjective responses.
+        Schema adherence & structured outputs: trained to produce valid JSON for given schemas and to repair malformed objects.
+        Much easier to steer and align: extreme improvements on steerability, especially on reduced refusal rates.
+  overrides:
+    parameters:
+      model: NousResearch_Hermes-4-70B-Q4_K_M.gguf
+  files:
+    - filename: NousResearch_Hermes-4-70B-Q4_K_M.gguf
+      sha256: ab9b59dd1df27c039952915aa4669a82b5f45e5e9532b98679c65dffe2fe9ee2
+      uri: huggingface://bartowski/NousResearch_Hermes-4-70B-GGUF/NousResearch_Hermes-4-70B-Q4_K_M.gguf
 - &deepseek
   url: "github:mudler/LocalAI/gallery/deepseek.yaml@master" ## Deepseek
   name: "deepseek-coder-v2-lite-instruct"
@@ -19983,145 +20106,154 @@
   name: "whisper-base-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-base-q5_1.bin
+      model: ggml-base-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-base-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base-q5_1.bin"
+    - filename: "ggml-base-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base-q5_1.bin"
       sha256: 422f1ae452ade6f30a004d7e5c6a43195e4433bc370bf23fac9cc591f01a8898
 - !!merge <<: *whisper
   name: "whisper-base"
   overrides:
     parameters:
-      model: ggml-model-whisper-base.bin
+      model: ggml-base.bin
   files:
-    - filename: "ggml-model-whisper-base.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.bin"
+    - filename: "ggml-base.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base.bin"
       sha256: 60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe
 - !!merge <<: *whisper
   name: "whisper-base-en-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-base.en-q5_1.bin
+      model: ggml-base.en-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-base.en-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.en-q5_1.bin"
+    - filename: "ggml-base.en-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base.en-q5_1.bin"
       sha256: 4baf70dd0d7c4247ba2b81fafd9c01005ac77c2f9ef064e00dcf195d0e2fdd2f
 - !!merge <<: *whisper
   name: "whisper-base-en"
   overrides:
     parameters:
-      model: ggml-model-whisper-base.en.bin
+      model: ggml-base.en.bin
   files:
-    - filename: "ggml-model-whisper-base.en.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-base.en.bin"
+    - filename: "ggml-base.en.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-base.en.bin"
       sha256: a03779c86df3323075f5e796cb2ce5029f00ec8869eee3fdfb897afe36c6d002
 - !!merge <<: *whisper
   name: "whisper-large-q5_0"
   overrides:
     parameters:
-      model: ggml-model-whisper-large-q5_0.bin
+      model: ggml-large-q5_0.bin
   files:
-    - filename: "ggml-model-whisper-large-q5_0.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-large-q5_0.bin"
+    - filename: "ggml-large-q5_0.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-large-q5_0.bin"
       sha256: 3a214837221e4530dbc1fe8d734f302af393eb30bd0ed046042ebf4baf70f6f2
 - !!merge <<: *whisper
   name: "whisper-medium-q5_0"
   overrides:
     parameters:
-      model: ggml-model-whisper-medium-q5_0.bin
+      model: ggml-medium-q5_0.bin
   files:
-    - filename: "ggml-model-whisper-medium-q5_0.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-medium-q5_0.bin"
+    - filename: "ggml-medium-q5_0.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-medium-q5_0.bin"
       sha256: 19fea4b380c3a618ec4723c3eef2eb785ffba0d0538cf43f8f235e7b3b34220f
 - !!merge <<: *whisper
   name: "whisper-small-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-small-q5_1.bin
+      model: ggml-small-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-small-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small-q5_1.bin"
+    - filename: "ggml-small-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small-q5_1.bin"
       sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
 - !!merge <<: *whisper
   name: "whisper-small"
   overrides:
     parameters:
-      model: ggml-model-whisper-small.bin
+      model: ggml-small.bin
   files:
-    - filename: "ggml-model-whisper-small.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.bin"
+    - filename: "ggml-small.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small.bin"
       sha256: 1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b
+- !!merge <<: *whisper
+  name: "whisper-small-en-tdrz"
+  overrides:
+    parameters:
+      model: ggml-small.en-tdrz.bin
+  files:
+    - filename: "ggml-small.bin"
+      uri: "huggingface://akashmjn/tinydiarize-whisper.cpp/ggml-small.en-tdrz.bin"
+      sha256: ceac3ec06d1d98ef71aec665283564631055fd6129b79d8e1be4f9cc33cc54b4
 - !!merge <<: *whisper
   name: "whisper-small-en-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-small.en-q5_1.bin
+      model: ggml-small.en-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-small.en-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.en-q5_1.bin"
+    - filename: "ggml-small.en-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small.en-q5_1.bin"
       sha256: bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30
 - !!merge <<: *whisper
   name: "whisper-small"
   overrides:
     parameters:
-      model: ggml-model-whisper-small.en.bin
+      model: ggml-small.en.bin
   files:
-    - filename: "ggml-model-whisper-small.en.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small.en.bin"
+    - filename: "ggml-small.en.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small.en.bin"
       sha256: c6138d6d58ecc8322097e0f987c32f1be8bb0a18532a3f88f734d1bbf9c41e5d
 - !!merge <<: *whisper
   name: "whisper-small-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-small-q5_1.bin
+      model: ggml-small-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-small-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-small-q5_1.bin"
+    - filename: "ggml-small-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-small-q5_1.bin"
       sha256: ae85e4a935d7a567bd102fe55afc16bb595bdb618e11b2fc7591bc08120411bb
 - !!merge <<: *whisper
   name: "whisper-tiny"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.bin
+      model: ggml-tiny.bin
   files:
-    - filename: "ggml-model-whisper-tiny.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.bin"
+    - filename: "ggml-tiny.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.bin"
       sha256: be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21
 - !!merge <<: *whisper
   name: "whisper-tiny-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny-q5_1.bin
+      model: ggml-tiny-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-tiny-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny-q5_1.bin"
+    - filename: "ggml-tiny-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny-q5_1.bin"
       sha256: 818710568da3ca15689e31a743197b520007872ff9576237bda97bd1b469c3d7
 - !!merge <<: *whisper
   name: "whisper-tiny-en-q5_1"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.en-q5_1.bin
+      model: ggml-tiny.en-q5_1.bin
   files:
-    - filename: "ggml-model-whisper-tiny.en-q5_1.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q5_1.bin"
+    - filename: "ggml-tiny.en-q5_1.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.en-q5_1.bin"
       sha256: c77c5766f1cef09b6b7d47f21b546cbddd4157886b3b5d6d4f709e91e66c7c2b
 - !!merge <<: *whisper
   name: "whisper-tiny-en"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.en.bin
+      model: ggml-tiny.en.bin
   files:
-    - filename: "ggml-model-whisper-tiny.en.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en.bin"
+    - filename: "ggml-tiny.en.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.en.bin"
       sha256: 921e4cf8686fdd993dcd081a5da5b6c365bfde1162e72b08d75ac75289920b1f
 - !!merge <<: *whisper
   name: "whisper-tiny-en-q8_0"
   overrides:
     parameters:
-      model: ggml-model-whisper-tiny.en-q8_0.bin
+      model: ggml-tiny.en-q8_0.bin
   files:
-    - filename: "ggml-model-whisper-tiny.en-q8_0.bin"
-      uri: "https://ggml.ggerganov.com/ggml-model-whisper-tiny.en-q8_0.bin"
+    - filename: "ggml-tiny.en-q8_0.bin"
+      uri: "huggingface://ggerganov/whisper.cpp/ggml-tiny.en-q8_0.bin"
       sha256: 5bc2b3860aa151a4c6e7bb095e1fcce7cf12c7b020ca08dcec0c6d018bb7dd94
 ## Bert embeddings (llama3.2 drop-in)
 - !!merge <<: *llama32
