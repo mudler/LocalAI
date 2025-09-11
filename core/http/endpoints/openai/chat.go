@@ -398,9 +398,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 
 				finishReason := "stop"
-				if toolsCalled {
+				if toolsCalled && len(input.Tools) > 0 {
 					finishReason = "tool_calls"
-				} else if toolsCalled && len(input.Tools) == 0 {
+				} else if toolsCalled {
 					finishReason = "function_call"
 				}
 
@@ -443,11 +443,6 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				log.Debug().Msgf("Text content to return: %s", textContentToReturn)
 				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 
-				finishReason := "stop"
-				if len(input.Tools) > 0 {
-					finishReason = "tool_calls"
-				}
-
 				switch {
 				case noActionsToRun:
 					result, err := handleQuestion(config, cl, input, ml, startupOptions, results, s, predInput)
@@ -457,11 +452,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 
 					*c = append(*c, schema.Choice{
-						FinishReason: finishReason,
+						FinishReason: "stop",
 						Message:      &schema.Message{Role: "assistant", Content: &result}})
 				default:
 					toolChoice := schema.Choice{
-						FinishReason: finishReason,
+						FinishReason: "tool_calls",
 						Message: &schema.Message{
 							Role: "assistant",
 						},
