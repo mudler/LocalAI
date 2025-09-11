@@ -23,10 +23,10 @@ var ErrUnsafeFilesFound = errors.New("unsafe files found")
 
 func HuggingFaceScan(uri URI) (*HuggingFaceScanResult, error) {
 	cleanParts := strings.Split(uri.ResolveURL(), "/")
-	if len(cleanParts) <= 4 || cleanParts[2] != "huggingface.co" {
+	if len(cleanParts) <= 4 || cleanParts[2] != "huggingface.co" && cleanParts[2] != HF_ENDPOINT {
 		return nil, ErrNonHuggingFaceFile
 	}
-	results, err := http.Get(fmt.Sprintf("https://huggingface.co/api/models/%s/%s/scan", cleanParts[3], cleanParts[4]))
+	results, err := http.Get(fmt.Sprintf("%s/api/models/%s/%s/scan", HF_ENDPOINT, cleanParts[3], cleanParts[4]))
 	if err != nil {
 		return nil, err
 	}

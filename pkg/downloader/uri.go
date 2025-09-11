@@ -37,6 +37,17 @@ const (
 
 type URI string
 
+// HF_ENDPOINT is the HuggingFace endpoint, can be overridden by setting the HF_ENDPOINT environment variable.
+var HF_ENDPOINT string = loadConfig()
+
+func loadConfig() string {
+	HF_ENDPOINT := os.Getenv("HF_ENDPOINT")
+	if HF_ENDPOINT == "" {
+		HF_ENDPOINT = "https://huggingface.co"
+	}
+	return HF_ENDPOINT
+}
+
 func (uri URI) DownloadWithCallback(basePath string, f func(url string, i []byte) error) error {
 	return uri.DownloadWithAuthorizationAndCallback(basePath, "", f)
 }
@@ -213,7 +224,7 @@ func (s URI) ResolveURL() string {
 			filepath = strings.Split(filepath, "@")[0]
 		}
 
-		return fmt.Sprintf("https://huggingface.co/%s/%s/resolve/%s/%s", owner, repo, branch, filepath)
+		return fmt.Sprintf("%s/%s/%s/resolve/%s/%s", HF_ENDPOINT, owner, repo, branch, filepath)
 	}
 
 	return string(s)
