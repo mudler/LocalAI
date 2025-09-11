@@ -427,25 +427,3 @@ func RegisterBackends(systemState *system.SystemState, modelLoader *model.ModelL
 
 	return nil
 }
-
-// ResolveBestBackendName returns the concrete backend name to use for a given meta or concrete backend name,
-// based on the current system state and gallery metadata. If the provided name is already concrete, it is returned as-is.
-func ResolveBestBackendName(galleries []config.Gallery, systemState *system.SystemState, name string) (string, error) {
-	backends, err := AvailableBackends(galleries, systemState)
-	if err != nil {
-		return "", err
-	}
-	be := FindGalleryElement(backends, name)
-	if be == nil {
-		return "", fmt.Errorf("no backend found with name %q", name)
-	}
-	if !be.IsMeta() {
-		return be.Name, nil
-	}
-	best := be.FindBestBackendFromMeta(systemState, backends)
-	if best == nil {
-		return "", fmt.Errorf("no backend found with capabilities %v", be.CapabilitiesMap)
-	}
-	return best.Name, nil
-}
-
