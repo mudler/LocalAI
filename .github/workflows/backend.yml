@@ -775,7 +775,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-hipblas-whisper'
+            tag-suffix: '-gpu-rocm-hipblas-whisper'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
