@@ -18,6 +18,73 @@ const (
 	testImage = "quay.io/mudler/tests:localai-backend-test"
 )
 
+var _ = Describe("Runtime capability-based backend selection", func() {
+	var tempDir string
+
+	BeforeEach(func() {
+		var err error
+		tempDir, err = os.MkdirTemp("", "gallery-caps-*")
+		Expect(err).NotTo(HaveOccurred())
+	})
+
+	AfterEach(func() {
+		os.RemoveAll(tempDir)
+	})
+
+	It("ListSystemBackends prefers optimal alias candidate", func() {
+		// Arrange two installed backends sharing the same alias
+		must := func(err error) { Expect(err).NotTo(HaveOccurred()) }
+
+		cpuDir := filepath.Join(tempDir, "cpu-llama-cpp")
+		must(os.MkdirAll(cpuDir, 0o750))
+		cpuMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cpu-llama-cpp"}
+		b, _ := json.Marshal(cpuMeta)
+		must(os.WriteFile(filepath.Join(cpuDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cpuDir, "run.sh"), []byte(""), 0o755))
+
+		cudaDir := filepath.Join(tempDir, "cuda12-llama-cpp")
+		must(os.MkdirAll(cudaDir, 0o750))
+		cudaMeta := &BackendMetadata{Alias: "llama-cpp", Name: "cuda12-llama-cpp"}
+		b, _ = json.Marshal(cudaMeta)
+		must(os.WriteFile(filepath.Join(cudaDir, "metadata.json"), b, 0o644))
+		must(os.WriteFile(filepath.Join(cudaDir, "run.sh"), []byte(""), 0o755))
+
+		// Default system: alias should point to CPU
+		sysDefault, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysDefault.GPUVendor = "" // force default selection
+	backs, err := ListSystemBackends(sysDefault)
+		must(err)
+		aliasBack, ok := backs.Get("llama-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(cpuDir, "run.sh")))
+		// concrete entries remain
+		_, ok = backs.Get("cpu-llama-cpp")
+		Expect(ok).To(BeTrue())
+		_, ok = backs.Get("cuda12-llama-cpp")
+		Expect(ok).To(BeTrue())
+
+		// NVIDIA system: alias should point to CUDA
+		// Force capability to nvidia to make the test deterministic on platforms like darwin/arm64 (which default to metal)
+		os.Setenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY", "nvidia")
+		defer os.Unsetenv("LOCALAI_FORCE_META_BACKEND_CAPABILITY")
+
+		sysNvidia, err := system.GetSystemState(
+			system.WithBackendPath(tempDir),
+		)
+		must(err)
+		sysNvidia.GPUVendor = "nvidia"
+		sysNvidia.VRAM = 8 * 1024 * 1024 * 1024
+	backs, err = ListSystemBackends(sysNvidia)
+		must(err)
+		aliasBack, ok = backs.Get("llama-cpp")
+		Expect(ok).To(BeTrue())
+		Expect(aliasBack.RunFile).To(Equal(filepath.Join(cudaDir, "run.sh")))
+	})
+})
+
 var _ = Describe("Gallery Backends", func() {
 	var (
 		tempDir     string

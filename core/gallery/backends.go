@@ -1,3 +1,5 @@
+// Package gallery provides installation and registration utilities for LocalAI backends,
+// including meta-backend resolution based on system capabilities.
 package gallery
 
 import (
@@ -5,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -19,6 +22,12 @@ const (
 	metadataFile = "metadata.json"
 	runFile      = "run.sh"
 )
+
+// backendCandidate represents an installed concrete backend option for a given alias
+type backendCandidate struct {
+	name    string
+	runFile string
+}
 
 // readBackendMetadata reads the metadata JSON file for a backend
 func readBackendMetadata(backendPath string) (*BackendMetadata, error) {
@@ -58,7 +67,7 @@ func writeBackendMetadata(backendPath string, metadata *BackendMetadata) error {
 	return nil
 }
 
-// Installs a model from the gallery
+// InstallBackendFromGallery installs a backend from the gallery.
 func InstallBackendFromGallery(galleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, name string, downloadStatus func(string, string, string, float64), force bool) error {
 	if !force {
 		// check if we already have the backend installed
@@ -282,23 +291,18 @@ func (b SystemBackends) GetAll() []SystemBackend {
 }
 
 func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error) {
-	potentialBackends, err := os.ReadDir(systemState.Backend.BackendsPath)
-	if err != nil {
-		return nil, err
-	}
-
+	// Gather backends from system and user paths, then resolve alias conflicts by capability.
 	backends := make(SystemBackends)
 
-	systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath)
-	if err == nil {
-		// system backends are special, they are provided by the system and not managed by LocalAI
+	// System-provided backends
+	if systemBackends, err := os.ReadDir(systemState.Backend.BackendsSystemPath); err == nil {
 		for _, systemBackend := range systemBackends {
 			if systemBackend.IsDir() {
-				systemBackendRunFile := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
-				if _, err := os.Stat(systemBackendRunFile); err == nil {
+				run := filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile)
+				if _, err := os.Stat(run); err == nil {
 					backends[systemBackend.Name()] = SystemBackend{
 						Name:     systemBackend.Name(),
-						RunFile:  filepath.Join(systemState.Backend.BackendsSystemPath, systemBackend.Name(), runFile),
+						RunFile:  run,
 						IsMeta:   false,
 						IsSystem: true,
 						Metadata: nil,
@@ -307,63 +311,103 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 			}
 		}
 	} else {
-		log.Warn().Err(err).Msg("Failed to read system backends, but that's ok, we will just use the backends managed by LocalAI")
+		log.Warn().Err(err).Msg("Failed to read system backends, proceeding with user-managed backends")
 	}
 
-	for _, potentialBackend := range potentialBackends {
-		if potentialBackend.IsDir() {
-			potentialBackendRunFile := filepath.Join(systemState.Backend.BackendsPath, potentialBackend.Name(), runFile)
+	// User-managed backends and alias collection
+	entries, err := os.ReadDir(systemState.Backend.BackendsPath)
+	if err != nil {
+		return nil, err
+	}
 
-			var metadata *BackendMetadata
+	aliasGroups := make(map[string][]backendCandidate)
+	metaMap := make(map[string]*BackendMetadata)
 
-			// If metadata file does not exist, we just use the directory name
-			// and we do not fill the other metadata (such as potential backend Aliases)
-			metadataFilePath := filepath.Join(systemState.Backend.BackendsPath, potentialBackend.Name(), metadataFile)
-			if _, err := os.Stat(metadataFilePath); os.IsNotExist(err) {
-				metadata = &BackendMetadata{
-					Name: potentialBackend.Name(),
-				}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		dir := e.Name()
+		run := filepath.Join(systemState.Backend.BackendsPath, dir, runFile)
+
+		var metadata *BackendMetadata
+		metadataPath := filepath.Join(systemState.Backend.BackendsPath, dir, metadataFile)
+		if _, err := os.Stat(metadataPath); os.IsNotExist(err) {
+			metadata = &BackendMetadata{Name: dir}
+		} else {
+			m, rerr := readBackendMetadata(filepath.Join(systemState.Backend.BackendsPath, dir))
+			if rerr != nil {
+				return nil, rerr
+			}
+			if m == nil {
+				metadata = &BackendMetadata{Name: dir}
 			} else {
-				// Check for alias in metadata
-				metadata, err = readBackendMetadata(filepath.Join(systemState.Backend.BackendsPath, potentialBackend.Name()))
-				if err != nil {
-					return nil, err
+				metadata = m
+			}
+		}
+
+		metaMap[dir] = metadata
+
+		// Concrete backend entry
+		if _, err := os.Stat(run); err == nil {
+			backends[dir] = SystemBackend{
+				Name:     dir,
+				RunFile:  run,
+				IsMeta:   false,
+				Metadata: metadata,
+			}
+		}
+
+		// Alias candidates
+		if metadata.Alias != "" {
+			aliasGroups[metadata.Alias] = append(aliasGroups[metadata.Alias], backendCandidate{name: dir, runFile: run})
+		}
+
+		// Meta backends indirection
+		if metadata.MetaBackendFor != "" {
+			backends[metadata.Name] = SystemBackend{
+				Name:     metadata.Name,
+				RunFile:  filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor, runFile),
+				IsMeta:   true,
+				Metadata: metadata,
+			}
+		}
+	}
+
+	// Resolve aliases using system capability preferences
+	tokens := systemState.BackendPreferenceTokens()
+	for alias, cands := range aliasGroups {
+		chosen := backendCandidate{}
+		// Try preference tokens
+		for _, t := range tokens {
+			for _, c := range cands {
+				if strings.Contains(strings.ToLower(c.name), t) && c.runFile != "" {
+					chosen = c
+					break
 				}
 			}
-
-			if !backends.Exists(potentialBackend.Name()) {
-				// We don't want to override aliases if already set, and if we are meta backend
-				if _, err := os.Stat(potentialBackendRunFile); err == nil {
-					backends[potentialBackend.Name()] = SystemBackend{
-						Name:     potentialBackend.Name(),
-						RunFile:  potentialBackendRunFile,
-						IsMeta:   false,
-						Metadata: metadata,
-					}
+			if chosen.runFile != "" {
+				break
+			}
+		}
+		// Fallback: first runnable
+		if chosen.runFile == "" {
+			for _, c := range cands {
+				if c.runFile != "" {
+					chosen = c
+					break
 				}
 			}
-
-			if metadata == nil {
-				continue
-			}
-
-			if metadata.Alias != "" {
-				backends[metadata.Alias] = SystemBackend{
-					Name:     metadata.Alias,
-					RunFile:  potentialBackendRunFile,
-					IsMeta:   false,
-					Metadata: metadata,
-				}
-			}
-
-			if metadata.MetaBackendFor != "" {
-				backends[metadata.Name] = SystemBackend{
-					Name:     metadata.Name,
-					RunFile:  filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor, runFile),
-					IsMeta:   true,
-					Metadata: metadata,
-				}
-			}
+		}
+		if chosen.runFile == "" {
+			continue
+		}
+		md := metaMap[chosen.name]
+		backends[alias] = SystemBackend{
+			Name:     alias,
+			RunFile:  chosen.runFile,
+			IsMeta:   false,
+			Metadata: md,
 		}
 	}
 
