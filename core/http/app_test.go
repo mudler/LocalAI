@@ -857,6 +857,7 @@ var _ = Describe("API test", func() {
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
+			Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
 		})
 
 		Context("External gRPC calls", func() {
