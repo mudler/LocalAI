@@ -853,13 +853,13 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 	for _, item := range conversation.Items {
 		for _, content := range item.Content {
 			switch content.Type {
-			case "input_text", "text":
+			case types.MessageContentTypeInputText, types.MessageContentTypeText:
 				conversationHistory = append(conversationHistory, schema.Message{
 					Role:          string(item.Role),
 					StringContent: content.Text,
 					Content:       content.Text,
 				})
-			case "input_audio":
+			case types.MessageContentTypeInputAudio, types.MessageContentTypeAudio:
 				// We do not to turn to text here the audio result.
 				// When generating it later on from the LLM,
 				// we will also generate text and return it and store it in the conversation
