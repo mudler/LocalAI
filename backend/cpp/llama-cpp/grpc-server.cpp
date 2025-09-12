@@ -701,7 +701,7 @@ public:
         */
 
         // for the shape of input/content, see tokenize_input_prompts()
-        json prompt = body.at("prompt");
+        json prompt = body.at("embeddings");
 
 
         auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
