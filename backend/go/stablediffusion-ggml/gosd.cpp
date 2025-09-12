@@ -43,6 +43,8 @@ const char* sample_method_str[] = {
     "tcd",
 };
 
+static_assert(std::size(sample_method_str) == SAMPLE_METHOD_COUNT, "sample method mismatch");
+
 // Names of the sigma schedule overrides, same order as sample_schedule in stable-diffusion.h
 const char* schedulers[] = {
     "default",
@@ -51,7 +53,10 @@ const char* schedulers[] = {
     "exponential",
     "ays",
     "gits",
+    "smoothstep",
 };
+
+static_assert(std::size(schedulers) == SCHEDULE_COUNT, "schedulers mismatch");
 
 sd_ctx_t* sd_c;
 // Moved from the context (load time) to generation time params
