@@ -799,7 +799,7 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 	}
 
 	if !session.TranscriptionOnly {
-		sendNotImplemented(c, "Commiting items to the conversation not implemented")
+		sendNotImplemented(c, "Committing items to the conversation not implemented")
 	}
 
 	// TODO: Commit the audio and/or transcribed text to the conversation

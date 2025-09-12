@@ -614,7 +614,7 @@ A list of the environment variable that tweaks parallelism is the following:
 ```
 ### Python backends GRPC max workers
 ### Default number of workers for GRPC Python backends.
-### This actually controls wether a backend can process multiple requests or not.
+### This actually controls whether a backend can process multiple requests or not.
 # PYTHON_GRPC_MAX_WORKERS=1
 
 ### Define the number of parallel LLAMA.cpp workers (Defaults to 1)

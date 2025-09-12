@@ -75,7 +75,7 @@ func getModelStatus(url string) (response map[string]interface{}) {
 	// Unmarshal the response into a map[string]interface{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Println("Error unmarshaling JSON response:", err)
+		fmt.Println("Error unmarshalling JSON response:", err)
 		return
 	}
 	return
@@ -131,7 +131,7 @@ func postModelApplyRequest(url string, request modelApplyRequest) (response map[
 	// Unmarshal the response into a map[string]interface{}
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Println("Error unmarshaling JSON response:", err)
+		fmt.Println("Error unmarshalling JSON response:", err)
 		return
 	}
 	return
@@ -629,7 +629,7 @@ var _ = Describe("API test", func() {
 									},
 									"unit": {
 										Type: jsonschema.String,
-										Enum: []string{"celcius", "fahrenheit"},
+										Enum: []string{"celsius", "fahrenheit"},
 									},
 								},
 								Required: []string{"location"},
@@ -646,7 +646,7 @@ var _ = Describe("API test", func() {
 			err = json.Unmarshal([]byte(resp2.Choices[0].Message.FunctionCall.Arguments), &res)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(res["location"]).To(ContainSubstring("San Francisco"), fmt.Sprint(res))
-			Expect(res["unit"]).To(Equal("celcius"), fmt.Sprint(res))
+			Expect(res["unit"]).To(Equal("celsius"), fmt.Sprint(res))
 			Expect(string(resp2.Choices[0].FinishReason)).To(Equal("function_call"), fmt.Sprint(resp2.Choices[0].FinishReason))
 		})
 
