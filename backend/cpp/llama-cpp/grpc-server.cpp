@@ -712,6 +712,7 @@ public:
             }
         }
 
+        int embd_normalize = 2; // default to Euclidean/L2 norm
         // create and queue the task
         json responses = json::array();
         bool error = false;
@@ -725,9 +726,8 @@ public:
                 task.index         = i;
                 task.prompt_tokens = std::move(tokenized_prompts[i]);
 
-                // OAI-compat
-                task.params.oaicompat = OAICOMPAT_TYPE_EMBEDDING;
-
+                task.params.oaicompat = OAICOMPAT_TYPE_NONE;
+                task.params.embd_normalize = embd_normalize;
                 tasks.push_back(std::move(task));
             }
 
@@ -743,9 +743,8 @@ public:
                 responses.push_back(res->to_json());
             }
         }, [&](const json & error_data) {
-            return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, error_data.value("content", ""));
+            error = true;
         }, [&]() {
-            // NOTE: we should try to check when the writer is closed here
             return false;
         });
 
@@ -755,11 +754,35 @@ public:
             return grpc::Status(grpc::StatusCode::INTERNAL, "Error in receiving results");
         }
 
-        std::vector<float> embeddings = responses[0].value("embedding", std::vector<float>());
-        // loop the vector and set the embeddings results
-        for (int i = 0; i < embeddings.size(); i++) {
-            embeddingResult->add_embeddings(embeddings[i]);
+        std::cout << "[DEBUG] Responses size: " << responses.size() << std::endl;
+        
+        // Process the responses and extract embeddings
+        for (const auto & response_elem : responses) {
+            // Check if the response has an "embedding" field
+            if (response_elem.contains("embedding")) {
+                json embedding_data = json_value(response_elem, "embedding", json::array());
+                
+                if (embedding_data.is_array() && !embedding_data.empty()) {
+                    for (const auto & embedding_vector : embedding_data) {
+                        if (embedding_vector.is_array()) {
+                            for (const auto & embedding_value : embedding_vector) {
+                                embeddingResult->add_embeddings(embedding_value.get<float>());
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Check if the response itself contains the embedding data directly
+                if (response_elem.is_array()) {
+                    for (const auto & embedding_value : response_elem) {
+                        embeddingResult->add_embeddings(embedding_value.get<float>());
+                    }
+                }
+            }
         }
+
+
+    
 
         return grpc::Status::OK;
     }

@@ -9,5 +9,5 @@ import (
 
 func TestLocalAI(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "LocalAI test suite")
+	RunSpecs(t, "LocalAI HTTP test suite")
 }
