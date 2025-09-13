@@ -117,8 +117,8 @@ run: ## run local-ai
 	CGO_LDFLAGS="$(CGO_LDFLAGS)" $(GOCMD) run ./
 
 test-models/testmodel.ggml:
-	mkdir test-models
-	mkdir test-dir
+	mkdir -p test-models
+	mkdir -p test-dir
 	wget -q https://huggingface.co/mradermacher/gpt2-alpaca-gpt4-GGUF/resolve/main/gpt2-alpaca-gpt4.Q4_K_M.gguf -O test-models/testmodel.ggml
 	wget -q https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin -O test-models/whisper-en
 	wget -q https://huggingface.co/mudler/all-MiniLM-L6-v2/resolve/main/ggml-model-q4_0.bin -O test-models/bert
@@ -133,15 +133,18 @@ prepare-test: protogen-go
 ########################################################
 
 ## Test targets
-test: test-models/testmodel.ggml protogen-go
+test: test-models/testmodel.ggml protogen-go 
 	@echo 'Running tests'
 	export GO_TAGS="debug"
 	$(MAKE) prepare-test
 	HUGGINGFACE_GRPC=$(abspath ./)/backend/python/transformers/run.sh TEST_DIR=$(abspath ./)/test-dir/ FIXTURES=$(abspath ./)/tests/fixtures CONFIG_FILE=$(abspath ./)/test-models/config.yaml MODELS_PATH=$(abspath ./)/test-models BACKENDS_PATH=$(abspath ./)/backends \
-	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf"  --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
+	$(MAKE) test-acceptance
 	$(MAKE) test-llama-gguf
 	$(MAKE) test-tts
 	$(MAKE) test-stablediffusion
+
+test-acceptance:
+	$(GOCMD) run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!llama-gguf" --flake-attempts $(TEST_FLAKES) --fail-fast -v -r $(TEST_PATHS)
 
 ########################################################
 ## AIO tests
