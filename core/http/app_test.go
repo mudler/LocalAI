@@ -836,27 +836,40 @@ var _ = Describe("API test", func() {
 			if runtime.GOOS != "linux" {
 				Skip("test supported only on linux")
 			}
+			embeddingModel := openai.AdaEmbeddingV2
 			resp, err := client.CreateEmbeddings(
 				context.Background(),
 				openai.EmbeddingRequest{
-					Model: openai.AdaEmbeddingV2,
+					Model: embeddingModel,
 					Input: []string{"sun", "cat"},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred(), err)
-			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 2048))
-			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 2048))
+			Expect(len(resp.Data[0].Embedding)).To(BeNumerically("==", 4096))
+			Expect(len(resp.Data[1].Embedding)).To(BeNumerically("==", 4096))
 
 			sunEmbedding := resp.Data[0].Embedding
 			resp2, err := client.CreateEmbeddings(
 				context.Background(),
 				openai.EmbeddingRequest{
-					Model: openai.AdaEmbeddingV2,
+					Model: embeddingModel,
 					Input: []string{"sun"},
 				},
 			)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(resp2.Data[0].Embedding).To(Equal(sunEmbedding))
+			Expect(resp2.Data[0].Embedding).ToNot(Equal(resp.Data[1].Embedding))
+
+			resp3, err := client.CreateEmbeddings(
+				context.Background(),
+				openai.EmbeddingRequest{
+					Model: embeddingModel,
+					Input: []string{"cat"},
+				},
+			)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(resp3.Data[0].Embedding).To(Equal(resp.Data[1].Embedding))
+			Expect(resp3.Data[0].Embedding).ToNot(Equal(sunEmbedding))
 		})
 
 		Context("External gRPC calls", func() {
