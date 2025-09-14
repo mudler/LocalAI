@@ -2,10 +2,10 @@ context_size: 4096
 f16: true
 backend: llama-cpp
 mmap: true
-mmproj: minicpm-v-2_6-mmproj-f16.gguf
+mmproj: minicpm-v-4_5-mmproj-f16.gguf
 name: gpt-4o
 parameters:
-  model: minicpm-v-2_6-Q4_K_M.gguf
+  model: minicpm-v-4_5-Q4_K_M.gguf
 stopwords:
 - <|im_end|>
 - <dummy32000>
@@ -42,9 +42,9 @@ template:
     <|im_start|>assistant
 
 download_files:
-- filename: minicpm-v-2_6-Q4_K_M.gguf
-  sha256: 3a4078d53b46f22989adbf998ce5a3fd090b6541f112d7e936eb4204a04100b1
-  uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/ggml-model-Q4_K_M.gguf
-- filename: minicpm-v-2_6-mmproj-f16.gguf
-  uri: huggingface://openbmb/MiniCPM-V-2_6-gguf/mmproj-model-f16.gguf
-  sha256: 4485f68a0f1aa404c391e788ea88ea653c100d8e98fe572698f701e5809711fd
+- filename: minicpm-v-4_5-Q4_K_M.gguf
+  sha256: c1c3c33100b15b4caf7319acce4e23c0eb0ce1cbd12f70e8d24f05aa67b7512f
+  uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/ggml-model-Q4_K_M.gguf
+- filename: minicpm-v-4_5-mmproj-f16.gguf
+  uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/mmproj-model-f16.gguf
+  sha256: 7a7225a32e8d453aaa3d22d8c579b5bf833c253f784cdb05c99c9a76fd616df8

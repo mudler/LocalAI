@@ -182,7 +182,7 @@ MODEL_NAME=gemma-3-12b-it docker compose up
 
 # NVIDIA GPU setup with custom multimodal and image models
 MODEL_NAME=gemma-3-12b-it \
-MULTIMODAL_MODEL=minicpm-v-2_6 \
+MULTIMODAL_MODEL=minicpm-v-4_5 \
 IMAGE_MODEL=flux.1-dev-ggml \
 docker compose -f docker-compose.nvidia.yaml up
 ```
