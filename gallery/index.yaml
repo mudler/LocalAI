@@ -2585,6 +2585,44 @@
     - filename: aquif-ai_aquif-3.5-8B-Think-Q4_K_M.gguf
       sha256: 9e49b9c840de23bb3eb181ba7a102706c120b3e3d006983c3f14ebae307ff02e
       uri: huggingface://bartowski/aquif-ai_aquif-3.5-8B-Think-GGUF/aquif-ai_aquif-3.5-8B-Think-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-stargate-sg1-uncensored-abliterated-8b-i1"
+  icon: https://huggingface.co/DavidAU/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B/resolve/main/sg1.jpg
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B
+    - https://huggingface.co/mradermacher/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B-i1-GGUF
+  description: |
+    This repo contains the full precision source code, in "safe tensors" format to generate GGUFs, GPTQ, EXL2, AWQ, HQQ and other formats. The source code can also be used directly.
+
+    This model is specifically for SG1 (Stargate Series), science fiction, story generation (all genres) but also does coding and general tasks too.
+
+    This model can also be used for Role play.
+
+    This model will produce uncensored content (see notes below).
+
+    Fine tune (6 epochs, using Unsloth for Win 11) on an inhouse generated dataset to simulate / explore the Stargate SG1 Universe.
+
+    This version has the "canon" of all 10 seasons of SG1.
+
+    Model also contains, but not trained, on content from Stargate Atlantis, and Universe.
+
+    Fine tune process adds knowledge to the model, and alter all aspects of its operations.
+
+    Float32 (32 bit precision) was used to further increase the model's quality.
+
+    This model is based on "Goekdeniz-Guelmez/Josiefied-Qwen3-8B-abliterated-v1".
+
+    Example generations at the bottom of this page.
+
+    This is a Stargate (SG1) fine tune (1,331,953,664 of 9,522,689,024 (13.99% trained)), SIX epochs on this model.
+    As this is an instruct model, it will also benefit from a detailed system prompt too.
+  overrides:
+    parameters:
+      model: Qwen3-Stargate-SG1-Uncensored-Abliterated-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Stargate-SG1-Uncensored-Abliterated-8B.i1-Q4_K_M.gguf
+      sha256: 31ec697ccebbd7928c49714b8a0ec8be747be0f7c1ad71627967d2f8fe376990
+      uri: huggingface://mradermacher/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B-i1-GGUF/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B.i1-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
