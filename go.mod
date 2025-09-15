@@ -44,7 +44,7 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/rs/zerolog v1.33.0
 	github.com/russross/blackfriday v1.6.0
-	github.com/sashabaranov/go-openai v1.26.2
+	github.com/sashabaranov/go-openai v1.41.2
 	github.com/schollz/progressbar/v3 v3.14.4
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/streamer45/silero-vad-go v0.2.1
