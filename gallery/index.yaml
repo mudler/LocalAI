@@ -1,4 +1,30 @@
 ---
+- &ernie
+  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  name: "baidu_ernie-4.5-21b-a3b-thinking"
+  license: apache-2.0
+  tags:
+    - gguf
+    - GPU
+    - CPU
+    - text-to-text
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64f187a2cc1c03340ac30498/TYYUxK8xD1AxExFMWqbZD.png
+  urls:
+    - https://huggingface.co/baidu/ERNIE-4.5-21B-A3B-Thinking
+    - https://huggingface.co/bartowski/baidu_ERNIE-4.5-21B-A3B-Thinking-GGUF
+  description: |
+    Over the past three months, we have continued to scale the thinking capability of ERNIE-4.5-21B-A3B, improving both the quality and depth of reasoning, thereby advancing the competitiveness of ERNIE lightweight models in complex reasoning tasks. We are pleased to introduce ERNIE-4.5-21B-A3B-Thinking, featuring the following key enhancements:
+    Significantly improved performance on reasoning tasks, including logical reasoning, mathematics, science, coding, text generation, and academic benchmarks that typically require human expertise.
+    Efficient tool usage capabilities.
+    Enhanced 128K long-context understanding capabilities.
+    Note: This version has an increased thinking length. We strongly recommend its use in highly complex reasoning tasks. ERNIE-4.5-21B-A3B-Thinking is a text MoE post-trained model, with 21B total parameters and 3B activated parameters for each token.
+  overrides:
+    parameters:
+      model: baidu_ERNIE-4.5-21B-A3B-Thinking-Q4_K_M.gguf
+  files:
+    - filename: baidu_ERNIE-4.5-21B-A3B-Thinking-Q4_K_M.gguf
+      sha256: f309f225c413324c585e74ce28c55e76dec25340156374551d39707fc2966840
+      uri: huggingface://bartowski/baidu_ERNIE-4.5-21B-A3B-Thinking-GGUF/baidu_ERNIE-4.5-21B-A3B-Thinking-Q4_K_M.gguf
 - &mimo
   license: mit
   tags:
