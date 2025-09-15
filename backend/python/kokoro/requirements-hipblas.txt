@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.3
-torch==2.7.1+rocm6.3
+torch==2.7.1+cpu
 torchaudio==2.7.1+rocm6.3
 transformers
 accelerate
