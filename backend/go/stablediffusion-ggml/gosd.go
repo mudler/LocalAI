@@ -22,7 +22,18 @@ type SDGGML struct {
 
 var (
 	LoadModel func(model, model_apth string, options []uintptr, threads int32, diff int) int
-	GenImage  func(text, negativeText string, width, height, steps int, seed int64, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []string, refImagesCount int) int
+	GenImage  func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []string, refImagesCount int) int
+
+	TilingParamsSetEnabled       func(params uintptr, enabled bool)
+	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
+	TilingParamsSetRelSizes      func(params uintptr, relSizeX float32, relSizeY float32)
+	TilingParamsSetTargetOverlap func(params uintptr, targetOverlap float32)
+
+	ImgGenParamsNew                func() uintptr
+	ImgGenParamsSetPrompts         func(params uintptr, prompt string, negativePrompt string)
+	ImgGenParamsSetDimensions      func(params uintptr, width int, height int)
+	ImgGenParamsSetSeed            func(params uintptr, seed int64)
+	ImgGenParamsGetVaeTilingParams func(params uintptr) uintptr
 )
 
 // Copied from Purego internal/strings
@@ -120,7 +131,15 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	// Default strength for img2img (0.75 is a good default)
 	strength := float32(0.75)
 
-	ret := GenImage(t, negative, int(opts.Width), int(opts.Height), int(opts.Step), int64(opts.Seed), dst, sd.cfgScale, srcImage, strength, maskImage, refImages, refImagesCount)
+	// free'd by GenImage
+	p := ImgGenParamsNew()
+	ImgGenParamsSetPrompts(p, t, negative)
+	ImgGenParamsSetDimensions(p, int(opts.Width), int(opts.Height))
+	ImgGenParamsSetSeed(p, int64(opts.Seed))
+	vaep := ImgGenParamsGetVaeTilingParams(p)
+	TilingParamsSetEnabled(vaep, false)
+
+	ret := GenImage(p, int(opts.Step), dst, sd.cfgScale, srcImage, strength, maskImage, refImages, refImagesCount)
 	if ret != 0 {
 		return fmt.Errorf("inference failed")
 	}
