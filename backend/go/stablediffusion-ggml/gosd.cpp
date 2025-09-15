@@ -23,7 +23,7 @@
 
 // Names of the sampler method, same order as enum sample_method in stable-diffusion.h
 const char* sample_method_str[] = {
-    "euler_a",
+    "default",
     "euler",
     "heun",
     "dpm2",
@@ -168,7 +168,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     }
     if (sample_method_found == -1) {
         fprintf(stderr, "Invalid sample method, default to EULER_A!\n");
-        sample_method_found = EULER_A;
+        sample_method_found = sample_method_t::SAMPLE_METHOD_DEFAULT;
     }
     sample_method = (sample_method_t)sample_method_found;
 
