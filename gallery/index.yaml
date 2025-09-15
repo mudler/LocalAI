@@ -2570,6 +2570,21 @@
     - filename: minicpm-v-4_5-mmproj-f16.gguf
       uri: huggingface://openbmb/MiniCPM-V-4_5-gguf/mmproj-model-f16.gguf
       sha256: 7a7225a32e8d453aaa3d22d8c579b5bf833c253f784cdb05c99c9a76fd616df8
+- !!merge <<: *qwen3
+  name: "aquif-ai_aquif-3.5-8b-think"
+  urls:
+    - https://huggingface.co/aquif-ai/aquif-3.5-8B-Think
+    - https://huggingface.co/bartowski/aquif-ai_aquif-3.5-8B-Think-GGUF
+  description: |
+    The aquif-3.5 series is the successor to aquif-3, featuring a simplified naming scheme, expanded Mixture of Experts (MoE) options, and across-the-board performance improvements. This release streamlines model selection while delivering enhanced capabilities across reasoning, multilingual support, and general intelligence tasks.
+    An experimental small-scale Mixture of Experts model designed for multilingual applications with minimal computational overhead. Despite its compact active parameter count, it demonstrates competitive performance against larger dense models.
+  overrides:
+    parameters:
+      model: aquif-ai_aquif-3.5-8B-Think-Q4_K_M.gguf
+  files:
+    - filename: aquif-ai_aquif-3.5-8B-Think-Q4_K_M.gguf
+      sha256: 9e49b9c840de23bb3eb181ba7a102706c120b3e3d006983c3f14ebae307ff02e
+      uri: huggingface://bartowski/aquif-ai_aquif-3.5-8B-Think-GGUF/aquif-ai_aquif-3.5-8B-Think-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
