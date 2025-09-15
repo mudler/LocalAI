@@ -4,16 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
-#include <iostream>
-#include <random>
 #include <string>
 #include <vector>
 #include <filesystem>
 #include "gosd.h"
-
-// #include "preprocessing.hpp"
-#include "flux.hpp"
-#include "stable-diffusion.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #define STB_IMAGE_STATIC
@@ -41,6 +35,7 @@ const char* sample_method_str[] = {
     "lcm",
     "ddim_trailing",
     "tcd",
+    "euler_a",
 };
 
 static_assert(std::size(sample_method_str) == SAMPLE_METHOD_COUNT, "sample method mismatch");
@@ -197,9 +192,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.control_net_path = "";
     ctx_params.lora_model_dir = lora_dir;
     ctx_params.embedding_dir = "";
-    ctx_params.stacked_id_embed_dir = "";
     ctx_params.vae_decode_only = false;
-    ctx_params.vae_tiling = false;
     ctx_params.free_params_immediately = false;
     ctx_params.n_threads = threads;
     ctx_params.rng_type = STD_DEFAULT_RNG;
@@ -225,7 +218,49 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     return 0;
 }
 
-int gen_image(char *text, char *negativeText, int width, int height, int steps, int64_t seed, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char **ref_images, int ref_images_count) {
+void sd_tiling_params_set_enabled(sd_tiling_params_t *params, bool enabled) {
+    params->enabled = enabled;
+}
+
+void sd_tiling_params_set_tile_sizes(sd_tiling_params_t *params, int tile_size_x, int tile_size_y) {
+    params->tile_size_x = tile_size_x;
+    params->tile_size_y = tile_size_y;
+}
+
+void sd_tiling_params_set_rel_sizes(sd_tiling_params_t *params, float rel_size_x, float rel_size_y) {
+    params->rel_size_x = rel_size_x;
+    params->rel_size_y = rel_size_y;
+}
+
+void sd_tiling_params_set_target_overlap(sd_tiling_params_t *params, float target_overlap) {
+    params->target_overlap = target_overlap;
+}
+
+sd_tiling_params_t* sd_img_gen_params_get_vae_tiling_params(sd_img_gen_params_t *params) {
+    return &params->vae_tiling_params;
+}
+
+sd_img_gen_params_t* sd_img_gen_params_new(void) {
+    sd_img_gen_params_t *params = (sd_img_gen_params_t *)std::malloc(sizeof(sd_img_gen_params_t));
+    sd_img_gen_params_init(params);
+    return params;
+}
+
+void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prompt, const char *negative_prompt) {
+    params->prompt = prompt;
+    params->negative_prompt = negative_prompt;
+}
+
+void sd_img_gen_params_set_dimensions(sd_img_gen_params_t *params, int width, int height) {
+    params->width = width;
+    params->height = height;
+}
+
+void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
+    params->seed = seed;
+}
+
+int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char **ref_images, int ref_images_count) {
 
     sd_image_t* results;
 
@@ -233,21 +268,15 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
 
     fprintf (stderr, "Generating image\n");
 
-    sd_img_gen_params_t p;
-    sd_img_gen_params_init(&p);
+    p->sample_params.guidance.txt_cfg = cfg_scale;
+    p->sample_params.guidance.slg.layers = skip_layers.data();
+    p->sample_params.guidance.slg.layer_count = skip_layers.size();
+    p->sample_params.sample_method = sample_method;
+    p->sample_params.sample_steps = steps;
+    p->sample_params.scheduler = scheduler;
 
-    p.prompt = text;
-    p.negative_prompt = negativeText;
-    p.sample_params.guidance.txt_cfg = cfg_scale;
-    p.sample_params.guidance.slg.layers = skip_layers.data();
-    p.sample_params.guidance.slg.layer_count = skip_layers.size();
-    p.width = width;
-    p.height = height;
-    p.sample_params.sample_method = sample_method;
-    p.sample_params.sample_steps = steps;
-    p.seed = seed;
-    p.input_id_images_path = "";
-    p.sample_params.scheduler = scheduler;
+    int width = p->width;
+    int height = p->height;
 
     // Handle input image for img2img
     bool has_input_image = (src_image != NULL && strlen(src_image) > 0);
@@ -296,13 +325,13 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
             input_image_buffer = resized_image_buffer;
         }
 
-        p.init_image = {(uint32_t)width, (uint32_t)height, 3, input_image_buffer};
-        p.strength = strength;
+        p->init_image = {(uint32_t)width, (uint32_t)height, 3, input_image_buffer};
+        p->strength = strength;
         fprintf(stderr, "Using img2img with strength: %.2f\n", strength);
     } else {
         // No input image, use empty image for text-to-image
-        p.init_image = {(uint32_t)width, (uint32_t)height, 3, NULL};
-        p.strength = 0.0f;
+        p->init_image = {(uint32_t)width, (uint32_t)height, 3, NULL};
+        p->strength = 0.0f;
     }
 
     // Handle mask image for inpainting
@@ -342,12 +371,12 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
             mask_image_buffer = resized_mask_buffer;
         }
 
-        p.mask_image = {(uint32_t)width, (uint32_t)height, 1, mask_image_buffer};
+        p->mask_image = {(uint32_t)width, (uint32_t)height, 1, mask_image_buffer};
         fprintf(stderr, "Using inpainting with mask\n");
     } else {
         // No mask image, create default full mask
         default_mask_image_vec.resize(width * height, 255);
-        p.mask_image = {(uint32_t)width, (uint32_t)height, 1, default_mask_image_vec.data()};
+        p->mask_image = {(uint32_t)width, (uint32_t)height, 1, default_mask_image_vec.data()};
     }
 
     // Handle reference images
@@ -405,13 +434,15 @@ int gen_image(char *text, char *negativeText, int width, int height, int steps, 
         }
 
         if (!ref_images_vec.empty()) {
-            p.ref_images = ref_images_vec.data();
-            p.ref_images_count = ref_images_vec.size();
+            p->ref_images = ref_images_vec.data();
+            p->ref_images_count = ref_images_vec.size();
             fprintf(stderr, "Using %zu reference images\n", ref_images_vec.size());
         }
     }
 
-    results = generate_image(sd_c, &p);
+    results = generate_image(sd_c, p);
+
+    std::free(p);
 
     if (results == NULL) {
         fprintf (stderr, "NO results\n");
