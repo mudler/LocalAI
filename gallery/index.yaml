@@ -10018,6 +10018,26 @@
     - filename: Holo1.5-7B.mmproj-Q8_0.gguf
       sha256: a9bad2d3d9241251b8753d9be4ea737c03197077d96153c1365a62db709489f6
       uri: huggingface://mradermacher/Holo1.5-7B-GGUF/Holo1.5-7B.mmproj-Q8_0.gguf
+- !!merge <<: *qwen25
+  name: "holo1.5-3b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/677d3f355f847864bb644112/OQyAJ33sssiTDIQEQ7oH_.png
+  urls:
+    - https://huggingface.co/Hcompany/Holo1.5-3B
+    - https://huggingface.co/mradermacher/Holo1.5-3B-GGUF
+  description: |
+    Computer Use (CU) agents are AI systems that can interact with real applications—web, desktop, and mobile—on behalf of a user. They can navigate interfaces, manipulate elements, and answer questions about content, enabling powerful automation and productivity tools. CU agents are becoming increasingly important as they allow humans to delegate complex digital tasks safely and efficiently.
+    The Holo1.5 series provides state-of-the-art foundational models for building such agents. Holo1.5 models excel at user interface (UI) localization and UI-based question answering (QA) across web, computer, and mobile environments, with strong performance on benchmarks including Screenspot-V2, Screenspot-Pro, GroundUI-Web, Showdown, and our newly introduced WebClick.
+  overrides:
+    mmproj: Holo1.5-3B.mmproj-Q8_0.gguf
+    parameters:
+      model: Holo1.5-3B.Q4_K_M.gguf
+  files:
+    - filename: Holo1.5-3B.Q4_K_M.gguf
+      sha256: 5efb1318d439fe1f71e38825a17203c48ced7de4a5d0796427c8c638e817622a
+      uri: huggingface://mradermacher/Holo1.5-3B-GGUF/Holo1.5-3B.Q4_K_M.gguf
+    - filename: Holo1.5-3B.mmproj-Q8_0.gguf
+      sha256: fb5cc798b386a4b680c306f061457cb16cc627c7d9ed401d660b8b940463142b
+      uri: huggingface://mradermacher/Holo1.5-3B-GGUF/Holo1.5-3B.mmproj-Q8_0.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
