@@ -272,7 +272,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			}
 
 			// Append the no action function
-			if !config.FunctionsConfig.DisableNoAction {
+			if !config.FunctionsConfig.DisableNoAction && !strictMode {
 				funcs = append(funcs, noActionGrammar)
 			}
 
