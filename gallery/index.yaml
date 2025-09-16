@@ -9963,6 +9963,21 @@
     - filename: baichuan-inc_Baichuan-M2-32B-Q4_K_M.gguf
       sha256: 51907419518e6f79c28f75e4097518e54c2efecd85cb4c714334395fa2d591c2
       uri: huggingface://bartowski/baichuan-inc_Baichuan-M2-32B-GGUF/baichuan-inc_Baichuan-M2-32B-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "k2-think-i1"
+  icon: https://huggingface.co/LLM360/K2-Think/resolve/main/banner.png
+  urls:
+    - https://huggingface.co/LLM360/K2-Think
+    - https://huggingface.co/mradermacher/K2-Think-i1-GGUF
+  description: |
+    K2-Think is a 32 billion parameter open-weights general reasoning model with strong performance in competitive mathematical problem solving.
+  overrides:
+    parameters:
+      model: K2-Think.i1-Q4_K_M.gguf
+  files:
+    - filename: K2-Think.i1-Q4_K_M.gguf
+      sha256: 510fad18b0cf58059437338c1b5b982996ef89456a8d88da52eb3d50fe78b9fd
+      uri: huggingface://mradermacher/K2-Think-i1-GGUF/K2-Think.i1-Q4_K_M.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
