@@ -10072,6 +10072,25 @@
     - filename: WebWatcher-7B.mmproj-Q8_0.gguf
       sha256: 841dc1bcc4f69ca864518d2c9a9a37b1815169d9bd061b054e091061124e4e62
       uri: huggingface://mradermacher/WebWatcher-7B-GGUF/WebWatcher-7B.mmproj-Q8_0.gguf
+- !!merge <<: *qwen25
+  name: "webwatcher-32b"
+  icon: https://huggingface.co/Alibaba-NLP/WebWatcher-32B/resolve/main/assets/webwatcher_logo.png
+  urls:
+    - https://huggingface.co/Alibaba-NLP/WebWatcher-32B
+    - https://huggingface.co/mradermacher/WebWatcher-32B-GGUF
+  description: |
+      WebWatcher is a multimodal agent for deep research that possesses enhanced visual-language reasoning capabilities. Our work presents a unified framework that combines complex vision-language reasoning with multi-tool interaction.
+  overrides:
+    mmproj: WebWatcher-32B.mmproj-Q8_0.gguf
+    parameters:
+      model: WebWatcher-32B.Q4_K_M.gguf
+  files:
+    - filename: WebWatcher-32B.Q4_K_M.gguf
+      sha256: 6cd51d97b9451759a4ce4ec0c2048b36ff99fd9f83bb32cd9f06af6c5438c69b
+      uri: huggingface://mradermacher/WebWatcher-32B-GGUF/WebWatcher-32B.Q4_K_M.gguf
+    - filename: WebWatcher-32B.mmproj-Q8_0.gguf
+      sha256: e8815515f71a959465cc62e08e0ef45d7d8592215139b34efece848552cb2327
+      uri: huggingface://mradermacher/WebWatcher-32B-GGUF/WebWatcher-32B.mmproj-Q8_0.gguf
 - &llama31
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master" ## LLama3.1
   icon: https://avatars.githubusercontent.com/u/153379578
