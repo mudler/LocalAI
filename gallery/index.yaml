@@ -2623,6 +2623,21 @@
     - filename: Qwen3-Stargate-SG1-Uncensored-Abliterated-8B.i1-Q4_K_M.gguf
       sha256: 31ec697ccebbd7928c49714b8a0ec8be747be0f7c1ad71627967d2f8fe376990
       uri: huggingface://mradermacher/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B-i1-GGUF/Qwen3-Stargate-SG1-Uncensored-Abliterated-8B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  url: "github:mudler/LocalAI/gallery/qwen3-deepresearch.yaml@master"
+  name: "alibaba-nlp_tongyi-deepresearch-30b-a3b"
+  urls:
+    - https://huggingface.co/Alibaba-NLP/Tongyi-DeepResearch-30B-A3B
+    - https://huggingface.co/bartowski/Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-GGUF
+  description: |
+    We present Tongyi DeepResearch, an agentic large language model featuring 30 billion total parameters, with only 3 billion activated per token. Developed by Tongyi Lab, the model is specifically designed for long-horizon, deep information-seeking tasks. Tongyi-DeepResearch demonstrates state-of-the-art performance across a range of agentic search benchmarks, including Humanity's Last Exam, BrowserComp, BrowserComp-ZH, WebWalkerQA, GAIA, xbench-DeepSearch and FRAMES.
+  overrides:
+    parameters:
+      model: Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-Q4_K_M.gguf
+  files:
+    - filename: Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-Q4_K_M.gguf
+      sha256: 1afefb3b369ea2de191f24fe8ea22cbbb7b412357902f27bd81d693dde35c2d9
+      uri: huggingface://bartowski/Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-GGUF/Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
