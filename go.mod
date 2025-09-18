@@ -42,7 +42,7 @@ require (
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.23.0
-	github.com/rs/zerolog v1.33.0
+	github.com/rs/zerolog v1.34.0
 	github.com/russross/blackfriday v1.6.0
 	github.com/sashabaranov/go-openai v1.26.2
 	github.com/schollz/progressbar/v3 v3.14.4
