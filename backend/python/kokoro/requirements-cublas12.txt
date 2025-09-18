@@ -1,4 +1,4 @@
-torch==2.7.1
+torch==2.7.1+cpu
 torchaudio==2.7.1
 transformers
 accelerate

@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cpu
 accelerate
-torch==2.6.0
+torch==2.7.1+cpu
 torchaudio==2.6.0
-transformers==4.46.3
+transformers==4.53.0
 chatterbox-tts==0.1.2
