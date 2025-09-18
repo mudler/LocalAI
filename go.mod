@@ -1,6 +1,6 @@
 module github.com/mudler/LocalAI
 
-go 1.23.8
+go 1.24.4
 
 toolchain go1.24.5
 
@@ -35,7 +35,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/mudler/edgevpn v0.31.0
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
-	github.com/nikolalohinski/gonja/v2 v2.3.2
+	github.com/nikolalohinski/gonja/v2 v2.4.0
 	github.com/onsi/ginkgo/v2 v2.25.1
 	github.com/onsi/gomega v1.38.2
 	github.com/otiai10/copy v1.14.1
