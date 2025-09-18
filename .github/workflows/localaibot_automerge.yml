@@ -6,7 +6,8 @@ permissions:
   contents: write
   pull-requests: write
   packages: read
-
+  issues: write # for Homebrew/actions/post-comment
+  actions: write # to dispatch publish workflow
 jobs:
   dependabot:
     runs-on: ubuntu-latest
