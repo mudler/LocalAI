@@ -177,7 +177,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 key, value = opt.split(":")
                 # if value is a number, convert it to the appropriate type
                 if is_float(value):
-                    if value.is_integer():
+                    if float(value).is_integer():
                         value = int(value)
                     else:
                         value = float(value)
