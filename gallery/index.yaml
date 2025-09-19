@@ -15175,6 +15175,27 @@
     - filename: Impish_Longtail_12B-Q4_K_M.gguf
       sha256: 2cf0cacb65d71cfc5b4255f3273ad245bbcb11956a0f9e3aaa0e739df57c90df
       uri: huggingface://SicariusSicariiStuff/Impish_Longtail_12B_GGUF/Impish_Longtail_12B-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai_magistral-small-2509"
+  urls:
+    - https://huggingface.co/mistralai/Magistral-Small-2509
+    - https://huggingface.co/bartowski/mistralai_Magistral-Small-2509-GGUF
+  description: |
+    Magistral Small 1.2
+    Building upon Mistral Small 3.2 (2506), with added reasoning capabilities, undergoing SFT from Magistral Medium traces and RL on top, it's a small, efficient reasoning model with 24B parameters.
+
+    Magistral Small can be deployed locally, fitting within a single RTX 4090 or a 32GB RAM MacBook once quantized.
+
+    Learn more about Magistral in our blog post.
+
+    The model was presented in the paper Magistral.
+  overrides:
+    parameters:
+      model: mistralai_Magistral-Small-2509-Q4_K_M.gguf
+  files:
+    - filename: mistralai_Magistral-Small-2509-Q4_K_M.gguf
+      sha256: 1d638bc931de30d29fc73ad439206ff185f76666a096e7ad723866a20f78728d
+      uri: huggingface://bartowski/mistralai_Magistral-Small-2509-GGUF/mistralai_Magistral-Small-2509-Q4_K_M.gguf
 - &mudler
   url: "github:mudler/LocalAI/gallery/mudler.yaml@master" ### START mudler's LocalAI specific-models
   name: "LocalAI-llama3-8b-function-call-v0.2"
