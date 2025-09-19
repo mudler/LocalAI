@@ -2638,6 +2638,25 @@
     - filename: Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-Q4_K_M.gguf
       sha256: 1afefb3b369ea2de191f24fe8ea22cbbb7b412357902f27bd81d693dde35c2d9
       uri: huggingface://bartowski/Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-GGUF/Alibaba-NLP_Tongyi-DeepResearch-30B-A3B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "impish_qwen_14b-1m"
+  icon: https://huggingface.co/SicariusSicariiStuff/Impish_QWEN_14B-1M/resolve/main/Images/Impish_Qwen_14B.png
+  urls:
+    - https://huggingface.co/SicariusSicariiStuff/Impish_QWEN_14B-1M
+    - https://huggingface.co/mradermacher/Impish_QWEN_14B-1M-GGUF
+  description: |
+    Supreme context One million tokens to play with.
+    Strong Roleplay internet RP format lovers will appriciate it, medium size paragraphs.
+    Qwen smarts built-in, but naughty and playful Maybe it's even too naughty.
+    VERY compliant with low censorship.
+    VERY high IFeval for a 14B RP model: 78.68.
+  overrides:
+    parameters:
+      model: Impish_QWEN_14B-1M.Q4_K_M.gguf
+  files:
+    - filename: Impish_QWEN_14B-1M.Q4_K_M.gguf
+      sha256: d326f2b8f05814ea3943c82498f0cd3cde64859cf03f532855c87fb94b0da79e
+      uri: huggingface://mradermacher/Impish_QWEN_14B-1M-GGUF/Impish_QWEN_14B-1M.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
