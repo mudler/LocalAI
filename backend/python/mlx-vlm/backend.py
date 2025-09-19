@@ -21,6 +21,21 @@ import io
 from PIL import Image
 import tempfile
 
+def is_float(s):
+    """Check if a string can be converted to float."""
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
+def is_int(s):
+    """Check if a string can be converted to int."""
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
@@ -31,14 +46,6 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
     """
     A gRPC servicer that implements the Backend service defined in backend.proto.
     """
-
-    def _is_float(self, s):
-        """Check if a string can be converted to float."""
-        try:
-            float(s)
-            return True
-        except ValueError:
-            return False
 
     def Health(self, request, context):
         """
@@ -79,12 +86,10 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                     continue
                 key, value = opt.split(":", 1)  # Split only on first colon to handle values with colons
                 
-                # Convert numeric values to appropriate types
-                if self._is_float(value):
-                    if float(value).is_integer():
-                        value = int(value)
-                    else:
-                        value = float(value)
+                if is_float(value):
+                    value = float(value)
+                elif is_int(value):
+                    value = int(value)
                 elif value.lower() in ["true", "false"]:
                     value = value.lower() == "true"
                     

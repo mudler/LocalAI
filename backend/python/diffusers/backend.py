@@ -66,11 +66,20 @@ from diffusers.schedulers import (
 )
 
 def is_float(s):
+    """Check if a string can be converted to float."""
     try:
         float(s)
         return True
     except ValueError:
         return False
+def is_int(s):
+    """Check if a string can be converted to int."""
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
+
 
 # The scheduler list mapping was taken from here: https://github.com/neggles/animatediff-cli/blob/6f336f5f4b5e38e85d7f06f1744ef42d0a45f2a7/src/animatediff/schedulers.py#L39
 # Credits to https://github.com/neggles
@@ -177,10 +186,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 key, value = opt.split(":")
                 # if value is a number, convert it to the appropriate type
                 if is_float(value):
-                    if float(value).is_integer():
-                        value = int(value)
-                    else:
-                        value = float(value)
+                    value = float(value)
+                elif is_int(value):
+                    value = int(value)
+                elif value.lower() in ["true", "false"]:
+                    value = value.lower() == "true"
                 self.options[key] = value
 
             # From options, extract if present "torch_dtype" and set it to the appropriate type
