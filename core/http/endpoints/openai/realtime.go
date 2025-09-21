@@ -840,7 +840,6 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]*proto.VADS
 	return resp.Segments, nil
 }
 
-// TODO: Below needed for normal mode instead of transcription only
 // Function to generate a response based on the conversation
 func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator, session *Session, conversation *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
 
