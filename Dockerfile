@@ -20,6 +20,7 @@ FROM requirements AS requirements-drivers
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
+ARG ROCM_VERSION=6.1.0 # ROCm version, in the format of their apt repo (https://repo.radeon.com/rocm/apt/). Like `latest` or `7.0_alpha` or `6.3.4`.
 ARG SKIP_DRIVERS=false
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -146,6 +147,18 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     ; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        # Setup for specific ROCm version as described here: https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/install-methods/package-manager/package-manager-ubuntu.html
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            gpg wget && \
+        mkdir --parents --mode=0755 /etc/apt/keyrings && \
+        wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --yes --dearmor --output /etc/apt/keyrings/rocm.gpg && \
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} jammy main" >> /etc/apt/sources.list.d/rocm.list && \
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/${ROCM_VERSION}/ubuntu jammy main" >> /etc/apt/sources.list.d/rocm.list && \
+        echo "Package: *" >> /etc/apt/preferences.d/rocm-pin-600 && \
+        echo "Pin: release o=repo.radeon.com" >> /etc/apt/preferences.d/rocm-pin-600 && \
+        echo "Pin-Priority: 600" >> /etc/apt/preferences.d/rocm-pin-600 && \
+        # End setup steps for specific ROCm version
         apt-get update && \
         apt-get install -y --no-install-recommends \
             hipblas-dev \
