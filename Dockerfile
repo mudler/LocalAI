@@ -165,6 +165,9 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # End setup steps for specific ROCm version
         apt-get update && \
         apt-get install -y --no-install-recommends \
+            rocm-developer-tools \
+            rocm-hip-runtime-dev \
+            rocm-hip-sdk \
             hipblas-dev \
             rocblas-dev && \
         apt-get clean && \
