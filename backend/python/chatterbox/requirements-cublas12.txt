@@ -1,5 +1,6 @@
-torch==2.6.0
-torchaudio==2.6.0
-transformers==4.46.3
-chatterbox-tts==0.1.2
+torch
+torchaudio
+transformers
+# https://github.com/mudler/LocalAI/pull/6240#issuecomment-3329518289
+chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster
 accelerate
