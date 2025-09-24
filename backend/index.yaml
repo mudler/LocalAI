@@ -353,6 +353,7 @@
     nvidia: "cuda12-chatterbox"
     metal: "metal-chatterbox"
     default: "cpu-chatterbox"
+    nvidia-l4t: "nvidia-l4t-arm64-chatterbox"
 - &piper
   name: "piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
@@ -1239,6 +1240,7 @@
     nvidia: "cuda12-chatterbox-development"
     metal: "metal-chatterbox-development"
     default: "cpu-chatterbox-development"
+    nvidia-l4t: "nvidia-l4t-arm64-chatterbox"
 - !!merge <<: *chatterbox
   name: "cpu-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-chatterbox"
@@ -1249,6 +1251,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-chatterbox"
   mirrors:
     - localai/localai-backends:master-cpu-chatterbox
+- !!merge <<: *chatterbox
+  name: "nvidia-l4t-arm64-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-l4t-arm64-chatterbox"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-l4t-arm64-chatterbox
+- !!merge <<: *chatterbox
+  name: "nvidia-l4t-arm64-chatterbox-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-l4t-arm64-chatterbox"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-l4t-arm64-chatterbox
 - !!merge <<: *chatterbox
   name: "metal-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-chatterbox"

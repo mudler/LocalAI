@@ -15,5 +15,6 @@ fi
 if [ "x${BUILD_PROFILE}" == "xintel" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
+EXTRA_PIP_INSTALL_FLAGS+=" --no-build-isolation"
 
 installRequirements
