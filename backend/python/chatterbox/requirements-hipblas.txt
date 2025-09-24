@@ -1,6 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
 torch==2.6.0+rocm6.1
 torchaudio==2.6.0+rocm6.1
-transformers==4.46.3
-chatterbox-tts==0.1.2
+transformers
+# https://github.com/mudler/LocalAI/pull/6240#issuecomment-3329518289
+chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster
 accelerate

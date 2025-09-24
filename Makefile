@@ -429,6 +429,9 @@ docker-build-kitten-tts:
 docker-save-kitten-tts: backend-images
 	docker save local-ai-backend:kitten-tts -o backend-images/kitten-tts.tar
 
+docker-save-chatterbox: backend-images
+	docker save local-ai-backend:chatterbox -o backend-images/chatterbox.tar
+
 docker-build-kokoro:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro ./backend
 
