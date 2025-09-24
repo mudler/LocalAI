@@ -335,7 +335,7 @@
   url: "github:mudler/LocalAI/gallery/qwen-image.yaml@master"
   urls:
     - https://huggingface.co/Qwen/Qwen-Image-Edit
-  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_logo.png
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_edit_logo.png
   license: apache-2.0
   tags:
     - qwen-image
@@ -346,6 +346,26 @@
   overrides:
     parameters:
       model: Qwen/Qwen-Image-Edit
+    diffusers:
+      cuda: true
+      pipeline_type: QwenImageEditPipeline
+      enable_parameters: num_inference_steps,image
+- !!merge <<: *qwenimage
+  name: "qwen-image-edit-2509"
+  url: "github:mudler/LocalAI/gallery/qwen-image.yaml@master"
+  urls:
+    - https://huggingface.co/Qwen/Qwen-Image-Edit-2509
+  icon: https://qianwen-res.oss-cn-beijing.aliyuncs.com/Qwen-Image/qwen_image_edit_logo.png
+  license: apache-2.0
+  tags:
+    - qwen-image
+    - gpu
+    - image-to-image
+  description: |
+    Qwen-Image-Edit is a model for image editing, which is based on Qwen-Image.
+  overrides:
+    parameters:
+      model: Qwen/Qwen-Image-Edit-2509
     diffusers:
       cuda: true
       pipeline_type: QwenImageEditPipeline
