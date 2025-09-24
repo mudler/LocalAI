@@ -18,8 +18,16 @@ from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 import grpc
 
 def is_float(s):
+    """Check if a string can be converted to float."""
     try:
         float(s)
+        return True
+    except ValueError:
+        return False
+def is_int(s):
+    """Check if a string can be converted to int."""
+    try:
+        int(s)
         return True
     except ValueError:
         return False
@@ -68,10 +76,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             key, value = opt.split(":")
             # if value is a number, convert it to the appropriate type
             if is_float(value):
-                if value.is_integer():
-                    value = int(value)
-                else:
-                    value = float(value)
+                value = float(value)
+            elif is_int(value):
+                value = int(value)
+            elif value.lower() in ["true", "false"]:
+                value = value.lower() == "true"
             self.options[key] = value
 
         self.AudioPath = None
