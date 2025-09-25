@@ -128,6 +128,17 @@ func API(application *application.Application) (*fiber.App, error) {
 		router.Use(recover.New())
 	}
 
+	//IP restriction
+	router.Use(func(c *fiber.Ctx) error {
+		clientIP := c.IP()
+		if application.ApplicationConfig().IPAllowListHelper.IsAllowed(clientIP) {
+			return c.Next()
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
+			"error": "Forbidden: your IP is not allowed",
+		})
+	})
+
 	if !application.ApplicationConfig().DisableMetrics {
 		metricsService, err := services.NewLocalAIMetricsService()
 		if err != nil {
