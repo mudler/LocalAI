@@ -231,6 +231,7 @@ static void params_parse(const backend::ModelOptions* request,
     params.cpuparams.n_threads = request->threads();
     params.n_gpu_layers = request->ngpulayers();
     params.n_batch = request->nbatch();
+    params.n_ubatch = request->nbatch(); // fixes issue with reranking models being limited to 512 tokens (the default n_ubatch size); allows for setting the maximum input amount of tokens thereby avoiding this error "input is too large to process. increase the physical batch size"
     // Set params.n_parallel by environment variable (LLAMA_PARALLEL), defaults to 1
     //params.n_parallel = 1;
     const char *env_parallel = std::getenv("LLAMACPP_PARALLEL");
