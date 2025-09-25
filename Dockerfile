@@ -165,11 +165,14 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # End setup steps for specific ROCm version
         apt-get update && \
         apt-get install -y --no-install-recommends \
+            # Build dependencies
             rocm-developer-tools \
             rocm-hip-runtime-dev \
             rocm-hip-sdk \
             hipblas-dev \
-            rocblas-dev && \
+            rocblas-dev \
+            # Metapackage for the ROCm runtime + client tools
+            rocm && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         echo "amd" > /run/localai/capability && \
