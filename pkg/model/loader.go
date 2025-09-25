@@ -95,6 +95,7 @@ var knownModelsNameSuffixToSkip []string = []string{
 	".DS_Store",
 	".",
 	".safetensors",
+	".bin",
 	".partial",
 	".tar.gz",
 }
