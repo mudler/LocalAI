@@ -66,8 +66,7 @@ target_link_libraries(${TARGET} PRIVATE common llama mtmd ${CMAKE_THREAD_LIBS_IN
   absl::flags_parse
   gRPC::${_REFLECTION}
   gRPC::${_GRPC_GRPCPP}
-  protobuf::${_PROTOBUF_LIBPROTOBUF}
-  ssl crypto)
+  protobuf::${_PROTOBUF_LIBPROTOBUF})
 target_compile_features(${TARGET} PRIVATE cxx_std_11)
 if(TARGET BUILD_INFO)
   add_dependencies(${TARGET} BUILD_INFO)
