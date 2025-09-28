@@ -45,12 +45,11 @@ RUN <<EOT bash
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
             # For ARM64, we need to build the Vulkan SDK manually as there are no packages available
-            mkdir vulkan && cd vulkan && curl -o vulkan-sdk.tar.xz https://sdk.lunarg.com/sdk/download/latest/linux/vulkan-sdk.tar.xz && \
-            tar -xJf vulkan-sdk.tar.xz && \
+            mkdir vulkan && cd vulkan && curl -L -o vulkan-sdk.tar.xz https://github.com/mudler/vulkan-sdk-arm/releases/download/1.4.321.1/vulkansdk-ubuntu-22.04-arm-1.4.321.1.tar.xz && \
+            tar -xvf vulkan-sdk.tar.xz && \
             rm vulkan-sdk.tar.xz && \
             cd * && \
-            sed -i 's/apt-get install/apt-get install -y/' vulkansdk && \
-            ./vulkansdk -j 1 && \
+            cp -rfv aarch64/* /usr/ && \
             cd ../.. && \
             rm -rf vulkan
         fi
