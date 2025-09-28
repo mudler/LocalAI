@@ -85,7 +85,7 @@ RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
-            software-properties-common pciutils sudo wget gpg-agent curl xz-utils libxcb1 && \
+            software-properties-common pciutils sudo wget gpg-agent curl xz-utils libxcb1 libx11-6 && \
             echo "vulkan" > /run/localai/capability && \
         if [ "amd64" = "$TARGETARCH" ]; then
             wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
