@@ -262,7 +262,7 @@ The backend will automatically download the required files in order to run the m
 - `OVModelForCausalLM` requires OpenVINO IR [Text Generation](https://huggingface.co/models?library=openvino&pipeline_tag=text-generation) models from Hugging face
 - `OVModelForFeatureExtraction` works with any Safetensors Transformer [Feature Extraction](https://huggingface.co/models?pipeline_tag=feature-extraction&library=transformers,safetensors) model from Huggingface (Embedding Model)
 
-Please note that streaming is currently not implemente in `AutoModelForCausalLM` for Intel GPU.
+Please note that streaming is currently not implemented in `AutoModelForCausalLM` for Intel GPU.
 AMD GPU support is not implemented.
 Although AMD CPU is not officially supported by OpenVINO there are reports that it works: YMMV.
 
