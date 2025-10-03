@@ -49,6 +49,20 @@
     - filename: ibm-granite_granite-4.0-h-micro-Q4_K_M.gguf
       sha256: 48376d61449687a56b3811a418d92cc0e8e77b4d96ec13eb6c9d9503968c9f20
       uri: huggingface://bartowski/ibm-granite_granite-4.0-h-micro-GGUF/ibm-granite_granite-4.0-h-micro-Q4_K_M.gguf
+- !!merge <<: *granite4
+  name: "ibm-granite_granite-4.0-micro"
+  urls:
+    - https://huggingface.co/ibm-granite/granite-4.0-micro
+    - https://huggingface.co/bartowski/ibm-granite_granite-4.0-micro-GGUF
+  description: |
+    Granite-4.0-Micro is a 3B parameter long-context instruct model finetuned from Granite-4.0-Micro-Base using a combination of open source instruction datasets with permissive license and internally collected synthetic datasets. This model is developed using a diverse set of techniques with a structured chat format, including supervised finetuning, model alignment using reinforcement learning, and model merging. Granite 4.0 instruct models feature improved instruction following (IF) and tool-calling capabilities, making them more effective in enterprise applications.
+  overrides:
+    parameters:
+      model: ibm-granite_granite-4.0-micro-Q4_K_M.gguf
+  files:
+    - filename: ibm-granite_granite-4.0-micro-Q4_K_M.gguf
+      sha256: bd9d7b4795b9dc44e3e81aeae93bb5d8e6b891b7e823be5bf9910ed3ac060baf
+      uri: huggingface://bartowski/ibm-granite_granite-4.0-micro-GGUF/ibm-granite_granite-4.0-micro-Q4_K_M.gguf
 - &ernie
   url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
   name: "baidu_ernie-4.5-21b-a3b-thinking"
