@@ -54,6 +54,17 @@ func RegisterOpenAIRoutes(app *fiber.App,
 	app.Post("/completions", completionChain...)
 	app.Post("/v1/engines/:model/completions", completionChain...)
 
+	// MCPcompletion
+	mcpCompletionChain := []fiber.Handler{
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_COMPLETION)),
+		re.BuildConstantDefaultModelNameMiddleware("gpt-4o"),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		re.SetOpenAIRequest,
+		openai.MCPCompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig()),
+	}
+	app.Post("/mcp/v1/completions", mcpCompletionChain...)
+	app.Post("/mcp/completions", mcpCompletionChain...)
+
 	// embeddings
 	embeddingChain := []fiber.Handler{
 		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_EMBEDDINGS)),
