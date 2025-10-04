@@ -63,6 +63,8 @@ type ApplicationConfig struct {
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
 
 	MachineTag string
+
+	APIAddress string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -340,6 +342,12 @@ func WithSubtleKeyComparison(subtle bool) AppOption {
 func WithDisableApiKeyRequirementForHttpGet(required bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.DisableApiKeyRequirementForHttpGet = required
+	}
+}
+
+func WithAPIAddress(address string) AppOption {
+	return func(o *ApplicationConfig) {
+		o.APIAddress = address
 	}
 }
 

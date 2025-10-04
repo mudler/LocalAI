@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -49,8 +50,16 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			fragment = fragment.AddMessage(message.Role, message.StringContent)
 		}
 
-		// TODO: we need to get the IP/PORT of the API here, and an api key if set
-		defaultLLM := cogito.NewOpenAILLM(config.Model, "apikey", ":8080")
+		port := appConfig.APIAddress[strings.LastIndex(appConfig.APIAddress, ":")+1:]
+		apiKey := ""
+		if appConfig.ApiKeys != nil {
+			apiKey = appConfig.ApiKeys[0]
+		}
+		// TODO: instead of connecting to the API, we should just wire this internally
+		// and act like completion.go.
+		// We can do this as cogito expects an interface and we can create one that
+		// we satisfy to just call internally ComputeChoices
+		defaultLLM := cogito.NewOpenAILLM(config.Model, apiKey, "127.0.0.1:"+port)
 
 		f, err := cogito.ExecuteTools(
 			defaultLLM, fragment,
