@@ -73,6 +73,45 @@ type ModelConfig struct {
 
 	Options   []string `yaml:"options" json:"options"`
 	Overrides []string `yaml:"overrides" json:"overrides"`
+
+	MCP MCPConfig `yaml:"mcp" json:"mcp"`
+}
+
+type MCPConfig struct {
+	Servers string `yaml:"remote" json:"remote"`
+	Stdio   string `yaml:"stdio" json:"stdio"`
+}
+
+func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers]) {
+	var remote MCPGenericConfig[MCPRemoteServers]
+	var stdio MCPGenericConfig[MCPSTDIOServers]
+
+	if err := yaml.Unmarshal([]byte(c.Servers), &remote); err != nil {
+		return remote, stdio
+	}
+
+	if err := yaml.Unmarshal([]byte(c.Stdio), &stdio); err != nil {
+		return remote, stdio
+	}
+
+	return remote, stdio
+}
+
+type MCPGenericConfig[T any] struct {
+	Servers T `yaml:"mcpServers" json:"mcpServers"`
+}
+type MCPRemoteServers map[string]MCPRemoteServer
+type MCPSTDIOServers map[string]MCPSTDIOServer
+
+type MCPRemoteServer struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
+
+type MCPSTDIOServer struct {
+	Args []string `json:"args"`
+	Env  []string `json:"env"`
+	Cmd  string   `json:"cmd"`
 }
 
 // Pipeline defines other models to use for audio-to-audio
