@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -201,7 +202,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 
 			// Create HTTP client with custom roundtripper for bearer token injection
 			client := &http.Client{
-				Timeout:   10 * time.Second,
+				Timeout:   360 * time.Second,
 				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
 			}
 
@@ -216,8 +217,12 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 
 		for _, server := range stdio.Servers {
 
-			command := exec.Command(server.Cmd, server.Args...)
-			command.Env = server.Env
+			log.Debug().Msgf("[MCP stdio server] Configuration : %+v", server)
+			command := exec.Command(server.Command, server.Args...)
+			command.Env = os.Environ()
+			for key, value := range server.Env {
+				command.Env = append(command.Env, key+"="+value)
+			}
 			tools, err := newMCPTools(c.Context(),
 				&mcp.CommandTransport{
 					Command: command},
@@ -247,7 +252,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that
 		// we satisfy to just call internally ComputeChoices
-		defaultLLM := cogito.NewOpenAILLM(config.Model, apiKey, "127.0.0.1:"+port)
+		defaultLLM := cogito.NewOpenAILLM(config.Model, apiKey, "http://127.0.0.1:"+port)
 
 		f, err := cogito.ExecuteTools(
 			defaultLLM, fragment,

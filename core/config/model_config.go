@@ -109,9 +109,9 @@ type MCPRemoteServer struct {
 }
 
 type MCPSTDIOServer struct {
-	Args []string `json:"args"`
-	Env  []string `json:"env"`
-	Cmd  string   `json:"cmd"`
+	Args    []string          `json:"args"`
+	Env     map[string]string `json:"env"`
+	Command string            `json:"command"`
 }
 
 // Pipeline defines other models to use for audio-to-audio
