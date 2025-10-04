@@ -28,10 +28,10 @@ import (
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
 func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	created := int(time.Now().Unix())
-
 	process := func(id string, s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
 		tokenCallback := func(s string, tokenUsage backend.TokenUsage) bool {
+			created := int(time.Now().Unix())
+
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
@@ -65,6 +65,9 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 	}
 
 	return func(c *fiber.Ctx) error {
+
+		created := int(time.Now().Unix())
+
 		// Handle Correlation
 		id := c.Get("X-Correlation-ID", uuid.New().String())
 		extraUsage := c.Get("Extra-Usage", "") != ""

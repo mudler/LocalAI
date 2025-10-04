@@ -127,6 +127,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithP2PNetworkID(r.Peer2PeerNetworkID),
 		config.WithLoadToMemory(r.LoadToMemory),
 		config.WithMachineTag(r.MachineTag),
+		config.WithAPIAddress(r.Address),
 	}
 
 	if r.DisableMetricsEndpoint {
