@@ -197,3 +197,8 @@ response = client.chat.completions.create(
     ]
 )
 ```
+
+### Links
+
+- [Awesome MCPs](https://github.com/punkpeye/awesome-mcp-servers)
+- [A list of MCPs by mudler](https://github.com/mudler/MCPs)
