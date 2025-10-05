@@ -5,7 +5,6 @@ toc = true
 description = "Agentic capabilities with Model Context Protocol integration"
 tags = ["MCP", "Agents", "Tools", "Advanced"]
 categories = ["Features"]
-icon = "plug"
 +++
 
 # Model Context Protocol (MCP) Support
