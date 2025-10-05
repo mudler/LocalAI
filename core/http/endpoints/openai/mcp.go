@@ -101,7 +101,10 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
 			cogito.WithContext(ctx),
+			// TODO: move these to configs
 			cogito.EnableToolReEvaluator,
+			cogito.WithIterations(3),
+			cogito.WithMaxAttempts(3),
 			cogito.WithTools(
 				cogitoTools...,
 			),

@@ -30,6 +30,7 @@ LocalAI is more than just a single tool - it's a complete ecosystem:
 1. **[LocalAI Core](https://github.com/mudler/LocalAI)**
    - OpenAI-compatible API
    - Multiple model support (LLMs, image, audio)
+   - Model Context Protocol (MCP) for agentic capabilities
    - No GPU required
    - Fast inference with native bindings
    - [Github repository](https://github.com/mudler/LocalAI)
@@ -78,6 +79,7 @@ For more detailed installation options and configurations, see our [Getting Star
 - **Vision API**: Image understanding and analysis
 - **Embeddings**: Vector database support
 - **Functions**: OpenAI-compatible function calling
+- **MCP Support**: Model Context Protocol for agentic capabilities
 - **P2P**: Distributed inference capabilities
 
 ## Community and Support
