@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -113,8 +114,8 @@ type ToolInputSchema struct {
 
 // probe the MCP remote and generate tools that are compliant with cogito
 // TODO: Maybe move this to cogito?
-func newMCPTools(ctx context.Context, transport mcp.Transport) ([]cogito.Tool, error) {
-	allTools := []cogito.Tool{}
+func newMCPTools(ctx context.Context, transport mcp.Transport) ([]*mcpTool, error) {
+	allTools := []*mcpTool{}
 
 	// Create a new client, with no features.
 	client := mcp.NewClient(&mcp.Implementation{Name: "LocalAI", Version: "v1.0.0"}, nil)
@@ -170,6 +171,28 @@ func newMCPTools(ctx context.Context, transport mcp.Transport) ([]cogito.Tool, e
 	return allTools, nil
 }
 
+func handleSignal(tools []*mcpTool) {
+
+	// Create a channel to receive OS signals
+	sigChan := make(chan os.Signal, 1)
+
+	// Register for interrupt and terminate signals
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+
+	// Handle signals in a separate goroutine
+	go func() {
+		sig := <-sigChan
+		log.Printf("Received signal %v, shutting down gracefully...", sig)
+
+		for _, t := range tools {
+			t.Close()
+		}
+
+		// Exit the application
+		os.Exit(0)
+	}()
+}
+
 // MCPCompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
 // @Summary Generate completions for a given prompt and model.
 // @Param request body schema.OpenAIRequest true "query params"
@@ -180,6 +203,8 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 	// We do not support streaming mode (Yet?)
 	return func(c *fiber.Ctx) error {
 		created := int(time.Now().Unix())
+
+		ctx := c.Context()
 
 		// Handle Correlation
 		id := c.Get("X-Correlation-ID", uuid.New().String())
@@ -194,7 +219,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			return fiber.ErrBadRequest
 		}
 
-		allTools := []cogito.Tool{}
+		allTools := []*mcpTool{}
 
 		// TODO: we should cache the MCP clients somehow, and not re-create these for each request.
 		remote, stdio := config.MCP.MCPConfigFromYAML()
@@ -207,12 +232,13 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
 			}
 
-			tools, err := newMCPTools(c.Context(),
+			tools, err := newMCPTools(ctx,
 				&mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: client},
 			)
 			if err != nil {
 				return err
 			}
+
 			allTools = append(allTools, tools...)
 		}
 
@@ -224,7 +250,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			for key, value := range server.Env {
 				command.Env = append(command.Env, key+"="+value)
 			}
-			tools, err := newMCPTools(c.Context(),
+			tools, err := newMCPTools(ctx,
 				&mcp.CommandTransport{
 					Command: command},
 			)
@@ -234,8 +260,11 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			allTools = append(allTools, tools...)
 		}
 
+		handleSignal(allTools)
+		cogitoTools := []cogito.Tool{}
 		for _, tool := range allTools {
-			defer tool.(*mcpTool).Close()
+			cogitoTools = append(cogitoTools, tool)
+			defer tool.Close()
 		}
 
 		fragment := cogito.NewEmptyFragment()
@@ -253,33 +282,32 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that
 		// we satisfy to just call internally ComputeChoices
-		defaultLLM := cogito.NewOpenAILLM(config.Model, apiKey, "http://127.0.0.1:"+port)
+		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
 
 		f, err := cogito.ExecuteTools(
 			defaultLLM, fragment,
 			cogito.WithStatusCallback(func(s string) {
 				log.Debug().Msgf("[model agent] [model:] Status: %s", s)
 			}),
+			cogito.WithContext(ctx),
 			cogito.WithTools(
-				allTools...,
+				cogitoTools...,
 			),
 		)
 		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
 			return err
 		}
 
-		fragment, err = defaultLLM.Ask(c.Context(), fragment)
+		f, err = defaultLLM.Ask(ctx, f)
 		if err != nil {
 			return err
 		}
-
-		fmt.Println(f.LastMessage().Content)
 
 		resp := &schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
 			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []schema.Choice{{Text: fragment.LastMessage().Content}},
+			Choices: []schema.Choice{{Text: f.LastMessage().Content}},
 			Object:  "text_completion",
 		}
 
