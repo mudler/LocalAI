@@ -307,6 +307,12 @@ WebUIs:
 - https://github.com/go-skynet/LocalAI-frontend
 - QA-Pilot(An interactive chat project that leverages LocalAI LLMs for rapid understanding and navigation of GitHub code repository) https://github.com/reid41/QA-Pilot
 
+Agentic Libraries:
+- https://github.com/mudler/cogito
+
+MCPs:
+- https://github.com/mudler/MCPs
+
 Model galleries
 - https://github.com/go-skynet/model-gallery
 
