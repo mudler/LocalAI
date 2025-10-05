@@ -200,6 +200,8 @@ func handleSignal(tools []*mcpTool) {
 // @Router /mcp/v1/completions [post]
 func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
 
+	toolsCache := map[string][]*mcpTool{}
+
 	// We do not support streaming mode (Yet?)
 	return func(c *fiber.Ctx) error {
 		created := int(time.Now().Unix())
@@ -224,12 +226,18 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		// TODO: we should cache the MCP clients somehow, and not re-create these for each request.
 		remote, stdio := config.MCP.MCPConfigFromYAML()
 
-		for _, server := range remote.Servers {
+		for name, server := range remote.Servers {
 
 			// Create HTTP client with custom roundtripper for bearer token injection
 			client := &http.Client{
 				Timeout:   360 * time.Second,
 				Transport: newBearerTokenRoundTripper(server.Token, http.DefaultTransport),
+			}
+
+			tools, ok := toolsCache[name+config.Name]
+			if ok {
+				allTools = append(allTools, tools...)
+				continue
 			}
 
 			tools, err := newMCPTools(ctx,
@@ -239,10 +247,18 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				return err
 			}
 
+			toolsCache[name+config.Name] = tools
+
 			allTools = append(allTools, tools...)
 		}
 
-		for _, server := range stdio.Servers {
+		for name, server := range stdio.Servers {
+
+			tools, ok := toolsCache[name+config.Name]
+			if ok {
+				allTools = append(allTools, tools...)
+				continue
+			}
 
 			log.Debug().Msgf("[MCP stdio server] Configuration : %+v", server)
 			command := exec.Command(server.Command, server.Args...)
@@ -257,6 +273,8 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			if err != nil {
 				return err
 			}
+
+			toolsCache[name+config.Name] = tools
 			allTools = append(allTools, tools...)
 		}
 
@@ -264,7 +282,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		cogitoTools := []cogito.Tool{}
 		for _, tool := range allTools {
 			cogitoTools = append(cogitoTools, tool)
-			defer tool.Close()
+			//	defer tool.Close()
 		}
 
 		fragment := cogito.NewEmptyFragment()
@@ -287,9 +305,10 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		f, err := cogito.ExecuteTools(
 			defaultLLM, fragment,
 			cogito.WithStatusCallback(func(s string) {
-				log.Debug().Msgf("[model agent] [model:] Status: %s", s)
+				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
 			cogito.WithContext(ctx),
+			cogito.EnableToolReasoner,
 			cogito.WithTools(
 				cogitoTools...,
 			),

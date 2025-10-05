@@ -70,7 +70,7 @@ func ModelTTS(
 
 	// return RPC error if any
 	if !res.Success {
-		return "", nil, fmt.Errorf(res.Message)
+		return "", nil, fmt.Errorf("error during TTS: %s", res.Message)
 	}
 
 	return filePath, res, err
