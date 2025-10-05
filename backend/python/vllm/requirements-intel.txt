@@ -2,7 +2,7 @@
 --extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
 intel-extension-for-pytorch==2.7.10+xpu
 accelerate
-torch==2.7.0+xpu
+torch==2.7.1+cu118
 transformers
 optimum[openvino]
 setuptools
