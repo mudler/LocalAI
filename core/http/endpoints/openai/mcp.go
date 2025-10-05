@@ -159,6 +159,7 @@ func newMCPTools(ctx context.Context, transport mcp.Transport) ([]cogito.Tool, e
 
 		allTools = append(allTools, &mcpTool{
 			name:        tool.Name,
+			description: tool.Description,
 			session:     session,
 			ctx:         ctx,
 			props:       props,
