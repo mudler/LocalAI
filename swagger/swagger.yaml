@@ -872,6 +872,21 @@ paths:
           schema:
             $ref: '#/definitions/services.GalleryOpStatus'
       summary: Returns the job status
+  /mcp/v1/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate completions for a given prompt and model.
   /metrics:
     get:
       parameters:
