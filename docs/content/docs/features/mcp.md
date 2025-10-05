@@ -27,6 +27,8 @@ The Model Context Protocol is a standard for connecting AI models to external to
 - **⚡ Cached Connections**: Efficient tool caching for better performance
 - **🔒 Secure Authentication**: Support for bearer token authentication
 - **🎯 OpenAI Compatible**: Uses the familiar `/mcp/v1/chat/completions` endpoint
+- **🧠 Advanced Reasoning**: Configurable reasoning and re-evaluation capabilities
+- **⚙️ Flexible Agent Control**: Customizable execution limits and retry behavior
 
 ## Configuration
 
@@ -73,6 +75,13 @@ mcp:
         }
       }
     }
+
+# Agent Configuration
+agent:
+  max_attempts: 3        # Maximum number of tool execution attempts
+  max_iterations: 3     # Maximum number of reasoning iterations
+  enable_reasoning: true # Enable tool reasoning capabilities
+  enable_re_evaluation: false # Enable tool re-evaluation
 ```
 
 ### Configuration Options
@@ -89,6 +98,14 @@ Configure local command-based MCP servers:
 - **`command`**: The executable command to run
 - **`args`**: Array of command-line arguments
 - **`env`**: Environment variables (optional)
+
+#### Agent Configuration (`agent`)
+Configure agent behavior and tool execution:
+
+- **`max_attempts`**: Maximum number of tool execution attempts (default: 3)
+- **`max_iterations`**: Maximum number of reasoning iterations (default: 3)
+- **`enable_reasoning`**: Enable tool reasoning capabilities (default: false)
+- **`enable_re_evaluation`**: Enable tool re-evaluation (default: false)
 
 ## Usage
 
@@ -148,7 +165,30 @@ mcp:
         }
       }
     }
+
+agent:
+  max_attempts: 5
+  max_iterations: 5
+  enable_reasoning: true
+  enable_re_evaluation: true
 ```
+
+## Agent Configuration Details
+
+The `agent` section controls how the AI model interacts with MCP tools:
+
+### Execution Control
+- **`max_attempts`**: Limits how many times a tool can be retried if it fails. Higher values provide more resilience but may increase response time.
+- **`max_iterations`**: Controls the maximum number of reasoning cycles the agent can perform. More iterations allow for complex multi-step problem solving.
+
+### Reasoning Capabilities
+- **`enable_reasoning`**: When enabled, the agent uses advanced reasoning to better understand tool results and plan next steps.
+- **`enable_re_evaluation`**: When enabled, the agent can re-evaluate previous tool results and decisions, allowing for self-correction and improved accuracy.
+
+### Recommended Settings
+- **Simple tasks**: `max_attempts: 2`, `max_iterations: 2`, `enable_reasoning: false`
+- **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_re_evaluation: true`
+- **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_re_evaluation: true`
 
 ## How It Works
 

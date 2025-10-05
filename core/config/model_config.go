@@ -74,12 +74,20 @@ type ModelConfig struct {
 	Options   []string `yaml:"options" json:"options"`
 	Overrides []string `yaml:"overrides" json:"overrides"`
 
-	MCP MCPConfig `yaml:"mcp" json:"mcp"`
+	MCP   MCPConfig   `yaml:"mcp" json:"mcp"`
+	Agent AgentConfig `yaml:"agent" json:"agent"`
 }
 
 type MCPConfig struct {
 	Servers string `yaml:"remote" json:"remote"`
 	Stdio   string `yaml:"stdio" json:"stdio"`
+}
+
+type AgentConfig struct {
+	MaxAttempts        int  `yaml:"max_attempts" json:"max_attempts"`
+	MaxIterations      int  `yaml:"max_iterations" json:"max_iterations"`
+	EnableReasoning    bool `yaml:"enable_reasoning" json:"enable_reasoning"`
+	EnableReEvaluation bool `yaml:"enable_re_evaluation" json:"enable_re_evaluation"`
 }
 
 func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers]) {

@@ -95,19 +95,35 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		// we satisfy to just call internally ComputeChoices
 		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
 
-		f, err := cogito.ExecuteTools(
-			defaultLLM, fragment,
+		cogitoOpts := []cogito.Option{
 			cogito.WithStatusCallback(func(s string) {
 				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
 			cogito.WithContext(ctx),
-			// TODO: move these to configs
-			cogito.EnableToolReEvaluator,
-			cogito.WithIterations(3),
-			cogito.WithMaxAttempts(3),
-			cogito.WithTools(
-				cogitoTools...,
-			),
+			cogito.WithTools(cogitoTools...),
+			cogito.WithIterations(3),  // default to 3 iterations
+			cogito.WithMaxAttempts(3), // default to 3 attempts
+		}
+
+		if config.Agent.EnableReasoning {
+			cogitoOpts = append(cogitoOpts, cogito.EnableToolReasoner)
+		}
+
+		if config.Agent.EnableReEvaluation {
+			cogitoOpts = append(cogitoOpts, cogito.EnableToolReEvaluator)
+		}
+
+		if config.Agent.MaxIterations != 0 {
+			cogitoOpts = append(cogitoOpts, cogito.WithIterations(config.Agent.MaxIterations))
+		}
+
+		if config.Agent.MaxAttempts != 0 {
+			cogitoOpts = append(cogitoOpts, cogito.WithMaxAttempts(config.Agent.MaxAttempts))
+		}
+
+		f, err := cogito.ExecuteTools(
+			defaultLLM, fragment,
+			cogitoOpts...,
 		)
 		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
 			return err
