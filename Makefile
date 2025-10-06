@@ -376,6 +376,9 @@ backends/llama-cpp-darwin: build
 	bash ./scripts/build/llama-cpp-darwin.sh
 	./local-ai backends install "ocifile://$(abspath ./backend-images/llama-cpp.tar)"
 
+backends/neutts: docker-build-neutts docker-save-neutts build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/neutts.tar)"
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -431,6 +434,12 @@ docker-save-kitten-tts: backend-images
 
 docker-save-chatterbox: backend-images
 	docker save local-ai-backend:chatterbox -o backend-images/chatterbox.tar
+
+docker-build-neutts:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:neutts -f backend/Dockerfile.python --build-arg BACKEND=neutts ./backend
+
+docker-save-neutts: backend-images
+	docker save local-ai-backend:neutts -o backend-images/neutts.tar
 
 docker-build-kokoro:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro ./backend
