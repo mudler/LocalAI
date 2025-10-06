@@ -156,6 +156,39 @@ SOFTWARE.
 
             <!-- Settings tab -->
             <div x-show="activeTab === 'settings'" x-data="{ showPromptForm: false }" class="space-y-3">           
+              {{ if $model }}
+              {{ $galleryConfig:= index $allGalleryConfigs $model}}
+              {{ if $galleryConfig }}
+              {{ $modelConfig := "" }}
+              {{ range .ModelsConfig }}
+                {{ if eq .Name $model }}
+                  {{ $modelConfig = . }}
+                {{ end }}
+              {{ end }}
+              {{ if and $modelConfig (or (ne $modelConfig.MCP.Servers "") (ne $modelConfig.MCP.Stdio "")) }}
+              <!-- MCP Toggle -->
+              <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700">
+                <span><i class="fa-solid fa-plug mr-2"></i> Agentic MCP Mode</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.mcpMode">
+                  <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+              
+              <!-- MCP Mode Notification -->
+              <div x-show="$store.chat.mcpMode" class="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-blue-100 text-xs">
+                <div class="flex items-start space-x-2">
+                  <i class="fa-solid fa-info-circle text-blue-400 mt-0.5"></i>
+                  <div>
+                    <p class="font-medium text-blue-200 mb-1">Non-streaming Mode Active</p>
+                    <p class="text-blue-300">Responses will be processed in full before display. This may take significantly longer (up to 5 minutes), especially on CPU-only systems.</p>
+                  </div>
+                </div>
+              </div>
+              {{ end }}
+              {{ end }}
+              {{ end }}
+              
               <button 
                 @click="showPromptForm = !showPromptForm" 
                 class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
@@ -457,6 +490,7 @@ SOFTWARE.
           history: [],
           languages: [undefined],
           systemPrompt: "",
+          mcpMode: false,
           clear() {
             this.history.length = 0;
           },
