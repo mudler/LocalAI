@@ -410,6 +410,20 @@
     - filename: LiquidAI_LFM2-1.2B-Tool-Q4_K_M.gguf
       sha256: 6bdf2292a137c12264a065d73c12b61065293440b753249727cec0b6dc350d64
       uri: huggingface://bartowski/LiquidAI_LFM2-1.2B-Tool-GGUF/LiquidAI_LFM2-1.2B-Tool-Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "liquidai_lfm2-350m-math"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-350M-Math
+    - https://huggingface.co/bartowski/LiquidAI_LFM2-350M-Math-GGUF
+  description: |
+    Based on LFM2-350M, LFM2-350M-Math is a tiny reasoning model designed for tackling tricky math problems.
+  overrides:
+    parameters:
+      model: LiquidAI_LFM2-350M-Math-Q4_K_M.gguf
+  files:
+    - filename: LiquidAI_LFM2-350M-Math-Q4_K_M.gguf
+      sha256: 942e5ef43086a7a8ea5d316e819ba6a97f3829c1851cd10b87340e1b38693422
+      uri: huggingface://bartowski/LiquidAI_LFM2-350M-Math-GGUF/LiquidAI_LFM2-350M-Math-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
