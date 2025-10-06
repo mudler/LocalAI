@@ -370,6 +370,26 @@
     - filename: LiquidAI_LFM2-1.2B-Extract-Q4_K_M.gguf
       sha256: 97a1c5600045e9ade49bc4a9e3df083cef7c82b05a6d47ea2e58ab44cc98b16a
       uri: huggingface://bartowski/LiquidAI_LFM2-1.2B-Extract-GGUF/LiquidAI_LFM2-1.2B-Extract-Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "liquidai_lfm2-1.2b-rag"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-1.2B-RAG
+    - https://huggingface.co/bartowski/LiquidAI_LFM2-1.2B-RAG-GGUF
+  description: |
+    Based on LFM2-1.2B, LFM2-1.2B-RAG is specialized in answering questions based on provided contextual documents, for use in RAG (Retrieval-Augmented Generation) systems.
+
+    Use cases:
+
+        Chatbot to ask questions about the documentation of a particular product.
+        Custom support with an internal knowledge base to provide grounded answers.
+        Academic research assistant with multi-turn conversations about research papers and course materials.
+  overrides:
+    parameters:
+      model: LiquidAI_LFM2-1.2B-RAG-Q4_K_M.gguf
+  files:
+    - filename: LiquidAI_LFM2-1.2B-RAG-Q4_K_M.gguf
+      sha256: 11c93b5ae81612ab532fcfb395fddd2fb478b5d6215e1b46eeee3576a31eaa2d
+      uri: huggingface://bartowski/LiquidAI_LFM2-1.2B-RAG-GGUF/LiquidAI_LFM2-1.2B-RAG-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
