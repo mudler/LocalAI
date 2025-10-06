@@ -42,6 +42,32 @@ function toggleLoader(show) {
   }
 }
 
+function processThinkingTags(content) {
+  const thinkingRegex = /<thinking>(.*?)<\/thinking>|<think>(.*?)<\/think>/gs;
+  const parts = content.split(thinkingRegex);
+  
+  let regularContent = "";
+  let thinkingContent = "";
+  
+  for (let i = 0; i < parts.length; i++) {
+    if (i % 3 === 0) {
+      // Regular content
+      regularContent += parts[i];
+    } else if (i % 3 === 1) {
+      // <thinking> content
+      thinkingContent = parts[i];
+    } else if (i % 3 === 2) {
+      // <think> content
+      thinkingContent = parts[i];
+    }
+  }
+  
+  return {
+    regularContent: regularContent.trim(),
+    thinkingContent: thinkingContent.trim()
+  };
+}
+
 function submitSystemPrompt(event) {
   event.preventDefault();
   localStorage.setItem("system_prompt", document.getElementById("systemPrompt").value);
@@ -193,6 +219,7 @@ function readInputAudio() {
 
 async function promptGPT(systemPrompt, input) {
   const model = document.getElementById("chat-model").value;
+  const mcpMode = Alpine.store("chat").mcpMode;
   toggleLoader(true);
 
   messages = Alpine.store("chat").messages();
@@ -254,147 +281,212 @@ async function promptGPT(systemPrompt, input) {
   document.getElementById("input_file").value = null;
   document.getElementById("fileName").innerHTML = "";
 
-  // Source: https://stackoverflow.com/a/75751803/11386095
-  const response = await fetch("v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: messages,
-      stream: true,
-    }),
-  });
+  // Choose endpoint based on MCP mode
+  const endpoint = mcpMode ? "mcp/v1/chat/completions" : "v1/chat/completions";
+  const requestBody = {
+    model: model,
+    messages: messages,
+  };
+  
+  // Only add stream parameter for regular chat (MCP doesn't support streaming)
+  if (!mcpMode) {
+    requestBody.stream = true;
+  }
+  
+  let response;
+  try {
+    // Create AbortController for timeout handling
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), mcpMode ? 300000 : 30000); // 5 minutes for MCP, 30 seconds for regular
+    
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+      },
+      body: JSON.stringify(requestBody),
+      signal: controller.signal
+    });
+    
+    clearTimeout(timeoutId);
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Request timeout: MCP processing is taking longer than expected. Please try again.</span>`,
+      );
+    } else {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Network Error: ${error.message}</span>`,
+      );
+    }
+    toggleLoader(false);
+    return;
+  }
 
   if (!response.ok) {
     Alpine.store("chat").add(
       "assistant",
-      `<span class='error'>Error: POST /v1/chat/completions ${response.status}</span>`,
+      `<span class='error'>Error: POST ${endpoint} ${response.status}</span>`,
     );
+    toggleLoader(false);
     return;
   }
 
-  const reader = response.body
-    ?.pipeThrough(new TextDecoderStream())
-    .getReader();
-
-  if (!reader) {
-    Alpine.store("chat").add(
-      "assistant",
-      `<span class='error'>Error: Failed to decode API response</span>`,
-    );
-    return;
-  }
-
-  // Function to add content to the chat and handle DOM updates efficiently
-  const addToChat = (token) => {
-    const chatStore = Alpine.store("chat");
-    chatStore.add("assistant", token);
-    // Efficiently scroll into view without triggering multiple reflows
-    // const messages = document.getElementById('messages');
-    // messages.scrollTop = messages.scrollHeight;
-  };
-
-  let buffer = "";
-  let contentBuffer = [];
-  let thinkingContent = "";
-  let isThinking = false;
-  let lastThinkingMessageIndex = -1;
-
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-
-      buffer += value;
-
-      let lines = buffer.split("\n");
-      buffer = lines.pop(); // Retain any incomplete line in the buffer
-
-      lines.forEach((line) => {
-        if (line.length === 0 || line.startsWith(":")) return;
-        if (line === "data: [DONE]") {
-          return;
+  if (mcpMode) {
+    // Handle MCP non-streaming response
+    try {
+      const data = await response.json();
+      // MCP endpoint returns content in choices[0].text, not choices[0].message.content
+      const content = data.choices[0]?.text || "";
+      
+      if (content) {
+        // Process thinking tags using shared function
+        const { regularContent, thinkingContent } = processThinkingTags(content);
+        
+        // Add thinking content if present
+        if (thinkingContent) {
+          Alpine.store("chat").add("thinking", thinkingContent);
         }
+        
+        // Add regular content if present
+        if (regularContent) {
+          Alpine.store("chat").add("assistant", regularContent);
+        }
+      }
+      
+      // Highlight all code blocks
+      hljs.highlightAll();
+    } catch (error) {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Error: Failed to parse MCP response</span>`,
+      );
+    }
+  } else {
+    // Handle regular streaming response
+    const reader = response.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
 
-        if (line.startsWith("data: ")) {
-          try {
-            const jsonData = JSON.parse(line.substring(6));
-            const token = jsonData.choices[0].delta.content;
+    if (!reader) {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Error: Failed to decode API response</span>`,
+      );
+      return;
+    }
 
-            if (token) {
-              // Check for thinking tags
-              if (token.includes("<thinking>") || token.includes("<think>")) {
-                isThinking = true;
-                thinkingContent = "";
-                lastThinkingMessageIndex = -1;
-                return;
-              }
-              if (token.includes("</thinking>") || token.includes("</think>")) {
-                isThinking = false;
-                if (thinkingContent.trim()) {
-                  // Only add the final thinking message if we don't already have one
-                  if (lastThinkingMessageIndex === -1) {
-                    Alpine.store("chat").add("thinking", thinkingContent);
-                  }
-                }
-                return;
-              }
+    // Function to add content to the chat and handle DOM updates efficiently
+    const addToChat = (token) => {
+      const chatStore = Alpine.store("chat");
+      chatStore.add("assistant", token);
+      // Efficiently scroll into view without triggering multiple reflows
+      // const messages = document.getElementById('messages');
+      // messages.scrollTop = messages.scrollHeight;
+    };
 
-              // Handle content based on thinking state
-              if (isThinking) {
-                thinkingContent += token;
-                // Update the last thinking message or create a new one
-                if (lastThinkingMessageIndex === -1) {
-                  // Create new thinking message
-                  Alpine.store("chat").add("thinking", thinkingContent);
-                  lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
-                } else {
-                  // Update existing thinking message
-                  const chatStore = Alpine.store("chat");
-                  const lastMessage = chatStore.history[lastThinkingMessageIndex];
-                  if (lastMessage && lastMessage.role === "thinking") {
-                    lastMessage.content = thinkingContent;
-                    lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
-                  }
-                }
-              } else {
-                contentBuffer.push(token);
-              }
-            }
-          } catch (error) {
-            console.error("Failed to parse line:", line, error);
+    let buffer = "";
+    let contentBuffer = [];
+    let thinkingContent = "";
+    let isThinking = false;
+    let lastThinkingMessageIndex = -1;
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += value;
+
+        let lines = buffer.split("\n");
+        buffer = lines.pop(); // Retain any incomplete line in the buffer
+
+        lines.forEach((line) => {
+          if (line.length === 0 || line.startsWith(":")) return;
+          if (line === "data: [DONE]") {
+            return;
           }
-        }
-      });
 
-      // Efficiently update the chat in batch
+          if (line.startsWith("data: ")) {
+            try {
+              const jsonData = JSON.parse(line.substring(6));
+              const token = jsonData.choices[0].delta.content;
+
+              if (token) {
+                // Check for thinking tags
+                if (token.includes("<thinking>") || token.includes("<think>")) {
+                  isThinking = true;
+                  thinkingContent = "";
+                  lastThinkingMessageIndex = -1;
+                  return;
+                }
+                if (token.includes("</thinking>") || token.includes("</think>")) {
+                  isThinking = false;
+                  if (thinkingContent.trim()) {
+                    // Only add the final thinking message if we don't already have one
+                    if (lastThinkingMessageIndex === -1) {
+                      Alpine.store("chat").add("thinking", thinkingContent);
+                    }
+                  }
+                  return;
+                }
+
+                // Handle content based on thinking state
+                if (isThinking) {
+                  thinkingContent += token;
+                  // Update the last thinking message or create a new one
+                  if (lastThinkingMessageIndex === -1) {
+                    // Create new thinking message
+                    Alpine.store("chat").add("thinking", thinkingContent);
+                    lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                  } else {
+                    // Update existing thinking message
+                    const chatStore = Alpine.store("chat");
+                    const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                    if (lastMessage && lastMessage.role === "thinking") {
+                      lastMessage.content = thinkingContent;
+                      lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                    }
+                  }
+                } else {
+                  contentBuffer.push(token);
+                }
+              }
+            } catch (error) {
+              console.error("Failed to parse line:", line, error);
+            }
+          }
+        });
+
+        // Efficiently update the chat in batch
+        if (contentBuffer.length > 0) {
+          addToChat(contentBuffer.join(""));
+          contentBuffer = [];
+        }
+      }
+
+      // Final content flush if any data remains
       if (contentBuffer.length > 0) {
         addToChat(contentBuffer.join(""));
-        contentBuffer = [];
       }
-    }
+      if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+        Alpine.store("chat").add("thinking", thinkingContent);
+      }
 
-    // Final content flush if any data remains
-    if (contentBuffer.length > 0) {
-      addToChat(contentBuffer.join(""));
+      // Highlight all code blocks once at the end
+      hljs.highlightAll();
+    } catch (error) {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Error: Failed to process stream</span>`,
+      );
+    } finally {
+      // Perform any cleanup if necessary
+      reader.releaseLock();
     }
-    if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
-      Alpine.store("chat").add("thinking", thinkingContent);
-    }
-
-    // Highlight all code blocks once at the end
-    hljs.highlightAll();
-  } catch (error) {
-    console.error("An error occurred while reading the stream:", error);
-    Alpine.store("chat").add(
-      "assistant",
-      `<span class='error'>Error: Failed to process stream</span>`,
-    );
-  } finally {
-    // Perform any cleanup if necessary
-    reader.releaseLock();
   }
 
   // Remove class "loader" from the element with "loader" id
@@ -431,6 +523,7 @@ document.addEventListener("alpine:init", () => {
     history: [],
     languages: [undefined],
     systemPrompt: "",
+    mcpMode: false,
     clear() {
       this.history.length = 0;
     },

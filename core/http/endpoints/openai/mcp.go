@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -49,6 +50,10 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			return fiber.ErrBadRequest
 		}
 
+		if config.MCP.Servers == "" && config.MCP.Stdio == "" {
+			return fmt.Errorf("no MCP servers configured")
+		}
+
 		allTools := []*mcp.MCPTool{}
 
 		// Get MCP config from model config
@@ -76,6 +81,10 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		for _, tool := range allTools {
 			cogitoTools = append(cogitoTools, tool)
 			//	defer tool.Close()
+		}
+
+		if len(cogitoTools) == 0 {
+			return fmt.Errorf("no tools found in the specified MCP servers")
 		}
 
 		fragment := cogito.NewEmptyFragment()
