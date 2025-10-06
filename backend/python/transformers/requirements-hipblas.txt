@@ -3,7 +3,7 @@ torch==2.7.1+rocm6.3
 accelerate
 transformers
 llvmlite==0.43.0
-numba==0.60.0
+numba==0.62.1
 bitsandbytes
 outetts
 bitsandbytes
