@@ -390,6 +390,26 @@
     - filename: LiquidAI_LFM2-1.2B-RAG-Q4_K_M.gguf
       sha256: 11c93b5ae81612ab532fcfb395fddd2fb478b5d6215e1b46eeee3576a31eaa2d
       uri: huggingface://bartowski/LiquidAI_LFM2-1.2B-RAG-GGUF/LiquidAI_LFM2-1.2B-RAG-Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "liquidai_lfm2-1.2b-tool"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-1.2B-Tool
+    - https://huggingface.co/bartowski/LiquidAI_LFM2-1.2B-Tool-GGUF
+  description: |
+    Based on LFM2-1.2B, LFM2-1.2B-Tool is designed for concise and precise tool calling. The key challenge was designing a non-thinking model that outperforms similarly sized thinking models for tool use.
+
+    Use cases:
+
+        Mobile and edge devices requiring instant API calls, database queries, or system integrations without cloud dependency.
+        Real-time assistants in cars, IoT devices, or customer support, where response latency is critical.
+        Resource-constrained environments like embedded systems or battery-powered devices needing efficient tool execution.
+  overrides:
+    parameters:
+      model: LiquidAI_LFM2-1.2B-Tool-Q4_K_M.gguf
+  files:
+    - filename: LiquidAI_LFM2-1.2B-Tool-Q4_K_M.gguf
+      sha256: 6bdf2292a137c12264a065d73c12b61065293440b753249727cec0b6dc350d64
+      uri: huggingface://bartowski/LiquidAI_LFM2-1.2B-Tool-GGUF/LiquidAI_LFM2-1.2B-Tool-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
