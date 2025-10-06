@@ -2755,6 +2755,24 @@
     - filename: aquif-3.5-A4B-Think.Q4_K_M.gguf
       sha256: 1650b72ae1acf12b45a702f2ff5f47205552e494f0d910e81cbe40dfba55a6b9
       uri: huggingface://QuantFactory/aquif-3.5-A4B-Think-GGUF/aquif-3.5-A4B-Think.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "lemon07r_vellummini-0.1-qwen3-14b"
+  urls:
+    - https://huggingface.co/lemon07r/VellumMini-0.1-Qwen3-14B
+    - https://huggingface.co/bartowski/lemon07r_VellumMini-0.1-Qwen3-14B-GGUF
+  description: |
+    Just a sneak peek of what I'm cooking in a little project called Vellum. This model was made to evaluate the quality of the CreativeGPT dataset, and how well Qwen3 trains on it. This is just one of many datasets that the final model will be trained on (which will also be using a different base model).
+
+    This got pretty good results compared to the regular instruct in my testing so thought I would share. I trained for 3 epochs, but both checkpoints at 2 epoch and 3 epoch were too overbaked. This checkpoint, at 1 epoch performed best.
+
+    I'm pretty surprised how decent this came out since Qwen models aren't that great at writing, especially at this size.
+  overrides:
+    parameters:
+      model: lemon07r_VellumMini-0.1-Qwen3-14B-Q4_K_M.gguf
+  files:
+    - filename: lemon07r_VellumMini-0.1-Qwen3-14B-Q4_K_M.gguf
+      sha256: 7c56980b12c757e06bd4d4e99fca4eacf76fbad9bc46d59fde5fb62280157320
+      uri: huggingface://bartowski/lemon07r_VellumMini-0.1-Qwen3-14B-GGUF/lemon07r_VellumMini-0.1-Qwen3-14B-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
