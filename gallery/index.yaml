@@ -267,7 +267,7 @@
       sha256: e83ba6e675b747f7801557dc24594f43c17a7850b6129d4972d55e3e9b010359
       uri: huggingface://bartowski/OpenGVLab_InternVL3_5-8B-GGUF/mmproj-OpenGVLab_InternVL3_5-2B-f16.gguf
 - &lfm2
-  url: "github:mudler/LocalAI/gallery/chatml.yaml@master"
+  url: "github:mudler/LocalAI/gallery/lfm.yaml@master"
   name: "lfm2-vl-450m"
   license: lfm1.0
   tags:
@@ -327,6 +327,28 @@
     - filename: LFM2-1.2B-F16.gguf
       sha256: 0ddedfb8c5f7f73e77f19678bbc0f6ba2554d0534dd0feea65ea5bca2907d5f2
       uri: huggingface://LiquidAI/LFM2-1.2B-GGUF/LFM2-1.2B-F16.gguf
+- !!merge <<: *lfm2
+  name: "liquidai_lfm2-350m-extract"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-350M-Extract
+    - https://huggingface.co/bartowski/LiquidAI_LFM2-350M-Extract-GGUF
+  description: |
+    Based on LFM2-350M, LFM2-350M-Extract is designed to extract important information from a wide variety of unstructured documents (such as articles, transcripts, or reports) into structured outputs like JSON, XML, or YAML.
+    Use cases:
+
+        Extracting invoice details from emails into structured JSON.
+        Converting regulatory filings into XML for compliance systems.
+        Transforming customer support tickets into YAML for analytics pipelines.
+        Populating knowledge graphs with entities and attributes from unstructured reports.
+
+    You can find more information about other task-specific models in this blog post.
+  overrides:
+    parameters:
+      model: LiquidAI_LFM2-350M-Extract-Q4_K_M.gguf
+  files:
+    - filename: LiquidAI_LFM2-350M-Extract-Q4_K_M.gguf
+      sha256: 340a7fb24b98a7dbe933169dbbb869f4d89f8c7bf27ee45d62afabfc5b376743
+      uri: huggingface://bartowski/LiquidAI_LFM2-350M-Extract-GGUF/LiquidAI_LFM2-350M-Extract-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
