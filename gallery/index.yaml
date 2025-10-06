@@ -349,6 +349,27 @@
     - filename: LiquidAI_LFM2-350M-Extract-Q4_K_M.gguf
       sha256: 340a7fb24b98a7dbe933169dbbb869f4d89f8c7bf27ee45d62afabfc5b376743
       uri: huggingface://bartowski/LiquidAI_LFM2-350M-Extract-GGUF/LiquidAI_LFM2-350M-Extract-Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "liquidai_lfm2-1.2b-extract"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-1.2B-Extract
+    - https://huggingface.co/bartowski/LiquidAI_LFM2-1.2B-Extract-GGUF
+  description: |
+      Based on LFM2-1.2B, LFM2-1.2B-Extract is designed to extract important information from a wide variety of unstructured documents (such as articles, transcripts, or reports) into structured outputs like JSON, XML, or YAML.
+
+      Use cases:
+
+          Extracting invoice details from emails into structured JSON.
+          Converting regulatory filings into XML for compliance systems.
+          Transforming customer support tickets into YAML for analytics pipelines.
+          Populating knowledge graphs with entities and attributes from unstructured reports.
+  overrides:
+    parameters:
+      model: LiquidAI_LFM2-1.2B-Extract-Q4_K_M.gguf
+  files:
+    - filename: LiquidAI_LFM2-1.2B-Extract-Q4_K_M.gguf
+      sha256: 97a1c5600045e9ade49bc4a9e3df083cef7c82b05a6d47ea2e58ab44cc98b16a
+      uri: huggingface://bartowski/LiquidAI_LFM2-1.2B-Extract-GGUF/LiquidAI_LFM2-1.2B-Extract-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
