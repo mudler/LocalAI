@@ -3,3 +3,4 @@ protobuf
 certifi
 packaging
 setuptools
+poetry
