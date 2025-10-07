@@ -8,3 +8,4 @@ neuttsair>=0.0.1
 phonemizer==3.3.0
 soundfile==0.13.1
 resemble-perth==1.0.1
+llama-cpp-python

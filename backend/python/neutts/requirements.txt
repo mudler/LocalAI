@@ -4,3 +4,4 @@ certifi
 packaging
 setuptools
 numpy==2.2.6
+scikit_build_core

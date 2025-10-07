@@ -28,7 +28,7 @@ RUN apt-get update && \
         curl python3-pip \
         python-is-python3 \
         python3-dev llvm \
-        python3-venv make && \
+        python3-venv make cmake && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --upgrade pip

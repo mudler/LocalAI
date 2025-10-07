@@ -7,4 +7,3 @@ transformers==4.56.1
 resemble-perth==1.0.1
 accelerate
 llama-cpp-python
---extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cu125
