@@ -166,6 +166,12 @@
                                         <i class="fas fa-magic mr-1"></i>Auto
                                     </span>
                                     {{ end }}
+
+                                    {{ if and $backendCfg (or (ne $backendCfg.MCP.Servers "") (ne $backendCfg.MCP.Stdio ""))  }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                        <i class="fas fa-plug mr-1"></i>MCP
+                                    </span>
+                                    {{ end }}
                                     
                                     {{ if index $loadedModels .Name }}
                                     <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/30">
