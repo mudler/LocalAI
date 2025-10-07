@@ -238,6 +238,99 @@ response = client.chat.completions.create(
 )
 ```
 
+### MCP and adding packages
+
+It might be handy to install packages before starting the container to setup the environment. This is an example on how you can do that with docker-compose (installing and configuring docker)
+
+```yaml
+services:
+  local-ai:
+    image: localai/localai:latest
+    #image: localai/localai:latest-gpu-nvidia-cuda-12
+    container_name: local-ai
+    restart: always
+    entrypoint: [ "/bin/bash" ]
+    command: >
+     -c "apt-get update &&
+         apt-get install -y docker.io &&
+         /entrypoint.sh"
+    environment:
+      - DEBUG=true
+      - LOCALAI_WATCHDOG_IDLE=true
+      - LOCALAI_WATCHDOG_BUSY=true
+      - LOCALAI_WATCHDOG_IDLE_TIMEOUT=15m
+      - LOCALAI_WATCHDOG_BUSY_TIMEOUT=15m
+      - LOCALAI_API_KEY=my-beautiful-api-key
+      - DOCKER_HOST=tcp://docker:2376
+      - DOCKER_TLS_VERIFY=1
+      - DOCKER_CERT_PATH=/certs/client
+    ports:
+      - "8080:8080"
+    volumes:
+      - /data/models:/models
+      - /data/backends:/backends
+      - certs:/certs:ro
+    # uncomment for nvidia
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - capabilities: [gpu]
+    #           device_ids: ['7']
+    # runtime: nvidia
+
+  docker:
+    image: docker:dind
+    privileged: true
+    container_name: docker
+    volumes:
+      - certs:/certs
+    healthcheck:
+      test: ["CMD", "docker", "info"]
+      interval: 10s
+      timeout: 5s
+volumes:
+  certs:
+```
+
+An example model config (to append to any existing model you have) can be:
+
+```yaml
+mcp:
+  stdio: |
+     {
+      "mcpServers": {
+        "weather": {
+          "command": "docker",
+          "args": [
+            "run", "-i", "--rm",
+            "ghcr.io/mudler/mcps/weather:master"
+          ]
+        },
+        "memory": {
+          "command": "docker",
+          "env": {
+            "MEMORY_FILE_PATH": "/data/memory.json"
+          },
+          "args": [
+            "run", "-i", "--rm", "-v", "/host/data:/data",
+            "ghcr.io/mudler/mcps/memory:master"
+          ]
+        },
+        "ddg": {
+          "command": "docker",
+          "env": {
+            "MAX_RESULTS": "10"
+          },
+          "args": [
+            "run", "-i", "--rm", "-e", "MAX_RESULTS",
+            "ghcr.io/mudler/mcps/duckduckgo:master"
+          ]
+        }
+      }
+     }
+```
+
 ### Links
 
 - [Awesome MCPs](https://github.com/punkpeye/awesome-mcp-servers)
