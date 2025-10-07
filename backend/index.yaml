@@ -427,6 +427,68 @@
     - text-to-speech
     - TTS
   license: apache-2.0
+- &neutts
+  name: "neutts"
+  urls:
+    - https://github.com/neuphonic/neutts-air
+  description: |
+    NeuTTS Air is the world’s first super-realistic, on-device, TTS speech language model with instant voice cloning. Built off a 0.5B LLM backbone, NeuTTS Air brings natural-sounding speech, real-time performance, built-in security and speaker cloning to your local device - unlocking a new category of embedded voice agents, assistants, toys, and compliance-safe apps.
+  tags:
+    - text-to-speech
+    - TTS
+  license: apache-2.0
+  capabilities:
+    default: "cpu-neutts"
+    nvidia: "cuda12-neutts"
+    amd: "rocm-neutts"
+    nvidia-l4t: "nvidia-l4t-neutts"
+- !!merge <<: *neutts
+  name: "neutts-development"
+  capabilities:
+    default: "cpu-neutts-development"
+    nvidia: "cuda12-neutts-development"
+    amd: "rocm-neutts-development"
+    nvidia-l4t: "nvidia-l4t-neutts-development"
+- !!merge <<: *neutts
+  name: "cpu-neutts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
+  mirrors:
+    - localai/localai-backends:latest-cpu-neutts
+- !!merge <<: *neutts
+  name: "cuda12-neutts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-neutts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-neutts
+- !!merge <<: *neutts
+  name: "rocm-neutts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-neutts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-neutts
+- !!merge <<: *neutts
+  name: "nvidia-l4t-neutts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-neutts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-neutts
+- !!merge <<: *neutts
+  name: "cpu-neutts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-neutts"
+  mirrors:
+    - localai/localai-backends:master-cpu-neutts
+- !!merge <<: *neutts
+  name: "cuda12-neutts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-neutts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-neutts
+- !!merge <<: *neutts
+  name: "rocm-neutts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-neutts"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-neutts
+- !!merge <<: *neutts
+  name: "nvidia-l4t-neutts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-neutts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-neutts
 - !!merge <<: *mlx
   name: "mlx-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx"
