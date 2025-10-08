@@ -171,10 +171,14 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		}
 		rule := fmt.Sprintf(`"[" space (%s ("," space %s)*)? "]" space`, itemRuleName, itemRuleName)
 		return sc.addRule(ruleName, rule), nil
+	} else if properties, _ := schema["properties"].(map[string]interface{}); (schemaType == "object" || schemaType == "") && len(properties) == 0 {
+		// Handle empty object schema (no properties)
+		rule := `"{" space "}" space`
+		return sc.addRule(ruleName, rule), nil
 	} else {
 		primitiveRule, exists := PRIMITIVE_RULES[schemaType]
 		if !exists {
-			return "", fmt.Errorf("unrecognized schema: %v", schema)
+			return "", fmt.Errorf("unrecognized schema: %v (type: %s)", schema, schemaType)
 		}
 		if ruleName == "root" {
 			schemaType = "root"
