@@ -247,6 +247,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
 				if err == nil {
 					input.Grammar = g
+				} else {
+					log.Error().Err(err).Msg("Failed generating grammar")
 				}
 			}
 		}
@@ -286,11 +288,15 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				config.Grammar = g
+			} else {
+				log.Error().Err(err).Msg("Failed generating grammar")
 			}
 		case input.JSONFunctionGrammarObject != nil:
 			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				config.Grammar = g
+			} else {
+				log.Error().Err(err).Msg("Failed generating grammar")
 			}
 		default:
 			// Force picking one of the functions by the request

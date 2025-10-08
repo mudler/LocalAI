@@ -442,5 +442,39 @@ realvalue
 				}
 			}
 		})
+
+		It("handles empty object schema without properties", func() {
+			// Test case for the bug fix: schema with empty properties map
+			emptyObjectSchema := `{
+				"type": "object",
+				"properties": {}
+			}`
+
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(emptyObjectSchema))
+			Expect(err).To(BeNil())
+			Expect(grammar).To(ContainSubstring(`root ::= "{" space "}" space`))
+		})
+
+		It("handles object schema without properties field", func() {
+			// Test case for object schema without properties field at all
+			objectWithoutProperties := `{
+				"type": "object"
+			}`
+
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(objectWithoutProperties))
+			Expect(err).To(BeNil())
+			Expect(grammar).To(ContainSubstring(`root ::= "{" space "}" space`))
+		})
+
+		It("handles schema with properties but no type field", func() {
+			// Test case for the exact scenario causing the panic: schema with properties but no type
+			schemaWithPropertiesNoType := `{
+				"properties": {}
+			}`
+
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(schemaWithPropertiesNoType))
+			Expect(err).To(BeNil())
+			Expect(grammar).To(ContainSubstring(`root ::= "{" space "}" space`))
+		})
 	})
 })
