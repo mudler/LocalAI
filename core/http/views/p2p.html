@@ -124,7 +124,7 @@
                         <i class="fa-solid fa-copy"></i>
                     </button>
                 </div>
-                <code class="block bg-gray-900/80 text-yellow-300 p-4 rounded-lg break-words mb-4 border border-gray-700/50" @click="copyClipboard($el.textContent)">{{.P2PToken}}</code>
+                <code class="block bg-gray-900/80 text-yellow-300 p-4 rounded-lg break-words mb-4 border border-gray-700/50 cursor-pointer hover:bg-gray-900" @click="copyClipboard($el.textContent.trim())">{{.P2PToken}}</code>
                 <p class="text-gray-300">
                     The network token can be used to either share the instance or join a federation or a worker network. Below you will find examples on how to start a new instance or a worker with this token.
                 </p>
