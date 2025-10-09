@@ -1,32 +1,142 @@
- <!-- Show in progress operations-->
- {{ if .ProcessingModels }}
- <h2 
-     class="mt-4 mb-4 text-center text-3xl font-semibold text-gray-100">Operations in progress</h2>          
- {{end}}
- {{$taskType:=.TaskTypes}}
- 
- {{ range $key,$value:=.ProcessingModels }} 
-     {{ $op := index $taskType $key}}
-     {{$parts := split "@" $key}}
-     {{$modelName:=$parts._1}}
-     {{$repository:=$parts._0}}
-     {{ if not (contains "@" $key)}} 
-     {{$repository = ""}}
-     {{$modelName = $key}}
-     {{ end }}
+<!-- Global Operations Status Bar -->
+<div x-data="operationsStatus()" x-init="init()" x-show="operations.length > 0" 
+     x-transition:enter="transition ease-out duration-300"
+     x-transition:enter-start="opacity-0 transform -translate-y-4"
+     x-transition:enter-end="opacity-100 transform translate-y-0"
+     x-transition:leave="transition ease-in duration-200"
+     x-transition:leave-start="opacity-100 transform translate-y-0"
+     x-transition:leave-end="opacity-0 transform -translate-y-4"
+     class="sticky top-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-900/95 to-purple-900/95 backdrop-blur-sm shadow-lg border-b border-blue-700/50">
+    
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <i class="fas fa-spinner fa-spin text-blue-300 text-lg"></i>
+                    </div>
+                    <h3 class="text-white font-semibold text-sm">
+                        Operations in Progress
+                        <span class="ml-2 bg-blue-700/50 px-2 py-1 rounded-full text-xs" x-text="operations.length"></span>
+                    </h3>
+                </div>
+            </div>
+            <button @click="collapsed = !collapsed" 
+                    class="text-white/80 hover:text-white transition-colors">
+                <i class="fas" :class="collapsed ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+            </button>
+        </div>
 
-      <div class="flex items-center justify-between bg-slate-600 p-2 mb-2 rounded-md">
-         <div class="flex items center">
-             <span class="text-gray-300"><a href="browse?term={{$parts._1}}"
-                 class="text-white-500 inline-block bg-blue-200 rounded-full px-3 py-1 text-sm font-semibold text-gray-700 mr-2 mb-2 hover:bg-gray-300 hover:shadow-gray-2"
-                 >{{$modelName}}</a> {{if $repository}} (from the '{{$repository}}' repository) {{end}}</span>
-         </div>
-         <div hx-get="browse/job/{{$value}}" hx-swap="outerHTML" hx-target="this" hx-trigger="done">
-             <h3 role="status" id="pblabel" >{{$op}}
-                 <div hx-get="browse/job/progress/{{$value}}" hx-trigger="every 600ms" 
-                 hx-target="this"
-                 hx-swap="innerHTML"  ></div></h3>
-         </div>     
-     </div>                   
- {{ end }}
- <!-- END Show in progress operations-->
+        <!-- Operations List -->
+        <div x-show="!collapsed" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 max-h-0"
+             x-transition:enter-end="opacity-100 max-h-96"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 max-h-96"
+             x-transition:leave-end="opacity-0 max-h-0"
+             class="space-y-2 overflow-y-auto max-h-96">
+            <template x-for="operation in operations" :key="operation.id">
+                <div class="bg-gray-800/60 rounded-lg p-3 border border-gray-700/50 hover:border-blue-600/50 transition-all">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-3 flex-1 min-w-0">
+                            <!-- Icon based on type -->
+                            <div class="flex-shrink-0">
+                                <i class="text-lg" 
+                                   :class="{
+                                       'fas fa-cube text-blue-400': !operation.isBackend && !operation.isDeletion,
+                                       'fas fa-cubes text-purple-400': operation.isBackend && !operation.isDeletion,
+                                       'fas fa-trash text-red-400': operation.isDeletion
+                                   }"></i>
+                            </div>
+                            
+                            <!-- Operation details -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-white font-medium text-sm truncate" x-text="operation.name"></span>
+                                    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full"
+                                          :class="{
+                                              'bg-blue-700/50 text-blue-200': !operation.isDeletion && !operation.isBackend,
+                                              'bg-purple-700/50 text-purple-200': !operation.isDeletion && operation.isBackend,
+                                              'bg-red-700/50 text-red-200': operation.isDeletion
+                                          }"
+                                          x-text="operation.isBackend ? 'Backend' : 'Model'"></span>
+                                </div>
+                                
+                                <!-- Status message -->
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <template x-if="operation.isQueued">
+                                        <span class="text-xs text-blue-300 flex items-center">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            Queued
+                                        </span>
+                                    </template>
+                                    <template x-if="!operation.isQueued && operation.message">
+                                        <span class="text-xs text-gray-300 truncate" x-text="operation.message"></span>
+                                    </template>
+                                </div>
+                            </div>
+                            
+                            <!-- Progress percentage -->
+                            <div class="flex-shrink-0 text-right">
+                                <span class="text-white font-bold text-lg" x-text="operation.progress + '%'"></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress bar -->
+                    <div class="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-300 ease-out"
+                             :class="{
+                                 'bg-gradient-to-r from-blue-500 to-blue-600': !operation.isDeletion,
+                                 'bg-gradient-to-r from-red-500 to-red-600': operation.isDeletion
+                             }"
+                             :style="'width: ' + operation.progress + '%'">
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function operationsStatus() {
+    return {
+        operations: [],
+        collapsed: false,
+        pollInterval: null,
+        
+        init() {
+            this.fetchOperations();
+            // Poll every 500ms for smooth updates
+            this.pollInterval = setInterval(() => this.fetchOperations(), 500);
+        },
+        
+        async fetchOperations() {
+            try {
+                const response = await fetch('/api/operations');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch operations');
+                }
+                const data = await response.json();
+                this.operations = data.operations || [];
+                
+                // Auto-collapse if there are many operations
+                if (this.operations.length > 5 && !this.collapsed) {
+                    // Don't auto-collapse, let user control it
+                }
+            } catch (error) {
+                console.error('Error fetching operations:', error);
+                // Don't clear operations on error, just keep showing last known state
+            }
+        },
+        
+        destroy() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
+</script>

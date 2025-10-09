@@ -30,14 +30,46 @@
       },
     };
     function copyClipboard(token) {
-      navigator.clipboard.writeText(token)
-      .then(() => {
-        console.log('Text copied to clipboard:', token);
-        alert('Text copied to clipboard!');
-      })
-      .catch(err => {
-        console.error('Failed to copy token:', err);
-      });
+      // Try modern Clipboard API first (requires secure context)
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(token)
+        .then(() => {
+          console.log('Text copied to clipboard:', token);
+          alert('Text copied to clipboard!');
+        })
+        .catch(err => {
+          console.error('Failed to copy token:', err);
+          fallbackCopy(token);
+        });
+      } else {
+        // Fallback for non-secure contexts
+        fallbackCopy(token);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          console.log('Text copied to clipboard (fallback):', text);
+          alert('Text copied to clipboard!');
+        } else {
+          console.error('Fallback copy failed');
+          alert('Failed to copy text. Please copy manually.');
+        }
+      } catch (err) {
+        console.error('Fallback copy error:', err);
+        alert('Failed to copy text. Please copy manually.');
+      }
+      document.body.removeChild(textArea);
     }
   </script>
 
@@ -45,7 +77,6 @@
   <link href="static/assets/fontawesome/css/brands.css" rel="stylesheet" />
   <link href="static/assets/fontawesome/css/solid.css" rel="stylesheet" />
   <script src="static/assets/flowbite.min.js"></script>
-  <script src="static/assets/htmx.js" crossorigin="anonymous"></script>
 
   <!-- Example responsive styling improvements -->
   <style>
@@ -119,11 +150,4 @@
   100% { left: 100%; }
 }
   </style>
-
-  <!-- Initialize Flowbite on HTMX content load -->
-  <script>
-    htmx.onLoad(function(content) {
-      initFlowbite();
-    });
-  </script>
 </head>

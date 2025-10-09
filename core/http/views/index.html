@@ -214,12 +214,7 @@
                                 {{ if index $loadedModels .Name }}
                                 <button class="group/stop inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg px-3 py-2 transition-all duration-200"
                                     data-twe-ripple-init=""
-                                    hx-confirm="Are you sure you wish to stop this model?"
-                                    hx-post="/backend/shutdown"
-                                    hx-vals='{"model": "{{.Name}}"}'
-                                    hx-target="this"
-                                    hx-swap="none"
-                                    hx-on::after-request="handleShutdownResponse(event, '{{.Name}}')">
+                                    onclick="handleStopModel('{{.Name}}')">
                                     <i class="fas fa-stop mr-2 group-hover/stop:animate-pulse"></i>Stop
                                 </button>
                                 {{ end }}
@@ -233,9 +228,7 @@
                                 <button
                                     class="group/delete inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg px-3 py-2 transition-all duration-200"
                                     data-twe-ripple-init=""
-                                    hx-confirm="Are you sure you wish to delete this model?"
-                                    hx-post="browse/delete/model/{{.Name}}"
-                                    hx-swap="outerHTML">
+                                    onclick="handleDeleteModel('{{.Name}}')">
                                     <i class="fas fa-trash-alt mr-2 group-hover/delete:animate-bounce"></i>Delete
                                 </button>
                             </div>
@@ -328,10 +321,50 @@
 </div>
 
 <script>
-function handleShutdownResponse(event, modelName) {
-    const button = event.target;
-    const response = event.detail.xhr;
-    window.location.reload();
+async function handleStopModel(modelName) {
+    if (!confirm('Are you sure you wish to stop this model?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/backend/shutdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to stop model');
+        }
+    } catch (error) {
+        console.error('Error stopping model:', error);
+        alert('Failed to stop model');
+    }
+}
+
+async function handleDeleteModel(modelName) {
+    if (!confirm('Are you sure you wish to delete this model?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/models/delete/${encodeURIComponent(modelName)}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to delete model');
+        }
+    } catch (error) {
+        console.error('Error deleting model:', error);
+        alert('Failed to delete model');
+    }
 }
 
 // Handle reload models button

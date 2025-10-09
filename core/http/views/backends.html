@@ -3,10 +3,35 @@
 {{template "views/partials/head" .}}
 
 <body class="bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-200">
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col min-h-screen" x-data="backendsGallery()">
    
     {{template "views/partials/navbar" .}}
-    {{ $numBackendsPerPage := 21 }}
+    
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true" 
+                 x-transition:enter="transform ease-out duration-300 transition"
+                 x-transition:enter-start="translate-x-full opacity-0"
+                 x-transition:enter-end="translate-x-0 opacity-100"
+                 x-transition:leave="transform ease-in duration-200 transition"
+                 x-transition:leave-start="translate-x-0 opacity-100"
+                 x-transition:leave-end="translate-x-full opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 class="rounded-lg shadow-xl p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+    
     <div class="container mx-auto px-4 py-8 flex-grow">
 
         <!-- Hero Header -->
@@ -29,7 +54,7 @@
                 <div class="flex flex-wrap justify-center items-center gap-6 text-sm md:text-base">
                     <div class="flex items-center bg-white/10 rounded-full px-4 py-2">
                         <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
-                        <span class="font-semibold text-emerald-300">{{.AvailableBackends}}</span>
+                        <span class="font-semibold text-emerald-300" x-text="availableBackends"></span>
                         <span class="text-gray-300 ml-1">backends available</span>
                     </div>
                     <a href="https://localai.io/backends/" target="_blank" 
@@ -59,18 +84,13 @@
                         <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
                             <i class="fas fa-search text-gray-400"></i>
                         </div>
-                        <input class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:outline-none" 
+                        <input 
+                            x-model="searchTerm"
+                            @input.debounce.500ms="fetchBackends()"
+                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:outline-none" 
                             type="search" 
-                            name="search" 
-                            placeholder="Search backends by name, description or type..." 
-                            hx-post="browse/search/backends" 
-                            hx-trigger="input changed delay:500ms, search" 
-                            hx-target="#search-results"
-                            oninput="hidePagination()"
-                            onchange="hidePagination()"
-                            onsearch="hidePagination()"
-                            hx-indicator=".htmx-indicator">
-                        <span class="htmx-indicator absolute right-4 top-4">
+                            placeholder="Search backends by name, description or type...">
+                        <span class="absolute right-4 top-4" x-show="loading">
                             <svg class="animate-spin h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -86,48 +106,28 @@
                         Filter by Backend Type
                     </h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                        <button hx-post="browse/search/backends"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-indigo-600/80 to-indigo-700/80 hover:from-indigo-600 hover:to-indigo-700 text-indigo-100 border border-indigo-500/30 hover:border-indigo-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "llm"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('llm')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-indigo-600/80 to-indigo-700/80 hover:from-indigo-600 hover:to-indigo-700 text-indigo-100 border border-indigo-500/30 hover:border-indigo-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25">
                             <i class="fas fa-brain mr-2 group-hover:animate-pulse"></i>
                             <span>LLM</span>
                         </button>
-                        <button hx-post="browse/search/backends" 
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-purple-100 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "diffusion"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('diffusion')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-purple-100 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25">
                             <i class="fas fa-image mr-2 group-hover:animate-pulse"></i>
                             <span>Diffusion</span>
                         </button>
-                        <button hx-post="browse/search/backends"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600/80 to-blue-700/80 hover:from-blue-600 hover:to-blue-700 text-blue-100 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "tts"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('tts')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600/80 to-blue-700/80 hover:from-blue-600 hover:to-blue-700 text-blue-100 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25">
                             <i class="fas fa-microphone mr-2 group-hover:animate-pulse"></i>
                             <span>TTS</span>
                         </button>
-                        <button hx-post="browse/search/backends" 
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600 hover:to-green-700 text-green-100 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "whisper"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('whisper')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600 hover:to-green-700 text-green-100 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25">
                             <i class="fas fa-headphones mr-2 group-hover:animate-pulse"></i>
                             <span>Whisper</span>
                         </button>
-                        <button hx-post="browse/search/backends" 
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-red-100 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "object-detection"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('object-detection')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-red-100 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25">
                             <i class="fas fa-eye mr-2 group-hover:animate-pulse"></i>
                             <span>Vision</span>
                         </button>
@@ -138,34 +138,189 @@
 
         <!-- Results Section -->
         <div id="search-results" class="transition-all duration-300">
-            {{.Backends}}
+            <div x-show="loading && backends.length === 0" class="text-center py-12">
+                <svg class="animate-spin h-12 w-12 text-emerald-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-gray-400">Loading backends...</p>
+            </div>
+
+            <div x-show="!loading && backends.length === 0" class="text-center py-12">
+                <i class="fas fa-search text-gray-500 text-4xl mb-4"></i>
+                <p class="text-gray-400">No backends found matching your criteria</p>
+            </div>
+
+            <div class="dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark">
+                <template x-for="backend in backends" :key="backend.id">
+                    <div>
+                        <!-- Backend Card -->
+                        <div class="me-4 mb-2 block rounded-lg bg-white shadow-secondary-1 dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2 bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-700/50">
+                            <div>
+                                <!-- Backend Image -->
+                                <div class="flex justify-center items-center">
+                                    <a href="#!">
+                                        <img :src="backend.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
+                                             class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
+                                             loading="lazy">
+                                    </a>
+                                </div>
+
+                                <!-- Backend Description -->
+                                <div class="p-6 text-surface dark:text-white">
+                                    <h5 class="mb-2 text-xl font-bold leading-tight" x-text="backend.name"></h5>
+                                    <div class="mb-4 text-sm truncate text-base" x-text="backend.description"></div>
+                                </div>
+
+                                <!-- Backend Actions -->
+                                <div class="px-6 pt-4 pb-2">
+                                    <p class="mb-4 text-base">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2">
+                                            <i class="fa-brands fa-git-alt pr-2"></i>
+                                            <span>Repository: <span x-text="backend.gallery"></span></span>
+                                        </span>
+                                        <span x-show="backend.license" class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2">
+                                            <i class="fas fa-book pr-2"></i>
+                                            <span>License: <span x-text="backend.license"></span></span>
+                                        </span>
+                                    </p>
+                                    <div :id="'action-div-' + backend.id.replace('@', '__')" class="flow-root">
+                                        <!-- Info Button -->
+                                        <button @click="openModal(backend)" 
+                                                class="inline-flex items-center rounded-lg bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out">
+                                            <i class="fas fa-info-circle pr-2"></i>
+                                            Info
+                                        </button>
+                                        
+                                        <div class="float-right">
+                                            <!-- Processing State -->
+                                            <div x-show="backend.processing">
+                                                <div class="text-sm font-medium text-gray-300 mb-2">
+                                                    <span x-text="backend.isDeletion ? 'Deletion' : 'Installation'"></span>
+                                                    <!-- Show queued message when progress is 0 -->
+                                                    <div x-show="(jobProgress[backend.jobID] || 0) === 0" class="text-xs text-blue-400 mt-1">
+                                                        <i class="fas fa-clock mr-1"></i>Operation queued
+                                                    </div>
+                                                    <div class="progress mt-2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                        <div class="progress-bar" :style="'width:' + (jobProgress[backend.jobID] || 0) + '%'"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Installed State -->
+                                            <div x-show="!backend.processing && backend.installed">
+                                                <button @click="reinstallBackend(backend.id)" 
+                                                        class="float-right inline-block rounded bg-primary ml-2 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2">
+                                                    <i class="fa-solid fa-arrow-rotate-right pr-2"></i>
+                                                    Reinstall
+                                                </button>
+                                                <button @click="deleteBackend(backend.id)" 
+                                                        class="float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2">
+                                                    <i class="fa-solid fa-cancel pr-2"></i>
+                                                    Delete
+                                                </button>
+                                            </div>
+                                            
+                                            <!-- Not Installed State -->
+                                            <div x-show="!backend.processing && !backend.installed">
+                                                <button @click="installBackend(backend.id)" 
+                                                        class="float-right inline-flex items-center rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out shadow hover:shadow-lg">
+                                                    <i class="fa-solid fa-download pr-2"></i>
+                                                    Install
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal -->
+                        <div x-show="selectedBackend && selectedBackend.id === backend.id" 
+                             x-transition
+                             @click.away="closeModal()"
+                             class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50"
+                             style="display: none;">
+                            <div class="relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]">
+                                <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 h-full flex flex-col">
+                                    <!-- Modal Header -->
+                                    <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="backend.name"></h3>
+                                        <button @click="closeModal()" 
+                                                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
+                                            <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                                            </svg>
+                                            <span class="sr-only">Close modal</span>
+                                        </button>
+                                    </div>
+                                    <!-- Modal Body -->
+                                    <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-grow">
+                                        <div class="flex justify-center items-center">
+                                            <img :src="backend.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
+                                                 class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
+                                                 loading="lazy">
+                                        </div>
+                                        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-text="backend.description"></p>
+                                        <div class="flex flex-wrap gap-2">
+                                            <template x-for="tag in backend.tags" :key="tag">
+                                                <span class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50">
+                                                    <i class="fas fa-tag pr-2"></i>
+                                                    <span x-text="tag"></span>
+                                                </span>
+                                            </template>
+                                        </div>
+                                        <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                                            <ul>
+                                                <template x-for="url in backend.urls" :key="url">
+                                                    <li>
+                                                        <a :href="url" target="_blank" class="text-blue-500 hover:underline">
+                                                            <i class="fas fa-link pr-2"></i>
+                                                            <span x-text="url"></span>
+                                                        </a>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    <!-- Modal Footer -->
+                                    <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                                        <button @click="closeModal()" 
+                                                class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
 
         <!-- Pagination -->
-        {{ if gt .AvailableBackends $numBackendsPerPage }}
-        <div id="paginate" class="flex justify-center mt-12">
+        <div x-show="totalPages > 1" class="flex justify-center mt-12">
             <div class="flex items-center gap-4 bg-gray-800/60 rounded-2xl p-4 backdrop-blur-sm border border-gray-700/50">
-                {{ if .PrevPage }}
-                <button onclick="window.location.href='browse/backends?page={{.PrevPage}}'" 
+                <button @click="goToPage(currentPage - 1)" 
+                    :disabled="currentPage <= 1"
+                    :class="currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''"
                     class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-emerald-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
                     <i class="fas fa-chevron-left group-hover:animate-pulse"></i>
                 </button>
-                {{ end }}
                 <div class="text-gray-300 text-sm font-medium px-4">
                     <span class="text-gray-400">Page</span>
-                    <span class="text-white font-bold text-lg mx-2">{{.CurrentPage}}</span>
+                    <span class="text-white font-bold text-lg mx-2" x-text="currentPage"></span>
                     <span class="text-gray-400">of</span>
-                    <span class="text-white font-bold text-lg mx-2">{{.TotalPages}}</span>
+                    <span class="text-white font-bold text-lg mx-2" x-text="totalPages"></span>
                 </div>
-                {{ if .NextPage }}
-                <button onclick="window.location.href='browse/backends?page={{.NextPage}}'" 
+                <button @click="goToPage(currentPage + 1)" 
+                    :disabled="currentPage >= totalPages"
+                    :class="currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''"
                     class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-emerald-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
                     <i class="fas fa-chevron-right group-hover:animate-pulse"></i>
                 </button>
-                {{ end }}
             </div>
         </div>
-        {{ end }}
 
     </div>
     {{template "views/partials/footer" .}}
@@ -191,144 +346,189 @@
     background: rgba(107, 114, 128, 0.8);
 }
 
-/* Add some custom CSS for backend cards to match our theme */
-#search-results .dark\:bg-gray-800 {
-    background: linear-gradient(135deg, rgba(31, 41, 55, 0.9) 0%, rgba(17, 24, 39, 0.9) 100%) !important;
-    border: 1px solid rgba(75, 85, 99, 0.5) !important;
-    border-radius: 1rem !important;
-    transition: all 0.5s ease !important;
-    backdrop-filter: blur(8px) !important;
+/* Progress bar styling */
+.progress {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(20, 184, 166, 0.2) 100%);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    height: 24px;
+    overflow: hidden;
 }
 
-#search-results .dark\:bg-gray-800:hover {
-    transform: translateY(-8px) !important;
-    box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.1) !important;
-    border-color: rgba(16, 185, 129, 0.3) !important;
-}
-
-/* Style the install buttons */
-#search-results .bg-blue-600 {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.25) !important;
-}
-
-#search-results .bg-blue-600:hover {
-    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4) !important;
-}
-
-/* Style the reinstall buttons specifically */
-#search-results .bg-primary {
-    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.25) !important;
-}
-
-#search-results .bg-primary:hover {
-    background: linear-gradient(135deg, #0891b2 0%, #0e7490 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(6, 182, 212, 0.4) !important;
-}
-
-/* Style the delete buttons */
-#search-results .bg-red-800 {
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.25) !important;
-}
-
-#search-results .bg-red-800:hover {
-    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4) !important;
-}
-
-/* Style the info buttons */
-#search-results .bg-gray-700 {
-    background: linear-gradient(135deg, #374151 0%, #1f2937 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(55, 65, 81, 0.25) !important;
-}
-
-#search-results .bg-gray-700:hover {
-    background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(55, 65, 81, 0.4) !important;
-}
-
-/* Style the backend images */
-#search-results img.rounded-t-lg {
-    border-radius: 1rem !important;
-    transition: transform 0.3s ease !important;
-}
-
-#search-results .dark\:bg-gray-800:hover img.rounded-t-lg {
-    transform: scale(1.05) !important;
-}
-
-/* Style the progress bars */
-#search-results .progress {
-    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%) !important;
-    border-radius: 0.5rem !important;
-    border: 1px solid rgba(16, 185, 129, 0.3) !important;
-}
-
-/* Style action buttons */
-#search-results button[class*="primary"] {
-    background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%) !important;
-    border-radius: 0.5rem !important;
-    transition: all 0.2s ease !important;
-}
-
-#search-results button[class*="primary"]:hover {
-    transform: scale(1.05) !important;
-    box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3) !important;
+.progress-bar {
+    background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
+    height: 100%;
+    transition: width 0.3s ease;
 }
 </style>
 
 <script>
-    function hidePagination() {
-        const paginateDiv = document.getElementById('paginate');
-        if (paginateDiv) {
-            paginateDiv.style.display = 'none';
+function backendsGallery() {
+    return {
+        backends: [],
+        allTags: [],
+        repositories: [],
+        searchTerm: '',
+        loading: false,
+        currentPage: 1,
+        totalPages: 1,
+        availableBackends: 0,
+        selectedBackend: null,
+        jobProgress: {},
+        notifications: [],
+        
+        init() {
+            this.fetchBackends();
+            // Poll for job progress every 600ms
+            setInterval(() => this.pollJobs(), 600);
+        },
+        
+        addNotification(message, type = 'error') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => this.dismissNotification(id), 10000);
+        },
+        
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        async fetchBackends() {
+            this.loading = true;
+            try {
+                const params = new URLSearchParams({
+                    page: this.currentPage,
+                    items: 21,
+                    term: this.searchTerm
+                });
+                const response = await fetch(`/api/backends?${params}`);
+                const data = await response.json();
+                
+                this.backends = data.backends || [];
+                this.allTags = data.allTags || [];
+                this.repositories = data.repositories || [];
+                this.currentPage = data.currentPage || 1;
+                this.totalPages = data.totalPages || 1;
+                this.availableBackends = data.availableBackends || 0;
+            } catch (error) {
+                console.error('Error fetching backends:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        filterByTerm(term) {
+            this.searchTerm = term;
+            this.currentPage = 1;
+            this.fetchBackends();
+        },
+        
+        goToPage(page) {
+            if (page >= 1 && page <= this.totalPages) {
+                this.currentPage = page;
+                this.fetchBackends();
+            }
+        },
+        
+        async installBackend(backendId) {
+            try {
+                const response = await fetch(`/api/backends/install/${encodeURIComponent(backendId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.jobID) {
+                    const backend = this.backends.find(b => b.id === backendId);
+                    if (backend) {
+                        backend.processing = true;
+                        backend.jobID = data.jobID;
+                        backend.isDeletion = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error installing backend:', error);
+                alert('Failed to start installation');
+            }
+        },
+        
+        async deleteBackend(backendId) {
+            if (!confirm('Are you sure you wish to delete the backend?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/backends/delete/${encodeURIComponent(backendId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.jobID) {
+                    const backend = this.backends.find(b => b.id === backendId);
+                    if (backend) {
+                        backend.processing = true;
+                        backend.jobID = data.jobID;
+                        backend.isDeletion = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting backend:', error);
+                alert('Failed to start deletion');
+            }
+        },
+        
+        async reinstallBackend(backendId) {
+            this.installBackend(backendId);
+        },
+        
+        async pollJobs() {
+            const processingBackends = this.backends.filter(b => b.processing && b.jobID);
+            
+            for (const backend of processingBackends) {
+                try {
+                    const response = await fetch(`/api/backends/job/${backend.jobID}`);
+                    const jobData = await response.json();
+                    
+                    // Handle queued status
+                    if (jobData.queued) {
+                        this.jobProgress[backend.jobID] = 0;
+                        // Keep processing state but don't show error
+                        continue;
+                    }
+                    
+                    this.jobProgress[backend.jobID] = jobData.progress || 0;
+                    
+                    if (jobData.completed) {
+                        backend.processing = false;
+                        backend.installed = !jobData.deletion;
+                        delete this.jobProgress[backend.jobID];
+                        // Show success notification
+                        const action = jobData.deletion ? 'deleted' : 'installed';
+                        this.addNotification(`Backend "${backend.name}" ${action} successfully!`, 'success');
+                        // Refresh the backends list to get updated state
+                        this.fetchBackends();
+                    }
+                    
+                    if (jobData.error) {
+                        backend.processing = false;
+                        delete this.jobProgress[backend.jobID];
+                        const action = backend.isDeletion ? 'deleting' : 'installing';
+                        this.addNotification(`Error ${action} backend "${backend.name}": ${jobData.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error polling job:', error);
+                    // Don't show notification for every polling error, only if backend is stuck
+                }
+            }
+        },
+        
+        openModal(backend) {
+            this.selectedBackend = backend;
+        },
+        
+        closeModal() {
+            this.selectedBackend = null;
         }
     }
-
-    // Listen for the htmx:afterSwap event to handle cases when the search results are updated
-    document.body.addEventListener('htmx:afterSwap', function(event) {
-        if (event.detail.target.id === 'search-results') {
-            hidePagination();
-        }
-    });
-
-    // Add loading state animation
-    document.body.addEventListener('htmx:beforeRequest', function(event) {
-        const searchInput = document.querySelector('input[name="search"]');
-        if (searchInput && event.detail.elt === searchInput) {
-            searchInput.classList.add('animate-pulse');
-        }
-    });
-
-    document.body.addEventListener('htmx:afterRequest', function(event) {
-        const searchInput = document.querySelector('input[name="search"]');
-        if (searchInput) {
-            searchInput.classList.remove('animate-pulse');
-        }
-    });
+}
 </script>
 
 </body>

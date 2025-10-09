@@ -3,10 +3,35 @@
 {{template "views/partials/head" .}}
 
 <body class="bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-200">
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col min-h-screen" x-data="modelsGallery()">
    
     {{template "views/partials/navbar" .}}
-    {{ $numModelsPerPage := 21 }}
+    
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true" 
+                 x-transition:enter="transform ease-out duration-300 transition"
+                 x-transition:enter-start="translate-x-full opacity-0"
+                 x-transition:enter-end="translate-x-0 opacity-100"
+                 x-transition:leave="transform ease-in duration-200 transition"
+                 x-transition:leave-start="translate-x-0 opacity-100"
+                 x-transition:leave-end="translate-x-full opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 class="rounded-lg shadow-xl p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+    
     <div class="container mx-auto px-4 py-8 flex-grow">
 
         <!-- Hero Header -->
@@ -29,12 +54,12 @@
                 <div class="flex flex-wrap justify-center items-center gap-6 text-sm md:text-base">
                     <div class="flex items-center bg-white/10 rounded-full px-4 py-2">
                         <div class="w-2 h-2 bg-indigo-400 rounded-full mr-2 animate-pulse"></div>
-                        <span class="font-semibold text-indigo-300">{{.AvailableModels}}</span>
+                        <span class="font-semibold text-indigo-300" x-text="availableModels"></span>
                         <span class="text-gray-300 ml-1">models available</span>
                     </div>
                     <div class="flex items-center bg-white/10 rounded-full px-4 py-2">
                         <div class="w-2 h-2 bg-purple-400 rounded-full mr-2 animate-pulse"></div>
-                        <span class="font-semibold text-purple-300">{{ len .Repositories }}</span>
+                        <span class="font-semibold text-purple-300" x-text="repositories.length"></span>
                         <span class="text-gray-300 ml-1">repositories</span>
                     </div>
                     <a href="https://localai.io/models/" target="_blank" 
@@ -64,18 +89,13 @@
                         <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
                             <i class="fas fa-search text-gray-400"></i>
                         </div>
-                        <input class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none" 
+                        <input 
+                            x-model="searchTerm"
+                            @input.debounce.500ms="fetchModels()"
+                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none" 
                             type="search" 
-                            name="search" 
-                            placeholder="Search models by name, tag, or description..." 
-                            hx-post="browse/search/models" 
-                            hx-trigger="input changed delay:500ms, search" 
-                            hx-target="#search-results"
-                            oninput="hidePagination()"
-                            onchange="hidePagination()"
-                            onsearch="hidePagination()"
-                            hx-indicator=".htmx-indicator">
-                        <span class="htmx-indicator absolute right-4 top-4">
+                            placeholder="Search models by name, tag, or description...">
+                        <span class="absolute right-4 top-4" x-show="loading">
                             <svg class="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -91,75 +111,43 @@
                         Filter by Model Type
                     </h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-                        <button hx-post="browse/search/models"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-indigo-600/80 to-indigo-700/80 hover:from-indigo-600 hover:to-indigo-700 text-indigo-100 border border-indigo-500/30 hover:border-indigo-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "tts"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('tts')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-indigo-600/80 to-indigo-700/80 hover:from-indigo-600 hover:to-indigo-700 text-indigo-100 border border-indigo-500/30 hover:border-indigo-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25">
                             <i class="fas fa-microphone mr-2 group-hover:animate-pulse"></i>
                             <span>TTS</span>
                         </button>
-                        <button hx-post="browse/search/models" 
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-purple-100 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "stablediffusion"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('stablediffusion')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-purple-100 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25">
                             <i class="fas fa-image mr-2 group-hover:animate-pulse"></i>
                             <span>Image</span>
                         </button>
-                        <button hx-post="browse/search/models"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600/80 to-blue-700/80 hover:from-blue-600 hover:to-blue-700 text-blue-100 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "llm"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('llm')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600/80 to-blue-700/80 hover:from-blue-600 hover:to-blue-700 text-blue-100 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25">
                             <i class="fas fa-comment-alt mr-2 group-hover:animate-bounce"></i>
                             <span>LLM</span>
                         </button>
-                        <button hx-post="browse/search/models" 
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600 hover:to-green-700 text-green-100 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "multimodal"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('multimodal')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600 hover:to-green-700 text-green-100 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25">
                             <i class="fas fa-object-group mr-2 group-hover:animate-pulse"></i>
                             <span>Multimodal</span>
                         </button>
-                        <button hx-post="browse/search/models" 
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-cyan-600/80 to-cyan-700/80 hover:from-cyan-600 hover:to-cyan-700 text-cyan-100 border border-cyan-500/30 hover:border-cyan-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "embedding"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('embedding')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-cyan-600/80 to-cyan-700/80 hover:from-cyan-600 hover:to-cyan-700 text-cyan-100 border border-cyan-500/30 hover:border-cyan-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-cyan-500/25">
                             <i class="fas fa-vector-square mr-2 group-hover:animate-pulse"></i>
                             <span>Embedding</span>
                         </button>
-                        <button hx-post="browse/search/models"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-amber-600/80 to-amber-700/80 hover:from-amber-600 hover:to-amber-700 text-amber-100 border border-amber-500/30 hover:border-amber-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-amber-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "rerank"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('rerank')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-amber-600/80 to-amber-700/80 hover:from-amber-600 hover:to-amber-700 text-amber-100 border border-amber-500/30 hover:border-amber-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-amber-500/25">
                             <i class="fas fa-sort-amount-up mr-2 group-hover:animate-pulse"></i>
                             <span>Rerank</span>
                         </button>
-                        <button hx-post="browse/search/models"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-teal-600/80 to-teal-700/80 hover:from-teal-600 hover:to-teal-700 text-teal-100 border border-teal-500/30 hover:border-teal-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-teal-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "whisper"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('whisper')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-teal-600/80 to-teal-700/80 hover:from-teal-600 hover:to-teal-700 text-teal-100 border border-teal-500/30 hover:border-teal-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-teal-500/25">
                             <i class="fas fa-headphones mr-2 group-hover:animate-pulse"></i>
                             <span>Whisper</span>
                         </button>
-                        <button hx-post="browse/search/models"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-red-100 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25"
-                            hx-target="#search-results" 
-                            hx-vals='{"search": "object-detection"}'
-                            onclick="hidePagination()"
-                            hx-indicator=".htmx-indicator">
+                        <button @click="filterByTerm('object-detection')"
+                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-red-100 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25">
                             <i class="fas fa-eye mr-2 group-hover:animate-pulse"></i>
                             <span>Vision</span>
                         </button>
@@ -167,24 +155,20 @@
                 </div>
                 
                 <!-- Filter by Tags -->
-                <div>
+                <div x-show="allTags.length > 0">
                     <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
                         <i class="fas fa-tags mr-3 text-pink-400"></i>
                         Browse by Tags
                     </h3>
                     <div class="max-h-32 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-600/50 scrollbar-track-gray-800/50 pr-2">
                         <div class="flex flex-wrap gap-2">
-                            {{ range .AllTags }}
-                                <button hx-post="browse/search/models" 
-                                    class="group inline-flex items-center text-xs px-3 py-2 rounded-full bg-gray-700/60 hover:bg-gray-600/80 text-gray-300 hover:text-white border border-gray-600/50 hover:border-gray-500/70 transition-all duration-200 ease-in-out transform hover:scale-105"
-                                    hx-target="#search-results" 
-                                    hx-vals='{"search": "{{.}}"}'
-                                    onclick="hidePagination()"
-                                    hx-indicator=".htmx-indicator">
+                            <template x-for="tag in allTags" :key="tag">
+                                <button @click="filterByTerm(tag)"
+                                    class="group inline-flex items-center text-xs px-3 py-2 rounded-full bg-gray-700/60 hover:bg-gray-600/80 text-gray-300 hover:text-white border border-gray-600/50 hover:border-gray-500/70 transition-all duration-200 ease-in-out transform hover:scale-105">
                                     <i class="fas fa-tag text-xs mr-2 group-hover:animate-pulse"></i>
-                                    <span>{{.}}</span>
+                                    <span x-text="tag"></span>
                                 </button>
-                            {{ end }}
+                            </template>
                         </div>
                     </div>
                 </div>
@@ -193,31 +177,205 @@
 
         <!-- Results Section -->
         <div id="search-results" class="transition-all duration-300">
-            {{.Models}}
+            <div x-show="loading && models.length === 0" class="text-center py-12">
+                <svg class="animate-spin h-12 w-12 text-blue-500 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <p class="text-gray-400">Loading models...</p>
+            </div>
+
+            <div x-show="!loading && models.length === 0" class="text-center py-12">
+                <i class="fas fa-search text-gray-500 text-4xl mb-4"></i>
+                <p class="text-gray-400">No models found matching your criteria</p>
+            </div>
+
+            <div class="dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark">
+                <template x-for="model in models" :key="model.id">
+                    <div>
+                        <!-- Model Card -->
+                        <div class="me-4 mb-2 block rounded-lg bg-white shadow-secondary-1 dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2 bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-700/50">
+                            <div>
+                                <!-- Model Image -->
+                                <div class="flex justify-center items-center">
+                                    <a href="#!">
+                                        <img :src="model.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
+                                             class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
+                                             loading="lazy">
+                                    </a>
+                                </div>
+                                
+                                <!-- Trust Remote Code Warning -->
+                                <div x-show="model.trustRemoteCode" 
+                                     class="flex justify-center items-center bg-red-500 text-white p-2 rounded-lg mt-2">
+                                    <i class="fa-solid fa-circle-exclamation pr-2"></i>
+                                    <span>Attention: Trust Remote Code is required for this model</span>
+                                </div>
+
+                                <!-- Model Description -->
+                                <div class="p-6 text-surface dark:text-white">
+                                    <h5 class="mb-2 text-xl font-bold leading-tight" x-text="model.name"></h5>
+                                    <div class="mb-4 text-sm truncate text-base" x-text="model.description"></div>
+                                </div>
+
+                                <!-- Model Actions -->
+                                <div class="px-6 pt-4 pb-2">
+                                    <p class="mb-4 text-base">
+                                        <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2">
+                                            <i class="fa-brands fa-git-alt pr-2"></i>
+                                            <span>Repository: <span x-text="model.gallery"></span></span>
+                                        </span>
+                                        <span x-show="model.license" class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2">
+                                            <i class="fas fa-book pr-2"></i>
+                                            <span>License: <span x-text="model.license"></span></span>
+                                        </span>
+                                    </p>
+                                    <div :id="'action-div-' + model.id.replace('@', '__')" class="flow-root">
+                                        <!-- Info Button -->
+                                        <button @click="openModal(model)" 
+                                                class="inline-flex items-center rounded-lg bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out">
+                                            <i class="fas fa-info-circle pr-2"></i>
+                                            Info
+                                        </button>
+                                        
+                                        <div class="float-right">
+                                            <!-- Processing State -->
+                                            <div x-show="model.processing">
+                                                <div class="text-sm font-medium text-gray-300 mb-2">
+                                                    <span x-text="model.isDeletion ? 'Deletion' : 'Installation'"></span>
+                                                    <!-- Show queued message when progress is 0 -->
+                                                    <div x-show="(jobProgress[model.jobID] || 0) === 0" class="text-xs text-blue-400 mt-1">
+                                                        <i class="fas fa-clock mr-1"></i>Operation queued
+                                                    </div>
+                                                    <div class="progress mt-2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                                                        <div class="progress-bar" :style="'width:' + (jobProgress[model.jobID] || 0) + '%'"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Installed State -->
+                                            <div x-show="!model.processing && model.installed">
+                                                <button @click="reinstallModel(model.id)" 
+                                                        class="float-right inline-block rounded bg-primary ml-2 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2">
+                                                    <i class="fa-solid fa-arrow-rotate-right pr-2"></i>
+                                                    Reinstall
+                                                </button>
+                                                <button @click="deleteModel(model.id)" 
+                                                        class="float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2">
+                                                    <i class="fa-solid fa-cancel pr-2"></i>
+                                                    Delete
+                                                </button>
+                                            </div>
+                                            
+                                            <!-- Not Installed State -->
+                                            <div x-show="!model.processing && !model.installed">
+                                                <button @click="getConfig(model.id)" 
+                                                        class="float-right ml-2 inline-flex items-center rounded-lg bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out">
+                                                    <i class="fa-solid fa-download pr-2"></i>
+                                                    Get Config
+                                                </button>
+                                                <button @click="installModel(model.id)" 
+                                                        class="float-right inline-flex items-center rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out shadow hover:shadow-lg">
+                                                    <i class="fa-solid fa-download pr-2"></i>
+                                                    Install
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modal -->
+                        <div x-show="selectedModel && selectedModel.id === model.id" 
+                             x-transition
+                             @click.away="closeModal()"
+                             class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50"
+                             style="display: none;">
+                            <div class="relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]">
+                                <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 h-full flex flex-col">
+                                    <!-- Modal Header -->
+                                    <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="model.name"></h3>
+                                        <button @click="closeModal()" 
+                                                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
+                                            <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                                            </svg>
+                                            <span class="sr-only">Close modal</span>
+                                        </button>
+                                    </div>
+                                    <!-- Modal Body -->
+                                    <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+                                        <div class="flex justify-center items-center">
+                                            <img :src="model.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
+                                                 class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
+                                                 loading="lazy">
+                                        </div>
+                                        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-text="model.description"></p>
+                                        <hr>
+                                        <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
+                                        <ul>
+                                            <template x-for="url in model.urls" :key="url">
+                                                <li>
+                                                    <a :href="url" target="_blank" class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
+                                                        <i class="fas fa-link pr-2"></i>
+                                                        <span x-text="url"></span>
+                                                    </a>
+                                                </li>
+                                            </template>
+                                        </ul>
+                                        <div x-show="model.tags && model.tags.length > 0">
+                                            <p class="text-sm mb-5 font-semibold text-gray-900 dark:text-white">Tags</p>
+                                            <div class="flex flex-row flex-wrap content-center">
+                                                <template x-for="tag in model.tags" :key="tag">
+                                                    <a :href="'browse?term=' + tag"
+                                                       class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50 hover:bg-gray-600 hover:text-gray-100 transition duration-200 ease-in-out mr-2 mb-2">
+                                                        <i class="fas fa-tag pr-2"></i>
+                                                        <span x-text="tag"></span>
+                                                    </a>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <!-- Modal Footer -->
+                                    <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                                        <button @click="closeModal()" 
+                                                class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+                                            Close
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
         </div>
 
         <!-- Pagination -->
-        {{ if gt .AvailableModels $numModelsPerPage }}
-        <div id="paginate" class="flex justify-center mt-12">
+        <div x-show="totalPages > 1" class="flex justify-center mt-12">
             <div class="flex items-center gap-4 bg-gray-800/60 rounded-2xl p-4 backdrop-blur-sm border border-gray-700/50">
-                <button onclick="window.location.href='browse?page={{.PrevPage}}'" 
-                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-indigo-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110 {{if not .PrevPage}}opacity-50 cursor-not-allowed{{end}}" 
-                    {{if not .PrevPage}}disabled{{end}}>
+                <button @click="goToPage(currentPage - 1)" 
+                    :disabled="currentPage <= 1"
+                    :class="currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-indigo-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
                     <i class="fas fa-chevron-left group-hover:animate-pulse"></i>
                 </button>
                 <div class="text-gray-300 text-sm font-medium px-4">
                     <span class="text-gray-400">Page</span>
-                    <span class="text-white font-bold text-lg mx-2">{{add .PrevPage 1}}</span>
-                    <span class="text-gray-400">of many</span>
+                    <span class="text-white font-bold text-lg mx-2" x-text="currentPage"></span>
+                    <span class="text-gray-400">of</span>
+                    <span class="text-white font-bold text-lg mx-2" x-text="totalPages"></span>
                 </div>
-                <button onclick="window.location.href='browse?page={{.NextPage}}'" 
-                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-indigo-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110 {{if not .NextPage}}opacity-50 cursor-not-allowed{{end}}"
-                    {{if not .NextPage}}disabled{{end}}>
+                <button @click="goToPage(currentPage + 1)" 
+                    :disabled="currentPage >= totalPages"
+                    :class="currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-indigo-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
                     <i class="fas fa-chevron-right group-hover:animate-pulse"></i>
                 </button>
             </div>
         </div>
-        {{ end }}
 
     </div>
     {{template "views/partials/footer" .}}
@@ -243,144 +401,203 @@
     background: rgba(107, 114, 128, 0.8);
 }
 
-/* Add some custom CSS for gallery model cards to match our theme */
-#search-results .dark\:bg-gray-800 {
-    background: linear-gradient(135deg, rgba(31, 41, 55, 0.9) 0%, rgba(17, 24, 39, 0.9) 100%) !important;
-    border: 1px solid rgba(75, 85, 99, 0.5) !important;
-    border-radius: 1rem !important;
-    transition: all 0.5s ease !important;
-    backdrop-filter: blur(8px) !important;
+/* Progress bar styling */
+.progress {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%);
+    border-radius: 0.5rem;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    height: 24px;
+    overflow: hidden;
 }
 
-#search-results .dark\:bg-gray-800:hover {
-    transform: translateY(-8px) !important;
-    box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.1) !important;
-    border-color: rgba(59, 130, 246, 0.3) !important;
-}
-
-/* Style the install buttons */
-#search-results .bg-blue-600 {
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.25) !important;
-}
-
-#search-results .bg-blue-600:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
-}
-
-/* Style the model images */
-#search-results img.rounded-t-lg {
-    border-radius: 1rem !important;
-    transition: transform 0.3s ease !important;
-}
-
-#search-results .dark\:bg-gray-800:hover img.rounded-t-lg {
-    transform: scale(1.05) !important;
-}
-
-/* Style the progress bars */
-#search-results .progress {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(99, 102, 241, 0.2) 100%) !important;
-    border-radius: 0.5rem !important;
-    border: 1px solid rgba(59, 130, 246, 0.3) !important;
-}
-
-/* Style action buttons */
-#search-results button[class*="primary"] {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
-    border-radius: 0.5rem !important;
-    transition: all 0.2s ease !important;
-}
-
-#search-results button[class*="primary"]:hover {
-    transform: scale(1.05) !important;
-    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3) !important;
-}
-
-/* Style the reinstall buttons specifically */
-#search-results .bg-primary {
-    background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(5, 150, 105, 0.25) !important;
-}
-
-#search-results .bg-primary:hover {
-    background: linear-gradient(135deg, #047857 0%, #065f46 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4) !important;
-}
-
-/* Style the delete buttons */
-#search-results .bg-red-800 {
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(220, 38, 38, 0.25) !important;
-}
-
-#search-results .bg-red-800:hover {
-    background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(220, 38, 38, 0.4) !important;
-}
-
-/* Style the info buttons */
-#search-results .bg-gray-700 {
-    background: linear-gradient(135deg, #374151 0%, #1f2937 100%) !important;
-    border-radius: 0.75rem !important;
-    padding: 0.75rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 15px rgba(55, 65, 81, 0.25) !important;
-}
-
-#search-results .bg-gray-700:hover {
-    background: linear-gradient(135deg, #1f2937 0%, #111827 100%) !important;
-    transform: scale(1.05) !important;
-    box-shadow: 0 8px 25px rgba(55, 65, 81, 0.4) !important;
+.progress-bar {
+    background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    height: 100%;
+    transition: width 0.3s ease;
 }
 </style>
 
 <script>
-    function hidePagination() {
-        const paginateDiv = document.getElementById('paginate');
-        if (paginateDiv) {
-            paginateDiv.style.display = 'none';
+function modelsGallery() {
+    return {
+        models: [],
+        allTags: [],
+        repositories: [],
+        searchTerm: '',
+        loading: false,
+        currentPage: 1,
+        totalPages: 1,
+        availableModels: 0,
+        selectedModel: null,
+        jobProgress: {},
+        notifications: [],
+        
+        init() {
+            this.fetchModels();
+            // Poll for job progress every 600ms
+            setInterval(() => this.pollJobs(), 600);
+        },
+        
+        addNotification(message, type = 'error') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            // Auto-dismiss after 10 seconds
+            setTimeout(() => this.dismissNotification(id), 10000);
+        },
+        
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        async fetchModels() {
+            this.loading = true;
+            try {
+                const params = new URLSearchParams({
+                    page: this.currentPage,
+                    items: 21,
+                    term: this.searchTerm
+                });
+                const response = await fetch(`/api/models?${params}`);
+                const data = await response.json();
+                
+                this.models = data.models || [];
+                this.allTags = data.allTags || [];
+                this.repositories = data.repositories || [];
+                this.currentPage = data.currentPage || 1;
+                this.totalPages = data.totalPages || 1;
+                this.availableModels = data.availableModels || 0;
+            } catch (error) {
+                console.error('Error fetching models:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        filterByTerm(term) {
+            this.searchTerm = term;
+            this.currentPage = 1;
+            this.fetchModels();
+        },
+        
+        goToPage(page) {
+            if (page >= 1 && page <= this.totalPages) {
+                this.currentPage = page;
+                this.fetchModels();
+            }
+        },
+        
+        async installModel(modelId) {
+            try {
+                const response = await fetch(`/api/models/install/${encodeURIComponent(modelId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.jobID) {
+                    // Update model state
+                    const model = this.models.find(m => m.id === modelId);
+                    if (model) {
+                        model.processing = true;
+                        model.jobID = data.jobID;
+                        model.isDeletion = false;
+                    }
+                }
+            } catch (error) {
+                console.error('Error installing model:', error);
+                alert('Failed to start installation');
+            }
+        },
+        
+        async deleteModel(modelId) {
+            if (!confirm('Are you sure you wish to delete the model?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/models/delete/${encodeURIComponent(modelId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                if (data.jobID) {
+                    const model = this.models.find(m => m.id === modelId);
+                    if (model) {
+                        model.processing = true;
+                        model.jobID = data.jobID;
+                        model.isDeletion = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Error deleting model:', error);
+                alert('Failed to start deletion');
+            }
+        },
+        
+        async reinstallModel(modelId) {
+            this.installModel(modelId);
+        },
+        
+        async getConfig(modelId) {
+            try {
+                const response = await fetch(`/api/models/config/${encodeURIComponent(modelId)}`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+                alert(data.message || 'Configuration saved');
+            } catch (error) {
+                console.error('Error getting config:', error);
+                alert('Failed to get configuration');
+            }
+        },
+        
+        async pollJobs() {
+            const processingModels = this.models.filter(m => m.processing && m.jobID);
+            
+            for (const model of processingModels) {
+                try {
+                    const response = await fetch(`/api/models/job/${model.jobID}`);
+                    const jobData = await response.json();
+                    
+                    // Handle queued status
+                    if (jobData.queued) {
+                        this.jobProgress[model.jobID] = 0;
+                        // Keep processing state but don't show error
+                        continue;
+                    }
+                    
+                    this.jobProgress[model.jobID] = jobData.progress || 0;
+                    
+                    if (jobData.completed) {
+                        model.processing = false;
+                        model.installed = !jobData.deletion;
+                        delete this.jobProgress[model.jobID];
+                        // Show success notification
+                        const action = jobData.deletion ? 'deleted' : 'installed';
+                        this.addNotification(`Model "${model.name}" ${action} successfully!`, 'success');
+                        // Refresh the models list to get updated state
+                        this.fetchModels();
+                    }
+                    
+                    if (jobData.error) {
+                        model.processing = false;
+                        delete this.jobProgress[model.jobID];
+                        const action = model.isDeletion ? 'deleting' : 'installing';
+                        this.addNotification(`Error ${action} model "${model.name}": ${jobData.error}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Error polling job:', error);
+                    // Don't show notification for every polling error, only if model is stuck
+                }
+            }
+        },
+        
+        openModal(model) {
+            this.selectedModel = model;
+        },
+        
+        closeModal() {
+            this.selectedModel = null;
         }
     }
-
-    // Listen for the htmx:afterSwap event to handle cases when the search results are updated
-    document.body.addEventListener('htmx:afterSwap', function(event) {
-        if (event.detail.target.id === 'search-results') {
-            hidePagination();
-        }
-    });
-
-    // Add loading state animation
-    document.body.addEventListener('htmx:beforeRequest', function(event) {
-        const searchInput = document.querySelector('input[name="search"]');
-        if (searchInput && event.detail.elt === searchInput) {
-            searchInput.classList.add('animate-pulse');
-        }
-    });
-
-    document.body.addEventListener('htmx:afterRequest', function(event) {
-        const searchInput = document.querySelector('input[name="search"]');
-        if (searchInput) {
-            searchInput.classList.remove('animate-pulse');
-        }
-    });
+}
 </script>
 
 </body>

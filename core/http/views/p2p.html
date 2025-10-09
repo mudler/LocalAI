@@ -3,9 +3,11 @@
 {{template "views/partials/head" .}}
 
 <body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
-<div class="flex flex-col min-h-screen" x-data="{}">
+<div class="flex flex-col min-h-screen" x-data="p2pNetwork()">
 
     {{template "views/partials/navbar" .}}
+    
+    {{template "views/partials/inprogress" .}}
     
     <div class="container mx-auto px-4 py-8 flex-grow">
         <div class="workers mt-8">
@@ -122,7 +124,7 @@
                         <i class="fa-solid fa-copy"></i>
                     </button>
                 </div>
-                <code class="block bg-gray-900/80 text-yellow-300 p-4 rounded-lg break-words mb-4 border border-gray-700/50" @click="copyClipboard($el.textContent)">{{.P2PToken}}</code>
+                <code class="block bg-gray-900/80 text-yellow-300 p-4 rounded-lg break-words mb-4 border border-gray-700/50 cursor-pointer hover:bg-gray-900" @click="copyClipboard($el.textContent.trim())">{{.P2PToken}}</code>
                 <p class="text-gray-300">
                     The network token can be used to either share the instance or join a federation or a worker network. Below you will find examples on how to start a new instance or a worker with this token.
                 </p>
@@ -159,7 +161,10 @@
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-2xl font-bold" hx-get="p2p/ui/workers-federation-stats" hx-trigger="every 1s"></div>
+                            <div class="text-2xl font-bold">
+                                <span :class="stats.federated.online > 0 ? 'text-green-400' : 'text-red-400'" x-text="stats.federated.online"></span>
+                                <span class="text-gray-300 text-xl">/<span x-text="stats.federated.total"></span></span>
+                            </div>
                             <p class="text-blue-300 text-sm">nodes</p>
                         </div>
                     </div>
@@ -182,7 +187,10 @@
                             </div>
                         </div>
                         <div class="text-right">
-                            <div class="text-2xl font-bold" hx-get="p2p/ui/workers-stats" hx-trigger="every 1s"></div>
+                            <div class="text-2xl font-bold">
+                                <span :class="stats.workers.online > 0 ? 'text-green-400' : 'text-red-400'" x-text="stats.workers.online"></span>
+                                <span class="text-gray-300 text-xl">/<span x-text="stats.workers.total"></span></span>
+                            </div>
                             <p class="text-purple-300 text-sm">workers</p>
                         </div>
                     </div>
@@ -230,7 +238,10 @@
                         </div>
                         <div class="text-right">
                             <div class="text-sm text-gray-400 mb-1">Active Nodes</div>
-                            <div class="text-3xl font-bold text-blue-400" hx-get="p2p/ui/workers-federation-stats" hx-trigger="every 1s"></div>
+                            <div class="text-3xl font-bold">
+                                <span :class="stats.federated.online > 0 ? 'text-blue-400' : 'text-red-400'" x-text="stats.federated.online"></span>
+                                <span class="text-gray-400 text-xl">/<span x-text="stats.federated.total"></span></span>
+                            </div>
                         </div>
                     </div>
                     
@@ -242,8 +253,43 @@
                     </div>
 
                     <!-- Federation Nodes Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" hx-get="p2p/ui/workers-federation" hx-trigger="every 1s">
-                        <!-- Nodes will be loaded here -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <template x-if="federationNodes.length === 0">
+                            <div class="col-span-full flex flex-col items-center justify-center py-12 text-center bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                                <i class="fas fa-server text-gray-500 text-4xl mb-4"></i>
+                                <p class="text-gray-400 text-lg font-medium">No nodes available</p>
+                                <p class="text-gray-500 text-sm mt-2">Start some workers to see them here</p>
+                            </div>
+                        </template>
+                        
+                        <template x-for="node in federationNodes" :key="node.id">
+                            <div :class="node.isOnline ? 'border-green-400/50 hover:shadow-green-500/20' : 'border-red-400/50 hover:shadow-red-500/20'" 
+                                 class="bg-gradient-to-br from-gray-800/90 to-gray-900/80 border rounded-xl p-5 shadow-xl transition-all duration-300 hover:border-opacity-100 backdrop-blur-sm">
+                                <!-- Header with node icon and status -->
+                                <div class="flex items-center justify-between mb-4">
+                                    <!-- Node info -->
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3">
+                                            <i class="fas fa-server text-blue-400 text-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-white font-semibold text-sm">Node</h4>
+                                            <p class="text-gray-400 text-xs font-mono break-all" x-text="node.id"></p>
+                                        </div>
+                                    </div>
+                                    <!-- Status badge -->
+                                    <div class="flex items-center bg-gray-900/50 rounded-full px-3 py-1.5 border border-gray-700/50">
+                                        <i :class="node.isOnline ? 'text-green-400' : 'text-red-400'" class="fas fa-circle animate-pulse mr-2 text-xs"></i>
+                                        <span :class="node.isOnline ? 'text-green-400' : 'text-red-400'" class="text-xs font-medium" x-text="node.isOnline ? 'Online' : 'Offline'"></span>
+                                    </div>
+                                </div>
+                                <!-- Footer with timestamp -->
+                                <div class="text-xs text-gray-500 pt-3 border-t border-gray-700/30 flex items-center">
+                                    <i class="fas fa-clock mr-2"></i>
+                                    <span x-text="'Updated: ' + new Date().toLocaleTimeString()"></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
 
@@ -348,7 +394,10 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
                         </div>
                         <div class="text-right">
                             <div class="text-sm text-gray-400 mb-1">Active Workers</div>
-                            <div class="text-3xl font-bold text-purple-400" hx-get="p2p/ui/workers-stats" hx-trigger="every 1s"></div>
+                            <div class="text-3xl font-bold">
+                                <span :class="stats.workers.online > 0 ? 'text-purple-400' : 'text-red-400'" x-text="stats.workers.online"></span>
+                                <span class="text-gray-400 text-xl">/<span x-text="stats.workers.total"></span></span>
+                            </div>
                         </div>
                     </div>
                     
@@ -360,8 +409,43 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
                     </div>
 
                     <!-- Workers Grid -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4" hx-get="p2p/ui/workers" hx-trigger="every 1s">
-                        <!-- Workers will be loaded here -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <template x-if="workerNodes.length === 0">
+                            <div class="col-span-full flex flex-col items-center justify-center py-12 text-center bg-gray-800/50 border border-gray-700/50 rounded-xl">
+                                <i class="fas fa-server text-gray-500 text-4xl mb-4"></i>
+                                <p class="text-gray-400 text-lg font-medium">No workers available</p>
+                                <p class="text-gray-500 text-sm mt-2">Start some workers to see them here</p>
+                            </div>
+                        </template>
+                        
+                        <template x-for="node in workerNodes" :key="node.id">
+                            <div :class="node.isOnline ? 'border-green-400/50 hover:shadow-green-500/20' : 'border-red-400/50 hover:shadow-red-500/20'" 
+                                 class="bg-gradient-to-br from-gray-800/90 to-gray-900/80 border rounded-xl p-5 shadow-xl transition-all duration-300 hover:border-opacity-100 backdrop-blur-sm">
+                                <!-- Header with node icon and status -->
+                                <div class="flex items-center justify-between mb-4">
+                                    <!-- Node info -->
+                                    <div class="flex items-center">
+                                        <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
+                                            <i class="fas fa-server text-purple-400 text-lg"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-white font-semibold text-sm">Worker</h4>
+                                            <p class="text-gray-400 text-xs font-mono break-all" x-text="node.id"></p>
+                                        </div>
+                                    </div>
+                                    <!-- Status badge -->
+                                    <div class="flex items-center bg-gray-900/50 rounded-full px-3 py-1.5 border border-gray-700/50">
+                                        <i :class="node.isOnline ? 'text-green-400' : 'text-red-400'" class="fas fa-circle animate-pulse mr-2 text-xs"></i>
+                                        <span :class="node.isOnline ? 'text-green-400' : 'text-red-400'" class="text-xs font-medium" x-text="node.isOnline ? 'Online' : 'Offline'"></span>
+                                    </div>
+                                </div>
+                                <!-- Footer with timestamp -->
+                                <div class="text-xs text-gray-500 pt-3 border-t border-gray-700/30 flex items-center">
+                                    <i class="fas fa-clock mr-2"></i>
+                                    <span x-text="'Updated: ' + new Date().toLocaleTimeString()"></span>
+                                </div>
+                            </div>
+                        </template>
                     </div>
                 </div>
 
@@ -489,95 +573,56 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
             transform: rotate(-5deg) scale(1.02);
         }
     }
-    
-    /* Copy button enhancements */
-    .copy-icon:hover, button:hover .fa-copy {
-        color: #60a5fa;
-        transform: scale(1.1);
-        transition: all 0.2s ease;
-    }
-    
-    /* Node card hover effects */
-    .workers .grid > div {
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .workers .grid > div:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Status indicator animations */
-    .animate-pulse {
-        animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-    
-    @keyframes pulse {
-        0%, 100% {
-            opacity: 1;
-        }
-        50% {
-            opacity: .5;
-        }
-    }
-    
-    /* Enhanced tab styling */
-    .tablink {
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .tablink::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
-        transition: left 0.5s ease;
-    }
-    
-    .tablink:hover::before {
-        left: 100%;
-    }
-    
-    /* Loading spinner for HTMX */
-    .htmx-indicator {
-        display: none;
-    }
-    
-    .htmx-request .htmx-indicator {
-        display: inline;
-    }
-    
-    /* Card gradient overlays */
-    .card-overlay {
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
-    }
-    
-    /* Enhanced button styles */
-    button[onclick*="copyClipboard"] {
-        transition: all 0.2s ease;
-        backdrop-filter: blur(8px);
-    }
-    
-    button[onclick*="copyClipboard"]:hover {
-        transform: scale(1.05);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    }
-    
-    /* Code block enhancements */
-    code {
-        position: relative;
-        transition: all 0.2s ease;
-    }
-    
-    code:hover {
-        box-shadow: 0 4px 12px rgba(234, 179, 8, 0.2);
-        border-color: rgba(234, 179, 8, 0.3) !important;
-    }
 </style>
+
+<script>
+function p2pNetwork() {
+    return {
+        workerNodes: [],
+        federationNodes: [],
+        stats: {
+            workers: { online: 0, total: 0 },
+            federated: { online: 0, total: 0 }
+        },
+        
+        init() {
+            this.fetchNodes();
+            this.fetchStats();
+            // Poll every 1 second
+            setInterval(() => {
+                this.fetchNodes();
+                this.fetchStats();
+            }, 1000);
+        },
+        
+        async fetchNodes() {
+            try {
+                // Fetch worker nodes
+                const workersResponse = await fetch('/api/p2p/workers');
+                const workersData = await workersResponse.json();
+                this.workerNodes = workersData.nodes || [];
+                
+                // Fetch federation nodes
+                const federationResponse = await fetch('/api/p2p/federation');
+                const federationData = await federationResponse.json();
+                this.federationNodes = federationData.nodes || [];
+            } catch (error) {
+                console.error('Error fetching P2P nodes:', error);
+            }
+        },
+        
+        async fetchStats() {
+            try {
+                const response = await fetch('/api/p2p/stats');
+                const data = await response.json();
+                this.stats = data;
+            } catch (error) {
+                console.error('Error fetching P2P stats:', error);
+            }
+        }
+    }
+}
+</script>
 
 </body>
 </html>

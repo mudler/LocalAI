@@ -22,10 +22,6 @@
 - filename: "tailwindcss.js"
   url: "https://cdn.tailwindcss.com/3.3.0"
   sha: "dbff048aa4581e6eae7f1cb2c641f72655ea833b3bb82923c4a59822e11ca594"
-- filename: "htmx.js"
-  url: "https://unpkg.com/htmx.org@1.9.12/dist/htmx.min.js"
-  sha: "449317ade7881e949510db614991e195c3a099c4c791c24dacec55f9f4a2a452"
-
 - filename: "UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfMZg.ttf"
   url: "https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfMZg.ttf"
   sha: "02c6d2ce3eb535653060cf6105c31551ba740750a7fd8a3e084d8864d82b888d"
