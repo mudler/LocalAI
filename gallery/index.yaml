@@ -1,4 +1,29 @@
 ---
+- &jamba
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65e60c0ed5313c06372446ff/QwehUHgP2HtVAMW5MzJ2j.png
+  name: "ai21labs_ai21-jamba-reasoning-3b"
+  url: "github:mudler/LocalAI/gallery/jamba.yaml@master"
+  license: apache-2.0
+  tags:
+    - gguf
+    - GPU
+    - CPU
+    - text-to-text
+    - jamba
+    - mamba
+  urls:
+    - https://huggingface.co/ai21labs/AI21-Jamba-Reasoning-3B
+    - https://huggingface.co/bartowski/ai21labs_AI21-Jamba-Reasoning-3B-GGUF
+  description: |
+      AI21’s Jamba Reasoning 3B is a top-performing reasoning model that packs leading scores on intelligence benchmarks and highly-efficient processing into a compact 3B build.
+      The hybrid design combines Transformer attention with Mamba (a state-space model). Mamba layers are more efficient for sequence processing, while attention layers capture complex dependencies. This mix reduces memory overhead, improves throughput, and makes the model run smoothly on laptops, GPUs, and even mobile devices, while maintainig impressive quality.
+  overrides:
+    parameters:
+      model: ai21labs_AI21-Jamba-Reasoning-3B-Q4_K_M.gguf
+  files:
+    - filename: ai21labs_AI21-Jamba-Reasoning-3B-Q4_K_M.gguf
+      sha256: ac7ec0648dea62d1efb5ef6e7268c748ffc71f1c26eebe97eccff0a8d41608e6
+      uri: huggingface://bartowski/ai21labs_AI21-Jamba-Reasoning-3B-GGUF/ai21labs_AI21-Jamba-Reasoning-3B-Q4_K_M.gguf
 - &granite4
   url: "github:mudler/LocalAI/gallery/granite4.yaml@master"
   name: "ibm-granite_granite-4.0-h-small"
