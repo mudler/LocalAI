@@ -469,12 +469,12 @@ public:
                 task.id    = ctx_server.queue_tasks.get_new_id();
                 task.index = i;
 
-                task.prompt_tokens    = std::move(inputs[i]);
+                task.tokens    = std::move(inputs[i]);
                 task.params           = server_task::params_from_json_cmpl(
                         ctx_server.ctx,
                         ctx_server.params_base,
                         data);
-                task.id_selected_slot = json_value(data, "id_slot", -1);
+                task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat
                 task.params.oaicompat                 = OAICOMPAT_TYPE_NONE;
@@ -624,12 +624,12 @@ public:
                 task.id    = ctx_server.queue_tasks.get_new_id();
                 task.index = i;
 
-                task.prompt_tokens    = std::move(inputs[i]);
+                task.tokens    = std::move(inputs[i]);
                 task.params           = server_task::params_from_json_cmpl(
                         ctx_server.ctx,
                         ctx_server.params_base,
                         data);
-                task.id_selected_slot = json_value(data, "id_slot", -1);
+                task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat
                 task.params.oaicompat                 = OAICOMPAT_TYPE_NONE;
@@ -725,7 +725,7 @@ public:
 
                 task.id            = ctx_server.queue_tasks.get_new_id();
                 task.index         = i;
-                task.prompt_tokens = std::move(tokenized_prompts[i]);
+                task.tokens = std::move(tokenized_prompts[i]);
 
                 task.params.oaicompat = OAICOMPAT_TYPE_NONE;
                 task.params.embd_normalize = embd_normalize;
@@ -819,7 +819,7 @@ public:
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = ctx_server.queue_tasks.get_new_id();
                 task.index = i;
-                task.prompt_tokens = std::move(tmp);
+                task.tokens = std::move(tmp);
                 tasks.push_back(std::move(task));
             }
 
