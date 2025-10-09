@@ -18,7 +18,6 @@ fi
 
 if [ "x${BUILD_TYPE}" == "xcublas" ] || [ "x${BUILD_TYPE}" == "xl4t" ]; then
     export CMAKE_ARGS="-DGGML_CUDA=on"
-    export LD_LIBRARY_PATH="/usr/local/cuda/lib64:/usr/local/cuda/compat:${LD_LIBRARY_PATH:-}"
 fi
 
 if [ "x${BUILD_TYPE}" == "xhipblas" ]; then
