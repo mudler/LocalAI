@@ -5,11 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/endpoints/mcp"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 
 	"github.com/gofiber/fiber/v2"
@@ -27,10 +26,6 @@ import (
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /mcp/v1/completions [post]
 func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-
-	toolsCache := map[string][]*mcp.MCPTool{}
-	mu := sync.Mutex{}
-
 	// We do not support streaming mode (Yet?)
 	return func(c *fiber.Ctx) error {
 		created := int(time.Now().Unix())
@@ -54,37 +49,17 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			return fmt.Errorf("no MCP servers configured")
 		}
 
-		allTools := []*mcp.MCPTool{}
-
 		// Get MCP config from model config
 		remote, stdio := config.MCP.MCPConfigFromYAML()
 
 		// Check if we have tools in cache, or we have to have an initial connection
-		mu.Lock()
-		tools, exists := toolsCache[config.Name]
-		if exists {
-			allTools = append(allTools, tools...)
-		} else {
-			tools, err := mcp.ToolsFromMCPConfig(ctx, remote, stdio)
-			if err != nil {
-				mu.Unlock()
-				return err
-			}
-
-			toolsCache[config.Name] = tools
-
-			allTools = append(allTools, tools...)
-		}
-		mu.Unlock()
-
-		cogitoTools := []cogito.Tool{}
-		for _, tool := range allTools {
-			cogitoTools = append(cogitoTools, tool)
-			//	defer tool.Close()
+		sessions, err := mcpTools.SessionsFromMCPConfig(config.Name, remote, stdio)
+		if err != nil {
+			return err
 		}
 
-		if len(cogitoTools) == 0 {
-			return fmt.Errorf("no tools found in the specified MCP servers")
+		if len(sessions) == 0 {
+			return fmt.Errorf("no working MCP servers found")
 		}
 
 		fragment := cogito.NewEmptyFragment()
@@ -109,7 +84,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
 			cogito.WithContext(ctx),
-			cogito.WithTools(cogitoTools...),
+			cogito.WithMCPs(sessions...),
 			cogito.WithIterations(3),  // default to 3 iterations
 			cogito.WithMaxAttempts(3), // default to 3 attempts
 		}

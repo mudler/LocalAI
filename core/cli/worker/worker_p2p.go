@@ -9,8 +9,8 @@ import (
 	"time"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
-	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/p2p"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/phayes/freeport"
 	"github.com/rs/zerolog/log"
@@ -48,6 +48,9 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 
 	address := "127.0.0.1"
 
+	c, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	if r.NoRunner {
 		// Let override which port and address to bind if the user
 		// configure the llama-cpp service on its own
@@ -59,7 +62,7 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			p = r.RunnerPort
 		}
 
-		_, err = p2p.ExposeService(context.Background(), address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
+		_, err = p2p.ExposeService(c, address, p, r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 		if err != nil {
 			return err
 		}
@@ -101,13 +104,15 @@ func (r *P2P) Run(ctx *cliContext.Context) error {
 			}
 		}()
 
-		_, err = p2p.ExposeService(context.Background(), address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
+		_, err = p2p.ExposeService(c, address, fmt.Sprint(port), r.Token, p2p.NetworkID(r.Peer2PeerNetworkID, p2p.WorkerID))
 		if err != nil {
 			return err
 		}
 	}
 
-	signals.Handler(nil)
+	signals.RegisterGracefulTerminationHandler(func() {
+		cancel()
+	})
 
 	for {
 		time.Sleep(1 * time.Second)
