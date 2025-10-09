@@ -6,6 +6,5 @@ else
     source $backend_dir/../common/libbackend.sh
 fi
 
-export LD_LIBRARY_PATH="/usr/local/cuda/lib64:/usr/local/cuda/compat:${LD_LIBRARY_PATH:-}"
 
 startBackend $@
