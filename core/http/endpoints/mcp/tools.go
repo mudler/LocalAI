@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rs/zerolog/log"
@@ -30,7 +29,6 @@ var (
 )
 
 func SessionsFromMCPConfig(
-	ctx context.Context,
 	name string,
 	remote config.MCPGenericConfig[config.MCPRemoteServers],
 	stdio config.MCPGenericConfig[config.MCPSTDIOServers],
@@ -45,6 +43,8 @@ func SessionsFromMCPConfig(
 
 	allSessions := []*mcp.ClientSession{}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	// Get the list of all the tools that the Agent will be esposed to
 	for _, server := range remote.Servers {
 		log.Debug().Msgf("[MCP remote server] Configuration : %+v", server)
@@ -55,7 +55,7 @@ func SessionsFromMCPConfig(
 		}
 
 		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
-		mcpSession, err := client.Connect(context.Background(), transport, nil)
+		mcpSession, err := client.Connect(ctx, transport, nil)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to connect to MCP server %s", server.URL)
 			continue
@@ -72,7 +72,7 @@ func SessionsFromMCPConfig(
 			command.Env = append(command.Env, key+"="+value)
 		}
 		transport := &mcp.CommandTransport{Command: command}
-		mcpSession, err := client.Connect(context.Background(), transport, nil)
+		mcpSession, err := client.Connect(ctx, transport, nil)
 		if err != nil {
 			log.Error().Err(err).Msgf("Failed to start MCP server %s", command)
 			continue
@@ -81,7 +81,12 @@ func SessionsFromMCPConfig(
 		cache.cache[name] = append(cache.cache[name], mcpSession)
 	}
 
-	handleSignal(allSessions)
+	signals.RegisterGracefulTerminationHandler(func() {
+		for _, session := range allSessions {
+			session.Close()
+		}
+		cancel()
+	})
 
 	return allSessions, nil
 }
@@ -110,26 +115,4 @@ func newBearerTokenRoundTripper(token string, base http.RoundTripper) http.Round
 		token: token,
 		base:  base,
 	}
-}
-
-func handleSignal(sessions []*mcp.ClientSession) {
-
-	// Create a channel to receive OS signals
-	sigChan := make(chan os.Signal, 1)
-
-	// Register for interrupt and terminate signals
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Handle signals in a separate goroutine
-	go func() {
-		sig := <-sigChan
-		log.Printf("Received signal %v, shutting down gracefully...", sig)
-
-		for _, t := range sessions {
-			t.Close()
-		}
-
-		// Exit the application
-		os.Exit(0)
-	}()
 }

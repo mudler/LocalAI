@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/hpcloud/tail"
+	"github.com/mudler/LocalAI/pkg/signals"
 	process "github.com/mudler/go-processmanager"
 	"github.com/rs/zerolog/log"
 )
@@ -130,16 +129,13 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	}
 
 	log.Debug().Msgf("GRPC Service state dir: %s", grpcControlProcess.StateDir())
-	// clean up process
-	go func() {
-		c := make(chan os.Signal, 1)
-		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-		<-c
+
+	signals.RegisterGracefulTerminationHandler(func() {
 		err := grpcControlProcess.Stop()
 		if err != nil {
 			log.Error().Err(err).Msg("error while shutting down grpc process")
 		}
-	}()
+	})
 
 	go func() {
 		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})

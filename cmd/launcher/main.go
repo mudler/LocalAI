@@ -2,14 +2,12 @@ package main
 
 import (
 	"log"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/driver/desktop"
 	coreLauncher "github.com/mudler/LocalAI/cmd/launcher/internal"
+	"github.com/mudler/LocalAI/pkg/signals"
 )
 
 func main() {
@@ -42,7 +40,12 @@ func main() {
 	}
 
 	// Setup signal handling for graceful shutdown
-	setupSignalHandling(launcher)
+	signals.RegisterGracefulTerminationHandler(func() {
+		// Perform cleanup
+		if err := launcher.Shutdown(); err != nil {
+			log.Printf("Error during shutdown: %v", err)
+		}
+	})
 
 	// Initialize the launcher state
 	go func() {
@@ -66,27 +69,4 @@ func main() {
 
 	// Run the application in background (window only shown when "Settings" is clicked)
 	myApp.Run()
-}
-
-// setupSignalHandling sets up signal handlers for graceful shutdown
-func setupSignalHandling(launcher *coreLauncher.Launcher) {
-	// Create a channel to receive OS signals
-	sigChan := make(chan os.Signal, 1)
-
-	// Register for interrupt and terminate signals
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	// Handle signals in a separate goroutine
-	go func() {
-		sig := <-sigChan
-		log.Printf("Received signal %v, shutting down gracefully...", sig)
-
-		// Perform cleanup
-		if err := launcher.Shutdown(); err != nil {
-			log.Printf("Error during shutdown: %v", err)
-		}
-
-		// Exit the application
-		os.Exit(0)
-	}()
 }

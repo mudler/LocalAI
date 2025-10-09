@@ -10,11 +10,11 @@ import (
 	"github.com/mudler/LocalAI/core/application"
 	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
-	"github.com/mudler/LocalAI/core/cli/signals"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -226,8 +226,11 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	// Catch signals from the OS requesting us to exit, and stop all backends
-	signals.Handler(app.ModelLoader())
+	signals.RegisterGracefulTerminationHandler(func() {
+		if err := app.ModelLoader().StopAllGRPC(); err != nil {
+			log.Error().Err(err).Msg("error while stopping all grpc backends")
+		}
+	})
 
 	return appHTTP.Listen(r.Address)
 }

@@ -53,7 +53,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		remote, stdio := config.MCP.MCPConfigFromYAML()
 
 		// Check if we have tools in cache, or we have to have an initial connection
-		sessions, err := mcpTools.SessionsFromMCPConfig(ctx, config.Name, remote, stdio)
+		sessions, err := mcpTools.SessionsFromMCPConfig(config.Name, remote, stdio)
 		if err != nil {
 			return err
 		}
