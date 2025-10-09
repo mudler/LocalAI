@@ -243,6 +243,10 @@
                                             <div x-show="model.processing">
                                                 <div class="text-sm font-medium text-gray-300 mb-2">
                                                     <span x-text="model.isDeletion ? 'Deletion' : 'Installation'"></span>
+                                                    <!-- Show queued message when progress is 0 -->
+                                                    <div x-show="(jobProgress[model.jobID] || 0) === 0" class="text-xs text-blue-400 mt-1">
+                                                        <i class="fas fa-clock mr-1"></i>Operation queued
+                                                    </div>
                                                     <div class="progress mt-2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                                                         <div class="progress-bar" :style="'width:' + (jobProgress[model.jobID] || 0) + '%'"></div>
                                                     </div>
@@ -551,6 +555,13 @@ function modelsGallery() {
                 try {
                     const response = await fetch(`/api/models/job/${model.jobID}`);
                     const jobData = await response.json();
+                    
+                    // Handle queued status
+                    if (jobData.queued) {
+                        this.jobProgress[model.jobID] = 0;
+                        // Keep processing state but don't show error
+                        continue;
+                    }
                     
                     this.jobProgress[model.jobID] = jobData.progress || 0;
                     

@@ -260,8 +260,14 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "job not found",
+			// Job is queued but hasn't started processing yet
+			return c.JSON(fiber.Map{
+				"progress":           0,
+				"message":            "Operation queued",
+				"galleryElementName": "",
+				"processed":          false,
+				"deletion":           false,
+				"queued":             true,
 			})
 		}
 
@@ -271,6 +277,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			"galleryElementName": status.GalleryElementName,
 			"processed":          status.Processed,
 			"deletion":           status.Deletion,
+			"queued":             false,
 		}
 
 		if status.Error != nil {
@@ -475,8 +482,14 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		status := galleryService.GetStatus(jobUID)
 		if status == nil {
-			return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
-				"error": "job not found",
+			// Job is queued but hasn't started processing yet
+			return c.JSON(fiber.Map{
+				"progress":           0,
+				"message":            "Operation queued",
+				"galleryElementName": "",
+				"processed":          false,
+				"deletion":           false,
+				"queued":             true,
 			})
 		}
 
@@ -486,6 +499,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			"galleryElementName": status.GalleryElementName,
 			"processed":          status.Processed,
 			"deletion":           status.Deletion,
+			"queued":             false,
 		}
 
 		if status.Error != nil {

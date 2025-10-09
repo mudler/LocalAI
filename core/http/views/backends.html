@@ -197,6 +197,10 @@
                                             <div x-show="backend.processing">
                                                 <div class="text-sm font-medium text-gray-300 mb-2">
                                                     <span x-text="backend.isDeletion ? 'Deletion' : 'Installation'"></span>
+                                                    <!-- Show queued message when progress is 0 -->
+                                                    <div x-show="(jobProgress[backend.jobID] || 0) === 0" class="text-xs text-blue-400 mt-1">
+                                                        <i class="fas fa-clock mr-1"></i>Operation queued
+                                                    </div>
                                                     <div class="progress mt-2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
                                                         <div class="progress-bar" :style="'width:' + (jobProgress[backend.jobID] || 0) + '%'"></div>
                                                     </div>
@@ -483,6 +487,13 @@ function backendsGallery() {
                     const response = await fetch(`/api/backends/job/${backend.jobID}`);
                     const jobData = await response.json();
                     
+                    // Handle queued status
+                    if (jobData.queued) {
+                        this.jobProgress[backend.jobID] = 0;
+                        // Keep processing state but don't show error
+                        continue;
+                    }
+                    
                     this.jobProgress[backend.jobID] = jobData.progress || 0;
                     
                     if (jobData.completed) {
@@ -521,4 +532,4 @@ function backendsGallery() {
 </script>
 
 </body>
-</html>
+</html> 
