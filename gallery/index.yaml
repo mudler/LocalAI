@@ -2905,6 +2905,26 @@
     - filename: Gliese-4B-OSS-0410.i1-Q4_K_M.gguf
       sha256: b5af058bfdfbad131ed0d5d2e1e128b031318fcdfa78fad327c082a9e05d2a14
       uri: huggingface://mradermacher/Gliese-4B-OSS-0410-i1-GGUF/Gliese-4B-OSS-0410.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-deckard-large-almost-human-6b-i1"
+  icon: https://huggingface.co/DavidAU/Qwen3-Deckard-Large-Almost-Human-6B/resolve/main/deckard.gif
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3-Deckard-Large-Almost-Human-6B
+    - https://huggingface.co/mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-i1-GGUF
+  description: |
+    A love letter to all things Philip K Dick, trained and fine tuned on an in house dataset.
+    This is V1, "Light", "Large" and "Almost Human".
+
+    "Almost Human" is about adding (back) the humanity, the real person called Philip K Dick back into the model - with tone, thinking, and a touch of prose.
+
+    "Deckard" is the main character in Blade Runner.
+  overrides:
+    parameters:
+      model: Qwen3-Deckard-Large-Almost-Human-6B.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Deckard-Large-Almost-Human-6B.i1-Q4_K_M.gguf
+      sha256: c92c0e35e37d0e2b520010b95abe2951112ac95d20b8d66706116e52ae677697
+      uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-i1-GGUF/Qwen3-Deckard-Large-Almost-Human-6B.i1-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
