@@ -10,7 +10,6 @@ import (
 
 func registerGalleryRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
 
-	// Show the Models page (all models are loaded client-side via Alpine.js)
 	app.Get("/browse", func(c *fiber.Ctx) error {
 		summary := fiber.Map{
 			"Title":        "LocalAI - Models",
@@ -22,15 +21,4 @@ func registerGalleryRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConf
 		// Render index - models are now loaded via Alpine.js from /api/models
 		return c.Render("views/models", summary)
 	})
-
-	// Note: /browse/search/models was removed - search is now handled client-side with Alpine.js
-
-	// Note: Old HTMX routes for install/delete/config were removed
-	// These are now handled by JSON API routes in ui_api.go:
-	// - /api/models/install/:id
-	// - /api/models/delete/:id
-	// - /api/models/config/:id
-
-	// Note: /browse/job/progress/:uid and /browse/job/:uid were removed
-	// Progress tracking is now handled via JSON API at /api/models/job/:uid
 }
