@@ -3,10 +3,8 @@ package routes
 import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/http/elements"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/utils"
-	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -42,20 +40,8 @@ func RegisterUIRoutes(app *fiber.App,
 		return c.Render("views/p2p", summary)
 	})
 
-	/* show nodes live! */
-	app.Get("/p2p/ui/workers", func(c *fiber.Ctx) error {
-		return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
-	})
-	app.Get("/p2p/ui/workers-federation", func(c *fiber.Ctx) error {
-		return c.SendString(elements.P2PNodeBoxes(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
-	})
-
-	app.Get("/p2p/ui/workers-stats", func(c *fiber.Ctx) error {
-		return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))))
-	})
-	app.Get("/p2p/ui/workers-federation-stats", func(c *fiber.Ctx) error {
-		return c.SendString(elements.P2PNodeStats(p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.FederatedID))))
-	})
+	// Note: P2P UI fragment routes (/p2p/ui/*) were removed
+	// P2P nodes are now fetched via JSON API at /api/p2p/workers and /api/p2p/federation
 
 	// End P2P
 

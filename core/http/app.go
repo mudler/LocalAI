@@ -203,6 +203,9 @@ func API(application *application.Application) (*fiber.App, error) {
 	routes.RegisterLocalAIRoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 	routes.RegisterOpenAIRoutes(router, requestExtractor, application)
 	if !application.ApplicationConfig().DisableWebUI {
+		// Create opcache for tracking UI operations
+		opcache := services.NewOpCache(application.GalleryService())
+		routes.RegisterUIAPIRoutes(router, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), opcache)
 		routes.RegisterUIRoutes(router, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 	}
 	routes.RegisterJINARoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
