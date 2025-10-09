@@ -2890,6 +2890,21 @@
     - filename: lemon07r_VellumMini-0.1-Qwen3-14B-Q4_K_M.gguf
       sha256: 7c56980b12c757e06bd4d4e99fca4eacf76fbad9bc46d59fde5fb62280157320
       uri: huggingface://bartowski/lemon07r_VellumMini-0.1-Qwen3-14B-GGUF/lemon07r_VellumMini-0.1-Qwen3-14B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "gliese-4b-oss-0410-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65bb837dbfb878f46c77de4c/xwNz8R9cHHBArUKbTKs6U.png
+  urls:
+    - https://huggingface.co/prithivMLmods/Gliese-4B-OSS-0410
+    - https://huggingface.co/mradermacher/Gliese-4B-OSS-0410-i1-GGUF
+  description: |
+      Gliese-4B-OSS-0410 is a reasoning-focused model fine-tuned on Qwen-4B for enhanced reasoning and polished token probability distributions, delivering balanced multilingual generation across mathematics and general-purpose reasoning tasks. The model is fine-tuned on curated GPT-OSS synthetic dataset entries, improving its ability to handle structured reasoning, probabilistic inference, and multilingual tasks with precision.
+  overrides:
+    parameters:
+      model: Gliese-4B-OSS-0410.i1-Q4_K_M.gguf
+  files:
+    - filename: Gliese-4B-OSS-0410.i1-Q4_K_M.gguf
+      sha256: b5af058bfdfbad131ed0d5d2e1e128b031318fcdfa78fad327c082a9e05d2a14
+      uri: huggingface://mradermacher/Gliese-4B-OSS-0410-i1-GGUF/Gliese-4B-OSS-0410.i1-Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
