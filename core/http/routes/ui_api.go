@@ -20,6 +20,85 @@ import (
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
 
+	// Operations API - Get all current operations (models + backends)
+	app.Get("/api/operations", func(c *fiber.Ctx) error {
+		processingData, taskTypes := opcache.GetStatus()
+
+		operations := []fiber.Map{}
+		for galleryID, jobID := range processingData {
+			taskType := "installation"
+			if tt, ok := taskTypes[galleryID]; ok {
+				taskType = tt
+			}
+
+			status := galleryService.GetStatus(jobID)
+			progress := 0
+			isDeletion := false
+			isQueued := false
+			message := ""
+
+			if status != nil {
+				// Skip completed operations
+				if status.Processed {
+					continue
+				}
+
+				progress = int(status.Progress)
+				isDeletion = status.Deletion
+				message = status.Message
+				if isDeletion {
+					taskType = "deletion"
+				}
+			} else {
+				// Job is queued but hasn't started
+				isQueued = true
+				message = "Operation queued"
+			}
+
+			// Determine if it's a model or backend
+			isBackend := false
+			backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+			for _, b := range backends {
+				backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
+				if backendID == galleryID || b.Name == galleryID {
+					isBackend = true
+					break
+				}
+			}
+
+			// Extract display name (remove repo prefix if exists)
+			displayName := galleryID
+			if strings.Contains(galleryID, "@") {
+				parts := strings.Split(galleryID, "@")
+				if len(parts) > 1 {
+					displayName = parts[1]
+				}
+			}
+
+			operations = append(operations, fiber.Map{
+				"id":         galleryID,
+				"name":       displayName,
+				"fullName":   galleryID,
+				"jobID":      jobID,
+				"progress":   progress,
+				"taskType":   taskType,
+				"isDeletion": isDeletion,
+				"isBackend":  isBackend,
+				"isQueued":   isQueued,
+				"message":    message,
+			})
+		}
+
+		// Sort operations by progress (ascending) for stable display order
+		sort.Slice(operations, func(i, j int) bool {
+			return operations[i]["progress"].(int) < operations[j]["progress"].(int)
+		})
+
+		return c.JSON(fiber.Map{
+			"operations": operations,
+		})
+	})
+
 	// Model Gallery APIs
 	app.Get("/api/models", func(c *fiber.Ctx) error {
 		term := c.Query("term")
