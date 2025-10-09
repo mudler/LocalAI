@@ -21509,7 +21509,7 @@
     - https://github.com/ggml-org/whisper.cpp
     - https://huggingface.co/ggml-org/whisper-vad
   overrides:
-    backend: whisper-vad
+    backend: whisper
     parameters:
       model: ggml-silero-v5.1.2.bin
     options:
