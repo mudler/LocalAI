@@ -424,6 +424,26 @@
     - filename: LiquidAI_LFM2-350M-Math-Q4_K_M.gguf
       sha256: 942e5ef43086a7a8ea5d316e819ba6a97f3829c1851cd10b87340e1b38693422
       uri: huggingface://bartowski/LiquidAI_LFM2-350M-Math-GGUF/LiquidAI_LFM2-350M-Math-Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "liquidai_lfm2-8b-a1b"
+  urls:
+    - https://huggingface.co/LiquidAI/LFM2-8B-A1B
+    - https://huggingface.co/bartowski/LiquidAI_LFM2-8B-A1B-GGUF
+  description: |
+    LFM2 is a new generation of hybrid models developed by Liquid AI, specifically designed for edge AI and on-device deployment. It sets a new standard in terms of quality, speed, and memory efficiency.
+
+    We're releasing the weights of our first MoE based on LFM2, with 8.3B total parameters and 1.5B active parameters.
+
+        LFM2-8B-A1B is the best on-device MoE in terms of both quality (comparable to 3-4B dense models) and speed (faster than Qwen3-1.7B).
+        Code and knowledge capabilities are significantly improved compared to LFM2-2.6B.
+        Quantized variants fit comfortably on high-end phones, tablets, and laptops.
+  overrides:
+    parameters:
+      model: LiquidAI_LFM2-8B-A1B-Q4_K_M.gguf
+  files:
+    - filename: LiquidAI_LFM2-8B-A1B-Q4_K_M.gguf
+      sha256: efb59182eca2424126e9f8bde8513a1736e92d3b9a3187a2afc67968bd44512a
+      uri: huggingface://bartowski/LiquidAI_LFM2-8B-A1B-GGUF/LiquidAI_LFM2-8B-A1B-Q4_K_M.gguf
 - name: "kokoro"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
