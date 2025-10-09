@@ -89,9 +89,18 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			})
 		}
 
-		// Sort operations by progress (ascending) for stable display order
+		// Sort operations by progress (ascending), then by ID for stable display order
 		sort.Slice(operations, func(i, j int) bool {
-			return operations[i]["progress"].(int) < operations[j]["progress"].(int)
+			progressI := operations[i]["progress"].(int)
+			progressJ := operations[j]["progress"].(int)
+
+			// Primary sort by progress
+			if progressI != progressJ {
+				return progressI < progressJ
+			}
+
+			// Secondary sort by ID for stability when progress is the same
+			return operations[i]["id"].(string) < operations[j]["id"].(string)
 		})
 
 		return c.JSON(fiber.Map{
