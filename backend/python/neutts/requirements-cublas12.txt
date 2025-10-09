@@ -1,0 +1,8 @@
+librosa==0.11.0
+neucodec>=0.0.4
+phonemizer==3.3.0
+soundfile==0.13.1
+torch==2.8.0
+transformers==4.56.1
+resemble-perth==1.0.1
+accelerate

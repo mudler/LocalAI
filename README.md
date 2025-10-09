@@ -269,6 +269,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **piper** | Fast neural TTS system | CPU |
 | **kitten-tts** | Kitten TTS models | CPU |
 | **silero-vad** | Voice Activity Detection | CPU |
+| **neutts** | Text-to-speech with voice cloning | CUDA 12, ROCm, CPU |
 
 ### Image & Video Generation
 | Backend | Description | Acceleration Support |
@@ -290,7 +291,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 |-------------------|-------------------|------------------|
 | **NVIDIA CUDA 11** | llama.cpp, whisper, stablediffusion, diffusers, rerankers, bark, chatterbox | Nvidia hardware |
 | **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
-| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark | AMD Graphics |
+| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts | AMD Graphics |
 | **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark | Intel Arc, Intel iGPUs |
 | **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, bark-cpp | Apple M1/M2/M3+ |
 | **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
