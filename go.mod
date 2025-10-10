@@ -10,7 +10,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v0.9.0
 	github.com/charmbracelet/glamour v0.10.0
-	github.com/chasefleming/elem-go v0.31.0
 	github.com/containerd/containerd v1.7.27
 	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2
 	github.com/ebitengine/purego v0.8.4
@@ -287,7 +286,7 @@ require (
 	github.com/prometheus/common v0.65.0 // indirect
 	github.com/prometheus/procfs v0.17.0 // indirect
 	github.com/quic-go/qpack v0.5.1 // indirect
-	github.com/quic-go/quic-go v0.54.0 // indirect
+	github.com/quic-go/quic-go v0.54.1 // indirect
 	github.com/quic-go/webtransport-go v0.9.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
