@@ -1,11 +1,8 @@
 package localai
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/config"
@@ -37,21 +34,19 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			return c.Status(404).JSON(response)
 		}
 
-		configData, err := yaml.Marshal(modelConfig)
-		if err != nil {
+		modelConfigFile := modelConfig.GetModelConfigFile()
+		if modelConfigFile == "" {
 			response := ModelResponse{
 				Success: false,
-				Error:   "Failed to marshal configuration: " + err.Error(),
+				Error:   "Model configuration file not found",
 			}
-			return c.Status(500).JSON(response)
+			return c.Status(404).JSON(response)
 		}
-
-		// Marshal the config to JSON for the template
-		configJSON, err := json.Marshal(modelConfig)
+		configData, err := os.ReadFile(modelConfigFile)
 		if err != nil {
 			response := ModelResponse{
 				Success: false,
-				Error:   "Failed to marshal configuration: " + err.Error(),
+				Error:   "Failed to read configuration file: " + err.Error(),
 			}
 			return c.Status(500).JSON(response)
 		}
@@ -69,7 +64,6 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			Title:      "LocalAI - Edit Model " + modelName,
 			ModelName:  modelName,
 			Config:     &modelConfig,
-			ConfigJSON: string(configJSON),
 			ConfigYAML: string(configData),
 			BaseURL:    httpUtils.BaseURL(c),
 			Version:    internal.PrintableVersion(),
@@ -91,6 +85,15 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 			return c.Status(400).JSON(response)
 		}
 
+		modelConfig, exists := cl.GetModelConfig(modelName)
+		if !exists {
+			response := ModelResponse{
+				Success: false,
+				Error:   "Existing model configuration not found",
+			}
+			return c.Status(404).JSON(response)
+		}
+
 		// Get the raw body
 		body := c.Body()
 		if len(body) == 0 {
@@ -101,50 +104,16 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 			return c.Status(400).JSON(response)
 		}
 
-		// Check content type to determine how to parse
-		contentType := string(c.Context().Request.Header.ContentType())
+		// Check content to see if it's a valid model config
 		var req config.ModelConfig
-		var err error
 
-		if strings.Contains(contentType, "application/json") {
-			// Parse JSON
-			if err := json.Unmarshal(body, &req); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to parse JSON: " + err.Error(),
-				}
-				return c.Status(400).JSON(response)
+		// Parse YAML
+		if err := yaml.Unmarshal(body, &req); err != nil {
+			response := ModelResponse{
+				Success: false,
+				Error:   "Failed to parse YAML: " + err.Error(),
 			}
-		} else if strings.Contains(contentType, "application/x-yaml") || strings.Contains(contentType, "text/yaml") {
-			// Parse YAML
-			if err := yaml.Unmarshal(body, &req); err != nil {
-				response := ModelResponse{
-					Success: false,
-					Error:   "Failed to parse YAML: " + err.Error(),
-				}
-				return c.Status(400).JSON(response)
-			}
-		} else {
-			// Try to auto-detect format
-			if strings.TrimSpace(string(body))[0] == '{' {
-				// Looks like JSON
-				if err := json.Unmarshal(body, &req); err != nil {
-					response := ModelResponse{
-						Success: false,
-						Error:   "Failed to parse JSON: " + err.Error(),
-					}
-					return c.Status(400).JSON(response)
-				}
-			} else {
-				// Assume YAML
-				if err := yaml.Unmarshal(body, &req); err != nil {
-					response := ModelResponse{
-						Success: false,
-						Error:   "Failed to parse YAML: " + err.Error(),
-					}
-					return c.Status(400).JSON(response)
-				}
-			}
+			return c.Status(400).JSON(response)
 		}
 
 		// Validate required fields
@@ -156,19 +125,6 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 			return c.Status(400).JSON(response)
 		}
 
-		// Load the existing configuration
-		configPath := filepath.Join(appConfig.SystemState.Model.ModelsPath, modelName+".yaml")
-		if err := utils.VerifyPath(modelName+".yaml", appConfig.SystemState.Model.ModelsPath); err != nil {
-			response := ModelResponse{
-				Success: false,
-				Error:   "Model configuration not trusted: " + err.Error(),
-			}
-			return c.Status(404).JSON(response)
-		}
-
-		// Set defaults
-		req.SetDefaults()
-
 		// Validate the configuration
 		if !req.Validate() {
 			response := ModelResponse{
@@ -179,18 +135,18 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 			return c.Status(400).JSON(response)
 		}
 
-		// Create the YAML file
-		yamlData, err := yaml.Marshal(req)
-		if err != nil {
+		// Load the existing configuration
+		configPath := modelConfig.GetModelConfigFile()
+		if err := utils.VerifyPath(configPath, appConfig.SystemState.Model.ModelsPath); err != nil {
 			response := ModelResponse{
 				Success: false,
-				Error:   "Failed to marshal configuration: " + err.Error(),
+				Error:   "Model configuration not trusted: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.Status(404).JSON(response)
 		}
 
-		// Write to file
-		if err := os.WriteFile(configPath, yamlData, 0644); err != nil {
+		// Write new content to file
+		if err := os.WriteFile(configPath, body, 0644); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Failed to write configuration file: " + err.Error(),

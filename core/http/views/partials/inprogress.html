@@ -109,8 +109,8 @@ function operationsStatus() {
         
         init() {
             this.fetchOperations();
-            // Poll every 500ms for smooth updates
-            this.pollInterval = setInterval(() => this.fetchOperations(), 500);
+            // Poll every 1s for smooth updates
+            this.pollInterval = setInterval(() => this.fetchOperations(), 1000);
         },
         
         async fetchOperations() {
