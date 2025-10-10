@@ -369,7 +369,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     }
 
     if (request->grammartriggers_size() > 0) {
-        params.sampling.grammar_lazy = true;
+        //params.sampling.grammar_lazy = true;
         // Store grammar trigger words for processing after model is loaded
         for (int i = 0; i < request->grammartriggers_size(); i++) {
             const auto & word = request->grammartriggers(i).word();
@@ -419,7 +419,7 @@ public:
         }
 
         // Process grammar triggers now that vocab is available
-        if (params.sampling.grammar_lazy && !params.sampling.grammar_triggers.empty()) {
+        if (!params.sampling.grammar_triggers.empty()) {
             std::vector<common_grammar_trigger> processed_triggers;
             for (const auto& trigger : params.sampling.grammar_triggers) {
                 if (trigger.type == COMMON_GRAMMAR_TRIGGER_TYPE_WORD) {
