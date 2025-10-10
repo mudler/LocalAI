@@ -78,8 +78,18 @@
   <link href="static/assets/fontawesome/css/solid.css" rel="stylesheet" />
   <script src="static/assets/flowbite.min.js"></script>
 
-  <!-- Example responsive styling improvements -->
+  <!-- Tech Noir UI Styling -->
   <style>
+    /* Core Tech Noir Color Palette */
+    :root {
+      --tn-bg: #101827;
+      --tn-ui: #1E293B;
+      --tn-primary: #38BDF8;
+      --tn-secondary: #8B5CF6;
+      --tn-text: #E5E7EB;
+      --tn-muted: #94A3B8;
+    }
+
     .animation-container {
       position: relative;
       width: 100%;
@@ -88,6 +98,7 @@
       justify-content: center;
       align-items: center;
       overflow: hidden;
+      background: linear-gradient(135deg, var(--tn-bg) 0%, var(--tn-ui) 100%);
     }
     canvas {
       position: absolute;
@@ -105,6 +116,7 @@
     .fa-circle-nodes {
       animation: rotateCircleNodes 8s linear infinite;
       display: inline-block;
+      filter: drop-shadow(0 0 8px var(--tn-primary));
     }
     @keyframes rotateCircleNodes {
       0% { transform: rotate(0deg); }
@@ -127,27 +139,52 @@
       100% { transform: rotate(0deg); }
     }
 
-/* Add this to your existing CSS */
-.active-node {
-  position: relative;
-  overflow: hidden;
-}
+    /* Active node with cyan glow */
+    .active-node {
+      position: relative;
+      overflow: hidden;
+    }
 
-.active-node::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.8), transparent);
-  animation: nodeGlow 3s ease-in-out infinite;
-}
+    .active-node::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--tn-primary), transparent);
+      animation: nodeGlow 3s ease-in-out infinite;
+    }
 
-@keyframes nodeGlow {
-  0% { left: -100%; }
-  50% { left: 100%; }
-  100% { left: 100%; }
-}
+    @keyframes nodeGlow {
+      0% { left: -100%; }
+      50% { left: 100%; }
+      100% { left: 100%; }
+    }
+
+    /* Enhanced scrollbar styling */
+    ::-webkit-scrollbar {
+      width: 10px;
+      height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: var(--tn-bg);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--tn-ui);
+      border-radius: 5px;
+      border: 2px solid var(--tn-bg);
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--tn-primary);
+    }
+
+    /* Glow effects for interactive elements */
+    .glow-on-hover:hover {
+      box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
+    }
   </style>
 </head>

@@ -6,23 +6,23 @@
      x-transition:leave="transition ease-in duration-200"
      x-transition:leave-start="opacity-100 transform translate-y-0"
      x-transition:leave-end="opacity-0 transform -translate-y-4"
-     class="sticky top-0 left-0 right-0 z-40 bg-gradient-to-r from-blue-900/95 to-purple-900/95 backdrop-blur-sm shadow-lg border-b border-blue-700/50">
+     class="sticky top-0 left-0 right-0 z-40 bg-[#1E293B]/95 backdrop-blur-sm shadow-2xl border-b border-[#38BDF8]/50">
     
     <div class="container mx-auto px-4 py-3">
         <div class="flex items-center justify-between mb-2">
             <div class="flex items-center space-x-2">
                 <div class="flex items-center space-x-2">
                     <div class="relative">
-                        <i class="fas fa-spinner fa-spin text-blue-300 text-lg"></i>
+                        <i class="fas fa-spinner fa-spin text-[#38BDF8] text-lg"></i>
                     </div>
-                    <h3 class="text-white font-semibold text-sm">
+                    <h3 class="text-[#E5E7EB] font-semibold text-sm">
                         Operations in Progress
-                        <span class="ml-2 bg-blue-700/50 px-2 py-1 rounded-full text-xs" x-text="operations.length"></span>
+                        <span class="ml-2 bg-[#38BDF8]/20 px-2 py-1 rounded-full text-xs border border-[#38BDF8]/30" x-text="operations.length"></span>
                     </h3>
                 </div>
             </div>
             <button @click="collapsed = !collapsed" 
-                    class="text-white/80 hover:text-white transition-colors">
+                    class="text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
                 <i class="fas" :class="collapsed ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
             </button>
         </div>
@@ -37,15 +37,15 @@
              x-transition:leave-end="opacity-0 max-h-0"
              class="space-y-2 overflow-y-auto max-h-96">
             <template x-for="operation in operations" :key="operation.id">
-                <div class="bg-gray-800/60 rounded-lg p-3 border border-gray-700/50 hover:border-blue-600/50 transition-all">
+                <div class="bg-[#101827]/80 rounded-lg p-3 border border-[#1E293B] hover:border-[#38BDF8]/50 transition-all hover:shadow-[0_0_12px_rgba(56,189,248,0.15)]">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center space-x-3 flex-1 min-w-0">
                             <!-- Icon based on type -->
                             <div class="flex-shrink-0">
                                 <i class="text-lg" 
                                    :class="{
-                                       'fas fa-cube text-blue-400': !operation.isBackend && !operation.isDeletion,
-                                       'fas fa-cubes text-purple-400': operation.isBackend && !operation.isDeletion,
+                                       'fas fa-cube text-[#38BDF8]': !operation.isBackend && !operation.isDeletion,
+                                       'fas fa-cubes text-[#8B5CF6]': operation.isBackend && !operation.isDeletion,
                                        'fas fa-trash text-red-400': operation.isDeletion
                                    }"></i>
                             </div>
@@ -53,12 +53,12 @@
                             <!-- Operation details -->
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center space-x-2">
-                                    <span class="text-white font-medium text-sm truncate" x-text="operation.name"></span>
-                                    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full"
+                                    <span class="text-[#E5E7EB] font-medium text-sm truncate" x-text="operation.name"></span>
+                                    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full border"
                                           :class="{
-                                              'bg-blue-700/50 text-blue-200': !operation.isDeletion && !operation.isBackend,
-                                              'bg-purple-700/50 text-purple-200': !operation.isDeletion && operation.isBackend,
-                                              'bg-red-700/50 text-red-200': operation.isDeletion
+                                              'bg-[#38BDF8]/20 text-[#38BDF8] border-[#38BDF8]/30': !operation.isDeletion && !operation.isBackend,
+                                              'bg-[#8B5CF6]/20 text-[#8B5CF6] border-[#8B5CF6]/30': !operation.isDeletion && operation.isBackend,
+                                              'bg-red-500/20 text-red-300 border-red-500/30': operation.isDeletion
                                           }"
                                           x-text="operation.isBackend ? 'Backend' : 'Model'"></span>
                                 </div>
@@ -66,29 +66,29 @@
                                 <!-- Status message -->
                                 <div class="flex items-center space-x-2 mt-1">
                                     <template x-if="operation.isQueued">
-                                        <span class="text-xs text-blue-300 flex items-center">
+                                        <span class="text-xs text-[#38BDF8] flex items-center">
                                             <i class="fas fa-clock mr-1"></i>
                                             Queued
                                         </span>
                                     </template>
                                     <template x-if="!operation.isQueued && operation.message">
-                                        <span class="text-xs text-gray-300 truncate" x-text="operation.message"></span>
+                                        <span class="text-xs text-[#94A3B8] truncate" x-text="operation.message"></span>
                                     </template>
                                 </div>
                             </div>
                             
                             <!-- Progress percentage -->
                             <div class="flex-shrink-0 text-right">
-                                <span class="text-white font-bold text-lg" x-text="operation.progress + '%'"></span>
+                                <span class="text-[#E5E7EB] font-bold text-lg" x-text="operation.progress + '%'"></span>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Progress bar -->
-                    <div class="w-full bg-gray-700/50 rounded-full h-2 overflow-hidden">
+                    <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
                         <div class="h-full rounded-full transition-all duration-300 ease-out"
                              :class="{
-                                 'bg-gradient-to-r from-blue-500 to-blue-600': !operation.isDeletion,
+                                 'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': !operation.isDeletion,
                                  'bg-gradient-to-r from-red-500 to-red-600': operation.isDeletion
                              }"
                              :style="'width: ' + operation.progress + '%'">

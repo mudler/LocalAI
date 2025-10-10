@@ -3,23 +3,23 @@
 {{template "views/partials/head" .}}
 <script defer src="static/tts.js"></script>
 
-<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<body class="bg-[#101827] text-[#E5E7EB]">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Section -->
-        <div class="bg-gradient-to-r from-purple-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-2xl shadow-2xl shadow-[#8B5CF6]/10 p-8 mb-10">
             <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-indigo-400">
+                <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#38BDF8]">
                         <i class="fas fa-volume-high mr-2"></i>Text to Speech {{ if .Model }} with {{.Model}} {{ end }}
                     </span>
                 </h1>
-                <p class="text-xl text-gray-300 mb-6">Convert your text into natural-sounding speech</p>
+                <p class="text-xl text-[#94A3B8] mb-6">Convert your text into natural-sounding speech</p>
                 <div class="flex flex-wrap justify-center gap-4">
                     <a href="https://localai.io/features/text-to-audio/" target="_blank" 
-                        class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                        class="group flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                         <i class="fas fa-book-reader mr-2"></i>
                         <span>Documentation</span>
                         <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
@@ -30,34 +30,34 @@
 
         <!-- TTS Interface -->
         <div class="max-w-3xl mx-auto">
-            <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-blue-900/20">
+            <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl overflow-hidden transition-all duration-300 shadow-lg">
                 <!-- Header with Model Selection -->
-                <div class="border-b border-gray-700 p-5">
+                <div class="border-b border-[#1E293B] p-5">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <!-- Model Selection -->
                         <div class="flex items-center">
-                            <label for="model-select" class="mr-3 text-gray-300 font-medium">
-                                <i class="fas fa-microphone-lines text-purple-400 mr-2"></i>Model:
+                            <label for="model-select" class="mr-3 text-[#94A3B8] font-medium">
+                                <i class="fas fa-microphone-lines text-[#8B5CF6] mr-2"></i>Model:
                             </label>
                             <select 
                                 id="model-select"
                                 x-data="{ link : '' }" 
                                 x-model="link" 
                                 x-init="$watch('link', value => window.location = link)" 
-                                class="bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-2.5 appearance-none"
+                                class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 rounded-lg shadow-sm p-2.5 appearance-none"
                             >	
-                                <option value="" disabled class="text-gray-400">Select a model</option>
+                                <option value="" disabled class="text-[#94A3B8]">Select a model</option>
                                 {{ $model:=.Model}}
                                 {{ range .ModelsConfig }}
                                     {{ $cfg := . }}
                                     {{ range .KnownUsecaseStrings }}
                                         {{ if eq . "FLAG_TTS" }}
-                                            <option value="tts/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-700 text-white">{{$cfg.Name}}</option>
+                                            <option value="tts/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[#101827] text-[#E5E7EB]">{{$cfg.Name}}</option>
                                         {{ end }}
                                     {{ end }}
                                 {{ end }}
                                 {{ range .ModelsWithoutConfig }}
-                                    <option value="tts/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-700 text-white">{{.}}</option>
+                                    <option value="tts/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[#101827] text-[#E5E7EB]">{{.}}</option>
                                 {{end}}
                             </select>
                         </div>
@@ -66,10 +66,10 @@
 
                 <!-- Input Area -->
                 <div class="p-6">
-                    <div class="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mb-6">
+                    <div class="bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 rounded-lg p-4 mb-6">
                         <div class="flex items-start">
-                            <i class="fas fa-info-circle text-blue-400 mt-1 mr-3 flex-shrink-0"></i>
-                            <p class="text-gray-300">
+                            <i class="fas fa-info-circle text-[#8B5CF6] mt-1 mr-3 flex-shrink-0"></i>
+                            <p class="text-[#94A3B8]">
                                 Enter your text below and submit to generate speech with the selected TTS model.
                                 The generated audio will appear below the input field.
                             </p>
@@ -85,10 +85,10 @@
                                 name="input"
                                 placeholder="Enter text to convert to speech..."
                                 autocomplete="off"
-                                class="w-full bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-4 pl-4 pr-12"
+                                class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 rounded-lg shadow-sm p-4 pl-4 pr-12"
                                 required
                             />
-                            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-blue-400 hover:text-blue-300 transition">
+                            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8B5CF6] hover:text-[#38BDF8] transition">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>
@@ -96,11 +96,11 @@
 
                     <!-- Loading indicator -->
                     <div class="flex justify-center my-6">
-                        <div id="loader" class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-purple-500" style="display: none;"></div>
+                        <div id="loader" class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#8B5CF6]" style="display: none;"></div>
                     </div>
 
                     <!-- Results Area -->
-                    <div class="bg-gray-700/50 border border-gray-600/50 rounded-lg p-4 min-h-[100px] flex items-center justify-center">
+                    <div class="bg-[#101827]/50 border border-[#1E293B] rounded-lg p-4 min-h-[100px] flex items-center justify-center">
                         <div id="result" class="w-full"></div>
                     </div>
                 </div>

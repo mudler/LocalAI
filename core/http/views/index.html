@@ -2,59 +2,55 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gradient-to-br from-gray-900 via-gray-950 to-black text-gray-200">
+<body class="bg-[#101827] text-[#E5E7EB]">
 <div class="flex flex-col min-h-screen">
 
     {{template "views/partials/navbar" .}}
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Section -->
-        <div class="relative bg-gradient-to-r from-blue-900/40 via-indigo-900/30 to-purple-900/40 rounded-3xl shadow-2xl p-8 mb-12 overflow-hidden">
+        <div class="relative bg-[#1E293B] border border-[#38BDF8]/20 rounded-3xl shadow-2xl shadow-[#38BDF8]/10 p-8 mb-12 overflow-hidden">
             <!-- Background Pattern -->
             <div class="absolute inset-0 opacity-10">
-                <div class="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20"></div>
-                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
+                <div class="absolute inset-0 bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20"></div>
+                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(56,189,248,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
             </div>
             
             <div class="relative max-w-5xl mx-auto text-center">
-                <h1 class="text-5xl md:text-6xl font-bold text-white mb-6">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400">
+                <h1 class="text-5xl md:text-6xl font-bold text-[#E5E7EB] mb-6">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
                         Welcome to <em class="not-italic font-black">your</em> LocalAI
                     </span>
                 </h1>
-                <p class="text-xl md:text-2xl text-gray-300 mb-8 font-light">The powerful FOSS alternative to OpenAI, Claude, and more</p>
+                <p class="text-xl md:text-2xl text-[#94A3B8] mb-8 font-light">The powerful FOSS alternative to OpenAI, Claude, and more</p>
                 
                 <div class="flex flex-wrap justify-center gap-4">
                     <a href="https://localai.io" target="_blank" 
-                       class="group relative inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25">
+                       class="group relative inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
                         <i class="fas fa-book-reader mr-3 text-lg"></i>
                         <span>Documentation</span>
                         <i class="fas fa-external-link-alt ml-3 text-sm opacity-70 group-hover:opacity-100 transition-opacity"></i>
-                        <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </a>
                     
                     <a href="browse" 
-                       class="group relative inline-flex items-center bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-indigo-500/25">
+                       class="group relative inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                         <i class="fas fa-images mr-3 text-lg"></i>
                         <span>Model Gallery</span>
                         <i class="fas fa-arrow-right ml-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300"></i>
-                        <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </a>
                     
                     <a href="/import-model"
-                       class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
+                       class="group relative inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]">
                         <i class="fas fa-plus mr-3 text-lg"></i>
                         <span>Import Model</span>
                         <i class="fas fa-upload ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
-                        <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </a>
 
                     <button id="reload-models-btn"
-                       class="group relative inline-flex items-center bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-orange-500/25">
+                       class="group relative inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(234,88,12,0.4)]">
                         <i class="fas fa-sync-alt mr-3 text-lg"></i>
                         <span>Update Models</span>
                         <i class="fas fa-refresh ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
-                        <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     </button>
                 </div>
             </div>
@@ -66,39 +62,39 @@
             
             {{ if eq (len .ModelsConfig) 0 }}
             <!-- No Models State -->
-            <div class="relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/50 rounded-2xl p-12 shadow-xl backdrop-blur-sm">
+            <div class="relative bg-[#1E293B]/80 border border-[#1E293B] rounded-2xl p-12 shadow-xl backdrop-blur-sm">
                 <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-500/5 to-orange-500/5"></div>
                 <div class="relative text-center max-w-4xl mx-auto">
-                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-yellow-500/20 to-orange-500/20 mb-6">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-6">
                         <i class="text-yellow-400 text-3xl fas fa-robot"></i>
                     </div>
-                    <h2 class="text-3xl md:text-4xl font-bold text-gray-100 mb-6">No models installed yet</h2>
-                    <p class="text-xl text-gray-300 mb-8 leading-relaxed">Get started by installing models from the gallery or check our documentation for guidance</p>
+                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-6">No models installed yet</h2>
+                    <p class="text-xl text-[#94A3B8] mb-8 leading-relaxed">Get started by installing models from the gallery or check our documentation for guidance</p>
                     
                     <div class="flex flex-wrap justify-center gap-4 mb-8">
-                        <a href="browse" class="inline-flex items-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
+                        <a href="browse" class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
                             <i class="fas fa-images mr-2"></i>
                             Browse Gallery
                         </a>
-                        <a href="https://localai.io/basics/getting_started/" class="inline-flex items-center bg-gradient-to-r from-gray-700 to-gray-800 hover:from-gray-600 hover:to-gray-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
+                        <a href="https://localai.io/basics/getting_started/" class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 text-[#E5E7EB] py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
                             <i class="fas fa-book mr-2"></i>
                             Documentation
                         </a>
                     </div>
 
                     {{ if ne (len .Models) 0 }}
-                    <div class="mt-12 pt-8 border-t border-gray-700/50">
-                        <h3 class="text-2xl font-bold text-gray-100 mb-6">Detected Model Files</h3>
-                        <p class="text-gray-400 mb-6">These models were found but don't have configuration files yet</p>
+                    <div class="mt-12 pt-8 border-t border-[#1E293B]">
+                        <h3 class="text-2xl font-bold text-[#E5E7EB] mb-6">Detected Model Files</h3>
+                        <p class="text-[#94A3B8] mb-6">These models were found but don't have configuration files yet</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {{ range .Models }}
-                            <div class="bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700 rounded-xl p-4 flex items-center hover:border-gray-600 transition-colors">
-                                <div class="w-10 h-10 rounded-lg bg-gray-700/50 flex items-center justify-center mr-3">
-                                    <i class="fas fa-brain text-gray-400"></i>
+                            <div class="bg-[#101827] border border-[#1E293B] rounded-xl p-4 flex items-center hover:border-[#38BDF8]/50 transition-colors hover:shadow-[0_0_12px_rgba(56,189,248,0.15)]">
+                                <div class="w-10 h-10 rounded-lg bg-[#1E293B] flex items-center justify-center mr-3">
+                                    <i class="fas fa-brain text-[#38BDF8]"></i>
                                 </div>
                                 <div class="flex-1">
-                                    <p class="font-semibold text-gray-200 truncate">{{if .Name}}{{.Name}}{{else}}{{.}}{{end}}</p>
-                                    <p class="text-xs text-gray-500">No configuration</p>
+                                    <p class="font-semibold text-[#E5E7EB] truncate">{{if .Name}}{{.Name}}{{else}}{{.}}{{end}}</p>
+                                    <p class="text-xs text-[#94A3B8]">No configuration</p>
                                 </div>
                             </div>              
                             {{end}}
@@ -113,11 +109,11 @@
             {{ $modelsN = add $modelsN (len .Models)}}
             <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="mb-4 md:mb-0">
-                    <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
                         Installed Models
                     </h2>
-                    <p class="text-gray-400">
-                        <span class="text-blue-400 font-semibold">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
+                    <p class="text-[#94A3B8]">
+                        <span class="text-[#38BDF8] font-semibold">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
                     </p>
                 </div>
             </div>
@@ -130,11 +126,11 @@
                 {{ range .ModelsConfig }}
                 {{ $backendCfg := . }}
                 {{ $cfg:= index $galleryConfig .Name}}
-                <div class="group relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-2xl hover:shadow-blue-500/10 hover:-translate-y-2 hover:border-blue-500/30">
+                <div class="group relative bg-[#1E293B] border border-[#1E293B] rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-[0_0_20px_rgba(56,189,248,0.2)] hover:-translate-y-2 hover:border-[#38BDF8]/50">
                     <!-- Card Header -->
-                    <div class="relative p-6 border-b border-gray-700/50">
+                    <div class="relative p-6 border-b border-[#101827]">
                         <div class="flex items-start space-x-4">
-                            <div class="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-gray-700/50 to-gray-800/50 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                            <div class="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#101827] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
                                 <img {{ if and $cfg $cfg.Icon }}
                                     src="{{$cfg.Icon}}"
                                     {{ else }}
@@ -144,37 +140,37 @@
                                     alt="{{.Name}} icon"
                                 >
                                 {{ if index $loadedModels .Name }}
-                                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-gray-800 animate-pulse"></div>
+                                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#1E293B] animate-pulse"></div>
                                 {{ end }}
                             </div>
                             
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center justify-between">
-                                    <h3 class="font-bold text-xl text-white truncate group-hover:text-blue-300 transition-colors">{{.Name}}</h3>
-                                    <a href="browse?term={{.Name}}" class="text-gray-400 hover:text-blue-400 transition-colors p-1 rounded-lg hover:bg-blue-500/10" title="Search for similar models">
+                                    <h3 class="font-bold text-xl text-[#E5E7EB] truncate group-hover:text-[#38BDF8] transition-colors">{{.Name}}</h3>
+                                    <a href="browse?term={{.Name}}" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1 rounded-lg hover:bg-[#38BDF8]/10" title="Search for similar models">
                                         <i class="fas fa-search text-sm"></i>
                                     </a>
                                 </div>
                                 
                                 <div class="mt-2 flex flex-wrap gap-2">
                                     {{ if .Backend }}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#38BDF8]/20 text-[#38BDF8] border border-[#38BDF8]/30">
                                         <i class="fas fa-cog mr-1"></i>{{.Backend}}
                                     </span>
                                     {{ else }}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
                                         <i class="fas fa-magic mr-1"></i>Auto
                                     </span>
                                     {{ end }}
 
                                     {{ if and $backendCfg (or (ne $backendCfg.MCP.Servers "") (ne $backendCfg.MCP.Stdio ""))  }}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30">
                                         <i class="fas fa-plug mr-1"></i>MCP
                                     </span>
                                     {{ end }}
                                     
                                     {{ if index $loadedModels .Name }}
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-300 border border-green-500/30">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-300 border border-green-500/30">
                                         <i class="fas fa-play mr-1"></i>Running
                                     </span>
                                     {{ end }}
@@ -188,19 +184,19 @@
                         <div class="flex flex-wrap gap-2 mb-4">
                             {{ range .KnownUsecaseStrings }}
                             {{ if eq . "FLAG_CHAT" }}
-                                <a href="chat/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/chat inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25">
+                                <a href="chat/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/chat inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_15px_rgba(56,189,248,0.4)]">
                                     <i class="fas fa-comment-alt mr-2 group-hover/chat:animate-bounce"></i>
                                     Chat
                                 </a>
                             {{ end }}
                             {{ if eq . "FLAG_IMAGE" }}
-                                <a href="text2image/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/image inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25">
+                                <a href="text2image/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/image inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]">
                                     <i class="fas fa-image mr-2 group-hover/image:animate-pulse"></i>
                                     Image
                                 </a>
                             {{ end }}
                             {{ if eq . "FLAG_TTS" }}
-                                <a href="tts/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/tts inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25">
+                                <a href="tts/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/tts inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]">
                                     <i class="fas fa-microphone mr-2 group-hover/tts:animate-pulse"></i>
                                     TTS
                                 </a>
@@ -209,7 +205,7 @@
                         </div>
                         
                         <!-- Action Buttons -->
-                        <div class="flex justify-between items-center pt-4 border-t border-gray-700/30">
+                        <div class="flex justify-between items-center pt-4 border-t border-[#101827]">
                             <div class="flex gap-2">
                                 {{ if index $loadedModels .Name }}
                                 <button class="group/stop inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg px-3 py-2 transition-all duration-200"
@@ -222,7 +218,7 @@
                             
                             <div class="flex gap-2">
                                 <a href="/models/edit/{{.Name}}" 
-                                   class="group/edit inline-flex items-center text-sm font-semibold text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg px-3 py-2 transition-all duration-200">
+                                   class="group/edit inline-flex items-center text-sm font-semibold text-[#38BDF8] hover:text-[#8B5CF6] hover:bg-[#38BDF8]/10 rounded-lg px-3 py-2 transition-all duration-200">
                                     <i class="fas fa-edit mr-2 group-hover/edit:animate-pulse"></i>Edit
                                 </a>
                                 <button
@@ -239,26 +235,26 @@
                 
                 <!-- Models without config -->
                 {{ range .Models }}
-                <div class="group relative bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-gray-700/50 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-xl hover:shadow-yellow-500/5 hover:-translate-y-1 hover:border-yellow-500/30">
+                <div class="group relative bg-[#1E293B]/80 border border-[#1E293B] rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:-translate-y-1 hover:border-yellow-500/30">
                     <div class="p-6">
                         <div class="flex items-start space-x-4">
-                            <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-gradient-to-br from-gray-700/50 to-gray-800/50 flex items-center justify-center">
-                                <i class="fas fa-brain text-2xl text-gray-400"></i>
+                            <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#101827] flex items-center justify-center">
+                                <i class="fas fa-brain text-2xl text-[#94A3B8]"></i>
                             </div>
                             <div class="flex-1 min-w-0">
-                                <h3 class="font-bold text-xl text-white truncate mb-2">{{.}}</h3>
+                                <h3 class="font-bold text-xl text-[#E5E7EB] truncate mb-2">{{.}}</h3>
                                 
                                 <div class="flex flex-wrap gap-2 mb-4">
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
                                         <i class="fas fa-magic mr-1"></i>Auto Backend
                                     </span>
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/20 text-orange-300 border border-orange-500/30">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-300 border border-orange-500/30">
                                         <i class="fas fa-exclamation-triangle mr-1"></i>No Config
                                     </span>
                                 </div>
                                 
                                 <div class="flex justify-center pt-4">
-                                    <span class="inline-flex items-center text-sm font-medium text-gray-400 px-4 py-2 bg-gray-700/30 rounded-lg">
+                                    <span class="inline-flex items-center text-sm font-medium text-[#94A3B8] px-4 py-2 bg-[#101827]/50 rounded-lg">
                                         <i class="fas fa-info-circle mr-2"></i>
                                         Configuration required for full functionality
                                     </span>
@@ -274,11 +270,11 @@
 
         <div class="mt-8 flex flex-col md:flex-row md:items-center md:justify-between">
             <div class="mb-4 md:mb-0">
-                <h2 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
                     Installed Backends
                 </h2>
-                <p class="text-gray-400">
-                    <span class="text-blue-400 font-semibold">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
+                <p class="text-[#94A3B8]">
+                    <span class="text-[#38BDF8] font-semibold">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
                 </p>
             </div>
         </div>
