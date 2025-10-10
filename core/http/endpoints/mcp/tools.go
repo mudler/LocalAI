@@ -62,6 +62,7 @@ func SessionsFromMCPConfig(
 		}
 		log.Debug().Msgf("[MCP remote server] Connected to MCP server %s", server.URL)
 		cache.cache[name] = append(cache.cache[name], mcpSession)
+		allSessions = append(allSessions, mcpSession)
 	}
 
 	for _, server := range stdio.Servers {
@@ -79,6 +80,7 @@ func SessionsFromMCPConfig(
 		}
 		log.Debug().Msgf("[MCP stdio server] Connected to MCP server %s", command)
 		cache.cache[name] = append(cache.cache[name], mcpSession)
+		allSessions = append(allSessions, mcpSession)
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {
