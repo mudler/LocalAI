@@ -44,8 +44,6 @@ Model sizes vary significantly depending on the model and quantization level:
 - Use SSD storage for better performance
 - Consider the model size relative to your system RAM - models larger than your RAM may not run efficiently
 
-The WebUI shows model sizes in the Models tab to help you choose appropriate models for your system.
-
 ### Benchmarking LocalAI and llama.cpp shows different results!
 
 LocalAI applies a set of defaults when loading models with the llama.cpp backend, one of these is mirostat sampling - while it achieves better results, it slows down the inference. You can disable this by setting `mirostat: 0` in the model config file. See also the advanced section ({{%relref "docs/advanced/advanced-usage" %}}) for more information and [this issue](https://github.com/mudler/LocalAI/issues/2780).
