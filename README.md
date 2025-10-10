@@ -118,6 +118,13 @@ For more installation options, see [Installer Options](https://localai.io/docs/a
 
 Or run with docker:
 
+> **💡 Docker Run vs Docker Start**
+> 
+> - `docker run` creates and starts a new container. If a container with the same name already exists, this command will fail.
+> - `docker start` starts an existing container that was previously created with `docker run`.
+> 
+> If you've already run LocalAI before and want to start it again, use: `docker start -i local-ai`
+
 ### CPU only image:
 
 ```bash

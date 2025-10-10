@@ -16,6 +16,36 @@ Here are answers to some of the most common questions.
 
 Most gguf-based models should work, but newer models may require additions to the API. If a model doesn't work, please feel free to open up issues. However, be cautious about downloading models from the internet and directly onto your machine, as there may be security vulnerabilities in lama.cpp or ggml that could be maliciously exploited. Some models can be found on Hugging Face: https://huggingface.co/models?search=gguf, or models from gpt4all are compatible too: https://github.com/nomic-ai/gpt4all.
 
+### Where are models stored?
+
+LocalAI stores downloaded models in the following locations by default:
+
+- **Command line**: `./models` (relative to current working directory)
+- **Docker**: `/models` (inside the container, typically mounted to `./models` on host)
+- **Launcher application**: `~/.localai/models` (in your home directory)
+
+You can customize the model storage location using the `LOCALAI_MODELS_PATH` environment variable or `--models-path` command line flag. This is useful if you want to store models outside your home directory for backup purposes or to avoid filling up your home directory with large model files.
+
+### How much storage space do models require?
+
+Model sizes vary significantly depending on the model and quantization level:
+
+- **Small models (1-3B parameters)**: 1-3 GB
+- **Medium models (7-13B parameters)**: 4-8 GB  
+- **Large models (30B+ parameters)**: 15-30+ GB
+
+**Quantization levels** (smaller files, slightly reduced quality):
+- `Q4_K_M`: ~75% of original size
+- `Q4_K_S`: ~60% of original size
+- `Q2_K`: ~50% of original size
+
+**Storage recommendations**:
+- Ensure you have at least 2-3x the model size available for downloads and temporary files
+- Use SSD storage for better performance
+- Consider the model size relative to your system RAM - models larger than your RAM may not run efficiently
+
+The WebUI shows model sizes in the Models tab to help you choose appropriate models for your system.
+
 ### Benchmarking LocalAI and llama.cpp shows different results!
 
 LocalAI applies a set of defaults when loading models with the llama.cpp backend, one of these is mirostat sampling - while it achieves better results, it slows down the inference. You can disable this by setting `mirostat: 0` in the model config file. See also the advanced section ({{%relref "docs/advanced/advanced-usage" %}}) for more information and [this issue](https://github.com/mudler/LocalAI/issues/2780).
