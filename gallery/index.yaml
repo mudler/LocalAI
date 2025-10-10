@@ -20767,7 +20767,7 @@
       uri: "huggingface://ggerganov/whisper.cpp/ggml-small.en-q5_1.bin"
       sha256: bfdff4894dcb76bbf647d56263ea2a96645423f1669176f4844a1bf8e478ad30
 - !!merge <<: *whisper
-  name: "whisper-small"
+  name: "whisper-small-en"
   overrides:
     parameters:
       model: ggml-small.en.bin
