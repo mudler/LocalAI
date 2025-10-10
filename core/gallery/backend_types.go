@@ -1,6 +1,8 @@
 package gallery
 
 import (
+	"fmt"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
@@ -71,4 +73,8 @@ func (m *GalleryBackend) GetDescription() string {
 
 func (m *GalleryBackend) GetTags() []string {
 	return m.Tags
+}
+
+func (m GalleryBackend) ID() string {
+	return fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
 }

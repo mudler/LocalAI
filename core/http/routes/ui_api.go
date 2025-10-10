@@ -159,15 +159,25 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			models = models.Paginate(pageNum, itemsNum)
 		}
 
-		// Convert models to JSON-friendly format
+		// Convert models to JSON-friendly format and deduplicate by ID
 		modelsJSON := make([]fiber.Map, 0, len(models))
+		seenIDs := make(map[string]bool)
+
 		for _, m := range models {
-			galleryID := fmt.Sprintf("%s@%s", m.Gallery.Name, m.Name)
-			currentlyProcessing := opcache.Exists(galleryID)
+			modelID := m.ID()
+
+			// Skip duplicate IDs to prevent Alpine.js x-for errors
+			if seenIDs[modelID] {
+				log.Debug().Msgf("Skipping duplicate model ID: %s", modelID)
+				continue
+			}
+			seenIDs[modelID] = true
+
+			currentlyProcessing := opcache.Exists(modelID)
 			jobID := ""
 			isDeletionOp := false
 			if currentlyProcessing {
-				jobID = opcache.Get(galleryID)
+				jobID = opcache.Get(modelID)
 				status := galleryService.GetStatus(jobID)
 				if status != nil && status.Deletion {
 					isDeletionOp = true
@@ -177,7 +187,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			_, trustRemoteCodeExists := m.Overrides["trust_remote_code"]
 
 			modelsJSON = append(modelsJSON, fiber.Map{
-				"id":              m.ID(),
+				"id":              modelID,
 				"name":            m.Name,
 				"description":     m.Description,
 				"icon":            m.Icon,
@@ -430,15 +440,25 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			backends = backends.Paginate(pageNum, itemsNum)
 		}
 
-		// Convert backends to JSON-friendly format
+		// Convert backends to JSON-friendly format and deduplicate by ID
 		backendsJSON := make([]fiber.Map, 0, len(backends))
+		seenBackendIDs := make(map[string]bool)
+
 		for _, b := range backends {
-			galleryID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
-			currentlyProcessing := opcache.Exists(galleryID)
+			backendID := b.ID()
+
+			// Skip duplicate IDs to prevent Alpine.js x-for errors
+			if seenBackendIDs[backendID] {
+				log.Debug().Msgf("Skipping duplicate backend ID: %s", backendID)
+				continue
+			}
+			seenBackendIDs[backendID] = true
+
+			currentlyProcessing := opcache.Exists(backendID)
 			jobID := ""
 			isDeletionOp := false
 			if currentlyProcessing {
-				jobID = opcache.Get(galleryID)
+				jobID = opcache.Get(backendID)
 				status := galleryService.GetStatus(jobID)
 				if status != nil && status.Deletion {
 					isDeletionOp = true
@@ -446,7 +466,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			}
 
 			backendsJSON = append(backendsJSON, fiber.Map{
-				"id":          galleryID,
+				"id":          backendID,
 				"name":        b.Name,
 				"description": b.Description,
 				"icon":        b.Icon,
