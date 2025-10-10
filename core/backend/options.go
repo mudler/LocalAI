@@ -129,7 +129,6 @@ func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 		triggers = append(triggers, &pb.GrammarTrigger{
 			Word: t.Word,
 		})
-
 	}
 
 	return &pb.ModelOptions{
