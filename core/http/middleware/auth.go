@@ -3,12 +3,14 @@ package middleware
 import (
 	"crypto/subtle"
 	"errors"
+	"strings"
 
 	"github.com/dave-gray101/v2keyauth"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/keyauth"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/schema"
 )
 
 // This file contains the configuration generators and handler functions that are used along with the fiber/keyauth middleware
@@ -40,6 +42,19 @@ func getApiKeyErrorHandler(applicationConfig *config.ApplicationConfig) fiber.Er
 			if applicationConfig.OpaqueErrors {
 				return ctx.SendStatus(401)
 			}
+
+			// Check if the request content type is JSON
+			contentType := string(ctx.Context().Request.Header.ContentType())
+			if strings.Contains(contentType, "application/json") {
+				return ctx.Status(401).JSON(schema.ErrorResponse{
+					Error: &schema.APIError{
+						Message: "An authentication key is required",
+						Code:    401,
+						Type:    "invalid_request_error",
+					},
+				})
+			}
+
 			return ctx.Status(401).Render("views/login", fiber.Map{
 				"BaseURL": utils.BaseURL(ctx),
 			})
