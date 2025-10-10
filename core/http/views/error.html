@@ -2,33 +2,33 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<body class="bg-[#101827] text-[#E5E7EB]">
 <div class="flex flex-col min-h-screen">
 
     {{template "views/partials/navbar" .}}
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Error Section -->
-        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+        <div class="bg-[#1E293B] border border-red-500/20 rounded-2xl shadow-2xl shadow-red-500/10 p-8 mb-10">
             <div class="max-w-4xl mx-auto text-center">
-                <div class="mb-6 text-6xl text-blue-400">
+                <div class="mb-6 text-6xl text-red-400 animate-pulse">
                     <i class="fas fa-exclamation-circle"></i>
                 </div>
-                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-red-600">
                         {{if .ErrorCode}}{{.ErrorCode}}{{else}}Error{{end}}
                     </span>
                 </h1>
-                <p class="text-xl text-gray-300 mb-6">{{if .ErrorMessage}}{{.ErrorMessage}}{{else}}An unexpected error occurred{{end}}</p>
+                <p class="text-xl text-[#94A3B8] mb-6">{{if .ErrorMessage}}{{.ErrorMessage}}{{else}}An unexpected error occurred{{end}}</p>
                 <div class="flex flex-wrap justify-center gap-4">
                     <a href="./" 
-                       class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                       class="group flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
                         <i class="fas fa-home mr-2"></i>
                         <span>Return Home</span>
                         <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
                     <a href="browse" 
-                       class="group flex items-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                       class="group flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                         <i class="fas fa-images mr-2"></i>
                         <span>Browse Gallery</span>
                         <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
@@ -38,13 +38,13 @@
         </div>
 
         <!-- Additional Information -->
-        <div class="bg-gray-800/50 border border-gray-700/50 rounded-xl p-8 shadow-md backdrop-blur-sm">
+        <div class="bg-[#1E293B]/80 border border-[#1E293B] rounded-xl p-8 shadow-lg backdrop-blur-sm">
             <div class="text-center max-w-3xl mx-auto">
-                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/20 mb-4">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
                     <i class="text-yellow-400 text-2xl fa-solid fa-triangle-exclamation"></i>
                 </div>
-                <h2 class="text-2xl md:text-3xl font-semibold text-gray-100 mb-4">Need help?</h2>
-                <p class="text-lg text-gray-300 mb-6">Visit our <a class="text-blue-400 hover:text-blue-300 underline underline-offset-2" href="browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-blue-400 hover:text-blue-300 underline underline-offset-2"> <i class="fa-solid fa-book"></i> Getting started documentation</a></p>
+                <h2 class="text-2xl md:text-3xl font-semibold text-[#E5E7EB] mb-4">Need help?</h2>
+                <p class="text-lg text-[#94A3B8] mb-6">Visit our <a class="text-[#38BDF8] hover:text-[#8B5CF6] underline underline-offset-2 transition-colors" href="browse">🖼️ Gallery</a> or check the <a href="https://localai.io/basics/getting_started/" class="text-[#38BDF8] hover:text-[#8B5CF6] underline underline-offset-2 transition-colors"> <i class="fa-solid fa-book"></i> Getting started documentation</a></p>
             </div>
         </div>
     </div>

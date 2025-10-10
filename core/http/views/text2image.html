@@ -3,30 +3,30 @@
 {{template "views/partials/head" .}}
 <script defer src="static/image.js"></script>
 
-<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<body class="bg-[#101827] text-[#E5E7EB]">
 <div class="flex flex-col min-h-screen">
    
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 py-8 flex-grow" x-data="{ component: 'menu' }">
     
         <!-- Hero Section -->
-        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-6">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-2xl shadow-2xl shadow-[#38BDF8]/10 p-8 mb-6">
             <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
                         Image Generation {{ if .Model }} with {{.Model}} {{ end }}
                     </span>
                 </h1>
-                <p class="text-xl text-gray-300 mb-6">Create stunning images from text descriptions</p>
+                <p class="text-xl text-[#94A3B8] mb-6">Create stunning images from text descriptions</p>
                 <div class="flex flex-wrap justify-center gap-4">
                     <a href="https://localai.io/features/image-generation/" target="_blank" 
-                       class="group flex items-center bg-blue-600 hover:bg-blue-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                       class="group flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
                         <i class="fas fa-book-reader mr-2"></i>
                         <span>Documentation</span>
                         <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
                     <a href="browse" 
-                       class="group flex items-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                       class="group flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
                         <i class="fas fa-images mr-2"></i>
                         <span>Gallery</span>
                         <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
@@ -36,28 +36,28 @@
         </div>
       
         <!-- Model Selection - Positioned between hero and generation form -->
-        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl p-5 mb-6 shadow-lg">
+        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-5 mb-6 shadow-lg">
             <div class="flex items-center">
-                <div class="text-lg font-medium text-blue-400 mr-4">
+                <div class="text-lg font-medium text-[#38BDF8] mr-4">
                     <i class="fas fa-palette mr-2"></i>Select Model:
                 </div>
                 <div class="flex-grow">
                     <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
                         id="model-select"
-                        class="bg-gray-900 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-lg shadow-sm p-2.5 pr-10 appearance-none w-full max-w-md transition-colors duration-200"
+                        class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-lg shadow-sm p-2.5 pr-10 appearance-none w-full max-w-md transition-colors duration-200"
                     >	
-                        <option value="" disabled class="text-gray-400">Select a model</option>
+                        <option value="" disabled class="text-[#94A3B8]">Select a model</option>
                         {{ $model:=.Model}}
                         {{ range .ModelsConfig }}
                           {{ $cfg := . }}
                           {{ range .KnownUsecaseStrings }}
                             {{ if eq . "FLAG_IMAGE" }}
-                                <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-gray-800 text-white">{{$cfg.Name}}</option>
+                                <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[#101827] text-[#E5E7EB]">{{$cfg.Name}}</option>
                             {{ end }}
                           {{ end }}
                         {{ end }}
                         {{ range .ModelsWithoutConfig }}
-                            <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-gray-800 text-white">{{.}}</option>
+                            <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[#101827] text-[#E5E7EB]">{{.}}</option>
                         {{end}}
                     </select>
                 </div>
@@ -65,15 +65,15 @@
         </div>
             
         <!-- Image Generation Form -->
-        <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl p-6 shadow-lg backdrop-blur-sm">
-            <h2 class="text-2xl font-bold text-white mb-6">Generate an Image</h2>
+        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-6 shadow-lg backdrop-blur-sm">
+            <h2 class="text-2xl font-bold text-[#E5E7EB] mb-6">Generate an Image</h2>
             
             <div class="relative">
                 <input id="image-model" type="hidden" value="{{.Model}}">
                 <form id="genimage" action="text2image/{{.Model}}" method="get" class="mb-8">
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 flex items-center pl-4">
-                            <i class="fas fa-magic text-blue-400"></i>
+                            <i class="fas fa-magic text-[#38BDF8]"></i>
                         </div>
                         <input
                             type="text"
@@ -81,11 +81,11 @@
                             name="input"
                             placeholder="Describe the image you want to generate..."
                             autocomplete="off"
-                            class="form-control block w-full pl-12 pr-12 py-4 text-lg font-normal text-gray-300 bg-gray-900/80 bg-clip-padding border border-gray-700/70 rounded-lg transition ease-in-out focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 focus:outline-none"
+                            class="form-control block w-full pl-12 pr-12 py-4 text-lg font-normal text-[#E5E7EB] bg-[#101827] bg-clip-padding border border-[#1E293B] rounded-lg transition ease-in-out focus:text-[#E5E7EB] focus:bg-[#101827] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 focus:outline-none"
                             required
                         />
                         <span id="loader" class="my-2 loader absolute right-4 top-4 hidden">
-                            <svg class="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin h-6 w-6 text-[#38BDF8]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -94,15 +94,15 @@
                     
                     <!-- Size Selection -->
                     <div class="mt-4">
-                        <label for="image-size" class="block text-sm font-medium text-gray-300 mb-2">
-                            <i class="fas fa-expand-arrows-alt mr-2"></i>Image Size:
+                        <label for="image-size" class="block text-sm font-medium text-[#94A3B8] mb-2">
+                            <i class="fas fa-expand-arrows-alt mr-2 text-[#38BDF8]"></i>Image Size:
                         </label>
                         <input
                             type="text"
                             id="image-size"
                             value="256x256"
                             placeholder="e.g., 256x256, 512x512, 1024x1024"
-                            class="bg-gray-900 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-lg shadow-sm p-2.5 w-full max-w-xs transition-colors duration-200"
+                            class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-lg shadow-sm p-2.5 w-full max-w-xs transition-colors duration-200"
                         />
                     </div>
                     
@@ -110,7 +110,7 @@
                     <div class="mt-6">
                         <button
                             type="submit"
-                            class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+                            class="w-full bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)] focus:outline-none focus:ring-2 focus:ring-[#38BDF8] focus:ring-opacity-50"
                         >
                             <i class="fas fa-magic mr-2"></i>Generate Image
                         </button>
@@ -118,11 +118,11 @@
                 </form>
                 
                 <!-- Image Results Container -->
-                <div class="mt-6 border-t border-gray-700/50 pt-6">
-                    <h3 class="text-xl font-semibold text-gray-200 mb-4">Generated Image</h3>
+                <div class="mt-6 border-t border-[#1E293B] pt-6">
+                    <h3 class="text-xl font-semibold text-[#E5E7EB] mb-4">Generated Image</h3>
                     <div class="container mx-auto flex justify-center">
-                        <div id="result" class="mx-auto bg-gray-900/50 border border-gray-700/50 rounded-xl p-4 min-h-[300px] w-full flex items-center justify-center">
-                            <p class="text-gray-400 italic">Your generated image will appear here</p>
+                        <div id="result" class="mx-auto bg-[#101827]/50 border border-[#1E293B] rounded-xl p-4 min-h-[300px] w-full flex items-center justify-center">
+                            <p class="text-[#94A3B8] italic">Your generated image will appear here</p>
                         </div>
                     </div>
                 </div>

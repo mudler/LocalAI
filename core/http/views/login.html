@@ -2,43 +2,43 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200">
+<body class="bg-[#101827] text-[#E5E7EB]">
 <div class="flex flex-col min-h-screen">
 
     {{template "views/partials/navbar" .}}
 
     <div class="container mx-auto px-4 py-8 flex-grow flex items-center justify-center">
         <!-- Auth Card -->
-        <div class="max-w-md w-full bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden shadow-xl">
+        <div class="max-w-md w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl overflow-hidden shadow-2xl shadow-[#38BDF8]/10">
             <div class="animation-container">
                 <div class="text-overlay">
-                    <img src="static/logo.png" alt="LocalAI Logo" class="h-32">
+                    <img src="static/logo.png" alt="LocalAI Logo" class="h-32 drop-shadow-[0_0_15px_rgba(56,189,248,0.3)]">
                 </div>
             </div>
             
             <div class="p-8">
                 <div class="text-center mb-6">
-                    <h2 class="text-2xl font-bold text-white">
-                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+                    <h2 class="text-2xl font-bold text-[#E5E7EB]">
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
                             Authorization Required
                         </span>
                     </h2>
-                    <p class="text-gray-400 mt-2">Please enter your access token to continue</p>
+                    <p class="text-[#94A3B8] mt-2">Please enter your access token to continue</p>
                 </div>
                 
                 <form id="login-form" class="space-y-6" onsubmit="login(); return false;">
                     <div>
-                        <label for="token" class="block text-sm font-medium text-gray-300 mb-2">Access Token</label>
+                        <label for="token" class="block text-sm font-medium text-[#94A3B8] mb-2">Access Token</label>
                         <div class="relative">
                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <i class="fas fa-key text-gray-500"></i>
+                                <i class="fas fa-key text-[#38BDF8]"></i>
                             </div>
                             <input 
                                 type="password" 
                                 id="token" 
                                 name="token" 
                                 placeholder="Enter your token" 
-                                class="bg-gray-700/50 border border-gray-600 text-white placeholder-gray-400 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full pl-10 p-2.5"
+                                class="bg-[#101827] border border-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] text-sm rounded-lg focus:ring-[#38BDF8] focus:border-[#38BDF8] focus:ring-2 block w-full pl-10 p-2.5 transition-all"
                                 required
                             />
                         </div>
@@ -47,7 +47,7 @@
                     <div>
                         <button 
                             type="submit" 
-                            class="group w-full flex items-center justify-center bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-[1.02] hover:shadow-lg font-medium"
+                            class="group w-full flex items-center justify-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-[1.02] hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]"
                         >
                             <i class="fas fa-sign-in-alt mr-2"></i>
                             <span>Login</span>
@@ -56,9 +56,9 @@
                     </div>
                 </form>
                 
-                <div class="mt-8 pt-6 border-t border-gray-700/50 text-center text-sm text-gray-400">
+                <div class="mt-8 pt-6 border-t border-[#1E293B] text-center text-sm text-[#94A3B8]">
                     <div class="flex items-center justify-center mb-2">
-                        <i class="fas fa-shield-alt mr-2 text-blue-400"></i>
+                        <i class="fas fa-shield-alt mr-2 text-[#38BDF8]"></i>
                         <span>Instance is token protected</span>
                     </div>
                     <p>Current time (UTC): <span id="current-time">{{.CurrentDate}}</span></p>
@@ -77,11 +77,11 @@
             // Show error with fading effect
             const form = document.getElementById('login-form');
             const errorMsg = document.createElement('div');
-            errorMsg.className = 'p-3 mt-4 bg-red-900/50 text-red-200 rounded-lg border border-red-700/50 text-sm flex items-center';
+            errorMsg.className = 'p-3 mt-4 bg-red-500/10 text-red-300 rounded-lg border border-red-500/30 text-sm flex items-center';
             errorMsg.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> Please enter a valid token';
             
             // Remove any existing error message
-            const existingError = form.querySelector('.bg-red-900/50');
+            const existingError = form.querySelector('[class*="bg-red-"]');
             if (existingError) form.removeChild(existingError);
             
             // Add new error message with animation
@@ -103,7 +103,7 @@
         const originalContent = button.innerHTML;
         button.disabled = true;
         button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Authenticating...';
-        button.classList.add('bg-gray-600');
+        button.classList.add('opacity-75');
         
         // Reload after short delay to show loading state
         setTimeout(() => {

@@ -2,49 +2,49 @@
 <html lang="en">
   {{template "views/partials/head" .}}
   <script defer src="static/talk.js"></script>
-  <body class="bg-gradient-to-br from-gray-900 to-gray-950 text-gray-200" x-data="{ key: $store.chat.key }">
+  <body class="bg-[#101827] text-[#E5E7EB]" x-data="{ key: $store.chat.key }">
     <div class="flex flex-col min-h-screen">
 
       {{template "views/partials/navbar" .}}
 
       <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Section -->
-        <div class="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 rounded-2xl shadow-xl p-8 mb-10">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-2xl shadow-2xl shadow-[#38BDF8]/10 p-8 mb-10">
           <div class="max-w-4xl mx-auto text-center">
-            <h1 class="text-4xl md:text-5xl font-bold text-white mb-4">
-              <span class="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-400">
+            <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
+              <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
                 <i class="fas fa-comments mr-2"></i>Talk Interface
               </span>
             </h1>
-            <p class="text-xl text-gray-300 mb-6">Speak with your AI models using voice interaction</p>
+            <p class="text-xl text-[#94A3B8] mb-6">Speak with your AI models using voice interaction</p>
           </div>
         </div>
 
         <!-- Talk Interface -->
         <div class="max-w-3xl mx-auto">
-          <div class="bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 shadow-lg shadow-blue-900/20">
+          <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl overflow-hidden transition-all duration-300 shadow-lg">
             <!-- Talk Interface Body -->
             <div class="p-6">
               <!-- Recording Status -->
-              <div id="recording" class="bg-red-900/20 border border-red-700/50 rounded-lg p-4 mb-4 flex items-center space-x-3" style="display: none;">
+              <div id="recording" class="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4 flex items-center space-x-3" style="display: none;">
                 <i class="fa-solid fa-microphone text-2xl text-red-400 animate-pulse"></i>
-                <span class="text-red-200 font-medium">Recording... press "Stop recording" to stop</span>
+                <span class="text-red-300 font-medium">Recording... press "Stop recording" to stop</span>
               </div>
               
               <!-- Loader -->
               <div id="loader" class="my-4 flex justify-center" style="display: none;">
-                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-blue-500"></div>
+                <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#38BDF8]"></div>
               </div>
               
               <!-- Status Text -->
-              <div id="statustext" class="my-4 p-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-gray-200" style="min-height: 3rem;">Press the record button to start recording.</div>
+              <div id="statustext" class="my-4 p-3 bg-[#101827]/50 border border-[#1E293B] rounded-lg text-[#E5E7EB]" style="min-height: 3rem;">Press the record button to start recording.</div>
               
               <!-- Note -->
-              <div class="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mb-6">
+              <div class="bg-[#38BDF8]/10 border border-[#38BDF8]/20 rounded-lg p-4 mb-6">
                 <div class="flex items-start">
-                  <i class="fas fa-info-circle text-blue-400 mt-1 mr-3 flex-shrink-0"></i>
-                  <p class="text-gray-300">
-                    <strong class="text-blue-300">Note:</strong> You need an LLM, an audio-transcription (whisper), and a TTS model installed for this to work. Select the appropriate models below and click 'Talk' to start recording. The recording will continue until you click 'Stop recording'. Make sure your microphone is set up and enabled.
+                  <i class="fas fa-info-circle text-[#38BDF8] mt-1 mr-3 flex-shrink-0"></i>
+                  <p class="text-[#94A3B8]">
+                    <strong class="text-[#38BDF8]">Note:</strong> You need an LLM, an audio-transcription (whisper), and a TTS model installed for this to work. Select the appropriate models below and click 'Talk' to start recording. The recording will continue until you click 'Stop recording'. Make sure your microphone is set up and enabled.
                   </p>
                 </div>
               </div>
@@ -53,42 +53,42 @@
               <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <!-- LLM Model -->
                 <div class="space-y-2">
-                  <label for="modelSelect" class="flex items-center text-gray-200 font-medium">
-                    <i class="fas fa-brain text-blue-400 mr-2"></i>LLM Model
+                  <label for="modelSelect" class="flex items-center text-[#94A3B8] font-medium">
+                    <i class="fas fa-brain text-[#38BDF8] mr-2"></i>LLM Model
                   </label>
                   <select id="modelSelect" 
-                    class="w-full bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-2.5 appearance-none">
-                    <option value="" disabled class="text-gray-400">Select a model</option>
+                    class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-lg shadow-sm p-2.5 appearance-none">
+                    <option value="" disabled class="text-[#94A3B8]">Select a model</option>
                     {{ range .ModelsConfig }}
-                    <option value="{{.}}" class="bg-gray-700 text-white">{{.}}</option>
+                    <option value="{{.}}" class="bg-[#101827] text-[#E5E7EB]">{{.}}</option>
                     {{ end }}
                   </select>
                 </div>
                 
                 <!-- Whisper Model -->
                 <div class="space-y-2">
-                  <label for="whisperModelSelect" class="flex items-center text-gray-200 font-medium">
-                    <i class="fas fa-ear-listen text-purple-400 mr-2"></i>Whisper Model
+                  <label for="whisperModelSelect" class="flex items-center text-[#94A3B8] font-medium">
+                    <i class="fas fa-ear-listen text-[#8B5CF6] mr-2"></i>Whisper Model
                   </label>
                   <select id="whisperModelSelect" 
-                    class="w-full bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-2.5 appearance-none">
-                    <option value="" disabled class="text-gray-400">Select a model</option>
+                    class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 rounded-lg shadow-sm p-2.5 appearance-none">
+                    <option value="" disabled class="text-[#94A3B8]">Select a model</option>
                     {{ range .ModelsConfig }}
-                    <option value="{{.}}" class="bg-gray-700 text-white">{{.}}</option>
+                    <option value="{{.}}" class="bg-[#101827] text-[#E5E7EB]">{{.}}</option>
                     {{ end }}
                   </select>
                 </div>
                 
                 <!-- TTS Model -->
                 <div class="space-y-2">
-                  <label for="ttsModelSelect" class="flex items-center text-gray-200 font-medium">
+                  <label for="ttsModelSelect" class="flex items-center text-[#94A3B8] font-medium">
                     <i class="fas fa-volume-high text-green-400 mr-2"></i>TTS Model
                   </label>
                   <select id="ttsModelSelect" 
-                    class="w-full bg-gray-800 text-white border border-gray-700 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-30 rounded-lg shadow-sm p-2.5 appearance-none">
-                    <option value="" disabled class="text-gray-400">Select a model</option>
+                    class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-green-500 focus:ring-2 focus:ring-green-500/50 rounded-lg shadow-sm p-2.5 appearance-none">
+                    <option value="" disabled class="text-[#94A3B8]">Select a model</option>
                     {{ range .ModelsConfig }}
-                    <option value="{{.}}" class="bg-gray-700 text-white">{{.}}</option>
+                    <option value="{{.}}" class="bg-[#101827] text-[#E5E7EB]">{{.}}</option>
                     {{ end }}
                   </select>
                 </div>
@@ -97,14 +97,14 @@
               <!-- Buttons -->
               <div class="flex items-center justify-between mt-8">
                 <button id="recordButton" 
-                  class="group flex items-center bg-red-600 hover:bg-red-700 text-white py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-lg">
+                  class="group flex items-center bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]">
                   <i class="fas fa-microphone mr-2"></i>
                   <span>Talk</span>
                   <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                 </button>
                 
                 <a id="resetButton" 
-                  class="flex items-center text-blue-400 hover:text-blue-300 transition duration-200" 
+                  class="flex items-center text-[#38BDF8] hover:text-[#8B5CF6] transition duration-200" 
                   href="#">
                   <i class="fas fa-rotate-right mr-2"></i>
                   <span>Reset conversation</span>

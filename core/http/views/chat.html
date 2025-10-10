@@ -36,21 +36,21 @@ SOFTWARE.
   </script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-slate-900 text-gray-100 flex flex-col h-screen" x-data="{ sidebarOpen: true }">
+  <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ sidebarOpen: true }">
     {{template "views/partials/navbar" .}}
 
     <!-- Main container with sidebar toggle -->
     <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
       <div 
-        class="sidebar bg-gray-800 fixed top-16 bottom-0 left-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-r border-gray-700 overflow-y-auto"
+        class="sidebar bg-[#1E293B] fixed top-16 bottom-0 left-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
         
-        <div class="p-4 flex justify-between items-center border-b border-gray-700">
-          <h2 class="text-lg font-semibold">Chat Settings</h2>
+        <div class="p-4 flex justify-between items-center border-b border-[#101827]">
+          <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
           <button 
             @click="sidebarOpen = false"
-            class="text-gray-400 hover:text-white focus:outline-none">
+            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
             <i class="fa-solid fa-times"></i>
           </button>
         </div>
@@ -59,13 +59,13 @@ SOFTWARE.
         <div class="p-4 space-y-6">
           <!-- Model selection - Fixed to properly select current model -->
           <div class="space-y-2">
-            <label class="text-sm font-medium text-gray-300">Select Model</label>
+            <label class="text-sm font-medium text-[#94A3B8]">Select Model</label>
             <select
               id="modelSelector"
-              class="w-full bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none"
+              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-md shadow-sm p-2 appearance-none"
               onchange="window.location = this.value"
             >
-              <option value="" disabled class="text-gray-400">Select a model</option>
+              <option value="" disabled class="text-[#94A3B8]">Select a model</option>
              
               {{ range .ModelsConfig }}
                 {{ $cfg := . }}
@@ -74,7 +74,7 @@ SOFTWARE.
                     <option
                       value="chat/{{$cfg.Name}}"
                       {{ if eq $cfg.Name $model }} selected {{end}}
-                      class="bg-gray-700 text-white"
+                      class="bg-[#101827] text-[#E5E7EB]"
                     >
                       {{$cfg.Name}}
                     </option>
@@ -85,7 +85,7 @@ SOFTWARE.
                 <option
                   value="chat/{{.}}"
                   {{ if eq . $model }} selected {{ end }}
-                  class="bg-gray-700 text-white"
+                  class="bg-[#101827] text-[#E5E7EB]"
                 >
                   {{.}}
                 </option>
@@ -102,8 +102,8 @@ SOFTWARE.
               {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
               <h3 class="text-md font-medium">{{ $model }}</h3>
             </div>
-            <button data-twe-ripple-init data-twe-ripple-color="light" class="w-full text-left flex items-center px-3 py-2 text-xs rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors" data-modal-target="model-info-modal" data-modal-toggle="model-info-modal">
-              <i class="fas fa-info-circle mr-2"></i>
+            <button data-twe-ripple-init data-twe-ripple-color="light" class="w-full text-left flex items-center px-3 py-2 text-xs rounded text-[#E5E7EB] bg-[#101827] hover:bg-[#101827]/80 border border-[#38BDF8]/20 transition-colors" data-modal-target="model-info-modal" data-modal-toggle="model-info-modal">
+              <i class="fas fa-info-circle mr-2 text-[#38BDF8]"></i>
               Model Information
             </button>
           </div>
@@ -112,16 +112,16 @@ SOFTWARE.
 
           <div x-data="{ activeTab: 'actions' }" class="space-y-4">
             <!-- Tab navigation -->
-            <div class="flex border-b border-gray-700">
+            <div class="flex border-b border-[#101827]">
               <button 
                 @click="activeTab = 'actions'" 
-                :class="activeTab === 'actions' ? 'border-b-2 border-blue-500 text-white' : 'text-gray-400 hover:text-white'"
+                :class="activeTab === 'actions' ? 'border-b-2 border-[#38BDF8] text-[#E5E7EB]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
                 class="py-2 px-4 text-sm font-medium">
                 Actions
               </button>
               <button 
                 @click="activeTab = 'settings'" 
-                :class="activeTab === 'settings' ? 'border-b-2 border-blue-500 text-white' : 'text-gray-400 hover:text-white'"
+                :class="activeTab === 'settings' ? 'border-b-2 border-[#38BDF8] text-[#E5E7EB]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
                 class="py-2 px-4 text-sm font-medium">
                 Settings
               </button>
@@ -133,7 +133,7 @@ SOFTWARE.
                 @click="$store.chat.clear()"
                 id="clear"
                 title="Clear chat history"
-                class="w-full flex items-center px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
+                class="w-full flex items-center px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#101827] hover:bg-[#101827]/80 border border-[#1E293B] transition-colors"
               >
                 <i class="fa-solid fa-trash-can mr-2"></i> Clear chat
               </button>
