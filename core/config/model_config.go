@@ -26,6 +26,7 @@ type TTSConfig struct {
 
 // ModelConfig represents a model configuration
 type ModelConfig struct {
+	modelConfigFile          string `yaml:"-" json:"-"`
 	schema.PredictionOptions `yaml:"parameters" json:"parameters"`
 	Name                     string `yaml:"name" json:"name"`
 
@@ -490,6 +491,10 @@ func (c *ModelConfig) Validate() bool {
 
 func (c *ModelConfig) HasTemplate() bool {
 	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
+}
+
+func (c *ModelConfig) GetModelConfigFile() string {
+	return c.modelConfigFile
 }
 
 type ModelConfigUsecases int

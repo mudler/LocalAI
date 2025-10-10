@@ -88,6 +88,7 @@ func readMultipleModelConfigsFromFile(file string, opts ...ConfigLoaderOption) (
 	}
 
 	for _, cc := range *c {
+		cc.modelConfigFile = file
 		cc.SetDefaults(opts...)
 	}
 
@@ -108,6 +109,8 @@ func readModelConfigFromFile(file string, opts ...ConfigLoaderOption) (*ModelCon
 	}
 
 	c.SetDefaults(opts...)
+
+	c.modelConfigFile = file
 	return c, nil
 }
 
