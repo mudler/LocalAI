@@ -25,6 +25,8 @@ If you are exposing LocalAI remotely, make sure you protect the API endpoints ad
 curl https://localai.io/install.sh | sh
 ```
 
+The bash installer, if docker is not detected, will install automatically as a systemd service.
+
 See [Installer]({{% relref "docs/advanced/installer" %}}) for all the supported options
 
 ### macOS Download
@@ -35,6 +37,16 @@ See [Installer]({{% relref "docs/advanced/installer" %}}) for all the supported 
 
 ### Run with docker
 
+{{% alert icon="💡" %}}
+**Docker Run vs Docker Start**
+
+- `docker run` creates and starts a new container. If a container with the same name already exists, this command will fail.
+- `docker start` starts an existing container that was previously created with `docker run`.
+
+If you've already run LocalAI before and want to start it again, use: `docker start -i local-ai`
+{{% /alert %}}
+
+The following commands will automatically start with a web interface and a Rest API on port `8080`.
 
 #### CPU only image:
 
@@ -93,7 +105,9 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
 ```
 
-### Load models:
+### Downloading models on start
+
+When starting LocalAI (either via Docker or via CLI) you can specify as argument a list of models to install automatically before starting the API, for example:
 
 ```bash
 # From the model gallery (see available models with `local-ai models list`, in the WebUI from the model tab, or visiting https://models.localai.io)
@@ -112,7 +126,7 @@ local-ai run oci://localai/phi-2:latest
 **Automatic Backend Detection**: When you install models from the gallery or YAML files, LocalAI automatically detects your system's GPU capabilities (NVIDIA, AMD, Intel) and downloads the appropriate backend. For advanced configuration options, see [GPU Acceleration]({{% relref "docs/features/gpu-acceleration#automatic-backend-detection" %}}).
 {{% /alert %}}
 
-For a full list of options, refer to the [Installer Options]({{% relref "docs/advanced/installer" %}}) documentation.
+For a full list of options, you can run LocalAI with `--help` or refer to the [Installer Options]({{% relref "docs/advanced/installer" %}}) documentation.
 
 Binaries can also be [manually downloaded]({{% relref "docs/reference/binaries" %}}).
 
