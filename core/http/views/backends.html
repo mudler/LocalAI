@@ -151,150 +151,199 @@
                 <p class="text-gray-400">No backends found matching your criteria</p>
             </div>
 
-            <div class="dark grid grid-cols-1 grid-rows-1 md:grid-cols-3 block rounded-lg shadow-secondary-1 dark:bg-surface-dark">
-                <template x-for="backend in backends" :key="backend.id">
-                    <div>
-                        <!-- Backend Card -->
-                        <div class="me-4 mb-2 block rounded-lg bg-white shadow-secondary-1 dark:bg-gray-800 dark:bg-surface-dark dark:text-white text-surface pb-2 bg-gray-800/90 border border-gray-700/50 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-blue-900/20 hover:-translate-y-1 hover:border-blue-700/50">
-                            <div>
-                                <!-- Backend Image -->
-                                <div class="flex justify-center items-center">
-                                    <a href="#!">
+            <!-- Table View -->
+            <div x-show="backends.length > 0" class="bg-[#1E293B] rounded-2xl border border-[#38BDF8]/20 overflow-hidden shadow-xl backdrop-blur-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20 border-b border-[#38BDF8]/30">
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Icon</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Backend Name</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Description</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Repository</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">License</th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-[#38BDF8]/20">
+                            <template x-for="backend in backends" :key="backend.id">
+                                <tr class="hover:bg-[#38BDF8]/10 transition-colors duration-200">
+                                    <!-- Icon -->
+                                    <td class="px-6 py-4">
                                         <img :src="backend.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
-                                             class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
-                                             loading="lazy">
-                                    </a>
-                                </div>
-
-                                <!-- Backend Description -->
-                                <div class="p-6 text-surface dark:text-white">
-                                    <h5 class="mb-2 text-xl font-bold leading-tight" x-text="backend.name"></h5>
-                                    <div class="mb-4 text-sm truncate text-base" x-text="backend.description"></div>
-                                </div>
-
-                                <!-- Backend Actions -->
-                                <div class="px-6 pt-4 pb-2">
-                                    <p class="mb-4 text-base">
-                                        <span class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2">
-                                            <i class="fa-brands fa-git-alt pr-2"></i>
-                                            <span>Repository: <span x-text="backend.gallery"></span></span>
+                                             class="w-12 h-12 object-cover rounded-lg border border-[#38BDF8]/30"
+                                             loading="lazy"
+                                             :alt="backend.name">
+                                    </td>
+                                    
+                                    <!-- Backend Name -->
+                                    <td class="px-6 py-4">
+                                        <span class="text-sm font-semibold text-[#E5E7EB]" x-text="backend.name"></span>
+                                    </td>
+                                    
+                                    <!-- Description -->
+                                    <td class="px-6 py-4">
+                                        <div class="text-sm text-[#94A3B8] max-w-xs truncate" x-text="backend.description" :title="backend.description"></div>
+                                    </td>
+                                    
+                                    <!-- Repository -->
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#38BDF8]/10 text-[#E5E7EB] border border-[#38BDF8]/30">
+                                            <i class="fa-brands fa-git-alt mr-1"></i>
+                                            <span x-text="backend.gallery"></span>
                                         </span>
-                                        <span x-show="backend.license" class="inline-flex items-center px-3 py-1 rounded-lg text-xs font-medium bg-gray-700/70 text-gray-300 border border-gray-600/50 mr-2 mb-2">
-                                            <i class="fas fa-book pr-2"></i>
-                                            <span>License: <span x-text="backend.license"></span></span>
+                                    </td>
+                                    
+                                    <!-- License -->
+                                    <td class="px-6 py-4">
+                                        <span x-show="backend.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#8B5CF6]/10 text-[#E5E7EB] border border-[#8B5CF6]/30">
+                                            <i class="fas fa-book mr-1"></i>
+                                            <span x-text="backend.license"></span>
                                         </span>
-                                    </p>
-                                    <div :id="'action-div-' + backend.id.replace('@', '__')" class="flow-root">
-                                        <!-- Info Button -->
-                                        <button @click="openModal(backend)" 
-                                                class="inline-flex items-center rounded-lg bg-gray-700 hover:bg-gray-600 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out">
-                                            <i class="fas fa-info-circle pr-2"></i>
-                                            Info
-                                        </button>
+                                        <span x-show="!backend.license" class="text-xs text-[#94A3B8]">-</span>
+                                    </td>
+                                    
+                                    <!-- Status -->
+                                    <td class="px-6 py-4">
+                                        <!-- Processing State -->
+                                        <div x-show="backend.processing" class="min-w-[200px]">
+                                            <div class="text-xs font-medium text-[#E5E7EB] mb-1">
+                                                <span x-text="backend.isDeletion ? 'Deleting...' : 'Installing...'"></span>
+                                            </div>
+                                            <div x-show="(jobProgress[backend.jobID] || 0) === 0" class="text-xs text-[#38BDF8]">
+                                                <i class="fas fa-clock mr-1"></i>Queued
+                                            </div>
+                                            <div class="progress-table mt-1">
+                                                <div class="progress-bar-table-backend" :style="'width:' + (jobProgress[backend.jobID] || 0) + '%'"></div>
+                                            </div>
+                                        </div>
                                         
-                                        <div class="float-right">
-                                            <!-- Processing State -->
-                                            <div x-show="backend.processing">
-                                                <div class="text-sm font-medium text-gray-300 mb-2">
-                                                    <span x-text="backend.isDeletion ? 'Deletion' : 'Installation'"></span>
-                                                    <!-- Show queued message when progress is 0 -->
-                                                    <div x-show="(jobProgress[backend.jobID] || 0) === 0" class="text-xs text-blue-400 mt-1">
-                                                        <i class="fas fa-clock mr-1"></i>Operation queued
-                                                    </div>
-                                                    <div class="progress mt-2" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-                                                        <div class="progress-bar" :style="'width:' + (jobProgress[backend.jobID] || 0) + '%'"></div>
-                                                    </div>
+                                        <!-- Installed State -->
+                                        <div x-show="!backend.processing && backend.installed">
+                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">
+                                                <i class="fas fa-check-circle mr-1"></i>
+                                                Installed
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Not Installed State -->
+                                        <div x-show="!backend.processing && !backend.installed">
+                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#1E293B] text-[#94A3B8] border border-[#38BDF8]/30">
+                                                <i class="fas fa-circle mr-1"></i>
+                                                Not Installed
+                                            </span>
+                                        </div>
+                                    </td>
+                                    
+                                    <!-- Actions -->
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <!-- Info Button -->
+                                            <button @click="openModal(backend)" 
+                                                    class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#1E293B] hover:bg-[#38BDF8]/20 text-xs font-medium text-[#E5E7EB] transition duration-200 border border-[#38BDF8]/30"
+                                                    title="View details">
+                                                <i class="fas fa-info-circle"></i>
+                                            </button>
+                                            
+                                            <!-- Installed State Actions -->
+                                            <template x-if="!backend.processing && backend.installed">
+                                                <div class="flex gap-2">
+                                                    <button @click="reinstallBackend(backend.id)" 
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
+                                                            title="Reinstall">
+                                                        <i class="fa-solid fa-arrow-rotate-right"></i>
+                                                    </button>
+                                                    <button @click="deleteBackend(backend.id)" 
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-medium text-white transition duration-200"
+                                                            title="Delete">
+                                                        <i class="fa-solid fa-trash"></i>
+                                                    </button>
                                                 </div>
-                                            </div>
+                                            </template>
                                             
-                                            <!-- Installed State -->
-                                            <div x-show="!backend.processing && backend.installed">
-                                                <button @click="reinstallBackend(backend.id)" 
-                                                        class="float-right inline-block rounded bg-primary ml-2 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-primary-accent-300 hover:shadow-primary-2">
-                                                    <i class="fa-solid fa-arrow-rotate-right pr-2"></i>
-                                                    Reinstall
-                                                </button>
-                                                <button @click="deleteBackend(backend.id)" 
-                                                        class="float-right inline-block rounded bg-red-800 px-6 pb-2.5 mb-3 pt-2.5 text-xs font-medium uppercase leading-normal text-white shadow-primary-3 transition duration-150 ease-in-out hover:bg-red-accent-300 hover:shadow-red-2">
-                                                    <i class="fa-solid fa-cancel pr-2"></i>
-                                                    Delete
-                                                </button>
-                                            </div>
-                                            
-                                            <!-- Not Installed State -->
-                                            <div x-show="!backend.processing && !backend.installed">
+                                            <!-- Not Installed State Actions -->
+                                            <template x-if="!backend.processing && !backend.installed">
                                                 <button @click="installBackend(backend.id)" 
-                                                        class="float-right inline-flex items-center rounded-lg bg-blue-600 hover:bg-blue-700 px-4 py-2 text-sm font-medium text-white transition duration-300 ease-in-out shadow hover:shadow-lg">
-                                                    <i class="fa-solid fa-download pr-2"></i>
-                                                    Install
+                                                        class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
+                                                        title="Install">
+                                                    <i class="fa-solid fa-download"></i>
                                                 </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Modal -->
-                        <div x-show="selectedBackend && selectedBackend.id === backend.id" 
-                             x-transition
-                             @click.away="closeModal()"
-                             class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50"
-                             style="display: none;">
-                            <div class="relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]">
-                                <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 h-full flex flex-col">
-                                    <!-- Modal Header -->
-                                    <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-                                        <h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="backend.name"></h3>
-                                        <button @click="closeModal()" 
-                                                class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
-                                            <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-                                                <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-                                            </svg>
-                                            <span class="sr-only">Close modal</span>
-                                        </button>
-                                    </div>
-                                    <!-- Modal Body -->
-                                    <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-grow">
-                                        <div class="flex justify-center items-center">
-                                            <img :src="backend.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
-                                                 class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
-                                                 loading="lazy">
-                                        </div>
-                                        <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-text="backend.description"></p>
-                                        <div class="flex flex-wrap gap-2">
-                                            <template x-for="tag in backend.tags" :key="tag">
-                                                <span class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50">
-                                                    <i class="fas fa-tag pr-2"></i>
-                                                    <span x-text="tag"></span>
-                                                </span>
                                             </template>
                                         </div>
-                                        <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400">
-                                            <ul>
-                                                <template x-for="url in backend.urls" :key="url">
-                                                    <li>
-                                                        <a :href="url" target="_blank" class="text-blue-500 hover:underline">
-                                                            <i class="fas fa-link pr-2"></i>
-                                                            <span x-text="url"></span>
-                                                        </a>
-                                                    </li>
-                                                </template>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    <!-- Modal Footer -->
-                                    <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-                                        <button @click="closeModal()" 
-                                                class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-                                            Close
-                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div x-show="selectedBackend" 
+                 x-transition
+                 @click.away="closeModal()"
+                 class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50"
+                 style="display: none;">
+                <div class="relative p-4 w-full max-w-2xl h-[90vh] mx-auto mt-[5vh]">
+                    <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 h-full flex flex-col">
+                        <!-- Modal Header -->
+                        <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
+                            <h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="selectedBackend?.name"></h3>
+                            <button @click="closeModal()" 
+                                    class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
+                                <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                                </svg>
+                                <span class="sr-only">Close modal</span>
+                            </button>
+                        </div>
+                        <!-- Modal Body -->
+                        <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
+                            <div class="flex justify-center items-center">
+                                <img :src="selectedBackend?.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
+                                     class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
+                                     loading="lazy">
+                            </div>
+                            <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-text="selectedBackend?.description"></p>
+                            <template x-if="selectedBackend?.tags && selectedBackend.tags.length > 0">
+                                <div>
+                                    <p class="text-sm mb-3 font-semibold text-gray-900 dark:text-white">Tags</p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <template x-for="tag in selectedBackend.tags" :key="tag">
+                                            <span class="inline-flex items-center text-xs px-3 py-1 rounded-full bg-gray-700/60 text-gray-300 border border-gray-600/50">
+                                                <i class="fas fa-tag pr-2"></i>
+                                                <span x-text="tag"></span>
+                                            </span>
+                                        </template>
                                     </div>
                                 </div>
-                            </div>
+                            </template>
+                            <template x-if="selectedBackend?.urls && selectedBackend.urls.length > 0">
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Links</p>
+                                    <ul>
+                                        <template x-for="url in selectedBackend.urls" :key="url">
+                                            <li>
+                                                <a :href="url" target="_blank" class="text-blue-500 hover:underline">
+                                                    <i class="fas fa-link pr-2"></i>
+                                                    <span x-text="url"></span>
+                                                </a>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
+                        </div>
+                        <!-- Modal Footer -->
+                        <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
+                            <button @click="closeModal()" 
+                                    class="text-white bg-emerald-700 hover:bg-emerald-800 focus:ring-4 focus:outline-none focus:ring-emerald-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-emerald-600 dark:hover:bg-emerald-700 dark:focus:ring-emerald-800">
+                                Close
+                            </button>
                         </div>
                     </div>
-                </template>
+                </div>
             </div>
         </div>
 
@@ -359,6 +408,36 @@
     background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
     height: 100%;
     transition: width 0.3s ease;
+}
+
+/* Table progress bar styling */
+.progress-table {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+    border-radius: 0.25rem;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    height: 6px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.progress-bar-table-backend {
+    background: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 100%);
+    height: 100%;
+    transition: width 0.3s ease;
+}
+
+/* Table styling */
+table {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+tbody tr:last-child td:first-child {
+    border-bottom-left-radius: 1rem;
+}
+
+tbody tr:last-child td:last-child {
+    border-bottom-right-radius: 1rem;
 }
 </style>
 
