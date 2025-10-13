@@ -5,7 +5,7 @@ go 1.24.4
 toolchain go1.24.5
 
 require (
-	dario.cat/mergo v1.0.1
+	dario.cat/mergo v1.0.2
 	fyne.io/fyne/v2 v2.6.3
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v0.9.0
