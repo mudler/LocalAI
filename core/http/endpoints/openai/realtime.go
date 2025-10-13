@@ -256,20 +256,12 @@ func registerRealtime(application *application.Application) func(c *websocket.Co
 		sessions[sessionID] = session
 		sessionLock.Unlock()
 
-		// Send session.created and conversation.created events to the client
-		sendEvent(c, types.SessionCreatedEvent{
+		sendEvent(c, types.TranscriptionSessionCreatedEvent{
 			ServerEventBase: types.ServerEventBase{
 				EventID: "event_TODO",
-				Type:    types.ServerEventTypeSessionCreated,
+				Type:    types.ServerEventTypeTranscriptionSessionCreated,
 			},
 			Session: session.ToServer(),
-		})
-		sendEvent(c, types.ConversationCreatedEvent{
-			ServerEventBase: types.ServerEventBase{
-				EventID: "event_TODO",
-				Type:    types.ServerEventTypeConversationCreated,
-			},
-			Conversation: conversation.ToServer(),
 		})
 
 		var (

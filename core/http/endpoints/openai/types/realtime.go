@@ -704,6 +704,7 @@ const (
 	ServerEventTypeError                                            ServerEventType = "error"
 	ServerEventTypeSessionCreated                                   ServerEventType = "session.created"
 	ServerEventTypeSessionUpdated                                   ServerEventType = "session.updated"
+	ServerEventTypeTranscriptionSessionCreated                      ServerEventType = "transcription_session.created"
 	ServerEventTypeTranscriptionSessionUpdated                      ServerEventType = "transcription_session.updated"
 	ServerEventTypeConversationCreated                              ServerEventType = "conversation.created"
 	ServerEventTypeInputAudioBufferCommitted                        ServerEventType = "input_audio_buffer.committed"
@@ -765,6 +766,15 @@ type SessionCreatedEvent struct {
 	ServerEventBase
 	// The session resource.
 	Session ServerSession `json:"session"`
+}
+
+// TranscriptionSessionCreatedEvent is the event for session created.
+// Returned when a transcription session is created.
+// See https://platform.openai.com/docs/api-reference/realtime-server-events/session/created
+type TranscriptionSessionCreatedEvent struct {
+  ServerEventBase
+  // The transcription session resource.
+  Session ServerSession `json:"session"`
 }
 
 // SessionUpdatedEvent is the event for session updated.
