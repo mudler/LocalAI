@@ -2984,7 +2984,7 @@
     This work was performed using HPC resources (Jean Zay supercomputer) from GENCI-IDRIS (Grant 20XX-AD011014205).
     Inspiration
     Beck aims to reason about psychological and philosophical concepts such as self-image, emotion, and existence.
-    Beck was inspired by my position paper on emotion analysis: Improving Language Models for Emotion Analysis: Insights from Cognitive Science.   
+    Beck was inspired by my position paper on emotion analysis: Improving Language Models for Emotion Analysis: Insights from Cognitive Science.
   overrides:
     parameters:
       model: gustavecortal_Beck-0.6B-Q4_K_M.gguf
