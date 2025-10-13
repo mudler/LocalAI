@@ -3878,6 +3878,57 @@
     - filename: TheDrummer_Gemma-3-R1-4B-v1-Q4_K_M.gguf
       sha256: 72a7dc5bddbdf6bbea0d47aea8573d6baa191f4ddebd75547091c991678bcd08
       uri: huggingface://bartowski/TheDrummer_Gemma-3-R1-4B-v1-GGUF/TheDrummer_Gemma-3-R1-4B-v1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "yanolja_yanoljanext-rosetta-12b-2510"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64592235ab9a44f42f65829e/w3Emvb-fNC_mMAQ8Ue4g3.jpeg
+  urls:
+    - https://huggingface.co/yanolja/YanoljaNEXT-Rosetta-12B-2510
+    - https://huggingface.co/bartowski/yanolja_YanoljaNEXT-Rosetta-12B-2510-GGUF
+  description: |
+    This model is a fine-tuned version of google/gemma-3-12b-pt. As it is intended solely for text generation, we have extracted and utilized only the Gemma3ForCausalLM component from the original architecture.
+    Unlike our previous EEVE models, this model does not feature an expanded tokenizer. Base Model: google/gemma-3-12b-pt
+    This model is a 12-billion parameter, decoder-only language model built on the Gemma3 architecture and fine-tuned by Yanolja NEXT. It is specifically designed to translate structured data (JSON format) while preserving the original data structure.
+    The model was trained on a multilingual dataset covering the following languages equally:
+    Arabic
+    Bulgarian
+    Chinese
+    Czech
+    Danish
+    Dutch
+    English
+    Finnish
+    French
+    German
+    Greek
+    Gujarati
+    Hebrew
+    Hindi
+    Hungarian
+    Indonesian
+    Italian
+    Japanese
+    Korean
+    Persian
+    Polish
+    Portuguese
+    Romanian
+    Russian
+    Slovak
+    Spanish
+    Swedish
+    Tagalog
+    Thai
+    Turkish
+    Ukrainian
+    Vietnamese
+    While optimized for these languages, it may also perform effectively on other languages supported by the base Gemma3 model.
+  overrides:
+    parameters:
+      model: yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
+  files:
+    - filename: yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
+      sha256: 7531456d8886419d36ce103b1205cdc820865016bddc0b4671ec9910ba87071f
+      uri: huggingface://bartowski/yanolja_YanoljaNEXT-Rosetta-12B-2510-GGUF/yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
