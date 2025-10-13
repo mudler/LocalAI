@@ -14088,6 +14088,26 @@
     - filename: TAID-LLM-1.5B-Q4_K_M.gguf
       sha256: dbffc989d12d42ef8e4a2994e102d7ec7a02c49ec08ea2e35426372ad07b4cd8
       uri: huggingface://bartowski/TAID-LLM-1.5B-GGUF/TAID-LLM-1.5B-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "agentflow_agentflow-planner-7b"
+  urls:
+    - https://huggingface.co/AgentFlow/agentflow-planner-7b
+    - https://huggingface.co/bartowski/AgentFlow_agentflow-planner-7b-GGUF
+    - https://huggingface.co/papers/date/2025-10-08
+    - https://agentflow.stanford.edu/
+  description: |
+    AgentFlow Planner Agent 7B checkpoint (built upon Qwen2.5-7B-Instruct):
+    Code: https://github.com/lupantech/AgentFlow
+    Demo: https://huggingface.co/spaces/AgentFlow/agentflow
+    Youtube: https://www.youtube.com/watch?v=kIQbCQIH1SI
+    X (Twitter): https://x.com/lupantech/status/1976016000345919803
+  overrides:
+    parameters:
+      model: AgentFlow_agentflow-planner-7b-Q4_K_M.gguf
+  files:
+    - filename: AgentFlow_agentflow-planner-7b-Q4_K_M.gguf
+      sha256: 88e819fa904130a013e5619cd4d1e2a60711fcc2d8cb3cb092bf0915da4dff50
+      uri: huggingface://bartowski/AgentFlow_agentflow-planner-7b-GGUF/AgentFlow_agentflow-planner-7b-Q4_K_M.gguf
 - &mistral03
   url: "github:mudler/LocalAI/gallery/mistral-0.3.yaml@master" ## START Mistral
   name: "mistral-7b-instruct-v0.3"
