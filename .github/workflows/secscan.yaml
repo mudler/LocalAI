@@ -24,7 +24,7 @@ jobs:
           args: '-no-fail -fmt sarif -out results.sarif ./...'
       - name: Upload SARIF file
         if: ${{ github.actor != 'dependabot[bot]' }}
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           # Path to SARIF file relative to the root of the repository
           sarif_file: results.sarif
