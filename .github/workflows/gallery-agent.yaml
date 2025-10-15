@@ -58,6 +58,7 @@ jobs:
           export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
           cd .github/gallery-agent
           ./gallery-agent
+          rm -rf gallery-agent
 
       - name: Check for changes
         id: check_changes
