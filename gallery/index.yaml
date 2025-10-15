@@ -3034,6 +3034,26 @@
     - filename: gustavecortal_Beck-4B-Q4_K_M.gguf
       sha256: f4af0cf3e6adedabb79c16d8d5d6d23a3996f626d7866ddc27fa80011ce695af
       uri: huggingface://bartowski/gustavecortal_Beck-4B-GGUF/gustavecortal_Beck-4B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-4b-ra-sft"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/64fde4e252e82dd432b74ce9/TAEScS71YX5NPRM4TXZc8.png
+  urls:
+    - https://huggingface.co/Gen-Verse/Qwen3-4B-RA-SFT
+    - https://huggingface.co/mradermacher/Qwen3-4B-RA-SFT-GGUF
+  description: |
+    a 4B-sized agentic reasoning model that is finetuned with our 3k Agentic SFT dataset, based on Qwen3-4B-Instruct-2507.
+    In our work, we systematically investigate three dimensions of agentic RL: data, algorithms, and reasoning modes. Our findings reveal
+
+    🎯 Data Quality Matters: Real end-to-end trajectories and high-diversity datasets significantly outperform synthetic alternatives
+    ⚡ Training Efficiency: Exploration-friendly techniques like reward clipping and entropy maintenance boost training efficiency
+    🧠 Reasoning Strategy: Deliberative reasoning with selective tool calls surpasses frequent invocation or verbose self-reasoning We contribute high-quality SFT and RL datasets, demonstrating that simple recipes enable even 4B models to outperform 32B models on the most challenging reasoning benchmarks.
+  overrides:
+    parameters:
+      model: Qwen3-4B-RA-SFT.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-4B-RA-SFT.Q4_K_M.gguf
+      sha256: 49147b917f431d6c42cc514558c7ce3bcdcc6fdfba937bbb6f964702dc77e532
+      uri: huggingface://mradermacher/Qwen3-4B-RA-SFT-GGUF/Qwen3-4B-RA-SFT.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
