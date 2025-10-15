@@ -21777,3 +21777,89 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+
+- !!merge <<: *qwen3
+  name: "qwen3-8b"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-8B-gguf
+  description: |
+    **Qwen3-8B** is a powerful 8.2-billion-parameter large language model from the Qwen series, designed for high-performance reasoning, instruction following, and multilingual tasks. It uniquely supports seamless switching between **thinking mode** (for complex logic, math, and coding) and **non-thinking mode** (for efficient dialogue), enabling optimal performance across diverse use cases. With native support for up to 32,768 tokens (and 131,072 via YaRN scaling), strong agent capabilities, and support for over 100 languages, Qwen3-8B delivers state-of-the-art results in both general and specialized applications. Built on extensive training and optimized for real-world deployment, it's ideal for developers, researchers, and enterprises seeking a versatile, open-source LLM.  
+    
+    *Model card source: [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)*
+  overrides:
+    parameters:
+      model: Qwen3-8b-q4_k_m.gguf
+  files:
+    - filename: Qwen3-8b-q4_k_m.gguf
+      sha256: d5adc285929b2395cac4552f0f14eba1e1f4f59a1e5eaf78397afdf3abd29a39
+      uri: huggingface://John1604/Qwen3-8B-gguf/Qwen3-8b-q4_k_m.gguf
+
+- !!merge <<: *llama3
+  name: "ice0.144-15.10-rp"
+  urls:
+    - https://huggingface.co/mradermacher/Ice0.144-15.10-RP-GGUF
+  description: |
+    The model **Ice0.144-15.10-RP** is a large language model developed by **icefog72**, based on the **Llama 3** architecture (specifically, a fine-tuned variant of Llama-3-8B). It is optimized for reasoning and instruction-following tasks, showcasing strong performance in code generation, logical reasoning, and multi-turn dialogue.
+    
+    The repository you accessed, `mradermacher/Ice0.144-15.10-RP-GGUF`, contains **quantized GGUF versions** of the original model—meant for efficient local inference. These quantizations (e.g., Q4_K_S, Q5_K_M) reduce model size and memory usage while preserving most of the original performance.
+    
+    The **original, unquantized base model** is available at:  
+    👉 [https://huggingface.co/icefog72/Ice0.144-15.10-RP](https://huggingface.co/icefog72/Ice0.144-15.10-RP)
+    
+    **Key Features:**
+    - **Architecture**: Llama 3-based (8B parameters)
+    - **Training**: Fine-tuned for reasoning, instruction response, and code generation
+    - **Use Case**: Ideal for local inference with tools like llama.cpp, Ollama, or Text Generation WebUI
+    - **Performance**: High-quality output with strong coherence and factual accuracy
+    
+    For best results, use the original model (not quantized) when full performance is required. Quantized versions are excellent for deployment on consumer hardware.
+    
+    📌 **Note**: Always refer to the original model card (https://huggingface.co/icefog72/Ice0.144-15.10-RP) for authoritative details like training data, licensing, and usage guidelines.
+  overrides:
+    parameters:
+      model: 
+  files:
+    - filename: 
+      sha256: 
+      uri: huggingface://mradermacher/Ice0.144-15.10-RP-GGUF/
+
+- !!merge <<: *qwen3
+  name: "positivedetox-qwen3-4b"
+  urls:
+    - https://huggingface.co/theprint/PositiveDetox-Qwen3-4B-GGUF
+  description: |
+    **Model Name:** PositiveDetox-Qwen3-4B  
+    **Base Model:** Qwen3-4B  
+    **Description:** A fine-tuned version of Qwen3-4B specifically trained on the *Positive Detox* dataset to reduce toxic positivity in AI-generated responses. This model promotes balanced, authentic, and empathetic language by avoiding overly optimistic or dismissive replies to user concerns.  
+    **Use Case:** Ideal for applications where nuanced, emotionally intelligent, and truthful communication is essential—such as mental health support, customer service, and ethical AI chat systems.  
+    **Format:** GGUF (quantized), with full model available at [theprint/PositiveDetox-Qwen3-4B](https://huggingface.co/theprint/PositiveDetox-Qwen3-4B).
+  overrides:
+    parameters:
+      model: positivedetox-qwen3-4b-q4_k_m.gguf
+  files:
+    - filename: positivedetox-qwen3-4b-q4_k_m.gguf
+      sha256: cffa43c215be285c3a04769919e691914efb65cfd49a430049cb72b8d8024302
+      uri: huggingface://theprint/PositiveDetox-Qwen3-4B-GGUF/positivedetox-qwen3-4b-q4_k_m.gguf
+
+- !!merge <<: *mistral03
+  name: "ice0.141-14.10-rp-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ice0.141-14.10-RP-i1-GGUF
+  description: |
+    **Model Name:** Ice0.141-14.10-RP  
+    **Base Model:** Mistral-based (finetuned from `icefog72/Ice0.80-03.02-RP`)  
+    **Author:** icefog72  
+    **License:** Apache 2.0  
+    **Use Case:** High-quality text generation with efficient inference  
+    
+    This model is a fine-tuned Mistral-family language model developed by icefog72, trained using Unsloth and Hugging Face’s TRL for faster training and optimized performance. It builds upon earlier iterations (notably Ice0.80-03.02-RP), offering improved coherence, reasoning, and instruction-following capabilities. Ideal for applications requiring strong generative performance with minimal latency.  
+    
+    > 🔍 **Note**: The repository `mradermacher/Ice0.141-14.10-RP-i1-GGUF` contains GGUF quantizations of this model, not the original base model. For the full, unquantized version, refer to `icefog72/Ice0.141-14.10-RP`.
+  overrides:
+    parameters:
+      model: Ice0.141-14.10-RP.i1-Q4_K_M.gguf
+  files:
+    - filename: Ice0.141-14.10-RP.i1-Q4_K_M.gguf
+      sha256: d023717cbd9f64c5bfd4a92b5afdec4be1af9a6ab4d2d6fc30a788faa79ac4da
+      uri: huggingface://mradermacher/Ice0.141-14.10-RP-i1-GGUF/Ice0.141-14.10-RP.i1-Q4_K_M.gguf
+
