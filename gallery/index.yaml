@@ -21777,3 +21777,30 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+
+- !!merge <<: *mistral03
+  name: "ice0.144-15.10-rp"
+  urls:
+    - https://huggingface.co/mradermacher/Ice0.144-15.10-RP-GGUF
+  description: |
+    **Model Name:** Ice0.144-15.10-RP  
+    **Base Model:** Mistral-7B-Instruct-v0.2 (fine-tuned via Gecko-7B-v0.1)  
+    **Author:** icefog72 (based on NeuralNovel's Gecko-7B-v0.1)  
+    **License:** Apache 2.0  
+    
+    **Description:**  
+    Ice0.144-15.10-RP is a high-performance, instruction-tuned variant of the Mistral-7B-Instruct-v0.2 model, fine-tuned using Unsloth for faster training. It is built upon *NeuralNovel/Gecko-7B-v0.1*, which was itself a full-parameter fine-tune of Mistral-7B-Instruct-v0.2, optimized for narrative and instructive text generation, with enhanced capabilities in math reasoning and problem-solving.
+    
+    This model excels in roleplay, creative writing, and following complex prompts accurately. It has been evaluated on multiple benchmarks, achieving strong performance in tasks such as HellaSwag (83.36% normalized accuracy) and Winogrande (77.58% accuracy), with a balanced overall score of 64.58% on the Open LLM Leaderboard.
+    
+    **Use Case:** Ideal for applications requiring strong instruction-following, narrative generation, and mathematical reasoning. Note: Due to reduced alignment, it may produce NSFW or harmful content — use with caution.
+    
+    **Note:** The repository `mradermacher/Ice0.144-15.10-RP-GGUF` contains quantized GGUF versions of this model, but the original base model description comes from `NeuralNovel/Gecko-7B-v0.1`.
+  overrides:
+    parameters:
+      model: Ice0.144-15.10-RP.Q4_K_M.gguf
+  files:
+    - filename: Ice0.144-15.10-RP.Q4_K_M.gguf
+      sha256: 9d94e1f841af143db28f86e18558b447f2747a6033a6793d569ba6dae1675c1c
+      uri: huggingface://mradermacher/Ice0.144-15.10-RP-GGUF/Ice0.144-15.10-RP.Q4_K_M.gguf
+
