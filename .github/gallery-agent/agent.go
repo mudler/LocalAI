@@ -46,6 +46,42 @@ func cleanTextContent(text string) string {
 	return strings.Join(cleanedLines, "\n")
 }
 
+// isModelExisting checks if a specific model ID exists in the gallery using text search
+func isModelExisting(modelID string) (bool, error) {
+	indexPath := getGalleryIndexPath()
+	content, err := os.ReadFile(indexPath)
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", indexPath, err)
+	}
+
+	contentStr := string(content)
+	// Simple text search - if the model ID appears anywhere in the file, it exists
+	return strings.Contains(contentStr, modelID), nil
+}
+
+// filterExistingModels removes models that already exist in the gallery
+func filterExistingModels(models []ProcessedModel) ([]ProcessedModel, error) {
+	var filteredModels []ProcessedModel
+	for _, model := range models {
+		exists, err := isModelExisting(model.ModelID)
+		if err != nil {
+			fmt.Printf("Error checking if model %s exists: %v, skipping\n", model.ModelID, err)
+			continue
+		}
+
+		if !exists {
+			filteredModels = append(filteredModels, model)
+		} else {
+			fmt.Printf("Skipping existing model: %s\n", model.ModelID)
+		}
+	}
+
+	fmt.Printf("Filtered out %d existing models, %d new models remaining\n",
+		len(models)-len(filteredModels), len(filteredModels))
+
+	return filteredModels, nil
+}
+
 // getGalleryIndexPath returns the gallery index file path, with a default fallback
 func getGalleryIndexPath() string {
 	if galleryIndexPath != "" {

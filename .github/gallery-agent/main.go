@@ -104,7 +104,18 @@ func main() {
 
 	fmt.Print(models)
 
-	models = models[:maxModelsInt]
+	// Filter out models that already exist in the gallery
+	fmt.Println("Filtering out existing models...")
+	models, err = filterExistingModels(models)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error filtering existing models: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Limit to maxModelsInt after filtering
+	if len(models) > maxModelsInt {
+		models = models[:maxModelsInt]
+	}
 
 	// Generate YAML entries and append to gallery/index.yaml
 	if len(models) > 0 {
@@ -114,6 +125,8 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error generating YAML entries: %v\n", err)
 			os.Exit(1)
 		}
+	} else {
+		fmt.Println("No new models to add to the gallery.")
 	}
 }
 
