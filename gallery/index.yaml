@@ -21777,3 +21777,89 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+
+- !!merge <<: *qwen3
+  name: "logics-qwen3-math-4b"
+  urls:
+    - https://huggingface.co/mradermacher/Logics-Qwen3-Math-4B-GGUF
+  description: |
+    **Logics-Qwen3-Math-4B** is a 4-billion-parameter fine-tuned variant of **Qwen3-4B-Thinking-2507**, specifically optimized for advanced mathematical reasoning, logical problem-solving, and algorithmic thinking. Trained on diverse datasets including **OpenMathReasoning**, **OpenCodeReasoning**, and **Helios-R-6M**, the model excels in structured reasoning tasks such as equation solving, probabilistic inference, and step-by-step logical derivation.
+    
+    Designed for efficiency and precision, it supports LaTeX, Markdown, JSON, and other structured output formats—ideal for educators, researchers, and developers working on technical reasoning applications. Lightweight enough for deployment on mid-tier GPUs and edge devices, it delivers strong performance in math and logic while maintaining low resource consumption.
+    
+    Perfect for integration into educational tools, code reasoning systems, and research workflows requiring accurate, interpretable, and well-structured outputs.
+  overrides:
+    parameters:
+      model: 
+  files:
+    - filename: 
+      sha256: 
+      uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/
+
+- !!merge <<: *mistral03
+  name: "ice0.144-15.10-rp"
+  urls:
+    - https://huggingface.co/mradermacher/Ice0.144-15.10-RP-GGUF
+  description: |
+    **Model Name:** Ice0.144-15.10-RP  
+    **Base Model:** mistralai/Mistral-7B-Instruct-v0.2  
+    **Fine-Tuned From:** NeuralNovel/Gecko-7B-v0.1  
+    **License:** Apache 2.0  
+    
+    **Description:**  
+    A fine-tuned, high-performance instructive language model optimized for narrative and problem-solving tasks. Built on the Mistral-7B-Instruct-v0.2 architecture and further enhanced via full-parameter fine-tuning (FFT) using the Neural-Mini-Math dataset. Designed to follow instructions precisely, making it ideal for roleplay, reasoning, and math-focused text generation.  
+    
+    Trained with Unsloth for faster performance and optimized for both research and commercial use. While highly capable, it has reduced alignment and may generate NSFW or harmful content—use with caution.  
+    
+    **Key Features:**
+    - Optimized for text generation, roleplay, and mathematical reasoning  
+    - 7B parameter model with strong performance on benchmarks (MMLU: 61.05%, Winogrande: 77.58%)  
+    - Available in multiple GGUF quantizations for efficient local inference  
+    - Suitable for experimentation and deployment in local environments  
+    
+    **Note:** This is a quantized version (GGUF) from the original finetuned model. For the base model details, refer to **NeuralNovel/Gecko-7B-v0.1**.
+  overrides:
+    parameters:
+      model: Ice0.144-15.10-RP.Q4_K_S.gguf
+  files:
+    - filename: Ice0.144-15.10-RP.Q4_K_S.gguf
+      sha256: cb866b08cea9a7e10a94d7e6b35f2305de45b85838e6aac4fec87f54e970e269
+      uri: huggingface://mradermacher/Ice0.144-15.10-RP-GGUF/Ice0.144-15.10-RP.Q4_K_S.gguf
+
+- !!merge <<: *qwen3
+  name: "qwen3-8b"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-8B-gguf
+  description: |
+    **Qwen3-8B** is a high-performance, open-source large language model from the Qwen series, featuring 8.2 billion parameters and advanced reasoning capabilities. It supports seamless switching between **thinking mode** (for complex logic, math, and coding) and **non-thinking mode** (for efficient general dialogue), making it ideal for diverse applications. With a native context length of 32,768 tokens (up to 131,072 with YaRN scaling), strong multilingual support (100+ languages), and excellent alignment with human preferences, it excels in instruction following, agent-based tasks, and creative writing. Designed for both research and production use, it is compatible with frameworks like Hugging Face Transformers, vLLM, SGLang, and llama.cpp.  
+    
+    *Base model: Qwen/Qwen3-8B-Base | License: Apache 2.0*
+  overrides:
+    parameters:
+      model: Qwen3-8b-q4_k_m.gguf
+  files:
+    - filename: Qwen3-8b-q4_k_m.gguf
+      sha256: d5adc285929b2395cac4552f0f14eba1e1f4f59a1e5eaf78397afdf3abd29a39
+      uri: huggingface://John1604/Qwen3-8B-gguf/Qwen3-8b-q4_k_m.gguf
+
+- !!merge <<: *qwen3
+  name: "positivedetox-qwen3-4b"
+  urls:
+    - https://huggingface.co/theprint/PositiveDetox-Qwen3-4B-GGUF
+  description: |
+    **Model Name:** PositiveDetox-Qwen3-4B  
+    **Base Model:** Qwen3-4B  
+    **Task:** Toxic Positivity Mitigation  
+    **Description:** A fine-tuned version of Qwen3-4B designed to reduce harmful or excessive positivity in AI-generated responses. Trained on the Positive Detox dataset, this model promotes balanced, authentic, and contextually appropriate outputs—avoiding the pitfalls of overly optimistic or dismissive language. Ideal for applications where empathetic and realistic dialogue is crucial.  
+    **Format:** GGUF (quantized for efficient inference)  
+    **Repository:** [theprint/PositiveDetox-Qwen3-4B](https://huggingface.co/theprint/PositiveDetox-Qwen3-4B)  
+    
+    👉 *For the full, unquantized version, visit the base model repository.*
+  overrides:
+    parameters:
+      model: positivedetox-qwen3-4b-q4_k_m.gguf
+  files:
+    - filename: positivedetox-qwen3-4b-q4_k_m.gguf
+      sha256: cffa43c215be285c3a04769919e691914efb65cfd49a430049cb72b8d8024302
+      uri: huggingface://theprint/PositiveDetox-Qwen3-4B-GGUF/positivedetox-qwen3-4b-q4_k_m.gguf
+
