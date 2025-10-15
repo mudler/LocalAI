@@ -100,7 +100,7 @@ Return your analysis and selection reasoning.`)
 		}
 
 		if model.ReadmeContent != "" {
-			modelsInfo += fmt.Sprintf("  README Preview: %s\n", model.ReadmeContentPreview)
+			modelsInfo += fmt.Sprintf("  README: %s\n", model.ReadmeContent)
 		}
 
 		if model.ProcessingError != "" {
