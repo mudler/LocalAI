@@ -3092,6 +3092,22 @@
     - filename: boomerang-qwen3-2.3B.Q4_K_M.gguf
       sha256: 59d4fa743abb74177667b2faa4eb0f5bfd874109e9bc27a84d4ac392e90f96cc
       uri: huggingface://mradermacher/boomerang-qwen3-2.3B-GGUF/boomerang-qwen3-2.3B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "boomerang-qwen3-4.9b"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/660591cbb8cda932fa1292ba/9eTKbCpP-C5rUHj26HTo_.png
+  urls:
+    - https://huggingface.co/Harvard-DCML/boomerang-qwen3-4.9B
+    - https://huggingface.co/mradermacher/boomerang-qwen3-4.9B-GGUF
+  description: |
+    Boomerang distillation is a phenomenon in LLMs where we can distill a teacher model into a student and reincorporate teacher layers to create intermediate-sized models with no additional training. This is the student model distilled from Qwen3-8B-Base from our paper.
+    This model was initialized from Qwen3-8B-Base by copying every other layer and the last 2 layers. It was distilled on 2.1B tokens of The Pile deduplicated with cross entropy, KL, and cosine loss to match the activations of Qwen3-8B-Base.
+  overrides:
+    parameters:
+      model: boomerang-qwen3-4.9B.Q4_K_M.gguf
+  files:
+    - filename: boomerang-qwen3-4.9B.Q4_K_M.gguf
+      sha256: 11e6c068351d104dee31dd63550e5e2fc9be70467c1cfc07a6f84030cb701537
+      uri: huggingface://mradermacher/boomerang-qwen3-4.9B-GGUF/boomerang-qwen3-4.9B.Q4_K_M.gguf
 - &gemma3
   url: "github:mudler/LocalAI/gallery/gemma.yaml@master"
   name: "gemma-3-27b-it"
