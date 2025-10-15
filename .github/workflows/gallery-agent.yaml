@@ -79,6 +79,8 @@ jobs:
           push-to-fork: ci-forks/LocalAI
           commit-message: ':robot: Add new models to gallery via gallery agent'
           title: 'gallery: :robot: add new models via gallery agent'
+          # Branch has to be unique so PRs are not overriding each other
+          branch-suffix: timestamp
           body: |
             This PR was automatically created by the gallery agent workflow.
             
