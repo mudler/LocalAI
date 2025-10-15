@@ -23,6 +23,29 @@ var (
 	llm = cogito.NewOpenAILLM(openAIModel, openAIKey, openAIBaseURL)
 )
 
+// cleanTextContent removes trailing spaces, tabs, and normalizes line endings
+// to prevent YAML linting issues like trailing spaces and multiple empty lines
+func cleanTextContent(text string) string {
+	lines := strings.Split(text, "\n")
+	var cleanedLines []string
+	var prevEmpty bool
+	for _, line := range lines {
+		trimmed := strings.TrimRight(line, "\t")
+		trimmed = strings.TrimSpace(trimmed)
+		// Avoid multiple consecutive empty lines
+		if trimmed == "" {
+			if !prevEmpty {
+				cleanedLines = append(cleanedLines, trimmed)
+			}
+			prevEmpty = true
+		} else {
+			cleanedLines = append(cleanedLines, trimmed)
+			prevEmpty = false
+		}
+	}
+	return strings.Join(cleanedLines, "\n")
+}
+
 // getGalleryIndexPath returns the gallery index file path, with a default fallback
 func getGalleryIndexPath() string {
 	if galleryIndexPath != "" {
@@ -54,7 +77,8 @@ func getRealReadme(ctx context.Context, repository string) (string, error) {
 		return "", err
 	}
 
-	return newFragment.LastMessage().Content, nil
+	content := newFragment.LastMessage().Content
+	return cleanTextContent(content), nil
 }
 
 func selectMostInterestingModels(ctx context.Context, searchResult *SearchResult) ([]ProcessedModel, error) {
@@ -254,6 +278,9 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 	if description == "" {
 		description = fmt.Sprintf("AI model: %s", modelName)
 	}
+
+	// Clean up description to prevent YAML linting issues
+	description = cleanTextContent(description)
 
 	// Format description for YAML (indent each line)
 	formattedDescription := strings.ReplaceAll(description, "\n", "\n    ")
