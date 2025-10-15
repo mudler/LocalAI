@@ -46,7 +46,7 @@ type SearchResult struct {
 
 func main() {
 	searchTerm := "GGUF"
-	limit := 30
+	limit := 5
 	quantization := "Q4_K_M"
 
 	// Parse command line arguments
@@ -80,6 +80,16 @@ func main() {
 	}
 
 	fmt.Print(models)
+
+	// Generate YAML entries and append to gallery/index.yaml
+	if len(models) > 0 {
+		fmt.Println("Generating YAML entries for selected models...")
+		err = generateYAMLForModels(context.Background(), models)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating YAML entries: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
 func searchAndProcessModels(searchTerm string, limit int, quantization string) (*SearchResult, error) {
@@ -205,7 +215,7 @@ func searchAndProcessModels(searchTerm string, limit int, quantization string) (
 				outputBuilder.WriteString(fmt.Sprintf("   README Content Preview: %s\n",
 					processedModel.ReadmeContentPreview))
 			} else {
-				panic(err)
+				continue
 			}
 			fmt.Println("Real readme got", readmeContent)
 			// Get README content

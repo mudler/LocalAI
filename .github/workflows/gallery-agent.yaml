@@ -1,0 +1,89 @@
+name: Gallery Agent
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'  # Run every Monday at 6 AM UTC
+  workflow_dispatch:
+    inputs:
+      search_term:
+        description: 'Search term for models'
+        required: false
+        default: 'GGUF'
+        type: string
+      limit:
+        description: 'Maximum number of models to process'
+        required: false
+        default: '5'
+        type: string
+      quantization:
+        description: 'Preferred quantization format'
+        required: false
+        default: 'Q4_K_M'
+        type: string
+
+jobs:
+  gallery-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - name: Build gallery agent
+        run: |
+          cd .github/gallery-agent
+          go mod download
+          go build -o gallery-agent .
+
+      - name: Run gallery agent
+        env:
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+        run: |
+          export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
+          cd .github/gallery-agent
+          ./gallery-agent "${{ github.event.inputs.search_term || 'GGUF' }}" "${{ github.event.inputs.limit || '5' }}" "${{ github.event.inputs.quantization || 'Q4_K_M' }}"
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          if git diff --quiet gallery/index.yaml; then
+            echo "changes=false" >> $GITHUB_OUTPUT
+            echo "No changes detected in gallery/index.yaml"
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
+            echo "Changes detected in gallery/index.yaml"
+            git diff gallery/index.yaml
+          fi
+
+      - name: Create Pull Request
+        if: steps.check_changes.outputs.changes == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: ':robot: Add new models to gallery via gallery agent'
+          title: 'gallery: :robot: add new models via gallery agent'
+          branch: "update/gallery-agent"
+          body: |
+            This PR was automatically created by the gallery agent workflow.
+            
+            **Changes:**
+            - Added new models to the gallery based on search term: `${{ github.event.inputs.search_term || 'GGUF' }}`
+            - Processed up to `${{ github.event.inputs.limit || '5' }}` models
+            - Used quantization preference: `${{ github.event.inputs.quantization || 'Q4_K_M' }}`
+            
+            **Workflow Details:**
+            - Triggered by: `${{ github.event_name }}`
+            - Run ID: `${{ github.run_id }}`
+            - Commit: `${{ github.sha }}`
+          signoff: true
+          delete-branch: true
