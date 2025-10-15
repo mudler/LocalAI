@@ -45,22 +45,45 @@ type SearchResult struct {
 }
 
 func main() {
-	searchTerm := "GGUF"
-	limit := 30
-	quantization := "Q4_K_M"
+	// Get configuration from environment variables
+	searchTerm := os.Getenv("SEARCH_TERM")
+	if searchTerm == "" {
+		searchTerm = "GGUF"
+	}
 
-	// Parse command line arguments
-	if len(os.Args) > 1 && os.Args[1] != "" {
-		searchTerm = os.Args[1]
+	limitStr := os.Getenv("LIMIT")
+	if limitStr == "" {
+		limitStr = "5"
 	}
-	if len(os.Args) > 2 {
-		if parsedLimit, err := strconv.Atoi(os.Args[2]); err == nil {
-			limit = parsedLimit
-		}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing LIMIT: %v\n", err)
+		os.Exit(1)
 	}
-	if len(os.Args) > 3 {
-		quantization = os.Args[3]
+
+	quantization := os.Getenv("QUANTIZATION")
+	if quantization == "" {
+		quantization = "Q4_K_M"
 	}
+
+	maxModels := os.Getenv("MAX_MODELS")
+	if maxModels == "" {
+		maxModels = "1"
+	}
+	maxModelsInt, err := strconv.Atoi(maxModels)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing MAX_MODELS: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print configuration
+	fmt.Printf("Gallery Agent Configuration:\n")
+	fmt.Printf("  Search Term: %s\n", searchTerm)
+	fmt.Printf("  Limit: %d\n", limit)
+	fmt.Printf("  Quantization: %s\n", quantization)
+	fmt.Printf("  Max Models to Add: %d\n", maxModelsInt)
+	fmt.Printf("  Gallery Index Path: %s\n", os.Getenv("GALLERY_INDEX_PATH"))
+	fmt.Println()
 
 	result, err := searchAndProcessModels(searchTerm, limit, quantization)
 	if err != nil {
@@ -80,6 +103,18 @@ func main() {
 	}
 
 	fmt.Print(models)
+
+	models = models[:maxModelsInt]
+
+	// Generate YAML entries and append to gallery/index.yaml
+	if len(models) > 0 {
+		fmt.Println("Generating YAML entries for selected models...")
+		err = generateYAMLForModels(context.Background(), models)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error generating YAML entries: %v\n", err)
+			os.Exit(1)
+		}
+	}
 }
 
 func searchAndProcessModels(searchTerm string, limit int, quantization string) (*SearchResult, error) {
@@ -205,7 +240,7 @@ func searchAndProcessModels(searchTerm string, limit int, quantization string) (
 				outputBuilder.WriteString(fmt.Sprintf("   README Content Preview: %s\n",
 					processedModel.ReadmeContentPreview))
 			} else {
-				panic(err)
+				continue
 			}
 			fmt.Println("Real readme got", readmeContent)
 			// Get README content
