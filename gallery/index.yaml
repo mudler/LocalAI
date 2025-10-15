@@ -21777,3 +21777,29 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+
+- !!merge <<: *mistral03
+  name: "ice0.144-15.10-rp"
+  urls:
+    - https://huggingface.co/mradermacher/Ice0.144-15.10-RP-GGUF
+  description: |
+    **Model Name:** Ice0.144-15.10-RP
+    **Base Model:** NeuralNovel/Gecko-7B-v0.1 (a Mistral-based 7B language model)
+    **Fine-tuned by:** icefog72
+    **Training Method:** Fine-tuned using Unsloth and Hugging Face TRL for 2x faster training
+    **License:** Apache 2.0
+    
+    **Description:**
+    Ice0.144-15.10-RP is a high-performance, fine-tuned Mistral-based language model derived from NeuralNovel/Gecko-7B-v0.1. Optimized with Unsloth for accelerated training, it delivers strong performance in text generation tasks. The model is available in multiple GGUF quantizations (from Q2_K to Q8_0 and f16), making it suitable for efficient inference across a range of hardware. Ideal for developers and researchers seeking a balanced mix of speed, quality, and accessibility.
+    
+    **Use Case:** Text generation, chatbots, content creation, and lightweight inference on local hardware.
+    
+    **Note:** The repository you initially provided (`mradermacher/Ice0.144-15.10-RP-GGUF`) contains GGUF quantized versions of this model, but the original, unquantized base model is hosted at `icefog72/Ice0.144-15.10-RP`.
+  overrides:
+    parameters:
+      model: Ice0.144-15.10-RP.Q4_K_M.gguf
+  files:
+    - filename: Ice0.144-15.10-RP.Q4_K_M.gguf
+      sha256: 9d94e1f841af143db28f86e18558b447f2747a6033a6793d569ba6dae1675c1c
+      uri: huggingface://mradermacher/Ice0.144-15.10-RP-GGUF/Ice0.144-15.10-RP.Q4_K_M.gguf
+
