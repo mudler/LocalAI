@@ -13,7 +13,7 @@ on:
       limit:
         description: 'Maximum number of models to process'
         required: false
-        default: '5'
+        default: '15'
         type: string
       quantization:
         description: 'Preferred quantization format'
