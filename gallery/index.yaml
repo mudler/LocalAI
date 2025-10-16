@@ -21824,3 +21824,20 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "rio_2_14b"
+  urls:
+    - https://huggingface.co/mradermacher/Rio_2_14B-GGUF
+  description: |
+    **Model Name:** Rio 2 14B
+    **Base Model:** Qwen/Qwen2.5-14B-Instruct
+    **License:** CC BY 4.0
+    **Pipeline:** Text Generation
+    **Description:** Rio 2 14B is a large language model fine-tuned from Qwen2.5-14B-Instruct, optimized for enhanced reasoning, instruction following, and conversational capabilities. Designed for high performance in complex tasks, it excels in natural language understanding and generation. This model is ideal for applications requiring advanced dialogue, content creation, and reasoning. The original unquantized version is available at [krzonkalla/Rio_2_14B](https://huggingface.co/krzonkalla/Rio_2_14B), while quantized GGUF versions (e.g., Q4_K_M, Q8_0) are provided by mradermacher for efficient local inference.
+  overrides:
+    parameters:
+      model: Rio_2_14B.Q4_K_M.gguf
+  files:
+    - filename: Rio_2_14B.Q4_K_M.gguf
+      sha256: ed680e1b557e05a21e01212961c6083aeb768819f451f29643abf06c3438cd8a
+      uri: huggingface://mradermacher/Rio_2_14B-GGUF/Rio_2_14B.Q4_K_M.gguf
