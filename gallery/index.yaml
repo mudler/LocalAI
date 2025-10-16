@@ -21801,3 +21801,16 @@
     - filename: BioMed-R1-32B.i1-Q4_K_M.gguf
       sha256: 345fd28914871d0c3369ba06512c7b1fe93eb88c67c655007f8cfc4671021450
       uri: huggingface://mradermacher/BioMed-R1-32B-i1-GGUF/BioMed-R1-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "iceblink-v2-sft-v2-1"
+  urls:
+    - https://huggingface.co/ApocalypseParty/Iceblink-v2-SFT-v2-1-gguf
+  description: |
+    AI model: iceblink-v2-sft-v2-1
+  overrides:
+    parameters:
+      model: Iceblink-v2-SFT-v2-1-Q4_K_S-00001-of-00002.gguf
+  files:
+    - filename: Iceblink-v2-SFT-v2-1-Q4_K_S-00001-of-00002.gguf
+      sha256: 6de10247c997da0a41c53772203ce68ffe4c4a1fa53d3d80f523200de57d0bba
+      uri: huggingface://ApocalypseParty/Iceblink-v2-SFT-v2-1-gguf/Iceblink-v2-SFT-v2-1-Q4_K_S-00001-of-00002.gguf
