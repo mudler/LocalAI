@@ -11,7 +11,7 @@ permissions:
 jobs:
   dependabot:
     runs-on: ubuntu-latest
-    if: ${{ github.actor == 'localai-bot' && !contains(github.event.pull_request.title, 'gallery:') }}
+    if: ${{ github.actor == 'localai-bot' && !contains(github.event.pull_request.title, 'chore(model gallery):') }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
