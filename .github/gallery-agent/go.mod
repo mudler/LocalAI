@@ -8,6 +8,7 @@ require (
 	github.com/onsi/gomega v1.38.2
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/tmc/langchaingo v0.1.13
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (

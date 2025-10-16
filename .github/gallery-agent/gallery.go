@@ -43,7 +43,18 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 	description = cleanTextContent(description)
 
 	// Format description for YAML (indent each line and ensure no trailing spaces)
-	formattedDescription := strings.ReplaceAll(description, "\n", "\n    ")
+	lines := strings.Split(description, "\n")
+	var formattedLines []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			// Keep empty lines as empty (no indentation)
+			formattedLines = append(formattedLines, "")
+		} else {
+			// Add indentation to non-empty lines
+			formattedLines = append(formattedLines, "    "+line)
+		}
+	}
+	formattedDescription := strings.Join(formattedLines, "\n")
 	// Remove any trailing spaces from the formatted description
 	formattedDescription = strings.TrimRight(formattedDescription, " \t")
 	yamlTemplate := ""
@@ -53,15 +64,14 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
   urls:
     - https://huggingface.co/%s
   description: |
-    %s
+%s
   overrides:
     parameters:
       model: %s
   files:
     - filename: %s
       sha256: %s
-      uri: huggingface://%s/%s
-`
+      uri: huggingface://%s/%s`
 		return fmt.Sprintf(yamlTemplate,
 			familyAnchor,
 			modelName,
@@ -79,11 +89,10 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
   urls:
     - https://huggingface.co/%s
   description: |
-    %s
+%s
   overrides:
     parameters:
-      model: %s
-`
+      model: %s`
 		return fmt.Sprintf(yamlTemplate,
 			familyAnchor,
 			modelName,
@@ -179,7 +188,7 @@ func generateYAMLForModels(ctx context.Context, models []ProcessedModel) error {
 		// Remove trailing whitespace from existing content and join entries without extra newlines
 		existingContent := strings.TrimRight(string(content), " \t\n\r")
 		yamlBlock := strings.Join(yamlEntries, "\n")
-		newContent := existingContent + "\n" + yamlBlock
+		newContent := existingContent + "\n" + yamlBlock + "\n"
 
 		// Write back to file
 		err = os.WriteFile(indexPath, []byte(newContent), 0644)

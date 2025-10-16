@@ -45,6 +45,18 @@ type SearchResult struct {
 }
 
 func main() {
+	// Check for synthetic mode
+	syntheticMode := os.Getenv("SYNTHETIC_MODE")
+	if syntheticMode == "true" || syntheticMode == "1" {
+		fmt.Println("Running in SYNTHETIC MODE - generating random test data")
+		err := runSyntheticMode()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error in synthetic mode: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	// Get configuration from environment variables
 	searchTerm := os.Getenv("SEARCH_TERM")
 	if searchTerm == "" {
