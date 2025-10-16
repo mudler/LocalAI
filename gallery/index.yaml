@@ -21777,3 +21777,29 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+- !!merge <<: *qwen3
+  name: "dolphy-1.0"
+  urls:
+    - https://huggingface.co/Dolphy-AI/Dolphy-1.0-GGUF
+  description: |
+    **Model Name:** Dolphy-1.0 (GGUF Quantized Version)
+    **Base Model:** Qwen 3 4B Instruct
+    **Description:** Dolphy-1.0 is a high-performance, fine-tuned language model developed by Dolphy AI, built upon Qwen 3 4B Instruct. It was enhanced using Unsloth LoRA fine-tuning on 1.5 million high-quality, diverse examples, with a focus on instruction following, personality modeling, and natural, human-like responses. The model maintains Qwen’s strong multilingual capabilities while delivering improved coherence, reasoning, and contextual understanding. This GGUF-quantized version is optimized for efficient local inference via llama.cpp, making it ideal for deployment on consumer-grade hardware.
+    
+    **Key Features:**
+    - Fine-tuned for instruction accuracy and conversational fluency
+    - Supports multiple languages
+    - Optimized for low-latency inference (GGUF format)
+    - Ideal for local, privacy-preserving applications
+    
+    **Use Case:** Best suited for local deployment in chat applications, coding assistants, and research experiments requiring lightweight yet powerful LLMs.
+    
+    **Model Size:** 4B parameters (base), quantized (Q5_K_M) for efficient inference.
+    
+    **License:** Apache 2.0
+    
+    > Note: This is a quantized, fine-tuned version. The original base model is **Qwen 3 4B Instruct**, and the full fine-tuning details are available in the base repository: [Dolphy-AI/Dolphy-1.0](https://huggingface.co/Dolphy-AI/Dolphy-1.0).
+    > Use the `--hf` flag with `llama-cli` to load the model directly from Hugging Face.
+  overrides:
+    parameters:
+      model: Dolphy-AI/Dolphy-1.0-GGUF
