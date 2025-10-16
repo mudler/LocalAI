@@ -21777,3 +21777,25 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+- !!merge <<: *qwen3
+  name: "biomni-r0-32b-preview-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Biomni-R0-32B-Preview-i1-GGUF
+  description: |
+        **Biomni-R0-32B-Preview** is a 32-billion-parameter biomedical AI agent developed by the Biomni team at Stanford. Built on the Qwen3-32B foundation, it was trained using end-to-end reinforcement learning in the Biomni-E1 environment, achieving state-of-the-art performance across 10 biomedical benchmarks. Tasks include CRISPR delivery design, rare disease diagnosis, and GWAS variant prioritization.
+
+    The model features an extended context length of up to 131,072 tokens via YARN RoPE scaling, enabling deep reasoning over long biomedical sequences. Designed for research and advanced biomedical reasoning, it represents a significant step toward expert-level AI agents in life sciences.
+
+    **Base Model**: Qwen/Qwen3-32B
+    **Domain**: Biomedical AI, Agent-based reasoning
+    **Use Case**: Research, drug discovery, clinical reasoning, genomics
+    **License**: MIT
+
+    *Note: The model hosted at `mradermacher/Biomni-R0-32B-Preview-i1-GGUF` is a quantized version by a third party. The official model is available at `biomni/Biomni-R0-32B-Preview`.*
+  overrides:
+    parameters:
+      model: Biomni-R0-32B-Preview.i1-Q4_K_M.gguf
+  files:
+    - filename: Biomni-R0-32B-Preview.i1-Q4_K_M.gguf
+      sha256: 3ed0debe3dbc4525ed77f96637712f7957020aa06bb3377ee9e0169dee31d71e
+      uri: huggingface://mradermacher/Biomni-R0-32B-Preview-i1-GGUF/Biomni-R0-32B-Preview.i1-Q4_K_M.gguf
