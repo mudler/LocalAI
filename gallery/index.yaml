@@ -21777,3 +21777,30 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+
+- !!merge <<: *llama3
+  name: "nousyarnflashllama-13b-64k-i1"
+  urls:
+    - https://huggingface.co/mradermacher/NousYarnFlashLlama-13B-64k-i1-GGUF
+  description: |
+    **Model Name:** Nous-Yarn-Llama-2-13B-64k
+    **Base Model:** NousResearch/Yarn-Llama-2-13b-64k
+    **Architecture:** Llama-2 (13B parameters) with extended context length (64k tokens) via the Yarn scaling technique
+    **Key Features:**
+    - Supports ultra-long context (up to 64,000 tokens) for extended reasoning and document processing
+    - Enhanced with FlashAttention for improved inference speed and efficiency
+    - Fine-tuned for creativity, coherence, and dynamic interaction
+    
+    **Use Cases:** Long-form content generation, document summarization, complex reasoning tasks, and creative writing.
+    **Original Author:** Nous Research
+    **Repository:** [huggingface.co/NousResearch/Yarn-Llama-2-13b-64k](https://huggingface.co/NousResearch/Yarn-Llama-2-13b-64k)
+    
+    > ⚠️ Note: The GGUF version at `mradermacher/NousYarnFlashLlama-13B-64k-i1-GGUF` is a quantized, third-party conversion. This description reflects the original, unquantized base model.
+  overrides:
+    parameters:
+      model: NousYarnFlashLlama-13B-64k.i1-Q4_K_S.gguf
+  files:
+    - filename: NousYarnFlashLlama-13B-64k.i1-Q4_K_S.gguf
+      sha256: 9a8e1b9a1fc50c27ddd79df3e2902efb82b3881012f6de2d141a73e979d2458b
+      uri: huggingface://mradermacher/NousYarnFlashLlama-13B-64k-i1-GGUF/NousYarnFlashLlama-13B-64k.i1-Q4_K_S.gguf
+
