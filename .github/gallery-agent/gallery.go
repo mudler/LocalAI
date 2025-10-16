@@ -43,7 +43,19 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 	description = cleanTextContent(description)
 
 	// Format description for YAML (indent each line and ensure no trailing spaces)
-	formattedDescription := strings.ReplaceAll(description, "\n", "\n    ")
+	// Handle empty lines properly to avoid spaces-only lines
+	lines := strings.Split(description, "\n")
+	var formattedLines []string
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			// Empty line - don't add spaces
+			formattedLines = append(formattedLines, "")
+		} else {
+			// Non-empty line - add proper indentation
+			formattedLines = append(formattedLines, "    "+line)
+		}
+	}
+	formattedDescription := strings.Join(formattedLines, "\n")
 	// Remove any trailing spaces from the formatted description
 	formattedDescription = strings.TrimRight(formattedDescription, " \t")
 	yamlTemplate := ""
@@ -60,7 +72,8 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
   files:
     - filename: %s
       sha256: %s
-      uri: huggingface://%s/%s`
+      uri: huggingface://%s/%s
+`
 		return fmt.Sprintf(yamlTemplate,
 			familyAnchor,
 			modelName,
@@ -81,7 +94,8 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
     %s
   overrides:
     parameters:
-      model: %s`
+      model: %s
+`
 		return fmt.Sprintf(yamlTemplate,
 			familyAnchor,
 			modelName,
