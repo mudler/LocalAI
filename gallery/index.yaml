@@ -21777,3 +21777,40 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+
+- !!merge <<: *qwen3
+  name: "sr-scientist-30b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/SR-Scientist-30B-i1-GGUF
+  description: |
+    **Model Name:** SR-Scientist-30B
+    **Base Model:** Qwen3-Coder-30B-A3B-Instruct
+    **Description:** SR-Scientist-30B is a large language model trained for scientific equation discovery using agentic AI. Built upon Qwen3-Coder-30B-A3B-Instruct, it leverages reinforcement learning to autonomously generate and validate scientific equations, making it highly effective for research-driven problem solving in physics, chemistry, and related fields. Designed for advanced scientific reasoning, it supports complex, multi-step inference tasks.
+    
+    **Key Features:**
+    - Fine-tuned for automated scientific discovery
+    - Trained via reinforcement learning on domain-specific datasets
+    - Built on Qwen3-Coder-30B-A3B-Instruct for strong code and mathematical reasoning
+    - Ideal for researchers seeking AI-powered hypothesis generation and equation modeling
+    
+    **Citation:**
+    @misc{xia2025srscientist,
+    title={SR-Scientist: Scientific Equation Discovery With Agentic AI},
+    author={Shijie Xia and Yuhan Sun and Pengfei Liu},
+    year={2025},
+    eprint={2510.11661},
+    archivePrefix={arXiv},
+    primaryClass={cs.AI},
+    url={https://arxiv.org/abs/2510.11661}
+    }
+    
+    **Repository:** [GAIR/SR-Scientist-30B](https://huggingface.co/GAIR/SR-Scientist-30B)
+    *(Note: The GGUF quantized version is available at mradermacher/SR-Scientist-30B-i1-GGUF but is not by the original authors.)*
+  overrides:
+    parameters:
+      model: SR-Scientist-30B.i1-Q4_K_M.gguf
+  files:
+    - filename: SR-Scientist-30B.i1-Q4_K_M.gguf
+      sha256: 95ff2c64315db17f0f1f923b20dc3942b9d5b9ac58da364cfc0186ca45d418b1
+      uri: huggingface://mradermacher/SR-Scientist-30B-i1-GGUF/SR-Scientist-30B.i1-Q4_K_M.gguf
+
