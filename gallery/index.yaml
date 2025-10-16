@@ -21801,3 +21801,26 @@
     - filename: BioMed-R1-32B.i1-Q4_K_M.gguf
       sha256: 345fd28914871d0c3369ba06512c7b1fe93eb88c67c655007f8cfc4671021450
       uri: huggingface://mradermacher/BioMed-R1-32B-i1-GGUF/BioMed-R1-32B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "tlacuilo-12b"
+  urls:
+    - https://huggingface.co/Ennthen/Tlacuilo-12B-Q4_K_M-GGUF
+  description: |
+    **Tlacuilo-12B** is a 12-billion-parameter fine-tuned language model developed by Allura Org, based on **Mistral-Nemo-Base-2407** and **Muse-12B**, optimized for high-quality creative writing, roleplay, and narrative generation. Trained using a three-stage QLoRA process with diverse datasets—including literary texts, roleplay content, and instruction-following data—the model excels in coherent, expressive, and stylistically rich prose.
+
+    Key features:
+    - **Base models**: Built on Mistral-Nemo-Base-2407 and Muse-12B for strong reasoning and narrative capability.
+    - **Fine-tuned for creativity**: Optimized for roleplay, storytelling, and imaginative writing with natural, fluid prose.
+    - **Chat template**: Uses **ChatML**, making it compatible with standard conversational interfaces.
+    - **Recommended settings**: Works well with temperature 1.0–1.3 and min-p 0.02–0.05 for balanced, engaging responses.
+
+    Ideal for writers, game masters, and creative professionals seeking a versatile, high-performance model for narrative tasks.
+
+    > *Note: The GGUF quantized version (e.g., `Ennthen/Tlacuilo-12B-Q4_K_M-GGUF`) is a conversion of this base model for local inference via llama.cpp.*
+  overrides:
+    parameters:
+      model: tlacuilo-12b-q4_k_m.gguf
+  files:
+    - filename: tlacuilo-12b-q4_k_m.gguf
+      sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
+      uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
