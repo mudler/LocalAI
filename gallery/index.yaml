@@ -21824,3 +21824,38 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "deepseek-r1-medical-doc-qwen3-8b_v1"
+  urls:
+    - https://huggingface.co/mradermacher/DeepSeek-R1-Medical-Doc-Qwen3-8B_V1-GGUF
+  description: |
+    **Model Name:** DeepSeek-R1-0528-Qwen3-8B
+    **Base Model:** qwen3-8b
+    **Type:** Fine-tuned, reasoning-optimized language model
+    **Description:**
+    A high-performance, open-source LLM distilled from DeepSeek-R1-0528, leveraging advanced chain-of-thought reasoning to achieve state-of-the-art results in math and coding benchmarks. Specifically optimized for complex reasoning tasks, it surpasses Qwen3-8B by +10.0% on AIME 2024 and matches the performance of Qwen3-235B-thinking, making it one of the strongest small reasoning models available.
+
+    **Key Features:**
+    - Trained via distillation from DeepSeek-R1-0528, with enhanced depth of reasoning and reduced hallucination.
+    - Supports system prompts and file/web search integration (via template formatting).
+    - Ideal for academic research, coding assistants, and reasoning-heavy applications.
+    - Compatible with standard Qwen3-8B inference pipelines, with configuration sourced from DeepSeek’s official repo.
+
+    **Performance Highlights (Pass@1):**
+    - AIME 2024: **86.0%**
+    - AIME 2025: **76.3%**
+    - HMMT 2025: **61.5%**
+    - LiveCodeBench: **60.5%**
+
+    **License:** MIT
+    **Repository:** [deepseek-ai/DeepSeek-R1](https://github.com/deepseek-ai/DeepSeek-R1)
+    **Usage:** Suitable for research and commercial applications.
+
+    > ✅ **Note:** This model is not the original Qwen3-8B — it is a purpose-built, reasoning-enhanced variant based on DeepSeek-R1’s superior reasoning capability.
+  overrides:
+    parameters:
+      model: DeepSeek-R1-Medical-Doc-Qwen3-8B_V1.Q4_K_S.gguf
+  files:
+    - filename: DeepSeek-R1-Medical-Doc-Qwen3-8B_V1.Q4_K_S.gguf
+      sha256: 5cd3aeee775eeb1cc6d11b42631656b792fab52a4125ec3d1fc20e27e91ed974
+      uri: huggingface://mradermacher/DeepSeek-R1-Medical-Doc-Qwen3-8B_V1-GGUF/DeepSeek-R1-Medical-Doc-Qwen3-8B_V1.Q4_K_S.gguf
