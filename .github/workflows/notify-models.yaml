@@ -11,12 +11,18 @@ permissions:
 jobs:
   notify-discord:
     if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    env:
+        MODEL_NAME: gemma-3-12b-it-qat
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
         ref: ${{ github.event.pull_request.head.sha }} # Checkout the PR head to get the actual changes
+    - uses: mudler/localai-github-action@v1
+      with:
+        model: 'gemma-3-12b-it-qat' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
+        # Check the PR diff using the current branch and the base branch of the PR
     - uses: GrantBirki/git-diff-action@v2.8.1
       id: git-diff-action
       with:
@@ -26,16 +32,16 @@ jobs:
     - name: Summarize
       env:
         DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
-        OPENAI_MODEL: "gemma-3-27b-it-qat"
       id: summarize
       run: |
             input="$(cat $DIFF)"
 
+            # Define the LocalAI API endpoint
+            API_URL="http://localhost:8080/chat/completions"
+
             # Create a JSON payload using jq to handle special characters
             json_payload=$(jq -n --arg input "$input" '{
-            model: "'$OPENAI_MODEL'",
+            model: "'$MODEL_NAME'",
             messages: [
                 {
                 role: "system",
@@ -48,16 +54,16 @@ jobs:
             ]
             }')
 
-            # Send the request to OpenAI API
-            response=$(curl -s -X POST $OPENAI_BASE_URL/chat/completions \
+            # Send the request to LocalAI
+            response=$(curl -s -X POST $API_URL \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
             -d "$json_payload")
 
             # Extract the summary from the response
             summary="$(echo $response | jq -r '.choices[0].message.content')"
 
             # Print the summary
+            #  -H "Authorization: Bearer $API_KEY" \
             echo "Summary:"
             echo "$summary"
             echo "payload sent"
@@ -67,6 +73,7 @@ jobs:
                 echo "$summary"
                 echo EOF
               } >> "$GITHUB_OUTPUT"
+            docker logs --tail 10 local-ai
     - name: Discord notification
       env:
         DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
@@ -84,12 +91,20 @@ jobs:
         limit-access-to-actor: true
   notify-twitter:
     if: ${{ (github.event.pull_request.merged == true) && (contains(github.event.pull_request.labels.*.name, 'area/ai-model')) }}
+    env:
+        MODEL_NAME: gemma-3-12b-it-qat
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v5
       with:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
         ref: ${{ github.event.pull_request.head.sha }} # Checkout the PR head to get the actual changes
+    - name: Start LocalAI
+      run: |
+        echo "Starting LocalAI..."
+        docker run -e -ti -d --name local-ai -p 8080:8080 localai/localai:master run --debug $MODEL_NAME
+        until [ "`docker inspect -f {{.State.Health.Status}} local-ai`" == "healthy" ]; do echo "Waiting for container to be ready";  docker logs --tail 10 local-ai; sleep 2; done
+      # Check the PR diff using the current branch and the base branch of the PR
     - uses: GrantBirki/git-diff-action@v2.8.1
       id: git-diff-action
       with:
@@ -99,20 +114,20 @@ jobs:
     - name: Summarize
       env:
         DIFF: ${{ steps.git-diff-action.outputs.raw-diff-path }}
-        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
-        OPENAI_MODEL: "gemma-3-27b-it-qat"
       id: summarize
       run: |
             input="$(cat $DIFF)"
 
+            # Define the LocalAI API endpoint
+            API_URL="http://localhost:8080/chat/completions"
+
             # Create a JSON payload using jq to handle special characters
             json_payload=$(jq -n --arg input "$input" '{
-            model: "'$OPENAI_MODEL'",
+            model: "'$MODEL_NAME'",
             messages: [
                 {
                 role: "system",
-                content: "You are LocalAI-bot. Write a short, twitter message to notify everyone about the new model from the git diff. Make it informal and really short, less than 250 characters. An example can include: the name, and a brief description of the model if exists. Also add an hint on how to install it in LocalAI. For example: local-ai run model_name_here"
+                content: "You are LocalAI-bot. Write a twitter message to notify everyone about the new model from the git diff. Make it informal and really short. An example can include: the name, and a brief description of the model if exists. Also add an hint on how to install it in LocalAI. For example: local-ai run model_name_here"
                 },
                 {
                 role: "user",
@@ -121,16 +136,16 @@ jobs:
             ]
             }')
 
-            # Send the request to OpenAI API
-            response=$(curl -s -X POST $OPENAI_BASE_URL/chat/completions \
+            # Send the request to LocalAI
+            response=$(curl -s -X POST $API_URL \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $OPENAI_API_KEY" \
             -d "$json_payload")
 
             # Extract the summary from the response
             summary="$(echo $response | jq -r '.choices[0].message.content')"
 
             # Print the summary
+            #  -H "Authorization: Bearer $API_KEY" \
             echo "Summary:"
             echo "$summary"
             echo "payload sent"
@@ -140,6 +155,7 @@ jobs:
                 echo "$summary"
                 echo EOF
               } >> "$GITHUB_OUTPUT"
+            docker logs --tail 10 local-ai
     - uses: Eomm/why-don-t-you-tweet@v2
       with:
         tweet-message: ${{ steps.summarize.outputs.message }}
