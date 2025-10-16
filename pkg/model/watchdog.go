@@ -44,6 +44,7 @@ func NewWatchDog(pm ProcessManager, timeoutBusy, timeoutIdle time.Duration, busy
 		busyCheck:       busy,
 		idleCheck:       idle,
 		addressModelMap: make(map[string]string),
+		stop:            make(chan bool, 1),
 	}
 }
 
@@ -104,18 +105,18 @@ func (wd *WatchDog) Run() {
 
 func (wd *WatchDog) checkIdle() {
 	wd.Lock()
-	defer wd.Unlock()
 	log.Debug().Msg("[WatchDog] Watchdog checks for idle connections")
+
+	// Collect models to shutdown while holding the lock
+	var modelsToShutdown []string
 	for address, t := range wd.idleTime {
 		log.Debug().Msgf("[WatchDog] %s: idle connection", address)
 		if time.Since(t) > wd.idletimeout {
 			log.Warn().Msgf("[WatchDog] Address %s is idle for too long, killing it", address)
 			model, ok := wd.addressModelMap[address]
 			if ok {
-				if err := wd.pm.ShutdownModel(model); err != nil {
-					log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
-				}
-				log.Debug().Msgf("[WatchDog] model shut down: %s", address)
+				modelsToShutdown = append(modelsToShutdown, model)
+				// Clean up the maps while we have the lock
 				delete(wd.idleTime, address)
 				delete(wd.addressModelMap, address)
 				delete(wd.addressMap, address)
@@ -125,25 +126,32 @@ func (wd *WatchDog) checkIdle() {
 			}
 		}
 	}
+	wd.Unlock()
+
+	// Now shutdown models without holding the watchdog lock to prevent deadlock
+	for _, model := range modelsToShutdown {
+		if err := wd.pm.ShutdownModel(model); err != nil {
+			log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
+		}
+		log.Debug().Msgf("[WatchDog] model shut down: %s", model)
+	}
 }
 
 func (wd *WatchDog) checkBusy() {
 	wd.Lock()
-	defer wd.Unlock()
 	log.Debug().Msg("[WatchDog] Watchdog checks for busy connections")
 
+	// Collect models to shutdown while holding the lock
+	var modelsToShutdown []string
 	for address, t := range wd.timetable {
 		log.Debug().Msgf("[WatchDog] %s: active connection", address)
 
 		if time.Since(t) > wd.timeout {
-
 			model, ok := wd.addressModelMap[address]
 			if ok {
 				log.Warn().Msgf("[WatchDog] Model %s is busy for too long, killing it", model)
-				if err := wd.pm.ShutdownModel(model); err != nil {
-					log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
-				}
-				log.Debug().Msgf("[WatchDog] model shut down: %s", address)
+				modelsToShutdown = append(modelsToShutdown, model)
+				// Clean up the maps while we have the lock
 				delete(wd.timetable, address)
 				delete(wd.addressModelMap, address)
 				delete(wd.addressMap, address)
@@ -152,5 +160,14 @@ func (wd *WatchDog) checkBusy() {
 				delete(wd.timetable, address)
 			}
 		}
+	}
+	wd.Unlock()
+
+	// Now shutdown models without holding the watchdog lock to prevent deadlock
+	for _, model := range modelsToShutdown {
+		if err := wd.pm.ShutdownModel(model); err != nil {
+			log.Error().Err(err).Str("model", model).Msg("[watchdog] error shutting down model")
+		}
+		log.Debug().Msgf("[WatchDog] model shut down: %s", model)
 	}
 }
