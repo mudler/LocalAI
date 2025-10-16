@@ -21777,3 +21777,27 @@
     - filename: bark-small_weights-f16.bin
       uri: https://huggingface.co/Green-Sky/bark-ggml/resolve/main/bark-small_weights-f16.bin
       sha256: de1ece17e8319537b3a7909baebbd28affab23c942d5d57e648d622af4e2feaa
+- !!merge <<: *qwen25
+  name: "biomed-r1-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/BioMed-R1-32B-i1-GGUF
+  description: |
+    **BioMed-R1-32B** is a large-scale, medical-domain language model developed by the Zou Lab at Stanford University. Built upon the **Qwen2.5-32B-Instruct** base, it is specifically fine-tuned to enhance reasoning and factual accuracy in clinical and biomedical contexts. The model excels in handling complex medical questions, with a focus on self-correction, backtracking, and robust performance under adversarial conditions—key traits for reliable medical decision support.
+
+    Key features:
+    - **Base model**: Qwen/Qwen2.5-32B-Instruct
+    - **Domain**: Specialized for medical reasoning and knowledge retrieval
+    - **Training**: Supervised fine-tuning and reinforcement learning on reasoning-heavy and adversarial examples
+    - **Performance**: Top-tier among similarly sized biomedical LLMs, particularly on reasoning-intensive tasks
+    - **Use case**: Clinical reasoning, diagnostic support, medical QA, and research
+
+    Available via Hugging Face, it can be deployed using vLLM, SGLang, or standard Transformers pipelines. Ideal for researchers and developers working in healthcare AI.
+
+    > 📌 **Citation**: Thapa et al., *Disentangling Reasoning and Knowledge in Medical Large Language Models*, arXiv:2505.11462 (2025)
+  overrides:
+    parameters:
+      model: BioMed-R1-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: BioMed-R1-32B.i1-Q4_K_M.gguf
+      sha256: 345fd28914871d0c3369ba06512c7b1fe93eb88c67c655007f8cfc4671021450
+      uri: huggingface://mradermacher/BioMed-R1-32B-i1-GGUF/BioMed-R1-32B.i1-Q4_K_M.gguf
