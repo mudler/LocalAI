@@ -21824,3 +21824,12 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "glm-4.5-air-f16"
+  urls:
+    - https://huggingface.co/John1604/GLM-4.5-Air-f16-gguf
+  description: |
+    AI model: glm-4.5-air-f16
+  overrides:
+    parameters:
+      model: John1604/GLM-4.5-Air-f16-gguf
