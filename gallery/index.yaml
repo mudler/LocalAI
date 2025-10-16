@@ -21824,3 +21824,23 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "depth-anything-v2"
+  urls:
+    - https://huggingface.co/Acly/Depth-Anything-V2-GGUF
+  description: |
+    **Depth Anything V2 Small** is a state-of-the-art monocular depth estimation model designed for high accuracy and efficiency. Built on the DPT architecture with a DINOv2 backbone, it leverages 595K synthetic labeled images and over 62 million real unlabeled images during training—resulting in highly detailed, robust depth predictions that outperform previous models in both relative and absolute depth estimation.
+
+    Key features:
+    - **Fine-grained detail**: Delivers sharper depth maps than its predecessor (Depth Anything V1).
+    - **Robust performance**: More resilient than SD-based models (e.g., Marigold, Geowizard) across diverse scenes.
+    - **Efficient inference**: Up to 10x faster than diffusion-based methods, ideal for real-time applications.
+    - **Open-source & lightweight**: Available via Hugging Face Transformers with easy integration.
+
+    Use case: Zero-shot depth estimation for robotics, AR/VR, 3D reconstruction, and image enhancement.
+
+    **Model Hub**: [depth-anything/Depth-Anything-V2-Small-hf](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf)
+    **Paper**: [Depth Anything V2 (arXiv:2406.09414)](https://arxiv.org/abs/2406.09414)
+  overrides:
+    parameters:
+      model: Acly/Depth-Anything-V2-GGUF
