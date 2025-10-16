@@ -62,9 +62,6 @@ func main() {
 	}
 
 	quantization := os.Getenv("QUANTIZATION")
-	if quantization == "" {
-		quantization = "Q4_K_M"
-	}
 
 	maxModels := os.Getenv("MAX_MODELS")
 	if maxModels == "" {
