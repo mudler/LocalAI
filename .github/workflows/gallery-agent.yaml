@@ -78,8 +78,8 @@ jobs:
         with:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
-          commit-message: ':robot: Add new models to gallery via gallery agent'
-          title: 'gallery: :robot: add new models via gallery agent'
+          commit-message: 'chore(model gallery): :robot: add new models via gallery agent'
+          title: 'chore(model gallery): :robot: add new models via gallery agent'
           # Branch has to be unique so PRs are not overriding each other
           branch-suffix: timestamp
           body: |
