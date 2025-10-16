@@ -30,12 +30,12 @@ func cleanTextContent(text string) string {
 	var cleanedLines []string
 	var prevEmpty bool
 	for _, line := range lines {
-		trimmed := strings.TrimRight(line, "\t")
-		trimmed = strings.TrimSpace(trimmed)
+		// Remove all trailing whitespace (spaces, tabs, etc.)
+		trimmed := strings.TrimRight(line, " \t\r")
 		// Avoid multiple consecutive empty lines
 		if trimmed == "" {
 			if !prevEmpty {
-				cleanedLines = append(cleanedLines, trimmed)
+				cleanedLines = append(cleanedLines, "")
 			}
 			prevEmpty = true
 		} else {
@@ -43,7 +43,9 @@ func cleanTextContent(text string) string {
 			prevEmpty = false
 		}
 	}
-	return strings.Join(cleanedLines, "\n")
+	// Remove trailing empty lines from the result
+	result := strings.Join(cleanedLines, "\n")
+	return strings.TrimRight(result, "\n")
 }
 
 // isModelExisting checks if a specific model ID exists in the gallery using text search
@@ -318,8 +320,10 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 	// Clean up description to prevent YAML linting issues
 	description = cleanTextContent(description)
 
-	// Format description for YAML (indent each line)
+	// Format description for YAML (indent each line and ensure no trailing spaces)
 	formattedDescription := strings.ReplaceAll(description, "\n", "\n    ")
+	// Remove any trailing spaces from the formatted description
+	formattedDescription = strings.TrimRight(formattedDescription, " \t")
 
 	yamlTemplate := `- !!merge <<: *%s
   name: "%s"
@@ -333,8 +337,7 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
   files:
     - filename: %s
       sha256: %s
-      uri: huggingface://%s/%s
-`
+      uri: huggingface://%s/%s`
 
 	return fmt.Sprintf(yamlTemplate,
 		familyAnchor,
@@ -431,7 +434,10 @@ func generateYAMLForModels(ctx context.Context, models []ProcessedModel) error {
 		}
 
 		// Append new entries
-		newContent := string(content) + "\n" + strings.Join(yamlEntries, "\n") + "\n"
+		// Remove trailing whitespace from existing content and join entries without extra newlines
+		existingContent := strings.TrimRight(string(content), " \t\n\r")
+		yamlBlock := strings.Join(yamlEntries, "\n")
+		newContent := existingContent + "\n" + yamlBlock
 
 		// Write back to file
 		err = os.WriteFile(indexPath, []byte(newContent), 0644)
