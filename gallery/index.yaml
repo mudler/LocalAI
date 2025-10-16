@@ -21824,3 +21824,24 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "ring-mini-2.0-ik"
+  urls:
+    - https://huggingface.co/redponike/Ring-mini-2.0-GGUF-ik
+  description: |
+    **Ring-mini-2.0** is a high-performance, inference-optimized Mixture-of-Experts (MoE) language model developed by inclusionAI. Built on the Ling 2.0 architecture, it features 16.8B total parameters with only 1.4B activated per token, delivering reasoning capabilities comparable to dense models below 10B. The model excels in logical reasoning, code generation, and mathematical problem-solving, while supporting 128K long-context processing and achieving up to 300+ tokens/second generation speed. It leverages advanced training techniques including Long-CoT SFT, RLVR, and RLHF for enhanced stability and generalization. Designed for efficiency, Ring-mini-2.0 is ideal for high-concurrency inference scenarios with low latency and cost.
+
+    - **Base Model**: Ling-mini-base-2.0-20T
+    - **Architecture**: MoE (1/32 expert activation)
+    - **Context Length**: 128K
+    - **Use Case**: High-speed, long-context reasoning and code generation
+    - **License**: MIT
+
+    Available on [Hugging Face](https://huggingface.co/inclusionAI/Ring-mini-2.0) and [ModelScope](https://modelscope.cn/models/inclusionAI/Ring-mini-2.0).
+  overrides:
+    parameters:
+      model: Ring-mini-2.0-Q4_K_M.gguf
+  files:
+    - filename: Ring-mini-2.0-Q4_K_M.gguf
+      sha256: 1a6bd094651c37b1a454629c4dd626f4a8f289c3b7ddedaaa8cd8d514977724d
+      uri: huggingface://redponike/Ring-mini-2.0-GGUF-ik/Ring-mini-2.0-Q4_K_M.gguf
