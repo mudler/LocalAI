@@ -51,7 +51,7 @@ jobs:
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           SEARCH_TERM: ${{ github.event.inputs.search_term || 'GGUF' }}
-          LIMIT: ${{ github.event.inputs.limit || '5' }}
+          LIMIT: ${{ github.event.inputs.limit || '15' }}
           QUANTIZATION: ${{ github.event.inputs.quantization || 'Q4_K_M' }}
           MAX_MODELS: ${{ github.event.inputs.max_models || '1' }}
         run: |
