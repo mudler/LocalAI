@@ -43,19 +43,7 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 	description = cleanTextContent(description)
 
 	// Format description for YAML (indent each line and ensure no trailing spaces)
-	// Handle empty lines properly to avoid spaces-only lines
-	lines := strings.Split(description, "\n")
-	var formattedLines []string
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			// Empty line - don't add spaces
-			formattedLines = append(formattedLines, "")
-		} else {
-			// Non-empty line - add proper indentation
-			formattedLines = append(formattedLines, "    "+line)
-		}
-	}
-	formattedDescription := strings.Join(formattedLines, "\n")
+	formattedDescription := strings.ReplaceAll(description, "\n", "\n    ")
 	// Remove any trailing spaces from the formatted description
 	formattedDescription = strings.TrimRight(formattedDescription, " \t")
 	yamlTemplate := ""
