@@ -2,7 +2,7 @@ name: Gallery Agent
 on:
 
   schedule:
-    - cron: '0 */4 * * *'  # Run every 4 hours
+    - cron: '0 */1 * * *'  # Run every 4 hours
   workflow_dispatch:
     inputs:
       search_term:
