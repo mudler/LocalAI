@@ -149,8 +149,11 @@ func (ml *ModelLoader) ListLoadedModels() []*Model {
 }
 
 func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+
 	// Check if we already have a loaded model
-	if model := ml.CheckIsLoaded(modelID); model != nil {
+	if model := ml.checkIsLoaded(modelID); model != nil {
 		return model, nil
 	}
 
@@ -158,8 +161,6 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
-	ml.mu.Lock()
-	defer ml.mu.Unlock()
 	model, err := loader(modelID, modelName, modelFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load model with internal loader: %s", err)
@@ -184,6 +185,10 @@ func (ml *ModelLoader) ShutdownModel(modelName string) error {
 func (ml *ModelLoader) CheckIsLoaded(s string) *Model {
 	ml.mu.Lock()
 	defer ml.mu.Unlock()
+	return ml.checkIsLoaded(s)
+}
+
+func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 	m, ok := ml.models[s]
 	if !ok {
 		return nil
