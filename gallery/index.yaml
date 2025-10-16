@@ -21824,3 +21824,19 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "sala-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Sala-i1-GGUF
+  description: |
+    **Sala** is a lightweight, independently trained large language model (LLM) developed by Clemylia. Designed from scratch using PyTorch, Sala is open-source and optimized for efficiency, making it ideal for deployment on limited hardware. The model excels in conversational tasks and supports text generation with strong performance in English. It is available via the Hugging Face Transformers library and is suited for developers and researchers seeking a customizable, high-performance, and transparent AI solution. For best results, use in English.
+
+    *Base model: [Clemylia/Sala](https://huggingface.co/Clemylia/Sala)*
+    *Model card: [Sala - Hugging Face](https://huggingface.co/Clemylia/Sala)*
+  overrides:
+    parameters:
+      model: Sala.i1-Q4_K_M.gguf
+  files:
+    - filename: Sala.i1-Q4_K_M.gguf
+      sha256: 9ae17e6e59b30f97f5c4195bcea4922144c59b15e4dbce5d1004e2887eb19502
+      uri: huggingface://mradermacher/Sala-i1-GGUF/Sala.i1-Q4_K_M.gguf
