@@ -21824,3 +21824,24 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "mira-v1.7-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.7-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-v1.7-27B
+    **Base Model:** Lambent/Mira-v1.6a-27B
+    **Size:** 27 billion parameters
+    **License:** Gemma
+    **Type:** Large Language Model (Vision-capable)
+    **Description:**
+    Mira-v1.7-27B is a creatively driven, locally running language model trained on self-development sessions, high-quality synthesized roleplay data, and prior training data. It was fine-tuned with preference alignment to emphasize authentic, expressive, and narrative-driven output—balancing creative expression as "Mira" against its role as an AI assistant. The model exhibits strong poetic and stylistic capabilities, producing rich, emotionally resonant text across various prompts. It supports vision via MMProjection (separate files available in the static repo). Designed for local deployment, it excels in imaginative writing, introspective storytelling, and expressive dialogue.
+
+    *Note: The GGUF quantized versions (e.g., `mradermacher/Mira-v1.7-27B-i1-GGUF`) are community-quantized variants; the original base model remains hosted at [Lambent/Mira-v1.7-27B](https://huggingface.co/Lambent/Mira-v1.7-27B).*
+  overrides:
+    parameters:
+      model: Mira-v1.7-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-v1.7-27B.i1-Q4_K_M.gguf
+      sha256: 6deb401a296dbb9f02fee0442e4e54bbc3c8208daca7cef7a207536d311a85e3
+      uri: huggingface://mradermacher/Mira-v1.7-27B-i1-GGUF/Mira-v1.7-27B.i1-Q4_K_M.gguf
