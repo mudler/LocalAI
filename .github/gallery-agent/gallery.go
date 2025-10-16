@@ -51,9 +51,8 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 			// Empty line - don't add spaces
 			formattedLines = append(formattedLines, "")
 		} else {
-			// Non-empty line - add proper indentation for literal block scalar
-			// The content should be indented 2 spaces from the description: key
-			formattedLines = append(formattedLines, "  "+line)
+			// Non-empty line - add proper indentation
+			formattedLines = append(formattedLines, "    "+line)
 		}
 	}
 	formattedDescription := strings.Join(formattedLines, "\n")
