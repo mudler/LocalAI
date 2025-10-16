@@ -11,21 +11,18 @@ jobs:
         RELEASE_BODY: ${{ github.event.release.body }}
         RELEASE_TITLE: ${{ github.event.release.name }}
         RELEASE_TAG_NAME: ${{ github.event.release.tag_name }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+        OPENAI_MODEL: "gemma-3-27b-it-qat"
     steps:
-    - uses: mudler/localai-github-action@v1
-      with:
-        model: 'gemma-3-12b-it' # Any from models.localai.io, or from huggingface.com with: "huggingface://<repository>/file"
     - name: Summarize
       id: summarize
       run: |
             input="$RELEASE_TITLE\b$RELEASE_BODY"
 
-            # Define the LocalAI API endpoint
-            API_URL="http://localhost:8080/chat/completions"
-
             # Create a JSON payload using jq to handle special characters
             json_payload=$(jq -n --arg input "$input" '{
-            model: "'$MODEL_NAME'",
+            model: "'$OPENAI_MODEL'",
             messages: [
                 {
                 role: "system",
@@ -38,16 +35,16 @@ jobs:
             ]
             }')
 
-            # Send the request to LocalAI API
-            response=$(curl -s -X POST $API_URL \
+            # Send the request to OpenAI API
+            response=$(curl -s -X POST $OPENAI_BASE_URL/chat/completions \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $OPENAI_API_KEY" \
             -d "$json_payload")
 
             # Extract the summary from the response
             summary=$(echo $response | jq -r '.choices[0].message.content')
 
             # Print the summary
-            #  -H "Authorization: Bearer $API_KEY" \
             {
                 echo 'message<<EOF'
                 echo "$summary"
