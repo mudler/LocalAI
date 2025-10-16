@@ -6,10 +6,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/rs/zerolog/log"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -58,9 +60,9 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	var filteredModels GalleryElements[T]
 
 	for _, m := range gm {
-		if strings.Contains(m.GetName(), term) ||
-			strings.Contains(m.GetDescription(), term) ||
-			strings.Contains(m.GetGallery().Name, term) ||
+		if fuzzy.Match(term, m.GetName()) ||
+			fuzzy.Match(term, m.GetDescription()) ||
+			fuzzy.Match(term, m.GetGallery().Name) ||
 			strings.Contains(strings.Join(m.GetTags(), ","), term) {
 			filteredModels = append(filteredModels, m)
 		}
