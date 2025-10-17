@@ -22079,3 +22079,24 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "positivedetox-qwen2.5-14b"
+  urls:
+    - https://huggingface.co/mradermacher/PositiveDetox-Qwen2.5-14B-GGUF
+  description: |
+    **Model Name:** PositiveDetox-Qwen2.5-14B
+    **Base Model:** Qwen2.5-14B-Instruct (finetuned from `unsloth/qwen2.5-14b-instruct-unsloth-bnb-4bit`)
+    **Developer:** theprint
+    **License:** Apache 2.0
+    **Description:** A fine-tuned version of Qwen2.5-14B designed to reduce toxic positivity in AI-generated responses. Trained on the Positive Detox dataset, this model promotes balanced, authentic, and empathetic communication—avoiding overly cheerful or dismissive language in sensitive contexts. Ideal for applications where nuanced, human-centered responses are critical.
+    **Optimization:** Fine-tuned using Unsloth and Hugging Face TRL for accelerated training.
+    **Use Case:** Conversational AI, mental health support tools, ethical content generation, and any scenario requiring thoughtful, non-toxic dialogue.
+
+    > *Note: The GGUF version available at `mradermacher/PositiveDetox-Qwen2.5-14B-GGUF` is a quantized variant of this model, optimized for local inference.*
+  overrides:
+    parameters:
+      model: PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
+  files:
+    - filename: PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
+      sha256: abd224325aea504a61fb749cc12649641165c33035b4e5923163387370878005
+      uri: huggingface://mradermacher/PositiveDetox-Qwen2.5-14B-GGUF/PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
