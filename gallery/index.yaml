@@ -21901,6 +21901,7 @@
       uri: huggingface://mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF/Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
 - !!merge <<: *mistral03
   name: "magidonia-24b-v4.2.0-i1"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/65f2fd1c25b848bd061b5c2e/A-4o0PBQz9tX0W2T2KwVv.png
   urls:
     - https://huggingface.co/mradermacher/Magidonia-24B-v4.2.0-i1-GGUF
   description: |
