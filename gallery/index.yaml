@@ -21824,3 +21824,19 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "glm-4.6-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.6-i1-GGUF
+  description: |
+    **GLM-4.6** is a powerful large language model developed by Zhipu AI, designed for advanced reasoning, coding, and agent-based tasks. It features a **200K context window**, enabling it to handle complex, long-form inputs and interactions. The model excels in code generation, tool use, and logical reasoning, outperforming previous versions like GLM-4.5 and competing with top-tier models such as DeepSeek-V3.1-Terminus and Claude Sonnet 4. Ideal for real-world applications in software development, agentic workflows, and content creation, GLM-4.6 delivers refined, human-aligned writing and strong performance across key benchmarks.
+
+    > 🔗 *Officially released by Zai Org — not a quantized version.*
+    > 📚 [Learn more on the official blog](https://z.ai/blog/glm-4.6) | [Try it live at chat.z.ai](https://chat.z.ai)
+  overrides:
+    parameters:
+      model: GLM-4.6.i1-Q4_K_M.gguf.part1of5
+  files:
+    - filename: GLM-4.6.i1-Q4_K_M.gguf.part1of5
+      sha256: 9dfaef05bb4e5b23db71ccac054066ac2246f44724c8dde1b412061114410c85
+      uri: huggingface://mradermacher/GLM-4.6-i1-GGUF/GLM-4.6.i1-Q4_K_M.gguf.part1of5
