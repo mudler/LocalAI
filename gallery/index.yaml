@@ -21859,3 +21859,43 @@
     - filename: HermesPersona-24B.Q4_K_S.gguf
       sha256: 9f4c910d76c5d94ad81ea9f5e9d486ec3a89ce982d01b77f6b8c4d3b0c1cd3a6
       uri: huggingface://mradermacher/HermesPersona-24B-GGUF/HermesPersona-24B.Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-tnd-double-deckard-a-c-11b-220-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-TND-Double-Deckard-A-C-11B-220
+    **Base Model:** Qwen3-DND-Jan-v1-256k-ctx-Brainstorm40x-8B
+    **Size:** 11.2 billion parameters
+    **Architecture:** Transformer-based, instruction-tuned, with enhanced reasoning via "Brainstorm 40x" expansion
+    **Context Length:** Up to 256,000 tokens
+    **Training Method:** Fine-tuned using the "PDK" (Philip K. Dick) datasets via Unsloth, merged from two variants (A & C), followed by light repair training
+
+    **Key Features:**
+    - **Triple Neuron Density:** Expanded to 108 layers and 1,190 tensors—nearly 3x the density of a standard Qwen3 8B model—enhancing detail, coherence, and world-modeling.
+    - **Brainstorm 40x Process:** A custom architectural refinement that splits, reassembles, and calibrates reasoning centers 40 times to improve nuance, emotional depth, and prose quality without sacrificing instruction-following.
+    - **Highly Creative & Reasoning-Optimized:** Excels at long-form storytelling, complex problem-solving, and detailed code generation with strong focus, reduced clichés, and vivid descriptions.
+    - **Template Support:** Uses Jinja or CHATML formatting for structured prompts and dialogues.
+
+    **Best For:**
+    - Advanced creative writing, worldbuilding, and narrative generation
+    - Multi-step reasoning and complex coding tasks
+    - Roleplay, brainstorming, and deep conceptual exploration
+    - Users seeking high-quality, human-like prose with rich internal logic
+
+    **Notes:**
+    - This is a full-precision source model (safe tensors format) — **not quantized** — ideal for developers and researchers.
+    - Quantized versions (GGUF, GPTQ, etc.) are available separately by the community (e.g., @mradermacher).
+    - Recommended for high-end inference setups; best results with Q6+ quantizations for complex tasks.
+
+    **License:** Apache 2.0
+    **Repository:** [DavidAU/Qwen3-TND-Double-Deckard-A-C-11B-220](https://huggingface.co/DavidAU/Qwen3-TND-Double-Deckard-A-C-11B-220)
+
+    > *A bold, experimental evolution of Qwen3—crafted for depth, precision, and creative power.*
+  overrides:
+    parameters:
+      model: Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
+      sha256: 51a37e9d0307171ac86a87964f33be863c49c71f87255a67f0444930621d53b8
+      uri: huggingface://mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF/Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
