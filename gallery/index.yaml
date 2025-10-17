@@ -21824,3 +21824,16 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermespersona-24b"
+  urls:
+    - https://huggingface.co/mradermacher/HermesPersona-24B-GGUF
+  description: |
+    **HermesPersona-24B** is a large language model developed by merging two personality-focused 24B-parameter models—*DeepPersonalityDangerousDolphin-24B* and *Dans-PersonalityEngine-V1.3.0-24b*—using the **LazyMergekit** framework. The merge employs an *arcee_fusion* method with **bfloat16** precision, resulting in a model optimized for expressive, nuanced, and human-like conversational behavior. Ideal for roleplay, storytelling, and emotionally intelligent dialogue, HermesPersona-24B excels at maintaining consistent character personas across interactions. It is designed for use with Hugging Face's `transformers` library and supports both inference and fine-tuning workflows. This model is a high-fidelity, open-source alternative for applications requiring deep personality modeling and rich narrative engagement.
+  overrides:
+    parameters:
+      model: HermesPersona-24B.Q4_K_S.gguf
+  files:
+    - filename: HermesPersona-24B.Q4_K_S.gguf
+      sha256: 9f4c910d76c5d94ad81ea9f5e9d486ec3a89ce982d01b77f6b8c4d3b0c1cd3a6
+      uri: huggingface://mradermacher/HermesPersona-24B-GGUF/HermesPersona-24B.Q4_K_S.gguf
