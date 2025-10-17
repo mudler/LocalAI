@@ -21933,3 +21933,26 @@
     - filename: Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
       sha256: f89fbe09ea9edd4b91aa89516cbfaabdf0d956e0458cfc4b44b8054a1546b559
       uri: huggingface://mradermacher/Magidonia-24B-v4.2.0-i1-GGUF/Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
+- !!merge <<: *qwenimage
+  name: "qwen-image-edit-rapid-aio"
+  urls:
+    - https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF
+  description: |
+    **Qwen-Image-Edit-2509** is a state-of-the-art image editing model developed by Alibaba's Qwen team, designed for high-fidelity, consistent, and versatile image manipulation. Built on the Qwen-Image architecture, it excels in:
+
+    - **Multi-image editing**: Supports editing with 1–3 input images (e.g., person + person, person + product, person + scene), enabling complex compositional edits.
+    - **Enhanced identity consistency**: Remarkably preserves facial features, product identity, and text content during edits—ideal for portraits, product posters, and meme creation.
+    - **Advanced text editing**: Seamlessly modifies text content, fonts, colors, and materials while maintaining visual integrity.
+    - **Native ControlNet support**: Integrates with depth, edge, keypoint, and sketch maps for precise control over pose, structure, and layout.
+
+    Ideal for creative professionals, designers, and researchers, Qwen-Image-Edit-2509 delivers professional-grade results with minimal artifacts. Released under the **Apache 2.0 license**, it's available via Hugging Face, ModelScope, and Qwen Chat.
+
+    🔹 *Use case*: Image restoration, AI-generated art, product design, dynamic meme creation, and real-time editing.
+    📎 [Try it on Hugging Face](https://huggingface.co/Qwen/Qwen-Image-Edit-2509) | 📚 [Learn more in the technical report](https://arxiv.org/abs/2508.02324)
+  overrides:
+    parameters:
+      model: qwen-rapid-nsfw-v5-Q4_K_M.gguf
+  files:
+    - filename: qwen-rapid-nsfw-v5-Q4_K_M.gguf
+      sha256: ff1b3c613279d427494c9dec79a9bada01c74ae040c329a2bb0513fc63594319
+      uri: huggingface://Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/qwen-rapid-nsfw-v5-Q4_K_M.gguf
