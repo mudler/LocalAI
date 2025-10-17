@@ -21824,3 +21824,29 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-tnd-double-deckard-a-c-11b-220-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-TND-Double-Deckard-A-C-11B-220
+    **Base Model:** Qwen3-DND-Jan-v1-256k-ctx-Brainstorm40x-8B
+    **Author:** DavidAU (fine-tuned and expanded by unsloth)
+    **License:** Apache 2.0
+    **Repository:** [DavidAU/Qwen3-TND-Double-Deckard-A-C-11B-220](https://huggingface.co/DavidAU/Qwen3-TND-Double-Deckard-A-C-11B-220)
+
+    ### Description:
+    A high-density, advanced fine-tuned variant of Qwen3, created through a **"Brainstorm 40x"** expansion process that increases neuronal connectivity and reasoning depth. This model merges two trained versions (A and C) of the 8B Qwen3-DND-Jan-v1 base, then retrained with in-house "PKD" datasets using Unsloth.
+
+    The result is a **11.9 billion parameter** model with **108 layers** (over triple the density of a standard 8B model), optimized for **complex code generation, creative writing, and deep reasoning**. Features a **256k context window**, enabling long-form, high-detail outputs with strong coherence and narrative quality.
+
+    Designed for **instruction-following, brainstorming, and multi-step problem solving**, it excels in technical and creative tasks when guided with detailed prompts. The model exhibits enhanced prose, nuanced metaphors, emotional depth, and reduced reliance on clichés—ideal for developers, writers, and researchers seeking sophisticated AI collaboration.
+
+    > *Note: The repository you originally referenced (mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF) contains GGUF quantizations of this base model, but the full-precision version is hosted here. For the original, unquantized, and fully documented model, use the base repository above.*
+  overrides:
+    parameters:
+      model: Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_S.gguf
+  files:
+    - filename: Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_S.gguf
+      sha256: 2ab8b17b7e665ef3126750fab03cc70f8fc0383a7fbce0b393b73a342edc0c25
+      uri: huggingface://mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF/Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_S.gguf
