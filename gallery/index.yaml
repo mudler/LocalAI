@@ -21933,3 +21933,66 @@
     - filename: Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
       sha256: f89fbe09ea9edd4b91aa89516cbfaabdf0d956e0458cfc4b44b8054a1546b559
       uri: huggingface://mradermacher/Magidonia-24B-v4.2.0-i1-GGUF/Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
+- !!merge <<: *qwenimage
+  name: "qwen-image-edit-rapid-aio"
+  urls:
+    - https://huggingface.co/Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF
+  description: |
+    **Model Name:** Qwen-Image-Edit-2509
+    **Base Model:** Qwen/Qwen-Image-Edit-2509 (original by Alibaba Cloud)
+    **Repository:** [Hugging Face: Qwen/Qwen-Image-Edit-2509](https://huggingface.co/Qwen/Qwen-Image-Edit-2509)
+    **License:** Apache 2.0
+    **Pipeline:** Image-to-Image Editing
+    **Framework:** diffusers
+
+    ---
+
+    ### 🔍 **Model Description**
+    Qwen-Image-Edit-2509 is a state-of-the-art multimodal image editing model developed by Alibaba Cloud. It enables high-fidelity, context-aware image editing with advanced capabilities in:
+
+    - **Multi-image editing**: Supports editing combinations like "person + person", "person + product", and "person + scene" using up to 3 input images.
+    - **Enhanced identity consistency**: Superior preservation of facial features, product structure, and text layout during edits—ideal for portraits, logos, and poster design.
+    - **Rich text editing**: Allows modification of text content, font type, color, and material while maintaining natural integration with the image.
+    - **Native ControlNet support**: Seamlessly works with keypoint, depth, edge, and sketch maps for precise pose and structure control.
+
+    ---
+
+    ### 🌟 **Key Features**
+    - Trained on diverse real-world image editing scenarios
+    - Optimized for creative workflows (e.g., meme generation, product design, photo restoration)
+    - Fully compatible with `diffusers` and Hugging Face ecosystem
+
+    ---
+
+    ### 📌 **Use Case Examples**
+    - Generate consistent character edits across pose changes
+    - Edit product images into professional posters
+    - Create dynamic memes with accurate text rendering
+    - Restore old photos with identity preservation
+    - Apply style transfer using ControlNet conditions
+
+    ---
+
+    ### 📚 **Citation**
+    ```bibtex
+    @misc{wu2025qwenimagetechnicalreport,
+          title={Qwen-Image Technical Report},
+          author={Chenfei Wu and Jiahao Li and Jingren Zhou and Junyang Lin and Kaiyuan Gao and Kun Yan and Sheng-ming Yin and Shuai Bai and Xiao Xu and Yilei Chen and Yuxiang Chen and Zecheng Tang and Zekai Zhang and Zhengyi Wang and An Yang and Bowen Yu and Chen Cheng and Dayiheng Liu and Deqing Li and Hang Zhang and Hao Meng and Hu Wei and Jingyuan Ni and Kai Chen and Kuan Cao and Liang Peng and Lin Qu and Minggang Wu and Peng Wang and Shuting Yu and Tingkun Wen and Wensen Feng and Xiaoxiao Xu and Yi Wang and Yichang Zhang and Yongqiang Zhu and Yujia Wu and Yuxuan Cai and Zenan Liu},
+          year={2025},
+          eprint={2508.02324},
+          archivePrefix={arXiv},
+          primaryClass={cs.CV},
+          url={https://arxiv.org/abs/2508.02324},
+    }
+    ```
+
+    ---
+
+    > ✅ **Note**: The model in this repository (`Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF`) is a quantized GGUF version based on the original `Qwen/Qwen-Image-Edit-2509`. For the full, unquantized base model, refer to the official repository above.
+  overrides:
+    parameters:
+      model: qwen-rapid-nsfw-v5-Q4_K_M.gguf
+  files:
+    - filename: qwen-rapid-nsfw-v5-Q4_K_M.gguf
+      sha256: ff1b3c613279d427494c9dec79a9bada01c74ae040c329a2bb0513fc63594319
+      uri: huggingface://Phil2Sat/Qwen-Image-Edit-Rapid-AIO-GGUF/qwen-rapid-nsfw-v5-Q4_K_M.gguf
