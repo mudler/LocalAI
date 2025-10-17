@@ -21933,3 +21933,16 @@
     - filename: Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
       sha256: f89fbe09ea9edd4b91aa89516cbfaabdf0d956e0458cfc4b44b8054a1546b559
       uri: huggingface://mradermacher/Magidonia-24B-v4.2.0-i1-GGUF/Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "apriel-1.5-15b-thinker-text-only"
+  urls:
+    - https://huggingface.co/mradermacher/Apriel-1.5-15b-Thinker-Text-Only-GGUF
+  description: |
+    **Apriel-1.5-15b-Thinker-Text-Only** is a 15-billion-parameter large language model developed by Darkhn, designed for advanced text generation and reasoning tasks. Built on a strong foundation of instruction-tuned training, it excels in complex reasoning, creative writing, and technical problem-solving. The model is optimized for efficiency and performance, with a focus on clarity, coherence, and depth in responses. It is available in multiple GGUF quantized formats (from Q2_K to Q8_0), making it accessible for deployment across a wide range of hardware, from high-end workstations to edge devices. The original model is hosted at [Darkhn/Apriel-1.5-15b-Thinker-Text-Only](https://huggingface.co/Darkhn/Apriel-1.5-15b-Thinker-Text-Only), while the quantized versions are maintained by mradermacher for broader usability. Ideal for developers, researchers, and enthusiasts seeking a powerful, lightweight, and versatile LLM.
+  overrides:
+    parameters:
+      model: Apriel-1.5-15b-Thinker-Text-Only.Q4_K_M.gguf
+  files:
+    - filename: Apriel-1.5-15b-Thinker-Text-Only.Q4_K_M.gguf
+      sha256: c1f370cb28935cffc8c728c08f70d425cccc68c0e8805199442e239bbb619207
+      uri: huggingface://mradermacher/Apriel-1.5-15b-Thinker-Text-Only-GGUF/Apriel-1.5-15b-Thinker-Text-Only.Q4_K_M.gguf
