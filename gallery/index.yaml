@@ -21824,3 +21824,17 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "glm4.1v-9b-base-sft-i1"
+  urls:
+    - https://huggingface.co/mradermacher/glm4.1v-9b-base-sft-i1-GGUF
+  description: |
+    **GLM-4.1V-9B-Base**
+    *An open-source vision-language model with reasoning capabilities, supporting 64K context, arbitrary aspect ratios, and up to 4K image resolution. Trained on a multilingual (Chinese & English) dataset with enhanced reasoning via a "thinking paradigm" and reinforcement learning, it achieves state-of-the-art performance among 10B-parameter models—outperforming even 72B models on key benchmarks. Part of the GLM-4 series by Zhipu AI, designed for complex multimodal tasks including visual reasoning, mathematical problem solving, and long-context understanding. Ideal for research and applications requiring intelligent, interpretable, and scalable vision-language reasoning.*
+  overrides:
+    parameters:
+      model: glm4.1v-9b-base-sft.i1-Q4_K_M.gguf
+  files:
+    - filename: glm4.1v-9b-base-sft.i1-Q4_K_M.gguf
+      sha256: 7b6a219fcd17f962439764bc47c898c3c9d8024b6c3c1a171e12b4ef2d917691
+      uri: huggingface://mradermacher/glm4.1v-9b-base-sft-i1-GGUF/glm4.1v-9b-base-sft.i1-Q4_K_M.gguf
