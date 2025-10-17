@@ -22016,3 +22016,25 @@
     - filename: Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
       sha256: e3a9da91558f81ccc0a707ef3cea9f18b8734db93d5214a24a889f51a3b19a5f
       uri: huggingface://mradermacher/Cydonia-24B-v4.2.0-i1-GGUF/Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-8b-thinking"
+  urls:
+    - https://huggingface.co/NexaAI/Qwen3-VL-8B-Thinking-GGUF
+  description: |
+    **Qwen3-VL-8B-Thinking** is an 8-billion-parameter multimodal large language model developed by Alibaba Cloud's Qwen team, designed for advanced visual reasoning and structured chain-of-thought generation. Part of the Qwen3-VL series, it excels in understanding complex images, videos, and documents, while generating detailed, interpretable reasoning steps for tasks in science, analysis, and AI agent systems.
+
+    Key features:
+    - **Deep multimodal reasoning**: Combines visual perception with logical, step-by-step thinking.
+    - **Extended context (up to 1M tokens)**: Handles long documents, videos, and complex queries with full recall.
+    - **Enhanced spatial & temporal understanding**: Accurately interprets object positions, viewpoints, and video sequences.
+    - **High-fidelity OCR & multilingual support**: Recognizes text across 32 languages with robust performance under poor conditions.
+    - **Agent-ready**: Capable of interacting with GUIs and generating code from visual inputs.
+
+    Ideal for research, education, visual analytics, and advanced AI reasoning systems where transparency and depth are critical.
+
+    **Base Model**: Qwen/Qwen3-VL-8B-Thinking
+    **License**: Apache 2.0
+    **Repository**: [huggingface.co/Qwen/Qwen3-VL-8B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-8B-Thinking)
+  overrides:
+    parameters:
+      model: NexaAI/Qwen3-VL-8B-Thinking-GGUF
