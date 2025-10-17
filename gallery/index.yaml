@@ -21824,3 +21824,38 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-tnd-double-deckard-a-c-11b-220"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-GGUF
+  description: |
+    **Model Name:** Qwen3-TND-Double-Deckard-A-C-11B-220
+    **Base Model:** Qwen3-DND-Jan-v1-256k-ctx-Brainstorm40x-8B
+    **Size:** 11.2B parameters (approx.)
+    **Type:** Fine-tuned, instruction-following LLM with enhanced reasoning and creative capabilities
+    **Training Method:** Unsloth-based training on "PDK" (Philip K. Dick) datasets, merged via Mergekit (A + C), and further fine-tuned with 5 datasets.
+    **Key Features:**
+    - **Triple Neuron Density:** 108 layers and 1,190 tensors — nearly 3x the density of a standard Qwen3 8B model.
+    - **Brainstorm 40x Process:** Enhances reasoning, coherence, and narrative depth through expanded "reasoning centers" and calibration.
+    - **High Context Support:** Up to 256K tokens, ideal for long-form content, complex coding, and detailed brainstorming.
+    - **Creative & Technical Strengths:** Excels in code generation, storytelling, roleplay, and nuanced instruction following.
+    - **Optimized for Quality:** Best performance with Q6 and Q8 quantizations; recommended for advanced reasoning tasks.
+
+    **Use Cases:**
+    - Complex code generation and debugging
+    - Long-form creative writing and world-building
+    - Advanced reasoning and problem-solving
+    - Roleplay and interactive storytelling
+
+    **Note:** This is an experimental, alpha-grade model developed by DavidAU. It is not for all audiences and may require careful prompt engineering and advanced settings for optimal results.
+    **Original Source:** [DavidAU/Qwen3-TND-Double-Deckard-A-C-11B-220](https://huggingface.co/DavidAU/Qwen3-TND-Double-Deckard-A-C-11B-220)
+    **Quantized Versions:** Available via mradermacher (GGUF, GPTQ, etc.) — check model page for details.
+
+    > 🔍 *For best results, use with CHATML or Jinja template, Smoothing Factor = 1.5, and temperature 0.3–0.7.*
+  overrides:
+    parameters:
+      model: Qwen3-TND-Double-Deckard-A-C-11B-220.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-TND-Double-Deckard-A-C-11B-220.Q4_K_M.gguf
+      sha256: 8666fb39c708dae844ef12207ef99c5e41c9746338d0437777c680f685665090
+      uri: huggingface://mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-GGUF/Qwen3-TND-Double-Deckard-A-C-11B-220.Q4_K_M.gguf
