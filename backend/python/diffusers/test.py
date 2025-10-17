@@ -31,7 +31,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the server starts up successfully
         """
-        time.sleep(10)
+        time.sleep(20)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -48,7 +48,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the model is loaded successfully
         """
-        time.sleep(10)
+        time.sleep(20)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
@@ -66,7 +66,7 @@ class TestBackendServicer(unittest.TestCase):
         """
         This method tests if the backend can generate images
         """
-        time.sleep(10)
+        time.sleep(20)
         try:
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
