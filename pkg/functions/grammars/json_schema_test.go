@@ -476,5 +476,74 @@ realvalue
 			Expect(err).To(BeNil())
 			Expect(grammar).To(ContainSubstring(`root ::= "{" space "}" space`))
 		})
+
+		It("handles multi-type array definitions like [string, null]", func() {
+			// Type defined as an array should not panic
+			multiTypeSchema := `{
+				"type": "object",
+				"properties": {
+					"street": {
+						"description": "The given street name where the company resides.",
+						"type": ["string", "null"]
+					},
+					"city": {
+						"description": "The given city where the company resides.",
+						"type": ["string", "null"]
+					}
+				}
+			}`
+
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(multiTypeSchema))
+			Expect(err).To(BeNil())
+			// The grammar should contain rules for both string and null types
+			Expect(grammar).To(ContainSubstring("string"))
+			Expect(grammar).To(ContainSubstring("null"))
+			// Should not panic and should generate valid grammar
+			Expect(grammar).ToNot(BeEmpty())
+		})
+
+		It("handles complex nested schema with multi-type arrays (issue #5572)", func() {
+			complexSchema := `{
+				"type": "object",
+				"properties": {
+					"companylist": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"companyname": {
+									"description": "The given name of the company.",
+									"type": "string"
+								},
+								"street": {
+									"description": "The given street name where the company resides.",
+									"type": ["string", "null"]
+								},
+								"city": {
+									"description": "The given city where the company resides.",
+									"type": ["string", "null"]
+								}
+							},
+							"additionalProperties": false,
+							"required": ["companyname", "street", "city"]
+						}
+					},
+					"filter": {
+						"description": "The type we should filter the list of companies by.",
+						"type": "string"
+					}
+				},
+				"required": ["companylist", "filter"],
+				"additionalProperties": false
+			}`
+
+			grammar, err := NewJSONSchemaConverter("").GrammarFromBytes([]byte(complexSchema))
+			Expect(err).To(BeNil())
+			// The grammar should be generated without panic
+			Expect(grammar).ToNot(BeEmpty())
+			// Should contain object and array structures
+			Expect(grammar).To(ContainSubstring("{"))
+			Expect(grammar).To(ContainSubstring("["))
+		})
 	})
 })
