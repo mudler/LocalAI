@@ -21824,3 +21824,29 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "magidonia-24b-v4.2.0"
+  urls:
+    - https://huggingface.co/mradermacher/Magidonia-24B-v4.2.0-GGUF
+  description: |
+    **Model Name:** Magidonia 24B v4.2.0
+    **Base Model:** mistralai/Magistral-Small-2509
+    **Author:** TheDrummer (Drummer)
+    **Repository:** [TheDrummer/Magidonia-24B-v4.2.0](https://huggingface.co/TheDrummer/Magidonia-24B-v4.2.0)
+    **Model Type:** Fine-tuned, creative-focused large language model
+    **Size:** 24B parameters
+    **Quantization:** Available in GGUF format (Q4_K_S, Q5_K_M, Q8_0, etc.)
+
+    ### Description:
+    Magidonia 24B v4.2.0 is a creatively oriented, large language model fine-tuned for expressive writing, dynamic storytelling, and roleplay. Built on the **Magistral-Small-2509** base, it prioritizes narrative flair, imaginative depth, and natural language flow over strict alignment or factual precision. Designed for entertainment, creative writing, and experimental use, the model excels in generating compelling, coherent, and engaging content with minimal censorship.
+
+    Key Features:
+    - **Enhanced roleplay & storytelling capabilities**
+    - **Supports "Thinking Mode"** with custom token delimiters (`防控` and `
+  overrides:
+    parameters:
+      model: Magidonia-24B-v4.2.0.Q4_K_M.gguf
+  files:
+    - filename: Magidonia-24B-v4.2.0.Q4_K_M.gguf
+      sha256: 014d4662aea1dcdfbd4b86663db2a4b2ca9cccbb39d7ef59edc5233bee25075b
+      uri: huggingface://mradermacher/Magidonia-24B-v4.2.0-GGUF/Magidonia-24B-v4.2.0.Q4_K_M.gguf
