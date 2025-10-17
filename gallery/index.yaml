@@ -21933,3 +21933,28 @@
     - filename: Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
       sha256: f89fbe09ea9edd4b91aa89516cbfaabdf0d956e0458cfc4b44b8054a1546b559
       uri: huggingface://mradermacher/Magidonia-24B-v4.2.0-i1-GGUF/Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "strand-rust-coder-14b-v1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Strand-Rust-Coder-14B-v1-i1-GGUF
+  description: |
+    **Strand-Rust-Coder-14B-v1** is a highly specialized 14-billion-parameter language model fine-tuned for Rust programming, built on **Qwen2.5-Coder-14B-Instruct** using a peer-validated synthetic dataset of 191,008 Rust code examples. Developed via Fortytwo’s decentralized Swarm Inference, it achieves **48% accuracy on Rust-specific benchmarks**—surpassing larger models like GPT-5 Codex—while maintaining strong general coding performance.
+
+    **Key Features:**
+    - Optimized for Rust tasks: code generation, refactoring, test writing, naming, and API usage.
+    - Trained with LoRA on a high-compile-rate (94.3%) dataset from real crates.io projects.
+    - Supports extended context (32k tokens), ideal for complex code analysis.
+    - Available in multiple GGUF quantizations (Q4_K_M to Q8_0) for efficient local deployment.
+
+    **Ideal for:** Rust developers, code copilots, and researchers exploring domain-specialized AI.
+    **Not recommended** for non-Rust or general-purpose tasks.
+
+    > 🔗 [View on Hugging Face](https://huggingface.co/Fortytwo-Network/Strand-Rust-Coder-14B-v1) | [Quantized GGUF Versions](https://huggingface.co/Fortytwo-Network/Strand-Rust-Coder-14B-v1-GGUF)
+    > 🌐 Join the Swarm: [fortytwo.network](https://fortytwo.network)
+  overrides:
+    parameters:
+      model: Strand-Rust-Coder-14B-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: Strand-Rust-Coder-14B-v1.i1-Q4_K_M.gguf
+      sha256: 56bacda1fd25cdebd349df839c3ef3248a3e7cb98da6ce1ee1f4e8c2153e777e
+      uri: huggingface://mradermacher/Strand-Rust-Coder-14B-v1-i1-GGUF/Strand-Rust-Coder-14B-v1.i1-Q4_K_M.gguf
