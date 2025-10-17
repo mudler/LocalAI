@@ -21899,3 +21899,30 @@
     - filename: Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
       sha256: 51a37e9d0307171ac86a87964f33be863c49c71f87255a67f0444930621d53b8
       uri: huggingface://mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF/Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-8b-koqa-it"
+  urls:
+    - https://huggingface.co/onestone11/Qwen3-8B-koqa-it-gguf
+  description: |
+    **Model Name:** Qwen3-8B
+    **Repository:** [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
+    **Type:** Causal Language Model (LLM)
+    **Size:** 8.2 billion parameters
+    **Context Length:** 32,768 tokens (up to 131,072 with YaRN scaling)
+    **Architecture:** GQA (Grouped Query Attention), 36 layers
+    **Key Features:**
+    - **Dual-mode reasoning**: Seamlessly switches between *thinking mode* (for complex reasoning, math, coding) and *non-thinking mode* (for efficient dialogue).
+    - **Superior instruction-following & alignment**: Excels in creative writing, role-playing, and multi-turn conversations.
+    - **Advanced agent capabilities**: Strong tool integration and performance in complex agent-based tasks.
+    - **Multilingual support**: 100+ languages with strong translation and instruction-following abilities.
+    - **Optimized for deployment**: Supports inference via `transformers`, `vLLM`, `SGLang`, `llama.cpp`, and other frameworks.
+
+    **Best for:** Researchers, developers, and enterprises needing a high-performance, versatile, and instruction-aligned LLM with reasoning and agent capabilities.
+
+    **Base Model:** Qwen/Qwen3-8B-Base
+    **License:** Apache 2.0
+
+    > *Note: The model in the repository `onestone11/Qwen3-8B-koqa-it-gguf` is a GGUF-quantized version of this base model, fine-tuned for Korean QA and instruction tuning. The original, full-precision model is available at [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B).*
+  overrides:
+    parameters:
+      model: onestone11/Qwen3-8B-koqa-it-gguf
