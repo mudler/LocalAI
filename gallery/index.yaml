@@ -21991,3 +21991,31 @@
     - filename: ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
       sha256: 6b1bb32b74979833b17cfe1b47c3bdd9f9b60ba283c486767e612ff33a073d9f
       uri: huggingface://mradermacher/ScholasticLogicAI-Phi-4-i1-GGUF/ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "cydonia-24b-v4.2.0"
+  urls:
+    - https://huggingface.co/mradermacher/Cydonia-24B-v4.2.0-GGUF
+  description: |
+    **Cydonia 24B v4.2.0**
+    *By TheDrummer*
+
+    A creatively driven, instruction-tuned large language model based on **Mistral-Small-3.2-24B-Instruct-2507**, fine-tuned for superior storytelling, roleplay, and expressive text generation. Designed with a focus on dynamic narrative flow, imagination, and linguistic freedom—ideal for writers, worldbuilders, and creative users.
+
+    - **Base Model**: mistralai/Mistral-Small-3.2-24B-Instruct-2507
+    - **Fine-Tuned For**: Creative writing, roleplay, and expressive language
+    - **Key Strengths**: Exceptional coherence, reduced repetition, strong narrative pacing, and flexible formatting
+    - **Use Case**: Storytelling, character interaction, and imaginative content creation
+    - **Available Formats**: GGUF (multiple quantizations), EXL3, iMatrix
+
+    > *"This is the best model of yours I've tried yet. It writes superbly well."* — User feedback
+
+    Not aligned for safety or compliance—crafted to embrace creative liberty.
+
+    🔗 [Original Model](https://huggingface.co/TheDrummer/Cydonia-24B-v4.2.0) | [GGUF Quantizations](https://huggingface.co/TheDrummer/Cydonia-24B-v4.2.0-GGUF)
+  overrides:
+    parameters:
+      model: Cydonia-24B-v4.2.0.Q4_K_M.gguf
+  files:
+    - filename: Cydonia-24B-v4.2.0.Q4_K_M.gguf
+      sha256: 45c577467315e3507845677db0025550872d105054553a35b1ee1db580afbfac
+      uri: huggingface://mradermacher/Cydonia-24B-v4.2.0-GGUF/Cydonia-24B-v4.2.0.Q4_K_M.gguf
