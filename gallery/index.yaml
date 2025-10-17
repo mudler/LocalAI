@@ -22057,3 +22057,25 @@
     - filename: Aevum-0.6B-Finetuned.Q4_K_M.gguf
       sha256: 6904b789894a7dae459042a28318e70dbe222cb3e6f892f3fc42e591d4a341a3
       uri: huggingface://mradermacher/Aevum-0.6B-Finetuned-GGUF/Aevum-0.6B-Finetuned.Q4_K_M.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "tlacuilo-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Tlacuilo-12B-i1-GGUF
+  description: |
+    **Tlacuilo-12B** is a high-quality, instruction-tuned language model designed for creative and roleplay writing. Built on the foundation of **Mistral-Nemo-Base-2407** and **Muse-12B**, it excels in narrative generation, storytelling, and interactive dialogue, with notable improvements in prose style and consistency over previous versions.
+
+    Trained using a multi-stage LoRA process:
+    - **Stage 1**: Fine-tuned on literary texts (28M tokens/epoch) to enhance stylistic richness.
+    - **Stage 2**: Optimized for roleplay using RP datasets (4M tokens), improving character and scenario handling.
+    - **Stage 3**: Instruct-tuned on curated data (1.2M tokens) to ensure strong response quality and alignment.
+
+    The model uses **ChatML** formatting and performs best at moderate temperature (1.0–1.3) with low min-p values. Ideal for writers, game masters, and creative professionals seeking expressive, coherent, and imaginative text generation.
+
+    > **Note**: The GGUF versions in `mradermacher/Tlacuilo-12B-i1-GGUF` are quantized derivatives. The original, full-precision model is hosted at `allura-org/Tlacuilo-12B`.
+  overrides:
+    parameters:
+      model: Tlacuilo-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
+      sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
+      uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
