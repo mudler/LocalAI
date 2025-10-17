@@ -21899,3 +21899,36 @@
     - filename: Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
       sha256: 51a37e9d0307171ac86a87964f33be863c49c71f87255a67f0444930621d53b8
       uri: huggingface://mradermacher/Qwen3-TND-Double-Deckard-A-C-11B-220-i1-GGUF/Qwen3-TND-Double-Deckard-A-C-11B-220.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "magidonia-24b-v4.2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Magidonia-24B-v4.2.0-i1-GGUF
+  description: |
+    **Model Name:** Magidonia 24B v4.2.0
+    **Base Model:** mistralai/Magistral-Small-2509
+    **Author:** TheDrummer
+    **License:** MIT (as per standard for Hugging Face models)
+    **Model Type:** Fine-tuned large language model (LLM)
+    **Size:** 24 billion parameters
+
+    **Description:**
+    Magidonia 24B v4.2.0 is a creatively-oriented, open-weight fine-tuned language model developed by TheDrummer. Built upon the **Magistral-Small-2509** base, this model emphasizes **creativity, narrative dynamism, and expressive language use**—ideal for storytelling, roleplay, and imaginative writing. It features enhanced reasoning with a built-in **THINKING MODE**, activated using `<tool_call>` and `</tool_call>` tokens, encouraging detailed inner monologue before response generation. Designed for flexibility and minimal alignment constraints, it's well-suited for entertainment, world-building, and experimental use cases.
+
+    **Key Features:**
+    - Strong creative and literary capabilities
+    - Supports structured thinking via special tokens
+    - Optimized for roleplay and dynamic storytelling
+    - Available in GGUF format for local inference (via llama.cpp, etc.)
+    - Includes iMatrix quantization for high-quality low-precision performance
+
+    **Use Case:** Ideal for writers, game masters, and AI artists seeking expressive, unfiltered, and imaginative language models.
+
+    **Repository:** [TheDrummer/Magidonia-24B-v4.2.0](https://huggingface.co/TheDrummer/Magidonia-24B-v4.2.0)
+    **Quantized Version (GGUF):** [mradermacher/Magidonia-24B-v4.2.0-i1-GGUF](https://huggingface.co/mradermacher/Magidonia-24B-v4.2.0-i1-GGUF) *(for reference only — use original for full description)*
+  overrides:
+    parameters:
+      model: Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
+      sha256: f89fbe09ea9edd4b91aa89516cbfaabdf0d956e0458cfc4b44b8054a1546b559
+      uri: huggingface://mradermacher/Magidonia-24B-v4.2.0-i1-GGUF/Magidonia-24B-v4.2.0.i1-Q4_K_M.gguf
