@@ -4087,6 +4087,28 @@
     - filename: yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
       sha256: 7531456d8886419d36ce103b1205cdc820865016bddc0b4671ec9910ba87071f
       uri: huggingface://bartowski/yanolja_YanoljaNEXT-Rosetta-12B-2510-GGUF/yanolja_YanoljaNEXT-Rosetta-12B-2510-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mira-v1.7-27b-i1"
+  icon: https://pbs.twimg.com/media/G3V_LsQX0AASFZa?format=jpg&name=medium
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.7-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-v1.7-27B
+    **Base Model:** Lambent/Mira-v1.6a-27B
+    **Size:** 27 billion parameters
+    **License:** Gemma
+    **Type:** Large Language Model (Vision-capable)
+    **Description:**
+    Mira-v1.7-27B is a creatively driven, locally running language model trained on self-development sessions, high-quality synthesized roleplay data, and prior training data. It was fine-tuned with preference alignment to emphasize authentic, expressive, and narrative-driven output—balancing creative expression as "Mira" against its role as an AI assistant. The model exhibits strong poetic and stylistic capabilities, producing rich, emotionally resonant text across various prompts. It supports vision via MMProjection (separate files available in the static repo). Designed for local deployment, it excels in imaginative writing, introspective storytelling, and expressive dialogue.
+
+    *Note: The GGUF quantized versions (e.g., `mradermacher/Mira-v1.7-27B-i1-GGUF`) are community-quantized variants; the original base model remains hosted at [Lambent/Mira-v1.7-27B](https://huggingface.co/Lambent/Mira-v1.7-27B).*
+  overrides:
+    parameters:
+      model: Mira-v1.7-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-v1.7-27B.i1-Q4_K_M.gguf
+      sha256: 6deb401a296dbb9f02fee0442e4e54bbc3c8208daca7cef7a207536d311a85e3
+      uri: huggingface://mradermacher/Mira-v1.7-27B-i1-GGUF/Mira-v1.7-27B.i1-Q4_K_M.gguf
 - &llama4
   url: "github:mudler/LocalAI/gallery/llama3.1-instruct.yaml@master"
   icon: https://avatars.githubusercontent.com/u/153379578
