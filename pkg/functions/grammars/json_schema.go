@@ -61,8 +61,26 @@ func (sc *JSONSchemaConverter) addRule(name, rule string) string {
 func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string, rootSchema map[string]interface{}) (string, error) {
 	st, existType := schema["type"]
 	var schemaType string
+	var schemaTypes []string
 	if existType {
-		schemaType = st.(string)
+		// Handle both single type strings and arrays of types (e.g., ["string", "null"])
+		switch v := st.(type) {
+		case string:
+			// Single type: "type": "string"
+			schemaType = v
+			schemaTypes = []string{v}
+		case []interface{}:
+			// Multiple types: "type": ["string", "null"]
+			for _, item := range v {
+				if typeStr, ok := item.(string); ok {
+					schemaTypes = append(schemaTypes, typeStr)
+				}
+			}
+			// Use the first type as the primary schema type for compatibility
+			if len(schemaTypes) > 0 {
+				schemaType = schemaTypes[0]
+			}
+		}
 	}
 	ruleName := name
 	if name == "" {
@@ -176,14 +194,30 @@ func (sc *JSONSchemaConverter) visit(schema map[string]interface{}, name string,
 		rule := `"{" space "}" space`
 		return sc.addRule(ruleName, rule), nil
 	} else {
-		primitiveRule, exists := PRIMITIVE_RULES[schemaType]
-		if !exists {
-			return "", fmt.Errorf("unrecognized schema: %v (type: %s)", schema, schemaType)
+		// Handle primitive types, including multi-type arrays like ["string", "null"]
+		if len(schemaTypes) > 1 {
+			// Generate a union of multiple primitive types
+			var typeRules []string
+			for _, t := range schemaTypes {
+				primitiveRule, exists := PRIMITIVE_RULES[t]
+				if !exists {
+					return "", fmt.Errorf("unrecognized type in multi-type schema: %s (schema: %v)", t, schema)
+				}
+				typeRules = append(typeRules, primitiveRule)
+			}
+			rule := "(" + strings.Join(typeRules, " | ") + ")"
+			return sc.addRule(ruleName, rule), nil
+		} else {
+			// Single type
+			primitiveRule, exists := PRIMITIVE_RULES[schemaType]
+			if !exists {
+				return "", fmt.Errorf("unrecognized schema: %v (type: %s)", schema, schemaType)
+			}
+			if ruleName == "root" {
+				schemaType = "root"
+			}
+			return sc.addRule(schemaType, primitiveRule), nil
 		}
-		if ruleName == "root" {
-			schemaType = "root"
-		}
-		return sc.addRule(schemaType, primitiveRule), nil
 	}
 }
 func (sc *JSONSchemaConverter) resolveReference(ref string, rootSchema map[string]interface{}) (map[string]interface{}, error) {
