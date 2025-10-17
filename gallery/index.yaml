@@ -21960,3 +21960,29 @@
     - filename: Strand-Rust-Coder-14B-v1.i1-Q4_K_M.gguf
       sha256: 56bacda1fd25cdebd349df839c3ef3248a3e7cb98da6ce1ee1f4e8c2153e777e
       uri: huggingface://mradermacher/Strand-Rust-Coder-14B-v1-i1-GGUF/Strand-Rust-Coder-14B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *phi4
+  name: "scholasticlogicai-phi-4-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ScholasticLogicAI-Phi-4-i1-GGUF
+  description: |
+    **Model Name:** ScholasticLogicAI-Phi-4
+    **Base Model:** Microsoft Phi-4
+    **Author:** Berthi-Rohar (fine-tuned by mradermacher for GGUF quantization)
+    **Description:** A specialized fine-tuned version of Microsoft's Phi-4 model, optimized for logical reasoning under Aristotelian and scholastic logic frameworks. Designed as a proof-of-concept for structured, deductive reasoning, it excels in syllogistic analysis and formal argumentation. The model is intended for advanced logic tasks and is particularly useful in philosophical, academic, or computational logic applications.
+
+    **Key Features:**
+    - Built on the Phi-4 base, known for strong reasoning and efficiency.
+    - Fine-tuned to reason systematically using classical logic structures.
+    - Available in multiple GGUF quantizations (e.g., Q2_K, Q4_K_M, IQ3_M) for efficient local inference.
+    - Designed for use with GGUF-compatible inference engines (e.g., llama.cpp).
+
+    **Use Case:** Ideal for tasks requiring structured, step-by-step logical reasoning, such as argument analysis, formal deduction, and philosophical inquiry.
+
+    **Note:** The original fine-tuned model is hosted at `Berthi-Rohar/ScholasticLogicAI-Phi-4`. The GGUF version provided by `mradermacher` is a quantized adaptation for local deployment and may not reflect all features of the original full-precision model.
+  overrides:
+    parameters:
+      model: ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
+  files:
+    - filename: ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
+      sha256: 6b1bb32b74979833b17cfe1b47c3bdd9f9b60ba283c486767e612ff33a073d9f
+      uri: huggingface://mradermacher/ScholasticLogicAI-Phi-4-i1-GGUF/ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
