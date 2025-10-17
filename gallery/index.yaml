@@ -22079,3 +22079,31 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "minicpm-v-4_5-hybrid"
+  urls:
+    - https://huggingface.co/steampunque/MiniCPM-V-4_5-Hybrid-GGUF
+  description: |
+    **MiniCPM-V 4.5** is a state-of-the-art, open-source vision-language model (MLLM) developed by OpenBMB, designed for high-performance multimodal understanding on-device. With only 8.7B parameters, it surpasses larger proprietary models like GPT-4o and Gemini 2.0 Pro in vision-language benchmarks, achieving a 77.0 average score on OpenCompass.
+
+    ### Key Features:
+    - **Advanced Vision Capabilities**: Excels in single image, multi-image, and high-FPS video understanding (up to 10FPS) using a novel 3D-Resampler that compresses video frames 96× while preserving detail.
+    - **High-Resolution OCR & Document Parsing**: Processes ultra-high-resolution images (up to 1.8M pixels) with 4× fewer visual tokens than most models, outperforming GPT-4o on OCRBench and OmniDocBench.
+    - **Hybrid Thinking Modes**: Offers both fast, efficient reasoning and deep, complex problem-solving modes—controlled via a reinforcement learning framework.
+    - **Multilingual & Trustworthy**: Supports over 30 languages and demonstrates strong resistance to hallucinations, excelling on MMHal-Bench.
+    - **Efficient Deployment**: Fully supports GGUF, AWQ, int4, and quantized formats for local inference via llama.cpp, Ollama, vLLM, and SGLang—ideal for edge devices and mobile apps.
+
+    ### Ideal For:
+    - On-device AI (mobile, iPad, phones)
+    - Document and OCR processing
+    - Video analysis and real-time multimodal chat
+    - Research and fine-tuning with Transformers and LLaMA-Factory
+
+    > 📌 **Model License**: Apache 2.0
+    > 🌐 **Hugging Face**: [openbmb/MiniCPM-V-4_5](https://huggingface.co/openbmb/MiniCPM-V-4_5)
+    > 📚 **Paper**: [MiniCPM-V 4.5: Cooking Efficient MLLMs](https://arxiv.org/abs/2509.18154)
+
+    > *A GPT-4o-level MLLM—powerful, efficient, and accessible.*
+  overrides:
+    parameters:
+      model: steampunque/MiniCPM-V-4_5-Hybrid-GGUF
