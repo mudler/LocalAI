@@ -21824,3 +21824,34 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *qwenimage
+  name: "glm4.1v-9b-base-sft"
+  urls:
+    - https://huggingface.co/mradermacher/glm4.1v-9b-base-sft-GGUF
+  description: |
+    **GLM-4.1V-9B-Base**
+    *An open-source vision-language model with advanced reasoning capabilities, supporting both Chinese and English.*
+
+    - **Base Model**: THUDM/GLM-4-9B-0414
+    - **Architecture**: 9B-parameter multimodal model with a "thinking" reasoning paradigm
+    - **Capabilities**:
+      - State-of-the-art reasoning performance among 10B-level models
+      - Supports 64K context length and arbitrary image aspect ratios (up to 4K resolution)
+      - Multilingual: English and Chinese
+      - Designed for complex tasks including visual reasoning, mathematical problem solving, and long-context understanding
+    - **Key Features**:
+      - Open-sourced base model for research and development
+      - Trained with reinforcement learning to enhance reasoning accuracy and interpretability
+      - Outperforms larger models (e.g., Qwen-2.5-VL-72B) on 18 benchmarks
+
+    👉 **Paper**: [GLM-4.1V-9B-Thinking: Pushing the Limits of Vision-Language Reasoning](https://arxiv.org/abs/2507.01006)
+    👉 **Demo**: [Hugging Face Space](https://huggingface.co/spaces/THUDM/GLM-4.1V-9B-Thinking-Demo) | [ModelScope](https://modelscope.cn/studios/ZhipuAI/GLM-4.1V-9B-Thinking-Demo)
+
+    *Perfect for researchers and developers exploring next-gen multimodal AI with strong reasoning and scalability.*
+  overrides:
+    parameters:
+      model: glm4.1v-9b-base-sft.Q4_K_S.gguf
+  files:
+    - filename: glm4.1v-9b-base-sft.Q4_K_S.gguf
+      sha256: e5c0ee2dbe023ec8d1b8903321730f716a0a089cdbf19943211bfee3e67a77a7
+      uri: huggingface://mradermacher/glm4.1v-9b-base-sft-GGUF/glm4.1v-9b-base-sft.Q4_K_S.gguf
