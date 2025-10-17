@@ -21991,3 +21991,28 @@
     - filename: ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
       sha256: 6b1bb32b74979833b17cfe1b47c3bdd9f9b60ba283c486767e612ff33a073d9f
       uri: huggingface://mradermacher/ScholasticLogicAI-Phi-4-i1-GGUF/ScholasticLogicAI-Phi-4.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "cydonia-24b-v4.2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Cydonia-24B-v4.2.0-i1-GGUF
+  description: |
+    **Cydonia-24B-v4.2.0** is a creatively oriented, large language model developed by *TheDrummer*, based on the **Mistral-Small-3.2-24B-Instruct-2507** foundation. Fine-tuned for dynamic storytelling, imaginative writing, and expressive roleplay, it excels in narrative coherence, linguistic flair, and non-aligned, open-ended interaction. Designed for users seeking creativity over strict alignment, the model delivers rich, engaging, and often surprising outputs—ideal for fiction writing, worldbuilding, and entertainment-focused AI use.
+
+    **Key Features:**
+    - Built on Mistral-Small-3.2-24B-Instruct-2507 base
+    - Optimized for creative writing, roleplay, and narrative depth
+    - Minimal alignment constraints for greater freedom and expression
+    - Available in GGUF, EXL3, and iMatrix formats for local inference
+
+    > *“This is the best model of yours I've tried yet… It writes superbly well.”* – User testimonial
+
+    **Best For:** Writers, worldbuilders, and creators who value imagination, voice, and stylistic richness over rigid safety or factual accuracy.
+
+    *Model Repository:* [TheDrummer/Cydonia-24B-v4.2.0](https://huggingface.co/TheDrummer/Cydonia-24B-v4.2.0)
+  overrides:
+    parameters:
+      model: Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
+  files:
+    - filename: Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
+      sha256: e3a9da91558f81ccc0a707ef3cea9f18b8734db93d5214a24a889f51a3b19a5f
+      uri: huggingface://mradermacher/Cydonia-24B-v4.2.0-i1-GGUF/Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
