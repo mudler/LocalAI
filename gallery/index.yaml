@@ -21824,3 +21824,16 @@
     - filename: tlacuilo-12b-q4_k_m.gguf
       sha256: c362bc081b03a8f4f5dcd27373e9c2b60bdc0d168308ede13c4e282c5ab7fa88
       uri: huggingface://Ennthen/Tlacuilo-12B-Q4_K_M-GGUF/tlacuilo-12b-q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "positivedetox-qwen2.5-14b"
+  urls:
+    - https://huggingface.co/theprint/PositiveDetox-Qwen2.5-14B-GGUF
+  description: |
+    AI model: positivedetox-qwen2.5-14b
+  overrides:
+    parameters:
+      model: positivedetox-qwen2.5-14b-q4_k_m.gguf
+  files:
+    - filename: positivedetox-qwen2.5-14b-q4_k_m.gguf
+      sha256: db73093773786d5fc8fcd06411ba7808d1bbb5b03d47a1918e2b844048f83366
+      uri: huggingface://theprint/PositiveDetox-Qwen2.5-14B-GGUF/positivedetox-qwen2.5-14b-q4_k_m.gguf
