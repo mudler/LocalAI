@@ -22057,3 +22057,12 @@
     - filename: Aevum-0.6B-Finetuned.Q4_K_M.gguf
       sha256: 6904b789894a7dae459042a28318e70dbe222cb3e6f892f3fc42e591d4a341a3
       uri: huggingface://mradermacher/Aevum-0.6B-Finetuned-GGUF/Aevum-0.6B-Finetuned.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "anubis-70b-v1p"
+  urls:
+    - https://huggingface.co/BeaverAI/Anubis-70B-v1p-GGUF
+  description: |
+    AI model: anubis-70b-v1p
+  overrides:
+    parameters:
+      model: BeaverAI/Anubis-70B-v1p-GGUF
