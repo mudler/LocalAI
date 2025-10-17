@@ -22016,3 +22016,44 @@
     - filename: Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
       sha256: e3a9da91558f81ccc0a707ef3cea9f18b8734db93d5214a24a889f51a3b19a5f
       uri: huggingface://mradermacher/Cydonia-24B-v4.2.0-i1-GGUF/Cydonia-24B-v4.2.0.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "aevum-0.6b-finetuned"
+  urls:
+    - https://huggingface.co/mradermacher/Aevum-0.6B-Finetuned-GGUF
+  description: |
+    **Model Name:** Aevum-0.6B-Finetuned
+    **Base Model:** Qwen3-0.6B
+    **Architecture:** Decoder-only Transformer
+    **Parameters:** 0.6 Billion
+    **Task:** Code Generation, Instruction Following
+    **Languages:** English, Python (optimized for code)
+    **License:** Apache 2.0
+
+    **Overview:**
+    Aevum-0.6B-Finetuned is a highly efficient, small-scale language model fine-tuned for code generation and task following. Built on the Qwen3-0.6B foundation, it delivers strong performance—achieving a **HumanEval Pass@1 score of 21.34%**—making it the most parameter-efficient sub-1B model in its category.
+
+    **Key Features:**
+    - Optimized for low-latency inference on CPU and edge devices.
+    - Fine-tuned on MBPP and DeepMind Code Contests for superior code generation accuracy.
+    - Ideal for lightweight development, education, and prototyping.
+
+    **Use Case:**
+    Perfect for developers and researchers needing a fast, compact, and open model for Python code generation without requiring high-end hardware.
+
+    **Performance Benchmark:**
+    Outperforms larger models in efficiency: comparable to models 10x its size in task accuracy.
+
+    **Cite:**
+    @misc{aveum06B2025, title={aevum-0.6B-Finetuned: Lightweight Python Code Generation Model}, author={anonymous}, year={2025}}
+
+    **Try it:**
+    Use via Hugging Face `transformers` library with minimal setup.
+
+    👉 [Model Page on Hugging Face](https://huggingface.co/Aevum-Official/aveum-0.6B-Finetuned)
+  overrides:
+    parameters:
+      model: Aevum-0.6B-Finetuned.Q4_K_M.gguf
+  files:
+    - filename: Aevum-0.6B-Finetuned.Q4_K_M.gguf
+      sha256: 6904b789894a7dae459042a28318e70dbe222cb3e6f892f3fc42e591d4a341a3
+      uri: huggingface://mradermacher/Aevum-0.6B-Finetuned-GGUF/Aevum-0.6B-Finetuned.Q4_K_M.gguf
