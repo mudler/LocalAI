@@ -22079,3 +22079,31 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "capybara-instruct-8b"
+  urls:
+    - https://huggingface.co/mradermacher/capybara-instruct-8b-GGUF
+  description: |
+    **Model Name:** Qwen3-8B (Base Model)
+    **Repository:** [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
+    **License:** Apache 2.0
+    **Description:**
+    Qwen3-8B is a state-of-the-art 8.2-billion-parameter dense language model from Alibaba's Qwen series, designed for advanced reasoning, instruction following, and multilingual tasks. It uniquely supports seamless switching between **thinking mode** (for complex logic, math, and coding) and **non-thinking mode** (for efficient dialogue), enabling optimal performance across diverse use cases. Built with extensive training and optimized for both reasoning and conversational fluency, it excels in agent-based tasks, creative writing, and long-context processing (up to 131,072 tokens with YaRN scaling).
+
+    **Key Features:**
+    - 8.2B parameters, 36 layers, GQA with 32 Q & 8 KV heads
+    - Native support for 32K tokens, up to 131K with YaRN scaling
+    - Dual-mode operation: thinking (reasoning) and non-thinking (dialogue)
+    - Strong multilingual support (100+ languages)
+    - Optimized for deployment via vLLM, SGLang, llama.cpp, and more
+
+    **Best For:** Advanced reasoning, agent workflows, multilingual applications, and high-performance inference.
+
+    > *Note: The model at `mradermacher/capybara-instruct-8b-GGUF` is a quantized and fine-tuned version of this base model.*
+  overrides:
+    parameters:
+      model: capybara-instruct-8b.Q4_K_M.gguf
+  files:
+    - filename: capybara-instruct-8b.Q4_K_M.gguf
+      sha256: 6b12a3db63f46f6267ff7bf90e29079060dba84427932ea596cf73277c8e9612
+      uri: huggingface://mradermacher/capybara-instruct-8b-GGUF/capybara-instruct-8b.Q4_K_M.gguf
