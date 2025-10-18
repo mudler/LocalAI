@@ -22169,3 +22169,57 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-27b-it-qat-q4_0-unquantized"
+  urls:
+    - https://huggingface.co/kcccat/gemma-3-27b-it-qat-q4_0-unquantized-Q4_K_S-GGUF
+  description: |
+    **Model Name:** Gemma 3 27B Instruction-Tuned (QAT, Unquantized, GGUF)
+    **Base Model:** [google/gemma-3-27b-it](https://huggingface.co/google/gemma-3-27b-it)
+    **Quantization:** Q4_K_S (GGUF format) – optimized for efficient inference with minimal quality loss
+    **Repository:** [kcccat/gemma-3-27b-it-qat-q4_0-unquantized-Q4_K_S-GGUF](https://huggingface.co/kcccat/gemma-3-27b-it-qat-q4_0-unquantized-Q4_K_S-GGUF)
+    **License:** Gemma License (Google)
+
+    ---
+
+    ### 🔍 Description:
+    This is a high-performance, instruction-tuned version of **Gemma 3 27B**, converted to GGUF format for efficient local inference using **llama.cpp**. The model is based on the official **Google Gemma 3 27B IT** model, trained with **Quantization-Aware Training (QAT)** and unquantized weights, then compressed using **Q4_K_S** quantization for faster, memory-efficient execution.
+
+    Ideal for advanced users and developers who need a powerful, locally deployable LLM with strong reasoning, coding, and instruction-following abilities.
+
+    ---
+
+    ### ✅ Key Features:
+    - **Large-scale 27B parameter model** with strong multimodal and language capabilities
+    - **Instruction-tuned** for clear, helpful, and safe responses
+    - **GGUF format** – compatible with `llama.cpp`, `llama-server`, and other GGUF-compatible tools
+    - **Q4_K_S quantization** – balances performance, speed, and accuracy
+    - Fully compatible with **local inference** on CPU, GPU, or Apple Silicon
+
+    ---
+
+    ### 🛠️ Use Cases:
+    - Local AI assistants
+    - Code generation & reasoning
+    - Research & experimentation with large models
+    - Edge deployment with constrained hardware
+
+    ---
+
+    ### 🔗 How to Use:
+    ```bash
+    llama-cli --hf-repo kcccat/gemma-3-27b-it-qat-q4_0-unquantized-Q4_K_S-GGUF --hf-file gemma-3-27b-it-qat-q4_0-unquantized-q4_k_s.gguf -p "Explain quantum computing in simple terms"
+    ```
+
+    > 📌 *Note: The original model and full details are available at [google/gemma-3-27b-it](https://huggingface.co/google/gemma-3-27b-it). This repository is a community-converted, unquantized QAT version in GGUF format for efficient local use.*
+
+    ---
+
+    📦 **Model Gallery Ready – Use for comparison, benchmarking, and deployment.**
+  overrides:
+    parameters:
+      model: gemma-3-27b-it-qat-q4_0-unquantized-q4_k_s.gguf
+  files:
+    - filename: gemma-3-27b-it-qat-q4_0-unquantized-q4_k_s.gguf
+      sha256: b2bf433f699e16a519652f04b1cc4529bd2c281f015ad454c2a1927041d08264
+      uri: huggingface://kcccat/gemma-3-27b-it-qat-q4_0-unquantized-Q4_K_S-GGUF/gemma-3-27b-it-qat-q4_0-unquantized-q4_k_s.gguf
