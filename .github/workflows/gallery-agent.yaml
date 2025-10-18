@@ -76,20 +76,21 @@ jobs:
         id: read_summary
         if: steps.check_changes.outputs.changes == 'true'
         run: |
-          if [ -f "gallery-agent-summary.json" ]; then
+          if [ -f ".github/gallery-agent/gallery-agent-summary.json" ]; then
             echo "summary_exists=true" >> $GITHUB_OUTPUT
             # Extract summary data using jq
-            echo "search_term=$(jq -r '.search_term' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "total_found=$(jq -r '.total_found' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "models_added=$(jq -r '.models_added' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "quantization=$(jq -r '.quantization' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "processing_time=$(jq -r '.processing_time' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "search_term=$(jq -r '.search_term' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "total_found=$(jq -r '.total_found' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "models_added=$(jq -r '.models_added' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "quantization=$(jq -r '.quantization' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "processing_time=$(jq -r '.processing_time' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
             
             # Create a formatted list of added models with URLs
-            added_models=$(jq -r 'range(0; .added_model_ids | length) as $i | "- [\(.added_model_ids[$i])](\(.added_model_urls[$i]))"' gallery-agent-summary.json | tr '\n' '\n')
+            added_models=$(jq -r 'range(0; .added_model_ids | length) as $i | "- [\(.added_model_ids[$i])](\(.added_model_urls[$i]))"' .github/gallery-agent/gallery-agent-summary.json | tr '\n' '\n')
             echo "added_models<<EOF" >> $GITHUB_OUTPUT
             echo "$added_models" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
+            rm -f .github/gallery-agent/gallery-agent-summary.json
           else
             echo "summary_exists=false" >> $GITHUB_OUTPUT
           fi
