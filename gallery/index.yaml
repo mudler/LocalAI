@@ -22100,3 +22100,25 @@
     - filename: PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
       sha256: abd224325aea504a61fb749cc12649641165c33035b4e5923163387370878005
       uri: huggingface://mradermacher/PositiveDetox-Qwen2.5-14B-GGUF/PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
+- !!merge <<: *qwenimage
+  name: "qwen-image-edit-2509"
+  urls:
+    - https://huggingface.co/QuantStack/Qwen-Image-Edit-2509-GGUF
+  description: |
+    **Model Name:** Qwen-Image-Edit-2509 (GGUF Quantized Version)
+    **Base Model:** Qwen/Qwen-Image-Edit-2509
+    **Type:** Image-to-Image Editing Model
+    **Architecture:** Qwen2.5-VL-7B-based multimodal transformer
+    **License:** Apache 2.0
+    **Quantization:** GGUF (available in multiple quantization levels: Q2_K to Q4_K_M)
+    **Use Case:** Advanced image editing with natural language guidance — modify, enhance, or generate image content based on text prompts.
+    **Recommended For:** Developers and artists using ComfyUI with GGUF support for efficient on-device inference.
+
+    > 📌 **Note:** This is a quantized version of the original Qwen-Image-Edit-2509 model. The base model and original documentation can be found at [Qwen/Qwen-Image-Edit-2509](https://huggingface.co/Qwen/Qwen-Image-Edit-2509). The original licensing and usage terms apply.
+  overrides:
+    parameters:
+      model: Qwen-Image-Edit-2509-Q4_K_M.gguf
+  files:
+    - filename: Qwen-Image-Edit-2509-Q4_K_M.gguf
+      sha256: 08f27cdf3e760edef5136ab0afdb9d3ed7a2799bd730b8d5cd9ecb291d808425
+      uri: huggingface://QuantStack/Qwen-Image-Edit-2509-GGUF/Qwen-Image-Edit-2509-Q4_K_M.gguf
