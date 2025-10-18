@@ -22169,3 +22169,45 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama32
+  name: "schematron-3b"
+  urls:
+    - https://huggingface.co/debaasvan/Schematron-3B-Q4_K_M-GGUF
+  description: |
+    **Schematron-3B** is a specialized 3-billion-parameter language model designed for high-accuracy, schema-guided extraction of structured data from HTML. Built on the **Llama-3.2-3B-Instruct** foundation and fine-tuned by Inference.net, it excels at converting noisy or complex web pages into clean, valid JSON that strictly conforms to user-defined schemas.
+
+    ### Key Features:
+    - **Schema-First Extraction**: Outputs only valid JSON matching your input schema (e.g., Pydantic/Zod).
+    - **Long Context Support**: Handles up to **128K tokens**, ideal for large or complex web pages.
+    - **Optimized for Web Scraping**: Pre-cleaned HTML input yields high-quality, reliable extractions.
+    - **Efficient Performance**: Smaller size than its 8B counterpart, offering near-parity quality at ~50% of the cost.
+
+    ### Use Cases:
+    - Web data extraction & ingestion
+    - Automated API data transformation
+    - Reliable JSON generation from unstructured web content
+
+    ### Performance:
+    - **LLM-as-Judge Score**: 4.41 (out of 5)
+    - Outperforms larger models like Gemini 3B Base in real-world extraction tasks
+    - Achieves **82.87% factuality** on SimpleQA when paired with web search
+
+    ### Best Practices:
+    - Use temperature=0 and JSON mode for deterministic outputs
+    - Pre-clean HTML with tools like `lxml` to remove scripts/styles
+    - Validate outputs against your schema (e.g., Pydantic/Zod)
+
+    > 📌 **Note**: This model is not intended for general conversation. It’s purpose-built for structured data extraction.
+
+    **Model Source**: `meta-llama/Llama-3.2-3B-Instruct` (fine-tuned)
+    **License**: Llama 3.2
+    **Repository**: [inference-net/Schematron-3B](https://huggingface.co/inference-net/Schematron-3B)
+
+    Ideal for developers and data pipelines requiring robust, schema-accurate web data extraction.
+  overrides:
+    parameters:
+      model: schematron-3b-q4_k_m.gguf
+  files:
+    - filename: schematron-3b-q4_k_m.gguf
+      sha256: d93a7fa38a90919d57ba00a56c1af43276b7494810c838ad6ba2c9d4c66715fc
+      uri: huggingface://debaasvan/Schematron-3B-Q4_K_M-GGUF/schematron-3b-q4_k_m.gguf
