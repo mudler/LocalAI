@@ -22079,3 +22079,23 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "l3.3-chimera-prime-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/L3.3-Chimera-Prime-70B-i1-GGUF
+  description: |
+    **Model Name:** L3.3-Chimera-Prime-70B
+    **Base Model:** Meta-Llama/Llama-3.3-70B-Instruct
+    **Description:** A high-performance, creatively optimized language model fine-tuned for exceptional roleplay and narrative generation. Built on the Llama 3.3 70B Instruct base, this model was developed using a complex synthetic data pipeline and dual-stage training, resulting in a "pristine" creative writing capability. Designed for immersive storytelling and expressive dialogue, it excels in uncensored, imaginative, and coherent text generation.
+
+    **Use Case:** Ideal for creative writing, interactive storytelling, roleplay, and content generation where rich narrative quality is essential.
+
+    **License:** Apache 2.0
+    **Repository:** [m8than/L3.3-Chimera-Prime-70B](https://huggingface.co/m8than/L3.3-Chimera-Prime-70B)
+  overrides:
+    parameters:
+      model: L3.3-Chimera-Prime-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: L3.3-Chimera-Prime-70B.i1-Q4_K_M.gguf
+      sha256: d0483559ac24e087b2bfe8619a5c9318d18e2edda8d51798d845ddfbe66c2232
+      uri: huggingface://mradermacher/L3.3-Chimera-Prime-70B-i1-GGUF/L3.3-Chimera-Prime-70B.i1-Q4_K_M.gguf
