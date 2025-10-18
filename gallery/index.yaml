@@ -22169,3 +22169,29 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama33
+  name: "ling-1t"
+  urls:
+    - https://huggingface.co/ubergarm2/Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, non-thinking flagship model from the Ling 2.0 series, designed for **high-efficiency, scalable reasoning**. Built on a novel MoE architecture with ~50 billion active parameters per token and 1/32 expert activation ratio, it achieves state-of-the-art performance in complex reasoning, code generation, and mathematical problem-solving—rivaling closed-source models like GPT-5 and Gemini-2.5-Pro.
+
+    Key features:
+    - **128K context length** via YaRN scaling
+    - Trained on **20+ trillion high-quality, reasoning-dense tokens**
+    - Uses **FP8 mixed-precision training** for 15%+ speedup and optimal memory efficiency
+    - Employs **Evo-CoT (Evolutionary Chain-of-Thought)** and **LPO (Linguistics-Unit Policy Optimization)** for stable, high-quality reasoning
+    - Excels in **front-end code generation**, visual reasoning, and aesthetic alignment
+    - Available in **BF16 and FP8 variants** for deployment on vLLM, SGLang, and other high-performance inference frameworks
+
+    Ling-1T sets a new benchmark for open-source, efficient reasoning at scale—ideal for researchers, developers, and AI practitioners seeking powerful, interpretable, and deployable models.
+
+    **Model Link**: [Hugging Face - inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T) | [Try Online at ZenMux](https://zenmux.ai/inclusionai/ling-1t)
+    **License**: MIT
+  overrides:
+    parameters:
+      model: smol-IQ2_KS
+  files:
+    - filename: smol-IQ2_KS
+      sha256: aadba72a5093f4e43c829a757ab2602d4b742364
+      uri: huggingface://ubergarm2/Ling-1T-GGUF/smol-IQ2_KS
