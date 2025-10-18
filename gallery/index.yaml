@@ -22169,3 +22169,29 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "brainsv2_8b_gguf"
+  urls:
+    - https://huggingface.co/Lerelou/BrainsV2_8b_GGUF
+  description: |
+    **Model Name:** Qwen3-8B
+    **Base Model:** Qwen/Qwen3-8B-Base
+    **Type:** Causal Language Model (8.2B parameters)
+    **Key Features:**
+    - Supports seamless switching between **thinking mode** (for complex reasoning, math, coding) and **non-thinking mode** (for efficient dialogue).
+    - State-of-the-art performance in reasoning, instruction-following, code generation, and multilingual tasks.
+    - Native context length of **32,768 tokens** (up to **131,072** with YaRN RoPE scaling).
+    - Optimized for agentic workflows with integrated tool calling (via Qwen-Agent).
+    - Fine-tuned with advanced techniques (LoRA, Unsloth) for high-quality, concise outputs.
+
+    **Use Case:** Ideal for developers, researchers, and engineers requiring robust reasoning, coding, and multilingual capabilities in a single open-source model.
+
+    **License:** Apache 2.0 (with Tongyi Qwen License Agreement for fine-tuned versions)
+    **Repository:** [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
+  overrides:
+    parameters:
+      model: BrainsV2_8b_GGUF.Q4_K_M.gguf
+  files:
+    - filename: BrainsV2_8b_GGUF.Q4_K_M.gguf
+      sha256: bef2590c1b8dc208f4876865c0276a758808b1634510194a1337ec5626aa5484
+      uri: huggingface://Lerelou/BrainsV2_8b_GGUF/BrainsV2_8b_GGUF.Q4_K_M.gguf
