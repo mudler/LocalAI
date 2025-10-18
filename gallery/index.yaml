@@ -22169,3 +22169,27 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "comma-v0.1-2t"
+  urls:
+    - https://huggingface.co/jadael/comma-v0.1-2t-GGUF
+  description: |
+    **Comma v0.1-2T** is a 7-billion-parameter base language model trained on 2 trillion tokens from the *Common Pile v0.1* dataset—comprising openly licensed and public domain text only. Built on the Llama 3 architecture, it achieves competitive performance across knowledge, reasoning, and coding benchmarks (e.g., MMLU, ARC, HumanEval), rivaling models like Llama 2 and DeepSeekLLM.
+
+    This model is **not instruction-tuned** and serves as a foundation for further fine-tuning or research. It is ideal for developers and researchers seeking ethical, transparent training data and high-quality base models without reliance on unlicensed content.
+
+    - **Architecture**: Llama 3 (decoder-only transformer)
+    - **Training Data**: 2T tokens from Common Pile v0.1 (public domain & open-licensed)
+    - **Use Case**: Fine-tuning, research, text generation, and building aligned models
+    - **License**: Apache 2.0
+    - **Language**: English (and code in 15 languages)
+
+    > **Note**: Not suitable for direct chat use—requires fine-tuning for instruction-following.
+
+    *For production use with llama.cpp or Ollama, use the GGUF version (e.g., `comma-v0.1-2t-f16.gguf`).*
+
+    **Original model**: [common-pile/comma-v0.1-2t](https://huggingface.co/common-pile/comma-v0.1-2t)
+    **Benchmarked against**: Llama 2 7B, OLMo, DeepSeekLLM.
+  overrides:
+    parameters:
+      model: jadael/comma-v0.1-2t-GGUF
