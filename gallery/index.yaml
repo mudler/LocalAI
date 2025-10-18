@@ -22169,3 +22169,62 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "chat_noir-24b"
+  urls:
+    - https://huggingface.co/virtuoturingai/chat_noir-24b-gguf
+  description: |
+    **Model Name:** Mistral-Small-24B-Instruct-2501
+    **Repository:** [mistralai/Mistral-Small-24B-Instruct-2501](https://huggingface.co/mistralai/Mistral-Small-24B-Instruct-2501)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 📌 **Overview**
+    Mistral-Small-24B-Instruct-2501 is a high-performance, instruction-tuned large language model with **24 billion parameters**, developed by **Mistral AI**. It delivers state-of-the-art reasoning and conversational capabilities, rivaling models significantly larger than itself, while remaining efficient enough to run locally on consumer hardware (e.g., RTX 4090 or 32GB RAM MacBooks).
+
+    ---
+
+    ### 🚀 **Key Features**
+    - **Multilingual Support:** Native proficiency in English, French, German, Spanish, Italian, Portuguese, Chinese, Japanese, Korean, and more.
+    - **Agent-Centric Design:** Excels at function/tool calling and JSON output generation, ideal for automated agents.
+    - **Long Context:** 32k token context window for handling extended inputs.
+    - **Fast & Lightweight:** Optimized for low-latency inference with support for quantization (e.g., Q4_K_M, Q8_0).
+    - **Open & Free:** Released under the permissive Apache 2.0 license — free for commercial and research use.
+
+    ---
+
+    ### 📊 **Performance Highlights**
+    - **Top-tier in benchmarks** for instruction following, coding, math, and reasoning (e.g., 84.8% pass rate on HumanEval).
+    - Outperforms larger models like Llama-3.3-70B and Qwen-2.5-32B in human evaluations.
+    - Strong in domain-specific tasks with excellent adherence to system prompts.
+
+    ---
+
+    ### 💡 **Use Cases**
+    - Local chatbots and assistants
+    - AI-powered code generation and debugging
+    - Legal, financial, and technical document summarization
+    - Fast, private inference for sensitive data
+
+    ---
+
+    ### 📦 **How to Use**
+    - **vLLM:** Run with `vllm serve mistralai/Mistral-Small-24B-Instruct-2501`
+    - **Ollama:** `ollama run mistral-small`
+    - **Hugging Face Transformers:** `pipeline("text-generation", model="mistralai/Mistral-Small-24B-Instruct-2501")`
+
+    ---
+
+    ### 📚 **Learn More**
+    [Blog Post: Mistral Small 3 Launch](https://mistral.ai/news/mistral-small-3/)
+    [Model Card on Hugging Face](https://huggingface.co/mistralai/Mistral-Small-24B-Instruct-2501)
+
+    > **Note:** This model is a fine-tuned version of the base **Mistral-Small-24B-Base-2501**, trained on curated instruction data for optimal performance in real-world applications.
+  overrides:
+    parameters:
+      model: chatnoir_q4_k_m.gguf
+  files:
+    - filename: chatnoir_q4_k_m.gguf
+      sha256: 1fd57608c89233f83d5520de4701f579ea5cb6b44c3e50fb5ea094f0eb2a7f2a
+      uri: huggingface://virtuoturingai/chat_noir-24b-gguf/chatnoir_q4_k_m.gguf
