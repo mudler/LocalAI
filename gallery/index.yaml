@@ -22169,3 +22169,26 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-235b-a22b-instruct-2507"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-235B-A22B-Instruct-2507-gguf
+  description: |
+    **Model Name:** Qwen3-235B-A22B-Instruct-2507
+    **Model Type:** Large Language Model (LLM)
+    **Base Model:** Qwen/Qwen3-235B-A22B-Instruct-2507 (original by Alibaba)
+    **Size:** 235 billion parameters
+    **Architecture:** Transformer-based, instruction-tuned for high-quality conversational and reasoning tasks
+    **License:** Apache 2.0
+    **Quantization:** Available in multiple GGUF quantized versions (2-bit to 8-bit) for efficient local inference
+    **Use Case:** Ideal for advanced reasoning, code generation, dialogue, and complex task execution in local or edge environments
+    **Note:** This repository hosts quantized GGUF versions of the original Qwen3-235B-A22B-Instruct-2507 model, created and shared by John1604. The base model is authored by Alibaba.
+
+    > 🔍 **Important:** The original, unquantized model is available at: [Qwen/Qwen3-235B-A22B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507) — recommended for highest quality and full feature support.
+  overrides:
+    parameters:
+      model: Qwen3-235B-A22B-Instruct-2507-q3_k_m.gguf
+  files:
+    - filename: Qwen3-235B-A22B-Instruct-2507-q3_k_m.gguf
+      sha256: ac894f1a259bb737cdfb093032c4b73d5c4d0f7346a0fbbfe8ed07b6b73e07f3
+      uri: huggingface://John1604/Qwen3-235B-A22B-Instruct-2507-gguf/Qwen3-235B-A22B-Instruct-2507-q3_k_m.gguf
