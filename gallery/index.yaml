@@ -22079,3 +22079,28 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "70b_llama313v2_rp_gguf"
+  urls:
+    - https://huggingface.co/schonsense/70B_llama313v2_rp_GGUF
+  description: |
+    **Model Name:** Llama 3.1 70B Roleplay Fine-Tuned (RP) Series
+    **Repository:** `schonsense/llama313_rp_stage1` → `schonsense/70B_llama313_rp` → `schonsense/70B_llama313v2_rp_GGUF`
+    **Base Model:** Llama 3.1 70B (original Meta release, fine-tuned by the community)
+    **Type:** Instruction-tuned, roleplay-specific LLM (fantasy, mature, narrative-driven)
+    **Description:**
+    A high-performance, fully fine-tuned Llama 3.1 70B model optimized for immersive, long-form fantasy roleplay. Trained exclusively on RP and RP-adjacent instruction data, the model excels at maintaining coherent, spatially aware narratives with realistic consequences. Features a correctly trained EOS token to eliminate generation artifacts, reduced "llama positivity," and enhanced narrative control via `ooc:` directives. Designed for use with the standard Llama 3.3 instruct chat template. Ideal for dungeon masters, writers, and players seeking gritty, player-driven storytelling with deep world-building and moral complexity.
+
+    **Key Features:**
+    - ✅ Mature, unfiltered narrative style
+    - ✅ Spatial and temporal continuity
+    - ✅ Player-driven plot progression
+    - ✅ Realistic character and world behavior
+    - ✅ Optimized for GGUF (quantized) deployment
+
+    **Best For:** Fantasy roleplay, interactive storytelling, creative writing, and immersive world simulation.
+
+    > **Note:** This model is a community fine-tuned variant (not by Meta). The original base is the Llama 3.1 70B. The final version (`70B_llama313v2_rp_GGUF`) is a quantized, optimized release based on the full fine-tuning chain.
+  overrides:
+    parameters:
+      model: schonsense/70B_llama313v2_rp_GGUF
