@@ -18,7 +18,7 @@ import (
 )
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
-func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
+func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, metricsStore services.MetricsStore) {
 
 	// Operations API - Get all current operations (models + backends)
 	app.Get("/api/operations", func(c *fiber.Ctx) error {
@@ -716,4 +716,104 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			},
 		})
 	})
+
+	// Metrics API endpoints
+	if metricsStore != nil {
+		// Get metrics summary
+		app.Get("/api/metrics/summary", func(c *fiber.Ctx) error {
+			endpointStats := metricsStore.GetEndpointStats()
+			modelStats := metricsStore.GetModelStats()
+			backendStats := metricsStore.GetBackendStats()
+
+			// Get top 5 models
+			type modelStat struct {
+				Name  string `json:"name"`
+				Count int64  `json:"count"`
+			}
+			topModels := make([]modelStat, 0)
+			for model, count := range modelStats {
+				topModels = append(topModels, modelStat{Name: model, Count: count})
+			}
+			sort.Slice(topModels, func(i, j int) bool {
+				return topModels[i].Count > topModels[j].Count
+			})
+			if len(topModels) > 5 {
+				topModels = topModels[:5]
+			}
+
+			// Get top 5 endpoints
+			type endpointStat struct {
+				Name  string `json:"name"`
+				Count int64  `json:"count"`
+			}
+			topEndpoints := make([]endpointStat, 0)
+			for endpoint, count := range endpointStats {
+				topEndpoints = append(topEndpoints, endpointStat{Name: endpoint, Count: count})
+			}
+			sort.Slice(topEndpoints, func(i, j int) bool {
+				return topEndpoints[i].Count > topEndpoints[j].Count
+			})
+			if len(topEndpoints) > 5 {
+				topEndpoints = topEndpoints[:5]
+			}
+
+			return c.JSON(fiber.Map{
+				"totalRequests": metricsStore.GetTotalRequests(),
+				"successRate":   metricsStore.GetSuccessRate(),
+				"topModels":     topModels,
+				"topEndpoints":  topEndpoints,
+				"topBackends":   backendStats,
+			})
+		})
+
+		// Get endpoint statistics
+		app.Get("/api/metrics/endpoints", func(c *fiber.Ctx) error {
+			stats := metricsStore.GetEndpointStats()
+			return c.JSON(fiber.Map{
+				"endpoints": stats,
+			})
+		})
+
+		// Get model statistics
+		app.Get("/api/metrics/models", func(c *fiber.Ctx) error {
+			stats := metricsStore.GetModelStats()
+			return c.JSON(fiber.Map{
+				"models": stats,
+			})
+		})
+
+		// Get backend statistics
+		app.Get("/api/metrics/backends", func(c *fiber.Ctx) error {
+			stats := metricsStore.GetBackendStats()
+			return c.JSON(fiber.Map{
+				"backends": stats,
+			})
+		})
+
+		// Get time series data
+		app.Get("/api/metrics/timeseries", func(c *fiber.Ctx) error {
+			// Default to last 24 hours
+			hours := 24
+			if hoursParam := c.Query("hours"); hoursParam != "" {
+				if h, err := strconv.Atoi(hoursParam); err == nil && h > 0 {
+					hours = h
+				}
+			}
+
+			timeSeries := metricsStore.GetRequestsOverTime(hours)
+			return c.JSON(fiber.Map{
+				"timeseries": timeSeries,
+				"hours":      hours,
+			})
+		})
+
+		// Reset metrics (optional - for testing/admin purposes)
+		app.Post("/api/metrics/reset", func(c *fiber.Ctx) error {
+			metricsStore.Reset()
+			return c.JSON(fiber.Map{
+				"success": true,
+				"message": "Metrics reset successfully",
+			})
+		})
+	}
 }
