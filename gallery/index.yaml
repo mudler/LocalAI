@@ -22169,3 +22169,16 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *qwen25
+  name: "neutts-air"
+  urls:
+    - https://huggingface.co/Mungert/neutts-air-GGUF
+  description: |
+    AI model: neutts-air
+  overrides:
+    parameters:
+      model: neutts-air-q4_k_m.gguf
+  files:
+    - filename: neutts-air-q4_k_m.gguf
+      sha256: ffc5517d54bc0273db41105a83f2cde8a17a2ad07b3457826aa5a481ab8b5673
+      uri: huggingface://Mungert/neutts-air-GGUF/neutts-air-q4_k_m.gguf
