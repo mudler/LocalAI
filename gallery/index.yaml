@@ -22169,3 +22169,23 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "comma-v0.1-2t"
+  urls:
+    - https://huggingface.co/jadael/comma-v0.1-2t-GGUF
+  description: |
+    **Comma v0.1-2T**
+    *A 7B parameter base language model trained on 2T tokens of openly licensed text from the Common Pile.*
+
+    - **Architecture**: Decoder-only transformer, compatible with Llama 3 design
+    - **Training Data**: 2 trillion tokens from the [Common Pile v0.1](https://huggingface.co/datasets/common-pile/comma_v0.1_training_dataset), sourced from public domain and openly licensed content
+    - **Performance**: Achieves competitive results among budget-matched models (7B, 2T), outperforming Llama 2 and comparable to DeepSeekLLM on key benchmarks
+    - **Use Case**: Ideal as a foundation for fine-tuning, post-training, or research—no alignment or content filters applied
+    - **Languages**: Primarily English; includes code from 15 programming languages via Stack-Edu classifiers
+    - **License**: Apache 2.0 — free for commercial and research use
+    - **Note**: Not aligned; may generate unfiltered content; trained on openly licensed data with no guarantee of 100% license compliance
+
+    > 📌 *Model card and training details available in the [official repository](https://huggingface.co/common-pile/comma-v0.1-2t).*
+  overrides:
+    parameters:
+      model: jadael/comma-v0.1-2t-GGUF
