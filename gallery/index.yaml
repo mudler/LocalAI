@@ -22079,3 +22079,22 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "gemma-sea-lion-v4-27b-vl-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Gemma-SEA-LION-v4-27B-VL-i1-GGUF
+  description: |
+    The **Gemma-SEA-LION-v4-27B-VL** is a large vision-language model based on Google's Gemma architecture, fine-tuned and extended by SEACrowd for multilingual and multimodal understanding. It is specifically optimized for Southeast Asian (SEA) languages and includes enhanced capabilities for visual and textual reasoning. The model is 27 billion parameters in size and supports both image and text inputs, making it suitable for tasks like image captioning, visual question answering, and cross-modal retrieval.
+
+    This repository contains **GGUF quantized versions** of the model, optimized for local inference with tools like `llama.cpp`. The quantization allows efficient deployment on consumer hardware, with multiple quantization levels (e.g., Q4_K_M, Q5_K_M, Q6_K) offering trade-offs between performance and resource usage. However, this is a **quantized variant** and not the original model from the original authors.
+
+    The **original base model** is available at: **[SEACrowd/Gemma-SEA-LION-v4-27B-VL](https://huggingface.co/SEACrowd/Gemma-SEA-LION-v4-27B-VL)** — this is the unquantized, full-precision version, recommended for research or high-accuracy applications.
+
+    > 🔍 *Note:* This repository is a user-converted (quantized) version; always refer to the original model card for full technical and training details.
+  overrides:
+    parameters:
+      model: Gemma-SEA-LION-v4-27B-VL.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-SEA-LION-v4-27B-VL.i1-Q4_K_M.gguf
+      sha256: 379d0c9333704055ad6ae2c764601692963aa7764a948d98bd03f66c9666bda3
+      uri: huggingface://mradermacher/Gemma-SEA-LION-v4-27B-VL-i1-GGUF/Gemma-SEA-LION-v4-27B-VL.i1-Q4_K_M.gguf
