@@ -620,6 +620,32 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 		return c.JSON(response)
 	})
 
+	// System Backend Deletion API (for installed backends on index page)
+	app.Post("/api/backends/system/delete/:name", func(c *fiber.Ctx) error {
+		backendName := strings.Clone(c.Params("name"))
+		// URL decode the backend name
+		backendName, err := url.QueryUnescape(backendName)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": "invalid backend name",
+			})
+		}
+		log.Debug().Msgf("API request to delete system backend: %+v\n", backendName)
+
+		// Use the gallery package to delete the backend
+		if err := gallery.DeleteBackendFromSystem(appConfig.SystemState, backendName); err != nil {
+			log.Error().Err(err).Msgf("Failed to delete backend: %s", backendName)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Backend deleted successfully",
+		})
+	})
+
 	// P2P APIs
 	app.Get("/api/p2p/workers", func(c *fiber.Ctx) error {
 		nodes := p2p.GetAvailableNodes(p2p.NetworkID(appConfig.P2PNetworkID, p2p.WorkerID))
