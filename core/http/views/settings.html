@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="indexDashboard()">
+
+    {{template "views/partials/navbar" .}}
+
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true" 
+                 x-transition:enter="transform ease-out duration-300 transition"
+                 x-transition:enter-start="translate-x-full opacity-0"
+                 x-transition:enter-end="translate-x-0 opacity-100"
+                 x-transition:leave="transform ease-in duration-200 transition"
+                 x-transition:leave-start="translate-x-0 opacity-100"
+                 x-transition:leave-end="translate-x-full opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 class="rounded-lg shadow-xl p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:text-gray-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Section -->
+        <div class="relative bg-[#1E293B] border border-[#38BDF8]/20 rounded-3xl shadow-2xl shadow-[#38BDF8]/10 p-8 mb-12 overflow-hidden">
+            <!-- Background Pattern -->
+            <div class="absolute inset-0 opacity-10">
+                <div class="absolute inset-0 bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20"></div>
+                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(56,189,248,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
+            </div>
+            
+            <div class="relative max-w-5xl mx-auto text-center">
+                <h1 class="text-5xl md:text-6xl font-bold text-[#E5E7EB] mb-6">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
+                        Settings & Management
+                    </span>
+                </h1>
+                <p class="text-xl md:text-2xl text-[#94A3B8] mb-8 font-light">Manage your models, backends, and system configuration</p>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="/" 
+                       class="group relative inline-flex items-center bg-gray-600 hover:bg-gray-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(75,85,99,0.4)]">
+                        <i class="fas fa-home mr-3 text-lg"></i>
+                        <span>Back to Dashboard</span>
+                        <i class="fas fa-arrow-left ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                    </a>
+
+                    <a href="https://localai.io" target="_blank" 
+                       class="group relative inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
+                        <i class="fas fa-book-reader mr-3 text-lg"></i>
+                        <span>Documentation</span>
+                        <i class="fas fa-external-link-alt ml-3 text-sm opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                    </a>
+                    
+                    <a href="browse" 
+                       class="group relative inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                        <i class="fas fa-images mr-3 text-lg"></i>
+                        <span>Model Gallery</span>
+                        <i class="fas fa-arrow-right ml-3 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-300"></i>
+                    </a>
+                    
+                    <a href="/import-model"
+                       class="group relative inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(34,197,94,0.4)]">
+                        <i class="fas fa-plus mr-3 text-lg"></i>
+                        <span>Import Model</span>
+                        <i class="fas fa-upload ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                    </a>
+
+                    <button id="reload-models-btn"
+                       class="group relative inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white py-3 px-8 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(234,88,12,0.4)]">
+                        <i class="fas fa-sync-alt mr-3 text-lg"></i>
+                        <span>Update Models</span>
+                        <i class="fas fa-refresh ml-3 opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Models Section -->
+        <div class="models mt-8">
+            {{template "views/partials/inprogress" .}}
+            
+            {{ if eq (len .ModelsConfig) 0 }}
+            <!-- No Models State -->
+            <div class="relative bg-[#1E293B]/80 border border-[#38BDF8]/20 rounded-2xl p-12 shadow-xl backdrop-blur-sm">
+                <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-yellow-500/5 to-orange-500/5"></div>
+                <div class="relative text-center max-w-4xl mx-auto">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-6">
+                        <i class="text-yellow-400 text-3xl fas fa-robot"></i>
+                    </div>
+                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-6">No models installed yet</h2>
+                    <p class="text-xl text-[#94A3B8] mb-8 leading-relaxed">Get started by installing models from the gallery or check our documentation for guidance</p>
+                    
+                    <div class="flex flex-wrap justify-center gap-4 mb-8">
+                        <a href="browse" class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
+                            <i class="fas fa-images mr-2"></i>
+                            Browse Gallery
+                        </a>
+                        <a href="https://localai.io/basics/getting_started/" class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 text-[#E5E7EB] py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
+                            <i class="fas fa-book mr-2"></i>
+                            Documentation
+                        </a>
+                    </div>
+
+                    {{ if ne (len .Models) 0 }}
+                    <div class="mt-12 pt-8 border-t border-[#38BDF8]/20">
+                        <h3 class="text-2xl font-bold text-[#E5E7EB] mb-6">Detected Model Files</h3>
+                        <p class="text-[#94A3B8] mb-6">These models were found but don't have configuration files yet</p>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {{ range .Models }}
+                            <div class="bg-[#101827] border border-[#38BDF8]/20 rounded-xl p-4 flex items-center hover:border-[#38BDF8]/50 transition-all duration-300 hover:shadow-[0_0_12px_rgba(56,189,248,0.15)]">
+                                <div class="w-10 h-10 rounded-lg bg-[#1E293B] flex items-center justify-center mr-3">
+                                    <i class="fas fa-brain text-[#38BDF8]"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <p class="font-semibold text-[#E5E7EB] truncate">{{.}}</p>
+                                    <p class="text-xs text-[#94A3B8]">No configuration</p>
+                                </div>
+                            </div>              
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            {{ else }}
+            <!-- Models Grid -->
+            {{ $modelsN := len .ModelsConfig}}
+            {{ $modelsN = add $modelsN (len .Models)}}
+            <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
+                <div class="mb-4 md:mb-0">
+                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
+                        Installed Models
+                    </h2>
+                    <p class="text-[#94A3B8]">
+                        <span class="text-[#38BDF8] font-semibold">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
+                    </p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {{$galleryConfig:=.GalleryConfig}}
+                {{ $loadedModels := .LoadedModels }}
+                {{$noicon:="https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"}}
+                
+                {{ range .ModelsConfig }}
+                {{ $backendCfg := . }}
+                {{ $cfg:= index $galleryConfig .Name}}
+                <div class="group relative bg-[#1E293B] border border-[#38BDF8]/20 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-[0_0_20px_rgba(56,189,248,0.2)] hover:-translate-y-2 hover:border-[#38BDF8]/50">
+                    <!-- Card Header -->
+                    <div class="relative p-6 border-b border-[#101827]">
+                        <div class="flex items-start space-x-4">
+                            <div class="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#101827] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <img {{ if and $cfg $cfg.Icon }}
+                                    src="{{$cfg.Icon}}"
+                                    {{ else }}
+                                    src="{{$noicon}}"
+                                    {{ end }}
+                                    class="w-full h-full object-contain"
+                                    alt="{{.Name}} icon"
+                                >
+                                {{ if index $loadedModels .Name }}
+                                <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#1E293B] animate-pulse"></div>
+                                {{ end }}
+                            </div>
+                            
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between">
+                                    <h3 class="font-bold text-xl text-[#E5E7EB] truncate group-hover:text-[#38BDF8] transition-colors">{{.Name}}</h3>
+                                </div>
+                                
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    {{ if .Backend }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#38BDF8]/20 text-[#38BDF8] border border-[#38BDF8]/30">
+                                        <i class="fas fa-cog mr-1"></i>{{.Backend}}
+                                    </span>
+                                    {{ else }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
+                                        <i class="fas fa-magic mr-1"></i>Auto
+                                    </span>
+                                    {{ end }}
+
+                                    {{ if and $backendCfg (or (ne $backendCfg.MCP.Servers "") (ne $backendCfg.MCP.Stdio ""))  }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30">
+                                        <i class="fas fa-plug mr-1"></i>MCP
+                                    </span>
+                                    {{ end }}
+                                    
+                                    {{ if index $loadedModels .Name }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-300 border border-green-500/30">
+                                        <i class="fas fa-play mr-1"></i>Running
+                                    </span>
+                                    {{ end }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Usage Buttons -->
+                    <div class="p-6">
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            {{ range .KnownUsecaseStrings }}
+                            {{ if eq . "FLAG_CHAT" }}
+                                <a href="chat/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/chat inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_15px_rgba(56,189,248,0.4)]">
+                                    <i class="fas fa-comment-alt mr-2 group-hover/chat:animate-bounce"></i>
+                                    Chat
+                                </a>
+                            {{ end }}
+                            {{ if eq . "FLAG_IMAGE" }}
+                                <a href="text2image/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/image inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_15px_rgba(34,197,94,0.4)]">
+                                    <i class="fas fa-image mr-2 group-hover/image:animate-pulse"></i>
+                                    Image
+                                </a>
+                            {{ end }}
+                            {{ if eq . "FLAG_TTS" }}
+                                <a href="tts/{{$backendCfg.Name}}" class="flex-1 min-w-0 group/tts inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_15px_rgba(139,92,246,0.4)]">
+                                    <i class="fas fa-microphone mr-2 group-hover/tts:animate-pulse"></i>
+                                    TTS
+                                </a>
+                            {{ end }}
+                            {{ end }}
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex justify-between items-center pt-4 border-t border-[#101827]">
+                            <div class="flex gap-2">
+                                {{ if index $loadedModels .Name }}
+                                <button class="group/stop inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg px-3 py-2 transition-all duration-200"
+                                    data-twe-ripple-init=""
+                                    onclick="handleStopModel('{{.Name}}')">
+                                    <i class="fas fa-stop mr-2 group-hover/stop:animate-pulse"></i>Stop
+                                </button>
+                                {{ end }}
+                            </div>
+                            
+                            <div class="flex gap-2">
+                                <a href="/models/edit/{{.Name}}" 
+                                   class="group/edit inline-flex items-center text-sm font-semibold text-[#38BDF8] hover:text-[#8B5CF6] hover:bg-[#38BDF8]/10 rounded-lg px-3 py-2 transition-all duration-200">
+                                    <i class="fas fa-edit mr-2 group-hover/edit:animate-pulse"></i>Edit
+                                </a>
+                                <button
+                                    class="group/delete inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg px-3 py-2 transition-all duration-200"
+                                    data-twe-ripple-init=""
+                                    onclick="handleDeleteModel('{{.Name}}')">
+                                    <i class="fas fa-trash-alt mr-2 group-hover/delete:animate-bounce"></i>Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {{ end }}
+                
+                <!-- Models without config -->
+                {{ range .Models }}
+                <div class="group relative bg-[#1E293B]/80 border border-[#38BDF8]/20 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-[0_0_15px_rgba(234,179,8,0.15)] hover:-translate-y-1 hover:border-yellow-500/30">
+                    <div class="p-6">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#101827] flex items-center justify-center">
+                                <i class="fas fa-brain text-2xl text-[#94A3B8]"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-bold text-xl text-[#E5E7EB] truncate mb-2">{{.}}</h3>
+                                
+                                <div class="flex flex-wrap gap-2 mb-4">
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-yellow-500/10 text-yellow-300 border border-yellow-500/30">
+                                        <i class="fas fa-magic mr-1"></i>Auto Backend
+                                    </span>
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-500/10 text-orange-300 border border-orange-500/30">
+                                        <i class="fas fa-exclamation-triangle mr-1"></i>No Config
+                                    </span>
+                                </div>
+                                
+                                <div class="flex justify-center pt-4">
+                                    <span class="inline-flex items-center text-sm font-medium text-[#94A3B8] px-4 py-2 bg-[#101827]/50 rounded-lg">
+                                        <i class="fas fa-info-circle mr-2"></i>
+                                        Configuration required for full functionality
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+            </div>            
+            {{ end }}
+        </div>
+
+        <!-- Backends Section -->
+        <div class="mt-12">
+            <div class="mb-8">
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
+                    Installed Backends
+                </h2>
+                <p class="text-[#94A3B8]">
+                    <span class="text-[#8B5CF6] font-semibold">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
+                </p>
+            </div>
+
+            {{ if eq (len .InstalledBackends) 0 }}
+            <!-- No backends state -->
+            <div class="relative bg-[#1E293B]/80 border border-[#8B5CF6]/20 rounded-2xl p-12 shadow-xl backdrop-blur-sm">
+                <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/5 to-cyan-500/5"></div>
+                <div class="relative text-center max-w-4xl mx-auto">
+                    <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 mb-6">
+                        <i class="text-[#8B5CF6] text-3xl fas fa-cogs"></i>
+                    </div>
+                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-6">No backends installed yet</h2>
+                    <p class="text-xl text-[#94A3B8] mb-8 leading-relaxed">Backends power your AI models. Install them from the backend gallery to get started</p>
+                    
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <a href="/browse/backends" class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                            <i class="fas fa-cogs mr-2"></i>
+                            Browse Backend Gallery
+                        </a>
+                        <a href="https://localai.io/backends/" target="_blank" class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
+                            <i class="fas fa-book mr-2"></i>
+                            Documentation
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{ else }}
+            <!-- Backends Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                {{ range .InstalledBackends }}
+                <div class="group relative bg-[#1E293B] border border-[#8B5CF6]/20 rounded-2xl overflow-hidden transition-all duration-500 hover:shadow-[0_0_20px_rgba(139,92,246,0.2)] hover:-translate-y-2 hover:border-[#8B5CF6]/50">
+                    <!-- Card Header -->
+                    <div class="relative p-6 border-b border-[#101827]">
+                        <div class="flex items-start space-x-4">
+                            <div class="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#101827] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+                                <i class="fas fa-cog text-2xl text-[#8B5CF6]"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <h3 class="font-bold text-xl text-[#E5E7EB] truncate mb-2 group-hover:text-[#8B5CF6] transition-colors">{{.Name}}</h3>
+                                
+                                <div class="flex flex-wrap gap-2">
+                                    {{ if .IsSystem }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/30">
+                                        <i class="fas fa-shield-alt mr-1"></i>System
+                                    </span>
+                                    {{ else }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-500/10 text-green-300 border border-green-500/30">
+                                        <i class="fas fa-download mr-1"></i>User Installed
+                                    </span>
+                                    {{ end }}
+                                    
+                                    {{ if .IsMeta }}
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-[#8B5CF6]/20 text-[#8B5CF6] border border-[#8B5CF6]/30">
+                                        <i class="fas fa-layer-group mr-1"></i>Meta
+                                    </span>
+                                    {{ end }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Backend Details -->
+                    <div class="p-6">
+                        <div class="space-y-3 text-sm">
+                            {{ if and .Metadata .Metadata.Alias }}
+                            <div class="flex items-start">
+                                <i class="fas fa-tag text-[#94A3B8] mr-2 mt-0.5"></i>
+                                <div class="flex-1">
+                                    <span class="text-[#94A3B8]">Alias:</span>
+                                    <span class="text-[#E5E7EB] ml-1">{{.Metadata.Alias}}</span>
+                                </div>
+                            </div>
+                            {{ end }}
+                            
+                            {{ if and .Metadata .Metadata.InstalledAt }}
+                            <div class="flex items-start">
+                                <i class="fas fa-calendar text-[#94A3B8] mr-2 mt-0.5"></i>
+                                <div class="flex-1">
+                                    <span class="text-[#94A3B8]">Installed:</span>
+                                    <span class="text-[#E5E7EB] ml-1">{{.Metadata.InstalledAt}}</span>
+                                </div>
+                            </div>
+                            {{ end }}
+                            
+                            {{ if and .Metadata .Metadata.MetaBackendFor }}
+                            <div class="flex items-start">
+                                <i class="fas fa-link text-[#94A3B8] mr-2 mt-0.5"></i>
+                                <div class="flex-1">
+                                    <span class="text-[#94A3B8]">Meta backend for:</span>
+                                    <span class="text-[#8B5CF6] ml-1 font-semibold">{{.Metadata.MetaBackendFor}}</span>
+                                </div>
+                            </div>
+                            {{ end }}
+                            
+                            {{ if and .Metadata .Metadata.GalleryURL }}
+                            <div class="flex items-start">
+                                <i class="fas fa-globe text-[#94A3B8] mr-2 mt-0.5"></i>
+                                <div class="flex-1">
+                                    <span class="text-[#94A3B8]">Gallery:</span>
+                                    <a href="{{.Metadata.GalleryURL}}" target="_blank" class="text-[#38BDF8] hover:text-[#38BDF8]/80 ml-1 truncate inline-block max-w-[200px] align-bottom">
+                                        {{.Metadata.GalleryURL}}
+                                        <i class="fas fa-external-link-alt text-xs ml-1"></i>
+                                    </a>
+                                </div>
+                            </div>
+                            {{ end }}
+                            
+                            <div class="flex items-start">
+                                <i class="fas fa-folder text-[#94A3B8] mr-2 mt-0.5"></i>
+                                <div class="flex-1">
+                                    <span class="text-[#94A3B8]">Path:</span>
+                                    <span class="text-[#E5E7EB] ml-1 text-xs font-mono truncate block">{{.RunFile}}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Action Buttons -->
+                        {{ if not .IsSystem }}
+                        <div class="flex justify-end items-center pt-4 mt-4 border-t border-[#101827]">
+                            <button
+                                @click="deleteBackend('{{.Name}}')"
+                                class="group/delete inline-flex items-center text-sm font-semibold text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg px-3 py-2 transition-all duration-200">
+                                <i class="fas fa-trash-alt mr-2 group-hover/delete:animate-bounce"></i>Delete
+                            </button>
+                        </div>
+                        {{ end }}
+                    </div>
+                </div>
+                {{end}}
+            </div>
+            {{ end }}
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+// Alpine.js component for index dashboard
+function indexDashboard() {
+    return {
+        notifications: [],
+        
+        init() {
+            // Initialize component
+        },
+        
+        addNotification(message, type = 'success') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => this.dismissNotification(id), 5000);
+        },
+        
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        async deleteBackend(backendName) {
+            if (!confirm(`Are you sure you want to delete the backend "${backendName}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/backends/system/delete/${encodeURIComponent(backendName)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    this.addNotification(`Backend "${backendName}" deleted successfully!`, 'success');
+                    // Reload page after short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    this.addNotification(`Failed to delete backend: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting backend:', error);
+                this.addNotification(`Failed to delete backend: ${error.message}`, 'error');
+            }
+        }
+    }
+}
+
+async function handleStopModel(modelName) {
+    if (!confirm('Are you sure you wish to stop this model?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/backend/shutdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to stop model');
+        }
+    } catch (error) {
+        console.error('Error stopping model:', error);
+        alert('Failed to stop model');
+    }
+}
+
+async function handleDeleteModel(modelName) {
+    if (!confirm('Are you sure you wish to delete this model?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/models/delete/${encodeURIComponent(modelName)}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to delete model');
+        }
+    } catch (error) {
+        console.error('Error deleting model:', error);
+        alert('Failed to delete model');
+    }
+}
+
+// Handle reload models button
+document.addEventListener('DOMContentLoaded', function() {
+    const reloadBtn = document.getElementById('reload-models-btn');
+    if (reloadBtn) {
+        reloadBtn.addEventListener('click', function() {
+            const button = this;
+            const originalText = button.querySelector('span').textContent;
+            const icon = button.querySelector('i');
+
+            // Show loading state
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Updating...';
+            icon.classList.add('fa-spin');
+
+            // Make the API call
+            fetch('/models/reload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success state briefly
+                    button.querySelector('span').textContent = 'Updated!';
+                    icon.classList.remove('fa-spin', 'fa-sync-alt');
+                    icon.classList.add('fa-check');
+
+                    // Reload the page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    // Show error state
+                    button.querySelector('span').textContent = 'Error!';
+                    icon.classList.remove('fa-spin');
+                    console.error('Failed to reload models:', data.error);
+
+                    // Reset button after delay
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.querySelector('span').textContent = originalText;
+                        icon.classList.remove('fa-check');
+                        icon.classList.add('fa-sync-alt');
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                // Show error state
+                button.querySelector('span').textContent = 'Error!';
+                icon.classList.remove('fa-spin');
+                console.error('Error reloading models:', error);
+
+                // Reset button after delay
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.querySelector('span').textContent = originalText;
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-sync-alt');
+                }, 3000);
+            });
+        });
+    }
+});
+</script>
+
+</body>
+</html>

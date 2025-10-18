@@ -128,6 +128,7 @@ func API(application *application.Application) (*fiber.App, error) {
 		router.Use(recover.New())
 	}
 
+	// OpenTelemetry metrics for Prometheus export
 	if !application.ApplicationConfig().DisableMetrics {
 		metricsService, err := services.NewLocalAIMetricsService()
 		if err != nil {
@@ -141,6 +142,7 @@ func API(application *application.Application) (*fiber.App, error) {
 			})
 		}
 	}
+
 	// Health Checks should always be exempt from auth, so register these first
 	routes.HealthRoutes(router)
 
@@ -202,12 +204,28 @@ func API(application *application.Application) (*fiber.App, error) {
 	routes.RegisterElevenLabsRoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	routes.RegisterLocalAIRoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 	routes.RegisterOpenAIRoutes(router, requestExtractor, application)
+
 	if !application.ApplicationConfig().DisableWebUI {
+
+		// Create metrics store for tracking usage (before API routes registration)
+		metricsStore := services.NewInMemoryMetricsStore()
+
+		// Add metrics middleware BEFORE API routes so it can intercept them
+		router.Use(middleware.MetricsMiddleware(metricsStore))
+
+		// Register cleanup on shutdown
+		router.Hooks().OnShutdown(func() error {
+			metricsStore.Stop()
+			log.Info().Msg("Metrics store stopped")
+			return nil
+		})
+
 		// Create opcache for tracking UI operations
 		opcache := services.NewOpCache(application.GalleryService())
-		routes.RegisterUIAPIRoutes(router, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), opcache)
+		routes.RegisterUIAPIRoutes(router, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, metricsStore)
 		routes.RegisterUIRoutes(router, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 	}
+
 	routes.RegisterJINARoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	// Define a custom 404 handler

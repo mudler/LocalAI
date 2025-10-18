@@ -23,6 +23,9 @@ func RegisterUIRoutes(app *fiber.App,
 
 	app.Get("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
+	// Settings page - detailed model/backend management
+	app.Get("/settings", localai.SettingsEndpoint(appConfig, cl, ml, processingOps))
+
 	// P2P
 	app.Get("/p2p", func(c *fiber.Ctx) error {
 		summary := fiber.Map{
