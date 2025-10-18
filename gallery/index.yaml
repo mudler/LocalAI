@@ -22079,3 +22079,29 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-sea-lion-v4-27b-vl-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Gemma-SEA-LION-v4-27B-VL-i1-GGUF
+  description: |
+    **Gemma-SEA-LION-v4-27B-VL** is a large, instruction-tuned vision-language model developed by SEACrowd and AI Singapore for Southeast Asian (SEA) languages. Built on the Gemma 3 27B architecture, it supports multimodal understanding—processing both text and images—with a context length of up to 128K tokens.
+
+    Fine-tuned on 540K multilingual vision-text pairs in Burmese, English, Indonesian, Khmer, Lao, Malay, Mandarin, Tagalog, Tamil, Thai, and Vietnamese, the model excels at tasks like visual question answering, image captioning, and document understanding within SEA cultural and linguistic contexts.
+
+    It is optimized for real-world applications requiring rich multimodal reasoning and is suitable for research, education, and enterprise use in multilingual Southeast Asia. Notably, it is not safety-aligned—users are advised to apply additional safety fine-tuning as needed.
+
+    *Model Type:* Vision-Language (Image-Text-to-Text)
+    *Languages:* English, Chinese (Mandarin), Indonesian, Vietnamese, Thai, Tagalog, Tamil, Malay, Khmer, Lao, Burmese, and more
+    *Context Length:* 128K tokens
+    *Base Model:* Gemma-SEA-LION-v4-27B-IT
+    *License:* Gemma Terms of Use
+    *Developed by:* SEACrowd & AI Singapore (NRF-funded)
+
+    Perfect for researchers and developers working on inclusive, culturally aware multimodal AI in Southeast Asia.
+  overrides:
+    parameters:
+      model: Gemma-SEA-LION-v4-27B-VL.i1-Q4_K_M.gguf
+  files:
+    - filename: Gemma-SEA-LION-v4-27B-VL.i1-Q4_K_M.gguf
+      sha256: 379d0c9333704055ad6ae2c764601692963aa7764a948d98bd03f66c9666bda3
+      uri: huggingface://mradermacher/Gemma-SEA-LION-v4-27B-VL-i1-GGUF/Gemma-SEA-LION-v4-27B-VL.i1-Q4_K_M.gguf
