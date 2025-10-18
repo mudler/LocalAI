@@ -22139,3 +22139,33 @@
     - filename: Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
       sha256: 66dd1e818186d5d85cadbabc8f6cb105545730caf4fe2592501bec93578a6ade
       uri: huggingface://mradermacher/Qwen-SEA-LION-v4-32B-IT-i1-GGUF/Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "zirel-2-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Zirel-2-i1-GGUF
+  description: |
+    **Model Name:** Zirel-2
+    **Base Model:** Qwen/Qwen3-30B-A3B-Instruct-2507 (Mixture-of-Experts)
+    **Author:** Daemontatox
+    **License:** Apache 2.0
+
+    **Description:**
+    Zirel-2 is a highly capable, efficiency-optimized fine-tuned language model based on Qwen's 30B MoE architecture. It leverages only ~3.3B active parameters per inference step, delivering dense-model performance while minimizing resource usage. Designed for high reasoning, code generation, and long-context tasks (up to 262K tokens), it excels as a smart, responsive assistant. Ideal for deployment on consumer hardware or resource-constrained environments.
+
+    **Key Features:**
+    - Mixture-of-Experts (MoE) design for efficiency
+    - 30.5B total parameters, 3.3B active per inference
+    - Long context (262,144 tokens)
+    - Optimized for reasoning, instruction-following, and creative generation
+    - Available in GGUF format for local inference
+
+    **Use Case:** Personal AI assistant, code & content generation, complex reasoning tasks.
+
+    *Note: The GGUF version in `mradermacher/Zirel-2-i1-GGUF` is a quantized derivative; the original model is `Daemontatox/Zirel-2`.*
+  overrides:
+    parameters:
+      model: Zirel-2.i1-Q4_K_S.gguf
+  files:
+    - filename: Zirel-2.i1-Q4_K_S.gguf
+      sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
+      uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
