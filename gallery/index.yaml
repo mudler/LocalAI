@@ -22100,3 +22100,75 @@
     - filename: PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
       sha256: abd224325aea504a61fb749cc12649641165c33035b4e5923163387370878005
       uri: huggingface://mradermacher/PositiveDetox-Qwen2.5-14B-GGUF/PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "chat_noir-24b"
+  urls:
+    - https://huggingface.co/virtuoturingai/chat_noir-24b-gguf
+  description: |
+    **Model Name:** Mistral Small 24B Instruct (2501)
+    **Repository:** [mistralai/Mistral-Small-24B-Instruct-2501](https://huggingface.co/mistralai/Mistral-Small-24B-Instruct-2501)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 📌 Overview
+    Mistral Small 24B Instruct is a high-performance, instruction-tuned language model with **24 billion parameters**, designed for fast, accurate, and efficient inference. It delivers state-of-the-art capabilities in reasoning, multilingual understanding, and function calling—on par with much larger models—while being lightweight enough to run locally on consumer hardware (e.g., a single RTX 4090 or 32GB RAM Mac).
+
+    Built on the **Mistral-Small-24B-Base-2501** foundation, this model is optimized for real-world applications like conversational agents, coding assistants, and domain-specific expert systems.
+
+    ---
+
+    ### ✅ Key Features
+    - **Multilingual Support:** English, French, German, Spanish, Italian, Portuguese, Chinese, Japanese, Korean, Russian, and more.
+    - **32k Context Window:** Handles long-form content and complex reasoning.
+    - **Agent-Centric Design:** Native support for function/tool calling and JSON output.
+    - **High Efficiency:** Quantized versions (e.g., Q4_K_M) fit in 16–24GB of VRAM, ideal for local deployment.
+    - **Open License:** Fully usable and modifiable under the **Apache 2.0** license.
+
+    ---
+
+    ### 📊 Performance Highlights
+    - **MMLU Pro (5-shot CoT):** 66.3%
+    - **GPQA (5-shot CoT):** 45.3%
+    - **HumanEval Pass@1:** 84.8%
+    - **Math Instruct:** 70.6%
+    - **MT-Bench (Dev):** 8.35/10
+
+    > Ranked among the best small models in terms of reasoning, instruction-following, and real-world usability.
+
+    ---
+
+    ### 🛠️ Use Cases
+    - Local AI chatbots & assistants
+    - Code generation and debugging
+    - Legal, technical, or domain-specific reasoning
+    - Low-latency inference for privacy-sensitive environments
+    - Fine-tuning for specialized workflows
+
+    ---
+
+    ### 🧩 How to Use
+    - With **vLLM**: `vllm serve mistralai/Mistral-Small-24B-Instruct-2501`
+    - With **Hugging Face Transformers**:
+      ```python
+      from transformers import pipeline
+      pipe = pipeline("text-generation", model="mistralai/Mistral-Small-24B-Instruct-2501", torch_dtype="auto")
+      ```
+    - With **Ollama**: `ollama run mistral-small`
+
+    ---
+
+    ### 🌐 Learn More
+    - [Official Blog Post](https://mistral.ai/news/mistral-small-3/)
+    - [GitHub (Mistral Common)](https://github.com/mistralai/mistral-common)
+
+    ---
+
+    🔹 **Ideal for developers, researchers, and enterprises needing a powerful, open, and efficient small LLM.**
+  overrides:
+    parameters:
+      model: chatnoir_q4_k_m.gguf
+  files:
+    - filename: chatnoir_q4_k_m.gguf
+      sha256: 4957098703e4572061e4ffc1a09c9e6e6d7497fb3097718893285c9c0a821a9c
+      uri: huggingface://virtuoturingai/chat_noir-24b-gguf/chatnoir_q4_k_m.gguf
