@@ -33,7 +33,7 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.0.0
-	github.com/mudler/cogito v0.2.0
+	github.com/mudler/cogito v0.3.0
 	github.com/mudler/edgevpn v0.31.0
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/nikolalohinski/gonja/v2 v2.4.1

@@ -93,6 +93,18 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			cogitoOpts = append(cogitoOpts, cogito.EnableToolReasoner)
 		}
 
+		if config.Agent.EnablePlanning {
+			cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlan)
+		}
+
+		if config.Agent.EnableMCPPrompts {
+			cogitoOpts = append(cogitoOpts, cogito.EnableMCPPrompts)
+		}
+
+		if config.Agent.EnablePlanReEvaluator {
+			cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlanReEvaluator)
+		}
+
 		if config.Agent.EnableReEvaluation {
 			cogitoOpts = append(cogitoOpts, cogito.EnableToolReEvaluator)
 		}

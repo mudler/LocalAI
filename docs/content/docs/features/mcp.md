@@ -28,6 +28,9 @@ The Model Context Protocol is a standard for connecting AI models to external to
 - **🔒 Secure Authentication**: Support for bearer token authentication
 - **🎯 OpenAI Compatible**: Uses the familiar `/mcp/v1/chat/completions` endpoint
 - **🧠 Advanced Reasoning**: Configurable reasoning and re-evaluation capabilities
+- **📋 Auto-Planning**: Break down complex tasks into manageable steps
+- **🎯 MCP Prompts**: Specialized prompts for better MCP server interaction
+- **🔄 Plan Re-evaluation**: Dynamic plan adjustment based on results
 - **⚙️ Flexible Agent Control**: Customizable execution limits and retry behavior
 
 ## Configuration
@@ -82,6 +85,9 @@ agent:
   max_iterations: 3     # Maximum number of reasoning iterations
   enable_reasoning: true # Enable tool reasoning capabilities
   enable_re_evaluation: false # Enable tool re-evaluation
+  enable_planning: false # Enable auto-planning capabilities
+  enable_mcp_prompts: false # Enable MCP prompts
+  enable_plan_re_evaluator: false # Enable plan re-evaluation
 ```
 
 ### Configuration Options
@@ -106,6 +112,9 @@ Configure agent behavior and tool execution:
 - **`max_iterations`**: Maximum number of reasoning iterations (default: 3)
 - **`enable_reasoning`**: Enable tool reasoning capabilities (default: false)
 - **`enable_re_evaluation`**: Enable tool re-evaluation (default: false)
+- **`enable_planning`**: Enable auto-planning capabilities (default: false)
+- **`enable_mcp_prompts`**: Enable MCP prompts (default: false)
+- **`enable_plan_re_evaluator`**: Enable plan re-evaluation (default: false)
 
 ## Usage
 
@@ -171,6 +180,9 @@ agent:
   max_iterations: 5
   enable_reasoning: true
   enable_re_evaluation: true
+  enable_planning: true
+  enable_mcp_prompts: true
+  enable_plan_re_evaluator: true
 ```
 
 ## Agent Configuration Details
@@ -185,10 +197,16 @@ The `agent` section controls how the AI model interacts with MCP tools:
 - **`enable_reasoning`**: When enabled, the agent uses advanced reasoning to better understand tool results and plan next steps.
 - **`enable_re_evaluation`**: When enabled, the agent can re-evaluate previous tool results and decisions, allowing for self-correction and improved accuracy.
 
+### Planning Capabilities
+- **`enable_planning`**: When enabled, the agent uses auto-planning to break down complex tasks into manageable steps and execute them systematically. The agent will automatically detect when planning is needed.
+- **`enable_mcp_prompts`**: When enabled, the agent uses specialized prompts exposed by the MCP servers to interact with the exposed tools.
+- **`enable_plan_re_evaluator`**: When enabled, the agent can re-evaluate and adjust its execution plan based on intermediate results.
+
 ### Recommended Settings
-- **Simple tasks**: `max_attempts: 2`, `max_iterations: 2`, `enable_reasoning: false`
-- **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_re_evaluation: true`
-- **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_re_evaluation: true`
+- **Simple tasks**: `max_attempts: 2`, `max_iterations: 2`, `enable_reasoning: false`, `enable_planning: false`
+- **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_re_evaluation: true`, `enable_planning: true`, `enable_mcp_prompts: true`
+- **Advanced planning**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_re_evaluation: true`, `enable_planning: true`, `enable_mcp_prompts: true`, `enable_plan_re_evaluator: true`
+- **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_re_evaluation: true`, `enable_planning: true`
 
 ## How It Works
 
