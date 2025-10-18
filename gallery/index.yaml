@@ -22079,3 +22079,39 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen-sea-lion-v4-32b-it-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen-SEA-LION-v4-32B-IT-i1-GGUF
+  description: |
+    **Model Name:** Qwen-SEA-LION-v4-32B-IT
+    **Base Model:** Qwen3-32B
+    **Model Type:** Instruction-tuned Large Language Model (LLM)
+    **Languages:** English, Chinese, Burmese, Indonesian, Malay, Filipino, Tamil, Thai, Vietnamese, Khmer, Lao, and more (11+ SEA and global languages)
+    **Context Length:** 128,000 tokens
+    **License:** Qwen Terms of Service / Qwen Usage Policy
+    **Developer:** Products Pillar, AI Singapore (funded by Singapore NRF)
+
+    **Description:**
+    Qwen-SEA-LION-v4-32B-IT is a large, multilingual, instruction-tuned language model specifically designed for the Southeast Asia (SEA) region. Built on the Qwen3-32B foundation, it underwent continued pre-training on 100B tokens from the SEA-Pile v2 corpus and fine-tuned on 8 million high-quality question-answer pairs to enhance instruction-following and multi-turn dialogue performance.
+
+    This model excels in understanding and generating content across 11+ Southeast Asian and global languages, making it ideal for regional applications in education, customer service, content creation, and research. With a context length of 128k tokens, it supports long-form reasoning, summarization, and document analysis.
+
+    > **Note:** Not safety-aligned—users should perform additional fine-tuning for safety-critical applications.
+
+    **Use Case Highlights:**
+    ✅ Multilingual support for SEA languages
+    ✅ Strong instruction-following and chat capabilities
+    ✅ High-capacity context for complex reasoning
+    ✅ Optimized for real-world regional deployment
+
+    **Access:**
+    Available on Hugging Face: [aisingapore/Qwen-SEA-LION-v4-32B-IT](https://huggingface.co/aisingapore/Qwen-SEA-LION-v4-32B-IT)
+    For commercial use or inquiries, contact: [sealion@aisingapore.org](mailto:sealion@aisingapore.org)
+  overrides:
+    parameters:
+      model: Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
+      sha256: 66dd1e818186d5d85cadbabc8f6cb105545730caf4fe2592501bec93578a6ade
+      uri: huggingface://mradermacher/Qwen-SEA-LION-v4-32B-IT-i1-GGUF/Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
