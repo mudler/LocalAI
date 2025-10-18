@@ -72,6 +72,28 @@ jobs:
             git diff gallery/index.yaml
           fi
 
+      - name: Read gallery agent summary
+        id: read_summary
+        if: steps.check_changes.outputs.changes == 'true'
+        run: |
+          if [ -f "gallery-agent-summary.json" ]; then
+            echo "summary_exists=true" >> $GITHUB_OUTPUT
+            # Extract summary data using jq
+            echo "search_term=$(jq -r '.search_term' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "total_found=$(jq -r '.total_found' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "models_added=$(jq -r '.models_added' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "quantization=$(jq -r '.quantization' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "processing_time=$(jq -r '.processing_time' gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            
+            # Create a formatted list of added models with URLs
+            added_models=$(jq -r 'range(0; .added_model_ids | length) as $i | "- [\(.added_model_ids[$i])](\(.added_model_urls[$i]))"' gallery-agent-summary.json | tr '\n' '\n')
+            echo "added_models<<EOF" >> $GITHUB_OUTPUT
+            echo "$added_models" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "summary_exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Create Pull Request
         if: steps.check_changes.outputs.changes == 'true'
         uses: peter-evans/create-pull-request@v7
@@ -79,16 +101,21 @@ jobs:
           token: ${{ secrets.UPDATE_BOT_TOKEN }}
           push-to-fork: ci-forks/LocalAI
           commit-message: 'chore(model gallery): :robot: add new models via gallery agent'
-          title: 'chore(model gallery): :robot: add new models via gallery agent'
+          title: 'chore(model gallery): :robot: add ${{ steps.read_summary.outputs.models_added || 0 }} new models via gallery agent'
           # Branch has to be unique so PRs are not overriding each other
           branch-suffix: timestamp
           body: |
             This PR was automatically created by the gallery agent workflow.
             
-            **Changes:**
-            - Added new models to the gallery based on search term: `${{ github.event.inputs.search_term || 'GGUF' }}`
-            - Processed up to `${{ github.event.inputs.limit || '5' }}` models
-            - Used quantization preference: `${{ github.event.inputs.quantization || 'Q4_K_M' }}`
+            **Summary:**
+            - **Search Term:** ${{ steps.read_summary.outputs.search_term || github.event.inputs.search_term || 'GGUF' }}
+            - **Models Found:** ${{ steps.read_summary.outputs.total_found || 'N/A' }}
+            - **Models Added:** ${{ steps.read_summary.outputs.models_added || '0' }}
+            - **Quantization:** ${{ steps.read_summary.outputs.quantization || github.event.inputs.quantization || 'Q4_K_M' }}
+            - **Processing Time:** ${{ steps.read_summary.outputs.processing_time || 'N/A' }}
+            
+            **Added Models:**
+            ${{ steps.read_summary.outputs.added_models || '- No models added' }}
             
             **Workflow Details:**
             - Triggered by: `${{ github.event_name }}`

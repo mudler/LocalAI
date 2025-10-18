@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-skynet/LocalAI/.github/gallery-agent/hfapi"
 )
@@ -44,7 +46,20 @@ type SearchResult struct {
 	FormattedOutput  string           `json:"formatted_output"`
 }
 
+// AddedModelSummary represents a summary of models added to the gallery
+type AddedModelSummary struct {
+	SearchTerm     string   `json:"search_term"`
+	TotalFound     int      `json:"total_found"`
+	ModelsAdded    int      `json:"models_added"`
+	AddedModelIDs  []string `json:"added_model_ids"`
+	AddedModelURLs []string `json:"added_model_urls"`
+	Quantization   string   `json:"quantization"`
+	ProcessingTime string   `json:"processing_time"`
+}
+
 func main() {
+	startTime := time.Now()
+
 	// Check for synthetic mode
 	syntheticMode := os.Getenv("SYNTHETIC_MODE")
 	if syntheticMode == "true" || syntheticMode == "1" {
@@ -126,8 +141,18 @@ func main() {
 		models = models[:maxModelsInt]
 	}
 
+	// Track added models for summary
+	var addedModelIDs []string
+	var addedModelURLs []string
+
 	// Generate YAML entries and append to gallery/index.yaml
 	if len(models) > 0 {
+		for _, model := range models {
+			addedModelIDs = append(addedModelIDs, model.ModelID)
+			// Generate Hugging Face URL for the model
+			modelURL := fmt.Sprintf("https://huggingface.co/%s", model.ModelID)
+			addedModelURLs = append(addedModelURLs, modelURL)
+		}
 		fmt.Println("Generating YAML entries for selected models...")
 		err = generateYAMLForModels(context.Background(), models)
 		if err != nil {
@@ -136,6 +161,31 @@ func main() {
 		}
 	} else {
 		fmt.Println("No new models to add to the gallery.")
+	}
+
+	// Create and write summary
+	processingTime := time.Since(startTime).String()
+	summary := AddedModelSummary{
+		SearchTerm:     searchTerm,
+		TotalFound:     result.TotalModelsFound,
+		ModelsAdded:    len(addedModelIDs),
+		AddedModelIDs:  addedModelIDs,
+		AddedModelURLs: addedModelURLs,
+		Quantization:   quantization,
+		ProcessingTime: processingTime,
+	}
+
+	// Write summary to file
+	summaryData, err := json.MarshalIndent(summary, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error marshaling summary: %v\n", err)
+	} else {
+		err = os.WriteFile("gallery-agent-summary.json", summaryData, 0644)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error writing summary file: %v\n", err)
+		} else {
+			fmt.Printf("Summary written to gallery-agent-summary.json\n")
+		}
 	}
 }
 
