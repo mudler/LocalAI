@@ -22169,3 +22169,16 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-235b-a22b-instruct-2507"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-235B-A22B-Instruct-2507-gguf
+  description: |
+    AI model: qwen3-235b-a22b-instruct-2507
+  overrides:
+    parameters:
+      model: Qwen3-235B-A22B-Instruct-2507-q2_k.gguf
+  files:
+    - filename: Qwen3-235B-A22B-Instruct-2507-q2_k.gguf
+      sha256: 8e564d50a64b4bc2d78b08478ef65f538570efe9da99c56a269ee6402d6bf714
+      uri: huggingface://John1604/Qwen3-235B-A22B-Instruct-2507-gguf/Qwen3-235B-A22B-Instruct-2507-q2_k.gguf
