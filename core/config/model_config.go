@@ -85,10 +85,13 @@ type MCPConfig struct {
 }
 
 type AgentConfig struct {
-	MaxAttempts        int  `yaml:"max_attempts" json:"max_attempts"`
-	MaxIterations      int  `yaml:"max_iterations" json:"max_iterations"`
-	EnableReasoning    bool `yaml:"enable_reasoning" json:"enable_reasoning"`
-	EnableReEvaluation bool `yaml:"enable_re_evaluation" json:"enable_re_evaluation"`
+	MaxAttempts           int  `yaml:"max_attempts" json:"max_attempts"`
+	MaxIterations         int  `yaml:"max_iterations" json:"max_iterations"`
+	EnableReasoning       bool `yaml:"enable_reasoning" json:"enable_reasoning"`
+	EnableReEvaluation    bool `yaml:"enable_re_evaluation" json:"enable_re_evaluation"`
+	EnablePlanning        bool `yaml:"enable_planning" json:"enable_planning"`
+	EnableMCPPrompts      bool `yaml:"enable_mcp_prompts" json:"enable_mcp_prompts"`
+	EnablePlanReEvaluator bool `yaml:"enable_plan_re_evaluator" json:"enable_plan_re_evaluator"`
 }
 
 func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers]) {
