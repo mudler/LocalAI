@@ -1,0 +1,13 @@
+{
+  "search_term": "GGUF",
+  "total_found": 15,
+  "models_added": 1,
+  "added_model_ids": [
+    "ubergarm2/Ling-1T-GGUF"
+  ],
+  "added_model_urls": [
+    "https://huggingface.co/ubergarm2/Ling-1T-GGUF"
+  ],
+  "quantization": "Q4_K_M",
+  "processing_time": "3m21.17281111s"
+}

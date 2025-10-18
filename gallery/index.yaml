@@ -22169,3 +22169,28 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ling-1t"
+  urls:
+    - https://huggingface.co/ubergarm2/Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, non-thinking flagship model in the Ling 2.0 series, designed for highly efficient and scalable reasoning. With approximately 50 billion active parameters per token, it leverages a mixture-of-experts (MoE) architecture and evolutionary chain-of-thought (Evo-CoT) training to achieve state-of-the-art performance in complex reasoning tasks—matching or exceeding leading closed-source models on benchmarks like AIME 25, code generation, and mathematical reasoning.
+
+    Trained on over 20 trillion high-quality, reasoning-dense tokens using FP8 mixed-precision, Ling-1T supports up to **128K context length** (via YaRN) and demonstrates strong emergent capabilities, including precise front-end code generation and visual aesthetic understanding. Its architecture features innovations like QK Normalization, MTP layers, and a zero-mean expert routing mechanism for stable, scalable training.
+
+    Ideal for advanced research, AI agents, and high-performance inference, Ling-1T sets a new benchmark for open-source reasoning models—balancing accuracy, efficiency, and scalability.
+
+    🔹 *Model Type:* Large Language Model (LLM)
+    🔹 *Architecture:* MoE, Transformer-based
+    🔹 *Parameters:* 1T total (≈50B active per token)
+    🔹 *Context Length:* Up to 128K (YaRN)
+    🔹 *License:* MIT
+    🔹 *Base Model:* [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    🔹 *Use Case:* Complex reasoning, code generation, AI agents, research, and long-context applications.
+  overrides:
+    parameters:
+      model: smol-IQ2_KS
+  files:
+    - filename: smol-IQ2_KS
+      sha256: aadba72a5093f4e43c829a757ab2602d4b742364
+      uri: huggingface://ubergarm2/Ling-1T-GGUF/smol-IQ2_KS
