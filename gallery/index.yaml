@@ -22169,3 +22169,30 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ling-1t"
+  urls:
+    - https://huggingface.co/ubergarm2/Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, non-thinking flagship model from the Ling 2.0 series, designed for efficient, scalable reasoning at massive scale. Built with a **1/32 MoE (Mixture of Experts)** architecture, it activates ~50 billion parameters per token, enabling high-performance reasoning with optimized resource usage.
+
+    Trained on **20+ trillion high-quality, reasoning-dense tokens**, Ling-1T supports up to **128K context length** and leverages **Evo-CoT (Evolutionary Chain-of-Thought)** for progressive reasoning enhancement. It achieves **state-of-the-art performance** on complex benchmarks—including math, code generation, and logical reasoning—surpassing many closed-source models in accuracy and efficiency.
+
+    Key features:
+    - **FP8 mixed-precision training** for improved speed and memory efficiency
+    - **QK Normalization** and **aux-loss-free expert routing** for stable, scalable training
+    - **Syntax–Function–Aesthetics** reward system for high-quality front-end code and visual generation
+    - Strong performance on **AIME 25**, **BFCL V3**, and **ArtifactsBench**, ranking first among open-source models
+
+    Ideal for advanced reasoning, code synthesis, and multi-domain tasks, Ling-1T sets a new standard for open-source, efficient large language models.
+
+    > 📌 **Model Repository**: [huggingface.co/inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    > 🚀 **Try Online**: [ZenMux](https://zenmux.ai/inclusionai/ling-1t)
+    > 🔗 **License**: MIT
+  overrides:
+    parameters:
+      model: IQ2_K
+  files:
+    - filename: IQ2_K
+      sha256: 77fda7661a2d3c8ab91f3d41c66ae15d8c621f08
+      uri: huggingface://ubergarm2/Ling-1T-GGUF/IQ2_K
