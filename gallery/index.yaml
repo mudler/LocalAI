@@ -22100,3 +22100,42 @@
     - filename: PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
       sha256: abd224325aea504a61fb749cc12649641165c33035b4e5923163387370878005
       uri: huggingface://mradermacher/PositiveDetox-Qwen2.5-14B-GGUF/PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen-sea-lion-v4-32b-it-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen-SEA-LION-v4-32B-IT-i1-GGUF
+  description: |
+    **Model Name:** Qwen-SEA-LION-v4-32B-IT
+    **Base Model:** Qwen3-32B
+    **Type:** Instruction-tuned Large Language Model (LLM)
+    **Language Support:** 11 languages including English, Mandarin, Burmese, Indonesian, Malay, Filipino, Tamil, Thai, Vietnamese, Khmer, and Lao
+    **Context Length:** 128,000 tokens
+    **Repository:** [aisingapore/Qwen-SEA-LION-v4-32B-IT](https://huggingface.co/aisingapore/Qwen-SEA-LION-v4-32B-IT)
+    **License:** [Qwen Terms of Service](https://qwen.ai/termsservice) / [Qwen Usage Policy](https://qwen.ai/usagepolicy)
+
+    **Overview:**
+    Qwen-SEA-LION-v4-32B-IT is a high-performance, multilingual instruction-tuned LLM developed by AI Singapore, specifically optimized for Southeast Asia (SEA). Built on the Qwen3-32B foundation, it underwent continued pre-training on 100B tokens from the SEA-Pile v2 corpus and further fine-tuned on ~8 million question-answer pairs to enhance instruction-following and reasoning. Designed for real-world multilingual applications across government, education, and business sectors in Southeast Asia, it delivers strong performance in dialogue, content generation, and cross-lingual tasks.
+
+    **Key Features:**
+    - Trained for 11 major SEA languages with high linguistic accuracy
+    - 128K token context for long-form content and complex reasoning
+    - Optimized for instruction following, multi-turn dialogue, and cultural relevance
+    - Available in full precision and quantized variants (4-bit/8-bit)
+    - Not safety-aligned — suitable for downstream safety fine-tuning
+
+    **Use Cases:**
+    - Multilingual chatbots and virtual assistants in SEA regions
+    - Cross-lingual content generation and translation
+    - Educational tools and public sector applications in Southeast Asia
+    - Research and development in low-resource language modeling
+
+    **Note:** This model is not safety-aligned. Use with caution and consider additional alignment measures for production deployment.
+
+    **Contact:** [sealion@aisingapore.org](mailto:sealion@aisingapore.org) for inquiries.
+  overrides:
+    parameters:
+      model: Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
+      sha256: 66dd1e818186d5d85cadbabc8f6cb105545730caf4fe2592501bec93578a6ade
+      uri: huggingface://mradermacher/Qwen-SEA-LION-v4-32B-IT-i1-GGUF/Qwen-SEA-LION-v4-32B-IT.i1-Q4_K_M.gguf
