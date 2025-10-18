@@ -22169,3 +22169,27 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *llama33
+  name: "ling-1t"
+  urls:
+    - https://huggingface.co/ubergarm2/Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, non-thinking flagship model from the Ling 2.0 series, designed for efficient, high-accuracy reasoning at scale. Built on a MoE architecture with ~50 billion active parameters per token and trained on over 20 trillion high-quality, reasoning-dense tokens, Ling-1T achieves state-of-the-art performance across complex reasoning, code generation, mathematics, and visual design tasks.
+
+    Key features:
+    - **1T total parameters, 1/32 MoE activation ratio**
+    - Supports up to **128K context length** via YaRN
+    - Trained using **FP8 mixed precision**, enabling efficient trillion-scale training
+    - Employs **Evolutionary Chain-of-Thought (Evo-CoT)** and **LPO (Linguistics-Unit Policy Optimization)** for enhanced reasoning and alignment
+    - Ranked #1 among open-source models on **ArtifactsBench** for front-end code and aesthetic generation
+
+    Ling-1T excels in real-world reasoning and creative coding, making it ideal for developers, researchers, and AI practitioners seeking cutting-edge open-source performance. Available for download on Hugging Face and ModelScope.
+
+    *Model by inclusionAI — MIT Licensed*
+  overrides:
+    parameters:
+      model: IQ2_K
+  files:
+    - filename: IQ2_K
+      sha256: 77fda7661a2d3c8ab91f3d41c66ae15d8c621f08
+      uri: huggingface://ubergarm2/Ling-1T-GGUF/IQ2_K
