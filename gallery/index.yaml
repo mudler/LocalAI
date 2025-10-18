@@ -22079,3 +22079,21 @@
     - filename: Tlacuilo-12B.i1-Q4_K_M.gguf
       sha256: 94218112aa02113c8e21cd2c1d10818bea39bc6aee7e67be6014f86e80e76cb1
       uri: huggingface://mradermacher/Tlacuilo-12B-i1-GGUF/Tlacuilo-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen-sea-lion-v4-32b-it"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen-SEA-LION-v4-32B-IT-GGUF
+  description: |
+    **Qwen-SEA-LION-v4-32B-IT** is a large language model specifically fine-tuned for Southeast Asia (SEA), built upon the Qwen3-32B foundation. It has undergone continued pre-training on 100B tokens from the SEA-Pile v2 corpus—spanning Burmese, Indonesian, Malay, Filipino, Tamil, Thai, and Vietnamese—and further instruction-tuned on 8 million high-quality question-answer pairs.
+
+    This model supports **128K context length**, is capable of **multilingual reasoning** across 11 languages (including major SEA languages), and excels in instruction following, multi-turn dialogue, and cultural relevance. It is designed for real-world applications in education, customer service, content generation, and public sector use across Southeast Asia.
+
+    > **Base Model**: Qwen/Qwen3-32B
+    > **License**: [Qwen Terms of Service](https://qwen.ai/termsservice) / [Qwen Usage Policy](https://qwen.ai/usagepolicy)
+    > **Repository**: [aisingapore/Qwen-SEA-LION-v4-32B-IT](https://huggingface.co/aisingapore/Qwen-SEA-LION-v4-32B-IT)
+    > **Use Case**: Southeast Asian multilingual applications requiring high-accuracy, culturally aware, and reasoning-capable LLMs.
+
+    ⚠️ *Not safety-aligned — recommend additional alignment for production use.*
+  overrides:
+    parameters:
+      model: mradermacher/Qwen-SEA-LION-v4-32B-IT-GGUF
