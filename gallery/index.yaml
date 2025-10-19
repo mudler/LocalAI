@@ -22212,3 +22212,28 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-235b-a22b-instruct-2507"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-235B-A22B-Instruct-2507-gguf
+  description: |
+    **Model Name:** Qwen3-235B-A22B-Instruct-2507 (Base Model)
+    **Repository:** [Qwen/Qwen3-235B-A22B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507)
+    **Model Type:** Large Language Model (LLM)
+    **Architecture:** Transformer-based, Qwen3 series
+    **Size:** 235 billion parameters
+    **License:** Apache 2.0
+    **Description:**
+    The Qwen3-235B-A22B-Instruct-2507 is a highly capable, instruction-tuned large language model from Alibaba's Qwen series. Designed for complex reasoning, multi-turn dialogue, code generation, and natural language understanding, it excels in real-world applications requiring deep comprehension and coherent output. This base model is the unquantized, original version developed by the official Qwen team. It serves as the foundation for various quantized variants (e.g., GGUF formats) available on third-party repositories like John1604/Qwen3-235B-A22B-Instruct-2507-gguf.
+
+    > 🔍 *Note:* The repository you provided (`John1604/Qwen3-235B-A22B-Instruct-2507-gguf`) contains **quantized GGUF versions** of the model, not the original. The true base model is hosted at [Qwen/Qwen3-235B-A22B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507). Always refer to the official repository for the complete, unquantized model and full documentation.
+
+    **Use Case:** Ideal for research, enterprise AI, advanced chatbots, and applications requiring high-fidelity language generation and reasoning.
+    **Quantization Note:** The GGUF versions are optimized for local inference (e.g., via LM Studio, llama.cpp), offering trade-offs between size, speed, and accuracy.
+  overrides:
+    parameters:
+      model: Qwen3-235B-A22B-Instruct-2507-q4_k_m.gguf
+  files:
+    - filename: Qwen3-235B-A22B-Instruct-2507-q4_k_m.gguf
+      sha256: 3122e8c39c203923e2cba509a5cf0850fd24ae74e58162cc85576557ead9fe53
+      uri: huggingface://John1604/Qwen3-235B-A22B-Instruct-2507-gguf/Qwen3-235B-A22B-Instruct-2507-q4_k_m.gguf
