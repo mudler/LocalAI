@@ -22170,6 +22170,7 @@
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
 - !!merge <<: *mistral03
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6671dd5203d6e8087aaf7ce5/-cf4t_CuKPI7iqC9j4aAe.png
   name: "verbamaxima-12b-i1"
   urls:
     - https://huggingface.co/mradermacher/VerbaMaxima-12B-i1-GGUF
