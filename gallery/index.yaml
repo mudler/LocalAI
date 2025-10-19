@@ -22169,3 +22169,28 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *qwenimage
+  name: "t-pro-it-1.0-sft"
+  urls:
+    - https://huggingface.co/mradermacher/T-pro-it-1.0-SFT-GGUF
+  description: |
+    **Model Name:** T-pro-it-1.0-SFT
+    **Base Model:** T-pro-it-1.0 (a large multimodal language model based on the T5 architecture, fine-tuned for instruction following and image-text understanding)
+    **Repository:** [Dranitsyna/T-pro-it-1.0-SFT](https://huggingface.co/Dranitsyna/T-pro-it-1.0-SFT)
+    **License:** Apache 2.0
+
+    **Description:**
+    T-pro-it-1.0-SFT is a fine-tuned version of the T-pro-it-1.0 multimodal model, specifically optimized for instruction-following tasks. It excels in understanding and responding to complex, multi-step instructions involving both text and image inputs. The model is designed for robust performance in vision-language tasks such as image captioning, visual question answering, and instruction-based image generation.
+
+    This version has been trained on high-quality instruction datasets, making it highly effective for applications requiring precise, context-aware responses. It is ideal for developers and researchers working on multimodal AI systems.
+
+    **Note:** The GGUF quantized version available at `mradermacher/T-pro-it-1.0-SFT-GGUF` is a compressed, user-friendly variant of this model, optimized for local inference. The original, unquantized model is available in the base repository above.
+
+    **Use Case:** Ideal for local deployment of multimodal instruction-following models with strong reasoning and visual understanding capabilities.
+  overrides:
+    parameters:
+      model: T-pro-it-1.0-SFT.Q4_K_S.gguf
+  files:
+    - filename: T-pro-it-1.0-SFT.Q4_K_S.gguf
+      sha256: 8d3a0867faa29592d5f682c153491d0c5abdd6f9778f16f5b62c1b0df19fd656
+      uri: huggingface://mradermacher/T-pro-it-1.0-SFT-GGUF/T-pro-it-1.0-SFT.Q4_K_S.gguf
