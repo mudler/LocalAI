@@ -22212,3 +22212,29 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mimir-mistral-7b-core-instruct"
+  urls:
+    - https://huggingface.co/charles6huang/mimir-mistral-7b-core-instruct-Q4_K_M-GGUF
+  description: |
+    **Model Name:** Mimir-Mistral-7B-Core-Instruct
+    **Base Model:** Mistral-7B-Instruct-v0.2
+    **Repository:** [mimir-project/mimir-mistral-7b-core-instruct](https://huggingface.co/mimir-project/mimir-mistral-7b-core-instruct)
+    **Model Type:** Fine-tuned instruction-following LLM
+    **Size:** 7 billion parameters
+    **Quantization:** Q4_K_M (GGUF format) – optimized for efficiency and performance on local hardware
+    **License:** Apache 2.0
+
+    **Description:**
+    Mimir-Mistral-7B-Core-Instruct is a high-performance, instruction-tuned large language model based on the Mistral-7B-Instruct-v0.2 architecture. It is specifically fine-tuned for robust, accurate, and safe instruction following, making it ideal for interactive applications, dialogue systems, and task automation. The model excels in reasoning, code generation, and natural language understanding, while maintaining strong performance even in constrained environments thanks to its efficient Q4_K_M quantization.
+
+    This version is a GGUF-converted, quantized release (Q4_K_M) from the original model, enabling fast inference on CPU and GPU with llama.cpp. For the full, unquantized model and detailed training information, refer to the original [Mimir Project repository](https://huggingface.co/mimir-project/mimir-mistral-7b-core-instruct).
+
+    Perfect for developers and researchers seeking a compact, high-accuracy model for local deployment.
+  overrides:
+    parameters:
+      model: mimir-mistral-7b-core-instruct-q4_k_m.gguf
+  files:
+    - filename: mimir-mistral-7b-core-instruct-q4_k_m.gguf
+      sha256: 87d6eb0d3fa87e7853b7d4753e49cb4affa771d3afa7ff2d4172f8359935606a
+      uri: huggingface://charles6huang/mimir-mistral-7b-core-instruct-Q4_K_M-GGUF/mimir-mistral-7b-core-instruct-q4_k_m.gguf
