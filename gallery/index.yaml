@@ -22192,3 +22192,22 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama-3.2-3b-small_shiro_roleplay"
+  urls:
+    - https://huggingface.co/samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf
+  description: |
+    **Model Name:** Llama-3.2-3B-small_Shiro_roleplay-gguf
+    **Base Model:** Meta-Llama-3.2-3B-Instruct (via unsloth/Meta-Llama-3.2-3B-Instruct-bnb-4bit)
+    **Fine-Tuned With:** LoRA (rank 64) using Unsloth for optimized performance
+    **Task:** Roleplay & creative storytelling
+    **Format:** GGUF (Q4_K_M, Q8_0) – optimized for local inference via llama.cpp, LM Studio, Ollama
+    **Context Length:** 4096 tokens
+    **Description:** A compact yet powerful 3.2B-parameter fine-tuned Llama 3.2 model specialized for immersive, witty, and darkly imaginative roleplay. Trained on creative and absurd narrative scenarios, it excels at generating unique characters, engaging scenes, and high-concept storytelling with a distinct, sarcastic flair. Ideal for writers, game masters, and creative developers seeking a responsive, locally runnable assistant for imaginative storytelling.
+  overrides:
+    parameters:
+      model: Llama-3.2-3B-Instruct.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
+      sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
+      uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
