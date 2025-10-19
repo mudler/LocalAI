@@ -22192,3 +22192,30 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "cydonia-24b-v41v42-slerp-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Cydonia-24B-v41v42-slerp-i1-GGUF
+  description: |
+    **Model Name:** Cydonia-24B-v41v42-slerp
+    **Base Models:** TheDrummer/Cydonia-24B-v4.1 and TheDrummer/Cydonia-24B-v4.2.0
+    **Type:** Merged LLM using SLERP (Spherical Linear Interpolation) via LazyMergekit
+    **Architecture:** 24B parameter model based on the Cydonia series, fine-tuned for enhanced reasoning and coherence.
+    **Quantization:** Available in multiple GGUF quantizations (e.g., Q4_K_M, Q6_K), optimized for local inference.
+    **Key Features:**
+    - High-quality merge combining two advanced versions of Cydonia.
+    - Optimized using dynamic interpolation (SLERP) across attention and MLP layers.
+    - Ideal for advanced reasoning tasks with strong contextual understanding.
+    - Compatible with local inference tools like llama.cpp.
+
+    **Use Case:** Best suited for developers and researchers seeking a powerful, locally deployable model with high performance in complex reasoning and dialogue tasks.
+
+    **Original Repository:** [twhlai/Cydonia-24B-v41v42-slerp](https://huggingface.co/twhlai/Cydonia-24B-v41v42-slerp)
+    **Quantized Version:** [mradermacher/Cydonia-24B-v41v42-slerp-i1-GGUF](https://huggingface.co/mradermacher/Cydonia-24B-v41v42-slerp-i1-GGUF) (for efficient local use)
+  overrides:
+    parameters:
+      model: Cydonia-24B-v41v42-slerp.i1-Q4_K_M.gguf
+  files:
+    - filename: Cydonia-24B-v41v42-slerp.i1-Q4_K_M.gguf
+      sha256: 2b732e51b0a91d7f260edce0b8cebf203e1aa0db68144966fd217b9adc63e715
+      uri: huggingface://mradermacher/Cydonia-24B-v41v42-slerp-i1-GGUF/Cydonia-24B-v41v42-slerp.i1-Q4_K_M.gguf
