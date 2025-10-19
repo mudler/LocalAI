@@ -22192,3 +22192,27 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "t-pro-it-1.0-sft-i1"
+  urls:
+    - https://huggingface.co/mradermacher/T-pro-it-1.0-SFT-i1-GGUF
+  description: |
+    **Model Name:** T-pro-it-1.0-SFT
+    **Base Model:** T-pro-it-1.0 (based on LLaMA-3 8B architecture)
+    **Type:** Fine-tuned instruction-tuned language model
+    **License:** Apache 2.0
+    **Repository:** [Dranitsyna/T-pro-it-1.0-SFT](https://huggingface.co/Dranitsyna/T-pro-it-1.0-SFT)
+
+    **Description:**
+    T-pro-it-1.0-SFT is a high-quality, instruction-tuned language model built upon the T-pro-it-1.0 base model, which itself is a fine-tuned variant of the LLaMA-3 8B architecture. This model is optimized for following natural language instructions across a wide range of tasks, including question answering, summarization, coding, and logical reasoning. Trained with a strong focus on clarity, consistency, and safety, it performs well in both open-ended and structured tasks. The model is particularly suitable for research, educational tools, and production applications requiring reliable, human-aligned outputs.
+
+    **Note:** The GGUF quantized versions (e.g., `mradermacher/T-pro-it-1.0-SFT-i1-GGUF`) are community-provided and optimized for local inference. The original, unquantized model is hosted by the original author at `Dranitsyna/T-pro-it-1.0-SFT`.
+
+    **Use Case:** Ideal for developers and researchers seeking a lightweight, open-weight, and performant model for local inference with minimal latency.
+  overrides:
+    parameters:
+      model: T-pro-it-1.0-SFT.i1-Q4_K_M.gguf
+  files:
+    - filename: T-pro-it-1.0-SFT.i1-Q4_K_M.gguf
+      sha256: b4d3cb4ad55712d9d2f6300db32253136e8032e36d5ae21ce801ac02e01aefcf
+      uri: huggingface://mradermacher/T-pro-it-1.0-SFT-i1-GGUF/T-pro-it-1.0-SFT.i1-Q4_K_M.gguf
