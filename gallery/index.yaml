@@ -22169,3 +22169,51 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "kal-24b-mx-v1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/KAL-24B-mx-v1-i1-GGUF
+  description: |
+    **Model Name:** KAL-24B-mx-v1
+    **Repository:** [SaptivaAI/KAL-24B-mx-v1](https://huggingface.co/SaptivaAI/KAL-24B-mx-v1)
+    **Base Model:** Mistral-Small-3.2-24B-Instruct-2506
+    **Language:** Spanish (Mexican)
+    **License:** Apache 2.0
+
+    ### 📌 Description:
+    KAL-24B-mx-v1 is a highly specialized large language model trained for the Mexican context, optimized for Spanish with strong cultural and linguistic adaptation. Built on the Mistral-Small-3.2-24B-Instruct-2506 base, it has been fine-tuned using LoRA and fully merged for immediate inference.
+
+    Designed for real-world use, it excels in handling:
+    - Government procedures (CURP, RFC, SAT)
+    - Financial services (SPEI, CETES, banking)
+    - Everyday Mexican colloquial language
+    - Legal and regulatory guidance
+
+    The model supports up to 128k tokens and is ready to use with Transformers, vLLM, or OpenAI-compatible APIs.
+
+    ### ✅ Key Features:
+    - Fully merged LoRA (no extra adapter needed)
+    - Trained on Mexican cultural, legal, and linguistic data
+    - High accuracy in context-specific tasks (80% internal benchmark)
+    - Ideal for chatbots, customer service, and public service automation in Mexico
+
+    > **Note:** Not suitable for real-time updates; pair with RAG for dynamic data.
+
+    ### 📥 Use Case Example:
+    ```python
+    # Generate a response about transferring money via SPEI
+    prompt = "¿Cómo funciona una transferencia SPEI y cuánto tarda?"
+    ```
+
+    ### 🔗 Access:
+    - [Hugging Face Model Page](https://huggingface.co/SaptivaAI/KAL-24B-mx-v1)
+    - Supports `transformers`, `vLLM`, and `OpenAI API` format
+
+    Perfect for building intelligent, culturally aware Spanish-speaking assistants in Mexico.
+  overrides:
+    parameters:
+      model: KAL-24B-mx-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: KAL-24B-mx-v1.i1-Q4_K_M.gguf
+      sha256: d6e5f00b7ac7645f7bc7d908511abf7cd67092a849a4da0c349b3ed84c1d4030
+      uri: huggingface://mradermacher/KAL-24B-mx-v1-i1-GGUF/KAL-24B-mx-v1.i1-Q4_K_M.gguf
