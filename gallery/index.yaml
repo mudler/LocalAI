@@ -22192,3 +22192,20 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "summorchestra-3b-grpo-brl-csds"
+  urls:
+    - https://huggingface.co/mradermacher/SummOrchestra-3B-GRPO-BRL-CSDS-GGUF
+  description: |
+    **SummOrchestra-3B-GRPO-BRL-CSDS** is a 3-billion-parameter Chinese-English multilingual language model fine-tuned for high-quality dialogue summarization. Built upon **Qwen2.5-3B-Instruct**, it leverages a sophisticated reinforcement learning framework using **GRPO (Generalized Reward Policy Optimization)** with a composite reward function combining **BERTScore**, **ROUGE**, and **length** metrics to optimize summary relevance, fluency, and conciseness.
+
+    Trained on the **CSDS (Chinese Summarization Dialogues Dataset)**, the model excels in summarizing multi-turn customer service conversations, achieving state-of-the-art performance on ROUGE and BERTScore benchmarks—surpassing even larger models like GPT-4o-mini in key metrics.
+
+    This version is **not quantized**, and the original full-precision model is available at `dadastory/SummOrchestra-3B-GRPO-BRL-CSDS`. Ideal for research, production summarization tasks, and applications requiring accurate, natural-sounding summaries in both Chinese and English.
+  overrides:
+    parameters:
+      model: SummOrchestra-3B-GRPO-BRL-CSDS.Q4_K_M.gguf
+  files:
+    - filename: SummOrchestra-3B-GRPO-BRL-CSDS.Q4_K_M.gguf
+      sha256: 884a6b35725efef84824b27a33015c774e35d0702391838073c6b72182353166
+      uri: huggingface://mradermacher/SummOrchestra-3B-GRPO-BRL-CSDS-GGUF/SummOrchestra-3B-GRPO-BRL-CSDS.Q4_K_M.gguf
