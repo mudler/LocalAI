@@ -22192,3 +22192,16 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "cydonia-24b-v41v42-slerp-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Cydonia-24B-v41v42-slerp-i1-GGUF
+  description: |
+    **Cydonia-24B-v41v42-slerp** is a 24-billion-parameter language model created by merging *Cydonia-24B-v4.1* and *Cydonia-24B-v4.2.0* using **spherical linear interpolation (slerp)** with custom weight scheduling across attention and MLP layers. This merge leverages the strengths of both base models—combining improved reasoning from v4.2.0 with the robustness and coherence of v4.1—via the LazyMergekit framework. Designed for high-quality text generation, it excels in complex reasoning, creative writing, and dialogue. The model is available in multiple GGUF quantizations for efficient local inference, but the original full-precision version is based on the **TheDrummer/Cydonia-24B-v4.1** and **TheDrummer/Cydonia-24B-v4.2.0** foundations. Ideal for advanced users seeking a powerful, fine-tuned LLM with balanced performance across tasks.
+  overrides:
+    parameters:
+      model: Cydonia-24B-v41v42-slerp.i1-Q4_K_M.gguf
+  files:
+    - filename: Cydonia-24B-v41v42-slerp.i1-Q4_K_M.gguf
+      sha256: 2b732e51b0a91d7f260edce0b8cebf203e1aa0db68144966fd217b9adc63e715
+      uri: huggingface://mradermacher/Cydonia-24B-v41v42-slerp-i1-GGUF/Cydonia-24B-v41v42-slerp.i1-Q4_K_M.gguf
