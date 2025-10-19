@@ -22191,3 +22191,12 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "testing-mirrorglaze-003s"
+  urls:
+    - https://huggingface.co/kromquant/testing-mirrorglaze-003-GGUFs
+  description: |
+    AI model: testing-mirrorglaze-003s
+  overrides:
+    parameters:
+      model: kromquant/testing-mirrorglaze-003-GGUFs
