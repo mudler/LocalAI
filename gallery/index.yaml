@@ -22169,3 +22169,28 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *granite4
+  name: "granite-4.0-h-small-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Granite-4.0-H-Small-MXFP4_MOE-GGUF
+  description: |
+    **Granite-4.0-H-Small**
+    *32B-parameter, long-context, MoE-based instruction-tuned language model by IBM*
+
+    Granite-4.0-H-Small is a powerful, instruction-finetuned, 32-billion-parameter large language model built on a decoder-only Mixture-of-Experts (MoE) architecture. Designed for enterprise and advanced applications, it excels in instruction following, tool calling, multilingual dialogue, code generation, and reasoning tasks.
+
+    Key Features:
+    - **Architecture**: MoE transformer with GQA, Mamba2, SwiGLU activation, and shared embeddings.
+    - **Context Length**: Up to 128K tokens for long-context understanding.
+    - **Capabilities**: Text generation, summarization, question answering, RAG, code completion, function calling, and multilingual support (14+ languages).
+    - **Performance**: Top-tier results on benchmarks like MMLU, GSM8K, HumanEval, and IFEval.
+    - **Safety & Alignment**: Enhanced via supervised fine-tuning and reinforcement learning; includes safety prompts and robust alignment.
+
+    Built upon the *Granite-4.0-H-Small-Base*, this model is ideal for building intelligent AI assistants, enterprise automation tools, and research applications.
+
+    **Original Model**: [ibm-granite/granite-4.0-h-small](https://huggingface.co/ibm-granite/granite-4.0-h-small)
+    **License**: Apache 2.0
+    **Use Case**: Enterprise AI, intelligent agents, code and content generation, multilingual applications.
+  overrides:
+    parameters:
+      model: noctrex/Granite-4.0-H-Small-MXFP4_MOE-GGUF
