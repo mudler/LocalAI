@@ -22192,3 +22192,16 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "valkyrie-49b-v2g"
+  urls:
+    - https://huggingface.co/BeaverAI/Valkyrie-49B-v2g-GGUF
+  description: |
+    AI model: valkyrie-49b-v2g
+  overrides:
+    parameters:
+      model: Valkyrie-49B-v2g-Q4_K_M.gguf
+  files:
+    - filename: Valkyrie-49B-v2g-Q4_K_M.gguf
+      sha256: 0f2709cd1123ee3e161b36b09b891ec5a040c6477416c6a15ce471140ebdacf8
+      uri: huggingface://BeaverAI/Valkyrie-49B-v2g-GGUF/Valkyrie-49B-v2g-Q4_K_M.gguf
