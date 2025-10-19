@@ -22192,3 +22192,12 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "deepseek-moe-16b-chat-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/DeepSeek-MoE-16B-Chat-MXFP4_MOE-GGUF
+  description: |
+    AI model: deepseek-moe-16b-chat-mxfp4_moe
+  overrides:
+    parameters:
+      model: noctrex/DeepSeek-MoE-16B-Chat-MXFP4_MOE-GGUF
