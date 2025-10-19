@@ -22169,3 +22169,67 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "kal-24b-mx-v1"
+  urls:
+    - https://huggingface.co/mradermacher/KAL-24B-mx-v1-GGUF
+  description: |
+    **Model Name:** KAL-24B-mx-v1
+    **Base Model:** Mistral-Small-3.2-24B-Instruct-2506
+    **License:** Apache 2.0
+    **Language:** Spanish (Mexico)
+    **Use Case:** Conversational AI for Mexican Spanish, optimized for real-world use in government, finance, and daily life.
+
+    ---
+
+    ### 📌 **Model Overview**
+
+    KAL-24B-mx-v1 is a large language model fine-tuned for **Mexican Spanish** with deep expertise in local norms, culture, and procedures. Built on top of **Mistral-Small-3.2-24B-Instruct**, it uses a merged LoRA adapter to deliver high accuracy in tasks like:
+
+    - Government trámites (CURP, RFC, SAT)
+    - Financial services (SPEI, CETES, bank procedures)
+    - Cultural and colloquial understanding
+    - Customer service and chatbot applications
+
+    This model is **ready for inference**, requires no additional LoRA weights, and supports long contexts (up to 128K tokens).
+
+    ---
+
+    ### ✅ **Key Features**
+    - **Trained on Mexican-specific data** – understands regional language, regulations, and customs.
+    - **High grounding accuracy** – 80% of responses are verifiable and contextually relevant.
+    - **Optimized for real-world use** – ideal for public services, fintech, and bilingual support systems.
+    - **Fully compatible** with Transformers and vLLM for fast, scalable deployment.
+
+    ---
+
+    ### 🛠️ **How to Use**
+    ```python
+    from transformers import AutoTokenizer, Mistral3ForConditionalGeneration
+
+    model = Mistral3ForConditionalGeneration.from_pretrained("SaptivaAI/KAL-24B-mx-v1", torch_dtype="bfloat16")
+    tokenizer = AutoTokenizer.from_pretrained("SaptivaAI/KAL-24B-mx-v1")
+    ```
+
+    > Supports both direct use and integration with RAG for up-to-date information.
+
+    ---
+
+    ### 📚 **Best For**
+    - Government and civic tech platforms
+    - Financial and banking chatbots
+    - AI assistants for Mexican users
+    - Spanish language education and localization
+
+    ---
+
+    ### 🔗 **Repository:** [huggingface.co/SaptivaAI/KAL-24B-mx-v1](https://huggingface.co/SaptivaAI/KAL-24B-mx-v1)
+
+    > ✅ **Note:** The GGUF version (`mradermacher/KAL-24B-mx-v1-GGUF`) is a quantized variant — the original model is **SaptivaAI/KAL-24B-mx-v1**.
+  overrides:
+    parameters:
+      model: KAL-24B-mx-v1.Q4_K_S.gguf
+  files:
+    - filename: KAL-24B-mx-v1.Q4_K_S.gguf
+      sha256: 1aeb43a70beb4115ee8b300f654d546102e6a762897de892f4638fcda4c2f827
+      uri: huggingface://mradermacher/KAL-24B-mx-v1-GGUF/KAL-24B-mx-v1.Q4_K_S.gguf
