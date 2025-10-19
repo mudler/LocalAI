@@ -22212,3 +22212,19 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "octans-qwen3-ui-code-4b"
+  urls:
+    - https://huggingface.co/mradermacher/Octans-Qwen3-UI-Code-4B-GGUF
+  description: |
+    **Octans-Qwen3-UI-Code-4B** is a 4-billion-parameter language model fine-tuned for advanced **UI and frontend code generation**. Built on Qwen3-4B and enhanced with *Abliterated Reasoning Optimization*, it excels at producing **structured, responsive, and production-ready code** in React, HTML, Tailwind, and JSON. Ideal for UI engineers and developers, it delivers precise layout reasoning, component cohesion, and semantic coding with minimal redundancy. Optimized for efficiency, it runs well on mid-range hardware and is suitable for prototyping, design systems, and research in structured code synthesis.
+
+    **Best for:** UI/UX developers, frontend engineers, and researchers exploring intelligent code generation.
+    **Not ideal for:** General-purpose text generation or long-form narrative tasks.
+  overrides:
+    parameters:
+      model: Octans-Qwen3-UI-Code-4B.Q4_K_M.gguf
+  files:
+    - filename: Octans-Qwen3-UI-Code-4B.Q4_K_M.gguf
+      sha256: d1e30fb545e896176a3b3052500651d1649fa2371dbe710c133a27f7f0152ec5
+      uri: huggingface://mradermacher/Octans-Qwen3-UI-Code-4B-GGUF/Octans-Qwen3-UI-Code-4B.Q4_K_M.gguf
