@@ -22194,6 +22194,7 @@
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
 - !!merge <<: *llama32
   name: "llama-3.2-3b-small_shiro_roleplay"
+  icon: https://huggingface.co/samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/resolve/main/shiro.jpg
   urls:
     - https://huggingface.co/samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf
   description: |
