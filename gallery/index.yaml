@@ -22192,3 +22192,27 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-235b-a22b-instruct-2507"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-235B-A22B-Instruct-2507-gguf
+  description: |
+    **Model Name:** Qwen3-235B-A22B-Instruct-2507 (GGUF Quantized)
+    **Base Model:** Qwen/Qwen3-235B-A22B-Instruct-2507
+    **Size:** 235 Billion parameters
+    **Architecture:** Large Language Model (LLM) based on Qwen3 series
+    **License:** Apache 2.0
+    **Format:** GGUF (optimized for local inference)
+    **Description:**
+    A high-performance, instruction-tuned large language model derived from the Qwen3-235B-A22B-Instruct-2507 base. This version is quantized into multiple GGUF formats for efficient local deployment, offering a range of trade-offs between model size, speed, and quality. Ideal for advanced reasoning, code generation, and complex task execution in resource-constrained environments.
+
+    > 🔍 *Note: This is a quantized version. The original base model is available at [Qwen/Qwen3-235B-A22B-Instruct-2507](https://huggingface.co/Qwen/Qwen3-235B-A22B-Instruct-2507).*
+
+    **Use Case:** Local AI applications, privacy-sensitive deployments, and high-efficiency inference via tools like LM Studio, Ollama, or llama.cpp.
+  overrides:
+    parameters:
+      model: Qwen3-235B-A22B-Instruct-2507-q4_k_m.gguf
+  files:
+    - filename: Qwen3-235B-A22B-Instruct-2507-q4_k_m.gguf
+      sha256: 3122e8c39c203923e2cba509a5cf0850fd24ae74e58162cc85576557ead9fe53
+      uri: huggingface://John1604/Qwen3-235B-A22B-Instruct-2507-gguf/Qwen3-235B-A22B-Instruct-2507-q4_k_m.gguf
