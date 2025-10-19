@@ -22169,3 +22169,35 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *deepseek-r1
+  name: "deepseek-r1-distill-qwen-7b-gspo-basic-i1"
+  urls:
+    - https://huggingface.co/mradermacher/DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic-i1-GGUF
+  description: |
+    **Model Name:** DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic
+    **Base Model:** deepseek-ai/DeepSeek-R1-Distill-Qwen-7B
+    **Author:** leonMW (fine-tuned via TRL)
+    **License:** [License](https://huggingface.co/leonMW/DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic/blob/main/LICENSE)
+
+    **Description:**
+    A high-performing, fine-tuned variant of the DeepSeek-R1-Distill-Qwen-7B model, trained using **GRPO (Generalized Reward Policy Optimization)** to enhance mathematical reasoning and instruction-following capabilities. Part of the DeepSeekMath series, this model excels in reasoning tasks and complex problem-solving. Built with Hugging Face's TRL library and optimized for real-world use.
+
+    **Key Features:**
+    - Trained with advanced reinforcement learning (GRPO)
+    - Optimized for accuracy and coherence in reasoning tasks
+    - Compatible with standard Hugging Face pipelines
+    - Suitable for chat, code generation, and math reasoning
+
+    **Use Case:** Ideal for applications requiring strong logical reasoning, such as math problem-solving, technical Q&A, and advanced dialogue systems.
+
+    **Try it live:**
+    [Open in Hugging Face Inference](https://huggingface.co/leonMW/DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic)
+
+    *Note: The GGUF quantized version by mradermacher is a community-quantized variant; the original model is hosted by leonMW.*
+  overrides:
+    parameters:
+      model: DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic.i1-Q4_K_M.gguf
+  files:
+    - filename: DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic.i1-Q4_K_M.gguf
+      sha256: 69a4edec5c168589f7e339e29df25757509718e3b55eecf935e9f0cfdc8d6ced
+      uri: huggingface://mradermacher/DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic-i1-GGUF/DeepSeek-R1-Distill-Qwen-7B-GSPO-Basic.i1-Q4_K_M.gguf
