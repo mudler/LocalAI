@@ -22192,3 +22192,29 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qiming-janus-30b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/QiMing-Janus-30B-i1-GGUF
+  description: |
+    **QiMing-Janus-30B** is a highly specialized 30-billion-parameter large language model designed as a "meta-consultant" for strategic problem-solving. Built on the **Qwen3-30B-MoE** base, it is fine-tuned using **LoRA** to embody the mindset of a top-tier strategy advisor.
+
+    ### Key Features:
+    - **Core Strengths**: Deep analytical reasoning, complex problem decomposition, framework creation, and delivery of actionable, multi-layered solutions.
+    - **Unique Approach**: Trained not just on data, but on structured logic (e.g., “problem → framework → evidence → conclusion”), enabling it to act as a strategic partner rather than a search engine.
+    - **Personality**: Proactive, innovative, and focused on value creation—ideal for high-level business strategy, planning, and innovation.
+    - **Use Case**: Best suited for complex, ambiguous challenges where structured thinking and foresight are required. Not designed for casual chat or simple Q&A.
+
+    ### Important Notes:
+    - **Not a general-purpose model** — excels in strategic domains, not coding or basic knowledge retrieval.
+    - **Minimal safety filtering** — may generate controversial or sensitive content; not suitable for minors or high-risk applications.
+    - **Open for research and development**, with full user responsibility for ethical and legal compliance.
+
+    > *“AGI isn’t waiting — it’s being built, one intelligent decision at a time.”*
+  overrides:
+    parameters:
+      model: QiMing-Janus-30B.i1-Q4_K_M.gguf
+  files:
+    - filename: QiMing-Janus-30B.i1-Q4_K_M.gguf
+      sha256: bf38ea1a6c1d87e7a8b356ed5b85c6324c0e60095e9aadb7fe75a2cc4fd48324
+      uri: huggingface://mradermacher/QiMing-Janus-30B-i1-GGUF/QiMing-Janus-30B.i1-Q4_K_M.gguf
