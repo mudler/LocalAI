@@ -22192,3 +22192,20 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "revisual-r1-coldstart-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Revisual-R1-Coldstart-i1-GGUF
+  description: |
+    **ReVisual-R1-Coldstart** is a 7B-parameter open-source multimodal reasoning model developed by CSfufu, built upon **Qwen2.5-VL-7B-Instruct**. It excels in complex visual and text-based reasoning tasks, achieving SOTA performance across 9 challenging benchmarks. The model leverages a three-stage training pipeline—text cold-start, multimodal reinforcement learning, and text refinement—enhanced by Prioritized Advantage Distillation (PAD) and an efficient-length reward mechanism to produce concise, self-reflective reasoning. Ideal for advanced image-text understanding, math reasoning, and multi-step inference.
+
+    *Base model:* Qwen/Qwen2.5-VL-7B-Instruct
+    *License:* Apache 2.0
+    *Use case:* Multimodal reasoning, visual QA, mathematical problem solving, and complex CoT tasks.
+  overrides:
+    parameters:
+      model: Revisual-R1-Coldstart.i1-Q4_K_M.gguf
+  files:
+    - filename: Revisual-R1-Coldstart.i1-Q4_K_M.gguf
+      sha256: 4570a13f2a7403bb95b13ef4d760caa19272cad9f995b3433e5f5bd43c8cef86
+      uri: huggingface://mradermacher/Revisual-R1-Coldstart-i1-GGUF/Revisual-R1-Coldstart.i1-Q4_K_M.gguf
