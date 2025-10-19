@@ -22192,3 +22192,31 @@
     - filename: VerbaMaxima-12B.i1-Q4_K_M.gguf
       sha256: 106040cc375b063b225ae359c5d62893f4699dfd9c33d241cacc6dfe529fa13d
       uri: huggingface://mradermacher/VerbaMaxima-12B-i1-GGUF/VerbaMaxima-12B.i1-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "llama3.2-coldbrew-4x3b-argon-test1-q5_k_m"
+  urls:
+    - https://huggingface.co/Theros/Llama3.2-ColdBrew-4x3B-Argon-test1-Q5_K_M-GGUF
+  description: |
+    **Model Name:** Llama3.2-ColdBrew-4x3B-Argon-test1
+    **Type:** Mixture of Experts (MoE) Large Language Model
+    **Base Architecture:** Llama 3.2 (3B parameter models)
+    **Repository:** [SvalTek/Llama3.2-ColdBrew-4x3B-Argon-test1](https://huggingface.co/SvalTek/Llama3.2-ColdBrew-4x3B-Argon-test1)
+
+    **Description:**
+    Llama3.2-ColdBrew-4x3B-Argon-test1 is a specialized **Mixture of Experts (MoE)** model built by merging four distinct 3B-parameter Llama 3.2-based models using **LazyMergekit**. It dynamically routes inputs to specialized expert sub-models based on content, enabling high performance across diverse tasks:
+
+    - **Bronze Expert:** Optimized for **tools & programming** (code generation, debugging, API usage).
+    - **Sage Expert:** Focused on **creative writing, roleplay, and storytelling**.
+    - **Oracle Expert:** Designed for **general knowledge, facts, and Q&A**.
+    - **OverThinker Expert:** Specialized in **reasoning, step-by-step analysis, and introspection**.
+
+    Each expert is activated via context-aware prompting, making the model highly efficient and accurate for specific use cases. The model supports both standard inference and integration via `transformers` or `llama.cpp`.
+
+    **Use Case:** Ideal for applications requiring fine-grained, task-specific intelligence—such as code assistants, narrative generation, technical Q&A, or complex reasoning—without the overhead of a single monolithic large model.
+
+    **Quantized Version:** Available in GGUF format (e.g., `Theros/Llama3.2-ColdBrew-4x3B-Argon-test1-Q5_K_M-GGUF`) for local inference via llama.cpp.
+
+    > ✅ **Note:** This model is *not* a direct release from Meta. It is a community-created merge of multiple specialized models. Always refer to the original repository for full context and licensing.
+  overrides:
+    parameters:
+      model: Theros/Llama3.2-ColdBrew-4x3B-Argon-test1-Q5_K_M-GGUF
