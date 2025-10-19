@@ -22169,3 +22169,18 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "kona2-12b-base-i1"
+  urls:
+    - https://huggingface.co/mradermacher/kona2-12B-Base-i1-GGUF
+  description: |
+    **Kona2-12B-Base** is a large language model developed by Tbilisi AI Lab, based on **Mistral-Nemo-Base-2407**, and trained in both Georgian (ka) and English (en). The model is optimized for multilingual performance, particularly excelling in Georgian language tasks, making it a valuable resource for low-resource language applications. It is released under the **Apache 2.0** license, enabling broad use in research and commercial applications.
+
+    This model is available in GGUF format via the repository `mradermacher/kona2-12B-Base-i1-GGUF`, where it has been quantized and enhanced with imatrix optimization for improved efficiency and performance in local inference environments. The original base model (from `tbilisi-ai-lab/kona2-12B-Base`) provides the foundation for these quantized variants, ensuring fidelity to the original training while enabling efficient deployment.
+  overrides:
+    parameters:
+      model: kona2-12B-Base.i1-Q2_K.gguf
+  files:
+    - filename: kona2-12B-Base.i1-Q2_K.gguf
+      sha256: f16a618e5d365a34ab6f134c24aea67543befe503d0ede6b90fdc717e66d5314
+      uri: huggingface://mradermacher/kona2-12B-Base-i1-GGUF/kona2-12B-Base.i1-Q2_K.gguf
