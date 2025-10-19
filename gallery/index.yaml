@@ -22169,3 +22169,28 @@
     - filename: Zirel-2.i1-Q4_K_S.gguf
       sha256: 9856e987f5f59c874a8fe26ffb2a2c5b7c60b85186131048536b3f1d91a235a6
       uri: huggingface://mradermacher/Zirel-2-i1-GGUF/Zirel-2.i1-Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "asmodeus-24b-v1"
+  urls:
+    - https://huggingface.co/Naphula/Asmodeus-24B-v1-GGUF
+  description: |
+    **Asmodeus-24B-v1 (GGUF)**
+    *An uncensored, high-creativity merge of top-tier Mistral-24B variants, optimized for unrestricted roleplay, creative writing, and advanced reasoning.*
+
+    **Base Model**: Mistral-Small-24B-Instruct-2501 (via Dolphin-Mistral-24B-Venice-Edition)
+    **Architecture**: MistralForCausalLM
+    **Merge Method**: Karcher (for enhanced coherence and nuance)
+    **Key Features**:
+    - Fully uncensored — no refusals, no jailbreaks required
+    - Combines the logical reasoning of *Dolphin-Mistral-Venice*, the creative depth of *PaintedFantasy*, the narrative strength of *Fallen*, and the complexity of *Magidonia*
+    - Optimized for GGUF format with high-quality quantizations (Q6, Q5_K_M, etc.)
+    - Ideal for advanced users, roleplay, storytelling, and creative exploration
+    - Uses the Mistral chat template; recommended with `temperature=0.15` and `top_p=0.9`
+
+    **Note**: Not for beginners — requires responsible use. Intended for mature, ethical, and compliant applications.
+
+    👉 **View on Hugging Face**: [Naphula/Asmodeus-24B-v1-GGUF](https://huggingface.co/Naphula/Asmodeus-24B-v1-GGUF)
+    *Based on original work by dphn, TheDrummer, zerofata, and Naphula.*
+  overrides:
+    parameters:
+      model: Naphula/Asmodeus-24B-v1-GGUF
