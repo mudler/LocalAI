@@ -22237,3 +22237,16 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-14b-instruct-q8_0"
+  urls:
+    - https://huggingface.co/rizkyramadhana26/Qwen2.5-14B-Instruct-Q8_0-GGUF
+  description: |
+    **Qwen2.5-14B-Instruct** is a 14.7-billion-parameter instruction-tuned large language model from Alibaba's Qwen series, designed for high-performance, long-context reasoning. Built on the Qwen2.5 architecture, it excels in instruction following, code generation, mathematical reasoning, and understanding structured data (e.g., tables, JSON). It supports a context length of up to **131,072 tokens** and can generate up to **8,192 tokens** in a single response. With enhanced multilingual capabilities across 29+ languages and optimized for both short and long-form content, it’s ideal for advanced chatbots, summarization, and complex task automation. The model is available in GGUF format for efficient local inference via llama.cpp, making it accessible for developers and researchers alike.
+
+    *Base model: Qwen/Qwen2.5-14B*
+    *Use case: Chat, code generation, long-context reasoning, multilingual tasks*
+    *License: Apache 2.0*
+  overrides:
+    parameters:
+      model: rizkyramadhana26/Qwen2.5-14B-Instruct-Q8_0-GGUF
