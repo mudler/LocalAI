@@ -22212,3 +22212,55 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "mineru2.5-2509-1.2b"
+  urls:
+    - https://huggingface.co/Mungert/MinerU2.5-2509-1.2B-GGUF
+  description: |
+    **Model Name:** MinerU2.5-2509-1.2B
+    **Repository:** [opendatalab/MinerU2.5-2509-1.2B](https://huggingface.co/opendatalab/MinerU2.5-2509-1.2B)
+    **License:** AGPL-3.0
+    **Language:** Chinese, English
+    **Model Type:** Vision-Language Model (VLM)
+    **Architecture:** Qwen2-VL-based, decoupled two-stage document parsing
+    **Parameters:** 1.2 billion
+    **Pipeline:** Image-text-to-text (document parsing)
+
+    ---
+
+    ### 🌟 **Model Description**
+    MinerU2.5 is a **high-accuracy, efficient vision-language model** designed for **high-resolution document parsing**. It uses a **coarse-to-fine, two-stage strategy**:
+    1. **Global layout analysis** on downsampled images to detect structural elements (headers, footers, tables, etc.).
+    2. **Fine-grained content recognition** on native-resolution crops for precise text, formula, and table extraction.
+
+    ### 🔍 **Key Features**
+    - ✅ **State-of-the-art performance** on OmniDocBench across document types and content elements.
+    - ✅ **Robust parsing** of complex layouts: rotated tables, borderless tables, mixed-language equations.
+    - ✅ **High efficiency** with low computational overhead—ideal for real-world deployment.
+    - ✅ **Supports both Chinese and English** for multi-lingual document understanding.
+
+    ### 🛠️ **Use Cases**
+    - Automated extraction of structured data from PDFs, scans, and digital documents.
+    - Document digitization, data entry automation, and knowledge base building.
+    - Academic and enterprise document processing (e.g., research papers, contracts, reports).
+
+    ### 📌 **Getting Started**
+    Use with `transformers` or `vLLM` for optimal inference speed.
+    **Recommended backend:** `vLLM` (up to **2.12 fps** on A100).
+
+    🔗 **Demo & Docs:** [https://mineru.net](https://mineru.net)
+    📄 **Paper:** [arXiv:2509.22186](https://arxiv.org/abs/2509.22186)
+
+    ---
+
+    ✅ **Ideal for:** Developers, researchers, and enterprises needing fast, accurate, and scalable document parsing with open-source flexibility.
+    📦 **Model Origin:** Original model by Open Data Lab — **not quantized**.
+
+    > *Note: The GGUF version (Mungert/MinerU2.5-2509-1.2B-GGUF) is a user-quantized variant. Use the original `opendatalab/MinerU2.5-2509-1.2B` for the full, unquantized performance.*
+  overrides:
+    parameters:
+      model: MinerU2.5-2509-1.2B-q4_k_m.gguf
+  files:
+    - filename: MinerU2.5-2509-1.2B-q4_k_m.gguf
+      sha256: 57ec78e195c92433f16b1bdf380523b632874875a85915e0ddb7390f7fcc08d5
+      uri: huggingface://Mungert/MinerU2.5-2509-1.2B-GGUF/MinerU2.5-2509-1.2B-q4_k_m.gguf
