@@ -22212,3 +22212,12 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "mineru2.5-2509-1.2b"
+  urls:
+    - https://huggingface.co/Mungert/MinerU2.5-2509-1.2B-GGUF
+  description: |
+    AI model: mineru2.5-2509-1.2b
+  overrides:
+    parameters:
+      model: Mungert/MinerU2.5-2509-1.2B-GGUF
