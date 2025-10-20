@@ -22263,3 +22263,16 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "granite-docling-258m"
+  urls:
+    - https://huggingface.co/mrutkows/granite-docling-258M-GGUF
+  description: |
+    AI model: granite-docling-258m
+  overrides:
+    parameters:
+      model: granite-docling-258M-Q4_K_M.gguf
+  files:
+    - filename: granite-docling-258M-Q4_K_M.gguf
+      sha256: 3c8bfddc6f13ce3db1db822df04575896a36d857520d894f1999473951a3f20b
+      uri: huggingface://mrutkows/granite-docling-258M-GGUF/granite-docling-258M-Q4_K_M.gguf
