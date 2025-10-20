@@ -22263,3 +22263,16 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "medgemma-q4km"
+  urls:
+    - https://huggingface.co/Hanhpt23/medgemma-Q4KM-GGUF
+  description: |
+    AI model: medgemma-q4km
+  overrides:
+    parameters:
+      model: medgemma-4b-it-Q4_K_M.gguf
+  files:
+    - filename: medgemma-4b-it-Q4_K_M.gguf
+      sha256: d8b7738c927526b2ec1a4871a49c44075761960ac8575e69195ae616c702e5a1
+      uri: huggingface://Hanhpt23/medgemma-Q4KM-GGUF/medgemma-4b-it-Q4_K_M.gguf
