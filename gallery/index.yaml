@@ -22263,3 +22263,30 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "4.2.0-broken-tutu-24b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/4.2.0-Broken-Tutu-24b-i1-GGUF
+  description: |
+    **Model Name:** 4.2.0-Broken-Tutu-24b
+    **Base Model:** A custom merge of multiple 24B-scale models using DARE TIES methodology
+    **Creator:** ReadyArt (merged via mergekit)
+    **Repository:** [ReadyArt/4.2.0-Broken-Tutu-24b](https://huggingface.co/ReadyArt/4.2.0-Broken-Tutu-24b)
+    **Quantized By:** mradermacher (GGUF variants available)
+
+    **Description:**
+    A high-impact, experimental 24B-parameter language model created by merging five distinct 24B models—including *Cydonia-24B-v4.2.0*, *BlackSheep-24B*, *The-Omega-Directive-M-24B-v1.1*, *Omega-Darker*, and *Forgotten-Safeword*—using the DARE TIES merge method with *Cydonia* as the base. The result is a highly stylized, unaligned model optimized for creative, roleplay, and NSFW content.
+
+    This model is **not intended for general use**—it is highly sensitive to quantization and performs poorly with low-precision quants. Best used in high-fidelity settings (e.g., Q4_K_M or higher GGUF variants).
+
+    **Use Case:**
+    Creative writing, roleplay, experimental storytelling, and artistic exploration. Avoid for factual or safety-critical tasks.
+
+    **Note:** The GGUF version hosted by mradermacher is a quantized derivative. Always verify the original base model for full fidelity.
+  overrides:
+    parameters:
+      model: 4.2.0-Broken-Tutu-24b.i1-Q4_K_M.gguf
+  files:
+    - filename: 4.2.0-Broken-Tutu-24b.i1-Q4_K_M.gguf
+      sha256: 3a004823dfda5023777cf36cbb61c29a04ffb761e48927823d0be708277a9285
+      uri: huggingface://mradermacher/4.2.0-Broken-Tutu-24b-i1-GGUF/4.2.0-Broken-Tutu-24b.i1-Q4_K_M.gguf
