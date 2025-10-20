@@ -22212,3 +22212,22 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "pixtral-12b-ollama"
+  urls:
+    - https://huggingface.co/EnlistedGhost/Pixtral-12B-Ollama-GGUF
+  description: |
+    **Pixtral-12B-2409** is a state-of-the-art multimodal large language model developed by Mistral AI, featuring 12 billion parameters in its decoder and a 400M-parameter vision encoder. Designed for native multimodal understanding, it excels at processing both text and image inputs simultaneously, with support for variable image sizes and a 128k sequence length.
+
+    The model demonstrates leading performance across multiple benchmarks, including:
+    - **MMMU (52.5 CoT)**, **Mathvista (58.0 CoT)**, **ChartQA (81.8 CoT)**, and **DocVQA (90.7 ANLS)**.
+    - Strong instruction-following capabilities, ranking at **6.05 on MM MT-Bench** and **7.68 on Text MT-Bench**.
+    - Competitive text-only performance, achieving **69.2 on MMLU (5-shot)** and **48.1 on Math (Pass@1)**.
+
+    Pixtral-12B-2409 maintains top-tier results on both multimodal and text-only tasks, outperforming several closed-source and larger models despite its relatively compact size. It is ideal for applications requiring rich, multimodal understanding such as image captioning, visual question answering, and complex instruction following.
+
+    Available via Hugging Face and optimized for inference with vLLM and Mistral-inference, Pixtral-12B-2409 is a powerful, open, and production-ready option for researchers and developers.
+    **License**: Apache 2.0 | **Architecture**: Multimodal Transformer (12B + Vision Encoder) | **Languages**: English, French, German, Spanish, Italian, Portuguese, Russian, Chinese, Japanese.
+  overrides:
+    parameters:
+      model: EnlistedGhost/Pixtral-12B-Ollama-GGUF
