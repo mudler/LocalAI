@@ -22237,3 +22237,29 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "spanish_rpg-3.2-1b"
+  urls:
+    - https://huggingface.co/Novaciano/Spanish_RPG-3.2-1B-GGUF
+  description: |
+    **Model Name:** Spanish_RPG-3.2-1B
+    **Base Model:** Llama 3.2 1B (via fine-tuning)
+    **Repository:** [Novaciano/Spanish_RPG-3.2-1B](https://huggingface.co/Novaciano/Spanish_RPG-3.2-1B)
+    **License:** Llama 3.2 (LLM)
+    **Language:** Spanish (es)
+    **Task:** Roleplay (NSFW/Adult Content)
+    **Model Type:** Fine-tuned, Merge-based (Arcee Fusion)
+    **Description:**
+    A high-precision, Spanish-language roleplay model optimized for immersive, character-driven storytelling with NSFW content. Built on the foundation of *Alice-In-The-Dark-RP-NSFW-3.2-1B* and enhanced with code-generation data from *Llama-3.2-1B-GenerativePerturbations*, this model excels in generating natural, emotionally expressive, and coherent responses in roleplay formats — ideal for narrative, adult, and creative storytelling scenarios.
+
+    Designed for low-resource environments, it performs efficiently on CPUs, making it accessible for mobile and edge devices. Supports the classic internet roleplay format (`*action* dialogue *narration*`) and works seamlessly with KoboldAI, Koboldcpp, and llama.cpp.
+
+    > 📌 *Note: This model contains uncensored, adult content and is not suitable for all audiences.*
+    > 🧪 *Intended as a prototype for testing and creative use — not for production deployment.*
+  overrides:
+    parameters:
+      model: Spanish_RPG-3.2-1B-Q4_K_M.gguf
+  files:
+    - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
+      sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
+      uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
