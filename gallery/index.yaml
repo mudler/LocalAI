@@ -22237,3 +22237,54 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-instruct"
+  urls:
+    - https://huggingface.co/lefromage/Qwen3-Next-80B-A3B-Instruct-GGUF
+  description: |
+    **Model Name:** Qwen3-Next-80B-A3B-Instruct
+    **Author:** Qwen (Alibaba Cloud)
+    **License:** Apache 2.0
+
+    ### 📌 Overview
+    Qwen3-Next-80B-A3B-Instruct is a highly efficient, ultra-long context, instruction-tuned large language model based on the Qwen3-Next architecture. It achieves strong performance with only 3 billion activated parameters (out of 80B total), thanks to a hybrid attention mechanism and high-sparsity Mixture-of-Experts (MoE).
+
+    ### 🔍 Key Features
+    - **Model Type:** Causal Language Model (Instruct)
+    - **Parameters:** 80B total | 3B activated (MoE)
+    - **Context Length:** Up to **262,144 tokens** natively, extendable to **1,010,000 tokens** using YaRN RoPE scaling
+    - **Architecture:** Hybrid Attention (Gated DeltaNet + Gated Attention), MoE with 512 experts (10 active per layer), stability-optimized normalization
+    - **Training:** 15 trillion tokens (pretraining), followed by post-training
+    - **Use Case:** Ideal for long-form content generation, complex reasoning, coding, and agentic tasks requiring extended context
+
+    ### ✅ Performance Highlights
+    - Matches or exceeds larger models like Qwen3-235B-A22B-Instruct on key benchmarks
+    - Superior inference speed and efficiency—10x throughput over Qwen3-32B on long contexts
+    - Outstanding results on MMLU-Pro (80.6), LiveBench (75.8), and coding tasks (LiveCodeBench 56.6)
+
+    ### 🛠️ Deployment & Use
+    - **Framework Support:** Hugging Face Transformers, vLLM, SGLang
+    - **Recommended Inference:** Use vLLM or SGLang with MTP (Multi-Token Prediction) for maximum speed
+    - **Ultra-Long Context:** Enable YaRN scaling for inputs exceeding 256K tokens
+
+    ### 📚 Citation
+    ```bibtex
+    @misc{qwen3technicalreport,
+      title={Qwen3 Technical Report},
+      author={Qwen Team},
+      year={2025},
+      eprint={2505.09388},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2505.09388}
+    }
+    ```
+
+    > 🔗 **Try it now**: [Qwen Chat](https://chat.qwen.ai/) or deploy via [Hugging Face](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Instruct)
+  overrides:
+    parameters:
+      model: Qwen__Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen__Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf
+      sha256: d16cdbe3d1aa2427862f41ebce219b81cc3128a585c29d6f60c3daaf40a05dd3
+      uri: huggingface://lefromage/Qwen3-Next-80B-A3B-Instruct-GGUF/Qwen__Qwen3-Next-80B-A3B-Instruct-Q4_K_M.gguf
