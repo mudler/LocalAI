@@ -22237,3 +22237,36 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "llm-vn-1-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/llm-vn-1-7b-i1-GGUF
+  description: |
+    **Model Name:** `llm-vn-1-7b`
+    **Base Model:** Qwen/Qwen2.5-7B-Instruct
+    **Language Support:** Vietnamese (primary), English, and multilingual
+    **Parameter Count:** ~7.6B
+    **License:** Apache 2.0
+
+    **Description:**
+    A high-performing, open-source language model fine-tuned and optimized for Vietnamese language tasks. Built on the Qwen2.5-7B-Instruct foundation, this model delivers strong capabilities in Vietnamese text generation, question answering, and conversation. Ideal for developers, researchers, and enterprises working with Vietnamese content.
+
+    **Use Cases:**
+    - Vietnamese chatbots and virtual assistants
+    - Multilingual content generation
+    - Vietnamese NLP research and applications
+
+    **Available Quantizations:**
+    GGUF format (multiple quantized versions available via [mradermacher/llm-vn-1-7b-i1-GGUF](https://huggingface.co/mradermacher/llm-vn-1-7b-i1-GGUF)) for efficient inference on consumer hardware.
+
+    **Citation:**
+    @article{qwen2.5, title={Qwen2.5 Technical Report}, author={Qwen Team}, year={2025}
+
+    ✅ Open for research, education, and commercial use under Apache 2.0.
+  overrides:
+    parameters:
+      model: llm-vn-1-7b.i1-Q4_K_M.gguf
+  files:
+    - filename: llm-vn-1-7b.i1-Q4_K_M.gguf
+      sha256: 34ce870d7703b21208bca01266efbbc79c27397acd8e005eaa51c7a4976918b7
+      uri: huggingface://mradermacher/llm-vn-1-7b-i1-GGUF/llm-vn-1-7b.i1-Q4_K_M.gguf
