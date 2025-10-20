@@ -22212,3 +22212,28 @@
     - filename: Llama-3.2-3B-Instruct.Q4_K_M.gguf
       sha256: 5215294ba79312141a182e9477caaef0f4a44fbc6cc0b421092efe8d7fce03a1
       uri: huggingface://samunder12/Llama-3.2-3B-small_Shiro_roleplay-gguf/Llama-3.2-3B-Instruct.Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "lfm2-1.2b-rag"
+  urls:
+    - https://huggingface.co/Mungert/LFM2-1.2B-RAG-GGUF
+  description: |
+    **LFM2-1.2B** is a compact, high-performance language model developed by Liquid AI for efficient edge and on-device AI applications. Designed for speed and low memory usage, it delivers strong performance across tasks like instruction following, multilingual understanding, and conversational AI—ideal for smartphones, laptops, and embedded devices.
+
+    - **Size**: 1.2 billion parameters
+    - **Context Length**: Up to 32,768 tokens
+    - **Architecture**: Hybrid model with multiplicative gates and short convolutions (16 layers: 10 convolutional + 6 attention)
+    - **Training**: Fine-tuned on 10 trillion tokens using knowledge distillation from LFM1-7B, SFT, and DPO
+    - **Supported Languages**: English, Arabic, Chinese, French, German, Japanese, Korean, Spanish
+    - **Deployment**: Runs efficiently on CPU, GPU, and NPU via Transformers, vLLM, and llama.cpp
+    - **License**: LFM Open License v1.0
+
+    Best suited for agentic tasks, RAG systems, data extraction, and multi-turn dialogue—ideal for developers building lightweight, real-time AI applications.
+
+    > **Base Model**: [LiquidAI/LFM2-1.2B](https://huggingface.co/LiquidAI/LFM2-1.2B) — the original, full-precision, non-quantized version.
+  overrides:
+    parameters:
+      model: LFM2-1.2B-RAG-q4_k_m.gguf
+  files:
+    - filename: LFM2-1.2B-RAG-q4_k_m.gguf
+      sha256: 25ecf46e82c7f626ad42c15a287fdac4711d564683d80e176a4477b6fe67e5a2
+      uri: huggingface://Mungert/LFM2-1.2B-RAG-GGUF/LFM2-1.2B-RAG-q4_k_m.gguf
