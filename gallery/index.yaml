@@ -22237,3 +22237,24 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "lunar-abyss-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Lunar-Abyss-12B-i1-GGUF
+  description: |
+    **Lunar-Abyss-12B** is a high-quality, creatively nuanced 12B-parameter language model crafted through a sophisticated merge of three distinct models: **LunaMaid-12B** (for coherence and stability), **Abyssal-Seraph-12B** (for expressive, edgy prose), and **MegaMoon-Karcher-12B** (as the foundational base).
+
+    Built using the **DELLA** merge method with fine-tuned weighting, it balances logical clarity with emotional depth, making it ideal for immersive roleplay, poetic storytelling, and introspective dialogue. The result is a model that thinks with calm precision yet speaks with lyrical intensity—like moonlight on a deep, quiet sea.
+
+    > **Perfect for:** Narrative writing, character-driven conversations, and creative AI companionship.
+    > **Original author:** Vortex5
+    > **Quantized by:** mradermacher (GGUF version available)
+
+    *Note: The GGUF version is a quantized variant; the original unquantized model is available at [Vortex5/Lunar-Abyss-12B](https://huggingface.co/Vortex5/Lunar-Abyss-12B).*
+  overrides:
+    parameters:
+      model: Lunar-Abyss-12B.i1-Q4_K_S.gguf
+  files:
+    - filename: Lunar-Abyss-12B.i1-Q4_K_S.gguf
+      sha256: acddfc3a00a7321b8fb89e7e4d387852920976a827c9926173f29d9109c50d87
+      uri: huggingface://mradermacher/Lunar-Abyss-12B-i1-GGUF/Lunar-Abyss-12B.i1-Q4_K_S.gguf
