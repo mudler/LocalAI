@@ -22237,3 +22237,51 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "john1604-ai-status-2025"
+  urls:
+    - https://huggingface.co/mradermacher/John1604-AI-status-2025-GGUF
+  description: |
+    **Model Name:** John1604-AI-status-2025
+    **Base Model:** Qwen3-8B
+    **Type:** Text Generation (Large Language Model)
+    **Repository:** [John1604/John1604-AI-status-2025](https://huggingface.co/John1604/John1604-AI-status-2025)
+    **Language:** English
+    **License:** [Check Hugging Face for details]
+
+    ---
+
+    ### 📌 Description:
+    John1604-AI-status-2025 is a fine-tuned variant of the **Qwen3-8B** language model, developed by William Hsu and John Xu. It focuses on providing insightful and up-to-date perspectives on the current state of artificial intelligence as of 2025. The model is designed for robust text generation, offering detailed responses on AI trends, challenges, and real-world application success rates.
+
+    While originally built upon Qwen3-8B, this version has been fine-tuned to reflect a nuanced understanding of AI development, industry adoption, and practical limitations—making it ideal for researchers, developers, and tech analysts seeking critical, informed commentary on AI’s real-world impact.
+
+    ---
+
+    ### 🔧 Key Features:
+    - Built on **Qwen3-8B** base architecture — efficient and powerful.
+    - Fine-tuned for **AI status assessment and critical analysis**.
+    - Fully compatible with Hugging Face Transformers and `vLLM`.
+    - Supports long-context generation (up to 16K tokens).
+    - Designed for use in production and research environments.
+
+    ---
+
+    ### 📥 Use Case:
+    Perfect for applications requiring **analytical, context-aware responses** on AI trends, project viability, ethical considerations, and technological maturity — ideal for content generation, research support, and strategic decision-making.
+
+    ---
+
+    ### 📌 Note:
+    The **quantized GGUF versions** (e.g., `mradermacher/John1604-AI-status-2025-GGUF`) are community-made and not maintained by the original authors. For the official, unquantized model, use the **base Hugging Face repo**: [John1604/John1604-AI-status-2025](https://huggingface.co/John1604/John1604-AI-status-2025).
+
+    ---
+
+    > ✅ **Recommended for**: AI researchers, tech analysts, and developers seeking a thoughtful, well-informed LLM on the current state of AI.
+  overrides:
+    parameters:
+      model: John1604-AI-status-2025.Q4_K_M.gguf
+  files:
+    - filename: John1604-AI-status-2025.Q4_K_M.gguf
+      sha256: 6ed733bb081a0dfdee39b86f8837048235d1359fbf3601aaa4b5dcb40633990e
+      uri: huggingface://mradermacher/John1604-AI-status-2025-GGUF/John1604-AI-status-2025.Q4_K_M.gguf
