@@ -22263,3 +22263,16 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "my_gptoss_uncensored_gguf"
+  urls:
+    - https://huggingface.co/DrNicefellow/my_gptoss_uncensored_gguf
+  description: |
+    AI model: my_gptoss_uncensored_gguf
+  overrides:
+    parameters:
+      model: uncensored_gpt_oss.Q4_K_M.gguf
+  files:
+    - filename: uncensored_gpt_oss.Q4_K_M.gguf
+      sha256: e2efa254880b5327d5ffcaa7fbca80970fc5d9b729954dd8577c530c24f37d6e
+      uri: huggingface://DrNicefellow/my_gptoss_uncensored_gguf/uncensored_gpt_oss.Q4_K_M.gguf
