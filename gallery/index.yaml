@@ -22263,3 +22263,16 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "granite-4.0-h-tiny"
+  urls:
+    - https://huggingface.co/Mungert/granite-4.0-h-tiny-GGUF
+  description: |
+    AI model: granite-4.0-h-tiny
+  overrides:
+    parameters:
+      model: granite-4.0-h-tiny-q4_k_m.gguf
+  files:
+    - filename: granite-4.0-h-tiny-q4_k_m.gguf
+      sha256: f598cc17710512d4ad52f8023276a8a0cb9415c867923d8071eb63310f271604
+      uri: huggingface://Mungert/granite-4.0-h-tiny-GGUF/granite-4.0-h-tiny-q4_k_m.gguf
