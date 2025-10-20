@@ -22237,3 +22237,33 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "spatial-vu-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Spatial-VU-i1-GGUF
+  description: |
+    **Model Name:** Spatial-VU
+    **Base Model:** Qwen2.5-VL-7B-Instruct
+    **Type:** Fine-tuned multimodal vision-language model
+    **Task:** Image-to-text generation with a focus on spatial reasoning and detailed visual understanding
+
+    **Description:**
+    Spatial-VU is a specialized fine-tune of Qwen2.5-VL-7B-Instruct, optimized for high-fidelity, detailed image captioning across diverse visual inputs. Designed for complex spatial reasoning and nuanced vision understanding, it excels at generating rich, context-aware descriptions—ideal for artistic, technical, abstract, and low-context images. The model performs robustly across varying aspect ratios and supports multilingual output (English default).
+
+    **Use Cases:**
+    - Research in vision understanding and spatial reasoning
+    - Creative storytelling, art generation, and descriptive captioning
+    - Red-teaming and safety evaluation of vision models
+
+    **Caveats:**
+    Not suitable for production use requiring content filtering; may generate sensitive or explicit content depending on input.
+
+    **Model Repository:** [prithivMLmods/Spatial-VU](https://huggingface.co/prithivMLmods/Spatial-VU)
+    **License:** Apache 2.0
+  overrides:
+    parameters:
+      model: Spatial-VU.i1-Q4_K_M.gguf
+  files:
+    - filename: Spatial-VU.i1-Q4_K_M.gguf
+      sha256: c4b3cfcab9d28f1fb406f716000a40a1ac58eabb5507cf752c0250e5413ead15
+      uri: huggingface://mradermacher/Spatial-VU-i1-GGUF/Spatial-VU.i1-Q4_K_M.gguf
