@@ -22237,3 +22237,39 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "chat_noir-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Chat_Noir-i1-GGUF
+  description: |
+    **Chat Noir (Virtuo Turing)**
+    *Multilingual Legal & Conversational AI – Optimized for Portuguese & Precision*
+
+    **Base Model**: Mistral-Small-24B-Instruct-2501
+    **Fine-Tuned By**: Virtuo Turing (Portugal)
+    **Languages**: Portuguese (PT-PT), English, French, Spanish
+    **Use Case**: Legal Q&A, private dialogue, concise reasoning, legaltech applications
+
+    **Overview**:
+    Chat Noir is a high-precision, privacy-focused conversational model developed by Octávio Viana and Virtuo Turing. It is fine-tuned on a proprietary corpus of European Portuguese legal texts — including court rulings from Guimarães, Porto, Coimbra, Lisbon, Évora, and the Supreme Court of Justice — with deep specialization in civil, criminal, family, and capital markets law.
+
+    **Key Features**:
+    - Trained on real Portuguese judicial documents (CPC, CPP, CRP, GDPR, EU regulations)
+    - Optimized for short, deterministic responses with low latency (~14.5s avg)
+    - Designed for local deployment with efficient quantization (Q4_K_S, Q5, Q8)
+    - Delivers 0% refusal rate in legal evaluations; strong compliance with format constraints
+    - Includes built-in validation and mitigation for repetition, internal tags, and off-domain citations
+
+    **Ideal For**:
+    Legal professionals, legal tech developers, and researchers in Portuguese-speaking jurisdictions needing reliable, private, and accurate legal reasoning with structured outputs.
+
+    **License**: Virtuo 1.0 — permissive for commercial use with attribution to Virtuo Turing.
+
+    > ✅ **Note**: The GGUF version in `mradermacher/Chat_Noir-i1-GGUF` is a quantized derivative. The original model is **VirtuoTuring/Chat_Noir**, maintained by the developers.
+  overrides:
+    parameters:
+      model: Chat_Noir.i1-Q4_K_M.gguf
+  files:
+    - filename: Chat_Noir.i1-Q4_K_M.gguf
+      sha256: 98dfb816f53efe7cb71d9a28a5e95fd93288f36847c66d2e8f2d11d00c5201c4
+      uri: huggingface://mradermacher/Chat_Noir-i1-GGUF/Chat_Noir.i1-Q4_K_M.gguf
