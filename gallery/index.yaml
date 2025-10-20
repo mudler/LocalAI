@@ -22237,3 +22237,38 @@
     - filename: Logics-Qwen3-Math-4B.Q4_K_M.gguf
       sha256: 05528937a4cb05f5e8185e4e6bc5cb6f576f364c5482a4d9ee6a91302440ed07
       uri: huggingface://mradermacher/Logics-Qwen3-Math-4B-GGUF/Logics-Qwen3-Math-4B.Q4_K_M.gguf
+- !!merge <<: *granite4
+  name: "granite-docling-258m"
+  urls:
+    - https://huggingface.co/Mungert/granite-docling-258M-GGUF
+  description: |
+    **Model Name**: Granite Docling 258M
+    **Model Type**: Multimodal Image-Text-to-Text (Vision-Language Model)
+    **Developer**: IBM Research
+    **License**: Apache 2.0
+    **Language**: English (NLP)
+
+    **Description**:
+    Granite Docling 258M is a compact, high-performance multimodal model designed for advanced document understanding and conversion. Built upon the Idefics3 architecture, it combines a **SigLIP2 vision encoder** with a **165M Granite LLM** to enable accurate layout preservation, text extraction, and semantic interpretation of complex documents—including code, equations, tables, and charts.
+
+    This model is optimized for **end-to-end document conversion** via the [Docling](https://docling-project.github.io/docling) library, supporting features like:
+    - High-fidelity layout reconstruction
+    - Accurate equation (LaTeX) and code recognition
+    - Robust table and chart extraction
+    - Support for Japanese, Arabic, and Chinese (experimental)
+
+    Ideal for developers and researchers needing reliable document parsing with minimal setup, Granite Docling 258M delivers state-of-the-art performance on benchmarks like OCRBench, MMStar, and FinTabNet—while maintaining seamless integration into existing document processing pipelines.
+
+    **Use Case**: Document digitization, layout-aware OCR, content extraction, and structured output generation from scanned or PDF documents.
+
+    **Try It**:
+    - [Demo](https://huggingface.co/spaces/ibm-granite/granite-docling-258m-demo)
+    - [GitHub](https://github.com/docling-project/docling)
+    - [Model Card](https://huggingface.co/ibm-granite/granite-docling-258M)
+  overrides:
+    parameters:
+      model: granite-docling-258M-q4_k_m.gguf
+  files:
+    - filename: granite-docling-258M-q4_k_m.gguf
+      sha256: 5ad60113038c89a2065e0484108390e4b3041ffb914d58b0bdf370669099eca1
+      uri: huggingface://Mungert/granite-docling-258M-GGUF/granite-docling-258M-q4_k_m.gguf
