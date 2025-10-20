@@ -22263,3 +22263,12 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-30b-a3b_pruned_reap-15b-a3b_q4_k_m"
+  urls:
+    - https://huggingface.co/12bitmisfit/Qwen3-30B-A3B_Pruned_REAP-15B-A3B_Q4_K_M-GGUF
+  description: |
+    AI model: qwen3-30b-a3b_pruned_reap-15b-a3b_q4_k_m
+  overrides:
+    parameters:
+      model: 12bitmisfit/Qwen3-30B-A3B_Pruned_REAP-15B-A3B_Q4_K_M-GGUF
