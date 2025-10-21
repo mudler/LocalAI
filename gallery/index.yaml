@@ -22315,3 +22315,26 @@
     - filename: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
       sha256: b1019b160e4a612d91edd77f00bea01f3f276ecc8ab76de526b7bf356d4c8079
       uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF/Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
+- !!merge <<: *qwen25
+  name: "simia-tau-sft-qwen2.5-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Simia-Tau-SFT-Qwen2.5-7B-i1-GGUF
+  description: |
+    The model **Simia-Tau-SFT-Qwen2.5-7B-i1-GGUF** is a quantized version of the **Simia-Tau-SFT-Qwen2.5-7B** model, fine-tuned from **Qwen2.5-7B**, a 7-billion-parameter language model developed by Alibaba Cloud. This specific variant is optimized for efficient inference on consumer hardware through GGUF quantization, making it suitable for local deployment via tools like llama.cpp.
+
+    Key details:
+    - **Base Model**: Qwen2.5-7B (a state-of-the-art open-source language model from Alibaba)
+    - **Fine-tuned**: Yes — adapted via supervised fine-tuning (SFT) by Simia-Agent to improve reasoning, instruction-following, and task-specific performance.
+    - **Purpose**: Designed for high-quality, lightweight, and efficient inference, especially for use in personal AI assistants, coding, and creative applications.
+    - **Quantization Format**: GGUF — supports multiple quantization levels (e.g., Q2_K, Q4_K_M, Q5_K_M), allowing users to balance performance and resource usage.
+
+    > ✅ **Note**: The original, unquantized base model (Simia-Tau-SFT-Qwen2.5-7B) is available at [Simia-Agent/Simia-Tau-SFT-Qwen2.5-7B](https://huggingface.co/Simia-Agent/Simia-Tau-SFT-Qwen2.5-7B). This repository contains only a quantized GGUF version, suitable for local use but not the original training data or full precision weights.
+
+    📌 Ideal for users seeking a powerful, locally-run LLM with strong reasoning and instruction-following capabilities.
+  overrides:
+    parameters:
+      model: Simia-Tau-SFT-Qwen2.5-7B.i1-Q4_K_S.gguf
+  files:
+    - filename: Simia-Tau-SFT-Qwen2.5-7B.i1-Q4_K_S.gguf
+      sha256: 6426949995bdb01f85432b3b4d57a8165e812b55d690a088529157569f6e96de
+      uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen2.5-7B-i1-GGUF/Simia-Tau-SFT-Qwen2.5-7B.i1-Q4_K_S.gguf
