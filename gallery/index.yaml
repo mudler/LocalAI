@@ -22263,3 +22263,19 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "vandijklab.c2s-scale-gemma-2-27b"
+  urls:
+    - https://huggingface.co/csabakecskemeti/vandijklab.C2S-Scale-Gemma-2-27B-GGUF
+  description: |
+    **Model Name:** C2S-Scale-Gemma-2-27B
+    **Base Model:** [vandijklab/C2S-Scale-Gemma-2-27B](https://huggingface.co/vandijklab/C2S-Scale-Gemma-2-27B)
+    **Quantization:** GGUF (quantized for efficient inference)
+    **Pipeline:** Text Generation
+    **Architecture:** Gemma-2-27B (27-billion parameter variant)
+    **Description:** A high-performance, quantized version of the C2S-Scale-Gemma-2-27B model, fine-tuned for enhanced text generation capabilities. Ideal for local inference on consumer hardware due to its GGUF quantization. Designed for researchers, developers, and AI enthusiasts seeking a balance between model size, speed, and quality. Built upon the open-source Gemma-2 architecture, this model excels in reasoning, code generation, and natural language understanding.
+
+    > 📌 *Note: This is a quantized version. The original model can be found at [vandijklab/C2S-Scale-Gemma-2-27B](https://huggingface.co/vandijklab/C2S-Scale-Gemma-2-27B) for full-precision use.*
+  overrides:
+    parameters:
+      model: csabakecskemeti/vandijklab.C2S-Scale-Gemma-2-27B-GGUF
