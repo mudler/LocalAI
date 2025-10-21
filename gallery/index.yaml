@@ -22263,3 +22263,36 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *lfm2
+  name: "lfm2-2.6b"
+  urls:
+    - https://huggingface.co/Mungert/LFM2-2.6B-GGUF
+  description: |
+    **Model Name:** LFM2-2.6B
+    **Author:** Liquid AI
+    **License:** LFM Open License v1.0
+    **Size:** 2.6 billion parameters
+    **Architecture:** Hybrid model with multiplicative gates and short convolutions (22 convolutional blocks + 8 grouped query attention blocks)
+    **Context Length:** 32,768 tokens
+    **Supported Languages:** English, Arabic, Chinese, French, German, Japanese, Korean, Spanish
+    **Precision:** bfloat16
+    **Key Features:**
+    - Designed for edge AI and on-device deployment (CPU, GPU, NPU)
+    - 3x faster training and 2x faster decode/prefill speed on CPU vs. Qwen3
+    - Outperforms similarly sized models in knowledge, math, instruction following, and multilingual tasks
+    - Supports dynamic hybrid reasoning for complex or multilingual prompts
+    - Includes tool-use capabilities with structured function calling via ChatML-like template
+
+    **Use Cases:** Agentic workflows, data extraction, RAG, creative writing, and multi-turn conversations. Best fine-tuned for narrow, domain-specific tasks.
+
+    **Original Repository:** [LiquidAI/LFM2-2.6B](https://huggingface.co/LiquidAI/LFM2-2.6B)
+    **Quantized Version:** [Mungert/LFM2-2.6B-GGUF](https://huggingface.co/Mungert/LFM2-2.6B-GGUF) (not original)
+
+    > ✅ *This is the unquantized, original model description. The GGUF version is a quantized derivative and should not be used for authoritative model details.*
+  overrides:
+    parameters:
+      model: LFM2-2.6B-q4_k_m.gguf
+  files:
+    - filename: LFM2-2.6B-q4_k_m.gguf
+      sha256: 27ef961737756a3a1e0fee5fd1c2eec1963ce48655952fb32df44aa0b118cdc1
+      uri: huggingface://Mungert/LFM2-2.6B-GGUF/LFM2-2.6B-q4_k_m.gguf
