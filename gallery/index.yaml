@@ -22315,3 +22315,12 @@
     - filename: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
       sha256: b1019b160e4a612d91edd77f00bea01f3f276ecc8ab76de526b7bf356d4c8079
       uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF/Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ring-flash-2.0-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Ring-flash-2.0-MXFP4_MOE-GGUF
+  description: |
+    AI model: ring-flash-2.0-mxfp4_moe
+  overrides:
+    parameters:
+      model: noctrex/Ring-flash-2.0-MXFP4_MOE-GGUF
