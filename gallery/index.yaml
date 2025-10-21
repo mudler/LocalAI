@@ -22263,3 +22263,37 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "vandijklab.c2s-scale-gemma-2-27b"
+  urls:
+    - https://huggingface.co/csabakecskemeti/vandijklab.C2S-Scale-Gemma-2-27B-GGUF
+  description: |
+    **Model Name:** C2S-Scale-Gemma-2-27B
+    **Base Model:** Google Gemma-2 27B
+    **Task:** Text Generation (Single-Cell Biology)
+    **Repository:** [vandijklab/C2S-Scale-Gemma-2-27B](https://huggingface.co/vandijklab/C2S-Scale-Gemma-2-27B)
+    **License:** CC-BY-4.0
+
+    **Description:**
+    C2S-Scale-Gemma-2-27B is a state-of-the-art language model fine-tuned for single-cell genomics, built on the open Gemma-2 27B architecture. It translates gene expression profiles into “cell sentences” — ordered sequences of gene names — enabling advanced biological analysis.
+
+    Trained on over 57 million cells from public datasets (Human Cell Atlas, CellxGene), this model excels in cell type prediction, tissue classification, biomarker discovery, and in-silico perturbation simulation. Designed for computational biology, it bridges transcriptomics and natural language processing, offering powerful tools for researchers in genomics, bioinformatics, and systems biology.
+
+    **Key Features:**
+    - Fine-tuned for single-cell RNA-seq analysis
+    - Supports instruction-based tasks like cell annotation and generation
+    - Trained using JAX on Google TPU v5s
+    - Open weights with CC-BY-4.0 license
+
+    **Use Case:** Ideal for annotating large-scale scRNA-seq datasets, hypothesis generation, and as a foundation for domain-specific fine-tuning.
+
+    **Citation:**
+    Rizvi et al., *Scaling Large Language Models for Next-Generation Single-Cell Analysis*, bioRxiv (2025).
+    [https://doi.org/10.1101/2025.04.14.648850](https://doi.org/10.1101/2025.04.14.648850)
+  overrides:
+    parameters:
+      model: vandijklab.C2S-Scale-Gemma-2-27B.Q4_K_M.gguf
+  files:
+    - filename: vandijklab.C2S-Scale-Gemma-2-27B.Q4_K_M.gguf
+      sha256: 84fd3816c58e1e0ff17da0325b403a9cef39079001d2b0ace2a0eaab6c5656cd
+      uri: huggingface://csabakecskemeti/vandijklab.C2S-Scale-Gemma-2-27B-GGUF/vandijklab.C2S-Scale-Gemma-2-27B.Q4_K_M.gguf
