@@ -22290,3 +22290,28 @@
     - filename: John1604-AI-status-japanese-2025.Q4_K_M.gguf
       sha256: 1cf8f947d1caf9e0128ae46987358fd8f2a4c8574564ebb0de3c979d1d2f66cb
       uri: huggingface://mradermacher/John1604-AI-status-japanese-2025-GGUF/John1604-AI-status-japanese-2025.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "simia-tau-sft-qwen3-8b"
+  urls:
+    - https://huggingface.co/mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF
+  description: |
+    The **Simia-Tau-SFT-Qwen3-8B** is a fine-tuned version of the Qwen3-8B language model, developed by Simia-Agent and adapted for enhanced instruction-following capabilities. This model is optimized for dialogue and task-oriented interactions, making it highly effective for real-world applications requiring nuanced understanding and coherent responses.
+
+    The model is available in multiple quantized formats (GGUF), including Q4_K_S, Q5_K_M, Q8_0, and others, enabling efficient deployment across devices with varying computational resources. These quantized versions maintain strong performance while reducing memory footprint and inference latency.
+
+    While this repository hosts a quantized variant (specifically designed for GGUF-based inference via tools like llama.cpp), the original base model is **Qwen3-8B**, a large-scale open-source language model from Alibaba Cloud. The fine-tuning (SFT) process improves its alignment with human intent and enhances its ability to follow complex instructions.
+
+    > 🔍 **Note**: This is a quantized version; for the full-precision base model, refer to [Simia-Agent/Simia-Tau-SFT-Qwen3-8B](https://huggingface.co/Simia-Agent/Simia-Tau-SFT-Qwen3-8B) on Hugging Face.
+
+    **Use Case**: Ideal for chatbots, assistant systems, and interactive applications requiring strong reasoning, safety, and fluency.
+    **Model Size**: 8B parameters (quantized for efficiency).
+    **License**: See the original model's license (typically Apache 2.0 for Qwen series).
+
+    👉 Recommended for edge deployment with GGUF-compatible tools.
+  overrides:
+    parameters:
+      model: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
+  files:
+    - filename: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
+      sha256: b1019b160e4a612d91edd77f00bea01f3f276ecc8ab76de526b7bf356d4c8079
+      uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF/Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
