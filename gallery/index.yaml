@@ -22315,3 +22315,41 @@
     - filename: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
       sha256: b1019b160e4a612d91edd77f00bea01f3f276ecc8ab76de526b7bf356d4c8079
       uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF/Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-coder-reap-25b-a3b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-Coder-REAP-25B-A3B (Base Model: cerebras/Qwen3-Coder-REAP-25B-A3B)
+    **Model Type:** Large Language Model (LLM) for Code Generation
+    **Architecture:** Mixture-of-Experts (MoE) – Qwen3-Coder variant
+    **Size:** 25B parameters (with 3 active experts at inference time)
+    **License:** Apache 2.0
+    **Library:** Hugging Face Transformers
+    **Language Support:** Primarily English, optimized for coding tasks across multiple programming languages
+
+    **Description:**
+    The **Qwen3-Coder-REAP-25B-A3B** is a high-performance, open-source, Mixture-of-Experts (MoE) language model developed by Cerebras Systems, specifically fine-tuned for advanced code generation and reasoning. Built on the Qwen3 architecture, this model excels in understanding complex codebases, generating syntactically correct and semantically meaningful code, and solving programming challenges across diverse domains.
+
+    This version is the **original, unquantized base model** and serves as the foundation for various quantized GGUF variants (e.g., by mradermacher), which are optimized for local inference with reduced memory footprint while preserving strong performance.
+
+    Ideal for developers, AI researchers, and engineers working on code completion, debugging, documentation generation, and automated software development workflows.
+
+    ✅ **Key Features:**
+    - State-of-the-art code generation
+    - 25B parameter scale with expert routing
+    - MoE architecture for efficient inference
+    - Full compatibility with Hugging Face Transformers
+    - Designed for real-world coding tasks
+
+    **Base Model Repository:** [cerebras/Qwen3-Coder-REAP-25B-A3B](https://huggingface.co/cerebras/Qwen3-Coder-REAP-25B-A3B)
+    **Quantized Versions:** Available via [mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF) (for local inference with GGUF)
+
+    > 🔍 **Note:** The quantized versions (e.g., GGUF) are optimized for performance on consumer hardware and are not the original model. For the full, unquantized model description, refer to the base model above.
+  overrides:
+    parameters:
+      model: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+  files:
+    - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+      sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
+      uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
