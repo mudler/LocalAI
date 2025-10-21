@@ -22353,3 +22353,29 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *mistral03
+  name: "swe-oec-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/swe-oec-32b-i1-GGUF
+  description: |
+    **Model Name:** SWE-OEC-32B
+    **Base Model:** ScaleAI/swe-oec-32b
+    **Model Type:** Large language model (LLM) based on the Mistral architecture
+    **Size:** 32 billion parameters
+    **Language:** English
+    **License:** MIT
+    **Repository:** [ScaleAI/swe-oec-32b](https://huggingface.co/ScaleAI/swe-oec-32b)
+
+    **Description:**
+    SWE-OEC-32B is a high-performance 32-billion-parameter language model developed by ScaleAI, fine-tuned for software engineering tasks. It excels in code generation, understanding, debugging, and documentation. Trained on a large corpus of code and related documentation, it is optimized for real-world developer workflows and supports complex reasoning over codebases.
+
+    This model is ideal for developers and AI-powered tools requiring accurate, context-aware code synthesis and analysis. It is suitable for applications such as intelligent code assistants, automated code review, and technical documentation generation.
+
+    > 📌 **Note:** The model available at `mradermacher/swe-oec-32b-i1-GGUF` is a quantized version of this base model, optimized for efficient inference on consumer hardware. The original, unquantized model is hosted at `ScaleAI/swe-oec-32b`.
+  overrides:
+    parameters:
+      model: swe-oec-32b.i1-Q4_K_M.gguf
+  files:
+    - filename: swe-oec-32b.i1-Q4_K_M.gguf
+      sha256: ec4be316cce8ddc4202b216382e10fa4371a0bc1b7237c6de7d018261b3fa9b1
+      uri: huggingface://mradermacher/swe-oec-32b-i1-GGUF/swe-oec-32b.i1-Q4_K_M.gguf
