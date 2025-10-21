@@ -22263,3 +22263,27 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "svila-1-12b"
+  urls:
+    - https://huggingface.co/mradermacher/SVILA-1-12B-GGUF
+  description: |
+    **SVILA-1-12B** is a vision-language model (VLM) specifically fine-tuned for the **Slovenian language**, based on **Google's Gemma-3-12B-IT**. It excels in multimodal understanding, capable of interpreting both text and images in Slovenian. The model was trained on a curated dataset of text-image pairs in Slovenian using supervised fine-tuning (SFT), enabling it to perform tasks such as image captioning, visual question answering, and multimodal reasoning in the target language.
+
+    This model is ideal for applications requiring robust, language-specific visual understanding in Slovenian, making it a key resource for NLP and computer vision in under-resourced languages.
+
+    **Key Features:**
+    - Language: Slovenian
+    - Base Model: Google Gemma-3-12B-IT
+    - Training: Fine-tuned on a curated Slovenian text-image dataset
+    - Capabilities: Image captioning, visual QA, multimodal reasoning
+    - Use Case: Multilingual AI with strong support for Slovenian
+
+    *Note: The GGUF quantized version available at `mradermacher/SVILA-1-12B-GGUF` is a user-converted, optimized variant for local inference; this description refers to the original model by GaMS-Beta.*
+  overrides:
+    parameters:
+      model: SVILA-1-12B.Q4_K_M.gguf
+  files:
+    - filename: SVILA-1-12B.Q4_K_M.gguf
+      sha256: 9f28190036d28f3f43e996b538b56c5a4462fb9c7d02cb583cbdaad490923438
+      uri: huggingface://mradermacher/SVILA-1-12B-GGUF/SVILA-1-12B.Q4_K_M.gguf
