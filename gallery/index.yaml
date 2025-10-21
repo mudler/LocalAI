@@ -22353,3 +22353,26 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "fare-20b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/FARE-20B-i1-GGUF
+  description: |
+    **FARE-20B** is a 20-billion-parameter multi-task generative evaluator model developed by Salesforce, trained to autonomously assess AI-generated responses across diverse reasoning-centric domains. Built upon the **gpt-oss-20B** foundation, it is fine-tuned using rejection-sampling supervised fine-tuning (SFT) to perform critical evaluation tasks such as pairwise comparisons, step-level error identification, reference-based and reference-free verification, and single-rating assessments.
+
+    Designed for use in AI evaluation pipelines, FARE-20B excels at identifying logical inconsistencies, factual inaccuracies, and reasoning flaws in model outputs. It follows structured prompt templates to ensure impartial, explainable judgments—making it ideal for benchmarking and improving other large language models.
+
+    This model is released for research purposes only and should be evaluated carefully for accuracy, safety, and fairness before deployment. It is particularly suited for high-stakes reasoning evaluation scenarios where reliable automated feedback is essential.
+
+    🔹 **Base Model**: gpt-oss-20B
+    🔹 **Training Data**: Multi-task, multi-domain mixture with expert-curated evaluation signals
+    🔹 **Use Case**: Automated, scalable AI evaluation for reasoning, math, and complex decision-making tasks
+    🔹 **License**: CC-BY-NC-4.0 (non-commercial use)
+    🔹 **Paper**: [Foundational Automatic Evaluators: Scaling Multi-Task Generative Evaluator Training for Reasoning-Centric Domains](https://arxiv.org/abs/2510.17793)
+  overrides:
+    parameters:
+      model: FARE-20B.i1-Q4_K_M.gguf
+  files:
+    - filename: FARE-20B.i1-Q4_K_M.gguf
+      sha256: e0435c9bd212dca07c6f0c608f06634af07b1546d22d0b408707382d08110f44
+      uri: huggingface://mradermacher/FARE-20B-i1-GGUF/FARE-20B.i1-Q4_K_M.gguf
