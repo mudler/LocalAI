@@ -22353,3 +22353,12 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "testing-preview-001s"
+  urls:
+    - https://huggingface.co/kromquant/testing-preview-001-GGUFs
+  description: |
+    AI model: testing-preview-001s
+  overrides:
+    parameters:
+      model: kromquant/testing-preview-001-GGUFs
