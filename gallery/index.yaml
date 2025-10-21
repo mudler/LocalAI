@@ -22290,3 +22290,34 @@
     - filename: John1604-AI-status-japanese-2025.Q4_K_M.gguf
       sha256: 1cf8f947d1caf9e0128ae46987358fd8f2a4c8574564ebb0de3c979d1d2f66cb
       uri: huggingface://mradermacher/John1604-AI-status-japanese-2025-GGUF/John1604-AI-status-japanese-2025.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "simia-tau-sft-qwen3-8b"
+  urls:
+    - https://huggingface.co/mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF
+  description: |
+    **Model Name:** Qwen3-8B
+    **Base Model:** Qwen/Qwen3-8B-Base
+    **License:** Apache 2.0
+
+    **Description:**
+    Qwen3-8B is a high-performance 8.2-billion-parameter language model from the Qwen series, designed for superior reasoning, instruction following, and agentic capabilities. It uniquely supports seamless switching between **thinking mode** (ideal for complex reasoning, math, and coding) and **non-thinking mode** (optimized for efficient dialogue and general tasks) within a single model.
+
+    Key Features:
+    - **Advanced Reasoning**: Outperforms prior models in logic, math, and code generation.
+    - **Multilingual Support**: Strong performance across 100+ languages.
+    - **Agent Capabilities**: Excels in tool integration and autonomous task execution.
+    - **Long Context Handling**: Native support for up to 32,768 tokens, extendable to 131,072 via YaRN scaling.
+    - **Open-Source & Deployable**: Fully compatible with Hugging Face, vLLM, SGLang, llama.cpp, and more.
+
+    **Use Cases:**
+    Ideal for research, chatbots, code generation, automated reasoning, and agent-based systems requiring both precision and efficiency.
+
+    **Base Model:** [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
+    **Documentation & Blog:** [qwenlm.github.io](https://qwenlm.github.io)
+  overrides:
+    parameters:
+      model: Simia-Tau-SFT-Qwen3-8B.Q4_K_M.gguf
+  files:
+    - filename: Simia-Tau-SFT-Qwen3-8B.Q4_K_M.gguf
+      sha256: 3a47e55e963044e19a034b19697256e028b82160f74d3e9bc80e77d88d8f5c81
+      uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF/Simia-Tau-SFT-Qwen3-8B.Q4_K_M.gguf
