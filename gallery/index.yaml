@@ -22263,3 +22263,32 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/csabakecskemeti/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Base Model:** inclusionAI/Ring-1T
+    **Architecture:** Ling 2.0 (Mixture of Experts, MoE)
+    **Parameters:** 1 trillion total (50 billion activated per token)
+    **Context Length:** Up to 128K tokens (supports YaRN for extended context)
+    **Training:** Trained on Ling-1T-base foundation model with large-scale Verifiable Reward Reinforcement Learning (RLVR), fine-tuned via RLHF
+    **Key Features:**
+    - State-of-the-art performance in math reasoning (AIME, HMMT), code generation (LiveCodeBench, CodeForce), and logical inference (ARC-AGI-1)
+    - Achieved silver medal-level performance on IMO 2025 problems using pure natural language reasoning
+    - Demonstrates strong performance in ICPC World Finals 2025 programming challenges
+    - Built with proprietary Icepop RL stabilization and ASystem reinforcement learning framework
+    - Optimized for long-context tasks with YaRN scaling support
+    - Available in FP8 and BF16 variants
+
+    **Use Cases:** Advanced reasoning, long-form content generation, complex problem-solving, research, and high-level AI experimentation
+
+    **License:** MIT
+    **Repository:** [inclusionAI/Ring-1T on Hugging Face](https://huggingface.co/inclusionAI/Ring-1T)
+    **Try Online:** [ZenMux](https://zenmux.ai/inclusionai/ring-1t)
+
+    *Note: This is the original, unquantized base model. The GGUF version (csabakecskemeti/inclusionAI.Ring-1T-GGUF) is a quantized variant for local inference.*
+  overrides:
+    parameters:
+      model: csabakecskemeti/inclusionAI.Ring-1T-GGUF
