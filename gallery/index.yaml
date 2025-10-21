@@ -22353,3 +22353,24 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ms3.2-24b-solar-skies-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF
+  description: |
+    **MS3.2-24B-Solar-Skies** is a high-capacity, creatively refined language model created by merging three powerful base models: *The Omega Directive*, *Fiery Lynx*, and *Chaos Skies*. Built using Multi-SLERP fusion with MergeKit, it balances intellectual depth, expressive storytelling, and emotional nuance.
+
+    This model excels in **philosophical dialogue**, **narrative writing**, and **character-driven roleplay**, delivering rich, stylistically vibrant responses with a poetic yet logical tone. Designed for creative and reflective use, it stands out as a top-tier choice for immersive storytelling and deep conversation.
+
+    *Base models:* ReadyArt/MS3.2-The-Omega-Directive-24B-Unslop-v2.0, Vortex5/MS3.2-24B-Fiery-Lynx, Vortex5/MS3.2-24B-Chaos-Skies
+    *Architecture:* Llama 3 (24B)
+    *Use case:* Creative writing, roleplay, introspective dialogue, and narrative generation
+
+    Ideal for users seeking a model that blends intelligence with imagination under "boundless skies" of expression.
+  overrides:
+    parameters:
+      model: MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
+  files:
+    - filename: MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
+      sha256: de31113f96c4ffba0b4c7e7a9e227da2ac4950ca9317a086837134e98574596b
+      uri: huggingface://mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF/MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
