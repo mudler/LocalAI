@@ -22353,3 +22353,29 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ms3.2-24b-solar-skies-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF
+  description: |
+    **MS3.2-24B-Solar-Skies** is a high-performance, 24-billion-parameter language model created through a sophisticated multi-model merge using **Multi-SLERP**. It synthesizes the strengths of three distinct base models:
+
+    - **The Omega Directive** (intellectual depth and reasoning)
+    - **Fiery Lynx** (expressive, creative prose)
+    - **Chaos Skies** (balanced, adaptive personality and narrative flow)
+
+    This fusion results in a model uniquely suited for **creative writing, philosophical dialogue, and immersive roleplay**, delivering rich, stylistically nuanced, and emotionally resonant responses. Designed for expressive storytelling and deep interaction, it excels in both analytical and imaginative tasks.
+
+    🔹 **Base Models**: ReadyArt/MS3.2-The-Omega-Directive-24B-Unslop-v2.0, Vortex5/MS3.2-24B-Fiery-Lynx, Vortex5/MS3.2-24B-Chaos-Skies
+    🔹 **Merge Method**: Multi-SLERP with per-layer weight tuning
+    🔹 **Library**: Transformers (bfloat16 precision)
+    🔹 **Best For**: Narrative writing, character roleplay, reflective conversation, and creative exploration
+
+    > *“Bright minds under boundless skies — where every conversation becomes a sunrise of imagination.”*
+  overrides:
+    parameters:
+      model: MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
+  files:
+    - filename: MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
+      sha256: de31113f96c4ffba0b4c7e7a9e227da2ac4950ca9317a086837134e98574596b
+      uri: huggingface://mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF/MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
