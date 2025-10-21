@@ -22353,3 +22353,45 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ms3.2-24b-solar-skies-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF
+  description: |
+    **Model Name:** MS3.2-24B-Solar-Skies
+    **Model Type:** Large Language Model (LLM) – Merged via MergeKit
+    **Base Models:**
+    - ReadyArt/MS3.2-The-Omega-Directive-24B-Unslop-v2.0 (intellectual depth)
+    - Vortex5/MS3.2-24B-Fiery-Lynx (creative expression)
+    - Vortex5/MS3.2-24B-Chaos-Skies (balanced reasoning)
+
+    **Architecture:** 24-billion-parameter LLM based on the Llama family (likely Llama-3 or similar), fine-tuned through **Multi-SLERP merging** for enhanced coherence, creativity, and emotional resonance.
+
+    **Key Features:**
+    - 🌟 Balanced blend of analytical rigor and expressive storytelling
+    - ✍️ Exceptional for reflective dialogue, narrative writing, and roleplay
+    - 🎯 Optimized for character-driven interactions with nuanced emotional depth
+    - 📚 Trained on diverse, high-quality datasets for rich language modeling
+
+    **Use Cases:**
+    - Creative writing & worldbuilding
+    - Philosophical and introspective conversations
+    - Character roleplay with depth and consistency
+    - High-quality reasoning with stylistic flair
+
+    **Quantized by:** mradermacher (GGUF format, available in multiple quants)
+    **Original Merge by:** Vortex5 (via MergeKit)
+
+    > *“Bright minds under boundless skies — where every conversation becomes a sunrise of imagination.”*
+
+    🔗 **Original Repository:** [Vortex5/MS3.2-24B-Solar-Skies](https://huggingface.co/Vortex5/MS3.2-24B-Solar-Skies)
+    📦 **Quantized Versions:** [mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF](https://huggingface.co/mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF)
+
+    *Note: This is a merged model — not a base model. The original unquantized, full-precision version is available in the base repository above.*
+  overrides:
+    parameters:
+      model: MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
+  files:
+    - filename: MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
+      sha256: de31113f96c4ffba0b4c7e7a9e227da2ac4950ca9317a086837134e98574596b
+      uri: huggingface://mradermacher/MS3.2-24B-Solar-Skies-i1-GGUF/MS3.2-24B-Solar-Skies.i1-Q4_K_M.gguf
