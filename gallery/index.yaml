@@ -22315,3 +22315,32 @@
     - filename: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
       sha256: b1019b160e4a612d91edd77f00bea01f3f276ecc8ab76de526b7bf356d4c8079
       uri: huggingface://mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF/Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "swe-oec-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/swe-oec-32b-i1-GGUF
+  description: |
+    **Model Name:** Swe-OEC 32B (Base Model: ScaleAI/swe-oec-32b)
+    **Model Type:** Large Language Model (LLM)
+    **Base Model:** ScaleAI/swe-oec-32b
+    **Quantization:** GGUF format, optimized with imatrix (improved quantization quality)
+    **Author:** mradermacher (quantized and hosted on Hugging Face)
+    **License:** MIT
+
+    **Description:**
+    This is a **GGUF-quantized version** of the **ScaleAI/swe-oec-32b** language model, originally developed by ScaleAI. The base model is a 32-billion parameter language model trained on a diverse corpus of multilingual text, designed for high-performance reasoning, code generation, and general-purpose NLP tasks.
+
+    The model is available in multiple quantized variants (e.g., Q2_K, Q4_K_M, IQ3_M, etc.), with this particular release featuring **imatrix quantization**—a technique that improves the quality of quantized models by learning optimal weight quantization patterns. This version includes an imatrix file for advanced users who want to generate custom, high-quality quantizations.
+
+    While this repository is hosted by mradermacher and contains quantized, optimized files for efficient inference (especially on consumer hardware), **the original, full-precision base model** remains at: [https://huggingface.co/ScaleAI/swe-oec-32b](https://huggingface.co/ScaleAI/swe-oec-32b).
+
+    Perfect for developers and researchers looking to deploy a powerful, efficient, and high-quality LLM locally with minimal hardware.
+
+    > 🔍 *Note: This is a quantized version—use the original ScaleAI/swe-oec-32b repository for the full-precision, unquantized model.*
+  overrides:
+    parameters:
+      model: swe-oec-32b.i1-Q4_K_S.gguf
+  files:
+    - filename: swe-oec-32b.i1-Q4_K_S.gguf
+      sha256: 01c233f32bac3b99972fc73ff83f26a5cdc9d7e965ffdd1efdb7084a9a716c61
+      uri: huggingface://mradermacher/swe-oec-32b-i1-GGUF/swe-oec-32b.i1-Q4_K_S.gguf
