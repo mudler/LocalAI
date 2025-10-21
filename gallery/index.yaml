@@ -22263,3 +22263,20 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-4b"
+  urls:
+    - https://huggingface.co/freestuff2875/Qwen3-4B-Q4_K_M-GGUF
+  description: |
+    **Qwen3-4B** is a 4-billion-parameter large language model from the Qwen series, designed for high-performance reasoning, instruction following, and multilingual capabilities. It supports seamless switching between **thinking mode** (for complex reasoning, math, and coding) and **non-thinking mode** (for efficient dialogue), making it versatile across diverse tasks. With a native context length of 32,768 tokens—extendable to 131,072 via YaRN scaling—it excels in long-form content generation and agent-based applications. The model is optimized for real-world use with strong alignment to human preferences, excellent tool integration, and support for over 100 languages. Ideal for developers, researchers, and enterprises seeking a compact yet powerful open-source model for advanced AI applications.
+
+    *Base model: Qwen/Qwen3-4B*
+    *Architecture: Causal Transformer (GQA)*
+    *Use Case: Text generation, reasoning, coding, multilingual dialogue, agent workflows*
+  overrides:
+    parameters:
+      model: qwen3-4b-q4_k_m.gguf
+  files:
+    - filename: qwen3-4b-q4_k_m.gguf
+      sha256: f57b56710b6e27b5a6bca259f0748c6a6b1c829a49cf2828f05849f7dbcef031
+      uri: huggingface://freestuff2875/Qwen3-4B-Q4_K_M-GGUF/qwen3-4b-q4_k_m.gguf
