@@ -22263,3 +22263,16 @@
     - filename: Spanish_RPG-3.2-1B-Q4_K_M.gguf
       sha256: 8238c55d3134aecdabffacad8837479bcf3f7454c145ea037325fa22d82373c3
       uri: huggingface://Novaciano/Spanish_RPG-3.2-1B-GGUF/Spanish_RPG-3.2-1B-Q4_K_M.gguf
+- !!merge <<: *codellama
+  name: "swe-oec-7b"
+  urls:
+    - https://huggingface.co/mradermacher/swe-oec-7b-GGUF
+  description: |
+    The **SWE-OEC-7B** model is a 7-billion-parameter language model developed by ScaleAI, designed for code generation and understanding. It is based on the Mistral architecture and trained on a diverse mix of code and natural language data, making it particularly effective for software engineering tasks. This specific repository contains a quantized version of the model (in GGUF format), optimized for efficient inference on consumer hardware. The original model, available at `ScaleAI/swe-oec-7b`, is the base version from which all quantizations are derived. The model supports multiple quantization levels (e.g., Q4_K_S, Q5_K_M, Q8_0), allowing users to balance performance, speed, and model accuracy based on their hardware and use case. It is ideal for developers seeking a high-performing, open-source code model for coding assistance, code completion, and code analysis.
+  overrides:
+    parameters:
+      model: swe-oec-7b.Q4_K_M.gguf
+  files:
+    - filename: swe-oec-7b.Q4_K_M.gguf
+      sha256: 141eb387b8ee73ce0995a9c65fc5a94f21394017a1ac5250e868c243c57535da
+      uri: huggingface://mradermacher/swe-oec-7b-GGUF/swe-oec-7b.Q4_K_M.gguf
