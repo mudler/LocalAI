@@ -22414,3 +22414,12 @@
     - filename: Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
       sha256: 61ff525013e069bdef0c20d01a8a956f0b6b26cd1f2923b8b54365bf2439cce3
       uri: huggingface://mradermacher/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32-GGUF/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF
+  description: |
+    AI model: huihui-qwen3-vl-30b-a3b-instruct-abliterated-mxfp4_moe
+  overrides:
+    parameters:
+      model: noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF
