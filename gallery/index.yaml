@@ -22353,3 +22353,64 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-6b-almost-human-xmen-x4-x2-x1-dare-e32"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32-GGUF
+  description: |
+    **Model Name:** Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32
+    **Author:** DavidAU (based on original Qwen3-6B architecture)
+    **Repository:** [DavidAU/Qwen3-Almost-Human-XMEN-X4-X2-X1-Dare-e32](https://huggingface.co/DavidAU/Qwen3-Almost-Human-XMEN-X4-X2-X1-Dare-e32)
+    **Base Model:** Qwen3-6B (original Qwen3 6B from Alibaba)
+    **License:** Apache 2.0
+    **Quantization Status:** Full-precision (float32) source model available; GGUF quantizations also provided by third parties (e.g., mradermacher)
+
+    ---
+
+    ### 🌟 Model Description
+
+    **Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32** is a creatively enhanced, instruction-tuned variant of the Qwen3-6B model, meticulously fine-tuned to emulate the literary voice and psychological depth of **Philip K. Dick**. Developed by DavidAU using **Unsloth** and trained on multiple proprietary datasets—including works of PK Dick, personal notes, letters, and creative writing—this model excels in **narrative richness, emotional nuance, and complex reasoning**.
+
+    It is the result of a **"DARE-TIES" merge** combining four distinct training variants: X4, X2, and two X1 models, with the final fusion mastered in **32-bit precision (float32)** for maximum fidelity. The model incorporates **Brainstorm 20x**, a novel reasoning enhancement technique that expands and recalibrates the model’s internal reasoning centers 20 times to improve coherence, detail, and creative depth—without compromising instruction-following.
+
+    ---
+
+    ### ✨ Key Features
+
+    - **Enhanced Prose & Storytelling:** Generates vivid, immersive, and deeply human-like narratives with foreshadowing, similes, metaphors, and emotional engagement.
+    - **Strong Reasoning & Creativity:** Ideal for brainstorming, roleplay, long-form writing, and complex problem-solving.
+    - **High Context (256K):** Supports extensive conversations and long-form content.
+    - **Optimized for Creative & Coding Tasks:** Performs exceptionally well with detailed prompts and step-by-step refinement.
+    - **Full-Precision Source Available:** Original float32 model is provided—ideal for advanced users and model developers.
+
+    ---
+
+    ### 🛠️ Recommended Use Cases
+
+    - Creative writing & fiction generation
+    - Roleplaying and character-driven dialogue
+    - Complex brainstorming and ideation
+    - Code generation with narrative context
+    - Literary and philosophical exploration
+
+    > 🔍 **Note:** The GGUF quantized version (e.g., by mradermacher) is **not the original**—it’s a derivative. For the **true base model**, use the **DavidAU/Qwen3-Almost-Human-X1-6B-e32** repository, which hosts the original, full-precision model.
+
+    ---
+
+    ### 📌 Tips for Best Results
+
+    - Use **CHATML or Jinja templates**
+    - Set `temperature: 0.3–0.7`, `top_p: 0.8`, `repetition_penalty: 1.05–1.1`
+    - Enable **smoothing factor (1.5)** in tools like KoboldCpp or Text-Gen-WebUI for smoother output
+    - Use **Q6 or Q8 GGUF quants** for best performance on complex tasks
+
+    ---
+
+    ✨ **In short:** A poetic, introspective, and deeply human-like AI—crafted to feel like a real mind, not just a machine. Perfect for those who want **intelligence with soul**.
+  overrides:
+    parameters:
+      model: Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
+      sha256: 61ff525013e069bdef0c20d01a8a956f0b6b26cd1f2923b8b54365bf2439cce3
+      uri: huggingface://mradermacher/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32-GGUF/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
