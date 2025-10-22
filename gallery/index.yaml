@@ -22440,3 +22440,32 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Repository:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **License:** MIT
+    **Pipeline:** Text Generation
+    **Architecture:** Ling 2.0 (MoE-based)
+    **Parameters:** 1 trillion total (50 billion activated)
+    **Context Length:** Up to 128K tokens (with YaRN scaling)
+
+    **Description:**
+    Ring-1T is a trillion-parameter open-source reasoning model developed by inclusionAI, designed for advanced natural language understanding and deep thinking. Built on the Ling-1T-base foundation and trained with large-scale verifiable reward reinforcement learning (RLVR), it excels in complex reasoning tasks including math competitions (AIME, HMMT), code generation (LiveCodeBench, CodeForces), logical inference (ARC-AGI), and creative writing.
+
+    It demonstrates state-of-the-art performance among open-source models, solving multiple problems from the IMO 2025 in single attempts and achieving strong results in the ICPC World Finals. The model features a highly optimized training pipeline using the in-house ASystem framework and the Icepop stabilization method, enabling stable training at trillion-parameter scale.
+
+    Available for download via Hugging Face and ModelScope, Ring-1T supports deployment with vLLM, SGLang, and other inference engines. Ideal for researchers, developers, and AI practitioners seeking powerful, open reasoning capabilities.
+
+    **Try it live:** [ZenMux](https://zenmux.ai/inclusionai/ring-1t?utm_source=hf_inclusionAI) | [Ling Chat](https://ling.tbox.cn/chat)
+    **Recommended settings:** `temperature=0.6`, `top_p=0.95`
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q2_K-00001-of-00029.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q2_K-00001-of-00029.gguf
+      sha256: 9f56191e4987de5ca3d82233b333f3300e39a85a9bb78957ff9f11a868bc56f5
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q2_K-00001-of-00029.gguf
