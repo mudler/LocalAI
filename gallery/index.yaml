@@ -22353,3 +22353,35 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *qwen25
+  name: "ring-flash-2.0"
+  urls:
+    - https://huggingface.co/redponike/Ring-flash-2.0-GGUF
+  description: |
+    **Model Name:** Ling-flash-base-2.0
+    **Repository:** [inclusionAI/Ling-flash-base-2.0](https://huggingface.co/inclusionAI/Ling-flash-base-2.0)
+    **License:** MIT
+
+    **Description:**
+    Ling-flash-base-2.0 is a high-performance, 100B-parameter Mixture-of-Experts (MoE) language model with only **6.1B activated parameters per inference**, enabling efficient and scalable reasoning. Trained on over 20T high-quality tokens, it achieves state-of-the-art performance among models under 40B parameters, excelling in complex reasoning, code generation, mathematical problem solving, and logical tasks.
+
+    Built on the optimized Ling 2.0 architecture, it features a 1/32 expert activation ratio, MTP layers, and a sigmoid routing strategy, delivering **up to 7× inference efficiency gains** over dense models. With support for up to **128K context length via YaRN extrapolation**, it's ideal for long-form reasoning and high-throughput applications.
+
+    **Key Features:**
+    - **Architecture:** MoE (100B total, 6.1B activated)
+    - **Context Length:** Up to 128K (via YaRN)
+    - **Performance:** SOTA on MMLU-Pro, AIME, Omni-MATH, LiveCodeBench, GPQA-Diamond, and more
+    - **Speed:** Over 200 tokens/sec on H20 hardware
+    - **Deployment:** Supports vLLM, SGLang, and Hugging Face Transformers
+    - **Use Cases:** Complex reasoning, code generation, creative writing, and enterprise applications
+
+    Perfect for developers and researchers seeking a powerful, efficient, and scalable model for advanced AI tasks.
+
+    👉 [Download on Hugging Face](https://huggingface.co/inclusionAI/Ling-flash-base-2.0) | [ModelScope (China)](https://www.modelscope.cn/models/inclusionAI/Ling-flash-base-2.0)
+  overrides:
+    parameters:
+      model: Ring-flash-2.0-Q4_K_M-00001-of-00002.gguf
+  files:
+    - filename: Ring-flash-2.0-Q4_K_M-00001-of-00002.gguf
+      sha256: 3ece533d10ef7f761bb797c2f2aa94e7b2b2167e2d42c8e2420645e5e143830d
+      uri: huggingface://redponike/Ring-flash-2.0-GGUF/Ring-flash-2.0-Q4_K_M-00001-of-00002.gguf
