@@ -22353,3 +22353,46 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ling-mini-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-mini-2.0-i1-GGUF
+  description: |
+    **Model Name:** Ling-mini-2.0
+    **Author:** inclusionAI
+    **Base Model:** inclusionAI/Ling-mini-base-2.0
+    **License:** MIT
+
+    ---
+
+    ### 📌 Description
+
+    **Ling-mini-2.0** is a highly efficient, MoE (Mixture of Experts)-based large language model with **16 billion total parameters**, but only **1.4 billion activated per token** (non-embedding: 789M), achieving **7× equivalent dense performance**. Trained on over **20 trillion tokens**, it delivers top-tier reasoning capabilities—matching or surpassing much larger dense models—while enabling **fast inference at 300+ tokens/second**.
+
+    ### 🔑 Key Features:
+    - **Sparse MoE Architecture (1/32 activation ratio)**: High efficiency with strong performance.
+    - **128K context length** via YaRN, ideal for long-form content.
+    - **FP8 mixed-precision training** for lower memory usage and higher throughput.
+    - **Optimized for both inference and fine-tuning**, with full support via Hugging Face, vLLM, and SGLang.
+    - Open-sourced **pretraining checkpoints (5T, 10T, 15T, 20T)** and **training framework**.
+
+    ### 🎯 Best For:
+    - High-performance reasoning (math, coding, multi-step logic)
+    - Long-context applications
+    - Efficient deployment on limited hardware
+    - Research and fine-tuning with MoE architectures
+
+    ### 📥 Download
+    - **Model:** [Hugging Face](https://huggingface.co/inclusionAI/Ling-mini-2.0) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ling-mini-2.0)
+    - **Try online:** [ZenMux](https://zenmux.ai/inclusionai/ling-mini-2.0)
+
+    ---
+
+    *Note: The GGUF version (mradermacher/Ling-mini-2.0-i1-GGUF) is a quantized derivative by mradermacher and not the original model. Use the above base model for full performance and capabilities.*
+  overrides:
+    parameters:
+      model: Ling-mini-2.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Ling-mini-2.0.i1-Q4_K_M.gguf
+      sha256: 617415498ac590c2deb0b93b6a79a492751d689232d2cc9854c7ee607e5d5c99
+      uri: huggingface://mradermacher/Ling-mini-2.0-i1-GGUF/Ling-mini-2.0.i1-Q4_K_M.gguf
