@@ -22440,3 +22440,28 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Author:** inclusionAI
+    **Architecture:** Ling 2.0 (MoE-based, trillion-parameter model with 50B activated parameters)
+    **Context Length:** Up to 128K tokens (supports YaRN scaling)
+    **License:** MIT
+
+    **Description:**
+    Ring-1T is a trillion-parameter open-source reasoning model developed by inclusionAI, built upon the Ling-1T-base foundation. It excels in deep reasoning, mathematical problem solving (including IMO-level challenges), code generation, logical inference, and creative writing. Trained with large-scale verifiable reward reinforcement learning (RLVR) and the proprietary Icepop stabilization method, it achieves state-of-the-art performance among open-source models on benchmarks like AIME, ARC-AGI, LiveCodeBench, and Arena-Hard-v2.0.
+
+    The model is optimized for long-context tasks and supports deployment via vLLM, SGLang, and API (via ZenMux). Designed for research and production, Ring-1T represents a major leap in open-source AI capabilities, combining massive scale with robust reasoning and real-world problem-solving ability.
+
+    **Use Case:** Advanced reasoning, long-form content generation, programming, math & science problem solving, and research applications.
+    **Try It:** [Hugging Face](https://huggingface.co/inclusionAI/Ring-1T) | [ZenMux (Online)](https://zenmux.ai/inclusionai/ring-1t)
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q3_K_M-00001-of-00039.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q3_K_M-00001-of-00039.gguf
+      sha256: 4834a3991b670e89240e4d51a8f6b719ead7b75104f8fc6833e7b9f73a188f73
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q3_K_M-00001-of-00039.gguf
