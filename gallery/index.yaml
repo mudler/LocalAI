@@ -22440,3 +22440,37 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Repository:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **Architecture:** Ling 2.0 (Mixture-of-Experts, MoE)
+    **Parameters:** 1 trillion total, 50 billion activated per token
+    **Context Length:** Up to 128K tokens (supports YaRN for long-context scaling)
+    **License:** MIT
+    **Pipeline:** Text Generation
+
+    **Description:**
+    Ring-1T is a trillion-parameter open-source reasoning model developed by inclusionAI, built on the Ling 1T-base foundation. It leverages advanced reinforcement learning techniques, including the Icepop stabilization method and the in-house ASystem framework, to achieve robust performance across complex reasoning tasks. Ring-1T demonstrates leading open-source capabilities in math, code generation, logical reasoning, and competitive programming (e.g., ICPC World Finals 2025). It has solved multiple problems at a silver medal level in the IMO 2025 and shows strong generalization across diverse benchmarks.
+
+    Ideal for developers and researchers seeking high-performance, scalable reasoning models with long-context support, Ring-1T is suitable for deployment via vLLM, SGLang, or API through ZenMux.
+
+    **Use Case Examples:**
+    - Advanced reasoning and problem-solving
+    - Long-form content generation (128K context)
+    - Code and math inference
+    - Multi-step decision-making tasks
+
+    **Try It Now:**
+    👉 [ZenMux Demo](https://zenmux.ai/inclusionai/ring-1t?utm_source=hf_inclusionAI)
+    👉 [Hugging Face Model Page](https://huggingface.co/inclusionAI/Ring-1T)
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q3_K_M-00001-of-00039.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q3_K_M-00001-of-00039.gguf
+      sha256: 4834a3991b670e89240e4d51a8f6b719ead7b75104f8fc6833e7b9f73a188f73
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q3_K_M-00001-of-00039.gguf
