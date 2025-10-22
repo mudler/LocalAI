@@ -22432,7 +22432,7 @@
 
     Ideal for developers and researchers seeking a powerful, efficient, and open-source multimodal model for real-world applications.
 
-    > 🔍 *Note: This is a quantized version. The original model is hosted at [huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated).*
+    > 🔍 *Note: This is a text-only version.*
   overrides:
     parameters:
       model: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
