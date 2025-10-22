@@ -291,6 +291,11 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
         }
     }
 
+    if (!params.kv_overrides.empty()) {
+        params.kv_overrides.emplace_back();
+        params.kv_overrides.back().key[0] = 0;
+    }
+
     // TODO: Add yarn
 
     if (!request->tensorsplit().empty()) {
