@@ -22440,3 +22440,30 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "ring-mini-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-mini-2.0-i1-GGUF
+  description: |
+    **Ring-mini-2.0** is a high-performance, inference-optimized Mixture-of-Experts (MoE) language model developed by inclusionAI. With only **16.8B total parameters** and just **1.4B activated parameters per token**, it delivers reasoning capabilities on par with larger dense models (7–8B) while maintaining exceptional speed and efficiency.
+
+    Key features:
+    - **Exceptional reasoning & code generation**: Outperforms many models below 10B on benchmarks like LiveCodeBench, AIME 2025, and GPQA.
+    - **Ultra-fast inference**: Achieves **300+ tokens/sec** (up to 500+ with Expert Dual Streaming), ideal for high-concurrency applications.
+    - **128K long-context support**: Uses YaRN extrapolation for efficient handling of extended inputs and outputs.
+    - **Lightweight & scalable**: Designed for cost-effective deployment with low memory and compute footprint.
+
+    Built on the Ling 2.0 architecture and fine-tuned with SFT, RLVR, and RLHF, Ring-mini-2.0 is perfect for complex reasoning, coding, and long-form content generation. Available on Hugging Face and ModelScope.
+
+    > 📌 **Base model**: `inclusionAI/Ling-mini-base-2.0-20T`
+    > 📦 **License**: MIT
+    > 🛠️ **Use case**: High-speed, low-cost inference with strong reasoning and long-context capabilities.
+
+    [View on Hugging Face](https://huggingface.co/inclusionAI/Ring-mini-2.0) | [ModelScope](https://modelscope.cn/models/inclusionAI/Ring-mini-2.0)
+  overrides:
+    parameters:
+      model: Ring-mini-2.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Ring-mini-2.0.i1-Q4_K_M.gguf
+      sha256: 7c2ca87b4ed0311bc9d7e548d0cd53fbe456c2deebf1dbb1ce593abdc3915702
+      uri: huggingface://mradermacher/Ring-mini-2.0-i1-GGUF/Ring-mini-2.0.i1-Q4_K_M.gguf
