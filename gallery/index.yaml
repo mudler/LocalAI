@@ -22440,3 +22440,58 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "ling-flash-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-flash-2.0-i1-GGUF
+  description: |
+    **Model Name:** Ling-flash-2.0
+    **Repository:** [inclusionAI/Ling-flash-2.0](https://huggingface.co/inclusionAI/Ling-flash-2.0)
+    **Model Type:** Mixture-of-Experts (MoE) Language Model
+    **Total Parameters:** 100B
+    **Activated Parameters:** 6.1B (4.8B non-embedding)
+    **Context Length:** Up to 128K (with YaRN extrapolation)
+    **Architecture:** 1/32 activation-ratio MoE, optimized for efficiency and high-speed inference
+    **Training Data:** 20T+ high-quality tokens
+    **Fine-tuning:** Supervised fine-tuning + multi-stage reinforcement learning
+
+    ---
+
+    ### 🔍 Key Features:
+    - **SOTA Reasoning Performance:** Outperforms dense models under 40B parameters on benchmarks like MMLU-Pro, GPQA-Diamond, AIME 2025, and Omni-MATH.
+    - **Strong Code Generation:** Excels in LiveCodeBench v6 and CodeForces-Elo.
+    - **High Inference Speed:** Achieves **200+ tokens/sec** on H20 hardware—up to **3× faster** than 36B dense models.
+    - **Efficient Scaling:** 7× efficiency gain over dense models via MoE architecture and advanced routing (aux-loss-free, sigmoid-based).
+    - **Long Context Support:** Native support for 128K context length using YaRN extrapolation.
+
+    ---
+
+    ### 🚀 Use Cases:
+    - Complex reasoning and problem-solving
+    - Advanced code generation and frontend development
+    - Long-form content creation
+    - High-performance inference in resource-constrained environments
+
+    ---
+
+    ### 📥 Download:
+    - **Hugging Face:** [inclusionAI/Ling-flash-2.0](https://huggingface.co/inclusionAI/Ling-flash-2.0)
+    - **ModelScope (China):** [inclusionAI/Ling-flash-2.0](https://www.modelscope.cn/models/inclusionAI/Ling-flash-2.0)
+
+    ---
+
+    ### 📚 Supported Frameworks:
+    - Transformers (via `transformers` library)
+    - vLLM (for high-throughput batch & online inference)
+    - SGLang (for scalable serverless inference)
+
+    ---
+
+    > ✅ **Note:** The quantized GGUF versions (e.g., `mradermacher/Ling-flash-2.0-i1-GGUF`) are community-converted and not maintained by the original authors. For the official model and best performance, use the base model at `inclusionAI/Ling-flash-2.0`.
+  overrides:
+    parameters:
+      model: Ling-flash-2.0.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: Ling-flash-2.0.i1-Q4_K_M.gguf.part1of2
+      sha256: 92c29400786a0e772217bfeec7cf6330b1183eed2f7856d00503d66249831fca
+      uri: huggingface://mradermacher/Ling-flash-2.0-i1-GGUF/Ling-flash-2.0.i1-Q4_K_M.gguf.part1of2
