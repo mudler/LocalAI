@@ -22440,3 +22440,30 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *qwen3
+  name: "cerebras.qwen3-coder-reap-25b-a3b"
+  urls:
+    - https://huggingface.co/csabakecskemeti/cerebras.Qwen3-Coder-REAP-25B-A3B-GGUF
+  description: |
+    **Model Name:** Cerebras Qwen3-Coder-REAP-25B-A3B (Quantized GGUF)
+    **Base Model:** [cerebras/Qwen3-Coder-REAP-25B-A3B](https://huggingface.co/cerebras/Qwen3-Coder-REAP-25B-A3B)
+    **Model Type:** Large Language Model (LLM) for Code Generation
+    **Size:** 25B parameters
+    **Quantization:** GGUF (8-bit and lower), optimized for local inference
+    **Pipeline:** Text Generation
+    **License:** Apache 2.0 (check base model for exact terms)
+    **Description:**
+    A quantized version of the Cerebras Qwen3-Coder-REAP-25B-A3B model, fine-tuned for advanced code generation and reasoning. Designed for efficient local deployment using tools like `llama.cpp`, it delivers strong performance in coding tasks—code completion, translation, debugging, and documentation—while reducing memory and compute requirements. Ideal for developers and researchers running LLMs on consumer-grade hardware.
+
+    > ✅ *Note: This is a quantized variant. The original model is maintained at [cerebras/Qwen3-Coder-REAP-25B-A3B](https://huggingface.co/cerebras/Qwen3-Coder-REAP-25B-A3B), which should be used for benchmarking and non-quantized inference.*
+
+    **Use Case:** On-device code generation, AI pair programming, low-resource coding assistants.
+
+    **Run locally with:** `llama.cpp`, `Ollama`, `text-generation-webui`, or similar GGUF-compatible tools.
+  overrides:
+    parameters:
+      model: cerebras.Qwen3-Coder-REAP-25B-A3B.Q4_K_M.gguf
+  files:
+    - filename: cerebras.Qwen3-Coder-REAP-25B-A3B.Q4_K_M.gguf
+      sha256: fb5a396fe24a574a48751e2e86cd7fa46a3b3e53608baa03b2bf620e66fb4333
+      uri: huggingface://csabakecskemeti/cerebras.Qwen3-Coder-REAP-25B-A3B-GGUF/cerebras.Qwen3-Coder-REAP-25B-A3B.Q4_K_M.gguf
