@@ -22440,3 +22440,31 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Repository:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **License:** MIT
+    **Pipeline:** Text Generation
+    **Architecture:** Ling 2.0 (MoE-based, trillion-parameter foundation model)
+    **Context Length:** Up to 128K tokens (with YaRN support)
+    **Key Features:**
+    - One of the first open-source trillion-parameter models with advanced deep reasoning capabilities.
+    - Trained using innovative reinforcement learning techniques, including Icepop for stable training and ASystem for efficient large-scale RL.
+    - Excels in complex reasoning tasks: math competitions (AIME, HMMT), coding (LiveCodeBench, CodeForce), logical reasoning (ARC-AGI), and creative writing.
+    - Achieved silver medal-level performance in IMO 2025 (solved 4 out of 6 problems), with near-perfect solutions on others.
+    - Proven competitive in ICPC World Finals 2025, solving 5 problems in a single attempt.
+    - Supports flexible deployment via vLLM, SGLang, and API (via ZenMux).
+
+    **Ideal For:** Research, advanced reasoning tasks, long-context generation, and large-scale language model experimentation.
+    **Note:** The GGUF quantized version (e.g., `DevQuasar/inclusionAI.Ring-1T-GGUF`) is a user-quantized variant—this is the original, full-precision model from the official author.
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q2_K-00001-of-00029.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q2_K-00001-of-00029.gguf
+      sha256: 9f56191e4987de5ca3d82233b333f3300e39a85a9bb78957ff9f11a868bc56f5
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q2_K-00001-of-00029.gguf
