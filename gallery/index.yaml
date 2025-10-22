@@ -22440,3 +22440,16 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-14b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/twhlai/Qwen3-14B-Instruct-abliterated-Q4_K_M-GGUF
+  description: |
+    The **Qwen3-14B-Instruct-abliterated** model is a quantized, instruction-tuned version of the Qwen3-14B large language model, optimized for efficient inference using the GGUF format via llama.cpp. It is based on the original **Qwen3-14B-Instruct** model, which was developed by Alibaba Cloud as part of the Qwen series — a family of large language models designed for strong reasoning, coding, and natural language understanding capabilities. This version has been fine-tuned for instruction following and then quantized to **Q4_K_M** precision, significantly reducing memory footprint while maintaining high performance. It is ideal for running locally on consumer hardware (e.g., laptops and desktops) with limited GPU memory, making it accessible for developers and researchers who want powerful language modeling without relying on cloud infrastructure. The model supports a 32,768-token context window and is suitable for tasks such as dialogue, code generation, summarization, and complex reasoning. For full accuracy and training details, refer to the base model: [Qwen3-14B-Instruct](https://huggingface.co/Qwen/Qwen3-14B-Instruct).
+  overrides:
+    parameters:
+      model: qwen3-14b-instruct-abliterated-q4_k_m.gguf
+  files:
+    - filename: qwen3-14b-instruct-abliterated-q4_k_m.gguf
+      sha256: 86e1ba8ff940ca68e30ba72627744e6be68f5639cb5de0e48dadd469ae256556
+      uri: huggingface://twhlai/Qwen3-14B-Instruct-abliterated-Q4_K_M-GGUF/qwen3-14b-instruct-abliterated-q4_k_m.gguf
