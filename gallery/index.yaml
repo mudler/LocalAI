@@ -22353,3 +22353,31 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llava
+  name: "anita-next-24b-magistral-2506-vision-ita-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ANITA-NEXT-24B-Magistral-2506-VISION-ITA-i1-GGUF
+  description: |
+    **ANITA-NEXT-24B-Magistral-2506-VISION-ITA** is a multilingual Vision-Language Model (VLM) developed by Marco Polignano and the SWAP Research Group at the University of Bari Aldo Moro, Italy. Built on the Mistral architecture, it combines the textual capabilities of **ANITA-NEXT-24B-Magistral-2506-ITA** with vision components from **Mistral-Small-3.1-24B-Instruct-2503**, enabling rich, multimodal understanding and generation.
+
+    This model excels in processing both images and text, making it ideal for tasks involving visual reasoning, image captioning, and multimodal question answering—especially in Italian (🇮🇹) and English (🇺🇸). It leverages supervised fine-tuning (SFT) with QLoRA 4-bit quantization and DPO alignment for improved safety and helpfulness.
+
+    **Key Features:**
+    - **Multilingual:** Italian & English
+    - **Architecture:** Mistral-based (24B parameters)
+    - **Context Length:** Up to 128K tokens (degrades after 40K)
+    - **Capabilities:** Image understanding, reasoning, and text generation
+    - **Use Case:** Research, multimodal AI, Italian language NLP
+
+    Ideal for researchers and developers working on vision-language tasks in Italian.
+    *Note: Use responsibly—model may generate hallucinated or unsafe content.*
+
+    **Base Model:** [m-polignano/ANITA-NEXT-24B-Magistral-2506-ITA](https://huggingface.co/m-polignano/ANITA-NEXT-24B-Magistral-2506-ITA)
+    **Vision Backbone:** [mistralai/Mistral-Small-3.1-24B-Instruct-2503](https://huggingface.co/mistralai/Mistral-Small-3.1-24B-Instruct-2503)
+  overrides:
+    parameters:
+      model: ANITA-NEXT-24B-Magistral-2506-VISION-ITA.i1-Q4_K_M.gguf
+  files:
+    - filename: ANITA-NEXT-24B-Magistral-2506-VISION-ITA.i1-Q4_K_M.gguf
+      sha256: 9fef35d5f73e78c2be6ede860af1efac432844c46499b26842cb76fc3f6e1834
+      uri: huggingface://mradermacher/ANITA-NEXT-24B-Magistral-2506-VISION-ITA-i1-GGUF/ANITA-NEXT-24B-Magistral-2506-VISION-ITA.i1-Q4_K_M.gguf
