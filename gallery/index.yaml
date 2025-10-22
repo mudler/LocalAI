@@ -22414,3 +22414,29 @@
     - filename: Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
       sha256: 61ff525013e069bdef0c20d01a8a956f0b6b26cd1f2923b8b54365bf2439cce3
       uri: huggingface://mradermacher/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32-GGUF/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF
+  description: |
+    **Model Name:** Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated
+    **Base Model:** Qwen3-VL-30B (a large multimodal language model)
+    **Repository:** [huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated)
+    **Quantization:** MXFP4_MOE (GGUF format, optimized for inference on consumer hardware)
+    **Model Type:** Instruction-tuned, multimodal (text + vision)
+    **Size:** 30 billion parameters (MoE architecture with active 3.7B parameters per token)
+    **License:** Apache 2.0
+
+    **Description:**
+    Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated is an advanced, instruction-tuned multimodal large language model based on Qwen3-VL-30B, enhanced with a mixture-of-experts (MoE) architecture and fine-tuned for strong reasoning, visual understanding, and dialogue capabilities. It supports both text and image inputs, making it suitable for tasks such as image captioning, visual question answering, and complex instruction following. This version is quantized using MXFP4_MOE for efficient inference while preserving high performance.
+
+    Ideal for developers and researchers seeking a powerful, efficient, and open-source multimodal model for real-world applications.
+
+    > 🔍 *Note: This is a quantized version. The original model is hosted at [huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated).*
+  overrides:
+    parameters:
+      model: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+  files:
+    - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+      sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
+      uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
