@@ -22353,3 +22353,26 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "ling-mini-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-mini-2.0-i1-GGUF
+  description: |
+    **Ling-mini-2.0** is a highly efficient, MoE (Mixture of Experts)-based large language model with **16B total parameters**, dynamically activating only **1.4B parameters per input token** (non-embedding: 789M). Trained on over **20 trillion tokens**, it delivers top-tier performance in complex reasoning, coding, and knowledge-intensive tasks—matching or exceeding much larger dense models, despite its compact footprint.
+
+    Key highlights:
+    - **7× equivalent dense performance**: Achieves dense-model-level results with sparse activation.
+    - **High-speed inference**: Generates at **300+ tokens/second** on H20 hardware, up to **7× faster** than 8B dense models on long contexts.
+    - **Supports 128K context length** via YaRN, ideal for long-form content.
+    - Trained using **FP8 mixed-precision**, enabling efficient training and deployment.
+    - Open-sourced with full training framework and pretraining checkpoints (5T–20T) for research and customization.
+
+    Originally released by **inclusionAI**, this model is ideal for developers, researchers, and enterprises seeking strong reasoning, low latency, and high scalability in a lightweight package.
+    **Base model**: `inclusionAI/Ling-mini-2.0` — fully compatible with Hugging Face Transformers, vLLM, and SGLang.
+  overrides:
+    parameters:
+      model: Ling-mini-2.0.i1-Q4_K_M.gguf
+  files:
+    - filename: Ling-mini-2.0.i1-Q4_K_M.gguf
+      sha256: 617415498ac590c2deb0b93b6a79a492751d689232d2cc9854c7ee607e5d5c99
+      uri: huggingface://mradermacher/Ling-mini-2.0-i1-GGUF/Ling-mini-2.0.i1-Q4_K_M.gguf
