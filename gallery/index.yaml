@@ -22440,3 +22440,32 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "ring-flash-2.0"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-flash-2.0-GGUF
+  description: |
+    **Model Name:** Ring-flash-2.0
+    **Repository:** [inclusionAI/Ring-flash-2.0](https://huggingface.co/inclusionAI/Ring-flash-2.0)
+    **Model Type:** Large Language Model (LLM) – Mixture of Experts (MoE)
+    **Size:** 100B total parameters, with only **6.1B activated per inference**
+    **Architecture:** High-performance, sparse MoE with MTP layers and 1/32 expert activation ratio
+    **Key Features:**
+    - Designed for **complex reasoning** (math, code, logic), outperforming 40B dense models and rivaling closed-source APIs
+    - Achieves **200+ tokens/sec** inference speed on just 4 H20 GPUs
+    - Trained using a novel **IcePop algorithm** to stabilize reinforcement learning (RL) in MoE models
+    - Multi-stage training: Long-CoT SFT → RLVR → RLHF for continuous reasoning improvement
+    - Supports long-context inference via YaRN and advanced inference engines (vLLM, SGLang)
+
+    **Best For:** High-speed, high-accuracy reasoning tasks, efficient large-scale deployment, and research in sparse, efficient LLM architectures.
+
+    **License:** MIT
+    **Try Online:** [ZenMux](https://zenmux.ai/inclusionai/ring-flash-2.0)
+    **Hugging Face:** [inclusionAI/Ring-flash-2.0](https://huggingface.co/inclusionAI/Ring-flash-2.0)
+  overrides:
+    parameters:
+      model: Ring-flash-2.0.Q4_K_M.gguf.part1of2
+  files:
+    - filename: Ring-flash-2.0.Q4_K_M.gguf.part1of2
+      sha256: 3f9497605248085397d3d05a2ddbf195a2952d2204ace136ed82821467026ba0
+      uri: huggingface://mradermacher/Ring-flash-2.0-GGUF/Ring-flash-2.0.Q4_K_M.gguf.part1of2
