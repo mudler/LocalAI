@@ -22353,3 +22353,16 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *gptoss
+  name: "openai_gpt-oss-20b_pruned_reap_10b"
+  urls:
+    - https://huggingface.co/12bitmisfit/OpenAI_GPT-OSS-20B_Pruned_REAP_10B-GGUF
+  description: |
+    AI model: openai_gpt-oss-20b_pruned_reap_10b
+  overrides:
+    parameters:
+      model: GPT-OSS-20B-Pruned-Q4_K_M.gguf
+  files:
+    - filename: GPT-OSS-20B-Pruned-Q4_K_M.gguf
+      sha256: 82b3965e205bd16cf6629b6d705fc5367965352884fb7cd5fc4bac9a396af064
+      uri: huggingface://12bitmisfit/OpenAI_GPT-OSS-20B_Pruned_REAP_10B-GGUF/GPT-OSS-20B-Pruned-Q4_K_M.gguf
