@@ -22353,3 +22353,16 @@
     - filename: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
       sha256: 3d96af010d07887d0730b0f681572ebb3a55e21557f30443211bc39461e06d5d
       uri: huggingface://mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF/Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
+- !!merge <<: *llama3
+  name: "cydonia-24b-v4y"
+  urls:
+    - https://huggingface.co/BeaverAI/Cydonia-24B-v4y-GGUF
+  description: |
+    AI model: cydonia-24b-v4y
+  overrides:
+    parameters:
+      model: Cydonia-24B-v4y-Q4_K_M.gguf
+  files:
+    - filename: Cydonia-24B-v4y-Q4_K_M.gguf
+      sha256: 1a73ae6645b97db787359407f254baa91ee256f4dd779fe4437180f169124665
+      uri: huggingface://BeaverAI/Cydonia-24B-v4y-GGUF/Cydonia-24B-v4y-Q4_K_M.gguf
