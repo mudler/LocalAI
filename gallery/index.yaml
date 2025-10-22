@@ -22440,3 +22440,37 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama33
+  name: "ling-flash-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-flash-2.0-i1-GGUF
+  description: |
+    **Model Name:** Ling-flash-2.0
+    **Model Type:** Large Language Model (LLM) – Mixture of Experts (MoE)
+    **Base Model:** inclusionAI/Ling-flash-base-2.0
+    **Total Parameters:** 100B
+    **Activated Parameters:** 6.1B (4.8B non-embedding)
+    **Context Length:** Up to 128K (with YaRN extrapolation)
+    **License:** MIT
+
+    **Overview:**
+    Ling-flash-2.0 is a high-performance, efficient MoE language model trained on over 20T tokens. Despite activating only 6.1B parameters, it achieves state-of-the-art results among dense models under 40B parameters, excelling in complex reasoning, code generation, and frontend development. Its 1/32 activation-ratio architecture enables up to 7× efficiency gains over dense models and delivers inference speeds over 200 tokens/second on H20 hardware.
+
+    **Key Features:**
+    - **Speed & Efficiency:** 3× faster inference than comparable 36B dense models; supports 128K context via YaRN.
+    - **Strong Reasoning:** Top-tier performance on benchmarks including GPQA-Diamond, MMLU-Pro, AIME 2025, LiveCodeBench, and HealthBench.
+    - **Production-Ready:** Optimized for deployment using vLLM, SGLang, and Hugging Face Transformers.
+    - **Open-Source:** Fully available on Hugging Face and ModelScope for research, fine-tuning, and deployment.
+
+    **Use Cases:**
+    Advanced reasoning, code generation, long-context document understanding, AI assistant applications, and enterprise-grade LLM inference.
+
+    **Get Started:**
+    [Download on Hugging Face](https://huggingface.co/inclusionAI/Ling-flash-2.0) | [ModelScope (China)](https://www.modelscope.cn/models/inclusionAI/Ling-flash-2.0)
+  overrides:
+    parameters:
+      model: Ling-flash-2.0.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: Ling-flash-2.0.i1-Q4_K_M.gguf.part1of2
+      sha256: 92c29400786a0e772217bfeec7cf6330b1183eed2f7856d00503d66249831fca
+      uri: huggingface://mradermacher/Ling-flash-2.0-i1-GGUF/Ling-flash-2.0.i1-Q4_K_M.gguf.part1of2
