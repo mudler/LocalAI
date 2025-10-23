@@ -22440,3 +22440,30 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama33
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Repository:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **License:** MIT
+    **Pipeline:** Text Generation
+    **Architecture:** Ling 2.0 (MoE-based), 1 trillion total parameters (50B activated), supports up to 128K context via YaRN scaling
+    **Key Features:**
+    - **Trillion-parameter reasoning model** trained with large-scale verifiable reward reinforcement learning (RLVR) and advanced techniques like Icepop for stable training.
+    - Exceptional performance in **deep reasoning**, including math (AIME, IMO), code (LiveCodeBench, ICPC), logic (ARC-AGI), and creative writing.
+    - Designed for long-context tasks with support for 128K token windows, enabling complex document understanding and multi-step reasoning.
+    - Backed by the in-house ASystem reinforcement learning framework and AReaL open-source tools for efficient, scalable training.
+    - Openly available for research, deployment, and fine-tuning via Hugging Face and ModelScope.
+
+    **Ideal For:** Advanced reasoning tasks, long-form content generation, academic problem-solving, and large-scale AI research.
+
+    👉 Try it live: [ZenMux](https://zenmux.ai/inclusionai/ring-1t) | 📥 Download: [Hugging Face](https://huggingface.co/inclusionAI/Ring-1T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ring-1T)
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: 769611061e2780688ba92ff2003ff0e93135fd0f01542aeec8fbd9e888135b2e
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
