@@ -22440,3 +22440,16 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "ling-mini-base-2.0-20t"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-mini-base-2.0-20T-GGUF
+  description: |
+    **Ling-mini-base-2.0-20T** is a highly efficient, MoE (Mixture of Experts)-based large language model with 16B total parameters, of which only 1.4B are activated per input token—offering performance comparable to 7–8B dense models. Trained on over 20 trillion high-quality tokens, it excels in complex reasoning, instruction following, and long-context understanding (up to 128K with YaRN). The model leverages FP8 mixed-precision training and a 1/32 activation ratio architecture, achieving up to 7× equivalent dense performance and generating text at over 300 tokens per second. Designed for both research and deployment, it supports fast inference via vLLM and SGLang, and is ideal for low-resource, high-efficiency applications. Developed by **inclusionAI**, this base model is part of the open-sourced **Ling 2.0** family and serves as a strong foundation for further fine-tuning.
+  overrides:
+    parameters:
+      model: Ling-mini-base-2.0-20T.Q4_K_S.gguf
+  files:
+    - filename: Ling-mini-base-2.0-20T.Q4_K_S.gguf
+      sha256: 99c9d5fc9223b8c559761354362848887435e750f7ad83722ec86a6ca02822a3
+      uri: huggingface://mradermacher/Ling-mini-base-2.0-20T-GGUF/Ling-mini-base-2.0-20T.Q4_K_S.gguf
