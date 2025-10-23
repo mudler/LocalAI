@@ -22465,3 +22465,26 @@
     - filename: A2FM-32B-rl.Q4_K_S.gguf
       sha256: 930ff2241351322cc98a24f5aa46e7158757ca87f8fd2763d9ecc4a3ef9514ba
       uri: huggingface://mradermacher/A2FM-32B-rl-GGUF/A2FM-32B-rl.Q4_K_S.gguf
+- !!merge <<: *qwen25
+  name: "think2seg-rs-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Think2Seg-RS-7B-i1-GGUF
+  description: |
+    **Model Name:** Think2Seg-RS-7B
+    **Base Model:** Qwen/Qwen2.5-VL-7B-Instruct
+    **Architecture:** Decoupled LVLM–SAM Framework for Remote Sensing Reasoning Segmentation
+    **Description:**
+    Think2Seg-RS-7B is a 7-billion-parameter vision-language model designed for advanced reasoning segmentation in remote sensing imagery. It leverages the Qwen2.5-VL-7B-Instruct as its foundation to generate precise geometric prompts, which are used to control a frozen Segment Anything Model (SAM2) for accurate object segmentation. By decoupling high-level semantic reasoning from low-level spatial execution, the model achieves state-of-the-art performance on the EarthReason benchmark.
+
+    This framework is trained using result-oriented reinforcement learning, enabling the model to translate abstract visual queries into spatially accurate segmentations. Ideal for applications in environmental monitoring, urban planning, and disaster response.
+
+    **Use Case:** Remote sensing image analysis with natural language input.
+    **Repository:** [GitHub - Think2Seg-RS](https://github.com/Ricardo-XZ/Think2Seg-RS)
+    **Base Model:** [Qwen/Qwen2.5-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct)
+  overrides:
+    parameters:
+      model: Think2Seg-RS-7B.i1-Q2_K.gguf
+  files:
+    - filename: Think2Seg-RS-7B.i1-Q2_K.gguf
+      sha256: f8148816dddf22ddc75e5ac829cfd06ae53cb7ee359674462834b63ea6fabd13
+      uri: huggingface://mradermacher/Think2Seg-RS-7B-i1-GGUF/Think2Seg-RS-7B.i1-Q2_K.gguf
