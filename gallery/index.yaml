@@ -22440,3 +22440,32 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *mistral03
+  name: "chat_noir-24b-v2"
+  urls:
+    - https://huggingface.co/VirtuoTuring/chat_noir-24b-v2-gguf
+  description: |
+    ### **Chat Noir (Virtuo Turing)**
+    **Base Model:** Mistral-Small-24B-Instruct-2501
+    **Architecture:** LoRA-adapted Mistral-24B, optimized for local inference
+    **Languages:** Portuguese (PT-PT), English, French, Spanish
+    **Domain:** Specialized in **legal reasoning and Portuguese/European law**
+    **Key Features:**
+    - Trained on extensive Portuguese court judgments (from Guimarães, Porto, Coimbra, Lisbon, Évora, and Supreme Court) and EU legal frameworks (CJEU, ECHR, GDPR, Directive 2004/25/EC).
+    - Focus areas: civil & criminal procedure, family law, consumer rights, capital markets (post-OPA), labor law, and children’s rights.
+    - Designed for **precise, short-form legal Q&A**, drafting, and summarization.
+    - Optimized for **low-latency inference** on local hardware with support for GGUF quantization (Q4_K_S, Q5, Q8).
+    - Context window: ~4,000 tokens.
+
+    **Use Case:** Ideal for legal professionals, researchers, and students working in Portuguese or European legal contexts who need fast, accurate, and privacy-preserving legal reasoning.
+
+    **License:** [Virtuo License 1.0](https://justina.cloud/licenses_models/virtuo/virtuo_1_0.txt) — permissive for commercial use with attribution to Virtuo Turing.
+
+    > *Note: This is the original model. The `chat_noir-24b-v2-gguf` repository contains a quantized, updated version with enhanced legal training, but this is the base model description.*
+  overrides:
+    parameters:
+      model: chat_noir-v2_q4_k_m.gguf
+  files:
+    - filename: chat_noir-v2_q4_k_m.gguf
+      sha256: 136db4e63d4478d030afd86aac4f358e4c11c340868c967e837879c8fd986b11
+      uri: huggingface://VirtuoTuring/chat_noir-24b-v2-gguf/chat_noir-v2_q4_k_m.gguf
