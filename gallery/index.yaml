@@ -22489,3 +22489,70 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-bias-reduced-i1"
+  urls:
+    - https://huggingface.co/mradermacher/llama-3.1-8b-bias-reduced-i1-GGUF
+  description: |
+    **Model Name:** Llama 3.1 8B Bias-Reduced
+    **Repository:** `hirundo-io/llama-3.1-8b-bias-reduced`
+    **Base Model:** Llama 3.1 8B (from Meta)
+    **Type:** Fine-tuned Language Model
+    **Language:** English
+
+    ---
+
+    ### 📌 Description:
+    This is a **bias-reduced fine-tuned version** of Meta’s Llama 3.1 8B large language model, developed by **hirundo-io** to mitigate harmful stereotypes, toxicity, and demographic bias while preserving strong reasoning and language capabilities. The model is optimized for safer, more equitable text generation without sacrificing performance.
+
+    It is built on the original Llama 3.1 8B architecture and fine-tuned using curated, high-quality datasets with emphasis on fairness and inclusivity. The result is a more responsible and balanced model suitable for public-facing applications, content generation, and research where ethical AI is a priority.
+
+    ---
+
+    ### 🔧 Key Features:
+    - ✅ **Reduced bias** across gender, race, religion, and other sensitive dimensions
+    - ✅ **High-quality outputs** consistent with the original Llama 3.1 8B
+    - ✅ **Transformers-compatible** – usable with Hugging Face `transformers` library
+    - ✅ **Open weights** – freely available under Meta’s Llama 3.1 license (check Hugging Face for details)
+
+    ---
+
+    ### 📂 Use Case:
+    Ideal for developers, researchers, and organizations seeking a safer, more ethical alternative to standard LLMs for dialogue systems, content creation, education, and public tools.
+
+    ---
+
+    ### 📚 How to Use:
+    ```python
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+
+    model_name = "hirundo-io/llama-3.1-8b-bias-reduced"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+
+    prompt = "Write a story about a scientist from a marginalized background making a breakthrough."
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    outputs = model.generate(**inputs, max_new_tokens=200)
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+    ```
+
+    ---
+
+    ### 📌 Note:
+    This model is **not quantized**—it is the original, full-precision version. For GGUF quantized versions (e.g., Q4_K_S, IQ3_M), see the repository by `mradermacher`.
+
+    ---
+
+    👉 **Model Page:** [https://huggingface.co/hirundo-io/llama-3.1-8b-bias-reduced](https://huggingface.co/hirundo-io/llama-3.1-8b-bias-reduced)
+    📊 **Model Card:** [https://huggingface.co/hirundo-io/llama-3.1-8b-bias-reduced/blob/main/README.md](https://huggingface.co/hirundo-io/llama-3.1-8b-bias-reduced/blob/main/README.md)
+
+    ---
+
+    *Ethical AI. Safer Language. Better Outcomes.*
+  overrides:
+    parameters:
+      model: llama-3.1-8b-bias-reduced.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3.1-8b-bias-reduced.i1-Q4_K_M.gguf
+      sha256: a0cfdccb519ff7e74798aef08651b6d5df7394ea911dc2ccf875a911a8eb383d
+      uri: huggingface://mradermacher/llama-3.1-8b-bias-reduced-i1-GGUF/llama-3.1-8b-bias-reduced.i1-Q4_K_M.gguf
