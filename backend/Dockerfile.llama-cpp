@@ -197,7 +197,7 @@ EOT
 
 
 # Copy libraries using a script to handle architecture differences
-RUN make -C /LocalAI/backend/cpp/llama-cpp package
+RUN make -BC /LocalAI/backend/cpp/llama-cpp package
 
 
 FROM scratch
