@@ -22489,3 +22489,56 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-esper3.1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF
+  description: |
+    **Model Name:** gpt-oss-20b-Esper3.1
+    **Repository:** [ValiantLabs/gpt-oss-20b-Esper3.1](https://huggingface.co/ValiantLabs/gpt-oss-20b-Esper3.1)
+    **Base Model:** openai/gpt-oss-20b
+    **Type:** Instruction-tuned, reasoning-focused language model
+    **Size:** 20 billion parameters
+    **License:** Apache 2.0
+
+    ---
+
+    ### 🔍 **Overview**
+    gpt-oss-20b-Esper3.1 is a specialized, instruction-tuned variant of the 20B open-source GPT model, developed by **Valiant Labs**. It excels in **advanced coding, software architecture, and DevOps reasoning**, making it ideal for technical problem-solving and AI-driven engineering tasks.
+
+    ### ✨ **Key Features**
+    - **Expert in DevOps & Cloud Systems:** Trained on high-difficulty datasets (e.g., Titanium3, Tachibana3, Mitakihara), it delivers precise, actionable guidance for AWS, Kubernetes, Terraform, Ansible, Docker, Jenkins, and more.
+    - **Strong Code Reasoning:** Optimized for complex programming tasks, including full-stack development, scripting, and debugging.
+    - **High-Quality Inference:** Uses `bf16` precision for full-precision performance; quantized versions (e.g., GGUF) available for efficient local inference.
+    - **Open-Source & Free to Use:** Fully open-access, built on the public gpt-oss-20b foundation and trained with community datasets.
+
+    ### 📌 **Use Cases**
+    - Designing scalable cloud architectures
+    - Writing and optimizing infrastructure-as-code
+    - Debugging complex DevOps pipelines
+    - AI-assisted software development and documentation
+    - Real-time technical troubleshooting
+
+    ### 💡 **Getting Started**
+    Use the standard `text-generation` pipeline with the `transformers` library. Supports role-based prompting (e.g., `user`, `assistant`) and performs best with high-reasoning prompts.
+
+    ```python
+    from transformers import pipeline
+
+    pipe = pipeline("text-generation", model="ValiantLabs/gpt-oss-20b-Esper3.1", torch_dtype="auto", device_map="auto")
+    messages = [{"role": "user", "content": "Design a Kubernetes cluster for a high-traffic web app with CI/CD via GitHub Actions."}]
+    outputs = pipe(messages, max_new_tokens=2000)
+    print(outputs[0]["generated_text"][-1])
+    ```
+
+    ---
+
+    > 🔗 **Model Gallery Entry**:
+    > *gpt-oss-20b-Esper3.1 – A powerful, open-source 20B model tuned for expert-level DevOps, coding, and system architecture. Built by Valiant Labs using high-quality technical datasets. Perfect for engineers, architects, and AI developers.*
+  overrides:
+    parameters:
+      model: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+  files:
+    - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+      sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
+      uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
