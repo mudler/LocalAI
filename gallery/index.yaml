@@ -22465,3 +22465,60 @@
     - filename: A2FM-32B-rl.Q4_K_S.gguf
       sha256: 930ff2241351322cc98a24f5aa46e7158757ca87f8fd2763d9ecc4a3ef9514ba
       uri: huggingface://mradermacher/A2FM-32B-rl-GGUF/A2FM-32B-rl.Q4_K_S.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-70b-hallucinations-reduced"
+  urls:
+    - https://huggingface.co/mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF
+  description: |
+    **Model Name:** Llama 3.3 70B Hallucinations Reduced
+    **Base Model:** `llama-3.3-70b-hallucinations-reduced` (original by hirundo-io)
+    **Quantization:** GGUF (various quantizations available, including Q4_K_S and Q8_0)
+    **Repository:** [mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF](https://huggingface.co/mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF)
+
+    ---
+
+    ### 📌 Overview
+    This is a high-performance, **quantized version** of the **Llama 3.3 70B** model, specifically fine-tuned to **reduce hallucinations** while maintaining strong reasoning and language capabilities. The base model was developed by **hirundo-io** and optimized for accuracy and reliability in real-world applications.
+
+    The model is available in multiple GGUF quantizations (e.g., Q2_K, Q4_K_S, Q8_0), making it suitable for deployment on consumer hardware, including systems with limited GPU memory.
+
+    ---
+
+    ### 🎯 Key Features
+    - ✅ **Reduced hallucinations** – Improved factual consistency and reliability
+    - 🔧 **Multiple quantizations** – From lightweight Q2_K (26.5 GB) to high-accuracy Q8_0 (75.1 GB)
+    - 📦 **GGUF format** – Fully compatible with tools like `llama.cpp`, `Oobabooga`, and other local inference engines
+    - 🛠️ **Ready for local deployment** – Ideal for private, low-latency, and privacy-focused use cases
+
+    ---
+
+    ### 💡 Use Cases
+    - Personal AI assistants
+    - Research and content creation with high factual accuracy
+    - On-device language modeling (e.g., laptops, Raspberry Pi with GPU support)
+    - Fine-tuning or distillation for domain-specific tasks
+
+    ---
+
+    ### ⚠️ Note
+    This repository is a **quantized version** by **mradermacher** based on the original model from **hirundo-io**. For the full, unquantized base model description and training details, refer to:
+    👉 [hirundo-io/llama-3.3-70b-hallucinations-reduced](https://huggingface.co/hirundo-io/llama-3.3-70b-hallucinations-reduced)
+
+    ---
+
+    ### 📥 Download
+    Available in multiple sizes:
+    - [Q2_K (26.5 GB)](https://huggingface.co/mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF/resolve/main/llama-3.3-70b-hallucinations-reduced.Q2_K.gguf)
+    - [Q4_K_S (40.4 GB)](https://huggingface.co/mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF/resolve/main/llama-3.3-70b-hallucinations-reduced.Q4_K_S.gguf) *(recommended for balance of speed & quality)*
+    - [Q8_0 (75.1 GB)](https://huggingface.co/mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF/resolve/main/llama-3.3-70b-hallucinations-reduced.Q8_0.gguf.part1of2) *(best quality)*
+
+    ---
+
+    > ✅ *Ideal for users seeking a powerful, hallucination-aware Llama 3.3 70B model that runs efficiently on local hardware.*
+  overrides:
+    parameters:
+      model: llama-3.3-70b-hallucinations-reduced.Q4_K_S.gguf
+  files:
+    - filename: llama-3.3-70b-hallucinations-reduced.Q4_K_S.gguf
+      sha256: aac39ca16334e32415f249455c59c549e9c66c59049829bff390eca172af5e24
+      uri: huggingface://mradermacher/llama-3.3-70b-hallucinations-reduced-GGUF/llama-3.3-70b-hallucinations-reduced.Q4_K_S.gguf
