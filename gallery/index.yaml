@@ -22489,3 +22489,54 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ling-flash-base-2.0"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-flash-base-2.0-GGUF
+  description: |
+    **Model Name:** Ling-flash-base-2.0
+    **Repository:** [inclusionAI/Ling-flash-base-2.0](https://huggingface.co/inclusionAI/Ling-flash-base-2.0)
+    **License:** MIT
+    **Library:** Transformers
+    **Task:** Text Generation
+    **Architecture:** Mixture of Experts (MoE) – 100B total parameters, 6.1B activated (4.8B non-embedding)
+    **Context Length:** Up to 128K (with YaRN extrapolation)
+    **Language:** English (multilingual capabilities)
+
+    ---
+
+    ### 🔍 **Overview**
+    Ling-flash-base-2.0 is a high-performance, efficiency-optimized **Mixture-of-Experts (MoE)** language model developed by inclusionAI. Despite activating only 6.1B parameters out of 100B total, it achieves **SOTA results among dense models under 40B parameters**, with strong performance in complex reasoning, coding, and frontend development.
+
+    ### ⚡ **Key Features**
+    - **Efficient Inference**: 7× efficiency gain over dense models; runs at **200+ tokens/sec** on H20 hardware.
+    - **Long Context Support**: 128K context via YaRN scaling, ideal for long-form content.
+    - **Advanced Reasoning**: Excels in math, logic, multi-domain knowledge, and regulated industries (Finance, Healthcare).
+    - **Open-Source & Fully Deployable**: Compatible with **vLLM**, **SGLang**, and **Hugging Face Transformers**.
+
+    ### 📦 **Use Cases**
+    - Complex reasoning & problem-solving
+    - Code generation and debugging
+    - Long-form content creation
+    - Enterprise and research applications requiring high performance and low latency
+
+    ---
+
+    📌 **Quick Start:**
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model = AutoModelForCausalLM.from_pretrained("inclusionAI/Ling-flash-base-2.0", torch_dtype=torch.bfloat16, device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained("inclusionAI/Ling-flash-base-2.0")
+    ```
+
+    👉 **Download**: [Hugging Face](https://huggingface.co/inclusionAI/Ling-flash-base-2.0) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ling-flash-base-2.0)
+
+    *Note: The GGUF quantized version by mradermacher is a community-quantized derivative — use the original base model above for full capabilities.*
+  overrides:
+    parameters:
+      model: Ling-flash-base-2.0.Q4_K_S.gguf.part1of2
+  files:
+    - filename: Ling-flash-base-2.0.Q4_K_S.gguf.part1of2
+      sha256: 92cc4fca8b4084d9ac4751128d242b5f1b8b9ab8f97e475910e090ce10dac566
+      uri: huggingface://mradermacher/Ling-flash-base-2.0-GGUF/Ling-flash-base-2.0.Q4_K_S.gguf.part1of2
