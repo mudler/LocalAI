@@ -22440,3 +22440,34 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "ling-mini-base-2.0-10t"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-mini-base-2.0-10T-GGUF
+  description: |
+    **Model Name:** Ling-mini-base-2.0-10T
+    **Base Model:** inclusionAI/Ling-mini-base-2.0-10T
+    **Type:** MoE (Mixture of Experts) Large Language Model
+    **Size:** 16.26B total parameters, 1.4B activated per token (non-embedding: 789M)
+    **Training Data:** 10 trillion high-quality tokens
+    **Context Length:** Up to 4K tokens (supports 128K with YaRN)
+    **Architecture:** 1/32 activation ratio MoE with MTP loss, QK-Norm, half RoPE, and FP8 training
+    **Key Features:**
+    - Achieves **7× equivalent dense model performance** (matches or exceeds larger dense models like 7–8B LLMs)
+    - High-speed inference: **300+ tokens/sec** on H20 deployment
+    - Optimized for efficiency: 30–120% higher training throughput vs. 8B dense models
+    - Open-sourced with full FP8 training support and pretraining checkpoints (5T, 10T, 15T, 20T)
+    - Fully compatible with Hugging Face Transformers, vLLM, and SGLang
+
+    **Use Case:** Ideal for research, efficient inference, and long-context applications requiring high reasoning performance with low compute cost.
+    **License:** MIT
+    **Official Repository:** [huggingface.co/inclusionAI/Ling-mini-base-2.0-10T](https://huggingface.co/inclusionAI/Ling-mini-base-2.0-10T)
+
+    > 📌 *Note: This is the original base model. Quantized versions (e.g., GGUF) are community-converted by mradermacher and not maintained by the original author.*
+  overrides:
+    parameters:
+      model: Ling-mini-base-2.0-10T.Q4_K_M.gguf
+  files:
+    - filename: Ling-mini-base-2.0-10T.Q4_K_M.gguf
+      sha256: 1c5ef1453d32b53f3a9d24741ce9d7d7eee7544a3a0bc47dc39ea70184fb37e3
+      uri: huggingface://mradermacher/Ling-mini-base-2.0-10T-GGUF/Ling-mini-base-2.0-10T.Q4_K_M.gguf
