@@ -233,6 +233,15 @@ n_draft: 0
 # Quantization settings for the model, impacting memory and processing speed.
 quantization: ""
 
+# List of KV Overrides for llama.cpp (--override-kv flag)
+# Format: KEY=TYPE:VALUE
+# Example: `qwen3moe.expert_used_count=int:10`
+# Use this to override model configuration values at runtime.
+# Supported types include: int, float, string, bool.
+# Multiple overrides can be specified as a list.
+overrides:
+  - KEY=TYPE:VALUE
+
 # Utilization percentage of GPU memory to allocate for the model. (vLLM)
 gpu_memory_utilization: 0
 
