@@ -22465,3 +22465,27 @@
     - filename: A2FM-32B-rl.Q4_K_S.gguf
       sha256: 930ff2241351322cc98a24f5aa46e7158757ca87f8fd2763d9ecc4a3ef9514ba
       uri: huggingface://mradermacher/A2FM-32B-rl-GGUF/A2FM-32B-rl.Q4_K_S.gguf
+- !!merge <<: *qwen25
+  name: "pokeeai.pokee_research_7b"
+  urls:
+    - https://huggingface.co/DevQuasar/PokeeAI.pokee_research_7b-GGUF
+  description: |
+    **PokeeResearch-7B** is a 7-billion-parameter deep research agent developed by Pokee AI, designed for advanced, multi-step reasoning and autonomous research workflows. Built on the Qwen2.5-7B-Instruct foundation and fine-tuned using Reinforcement Learning from AI Feedback (RLAIF), it excels at complex, fact-grounded tasks such as information retrieval, cross-source verification, and synthesis across multiple research threads.
+
+    Key features:
+    - **Purpose-built for deep research**: Handles multi-hop queries with self-correction and structured reasoning.
+    - **Trained on MiroRL-GenQA**: High-quality, reasoning-intensive question-answer pairs.
+    - **State-of-the-art performance**: Outperforms other 7B models on benchmarks like GAIA, BrowseComp, and HotpotQA.
+    - **Open-source & transparent**: Fully accessible via GitHub and Hugging Face, licensed under Apache 2.0.
+
+    Ideal for researchers, developers, and enterprises seeking a reliable, scalable agent for scientific discovery, automated analysis, and knowledge synthesis.
+
+    👉 *Explore the model:* [PokeeAI/pokee_research_7b](https://huggingface.co/PokeeAI/pokee_research_7b)
+    📚 *Learn more:* [GitHub Repository](https://github.com/Pokee-AI/PokeeResearchOSS)
+  overrides:
+    parameters:
+      model: PokeeAI.pokee_research_7b.Q4_K_M.gguf
+  files:
+    - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
+      sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
+      uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
