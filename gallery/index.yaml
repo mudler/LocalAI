@@ -22489,3 +22489,30 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ring-1T (Quantized GGUF Version)
+    **Base Model:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **Pipeline:** Text Generation
+    **Quantization:** Yes (GGUF format, IQ2_XXS)
+    **License:** [MIT](https://github.com/inclusionAI/Ring-1T/blob/main/LICENSE)
+
+    **Description:**
+    A high-capacity, open-source language model designed for inclusive, ethical, and scalable AI. Built on a robust foundation, Ring-1T delivers strong performance across diverse tasks, including reasoning, code generation, and natural language understanding. This GGUF-quantized version, optimized by DevQuasar, enables efficient local inference on consumer-grade hardware while preserving core model capabilities.
+
+    Perfect for developers and researchers seeking a powerful, lightweight, and privacy-respecting LLM for personal or local deployment.
+
+    👉 **Original Model:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    📦 **Quantized Version:** [DevQuasar/inclusionAI.Ring-1T-GGUF](https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF)
+
+    *Make knowledge free for everyone.* 🌍
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: 769611061e2780688ba92ff2003ff0e93135fd0f01542aeec8fbd9e888135b2e
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
