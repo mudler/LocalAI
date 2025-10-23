@@ -22489,3 +22489,22 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3.3-70b-bias-reduced"
+  urls:
+    - https://huggingface.co/mradermacher/llama-3.3-70b-bias-reduced-GGUF
+  description: |
+    The **Llama 3.3 70B Bias-Reduced** model is a large language model developed by **hirundo-io** as a fine-tuned, bias-reduced variant of the Llama 3.3 70B architecture. It is designed to deliver high-quality, responsible language generation with reduced societal and cognitive biases, making it suitable for ethical, inclusive, and safe AI applications.
+
+    Built on the foundation of Meta’s Llama 3.3 70B, this model has undergone careful fine-tuning using diverse and representative data to mitigate harmful stereotypes and improve fairness. It supports English and is compatible with the Hugging Face Transformers library, enabling integration into research, development, and production environments.
+
+    While the model is available in multiple GGUF quantized formats (e.g., Q4_K_M, Q6_K, Q8_0) for efficient local inference, the original full-precision version is derived from the base model hosted at **hirundo-io/llama-3.3-70b-bias-reduced**. Quantized versions by **mradermacher** are optimized for performance and accessibility on consumer hardware.
+
+    This model is ideal for developers, researchers, and organizations prioritizing responsible AI deployment, offering a powerful, fair, and accessible alternative to standard LLMs.
+  overrides:
+    parameters:
+      model: llama-3.3-70b-bias-reduced.Q4_K_M.gguf
+  files:
+    - filename: llama-3.3-70b-bias-reduced.Q4_K_M.gguf
+      sha256: fc5760c7895f9a641745eef852f3f538dc4e3f30fd0b9b6dc3d24c4d3fe93a5f
+      uri: huggingface://mradermacher/llama-3.3-70b-bias-reduced-GGUF/llama-3.3-70b-bias-reduced.Q4_K_M.gguf
