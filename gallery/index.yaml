@@ -22489,3 +22489,29 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "simschat-llama-3-8b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/SimsChat-Llama-3-8B-i1-GGUF
+  description: |
+    **SimsChat-Llama-3-8B** is a fine-tuned variant of Meta's Llama 3-8B-Instruct, specifically optimized for natural, emotionally aware, and engaging conversational interactions. Trained on the high-quality *SimsChat* dataset—simulated role-playing dialogues inspired by *The Sims 4*—this model excels in daily conversation, emotional expression, and character role-playing.
+
+    It’s ideal for use cases such as:
+    - Lifelike chatbots with expressive, human-like responses
+    - Simulating personalities or fictional characters
+    - Creative writing and dialogue generation
+
+    Built on the robust Llama 3 foundation and fine-tuned with supervised learning, SimsChat-Llama-3-8B delivers fluent, context-sensitive, and emotionally intelligent responses—perfect for interactive storytelling and immersive conversations.
+
+    > **Base Model**: `meta-llama/Meta-Llama-3-8B-Instruct`
+    > **Fine-tuned on**: `yangbh217/SimsChat` dataset
+    > **Use case**: Role-playing, emotional dialogue, natural conversation
+
+    Available in GGUF format for efficient local inference (via llama.cpp, etc.).
+  overrides:
+    parameters:
+      model: SimsChat-Llama-3-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: SimsChat-Llama-3-8B.i1-Q4_K_M.gguf
+      sha256: 64ccd742cc8e5ac2faa85b614186ae020eda695563e9bbd9a4465ab3c92d0450
+      uri: huggingface://mradermacher/SimsChat-Llama-3-8B-i1-GGUF/SimsChat-Llama-3-8B.i1-Q4_K_M.gguf
