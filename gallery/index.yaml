@@ -22489,3 +22489,25 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-hallucinations-reduced-i1"
+  urls:
+    - https://huggingface.co/mradermacher/llama-3.1-8b-hallucinations-reduced-i1-GGUF
+  description: |
+    The **Llama 3.1 8B Hallucinations Reduced** model is a fine-tuned version of Meta's Llama 3.1 8B language model, specifically optimized to reduce hallucinations while maintaining strong reasoning and text generation capabilities. Developed by **hirundo-io** and quantized by **mradermacher** for efficient inference, this model is ideal for applications requiring higher factual accuracy—such as research, content creation, and AI-assisted decision-making.
+
+    Key features:
+    - **Base Model:** Llama 3.1 8B (from Meta)
+    - **Fine-Tuning Goal:** Minimize hallucinations while preserving performance
+    - **Quantization:** Available in multiple GGUF formats (e.g., IQ4_NL, Q4_K_M) for efficient local deployment
+    - **Use Case:** Reliable, factually grounded text generation with low resource requirements
+    - **Ideal For:** Developers, researchers, and organizations prioritizing accuracy in generative AI outputs
+
+    This model is part of a curated effort to enhance Llama 3.1's reliability through targeted fine-tuning and high-quality quantization, making it a trusted choice for production and experimental use.
+  overrides:
+    parameters:
+      model: llama-3.1-8b-hallucinations-reduced.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3.1-8b-hallucinations-reduced.i1-Q4_K_M.gguf
+      sha256: ed09c78f134025fee1d1b0d7ed02c47429659dc70bf8d00090286a7c4d64e2fa
+      uri: huggingface://mradermacher/llama-3.1-8b-hallucinations-reduced-i1-GGUF/llama-3.1-8b-hallucinations-reduced.i1-Q4_K_M.gguf
