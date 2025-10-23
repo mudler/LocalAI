@@ -22440,3 +22440,25 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "ling-mini-base-2.0-10t"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-mini-base-2.0-10T-GGUF
+  description: |
+    **Ling-mini-2.0-10T** is a highly efficient, MoE (Mixture of Experts)-based large language model developed by inclusionAI. With 16 billion total parameters and only 1.4 billion activated per token, it delivers performance on par with much larger dense models—equivalent to a 7–8B dense model—while maintaining exceptional inference speed (300+ tokens/second on H20 hardware). Trained on over 20 trillion high-quality tokens, it excels in complex reasoning, coding, mathematics, and knowledge-intensive tasks, outperforming sub-10B dense models and matching larger MoE systems.
+
+    The model features a **1/32 activation ratio**, advanced routing (sigmoid-based, aux-loss free), and supports context lengths up to 128K via YaRN. It is optimized for both training and inference using FP8 mixed-precision, enabling up to 120% higher throughput than comparable models.
+
+    This version is the **10T checkpoint** of the base model, trained on 10 trillion tokens, and serves as a strong foundation for research, fine-tuning, and deployment. It is available in multiple quantized formats (GGUF, Q4_K_S, Q5_K_M, etc.) for efficient local inference, and supports frameworks like Hugging Face, vLLM, and SGLang.
+
+    👉 **Base Model**: `inclusionAI/Ling-mini-base-2.0-10T`
+    🔗 [Hugging Face](https://huggingface.co/inclusionAI/Ling-mini-base-2.0-10T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ling-mini-base-2.0-10T)
+
+    *Note: The repository `mradermacher/Ling-mini-base-2.0-10T-GGUF` contains a quantized version of this model, not the original release.*
+  overrides:
+    parameters:
+      model: Ling-mini-base-2.0-10T.Q4_K_S.gguf
+  files:
+    - filename: Ling-mini-base-2.0-10T.Q4_K_S.gguf
+      sha256: 708ce172be917c813aeaeb96698e7ad3bb8ddfee8a45d55e0fbafbeea4245abf
+      uri: huggingface://mradermacher/Ling-mini-base-2.0-10T-GGUF/Ling-mini-base-2.0-10T.Q4_K_S.gguf
