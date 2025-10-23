@@ -22440,3 +22440,22 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "john1604-ai-status-2025"
+  urls:
+    - https://huggingface.co/John1604/John1604-AI-status-2025-gguf
+  description: |
+    The **John1604-AI-status-2025** model is a large language model developed by John1604, designed to provide informed, up-to-date insights on AI trends, technologies, and industry developments as of 2025. It is trained on a diverse and extensive dataset focused on artificial intelligence, machine learning, and related technical domains, enabling it to offer accurate, context-aware responses to complex questions.
+
+    This model is optimized for performance and accessibility, with multiple quantized GGUF versions available (e.g., Q4_K_S, Q5_K_M, Q6_K, Q8_0) for efficient local deployment via tools like **Ollama** and **LM Studio**. While the repository you're viewing contains quantized GGUF variants (not the original full-precision model), the base model — **John1604/John1604-AI-status-2025** — represents the original, unquantized version with full capability and accuracy.
+
+    Ideal for developers, researchers, and AI enthusiasts, this model excels in technical reasoning, code generation, and understanding of evolving AI landscapes. It is suitable for both research and practical applications where real-time, domain-specific knowledge is essential.
+
+    > 🔍 **Note:** The original model (non-quantized) should be used for maximum fidelity. Quantized versions are optimized for size and speed on local hardware.
+  overrides:
+    parameters:
+      model: John1604-AI-status-2025-q4_k_m.gguf
+  files:
+    - filename: John1604-AI-status-2025-q4_k_m.gguf
+      sha256: 9dfbc8351469b48e895fe5c23819b23e73f4c05ea29b702ba44da6a6a1cafbce
+      uri: huggingface://John1604/John1604-AI-status-2025-gguf/John1604-AI-status-2025-q4_k_m.gguf
