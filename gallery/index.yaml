@@ -22465,3 +22465,20 @@
     - filename: A2FM-32B-rl.Q4_K_S.gguf
       sha256: 930ff2241351322cc98a24f5aa46e7158757ca87f8fd2763d9ecc4a3ef9514ba
       uri: huggingface://mradermacher/A2FM-32B-rl-GGUF/A2FM-32B-rl.Q4_K_S.gguf
+- !!merge <<: *gemma3
+  name: "gemma3-mixed-instruct"
+  urls:
+    - https://huggingface.co/ertghiu256/gemma3-mixed-instruct-gguf
+  description: |
+    The **Gemma3-Mixed-Instruct** model is a fine-tuned variant of Google's Gemma 3 series, specifically optimized for instruction-following tasks. It is designed to understand and generate human-like responses to complex, multi-step instructions with high accuracy and coherence. This version has been trained on a mixed dataset of diverse instruction examples, enhancing its versatility across domains such as creative writing, coding, reasoning, and dialogue.
+
+    The model is available in GGUF format, making it suitable for efficient inference on consumer-grade hardware via tools like `llama.cpp`. Although the repository `ertghiu256/gemma3-mixed-instruct-gguf` contains a quantized version (intended for local deployment), the original, unquantized base model can be found at `ertghiu256/gemma3-mixed-instruct`, which preserves full model precision and performance.
+
+    This model is ideal for developers and researchers seeking a lightweight yet powerful open-weight LLM for local inference, offering strong performance in instruction comprehension and response quality.
+  overrides:
+    parameters:
+      model: model-Q4_K_M.gguf
+  files:
+    - filename: model-Q4_K_M.gguf
+      sha256: 3169c217505b25c66243c99ee7765938fa9d220466f95474004e23a08c8ed366
+      uri: huggingface://ertghiu256/gemma3-mixed-instruct-gguf/model-Q4_K_M.gguf
