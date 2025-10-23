@@ -22465,3 +22465,36 @@
     - filename: A2FM-32B-rl.Q4_K_S.gguf
       sha256: 930ff2241351322cc98a24f5aa46e7158757ca87f8fd2763d9ecc4a3ef9514ba
       uri: huggingface://mradermacher/A2FM-32B-rl-GGUF/A2FM-32B-rl.Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ring-1T (Quantized GGUF version)
+    **Base Model:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **Model Type:** Large Language Model (LLM)
+    **Pipeline:** Text Generation
+    **Quantization:** GGUF (Optimized for local inference via llama.cpp)
+    **License:** [MIT](https://github.com/inclusionAI/Ring-1T/blob/main/LICENSE)
+
+    **Description:**
+    A high-performance, open-source 1 trillion parameter language model designed for inclusive, accessible, and ethical AI. The base model, Ring-1T, is trained on a diverse and expansive dataset to support multilingual reasoning, code generation, and factual accuracy. This quantized GGUF version enables efficient local inference on consumer hardware, making powerful AI accessible without cloud dependency. Ideal for developers, researchers, and creators seeking a robust, privacy-preserving LLM with strong reasoning and creative capabilities.
+
+    **Use Cases:**
+    - Local AI assistants
+    - Code generation & debugging
+    - Multilingual text generation
+    - Educational tools & research
+    - Privacy-focused applications
+
+    **Note:** This repository contains a quantized version of the original model by DevQuasar. The original model (inclusionAI/Ring-1T) should be used for full accuracy and performance.
+    **Download & Usage:** Available via Hugging Face Hub and compatible with `llama.cpp`, `Ollama`, `LM Studio`, and other GGUF-compatible tools.
+
+    *Made with ❤️ by the DevQuasar team and the inclusionAI community.*
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: 769611061e2780688ba92ff2003ff0e93135fd0f01542aeec8fbd9e888135b2e
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
