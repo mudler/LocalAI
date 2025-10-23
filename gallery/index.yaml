@@ -22440,3 +22440,16 @@
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
       sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+- !!merge <<: *llama3
+  name: "lfm2-1.2b"
+  urls:
+    - https://huggingface.co/tatsuyaaaaaaa/LFM2-1.2B-gguf
+  description: |
+    AI model: lfm2-1.2b
+  overrides:
+    parameters:
+      model: LFM2-1.2B_Q4_K_M.gguf
+  files:
+    - filename: LFM2-1.2B_Q4_K_M.gguf
+      sha256: 91e816a61445ccbcc4ea16b5e11ac26c3b3bff8054390bc39e50d43743d0b512
+      uri: huggingface://tatsuyaaaaaaa/LFM2-1.2B-gguf/LFM2-1.2B_Q4_K_M.gguf
