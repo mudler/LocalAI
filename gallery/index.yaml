@@ -22542,3 +22542,25 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *yi-chat
+  name: "capyberahermesyi-34b-chatml-200k-i1"
+  urls:
+    - https://huggingface.co/mradermacher/CapyberaHermesYi-34B-ChatML-200K-i1-GGUF
+  description: |
+    **CapyberaHermesYi-34B-ChatML-200K**
+    *by Babsie (via Nous Research)*
+
+    A high-performance, instruction-tuned large language model based on **Yi-34B**, fine-tuned with 200K context length and optimized for conversational AI. Developed by **Nous Research** as part of the Capybara series, this model leverages the Amplify-Instruct data synthesis methodology—combining diverse, high-quality datasets like Airoboros, Vicuna, LessWrong, and in-house multi-turn conversations—to deliver strong reasoning, creativity, and dialogue capabilities.
+
+    The base model is **Yi-34B**, fine-tuned over 3 epochs on a curated 20K instruction dataset to enable coherent, engaging, and intelligent interactions. It supports extended context (200K tokens), making it ideal for long-form content generation, code, and complex reasoning tasks.
+
+    This model is part of the **Nou-Capybara-34B V1.9** family—first 34B and first 200K context model from Nous Research—designed to be a more open, creative, and collaborative AI partner, avoiding over-guardrailed behavior.
+
+    *Note: The repository you requested (mradermacher/CapyberaHermesYi-34B-ChatML-200K-i1-GGUF) contains quantized GGUF versions of this model, created by mradermacher. The original, full-precision model is available at: [Babsie/CapyberaHermesYi-34B-ChatML-200K](https://huggingface.co/Babsie/CapyberaHermesYi-34B-ChatML-200K).*
+  overrides:
+    parameters:
+      model: CapyberaHermesYi-34B-ChatML-200K.i1-Q4_K_M.gguf
+  files:
+    - filename: CapyberaHermesYi-34B-ChatML-200K.i1-Q4_K_M.gguf
+      sha256: 47a2f5963cf98603027f220c62b9f7d6b1e2558ae8c17b8c363db59e78097319
+      uri: huggingface://mradermacher/CapyberaHermesYi-34B-ChatML-200K-i1-GGUF/CapyberaHermesYi-34B-ChatML-200K.i1-Q4_K_M.gguf
