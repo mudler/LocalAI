@@ -22542,3 +22542,33 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-235b-a22b-thinking-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-VL-235B-A22B-Thinking-MXFP4_MOE-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct** is a state-of-the-art vision-language model from the Qwen series, designed for advanced multimodal understanding and reasoning. With a massive 235 billion parameters and a MoE (Mixture of Experts) architecture, it excels in complex tasks involving both visual and textual inputs.
+
+    ### Key Features:
+    - **Long Context & Video Understanding**: Native support for up to 256K tokens (expandable to 1M), enabling full comprehension of lengthy documents and long-form videos.
+    - **Advanced Visual Perception**: Superior recognition of objects, scenes, spatial relationships, and even 3D grounding; excels in recognizing fine details, landmarks, products, and rare/ancient characters.
+    - **Multimodal Reasoning**: Strong performance in STEM, logic, and evidence-based reasoning, with seamless fusion of text and image understanding.
+    - **Visual Agent & Coding**: Can interact with GUIs, perform tasks on PC/mobile, and generate code (HTML, CSS, JS, Draw.io) from visual inputs.
+    - **Enhanced OCR**: Supports 32 languages with robust handling of low-light, blur, tilt, and complex layouts.
+    - **Architecture Innovations**: Employs Interleaved-MRoPE, DeepStack, and Text-Timestamp Alignment for superior temporal and spatial modeling.
+
+    ### Use Cases:
+    - AI assistants with visual cognition
+    - Document and video analysis
+    - Automated GUI interaction
+    - Educational tools for science and math
+    - Creative content generation from images
+
+    ### Availability:
+    - **Base Model**: `Qwen/Qwen3-VL-235B-A22B-Instruct`
+    - **Quantized Version**: `noctrex/Qwen3-VL-235B-A22B-Thinking-MXFP4_MOE-GGUF` (for efficient local inference)
+
+    This model is ideal for researchers, developers, and enterprises seeking cutting-edge multimodal AI capabilities.
+  overrides:
+    parameters:
+      model: noctrex/Qwen3-VL-235B-A22B-Thinking-MXFP4_MOE-GGUF
