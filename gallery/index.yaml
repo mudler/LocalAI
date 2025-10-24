@@ -22542,3 +22542,38 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "caco-codegen-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Caco-CodeGen-i1-GGUF
+  description: |
+    **Model Name**: Caco-CodeGen
+    **Base Model**: Qwen2.5-Coder-7B
+    **Repository**: [LHL3341/Caco-CodeGen](https://huggingface.co/LHL3341/Caco-CodeGen)
+    **License**: Apache 2.0
+
+    **Description**:
+    Caco-CodeGen is a code-driven reasoning model trained using the Caco framework to generate executable, verifiable Chain-of-Thoughts (Code CoTs). It enhances reasoning capabilities by grounding logical steps in executable code, enabling automatic correctness validation and scalable synthesis of diverse, high-quality reasoning traces.
+
+    Trained on unified Code CoT data from math and algorithmic domains, the model excels at generating Python-like reasoning sequences that can be executed and verified. It achieves strong performance on reasoning benchmarks (e.g., MATH, Olympiad, Theorem-QA), outperforming base models like Qwen2.5-7B in reasoning tasks.
+
+    **Best for**:
+    - Code generation with traceability
+    - Verifiable reasoning and math problem solving
+    - Training or fine-tuning reasoning-intensive models
+    - Research in programmatic AI reasoning and RLVR (Reinforcement Learning with Verifiable Rewards)
+
+    **Key Features**:
+    ✅ Executable reasoning traces
+    ✅ High accuracy on math & logic benchmarks
+    ✅ Trained with pattern-level augmentation for diversity
+    ✅ Open-source and freely available under Apache 2.0
+
+    > 🔗 Learn more: [arXiv Paper](https://arxiv.org/abs/2510.04081) | [Dataset](https://huggingface.co/datasets/LHL3341/Caco-1.3M)
+  overrides:
+    parameters:
+      model: Caco-CodeGen.i1-Q4_K_M.gguf
+  files:
+    - filename: Caco-CodeGen.i1-Q4_K_M.gguf
+      sha256: 636d7502990b3e1778c493044e128c2f54b50eede36ebbcd5d563d413154d23b
+      uri: huggingface://mradermacher/Caco-CodeGen-i1-GGUF/Caco-CodeGen.i1-Q4_K_M.gguf
