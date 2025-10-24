@@ -22489,3 +22489,22 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ling-1T (Quantized GGUF Version)
+    **Base Model:** [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    **Task:** Text Generation
+    **Quantization:** GGUF (optimized for local inference, e.g., with llama.cpp)
+    **Description:** A large language model designed for high-quality, multilingual text generation. The base model, Ling-1T, is a state-of-the-art open-source LLM trained on diverse internet data to support reasoning, creativity, and factual accuracy. This repository provides a quantized GGUF version for efficient local deployment, making it accessible for use on consumer hardware. Ideal for developers, researchers, and enthusiasts seeking powerful language capabilities without cloud dependency.
+
+    *Note: This is a quantized variant. For the original full-precision model, refer to the base repository: [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T).*
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
+      sha256: 155160dd7cfce4fbeddcd303c650ebc9665c0011801796a7587f17a8af67793e
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
