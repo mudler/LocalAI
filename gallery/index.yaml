@@ -22542,3 +22542,25 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-235b-a22b-thinking-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-VL-235B-A22B-Thinking-MXFP4_MOE-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct**
+    *A state-of-the-art vision-language model with multimodal reasoning, long-context understanding, and advanced visual agent capabilities.*
+
+    - **Architecture**: Large-scale MoE (Mixture of Experts) model with interleaved-MRoPE, DeepStack, and timestamp-aligned positional encoding for superior spatial and temporal reasoning.
+    - **Capabilities**:
+      - Handles images, videos, and documents with up to **256K context length** (expandable to 1M).
+      - Excels in visual perception, OCR (32 languages), spatial reasoning, and video understanding.
+      - Supports **visual agent interactions** (GUI navigation, task automation).
+      - Generates code (HTML/CSS/JS/Draw.io) from visual inputs.
+      - Strong performance in STEM, logical reasoning, and multilingual text understanding.
+    - **Use Cases**: AI assistants, visual data analysis, content creation, robotics, embodied AI, document understanding.
+    - **Base Model**: Qwen3-VL series by Alibaba Cloud, designed for unified text–vision comprehension.
+
+    > 📌 *Note: The repository you're viewing is a quantized GGUF version (MXFP4_MOE) for local inference. The original, full-precision model is available at `Qwen/Qwen3-VL-235B-A22B-Instruct`.*
+  overrides:
+    parameters:
+      model: noctrex/Qwen3-VL-235B-A22B-Thinking-MXFP4_MOE-GGUF
