@@ -22489,3 +22489,32 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "yanoljanext-rosetta-4b-2510-q5_k_m"
+  urls:
+    - https://huggingface.co/irmma/YanoljaNEXT-Rosetta-4B-2510-Q5_K_M-GGUF
+  description: |
+    **YanoljaNEXT-Rosetta-4B-2510**
+    *Multilingual JSON Translation Model | 4B Parameters | Fine-tuned on Gemma3*
+
+    A 4-billion parameter, decoder-only language model built on **Google’s Gemma3-4B** architecture and fine-tuned by **Yanolja NEXT** for high-quality, structured multilingual translation.
+
+    Designed specifically for **translating JSON-formatted data**, this model preserves the original structure while delivering accurate, fluent translations across **32+ languages**, including Korean, English, Chinese, Japanese, German, French, Spanish, and more.
+
+    ### Key Features:
+    - **Fine-tuned on synthetic multilingual translation data** from FineWeb datasets.
+    - Achieves competitive CHrF++ scores (35.09 on English→Korean), outperforming larger models in its class.
+    - Outputs clean, valid JSON — ideal for localizing product catalogs, travel content, and structured text.
+    - Efficient and lightweight, suitable for real-time inference with minimal hardware.
+
+    ### Use Case:
+    Perfect for developers and AI teams needing reliable, structured multilingual translation in travel tech, e-commerce, and localization pipelines.
+
+    ### License:
+    [Gemma License](https://ai.google.dev/gemma/terms) (from base model).
+
+    > 📌 *Base model: [google/gemma-3-4b-pt](https://huggingface.co/google/gemma-3-4b-pt)*
+    > 🔗 *Original model card: [yanolja/YanoljaNEXT-Rosetta-4B-2510](https://huggingface.co/yanolja/YanoljaNEXT-Rosetta-4B-2510)*
+  overrides:
+    parameters:
+      model: irmma/YanoljaNEXT-Rosetta-4B-2510-Q5_K_M-GGUF
