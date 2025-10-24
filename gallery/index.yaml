@@ -22542,3 +22542,41 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ring-flash-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-flash-2.0-i1-GGUF
+  description: |
+    ### **Ring-flash-2.0**
+    *High-Performance Thinking Model | 100B Parameters | MoE Architecture*
+
+    **Overview:**
+    Ring-flash-2.0 is a cutting-edge, 100-billion-parameter **Mixture-of-Experts (MoE)** language model developed by inclusionAI. It is specifically optimized for **complex reasoning tasks** such as math, code generation, logical inference, and scientific reasoning—delivering performance on par with or exceeding 40B dense models, while maintaining high inference efficiency.
+
+    **Key Features:**
+    - **Efficient Inference:** Activates only 6.1B parameters per inference (1/32 expert activation ratio), enabling **200+ tokens/sec** generation on just four H20 GPUs.
+    - **Advanced Training:** Powered by the proprietary **IcePop algorithm**, which stabilizes reinforcement learning (RL) for MoE models, enabling continuous reasoning capability improvement across long training cycles.
+    - **Multi-Stage Training:** Trained via SFT → RLVR → RLHF pipeline for robust, general-purpose reasoning and alignment.
+    - **Long-Context Support:** Optimized for extended context (up to 32K tokens) using YaRN scaling, ideal for deep reasoning and document analysis.
+
+    **Performance Highlights:**
+    - Leads in **math competitions** (AIME, Omni-MATH)
+    - Top-tier on **code generation** (LiveCodeBench, CodeForce-Elo)
+    - Strong in **logical reasoning** (ARC-Prize) and **scientific/medical benchmarks** (GPQA-Diamond, HealthBench)
+    - Matches top-tier non-thinking models in **creative writing**
+
+    **Deployment Ready:**
+    Available via Hugging Face, ModelScope, and API (ZenMux), with support for **vLLM**, **SGLang**, and **LLaMA-Factory** fine-tuning.
+
+    **Model Base:** [inclusionAI/Ring-flash-2.0](https://huggingface.co/inclusionAI/Ring-flash-2.0)
+    **Paper:** [Every Step Evolves: Scaling RL for Trillion-Scale Thinking Models](https://arxiv.org/abs/2510.18855)
+    **License:** MIT
+
+    👉 *Perfect for developers, researchers, and enterprises needing scalable, high-speed reasoning AI.*
+  overrides:
+    parameters:
+      model: Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
+      sha256: ca8773475636349642e9159ede1efbcdabe0bcec9d5f3266fd7c310005b7d414
+      uri: huggingface://mradermacher/Ring-flash-2.0-i1-GGUF/Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
