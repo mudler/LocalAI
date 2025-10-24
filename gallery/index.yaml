@@ -22542,3 +22542,24 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-70b-bias-reduced-i1"
+  urls:
+    - https://huggingface.co/mradermacher/llama-3.3-70b-bias-reduced-i1-GGUF
+  description: |
+    The **Llama 3.3 70B Bias-Reduced** model is a large language model developed by **hirundo-io** as a fine-tuned variant of Meta's Llama 3.3 70B architecture. It is specifically designed to reduce harmful biases while maintaining strong performance across a wide range of natural language tasks. The model is trained on a diverse and carefully curated dataset to promote fairness, accuracy, and ethical behavior in responses.
+
+    This model is part of a broader effort to create more responsible AI systems and is suitable for applications requiring high-quality, unbiased text generation—such as content creation, dialogue systems, and educational tools.
+
+    The original base model (Llama 3.3 70B) was developed by Meta, but the bias-reduced version has been further optimized and fine-tuned by **hirundo-io** to improve fairness and reduce stereotypical or discriminatory outputs.
+
+    For users looking for a high-performance, ethically enhanced language model, this version offers a robust and trustworthy alternative to standard Llama 3.3 models.
+
+    > **Note**: The model available at `mradermacher/llama-3.3-70b-bias-reduced-i1-GGUF` is a **quantized (GGUF) version** of this model, created by mradermacher for efficient local inference. The original, full-precision model is hosted at `hirundo-io/llama-3.3-70b-bias-reduced`.
+  overrides:
+    parameters:
+      model: llama-3.3-70b-bias-reduced.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3.3-70b-bias-reduced.i1-Q4_K_M.gguf
+      sha256: 2c609a40ce863542cfd8c940a11bccc6ad2b3bba3fc17fedbd6b4b3e5295a060
+      uri: huggingface://mradermacher/llama-3.3-70b-bias-reduced-i1-GGUF/llama-3.3-70b-bias-reduced.i1-Q4_K_M.gguf
