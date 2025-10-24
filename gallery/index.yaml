@@ -22489,3 +22489,39 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Model Name:** Ling-1T
+    **Repository:** [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    **License:** MIT
+
+    **Overview:**
+    Ling-1T is a 1-trillion-parameter, non-thinking flagship model in the Ling 2.0 series, designed for efficient, scalable reasoning at scale. It features **≈50 billion active parameters per token** using a 1/32 MoE architecture and supports up to **128K context length** via YaRN. Pre-trained on **20+ trillion high-quality, reasoning-dense tokens**, it achieves state-of-the-art performance in complex reasoning, code generation, and front-end development.
+
+    **Key Features:**
+    - **Efficient Reasoning:** Leverages Evo-CoT (Evolutionary Chain-of-Thought) and LPO (Linguistics-Unit Policy Optimization) for stable, high-accuracy reasoning.
+    - **Aesthetic Code Generation:** Excels in visual and functional front-end code synthesis with a *Syntax–Function–Aesthetics* reward mechanism.
+    - **Trillion-Scale Training:** First known FP8-trained model at 1T parameters with minimal loss deviation (≤0.1%) and 15%+ speedup.
+    - **Open-Source Leader:** Outperforms many closed-source models (e.g., GPT-5, Gemini-2.5-Pro) on benchmarks like AIME 25 and ArtifactsBench, ranking **#1 among open-source models**.
+
+    **Best For:**
+    - Complex reasoning tasks
+    - High-accuracy code and UI generation
+    - Long-context, multi-turn applications
+    - Research and deployment at scale
+
+    **Quickstart:**
+    Try it live: [ZenMux](https://zenmux.ai/inclusionai/ling-1t) | API via OpenAI-compatible interface
+    Available on Hugging Face & ModelScope.
+
+    **Note:** This is the original, full-precision model—distinct from quantized versions like `DevQuasar/inclusionAI.Ling-1T-GGUF`.
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
+      sha256: 155160dd7cfce4fbeddcd303c650ebc9665c0011801796a7587f17a8af67793e
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
