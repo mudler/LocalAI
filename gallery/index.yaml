@@ -22542,3 +22542,30 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ring-flash-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-flash-2.0-i1-GGUF
+  description: |
+    **Ring-flash-2.0** is a high-performance, trillion-scale thinking model developed by inclusionAI, built upon the Ling-flash-base-2.0 architecture. With 100B total parameters and only 6.1B activated per inference (via a 1/32 expert activation ratio), it delivers dense-model-level performance at a fraction of the computational cost. Optimized with the innovative **IcePop algorithm**, it overcomes training-inference gaps in MoE models, enabling stable, long-horizon reinforcement learning and superior reasoning capabilities.
+
+    Ring-flash-2.0 excels in complex tasks including **math competitions (AIME, Omni-MATH)**, **code generation (LiveCodeBench, CodeForce-Elo)**, **logical reasoning (ARC-Prize)**, and **scientific/medical reasoning (GPQA-Diamond, HealthBench)** — outperforming many 40B dense models and rivaling larger MoE and closed-source APIs. Despite its focus on reasoning, it also matches top-tier models in **creative writing**.
+
+    Designed for efficiency, it achieves **200+ tokens/sec** on just four H20 GPUs, making it ideal for high-concurrency inference. Fully open-source, it supports deployment via **vLLM**, **SGLang**, and **Hugging Face Transformers**, with extensive documentation and fine-tuning support through Llama-Factory.
+
+    **Key Features:**
+    - 100B total parameters, 6.1B active per inference
+    - MoE architecture with 1/32 expert activation
+    - IcePop algorithm for stable RL training
+    - High-speed inference (~200+ tokens/sec)
+    - Top-tier performance in math, code, and logical reasoning
+    - Fully open-source (MIT license)
+
+    👉 **Try it live**: [ZenMux](https://zenmux.ai/inclusionai/ring-flash-2.0) | **Hugging Face**: [inclusionAI/Ring-flash-2.0](https://huggingface.co/inclusionAI/Ring-flash-2.0)
+  overrides:
+    parameters:
+      model: Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
+      sha256: ca8773475636349642e9159ede1efbcdabe0bcec9d5f3266fd7c310005b7d414
+      uri: huggingface://mradermacher/Ring-flash-2.0-i1-GGUF/Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
