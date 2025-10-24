@@ -22542,3 +22542,16 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "lingjian-1.0-chat-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Lingjian-1.0-Chat-i1-GGUF
+  description: |
+    **Lingjian-1.0-Chat** is a specialized vision-language model developed by LingJian AI for clinical laboratory medicine. Built on the Qwen2.5-VL-7B-Instruct foundation, it excels in analyzing microscopic images, identifying cells, performing morphological analysis, and localizing key targets—enabling advanced support for laboratory diagnostics, quality control, and medical education. Designed with both Chinese and English language capabilities, it serves as an intelligent assistant for clinical laboratories, offering real-time interpretation of complex lab images. Intended as a decision-support tool, it requires expert validation and is not suitable for standalone diagnostic use.
+  overrides:
+    parameters:
+      model: Lingjian-1.0-Chat.i1-Q4_K_M.gguf
+  files:
+    - filename: Lingjian-1.0-Chat.i1-Q4_K_M.gguf
+      sha256: 8161af5aa84e6093c2f33b9a53d388de6cc49b753586f594407a210db68a6e84
+      uri: huggingface://mradermacher/Lingjian-1.0-Chat-i1-GGUF/Lingjian-1.0-Chat.i1-Q4_K_M.gguf
