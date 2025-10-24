@@ -22542,3 +22542,35 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Repository:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **License:** MIT
+    **Pipeline:** Text Generation
+    **Architecture:** Ling 2.0 (MoE-based), 1 trillion total parameters (50B activated)
+    **Context Length:** Up to 128K tokens (supports YaRN scaling)
+    **Training:** Large-scale verifiable reward reinforcement learning (RLVR), optimized with Icepop stabilization and ASystem framework
+
+    **Overview:**
+    Ring-1T is a trillion-parameter open-source foundation model designed for deep reasoning and advanced natural language understanding. Built upon the Ling-1T-base, it excels in complex tasks including math competitions (AIME, IMO), code generation (LiveCodeBench, ICPC), logical reasoning (ARC-AGI), and creative writing. Trained using innovative reinforcement learning techniques like Icepop and ASystem, Ring-1T achieves state-of-the-art performance among open-source models while maintaining stability during long-sequence generation.
+
+    **Key Features:**
+    - High performance across reasoning, coding, and creative tasks
+    - Support for 128K context with YaRN extension
+    - Openly available for research, fine-tuning, and deployment via Hugging Face and ModelScope
+    - Compatible with SGLang, vLLM, and Llama-Factory for efficient inference and customization
+
+    **Ideal For:** Researchers, developers, and AI practitioners seeking a powerful, open alternative for advanced reasoning and long-context applications.
+
+    👉 Try online: [ZenMux](https://zenmux.ai/inclusionai/ring-1t) | 📥 Download: [Hugging Face](https://huggingface.co/inclusionAI/Ring-1T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ring-1T)
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: 769611061e2780688ba92ff2003ff0e93135fd0f01542aeec8fbd9e888135b2e
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
