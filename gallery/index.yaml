@@ -22489,3 +22489,44 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ling-mini-base-2.0-15t-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-mini-base-2.0-15T-i1-GGUF
+  description: |
+    **Model Name:** Ling-mini-base-2.0-15T
+    **Base Model:** [inclusionAI/Ling-mini-base-2.0-15T](https://huggingface.co/inclusionAI/Ling-mini-base-2.0-15T)
+    **Model Type:** Mixture of Experts (MoE) Language Model
+    **Size:** 16B total parameters (1.4B activated per token)
+    **Context Length:** Up to 128K tokens (with YaRN)
+    **Training Data:** 15 trillion high-quality tokens
+    **License:** MIT
+
+    ---
+
+    ### 🔍 Overview
+    Ling-mini-base-2.0-15T is a compact yet powerful **MoE-based LLM** that achieves **top-tier performance** comparable to much larger dense models. With only **1.4B activated parameters per token**, it delivers **7× equivalent dense performance**, making it highly efficient for both inference and training.
+
+    ### ⚡ Key Features
+    - **High Efficiency:** 1/32 expert activation ratio enables fast inference (300+ tokens/sec on H20).
+    - **Long Context:** Supports up to **128K tokens** via YaRN, ideal for long-form reasoning and document analysis.
+    - **FP8 Training:** Open-sourced FP8 mixed-precision training solution for efficient fine-tuning.
+    - **Strong Reasoning:** Excels in coding, math, and knowledge-intensive tasks (AIME, HMMT, MMLU-Pro).
+
+    ### 📦 Use Cases
+    - Low-resource inference with high performance
+    - Long-context applications (legal, technical, research documents)
+    - Research and fine-tuning on MoE architectures
+
+    ### 📌 Model Availability
+    - **Original Base Model (FP16/BF16):** [inclusionAI/Ling-mini-base-2.0-15T](https://huggingface.co/inclusionAI/Ling-mini-base-2.0-15T)
+    - **Quantized GGUF Versions:** [mradermacher/Ling-mini-base-2.0-15T-i1-GGUF](https://huggingface.co/mradermacher/Ling-mini-base-2.0-15T-i1-GGUF) (for local inference)
+
+    > ✅ *For the original, unquantized model description and best performance — use the base model on Hugging Face.*
+  overrides:
+    parameters:
+      model: Ling-mini-base-2.0-15T.i1-Q4_K_M.gguf
+  files:
+    - filename: Ling-mini-base-2.0-15T.i1-Q4_K_M.gguf
+      sha256: 100292bc1cb37d5e59e0e97e2c53926e263567241a95fa8a0f06f165e89147a5
+      uri: huggingface://mradermacher/Ling-mini-base-2.0-15T-i1-GGUF/Ling-mini-base-2.0-15T.i1-Q4_K_M.gguf
