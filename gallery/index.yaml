@@ -22489,3 +22489,30 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, open-source foundation model designed for efficient, high-accuracy reasoning. Built on the Ling 2.0 architecture, it features ≈50 billion active parameters per token and supports ultra-long context (up to 128K tokens) via YaRN scaling. Pre-trained on over 20 trillion high-quality, reasoning-dense tokens, Ling-1T excels in complex reasoning, code generation, mathematical problem solving, and front-end development — achieving state-of-the-art performance among open-source models.
+
+    Key highlights:
+    - **Emergent reasoning**: Demonstrates strong transfer and efficient chain-of-thought abilities.
+    - **Hybrid reward system**: Generates not only functionally correct but visually appealing, aesthetically refined code.
+    - **Trillion-scale training**: First known FP8-trained model at this scale, with 15%+ speedup and minimal accuracy loss.
+    - **Evo-CoT & LPO**: Advanced post-training techniques for stable, high-quality reasoning alignment.
+
+    Ling-1T is ideal for developers, researchers, and AI practitioners seeking a powerful, efficient, and scalable model for complex cognitive tasks — all while remaining open and accessible.
+
+    **Model Size**: 1T total parameters (≈50B active)
+    **Context Length**: Up to 128K (via YaRN)
+    **License**: MIT
+    **Use Case**: Reasoning, coding, math, agent tasks, front-end generation
+    **Repository**: [huggingface.co/inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
+      sha256: 155160dd7cfce4fbeddcd303c650ebc9665c0011801796a7587f17a8af67793e
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q3_K_M-00001-of-00039.gguf
