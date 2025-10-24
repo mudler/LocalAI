@@ -22489,3 +22489,16 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "c2s-scale-gemma-2-27b"
+  urls:
+    - https://huggingface.co/Mungert/C2S-Scale-Gemma-2-27B-GGUF
+  description: |
+    AI model: c2s-scale-gemma-2-27b
+  overrides:
+    parameters:
+      model: C2S-Scale-Gemma-2-27B-q4_k_m.gguf
+  files:
+    - filename: C2S-Scale-Gemma-2-27B-q4_k_m.gguf
+      sha256: cc29bfcf67cf4f64d334ff6ae909f1ea11c6ac58afcd927db831e9ece6be24cc
+      uri: huggingface://Mungert/C2S-Scale-Gemma-2-27B-GGUF/C2S-Scale-Gemma-2-27B-q4_k_m.gguf
