@@ -22542,3 +22542,33 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "mira-v1.8-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.8-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-v1.8-27B
+    **Base Model:** Lambent/Mira-v1.8-27B
+    **Type:** Large Language Model (Vision-capable)
+    **Size:** 27 billion parameters
+    **Quantization:** GGUF format, multiple quantizations available (e.g., Q2_K, Q4_K_M, IQ3_XXS, etc.)
+    **License:** Gemma
+    **Repository:** [mradermacher/Mira-v1.8-27B-i1-GGUF](https://huggingface.co/mradermacher/Mira-v1.8-27B-i1-GGUF)
+    **Base Model Source:** [Lambent/Mira-v1.8-27B](https://huggingface.co/Lambent/Mira-v1.8-27B)
+
+    **Description:**
+    Mira-v1.8-27B is a large-scale multimodal language model with strong reasoning and instruction-following capabilities. Designed for complex tasks including code generation, dialogue, and vision understanding, it is based on the original **Lambent/Mira-v1.8-27B** model. This repository provides GGUF-quantized versions optimized for local inference using tools like `llama.cpp`, making it accessible for high-performance deployment on consumer hardware. The model supports vision inputs (via mmproj), and the repository includes imatrix files for advanced quantization customization.
+
+    **Best For:**
+    - Local LLM inference (desktop/GPU/low-resource systems)
+    - Multimodal reasoning and vision-language tasks
+    - Developers and researchers seeking high-quality, efficient quantizations
+
+    **Note:** This is a **quantized version** of the original model. The original, unquantized model is hosted at [Lambent/Mira-v1.8-27B](https://huggingface.co/Lambent/Mira-v1.8-27B). For the full unquantized version, refer to the base repository.
+  overrides:
+    parameters:
+      model: Mira-v1.8-27B.i1-Q2_K.gguf
+  files:
+    - filename: Mira-v1.8-27B.i1-Q2_K.gguf
+      sha256: 122d4fe4c847788ac5922897ab5ca4e6bba0f83d0ac067142b4ea869a3f9da17
+      uri: huggingface://mradermacher/Mira-v1.8-27B-i1-GGUF/Mira-v1.8-27B.i1-Q2_K.gguf
