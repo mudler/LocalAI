@@ -22542,3 +22542,49 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "olmocr-2-7b-1025"
+  urls:
+    - https://huggingface.co/richardyoung/olmOCR-2-7B-1025-GGUF
+  description: |
+    **Model Name:** olmOCR-2-7B-1025
+    **Model Type:** Vision-Language Model (OCR-specialized)
+    **Base Model:** Qwen2.5-VL-7B-Instruct
+    **Repository:** [allenai/olmOCR-2-7B-1025](https://huggingface.co/allenai/olmOCR-2-7B-1025)
+    **Architecture:** Fine-tuned Qwen2.5-VL-7B-Instruct
+    **License:** Apache 2.0
+
+    ---
+
+    ### 📌 Description:
+    olmOCR-2-7B-1025 is a state-of-the-art vision-language model specifically designed for high-accuracy OCR (Optical Character Recognition) in complex document scenarios. Fine-tuned on the **olmOCR-mix-1025** dataset and enhanced with GRPO reinforcement learning, it excels at extracting text from handwritten notes, tables, mathematical expressions, old scans, and multi-column layouts.
+
+    It achieves an **overall score of 82.4** on the olmOCR-Bench, making it one of the most capable open-source OCR models available.
+
+    ### 🔍 Key Features:
+    - **High-precision OCR** across diverse document types (PDFs, scanned papers, handwritten text)
+    - **Math & table-aware**: Superior handling of equations and structured content
+    - **Robust to distortions**: Handles low-quality scans, rotation, and small text
+    - **Optimized for inference**: Available in FP8 and BF16 variants for efficiency
+    - **Production-ready**: Best used via the [olmOCR toolkit](https://github.com/allenai/olmocr) for scalable, high-throughput document processing
+
+    ### 🧪 Performance Highlights:
+    | Task                 | Score |
+    |----------------------|-------|
+    | ArXiv Documents      | 82.9  |
+    | Old Scans Math       | 82.1  |
+    | Tables               | 84.3  |
+    | Headers & Footers    | 95.7  |
+    | Overall (olmOCR-Bench)| 82.4 |
+
+    ### 📌 Use Case:
+    Ideal for researchers, publishers, and developers needing to extract and structure text from scanned documents, academic papers, forms, and legacy materials — especially when accuracy and context understanding are critical.
+
+    ---
+
+    📌 **Cite:**
+    *Allen Institute for AI (2025). olmOCR-2: Advancing OCR with Vision Language Models.*
+    [Paper](https://olmocr.allenai.org/papers/olmocr.pdf) | [GitHub](https://github.com/allenai/olmocr)
+  overrides:
+    parameters:
+      model: richardyoung/olmOCR-2-7B-1025-GGUF
