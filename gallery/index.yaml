@@ -22542,3 +22542,28 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-70b-bias-reduced-i1"
+  urls:
+    - https://huggingface.co/mradermacher/llama-3.3-70b-bias-reduced-i1-GGUF
+  description: |
+    The **Llama-3.3-70B Bias-Reduced** model is a large language model developed by **hirundo-io** as a fine-tuned, bias-reduced variant of Meta's Llama 3.3 70B architecture. It is designed to minimize harmful biases while maintaining strong performance across a wide range of natural language tasks, including reasoning, coding, and conversation.
+
+    This version is part of a broader effort to improve fairness and safety in AI systems. The model is available in multiple GGUF quantized formats (e.g., IQ3_M, Q4_K_M, Q6_K) for efficient inference on consumer hardware, making it accessible for local deployment.
+
+    While the original model is not publicly available on Hugging Face in full, the **quantized versions** (e.g., `mradermacher/llama-3.3-70b-bias-reduced-i1-GGUF`) are community-quantized derivatives that retain the core improvements of the original bias-reduced training.
+
+    > ✅ Ideal for: Researchers, developers, and privacy-conscious users seeking a safer, high-performance LLM for local use.
+    > 📦 Format: GGUF (optimized for llama.cpp and similar inference engines)
+    > 🎯 Key Feature: Reduced societal bias while preserving strong reasoning and linguistic capability.
+
+    **Base Model**: `hirundo-io/llama-3.3-70b-bias-reduced`
+    **Quantized By**: mradermacher
+    **License**: Check original Llama 3.3 license (Meta’s Llama 3.3 model terms apply)
+  overrides:
+    parameters:
+      model: llama-3.3-70b-bias-reduced.i1-Q4_K_M.gguf
+  files:
+    - filename: llama-3.3-70b-bias-reduced.i1-Q4_K_M.gguf
+      sha256: 2c609a40ce863542cfd8c940a11bccc6ad2b3bba3fc17fedbd6b4b3e5295a060
+      uri: huggingface://mradermacher/llama-3.3-70b-bias-reduced-i1-GGUF/llama-3.3-70b-bias-reduced.i1-Q4_K_M.gguf
