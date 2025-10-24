@@ -22542,3 +22542,26 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *afm
+  name: "a2fm-32b-rl-i1"
+  urls:
+    - https://huggingface.co/mradermacher/A2FM-32B-rl-i1-GGUF
+  description: |
+    **A²FM-32B-rl** is a large language model developed by PersonalAILab, designed for **adaptive, tool-aware reasoning and agentic behavior**. It dynamically selects between *instant*, *reasoning*, and *agentic* modes to balance accuracy and efficiency, achieving state-of-the-art results on benchmarks like AIME25 (70.4%) and BrowseComp (13.4%).
+
+    Leveraging **Adaptive Policy Optimization (APO)** and a *route-then-align* training strategy, A²FM reduces inference cost by up to 45% compared to traditional reasoning models—delivering high performance at lower computational expense.
+
+    **Base Model:** `PersonalAILab/A2FM-32B-rl`
+    **Type:** Text generation, agentic reasoning
+    **Size:** 32B parameters
+    **License:** Apache 2.0
+    **Use Case:** Intelligent agents, complex task automation, cost-efficient reasoning systems
+
+    📘 [Paper](https://arxiv.org/abs/2510.12838) | 💻 [GitHub](https://github.com/OPPO-PersonalAI/Adaptive_Agent_Foundation_Models)
+  overrides:
+    parameters:
+      model: A2FM-32B-rl.i1-Q2_K.gguf
+  files:
+    - filename: A2FM-32B-rl.i1-Q2_K.gguf
+      sha256: a8d57555140c21d14ffc395b9a7a25829dbe792ece9ab668c34c6dec125acbbc
+      uri: huggingface://mradermacher/A2FM-32B-rl-i1-GGUF/A2FM-32B-rl.i1-Q2_K.gguf
