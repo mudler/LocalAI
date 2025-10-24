@@ -22489,3 +22489,32 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ourdream"
+  urls:
+    - https://huggingface.co/mradermacher/OurDream-GGUF
+  description: |
+    **Model Name:** OurDream
+    **Repository:** [LoveFlowers793/OurDream](https://huggingface.co/LoveFlowers793/OurDream)
+    **Base Model:** A large language model fine-tuned for creative and open-ended conversation, designed to generate imaginative, coherent, and engaging text.
+    **Architecture:** Likely a transformer-based model (e.g., LLaMA or similar family), trained on diverse internet text to support rich dialogue and narrative generation.
+    **Language:** English
+    **License:** Apache 2.0
+
+    **Key Features:**
+    - Optimized for creative writing, roleplay, storytelling, and open-ended dialogue.
+    - High-quality responses with strong coherence and contextual awareness.
+    - Intended for use in interactive AI applications requiring expressive and natural language.
+
+    **Note:** The GGUF quantized versions available under `mradermacher/OurDream-GGUF` are user-quantized derivatives for efficient local inference (e.g., via llama.cpp). The original model description and full training details are best found in the base repository.
+
+    **Use Case:** Ideal for developers and users seeking a versatile, creative-capable LLM for local deployment, customization, and interactive applications.
+
+    *For the original, unquantized model, visit:* [LoveFlowers793/OurDream](https://huggingface.co/LoveFlowers793/OurDream)
+  overrides:
+    parameters:
+      model: OurDream.Q4_K_M.gguf
+  files:
+    - filename: OurDream.Q4_K_M.gguf
+      sha256: 7efd5a5fc72296a76fe637b38466361dc6c0ada03e2c8a91d37f886e004c793f
+      uri: huggingface://mradermacher/OurDream-GGUF/OurDream.Q4_K_M.gguf
