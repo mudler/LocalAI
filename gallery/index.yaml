@@ -22489,3 +22489,42 @@
     - filename: PokeeAI.pokee_research_7b.Q4_K_M.gguf
       sha256: 4cf6e52b51f3595631b6e17ad2d5a5c8499d2e646cf9452dd32fb5ff7bbb37dd
       uri: huggingface://DevQuasar/PokeeAI.pokee_research_7b-GGUF/PokeeAI.pokee_research_7b.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "inclusionai.ring-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ring-1T (Quantized GGUF Version)
+    **Base Model:** [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T)
+    **Repository:** [DevQuasar/inclusionAI.Ring-1T-GGUF](https://huggingface.co/DevQuasar/inclusionAI.Ring-1T-GGUF)
+    **Pipeline:** Text Generation
+    **Quantization:** GGUF (optimized for local inference, e.g., llama.cpp)
+    **Model Size:** 1 trillion parameters (1T)
+    **License:** Apache 2.0 (check base model for details)
+
+    ---
+
+    **Description:**
+    A quantized GGUF version of the **inclusionAI/Ring-1T**, a large language model trained to support inclusive, ethical, and knowledge-driven AI. Designed for efficient local deployment, this model enables powerful text generation on consumer hardware. Ideal for developers and researchers seeking a high-capacity, open-access LLM with strong reasoning and creative capabilities—now optimized for low-resource environments.
+
+    **Use Cases:**
+    - Local AI assistants
+    - Educational tools
+    - Creative writing and code generation
+    - Research and prototyping
+
+    **Note:** This is a **quantized** version (GGUF format) of the original model, intended for performance on CPUs/GPUs via llama.cpp. For the full precision base model, refer to [inclusionAI/Ring-1T](https://huggingface.co/inclusionAI/Ring-1T).
+
+    ✅ Open, free, and designed to empower communities through accessible AI.
+    🔗 [Learn more on DevQuasar's website](https://devquasar.com)
+
+    ---
+
+    *Model card powered by Hugging Face, optimized for clarity and discoverability.*
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: 769611061e2780688ba92ff2003ff0e93135fd0f01542aeec8fbd9e888135b2e
+      uri: huggingface://DevQuasar/inclusionAI.Ring-1T-GGUF/inclusionAI.Ring-1T.Q4_K_M-00001-of-00047.gguf
