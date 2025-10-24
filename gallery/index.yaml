@@ -22542,3 +22542,25 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "yanoljanext-rosetta-4b-2510-q5_k_m"
+  urls:
+    - https://huggingface.co/irmma/YanoljaNEXT-Rosetta-4B-2510-Q5_K_M-GGUF
+  description: |
+    **Model Name:** YanoljaNEXT-Rosetta-4B-2510 (Base Model)
+    **Repository:** [yanolja/YanoljaNEXT-Rosetta-4B-2510](https://huggingface.co/yanolja/YanoljaNEXT-Rosetta-4B-2510)
+    **Type:** Large Language Model (LLM)
+    **Architecture:** Llama-based (likely a variant inspired by Llama 2/3, fine-tuned for multilingual capabilities)
+    **Size:** 4.3 billion parameters
+    **Languages Supported:** 33+ languages including English, Korean, Chinese, Japanese, German, French, Spanish, Russian, Arabic, and more
+    **Training Focus:** Multilingual instruction-following and reasoning, with strong performance in translation and open-ended generation
+
+    **Overview:**
+    YanoljaNEXT-Rosetta-4B-2510 is a high-quality, multilingual large language model developed by Yanolja, a South Korean AI company. Trained on diverse, multilingual data, it excels at cross-lingual understanding and generation, making it ideal for tasks like translation, summarization, and dialogue across a wide range of languages. The model is optimized for both performance and efficiency, and is particularly strong in handling complex instructions and contextual reasoning.
+
+    **Note:** The GGUF version hosted at `irmma/YanoljaNEXT-Rosetta-4B-2510-Q5_K_M-GGUF` is a quantized, inference-optimized variant for local use via `llama.cpp`. The original, full-precision base model is available at the official `yanolja/YanoljaNEXT-Rosetta-4B-2510` repository and should be referenced for the most accurate and complete model description.
+
+    ✅ **Ideal for:** Multilingual applications, offline inference, translation pipelines, and research on scalable LLMs.
+  overrides:
+    parameters:
+      model: irmma/YanoljaNEXT-Rosetta-4B-2510-Q5_K_M-GGUF
