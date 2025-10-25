@@ -22542,3 +22542,36 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ling-1T (Quantized GGUF Version)
+    **Base Model:** [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    **Pipeline:** Text Generation
+    **Quantization:** GGUF (Optimized for local inference with llama.cpp)
+    **License:** MIT (Check original model for full details)
+
+    **Description:**
+    A large language model developed by inclusionAI, designed for high-quality text generation with strong multilingual and reasoning capabilities. The base model, Ling-1T, is a 1 trillion parameter language model trained on diverse internet-scale data, optimized for open-ended generation, code, and complex reasoning tasks.
+
+    This repository provides a quantized GGUF version, enabling efficient local inference on consumer hardware (e.g., CPUs and GPUs with limited VRAM), making advanced AI more accessible. The model is ideal for developers, researchers, and hobbyists seeking a powerful, open, and locally deployable language model.
+
+    **Use Cases:**
+    - Local AI chat and content generation
+    - Code generation and explanation
+    - Multilingual text processing
+    - Research and experimentation without cloud dependency
+
+    **Note:** This is a *quantized version* of the original model. For the full-precision base model (recommended for training or highest performance), visit: [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T).
+
+    ---
+    *Powered by DevQuasar — Making knowledge free for everyone.*
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
