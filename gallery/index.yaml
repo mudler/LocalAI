@@ -22542,3 +22542,23 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "mira-v1.8.1b-27b"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.8.1b-27B-GGUF
+  description: |
+    **Mira-v1.8.1b-27B**
+    *Base Model:* [Lambent/Mira-v1.8-27B](https://huggingface.co/Lambent/Mira-v1.8-27B)
+    *License:* Gemma
+    *Size:* 27B parameters
+
+    A high-performance, privacy-conscious language model fine-tuned via DPO (Direct Preference Optimization) for enhanced reasoning, creative writing, and resistance to censorship. Trained on diverse datasets including code security, literary works, and anti-censorship content, Mira-v1.8.1b excels in natural dialogue, technical writing, and expressive creativity. Designed with ethical alignment and open transparency, it serves as a robust foundation for research, development, and creative applications.
+
+    *Note:* The GGUF variant (mradermacher/Mira-v1.8.1b-27B-GGUF) is a quantized version optimized for local inference. For the original, full-precision model, refer to the base repository above.
+  overrides:
+    parameters:
+      model: Mira-v1.8.1b-27B.Q4_K_M.gguf
+  files:
+    - filename: Mira-v1.8.1b-27B.Q4_K_M.gguf
+      sha256: 5321b47b25e56e5decb18cbba4dc24c52b3a9098fe3e1eee279971c6a3f91eed
+      uri: huggingface://mradermacher/Mira-v1.8.1b-27B-GGUF/Mira-v1.8.1b-27B.Q4_K_M.gguf
