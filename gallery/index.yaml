@@ -22542,3 +22542,20 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "fapo-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/FAPO-32B-i1-GGUF
+  description: |
+    The model is a quantized version of **FAPO-32B**, a large language model originally developed by **dyyyyyyyy** and hosted on Hugging Face. The repository `mradermacher/FAPO-32B-i1-GGUF` contains a GGUF-converted and quantized variant of the base FAPO-32B model, specifically optimized for efficient inference on consumer hardware. It supports multiple quantization levels (e.g., Q2_K, Q4_K_M, Q5_K_M, IQ4_NL) to balance performance and accuracy.
+
+    While the original model is a 32-billion parameter LLM designed for general-purpose tasks, this version is not the original unquantized model. It is a downstream, compressed adaptation for local deployment, particularly suited for use with tools like `llama.cpp`. The model does not include a multimodal projector (as indicated by `skip_mmproj: 1`), meaning it is purely text-based.
+
+    For the original, full-precision model description and documentation, refer to the base repository: [dyyyyyyyy/FAPO-32B](https://huggingface.co/dyyyyyyyy/FAPO-32B).
+  overrides:
+    parameters:
+      model: FAPO-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: FAPO-32B.i1-Q4_K_M.gguf
+      sha256: d92c6b60b07a68490cda7f81c23e0043abc908fc197b6946b4368c88a27105be
+      uri: huggingface://mradermacher/FAPO-32B-i1-GGUF/FAPO-32B.i1-Q4_K_M.gguf
