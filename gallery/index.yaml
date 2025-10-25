@@ -22599,3 +22599,63 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen2
+  name: "nanonets-ocr2-1.5b-exp"
+  urls:
+    - https://huggingface.co/Mungert/Nanonets-OCR2-1.5B-exp-GGUF
+  description: |
+    **Model Name:** Nanonets-OCR2-1.5B-exp
+    **Base Model:** Qwen/Qwen2-VL-2B-Instruct
+    **Task:** Image-to-Text (Document OCR & Structured Extraction)
+    **License:** Apache 2.0
+    **Repository:** [nanonets/Nanonets-OCR2-1.5B-exp](https://huggingface.co/nanonets/Nanonets-OCR2-1.5B-exp)
+
+    ---
+
+    ### 🔍 **Model Overview**
+    Nanonets-OCR2-1.5B-exp is a state-of-the-art, multilingual image-to-text model designed to convert complex documents into structured, machine-readable markdown. It excels at extracting text, equations, tables, images, signatures, watermarks, and checkboxes—while preserving semantic context.
+
+    Built on the Qwen2-VL-2B-Instruct foundation and fine-tuned by **Nanonets**, it supports **multilingual document processing** (including Chinese, Arabic, French, German, Japanese, etc.) and handles **handwritten text**, **complex tables**, **LaTeX equations**, and **diagrams**.
+
+    ---
+
+    ### 🛠️ **Key Features**
+    - ✅ **Intelligent OCR**: Extracts text with semantic tagging (e.g., `<signature>`, `<watermark>`, `<img>`)
+    - ✅ **LaTeX & HTML Table Output**: Converts equations and tables into clean, usable formats
+    - ✅ **Visual Question Answering (VQA)**: Answers document-based questions directly
+    - ✅ **Multilingual Support**: Trained on documents across 15+ languages
+    - ✅ **Flowchart & Org Chart Recognition**: Outputs Mermaid.js code for diagrams
+    - ✅ **Handwritten Document Understanding**: Robust on cursive and non-standard handwriting
+
+    ---
+
+    ### 📊 **Performance Highlights**
+    - Outperforms GPT-5 and Gemini 2.5 Flash on document extraction benchmarks
+    - Achieves **89.43% accuracy on DocVQA**, surpassing many LLMs
+    - Strong results in **VQA tasks**, particularly on charts and financial documents
+
+    ---
+
+    ### 📌 **Use Cases**
+    - PDF → Markdown conversion (legal, financial, medical docs)
+    - Automated form processing with checkbox and signature detection
+    - Document intelligence pipelines for LLMs
+    - AI-powered workflow automation (e.g., invoice, contract, report processing)
+
+    ---
+
+    ### 📚 **How to Use**
+    Available via Hugging Face Transformers and vLLM. Example usage with `transformers` or through [Docstrange](https://docstrange.nanonets.com/).
+
+    ---
+
+    💡 **Note:** This is the **original, non-quantized** version of the model. The GGUF variant (in `Mungert/Nanonets-OCR2-1.5B-exp-GGUF`) is a quantized version for CPU inference—use the base model for highest accuracy.
+
+    📌 **Perfect for developers and enterprises needing high-accuracy document parsing with rich semantic output.**
+  overrides:
+    parameters:
+      model: Nanonets-OCR2-1.5B-exp-q4_k_m.gguf
+  files:
+    - filename: Nanonets-OCR2-1.5B-exp-q4_k_m.gguf
+      sha256: 1cc122f92fff216a3b5c74988aa4bc442414f5b9000fd5af1e5cc84fcc31a307
+      uri: huggingface://Mungert/Nanonets-OCR2-1.5B-exp-GGUF/Nanonets-OCR2-1.5B-exp-q4_k_m.gguf
