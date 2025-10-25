@@ -22599,3 +22599,29 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "coldbrew-nemo-12b-arcane-base-test0"
+  urls:
+    - https://huggingface.co/Theros/ColdBrew-Nemo-12B-Arcane-Base-test0-Q4_K_M-GGUF
+  description: |
+    **ColdBrew-Nemo-12B-Arcane-Base-test0** is a 12-billion-parameter large language model developed by SvalTek as part of the *ColdBrew* series, built upon the Nemo framework. This base model is designed for high-quality, coherent text generation with strong reasoning and creative capabilities. It is optimized for use with chat-style prompts and excels in dialogue, storytelling, and complex instruction following.
+
+    The model is trained on a diverse and extensive dataset, emphasizing linguistic fluency, factual consistency, and creative expression. It supports advanced inference via Hugging Face Transformers and is compatible with both GPU acceleration and quantized deployment using llama.cpp.
+
+    This version is the original, unquantized base model (not a quantized variant), making it ideal for users seeking maximum performance and fidelity in text generation.
+
+    📌 **Key Features:**
+    - 12B parameter size
+    - Fine-tuned for dialogue and instruction following
+    - Full support for Hugging Face pipelines
+    - Built on the Nemo framework with strong reasoning capabilities
+    - Intended for research, creative writing, and advanced LLM applications
+
+    🔗 *Original model repository:* [SvalTek/ColdBrew-Nemo-12B-Arcane-Base-test0](https://huggingface.co/SvalTek/ColdBrew-Nemo-12B-Arcane-Base-test0)
+  overrides:
+    parameters:
+      model: coldbrew-nemo-12b-arcane-base-test0-q4_k_m.gguf
+  files:
+    - filename: coldbrew-nemo-12b-arcane-base-test0-q4_k_m.gguf
+      sha256: 6031fec062c7a2b218e02faca570ac9e6129cd5cc0c446fae4bce37e8c9268e0
+      uri: huggingface://Theros/ColdBrew-Nemo-12B-Arcane-Base-test0-Q4_K_M-GGUF/coldbrew-nemo-12b-arcane-base-test0-q4_k_m.gguf
