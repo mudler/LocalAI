@@ -22599,3 +22599,31 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ling-1T (Quantized GGUF version)
+    **Base Model:** [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    **Architecture:** Large Language Model (LLM) based on a transformer architecture, designed for high-quality text generation.
+    **Purpose:** A multilingual, open-source language model focused on inclusive, accurate, and contextually rich text generation.
+    **Quantization:** This is a quantized (GGUF format) version of the original model, optimized for efficient local inference on consumer hardware.
+    **Use Case:** Ideal for developers, researchers, and hobbyists seeking a powerful, accessible language model for applications like chatbots, content creation, code generation, and research.
+    **Key Features:**
+    - High performance with reduced memory footprint due to quantization
+    - Supports multiple languages (multilingual capabilities)
+    - Designed with inclusivity and ethical AI principles in mind
+    - Compatible with tools like `llama.cpp`, `ollama`, and other GGUF-compatible inference engines
+
+    > ✅ *Note:* This is a quantized derivative. For the full-precision, original model, visit the base repository: [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+
+    **Model Gallery Description:**
+    A quantized (GGUF) version of the inclusive, multilingual LLM **inclusionAI.Ling-1T**, optimized for efficient local inference. Built on a strong foundation of ethical and high-quality language modeling, it delivers powerful text generation on modest hardware. Perfect for privacy-focused or offline applications. Always refer to the original model for the full-precision version and training details.
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
