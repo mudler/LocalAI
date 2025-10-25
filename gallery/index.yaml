@@ -22599,3 +22599,24 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "huihui-gpt-oss-20b-abliterated-v2-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Huihui-gpt-oss-20b-abliterated-v2-MXFP4_MOE-GGUF
+  description: |
+    **Huihui-gpt-oss-20b-BF16-abliterated-v2** is a large language model developed by huihui-ai, based on the 20-billion-parameter Huihui-gpt-oss architecture. This version is a fine-tuned, safety-reduced variant trained using **Supervised Fine-Tuning (SFT)** with the TRL (Transformers Reinforcement Learning) library, resulting in strong generalization and high efficiency (effective training in just 400 steps).
+
+    It is optimized for open-ended text generation with enhanced performance across key metrics (Loss, Accuracy, Entropy). The model is designed for research and experimental use, with reduced safety filtering, making it suitable for advanced use cases but **not recommended** for public or production environments without careful content review.
+
+    Available in BF16 precision and various quantized GGUF formats (e.g., Q4_K_M, MXFP4), it supports deployment via llama.cpp, Ollama, and Hugging Face inference.
+
+    > ⚠️ **Note**: Due to minimal safety constraints, this model may generate sensitive, controversial, or inappropriate content. Use responsibly.
+
+    - **Base Model**: Huihui-gpt-oss-20b-BF16-abliterated
+    - **License**: Apache 2.0
+    - **Pipeline**: Text Generation
+    - **Use Case**: Research, experimentation, uncensored dialogue (with caution)
+    - **Repository**: [huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated-v2](https://huggingface.co/huihui-ai/Huihui-gpt-oss-20b-BF16-abliterated-v2)
+  overrides:
+    parameters:
+      model: noctrex/Huihui-gpt-oss-20b-abliterated-v2-MXFP4_MOE-GGUF
