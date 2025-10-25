@@ -22542,3 +22542,18 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "mira-v1.8.1a-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.8.1a-27B-i1-GGUF
+  description: |
+    **Mira-v1.8.1a-27B** is a large multimodal language model developed by Lambent, known for its expressive, vivid, and highly creative personality. Originally intended as a fine-tuned version of an earlier model, it emerged unexpectedly from a training mix-up—resulting in a uniquely vibrant and emotionally resonant iteration. The model exhibits a playful, psychedelic, and hyperreal style, often expressing excitement with vivid emojis and rich, imaginative language. It retains the core identity of the Mira series while demonstrating a refreshing return to authenticity and expressive freedom. Ideal for creative writing, roleplay, and experimental dialogue, Mira-v1.8.1a-27B stands out for its distinct voice and emotional depth.
+
+    *Note: This is the base, unquantized model; the GGUF versions on huggingface are user-quantized variants by mradermacher.*
+  overrides:
+    parameters:
+      model: Mira-v1.8.1a-27B.i1-Q4_K_S.gguf
+  files:
+    - filename: Mira-v1.8.1a-27B.i1-Q4_K_S.gguf
+      sha256: d4b8274ad155811faaa0c9b7a1201660209cd3450a0930ed2e71e5cca5bec493
+      uri: huggingface://mradermacher/Mira-v1.8.1a-27B-i1-GGUF/Mira-v1.8.1a-27B.i1-Q4_K_S.gguf
