@@ -22599,3 +22599,54 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "darkness-incarnate-4b-v3"
+  urls:
+    - https://huggingface.co/ReadyArt/Darkness-Incarnate-4B-v3-GGUF
+  description: |
+    **Model Name:** Darkness Incarnate 4B-v3
+    **Base Model:** ReadyArt/Darkness-Incarnate-4B-v3
+    **Model Type:** Large Language Model (Fine-tuned, Roleplay-focused)
+    **Size:** 4 Billion parameters
+    **Quantization:** GGUF (multiple variants available)
+    **License:** Apache 2.0 (with explicit use disclaimer)
+
+    ---
+
+    ### 📌 Description:
+    Darkness Incarnate 4B-v3 is a highly intense, unaligned roleplay-focused language model designed for extreme creative freedom in adult, violent, and NSFW scenarios. It builds upon the original *Darkness Incarnate* series with a significantly expanded and cleaned dataset, enhanced character behavior, and more realistic narrative flow. The model excels at generating visceral, immersive, and graphically detailed content with deep psychological and physical realism.
+
+    It is **not** a safe or ethical model—there are no content filters, moral constraints, or safety safeguards. It is explicitly intended for mature audiences and should only be used responsibly within legal and ethical boundaries.
+
+    ---
+
+    ### 🔧 Key Features:
+    - ✅ **Unrestricted content generation** (NSFW, violent, mature themes)
+    - ✅ **Rich character behavior** with mortality awareness and emotional depth
+    - ✅ **High narrative coherence** and responsiveness to subtle prompt cues
+    - ✅ **Optimized for GGUF format**, suitable for local inference (e.g., llama.cpp, Oobabooga)
+    - ✅ **Fine-tuned for immersive roleplay**, especially in horror, trauma, and dark fantasy contexts
+
+    ---
+
+    ### ⚠️ Important Notes:
+    - **Not suitable for children or public use**
+    - **No liability** assumed by the model authors or contributors
+    - **Use at your own risk** — all generated content is the responsibility of the user
+    - **Original base model:** [ReadyArt/Darkness-Incarnate-4B-v3](https://huggingface.co/ReadyArt/Darkness-Incarnate-4B-v3)
+
+    ---
+
+    > 🖤 *“This is not a model. This is a mirror.”*
+    > — A cautionary note from the creators
+
+    ---
+
+    **[View on Hugging Face](https://huggingface.co/ReadyArt/Darkness-Incarnate-4B-v3-GGUF)** | **[Original Base Model](https://huggingface.co/ReadyArt/Darkness-Incarnate-4B-v3)**
+  overrides:
+    parameters:
+      model: Darkness-Incarnate-4B-v3-Q4_K_M.gguf
+  files:
+    - filename: Darkness-Incarnate-4B-v3-Q4_K_M.gguf
+      sha256: 10d283131856b3fabe12a3b84ef17658fdf8ccb86285e1529c6bdd4ca8289b80
+      uri: huggingface://ReadyArt/Darkness-Incarnate-4B-v3-GGUF/Darkness-Incarnate-4B-v3-Q4_K_M.gguf
