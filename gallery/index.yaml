@@ -22542,3 +22542,25 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "thinmqm-32b"
+  urls:
+    - https://huggingface.co/mradermacher/ThinMQM-32B-GGUF
+  description: |
+    **ThinMQM-32B** is a 32-billion-parameter large language model developed by Runzhe Zhan and colleagues at NLP2CT, designed to evaluate machine translation quality using reasoning-based analysis. Built upon the QwQ-32B architecture and fine-tuned on the **ThinMQM-12k dataset** — a high-quality collection of translation evaluation examples — the model demonstrates significant improvements in translation assessment metrics across multiple language pairs (e.g., En-De, En-Es, Ja-Zh), outperforming its base model by up to +8.7% in average performance.
+
+    The model employs a **reasoning-focused prompting template** (`thinking`), enabling it to generate detailed, step-by-step justifications for its evaluation scores, making it particularly effective for tasks requiring interpretability and nuanced judgment. It is trained to assess translation quality not just through surface-level similarity, but by reasoning about fluency, accuracy, and adequacy.
+
+    Available in both full precision and multiple quantized GGUF versions (e.g., Q4_K_S, Q6_K, Q8_0), ThinMQM-32B is suitable for both high-accuracy research applications and efficient inference on consumer hardware.
+
+    > 🔗 **Model Repository**: [rzzhan/ThinMQM-32B](https://huggingface.co/rzzhan/ThinMQM-32B)
+    > 📄 **Paper**: [Are Large Reasoning Models Good Translation Evaluators?](https://arxiv.org/abs/2510.20780)
+
+    *Note: The GGUF quantized version at `mradermacher/ThinMQM-32B-GGUF` is a community-quantized variant of this original model.*
+  overrides:
+    parameters:
+      model: ThinMQM-32B.Q4_K_M.gguf
+  files:
+    - filename: ThinMQM-32B.Q4_K_M.gguf
+      sha256: d556e0b5439d35110b98947e2988534531c56406aff486d63e903559e4d45388
+      uri: huggingface://mradermacher/ThinMQM-32B-GGUF/ThinMQM-32B.Q4_K_M.gguf
