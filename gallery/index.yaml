@@ -22542,3 +22542,31 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "thinmqm-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ThinMQM-32B-i1-GGUF
+  description: |
+    **ThinMQM-32B** is a 32-billion-parameter large language model developed by **rzzhan** and fine-tuned for **translation quality assessment (TQA)**. Built upon a reasoning-capable foundation model, it is specifically optimized to evaluate machine translation outputs with high accuracy across multiple language pairs (e.g., English–German, English–Spanish, Japanese–Chinese). The model leverages a unique training dataset, *ThinMQM-12k*, which consists of human-annotated translation quality judgments paired with reasoning traces, enabling it to perform not just binary scoring but also explain its evaluation decisions.
+
+    Key features:
+    - **Purpose**: High-precision automated translation quality evaluation.
+    - **Architecture**: Fine-tuned reasoning model (base: likely a Llama-family architecture).
+    - **Training Data**: 12,000 human-annotated translation evaluation examples from diverse language pairs.
+    - **Performance**: Outperforms baseline models like QwQ-32B and R1-Distill variants, improving average score by up to 8.7%.
+    - **Use Case**: Ideal for researchers and developers in NLP, machine translation, and evaluation systems.
+
+    This model is part of a broader research effort to assess whether large reasoning models can serve as effective, interpretable, and scalable translation evaluators — with significant performance gains over traditional metrics.
+
+    📌 **Repository**: [huggingface.co/rzzhan/ThinMQM-32B](https://huggingface.co/rzzhan/ThinMQM-32B)
+    📄 **Paper**: [Are Large Reasoning Models Good Translation Evaluators?](https://arxiv.org/abs/2510.20780)
+    🧪 **Code**: [GitHub - NLP2CT/ThinMQM](https://github.com/NLP2CT/ThinMQM)
+
+    *Note: The GGUF quantized version by mradermacher is a derived, compressed form — the original model is the full-size, non-quantized version from rzzhan/ThinMQM-32B.*
+  overrides:
+    parameters:
+      model: ThinMQM-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: ThinMQM-32B.i1-Q4_K_M.gguf
+      sha256: 51f24eeb2fc73214b4833a54c69fcb2fdddd2028c28aa5005c89c37ff7c5137e
+      uri: huggingface://mradermacher/ThinMQM-32B-i1-GGUF/ThinMQM-32B.i1-Q4_K_M.gguf
