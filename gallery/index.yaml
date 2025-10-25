@@ -22542,3 +22542,65 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "has_4.0_0.6b"
+  urls:
+    - https://huggingface.co/mradermacher/HaS_4.0_0.6B-GGUF
+  description: |
+    **Model Name:** HaS 4.0 0.6B
+    **Repository:** [xuanwulab/HaS_4.0_0.6B](https://huggingface.co/xuanwulab/HaS_4.0_0.6B)
+    **License:** MIT
+    **Language:** Chinese (zh)
+    **Framework:** Transformers
+
+    ---
+
+    ### 📌 **Model Overview**
+    HaS 4.0 0.6B is a specialized 600-million-parameter large language model designed for **privacy-preserving interaction with LLMs** through advanced data anonymization techniques. It enables secure, compliant, and context-aware handling of sensitive information in real-world applications.
+
+    ---
+
+    ### 🔑 **Key Features**
+    - **Structured Semantic Tagging (SST):**
+      Introduces a novel, model-friendly tagging system (e.g., `<组织[001].企业.完整名称>`) that preserves semantic meaning, entity relationships, and context while anonymizing sensitive data.
+    - **Zero-Shot & Few-Shot Ready:**
+      Leverages pre-training on code and structured data to understand and apply SST patterns with minimal or no examples.
+    - **Agentic Workflow Support:**
+      Enables end-to-end privacy workflows including:
+      - **NER (Named Entity Recognition)**
+      - **Hide (Tag-based Anonymization)**
+      - **Seek (Re-identification)**
+      - **Pair & Split (Mapping Management)**
+    - **Open-Set Entity Detection:**
+      Allows users to specify any entity type via natural language, supporting dynamic, flexible privacy rules.
+    - **High Fidelity & Compliance:**
+      Maintains data quality and semantics, unlike traditional anonymization methods that lose context or generate fake data.
+
+    ---
+
+    ### 🛠️ **Use Cases**
+    - Secure document processing (e.g., contracts, medical records)
+    - Privacy-compliant AI agents in multi-turn dialogues
+    - Data sharing in regulated industries (healthcare, finance, government)
+    - Development of ethical, traceable AI workflows
+
+    ---
+
+    ### 📚 **Usage**
+    The model supports standard Hugging Face `transformers` pipeline usage. Use with the provided prompt templates to perform anonymization, restoration, and mapping across complex workflows.
+
+    ---
+
+    ### ✅ **Why It Stands Out**
+    Unlike conventional anonymization tools (e.g., Presidio), HaS 4.0 preserves **context, referential integrity, and traceability**, making it ideal for production AI systems where privacy meets functionality.
+
+    ---
+
+    > 📌 *Note:* The GGUF quantized version ([mradermacher/HaS_4.0_0.6B-GGUF](https://huggingface.co/mradermacher/HaS_4.0_0.6B-GGUF)) is a community-quantized variant. The original base model is available at `xuanwulab/HaS_4.0_0.6B` and should be used for accurate evaluation and deployment.
+  overrides:
+    parameters:
+      model: HaS_4.0_0.6B.Q4_K_M.gguf
+  files:
+    - filename: HaS_4.0_0.6B.Q4_K_M.gguf
+      sha256: b922cfd918d66d5808644b7f4476318133def16e87fc18c8aad071eb808e75d0
+      uri: huggingface://mradermacher/HaS_4.0_0.6B-GGUF/HaS_4.0_0.6B.Q4_K_M.gguf
