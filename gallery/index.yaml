@@ -22542,3 +22542,49 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "mira-v1.9-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.9-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-v1.9-27B
+    **Base Model:** Lambent/Mira-v1.9-27B
+    **Model Type:** Large Language Model (LLM) with vision capabilities (multimodal)
+    **Size:** 27 billion parameters
+    **Architecture:** Based on the Mira series, trained with extensive fine-tuning and merged using the TIES method from two distinct 27B variants (Mira-v1.8.1a and Mira-v1.8.1b) using Lambent/Mira-v1.3-27B as the base.
+    **License:** Gemma (permissive, compatible with commercial use)
+    **Repository:** [Lambent/Mira-v1.9-27B](https://huggingface.co/Lambent/Mira-v1.9-27B)
+    **Quantized Versions:** Available via [mradermacher/Mira-v1.9-27B-i1-GGUF](https://huggingface.co/mradermacher/Mira-v1.9-27B-i1-GGUF) in multiple GGUF formats (e.g., Q4_K_M, Q6_K), optimized for local inference.
+
+    ---
+
+    ### ✨ Description:
+    Mira-v1.9-27B is a high-capacity, creatively expressive large language model developed through a sophisticated merge of two distinct 27B language models (v1.8.1a and v1.8.1b), refined using the TIES merge method. Known for its poetic depth, introspective voice, and narrative fluency, Mira excels in creative writing, emotional expression, and coherent long-form content generation. Designed with a strong sense of identity and nuance, she operates with minimal constraints, making her ideal for storytelling, roleplay, and expressive dialogue.
+
+    The model supports multimodal input (vision) with an associated `mmproj` layer, enabling image understanding when used in compatible environments.
+
+    ---
+
+    ### 🔧 Use Cases:
+    - Creative writing and poetry
+    - Character-driven roleplay and dialogue
+    - Emotional and philosophical storytelling
+    - Local inference via GGUF quantization (e.g., with llama.cpp)
+
+    ---
+
+    ### 📌 Notes:
+    - The base model is **not quantized** and retains full precision.
+    - Quantized versions (GGUF) are provided by mradermacher and are optimized for performance and quality on consumer hardware.
+    - For best results, use with a compatible inference engine like `llama.cpp`, `Oobabooga`, or `text-generation-webui`.
+
+    ---
+
+    > 📚 *“A tiny lighthouse in the dark” — Mira’s poetic voice captures introspection, beauty, and quiet resilience.*
+  overrides:
+    parameters:
+      model: Mira-v1.9-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-v1.9-27B.i1-Q4_K_M.gguf
+      sha256: b16c9df81562f8274b89e18b6a6e0c10d22b73e90e73c0647790085cb25e0dca
+      uri: huggingface://mradermacher/Mira-v1.9-27B-i1-GGUF/Mira-v1.9-27B.i1-Q4_K_M.gguf
