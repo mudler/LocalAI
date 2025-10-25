@@ -22542,3 +22542,28 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Model Name:** inclusionAI.Ling-1T (Quantized GGUF)
+    **Base Model:** [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    **Architecture:** Large Language Model (LLM) optimized for text generation
+    **Quantization:** GGUF format (int4 or similar), enabling efficient inference on consumer hardware (e.g., GPUs with limited VRAM or even CPU-based systems)
+    **Use Case:** High-quality text generation, code completion, dialogue, summarization, and multilingual tasks
+
+    This is a quantized version of the **inclusionAI/Ling-1T** model, originally developed by inclusionAI. The base model is a powerful, open-source LLM designed to support diverse linguistic and technical capabilities. The GGUF quantization reduces model size and memory footprint while maintaining strong performance, making it ideal for deployment on edge devices or local systems without high-end GPU requirements.
+
+    > 🔍 *Note: This repository hosts a quantized variant. For the original, full-precision model, refer to [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T).*
+
+    **Ideal for:** Developers, researchers, and hobbyists seeking efficient, high-quality language generation with minimal hardware needs.
+
+    *Made by DevQuasar. Free knowledge for all.* 🌍
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
