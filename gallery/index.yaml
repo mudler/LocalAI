@@ -22599,3 +22599,16 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ai21-jamba-reasoning-3b"
+  urls:
+    - https://huggingface.co/Mungert/AI21-Jamba-Reasoning-3B-GGUF
+  description: |
+    AI model: ai21-jamba-reasoning-3b
+  overrides:
+    parameters:
+      model: AI21-Jamba-Reasoning-3B-q4_k_m.gguf
+  files:
+    - filename: AI21-Jamba-Reasoning-3B-q4_k_m.gguf
+      sha256: a5ad6704bb679010ffeea5a2a8c06e652ce7dec0c955f8945586ba2f5a643cc7
+      uri: huggingface://Mungert/AI21-Jamba-Reasoning-3B-GGUF/AI21-Jamba-Reasoning-3B-q4_k_m.gguf
