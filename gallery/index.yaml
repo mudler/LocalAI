@@ -22542,3 +22542,29 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "thinmqm-8b"
+  urls:
+    - https://huggingface.co/mradermacher/ThinMQM-8B-GGUF
+  description: |
+    **ThinMQM-8B** is a 8-billion-parameter large language model fine-tuned specifically for evaluating machine translation quality. Developed by Runzhe Zhan et al. and released under the MIT license, it is built upon a distilled version of Llama-8B and trained on the **ThinMQM-12k dataset**, a high-quality corpus of human-annotated translation evaluations.
+
+    The model excels in assessing translation accuracy, fluency, and semantic fidelity, particularly for diverse language pairs such as English–German, English–Spanish, and Japanese–Chinese. It demonstrates significant improvements over baseline models—boosting average performance by up to +5.9 points on key metrics—making it one of the most effective reasoning-based translation evaluation tools available.
+
+    Designed for both research and practical deployment, ThinMQM-8B supports the `thinking_ref` template, enabling structured reasoning and explainable evaluations. It is ideal for applications in NLP evaluation, automated quality assessment, and model debugging.
+
+    📌 **Key Features**:
+    - 8B parameters | Trained on 12k human-annotated translation pairs
+    - Optimized for translation quality evaluation
+    - High performance across multiple language pairs
+    - Open-source (MIT) and fully available on Hugging Face
+
+    🔗 **Model**: [rzzhan/ThinMQM-8B](https://huggingface.co/rzzhan/ThinMQM-8B)
+    📄 **Paper**: [Are Large Reasoning Models Good Translation Evaluators?](https://arxiv.org/abs/2510.20780)
+  overrides:
+    parameters:
+      model: ThinMQM-8B.Q4_K_M.gguf
+  files:
+    - filename: ThinMQM-8B.Q4_K_M.gguf
+      sha256: 6c3ef3f5a5f9fdfd9a02795b07843474118cf7eadd13b45e4d1cb643c5574837
+      uri: huggingface://mradermacher/ThinMQM-8B-GGUF/ThinMQM-8B.Q4_K_M.gguf
