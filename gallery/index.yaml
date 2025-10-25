@@ -22599,3 +22599,39 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "home-1b-v3"
+  urls:
+    - https://huggingface.co/acon96/Home-1B-v3-GGUF
+  description: |
+    **Model Name:** TinyLlama-1.1B-Chat-v1.0
+    **Base Model:** TinyLlama-1.1B (a 1.1-billion-parameter Llama-based model pretrained on 3 trillion tokens)
+    **Fine-Tuned For:** Conversational AI with a focus on instruction following and function calling
+    **Training Approach:**
+    - First fine-tuned on synthetic dialogue data (variant of UltraChat)
+    - Further refined using DPO (Direct Preference Optimization) on the UltraFeedback dataset (64k human-AI preference pairs ranked by GPT-4)
+    - Follows the Zephyr prompt format for chat interactions
+
+    **Key Features:**
+    - Lightweight and efficient, ideal for edge devices and low-resource environments
+    - Capable of generating natural, engaging responses with a pirate-style persona (or adaptable tone)
+    - Designed for seamless integration with chat interfaces using Hugging Face’s tokenizer chat templates
+    - Supports structured output for function calling (e.g., integrating with Home Assistant)
+
+    **Use Cases:**
+    - Conversational agents, chatbots, personal assistants
+    - Local/edge deployment (e.g., Raspberry Pi)
+    - Custom AI assistants requiring small footprint and high efficiency
+
+    **License:** Apache 2.0 (compatible with the original Llama 2 license)
+
+    **Repository:** [TinyLlama/TinyLlama-1.1B-Chat-v1.0](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0)
+
+    > ✅ **Note:** The model described here is the **original, unquantized base model**. The repository `acon96/Home-1B-v3-GGUF` contains a **quantized version** of a fine-tuned variant of this model (Home 1B v3), which is optimized for low-resource Home Assistant deployments.
+  overrides:
+    parameters:
+      model: Home-1B-v3.q4_k_m.gguf
+  files:
+    - filename: Home-1B-v3.q4_k_m.gguf
+      sha256: d8635ef0ae6d3465dfd7badca711281e2a947f15c6998ec4d222517bfb35b693
+      uri: huggingface://acon96/Home-1B-v3-GGUF/Home-1B-v3.q4_k_m.gguf
