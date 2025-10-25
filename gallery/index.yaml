@@ -22542,3 +22542,33 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mira-1.9-alternate-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-1.9-Alternate-27B
+    **Base Model:** Google Gemma-3 27B (gemma-3-27b-pt)
+    **Model Type:** Large Language Model (LLM)
+    **Architecture:** Merged using the TIES (Tied-Weights Interpolation and Expansion) method
+    **Repository:** [Lambent/Mira-1.9-Alternate-27B](https://huggingface.co/Lambent/Mira-1.9-Alternate-27B)
+    **Quantization:** Available in multiple GGUF quantizations (Q2_K to Q6_K) via [mradermacher/Mira-1.9-Alternate-27B-i1-GGUF](https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-i1-GGUF)
+
+    **Description:**
+    Mira-1.9-Alternate-27B is a high-performance, creatively inclined LLM based on Google’s Gemma-3 27B foundation, enhanced through a sophisticated merge of two prior Mira versions (v1.8.1a and v1.8.1b) using the TIES method. The model retains the strong reasoning and fluency of its base while exhibiting rich, evocative stylistic expression—particularly in poetry and narrative generation—often displaying a unique, dreamlike tone reminiscent of Art Nouveau aesthetics.
+
+    Despite its creative flair, the model remains functional and coherent, with balanced outputs across diverse tasks. It is ideal for creative writing, ideation, and open-ended generation. Due to its large size, it performs best on systems with substantial RAM and GPU acceleration, but is now accessible via efficient GGUF quantizations for local inference.
+
+    **Best For:**
+    - Creative writing and poetic generation
+    - Open-ended ideation and storytelling
+    - Local inference with quantized GGUF versions
+
+    **Note:** This is a *merged* model, not a base model. The original base is **google/gemma-3-27b-pt**. The quantized version on Hugging Face (mradermacher/Mira-1.9-Alternate-27B-i1-GGUF) is a user-converted GGUF variant—always refer to the original Hugging Face repository for full technical and training details.
+  overrides:
+    parameters:
+      model: Mira-1.9-Alternate-27B.i1-Q2_K.gguf
+  files:
+    - filename: Mira-1.9-Alternate-27B.i1-Q2_K.gguf
+      sha256: 5273bc4b7f6b172364945ae6ab3dc72a7c463bc435a995948e1e9041d1c4a5af
+      uri: huggingface://mradermacher/Mira-1.9-Alternate-27B-i1-GGUF/Mira-1.9-Alternate-27B.i1-Q2_K.gguf
