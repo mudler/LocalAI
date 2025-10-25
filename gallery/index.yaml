@@ -22542,3 +22542,33 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-3b-instruct-dpo"
+  urls:
+    - https://huggingface.co/ogulcanakca/qwen2.5-3b-instruct-dpo-gguf
+  description: |
+    **Qwen2.5-3B-Instruct**
+    *An instruction-tuned large language model for high-quality, human-aligned conversations.*
+
+    - **Size:** 3.09 billion parameters
+    - **Architecture:** Causal transformer with RoPE, SwiGLU, RMSNorm, and Grouped Query Attention (GQA)
+    - **Context Length:** Up to 32,768 tokens (supports long-form reasoning and document processing)
+    - **Capabilities:**
+      - Strong instruction following and logical reasoning
+      - Excellent performance in coding, math, and structured output generation (e.g., JSON)
+      - Multilingual support (29+ languages, including Chinese, English, French, Spanish, Japanese, and more)
+      - Optimized for role-play, creative writing, summarization, and complex question answering
+    - **Use Case:** Ideal for developers, researchers, and enterprises needing a lightweight, high-performance, and reliable LLM for chat, content generation, and task automation.
+    - **Model Origin:** Official release by **Alibaba Cloud** as part of the Qwen2.5 series — *not quantized*.
+    - **License:** [Qwen Research License](https://huggingface.co/Qwen/Qwen2.5-3B-Instruct/blob/main/LICENSE)
+
+    > ✅ **Note:** This is the **original, full-precision model**. For CPU-friendly, quantized versions, see community repos like `ogulcanakca/qwen2.5-3b-instruct-dpo-gguf`.
+
+    *For documentation, benchmarks, and usage examples, visit: [qwen.readthedocs.io](https://qwen.readthedocs.io)*
+  overrides:
+    parameters:
+      model: qwen2.5-3b-instruct-dpo-Q4_K_M.gguf
+  files:
+    - filename: qwen2.5-3b-instruct-dpo-Q4_K_M.gguf
+      sha256: 8c4ac282323e477f2e3a94d4ece471a33dc60ec859b681d700d10ec1c9abe09e
+      uri: huggingface://ogulcanakca/qwen2.5-3b-instruct-dpo-gguf/qwen2.5-3b-instruct-dpo-Q4_K_M.gguf
