@@ -22542,3 +22542,23 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "intern-s1-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Intern-S1-MXFP4_MOE-GGUF
+  description: |
+    **Intern-S1** is a state-of-the-art open-source multimodal reasoning model developed by InternLM, designed for advanced scientific and general-purpose tasks. Built on a 235B MoE language model (Qwen3) and a 6B Vision encoder (InternViT), it has been extensively pretrained on 5 trillion tokens—over half of which are specialized scientific data—including chemical structures, protein sequences, and seismic signals.
+
+    Key features:
+    - **Scientific Expertise**: Exceptional performance on scientific benchmarks like ChemBench (83.4), MathVista (81.5), and AIME2025 (86.0), rivaling leading closed-source models.
+    - **Multimodal Capabilities**: Supports text, image, and video inputs for rich, context-aware reasoning.
+    - **Dynamic Tokenization**: Natively understands molecular formulas, protein sequences, and scientific notation.
+    - **Tool Calling & Reasoning**: Enables real-time interaction with external tools and supports a thinking mode for deeper reasoning.
+
+    Ideal for research, education, and AI-powered scientific discovery, Intern-S1 sets a new standard in open-source multimodal AI.
+
+    👉 *Model Repository*: [huggingface.co/internlm/Intern-S1](https://huggingface.co/internlm/Intern-S1)
+    📄 *Technical Report*: [arXiv:2508.15763](https://arxiv.org/abs/2508.15763)
+  overrides:
+    parameters:
+      model: noctrex/Intern-S1-MXFP4_MOE-GGUF
