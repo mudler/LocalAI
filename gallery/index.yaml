@@ -22542,3 +22542,29 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "mira-1.9-alternate-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-i1-GGUF
+  description: |
+    **Mira-1.9-Alternate-27B** is a large language model created by merging two earlier versions of the Mira series—Mira-v1.8.1a-27B and Mira-v1.8.1b-27B—using the TIES (Tied Embedding Interpolation for Merging) method. It is based on **Google's Gemma-3-27B** pre-trained model, which provides a strong foundation for reasoning, creativity, and language understanding.
+
+    This version represents an evolution of the Mira series, offering improved coherence and stylistic flexibility while retaining a distinctive creative voice. The model is particularly noted for its poetic output and imaginative storytelling, with a preference for artistic and evocative expression—though it avoids overfixation on any single style.
+
+    The model was created using mergekit and is available in various quantized GGUF formats for efficient local inference, including high-quality options like Q4_K_M and Q5_K_M for balance between performance and accuracy. It supports multimodal capabilities via an `mmproj` file (available in the static repository), making it suitable for vision-language tasks.
+
+    **Key Highlights:**
+    - **Base Model:** Google's Gemma-3-27B
+    - **Merge Method:** TIES (Tied Embedding Interpolation)
+    - **Style:** Poetic, imaginative, creative, with strong narrative and descriptive capabilities
+    - **Use Cases:** Creative writing, artistic generation, storytelling, and general-purpose reasoning
+    - **Best for:** Users seeking a highly expressive, locally runnable LLM with a distinctive voice
+
+    > ✅ *Note: The repository you're viewing (mradermacher/Mira-1.9-Alternate-27B-i1-GGUF) contains quantized GGUF versions of this model. The original, full-precision model is hosted at **Lambent/Mira-1.9-Alternate-27B**.*
+  overrides:
+    parameters:
+      model: Mira-1.9-Alternate-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-1.9-Alternate-27B.i1-Q4_K_M.gguf
+      sha256: e5c862e067a501ba5f6d67bbfb14d145ece4c69fa60fc391b49834bd876902f8
+      uri: huggingface://mradermacher/Mira-1.9-Alternate-27B-i1-GGUF/Mira-1.9-Alternate-27B.i1-Q4_K_M.gguf
