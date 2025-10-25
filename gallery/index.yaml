@@ -22542,3 +22542,57 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ring-flash-2.0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-flash-2.0-i1-GGUF
+  description: |
+    **Model Name:** Ring-flash-2.0
+    **Repository:** [inclusionAI/Ring-flash-2.0](https://huggingface.co/inclusionAI/Ring-flash-2.0)
+    **Model Type:** Large Language Model (LLM), Mixture-of-Experts (MoE)
+    **Base Model:** Ling-flash-base-2.0
+    **Parameters:** 100B total (6.1B activated per inference)
+    **License:** MIT
+    **Pipeline:** Text generation
+    **Language:** English
+
+    ---
+
+    ### 🌟 Overview
+    Ring-flash-2.0 is a high-performance, reasoning-optimized large language model designed for complex problem-solving. Built on the efficient MoE architecture of Ling-flash-2.0, it activates only 6.1B parameters per inference while matching the performance of ~40B dense models. It excels in math, code generation, logical reasoning, and creative writing.
+
+    ### 🔍 Key Features
+    - **Advanced Training:** Uses a multi-stage pipeline (SFT + RLVR + RLHF) with the proprietary **IcePop algorithm** to stabilize long-horizon reinforcement learning.
+    - **Efficiency:** Achieves **200+ tokens/sec** on just four H20 GPUs, ideal for low-latency, high-concurrency inference.
+    - **Long Context Support:** Enhanced via YaRN scaling for extended reasoning tasks.
+    - **Open-Source & Deployable:** Available via Hugging Face, ModelScope, and API (ZenMux); supports vLLM, SGLang, and Llama-Factory for fine-tuning.
+
+    ### 📈 Performance Highlights
+    - Leads in benchmarks: **AIME 25**, **Omni-MATH**, **LiveCodeBench**, **ARC-Prize**, **GPQA-Diamond**
+    - Outperforms SOTA dense models under 40B and rivals closed-source thinking model APIs.
+
+    ### 📚 Use Cases
+    - Complex reasoning and problem-solving
+    - Long-form content generation
+    - High-speed inference in production environments
+
+    ### 📌 Quick Start
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+    model = AutoModelForCausalLM.from_pretrained("inclusionAI/Ring-flash-2.0", device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained("inclusionAI/Ring-flash-2.0")
+    ```
+
+    ---
+
+    👉 **Try Online:** [ZenMux – Experience Ring-flash-2.0](https://zenmux.ai/inclusionai/ring-flash-2.0)
+    📄 **Paper:** [Every Step Evolves: Scaling RL for Trillion-Scale Thinking Model](https://arxiv.org/abs/2510.18855)
+
+    *Note: The GGUF quantized versions by mradermacher are community derivatives. Use the official model above for the original, unquantized version.*
+  overrides:
+    parameters:
+      model: Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
+      sha256: ca8773475636349642e9159ede1efbcdabe0bcec9d5f3266fd7c310005b7d414
+      uri: huggingface://mradermacher/Ring-flash-2.0-i1-GGUF/Ring-flash-2.0.i1-Q4_K_M.gguf.part1of2
