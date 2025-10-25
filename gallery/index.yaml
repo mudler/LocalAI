@@ -22542,3 +22542,37 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "fapo-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/FAPO-32B-i1-GGUF
+  description: |
+    **Model Name:** FAPO-32B
+    **Base Model:** FAPO-32B (trained via Flawed-Aware Policy Optimization)
+    **Repository:** [dyyyyyyyy/FAPO-32B](https://huggingface.co/dyyyyyyyy/FAPO-32B)
+    **Quantized By:** mradermacher (via GGUF, available at [mradermacher/FAPO-32B-i1-GGUF](https://huggingface.co/mradermacher/FAPO-32B-i1-GGUF))
+
+    **Description:**
+    FAPO-32B is a 32-billion parameter large language model trained using Flawed-Aware Policy Optimization (FAPO), a reinforcement learning framework designed to improve reasoning reliability by explicitly identifying and mitigating flawed reasoning patterns. Trained on the curated FAPO-Reasoning-Dataset with generative rewards from FAPO-GenRM-4B, this model excels in logical reasoning, structured problem-solving, and self-correction. It is optimized for robust, high-quality reasoning outputs, making it ideal for complex, multi-step tasks.
+
+    **Key Features:**
+    - Trained with reward modeling to reduce logical errors and hallucinations
+    - High performance on reasoning-intensive benchmarks
+    - Available in multiple GGUF quantizations for efficient local inference (via llama.cpp, etc.)
+    - Officially released by the FAPO team (dyyyyyyyy), with community-quantized versions by mradermacher
+
+    **Use Case:**
+    Best suited for applications requiring deep reasoning, such as automated math problem solving, code generation with correctness verification, and complex query understanding.
+
+    **Citation (Pending):**
+    Please cite the FAPO project when using this model in research. See the project homepage for updates.
+
+    **Project Page:** [fapo-rl.github.io](https://fapo-rl.github.io/)
+    **GitHub (Code):** [github.com/volcengine/verl/tree/main/recipe/fapo](https://github.com/volcengine/verl/tree/main/recipe/fapo)
+  overrides:
+    parameters:
+      model: FAPO-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: FAPO-32B.i1-Q4_K_M.gguf
+      sha256: d92c6b60b07a68490cda7f81c23e0043abc908fc197b6946b4368c88a27105be
+      uri: huggingface://mradermacher/FAPO-32B-i1-GGUF/FAPO-32B.i1-Q4_K_M.gguf
