@@ -22542,3 +22542,56 @@
     - filename: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
       sha256: 079683445913d12e70449a10b9e1bfc8adaf1e7917e86cf3be3cb29cca186f11
       uri: huggingface://mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF/gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "mira-1.9-alternate-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-1.9-Alternate-27B
+    **Base Model:** google/gemma-3-27b-pt
+    **Type:** Large Language Model (LLM) – Vision-capable (with multimodal projection support)
+    **Repository:** [Lambent/Mira-1.9-Alternate-27B](https://huggingface.co/Lambent/Mira-1.9-Alternate-27B)
+    **Quantization:** Available in multiple GGUF formats (e.g., Q4_K_M, IQ4_XS) via [mradermacher/Mira-1.9-Alternate-27B-i1-GGUF](https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-i1-GGUF)
+    **Merge Method:** TIES (Tied Interpolation for Efficient Scaling)
+    **Source:** Merged from two variants: `Mira-v1.8.1a-27B` and `Mira-v1.8.1b-27B`, using `google/gemma-3-27b-pt` as the base.
+
+    ---
+
+    ### 📌 Description:
+    Mira-1.9-Alternate-27B is a high-capacity, creatively inclined large language model developed through a TIES-based merge of two earlier Mira variants on top of the **Google Gemma 3 27B** base. The model retains strong creative and poetic capabilities, with a distinctive stylistic flair—particularly in narrative and lyrical generation—while showing a more balanced and natural output compared to earlier versions.
+
+    Although it exhibits a subtle preference for Art Nouveau-inspired themes in generation, this has been relaxed in this version, resulting in greater stylistic flexibility. The model is functional, well-structured, and performs well in completion and dialogue tasks.
+
+    > ✅ **Note:** This model is **not** a native GGUF file. The GGUF variants (e.g., `Mira-1.9-Alternate-27B-i1-GGUF`) are quantized versions created by **mradermacher** using **imatrix** and **IQ-based quantization**. The original, full-precision model is available at **Lambent/Mira-1.9-Alternate-27B**.
+
+    ---
+
+    ### 🔧 Use Case:
+    - Creative writing, poetry, storytelling
+    - Roleplay and dialogue generation
+    - Open-ended reasoning and ideation
+    - Local inference with tools like `llama.cpp`, `text-generation-webui`, or `Oobabooga`
+
+    ---
+
+    ### 📦 Tips:
+    - For best performance, use **Q4_K_M** or **IQ4_XS** GGUF quantizations.
+    - The **`mmproj`** file (multimodal projection) is **not** included in the GGUF repo—check [mradermacher/Mira-1.9-Alternate-27B-GGUF](https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-GGUF) for vision support.
+    - Use `--imatrix` flag if loading with `llama.cpp` to leverage the imatrix for optimized inference.
+
+    ---
+
+    📘 **Inspired by:** Mira series, Gemma 3 27B, TIES merging, and artistic language models.
+
+    > 🔗 **Original Model:** [Lambent/Mira-1.9-Alternate-27B](https://huggingface.co/Lambent/Mira-1.9-Alternate-27B)
+    > 🔗 **GGUF Quantizations:** [mradermacher/Mira-1.9-Alternate-27B-i1-GGUF](https://huggingface.co/mradermacher/Mira-1.9-Alternate-27B-i1-GGUF)
+
+    ---
+    *Perfect for local inference with rich, expressive, and creative output.*
+  overrides:
+    parameters:
+      model: Mira-1.9-Alternate-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-1.9-Alternate-27B.i1-Q4_K_M.gguf
+      sha256: e5c862e067a501ba5f6d67bbfb14d145ece4c69fa60fc391b49834bd876902f8
+      uri: huggingface://mradermacher/Mira-1.9-Alternate-27B-i1-GGUF/Mira-1.9-Alternate-27B.i1-Q4_K_M.gguf
