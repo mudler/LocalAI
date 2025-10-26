@@ -22599,3 +22599,26 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, non-thinking flagship model from the Ling 2.0 series, designed for efficient, scalable reasoning at massive scale. Built on a novel architecture with 50 billion active parameters per token (1/32 MoE activation ratio), it achieves state-of-the-art performance across complex reasoning, code generation, and front-end design tasks.
+
+    Key features:
+    - **Trillion-scale training** on 20T+ reasoning-dense tokens
+    - Supports **up to 128K context length** using YaRN positional encoding
+    - Employs **Evolutionary Chain-of-Thought (Evo-CoT)** and **LPO (Linguistics-Unit Policy Optimization)** for precise, stable reasoning and alignment
+    - Trained with FP8 mixed precision for 15%+ speedup and memory efficiency
+    - Excels in AIME 25, BFCL V3, and ArtifactsBench—ranking first among open-source models in aesthetic code generation
+
+    Ling-1T is ideal for developers, researchers, and AI teams seeking high-performance, open-source reasoning at scale—balancing accuracy, efficiency, and generalization.
+    **Base model**: `inclusionAI/Ling-1T` | **License**: MIT | **Task**: Text Generation
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
