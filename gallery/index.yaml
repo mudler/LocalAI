@@ -22657,3 +22657,29 @@
     - filename: gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
       sha256: 333bdbde0a933b62f2050f384879bfaea7db7a5fbb26ee151fbbdc3c95f510dd
       uri: huggingface://mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF/gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-instruct-split"
+  urls:
+    - https://huggingface.co/lefromage/Qwen3-Next-80B-A3B-Instruct-split-GGUF
+  description: |
+    **Qwen3-Next-80B-A3B-Instruct** is a state-of-the-art, instruction-tuned large language model from the Qwen series, designed for high performance in long-context and complex reasoning tasks.
+
+    - **Model Type**: Causal language model with a hybrid architecture combining **Gated DeltaNet** and **Gated Attention**, enabling efficient processing of ultra-long contexts up to **256K tokens natively** (extendable to 1M with YaRN scaling).
+    - **Parameters**: 80B total, with only 3B activated per token via a highly sparse **Mixture-of-Experts (MoE)** architecture (512 experts, 10 active), achieving exceptional parameter efficiency.
+    - **Key Features**:
+      - Multi-Token Prediction (MTP) for faster inference.
+      - Advanced stability optimizations for robust training and inference.
+      - Strong performance across benchmarks (MMLU-Pro, GPQA, LiveCodeBench), rivaling models 3x its size.
+    - **Use Cases**: Ideal for long-document analysis, complex reasoning, coding, agentic workflows, and multilingual tasks.
+    - **Deployment**: Supports high-throughput serving via **vLLM** and **SGLang**, with OpenAI-compatible APIs.
+
+    This model represents a major leap in scalable, efficient, and powerful AI, balancing performance, speed, and context length.
+
+    > 📌 **Note**: This is the original, unquantized model from Qwen. The GGUF version (e.g., `lefromage/Qwen3-Next-80B-A3B-Instruct-split-GGUF`) is a quantized variant for local inference.
+  overrides:
+    parameters:
+      model: Qwen3-Next-80B-A3B-Instruct-Q2_K-00001-of-00006.gguf
+  files:
+    - filename: Qwen3-Next-80B-A3B-Instruct-Q2_K-00001-of-00006.gguf
+      sha256: ded70961f2fc702c8fde81d9859015183c43d8ba411f73670ba0a1800e3f27c5
+      uri: huggingface://lefromage/Qwen3-Next-80B-A3B-Instruct-split-GGUF/Qwen3-Next-80B-A3B-Instruct-Q2_K-00001-of-00006.gguf
