@@ -22657,3 +22657,22 @@
     - filename: gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
       sha256: 333bdbde0a933b62f2050f384879bfaea7db7a5fbb26ee151fbbdc3c95f510dd
       uri: huggingface://mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF/gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
+- !!merge <<: *deepseek
+  name: "deepseek-v3.1-terminus-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF
+  description: |
+    **DeepSeek-V3.1-Terminus** is a high-performance, open-source large language model developed by DeepSeek, designed for advanced reasoning, coding, and agentic tasks. It builds upon the DeepSeek-V3.1-Base architecture and introduces improvements in language consistency, agent capabilities, and tool use. Notably, it excels in complex reasoning benchmarks like MMLU-Pro, GPQA-Diamond, and Humanity's Last Exam, while also showing strong performance in code generation and multi-agent workflows such as search and browsing.
+
+    The model supports a rich set of tools and features enhanced behavior in both English and Chinese, with a refined chat template optimized for real-world applications. It is suitable for developers, researchers, and enterprises seeking a powerful, versatile, and freely available model for advanced AI applications.
+
+    - **Base Model**: DeepSeek-V3.1-Base
+    - **Architecture**: Mixture-of-Experts (MoE), 128K context length
+    - **License**: MIT
+    - **Use Case**: Text generation, coding, agentic systems, multi-step reasoning
+    - **Repository**: [deepseek-ai/DeepSeek-V3.1-Terminus](https://huggingface.co/deepseek-ai/DeepSeek-V3.1-Terminus)
+
+    *Note: The quantized version (e.g., `noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF`) is a community-quantized variant for efficient local inference and may differ in performance or precision.*
+  overrides:
+    parameters:
+      model: noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF
