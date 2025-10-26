@@ -22599,3 +22599,25 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a 1-trillion-parameter, open-source, non-thinking language model from the Ling 2.0 series, designed for highly efficient and scalable reasoning. Built with a sparse MoE architecture (50B active parameters per token), it supports up to **128K context length** and is trained on **20+ trillion high-quality, reasoning-dense tokens**.
+
+    Ling-1T excels in complex reasoning tasks—outperforming many flagship models in math, code generation, logic, and agent-like behavior—while maintaining strong performance in front-end code synthesis and aesthetic design. It uses a novel **Evolutionary Chain-of-Thought (Evo-CoT)** strategy and **LPO (Linguistics-Unit Policy Optimization)** for stable, precise instruction tuning.
+
+    Notably, it is the **largest FP8-trained foundation model** to date, achieving significant speed and memory efficiency without sacrificing accuracy.
+
+    Ideal for researchers, developers, and AI practitioners seeking a powerful, efficient, and scalable model for reasoning, code, and creative tasks—**Ling-1T pushes the boundaries of what's possible in open-source AI**.
+
+    🔗 *Try it live:* [ZenMux](https://zenmux.ai/inclusionai/ling-1t) | 📦 *Download:* [Hugging Face](https://huggingface.co/inclusionAI/Ling-1T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ling-1T)
+    📜 *License:* MIT
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
