@@ -22628,3 +22628,32 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-claude-4-distill-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF
+  description: |
+    **Model Name:** GPT-OSS 20B
+    **Base Model:** openai/gpt-oss-20b
+    **License:** Apache 2.0 (fully open for commercial and research use)
+    **Architecture:** 21B-parameter Mixture-of-Experts (MoE) language model
+    **Key Features:**
+    - Designed for powerful reasoning, agentic tasks, and developer applications.
+    - Supports configurable reasoning levels (Low, Medium, High) for balancing speed and depth.
+    - Native support for tool use: web browsing, code execution, function calling, and structured outputs.
+    - Trained on OpenAI’s **harmony response format** — requires this format for proper inference.
+    - Optimized for efficient inference with native **MXFP4 quantization** (supports 16GB VRAM deployment).
+    - Fully fine-tunable and compatible with major frameworks: Transformers, vLLM, Ollama, LM Studio, and more.
+
+    **Use Cases:**
+    Ideal for research, local deployment, agent development, code generation, complex reasoning, and interactive applications.
+
+    **Original Model:** [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)
+    *Note: This repository contains quantized versions (GGUF) by mradermacher, based on the original fine-tuned model from armand0e, which was derived from unsloth/gpt-oss-20b-unsloth-bnb-4bit.*
+  overrides:
+    parameters:
+      model: gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
+  files:
+    - filename: gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
+      sha256: 333bdbde0a933b62f2050f384879bfaea7db7a5fbb26ee151fbbdc3c95f510dd
+      uri: huggingface://mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF/gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
