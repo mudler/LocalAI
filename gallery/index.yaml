@@ -22599,3 +22599,32 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "ostrich-32b-qwen3-251003-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF
+  description: |
+    **Model Name:** Ostrich 32B - Qwen 3 with Enhanced Human Alignment
+    **Base Model:** Qwen/Qwen3-32B
+    **Repository:** [etemiz/Ostrich-32B-Qwen3-251003](https://huggingface.co/etemiz/Ostrich-32B-Qwen3-251003)
+    **License:** Apache 2.0
+
+    **Description:**
+    A highly aligned, fine-tuned version of Qwen3-32B, trained to promote beneficial, human-centered knowledge and reasoning. Developed through 3 months of intensive fine-tuning using 4-bit quantization and LoRA techniques across 6 RTX A6000 GPUs, this model achieves an AHA (Alignment to Human Values) score of 57 — a significant improvement over the base model's score of 30.
+
+    Ostrich 32B focuses on domains like health, nutrition, fasting, herbal medicine, faith, and decentralized technologies (e.g., Bitcoin, Nostr), aiming to empower users with independent, ethical, and high-quality information. Designed to resist harmful narratives and promote self-reliance, it embodies the philosophy that access to better knowledge is a fundamental human right.
+
+    **Best For:**
+    - Ethical AI interactions
+    - Health and wellness guidance
+    - Freedom-focused, privacy-conscious applications
+    - Users seeking alternatives to mainstream AI outputs
+
+    **Note:** This is the original, non-quantized model. The GGUF quantized versions (e.g., `mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF`) are derivatives for local inference and not the base model.
+  overrides:
+    parameters:
+      model: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+  files:
+    - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+      sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
+      uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
