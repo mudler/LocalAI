@@ -84,7 +84,6 @@ agent:
   max_attempts: 3        # Maximum number of tool execution attempts
   max_iterations: 3     # Maximum number of reasoning iterations
   enable_reasoning: true # Enable tool reasoning capabilities
-  enable_re_evaluation: false # Enable tool re-evaluation
   enable_planning: false # Enable auto-planning capabilities
   enable_mcp_prompts: false # Enable MCP prompts
   enable_plan_re_evaluator: false # Enable plan re-evaluation
@@ -111,7 +110,6 @@ Configure agent behavior and tool execution:
 - **`max_attempts`**: Maximum number of tool execution attempts (default: 3)
 - **`max_iterations`**: Maximum number of reasoning iterations (default: 3)
 - **`enable_reasoning`**: Enable tool reasoning capabilities (default: false)
-- **`enable_re_evaluation`**: Enable tool re-evaluation (default: false)
 - **`enable_planning`**: Enable auto-planning capabilities (default: false)
 - **`enable_mcp_prompts`**: Enable MCP prompts (default: false)
 - **`enable_plan_re_evaluator`**: Enable plan re-evaluation (default: false)
@@ -179,7 +177,6 @@ agent:
   max_attempts: 5
   max_iterations: 5
   enable_reasoning: true
-  enable_re_evaluation: true
   enable_planning: true
   enable_mcp_prompts: true
   enable_plan_re_evaluator: true
@@ -195,7 +192,6 @@ The `agent` section controls how the AI model interacts with MCP tools:
 
 ### Reasoning Capabilities
 - **`enable_reasoning`**: When enabled, the agent uses advanced reasoning to better understand tool results and plan next steps.
-- **`enable_re_evaluation`**: When enabled, the agent can re-evaluate previous tool results and decisions, allowing for self-correction and improved accuracy.
 
 ### Planning Capabilities
 - **`enable_planning`**: When enabled, the agent uses auto-planning to break down complex tasks into manageable steps and execute them systematically. The agent will automatically detect when planning is needed.
@@ -204,9 +200,9 @@ The `agent` section controls how the AI model interacts with MCP tools:
 
 ### Recommended Settings
 - **Simple tasks**: `max_attempts: 2`, `max_iterations: 2`, `enable_reasoning: false`, `enable_planning: false`
-- **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_re_evaluation: true`, `enable_planning: true`, `enable_mcp_prompts: true`
-- **Advanced planning**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_re_evaluation: true`, `enable_planning: true`, `enable_mcp_prompts: true`, `enable_plan_re_evaluator: true`
-- **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_re_evaluation: true`, `enable_planning: true`
+- **Complex tasks**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`
+- **Advanced planning**: `max_attempts: 5`, `max_iterations: 5`, `enable_reasoning: true`, `enable_planning: true`, `enable_mcp_prompts: true`, `enable_plan_re_evaluator: true`
+- **Development/Debugging**: `max_attempts: 1`, `max_iterations: 1`, `enable_reasoning: true`, `enable_planning: true`
 
 ## How It Works
 
