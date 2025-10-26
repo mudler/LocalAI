@@ -22678,3 +22678,16 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *llama33
+  name: "l3.3-70b-animus-v11.0"
+  urls:
+    - https://huggingface.co/Darkhn-Quants/L3.3-70B-Animus-V11.0-GGUF
+  description: |
+    [{"index":0,"id":"","type":"function","function":{"name":"hf_readme","arguments":"{\"repository\":\"Darkhn-Quants/L3.3-70B-Animus-V11.7\"}"}}]
+  overrides:
+    parameters:
+      model: L3.3-70B-Animus-V11.0-Q4_K_M.gguf
+  files:
+    - filename: L3.3-70B-Animus-V11.0-Q4_K_M.gguf
+      sha256: 2ed171dcc99a3851f0e5e6d55be32f6a9ba65834a0d7513aeea3c98c6c699aa1
+      uri: huggingface://Darkhn-Quants/L3.3-70B-Animus-V11.0-GGUF/L3.3-70B-Animus-V11.0-Q4_K_M.gguf
