@@ -22628,3 +22628,37 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "glm-4.5-air-reap-82b-a12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.5-Air-REAP-82B-A12B-i1-GGUF
+  description: |
+    **GLM-4.5-Air-REAP-82B-A12B**
+    *By Cerebras Systems | Base Model: GLM-4.5-Air*
+
+    A highly efficient, 25% compressed variant of the large-scale GLM-4.5-Air MoE (Mixture-of-Experts) model, created using **REAP (Router-weighted Expert Activation Pruning)**. This version reduces total parameters from 106B to 82B while preserving near-identical performance on code generation, reasoning, and function calling tasks.
+
+    🔹 **Key Features**:
+    - **82B total parameters**, **12B activated per token**
+    - **96 experts** (down from 128), with **8 activated per token**
+    - **Context length**: 131,072 tokens
+    - **Drop-in compatible with vLLM** – no custom patches needed
+    - Maintains strong performance across coding (HumanEval: 89.6), reasoning (AIME24: 80.0), and tool use (BFCL-v3: 71.8)
+
+    🔹 **Use Case**: Ideal for low-memory deployments, local inference, and academic research where high performance and efficiency are both critical.
+
+    📊 *Performance remains within 3% of the full model on key benchmarks, with a significant reduction in memory footprint.*
+
+    🧠 **Papers & Resources**:
+    - [arXiv: REAP – Why Pruning Prevails for One-Shot MoE Compression](https://arxiv.org/abs/2510.13999)
+    - [Cerebras REAP Blog](https://www.cerebras.ai/blog/reap)
+
+    🔧 **License**: MIT
+    📌 *Note: This is a pruned variant. The original base model is [zai-org/GLM-4.5-Air](https://huggingface.co/zai-org/GLM-4.5-Air).*
+  overrides:
+    parameters:
+      model: GLM-4.5-Air-REAP-82B-A12B.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: GLM-4.5-Air-REAP-82B-A12B.i1-Q4_K_M.gguf.part1of2
+      sha256: 55af5a7ce920448d4a2c922fa0beb22c24045aecb94f8121a4c6e8ce5f5ee427
+      uri: huggingface://mradermacher/GLM-4.5-Air-REAP-82B-A12B-i1-GGUF/GLM-4.5-Air-REAP-82B-A12B.i1-Q4_K_M.gguf.part1of2
