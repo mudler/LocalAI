@@ -22657,3 +22657,24 @@
     - filename: gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
       sha256: 333bdbde0a933b62f2050f384879bfaea7db7a5fbb26ee151fbbdc3c95f510dd
       uri: huggingface://mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF/gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "70b_book_stock-i1"
+  urls:
+    - https://huggingface.co/mradermacher/70B_Book_stock-i1-GGUF
+  description: |
+    **Model Name:** Book_stock
+    **Base Model:** huihui-ai/Llama-3.3-70B-Instruct-abliterated
+    **Type:** Fine-tuned, merged LLM (70B parameters)
+    **Framework:** Transformers (Hugging Face)
+    **Merge Method:** Model Stock (via MergeKit)
+    **Description:**
+    A high-performance, 70-billion-parameter language model fine-tuned and merged using the *Model Stock* technique. Built upon the **Llama-3.3-70B-Instruct-abliterated** base, this model integrates multiple specialized LoRA adapters (Book_RPv05, Book_RPv1, Book_RPv15, Book_RPvfinal) to enhance instruction-following, reasoning, and domain-specific knowledge—particularly in book-related content, narrative reasoning, and creative writing.
+
+    Optimized for strong performance in dialogue and creative tasks, with support for Llama 3-style chat templates and BFloat16 precision. Ideal for applications requiring deep reasoning, long-form generation, and nuanced instruction handling.
+
+    **Use Case:** Creative writing, content generation, dialogue systems, educational tools, and advanced reasoning tasks.
+
+    **Note:** This model is not a direct release by the original authors but a community-driven merge; the original base model is available at [huihui-ai/Llama-3.3-70B-Instruct-abliterated](https://huggingface.co/huihui-ai/Llama-3.3-70B-Instruct-abliterated).
+  overrides:
+    parameters:
+      model: mradermacher/70B_Book_stock-i1-GGUF
