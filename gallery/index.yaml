@@ -22657,3 +22657,16 @@
     - filename: gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
       sha256: 333bdbde0a933b62f2050f384879bfaea7db7a5fbb26ee151fbbdc3c95f510dd
       uri: huggingface://mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF/gpt-oss-20b-claude-4-distill.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "pokee_research_7b"
+  urls:
+    - https://huggingface.co/Mungert/pokee_research_7b-GGUF
+  description: |
+    AI model: pokee_research_7b
+  overrides:
+    parameters:
+      model: pokee_research_7b-q4_k_m.gguf
+  files:
+    - filename: pokee_research_7b-q4_k_m.gguf
+      sha256: 670706711d82fcdbae951fda084f77c9c479edf3eb5d8458d1cfddd46cf4b767
+      uri: huggingface://Mungert/pokee_research_7b-GGUF/pokee_research_7b-q4_k_m.gguf
