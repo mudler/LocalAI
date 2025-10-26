@@ -22678,3 +22678,16 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *llama32
+  name: "llama3.2"
+  urls:
+    - https://huggingface.co/fyp-agx-123/llama3.2-Q4_K_M-gguf
+  description: |
+    AI model: llama3.2
+  overrides:
+    parameters:
+      model: llama3.2-Q4_K_M.gguf
+  files:
+    - filename: llama3.2-Q4_K_M.gguf
+      sha256: 2d4489b9b6d3192c86f01e0f98933fe7ea0b413f77841cb8ff302f18d5964302
+      uri: huggingface://fyp-agx-123/llama3.2-Q4_K_M-gguf/llama3.2-Q4_K_M.gguf
