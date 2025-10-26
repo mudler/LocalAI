@@ -22628,3 +22628,52 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "glm-4.5-air-reap-82b-a12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.5-Air-REAP-82B-A12B-i1-GGUF
+  description: |
+    **Model Name:** GLM-4.5-Air-REAP-82B-A12B
+    **Base Model:** GLM-4.5-Air
+    **Type:** Sparse Mixture-of-Experts (MoE) Causal Language Model
+    **Size:** 82B total parameters (12B activated per token)
+    **Context Length:** 131,072 tokens
+    **License:** MIT
+
+    ### 🔍 Overview
+    GLM-4.5-Air-REAP-82B-A12B is a highly efficient, 25% compressed variant of the full GLM-4.5-Air model, created using **REAP (Router-weighted Expert Activation Pruning)**. This method prunes 32 out of 128 experts uniformly across layers while preserving the router’s dynamic control and core capabilities.
+
+    ### ✨ Key Features
+    - **Near-Lossless Performance**: Matches the original model in code generation, reasoning, and tool use tasks despite reduced size.
+    - **25% Smaller**: 82B parameters vs. 106B — ideal for deployment on limited hardware.
+    - **Drop-in vLLM Compatibility**: Runs directly with vanilla vLLM (v0.11.0+) without custom patches.
+    - **Highly Optimized**: Excels in agentic workflows, coding, and function calling with minimal accuracy drop.
+
+    ### 📊 Performance Highlights
+    - **HumanEval**: 89.6 (vs. 92.7 in full model)
+    - **LiveCodeBench (thinking)**: 42.9 (surpassing base model)
+    - **BFCL-v3 (thinking)**: 76.3 (near full model)
+    - **MATH-500**: 94.8 (fully preserved)
+
+    ### 🚀 Use Case
+    Perfect for researchers, developers, and organizations seeking high performance with lower memory and compute costs — ideal for local inference, edge deployment, and large-scale agentic systems.
+
+    ### 📚 Citation
+    ```bibtex
+    @article{lasby-reap,
+      title={REAP the Experts: Why Pruning Prevails for One-Shot MoE compression},
+      author={Lasby, Mike and Lazarevich, Ivan and Sinnadurai, Nish and Lie, Sean and Ioannou, Yani and Thangarasa, Vithursan},
+      journal={arXiv preprint arXiv:2510.13999},
+      year={2025}
+    }
+    ```
+
+    > 🔗 [Model Card on Hugging Face](https://huggingface.co/cerebras/GLM-4.5-Air-REAP-82B-A12B)
+    > 📌 *Note: This model is a quantized, pruned version of the original. The base model is [GLM-4.5-Air](https://huggingface.co/zai-org/GLM-4.5-Air).*
+  overrides:
+    parameters:
+      model: GLM-4.5-Air-REAP-82B-A12B.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: GLM-4.5-Air-REAP-82B-A12B.i1-Q4_K_M.gguf.part1of2
+      sha256: 55af5a7ce920448d4a2c922fa0beb22c24045aecb94f8121a4c6e8ce5f5ee427
+      uri: huggingface://mradermacher/GLM-4.5-Air-REAP-82B-A12B-i1-GGUF/GLM-4.5-Air-REAP-82B-A12B.i1-Q4_K_M.gguf.part1of2
