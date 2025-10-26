@@ -22599,3 +22599,30 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a flagship 1-trillion-parameter, non-thinking language model from the Ling 2.0 series, designed for efficient and scalable reasoning. Built with advanced architectural innovations—including a 1/32 MoE activation ratio, MTP layers, and QK normalization—Ling-1T excels in complex reasoning, code generation, and aesthetic front-end design.
+
+    Pre-trained on over 20 trillion high-quality, reasoning-dense tokens, it supports up to 128K context length via YaRN and achieves state-of-the-art performance on benchmarks like AIME 25 and ArtifactsBench. Its Evo-CoT (Evolutionary Chain-of-Thought) training and LPO (Linguistics-Unit Policy Optimization) reinforce robust reasoning and alignment.
+
+    Ling-1T stands as the best open-source non-thinking model to date, rivaling closed-source APIs in accuracy and efficiency, with applications in mathematics, software development, creative coding, and more. It is the largest FP8-trained foundation model known, enabling faster, memory-efficient inference at scale.
+
+    **Model Type**: Large Language Model (LLM)
+    **Parameters**: 1 trillion total (≈50B active per token)
+    **Context Length**: Up to 128K (via YaRN)
+    **Training**: 20T tokens, FP8 mixed-precision
+    **Architecture**: Ling 2.0 (MoE, MTP, QK Norm)
+    **Use Case**: Complex reasoning, code & front-end generation, AI collaboration
+    **License**: MIT
+
+    👉 Try it online: [ZenMux](https://zenmux.ai/inclusionai/ling-1t) | 📦 Download: [Hugging Face](https://huggingface.co/inclusionAI/Ling-1T)
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
