@@ -22599,3 +22599,64 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "inclusionai.ling-1t"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ling-1T-GGUF
+  description: |
+    **Model Name:** Ling-1T
+    **Repository:** [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T)
+    **License:** MIT
+    **Pipeline:** Text Generation
+
+    ---
+
+    ### 🔍 **Model Overview**
+    **Ling-1T** is a **1-trillion-parameter** foundation model designed for **efficient, high-performance reasoning**. Built on the innovative **Ling 2.0 architecture**, it features **50 billion active parameters per token** via a 1/32 MoE (Mixture of Experts) design, enabling scalable, low-latency cognition at massive scale.
+
+    ---
+
+    ### 🚀 **Key Features**
+    - **1T total parameters** | **50B active per token** (1/32 MoE)
+    - **Context Length:** Up to **128K tokens** (using YaRN RoPE scaling)
+    - **Trained on 20T+ reasoning-dense tokens** with curated chain-of-thought data
+    - **FP8 mixed-precision training** — 15%+ speedup with ≤0.1% accuracy loss
+    - **Evo-CoT (Evolutionary Chain-of-Thought)** — progressive reasoning enhancement
+    - **LPO (Linguistics-Unit Policy Optimization)** — stable, sentence-level RL for better alignment
+
+    ---
+
+    ### 📊 **Performance Highlights**
+    - **Top open-source performer** in complex reasoning benchmarks (AIME 25, BFCL V3)
+    - **First open-source model** to rank #1 on **ArtifactsBench** for front-end generation + aesthetic quality
+    - Outperforms closed-source APIs (e.g., GPT-5, Gemini-2.5-Pro) in code, math, and logical reasoning
+    - Achieves **≈70% tool-call accuracy** with minimal instruction tuning
+
+    ---
+
+    ### 🛠️ **Use Cases**
+    - Advanced code generation and software development
+    - High-accuracy math and logical reasoning
+    - AI-powered design and marketing copy with visual aesthetics
+    - Long-context document reasoning and agent workflows
+
+    ---
+
+    ### 📦 **Deployment Support**
+    - Compatible with **vLLM**, **SGLang**, and Hugging Face Transformers
+    - Optimized for multi-GPU/TPU inference with tensor & pipeline parallelism
+
+    ---
+
+    ### 🌐 **Try It**
+    - 🌍 [Try online at ZenMux](https://zenmux.ai/inclusionai/ling-1t)
+    - 📥 [Download on Hugging Face](https://huggingface.co/inclusionAI/Ling-1T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ling-1T)
+
+    > *“Ling-1T: Pushing the frontier of efficient, scalable, and general intelligence — one trillion parameter at a time.”*
+  overrides:
+    parameters:
+      model: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+  files:
+    - filename: inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
+      sha256: b667e1e17d3350df0c1ca6e04f29bb96cae3c4b1e4616954d4ed2d8036651054
+      uri: huggingface://DevQuasar/inclusionAI.Ling-1T-GGUF/inclusionAI.Ling-1T.Q4_K_M-00001-of-00047.gguf
