@@ -22628,3 +22628,54 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "almost-human-x3-32bit-1460-6b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Almost-Human-X3-32bit-1460-6B-i1-GGUF
+  description: |
+    **Model Name:** Almost-Human-X3-32bit-1460-6B
+    **Base Model:** Qwen3-Jan-v1-256k-ctx-6B-Brainstorm20x
+    **Repository:** [DavidAU/Almost-Human-X3-32bit-1460-6B](https://huggingface.co/DavidAU/Almost-Human-X3-32bit-1460-6B)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 🔍 **Model Overview**
+    A high-precision, human-centric fine-tuned variant of the Qwen3-Jan-v1-6B model, trained to emulate the depth, nuance, and creative prose of Philip K. Dick. This version uses full **32-bit float precision** (FP32) and is optimized for advanced reasoning, storytelling, and complex code generation.
+
+    ### 🌟 **Key Features**
+    - **Brainstorm20x Process**: Enhanced reasoning through 20x expansion and calibration of internal reasoning modules, improving coherence, detail, and emotional engagement.
+    - **Extended Context**: Supports up to **256,000 tokens**, ideal for long-form writing, deep code analysis, and complex multi-step tasks.
+    - **Full Precision (FP32)**: Trained at 16-bit with final output in 32-bit float—retains maximal model fidelity for high-quality outputs.
+    - **Creative & Technical Excellence**: Excels in both **creative writing** (prose, narrative, metaphor) and **complex coding** with step-by-step reasoning.
+    - **Fine-Tuned on PK Dick’s Works**: Infused with tone, structure, and thematic depth from the original author’s letters, notes, and literary output.
+
+    ### 🛠️ **Use Cases**
+    - Long-form storytelling and narrative generation
+    - Advanced code generation with reasoning
+    - Philosophical or speculative thinking tasks
+    - Creative brainstorming and ideation
+    - High-fidelity chat and roleplay (with smooth, human-like responses)
+
+    ### ⚙️ **Recommended Settings**
+    - **Temperature**: 0.3–0.7 (0.8–1.5 for creative tasks)
+    - **Top-p**: 0.8, **Min-p**: 0.05
+    - **Top-k**: 20
+    - **Repetition Penalty**: 1.05–1.1
+    - **Smoothing Factor**: 1.5 (for smoother outputs in KoboldCpp, SillyTavern, etc.)
+
+    ---
+
+    ### 📌 **Note on Quantized Versions**
+    The model available at `mradermacher/Almost-Human-X3-32bit-1460-6B-i1-GGUF` is a **quantized (GGUF)** version, not the original source. For the **true high-fidelity, full-precision model**, always use the base repository: **DavidAU/Almost-Human-X3-32bit-1460-6B**.
+
+    ---
+
+    ✅ **Ideal for users seeking deep, literary, and precise AI assistance with a uniquely human voice.**
+  overrides:
+    parameters:
+      model: Almost-Human-X3-32bit-1460-6B.i1-Q4_K_M.gguf
+  files:
+    - filename: Almost-Human-X3-32bit-1460-6B.i1-Q4_K_M.gguf
+      sha256: 3010cc93dbff101c1e1659393bf8851a755b1a603d0c0fd79b01c4ecf2e03ed6
+      uri: huggingface://mradermacher/Almost-Human-X3-32bit-1460-6B-i1-GGUF/Almost-Human-X3-32bit-1460-6B.i1-Q4_K_M.gguf
