@@ -22628,3 +22628,28 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "crimson-twilight-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Crimson-Twilight-12B-i1-GGUF
+  description: |
+    **Crimson-Twilight-12B** is a 12-billion-parameter large language model fine-tuned for rich, immersive narrative roleplay. Created through a multi-stage merge using **MergeKit**, it combines four distinct base models:
+
+    - **Abyssal-Seraph-12B** and **Lunar-Abyss-12B**, merged via *nearswap* (t=0.0008)
+    - **Moonlit-Shadow-12B** and **Luminous-Shadow-12B**, merged via *slerp* (t=0.5)
+    - The resulting intermediates are fused using the **Karcher mean** method, producing a balanced, high-coherence model optimized for creative storytelling, character consistency, and emotional depth.
+
+    This model excels in roleplaying scenarios—ideal for fiction writing, interactive storytelling, and AI companionship. The original full-precision version is available at [Vortex5/Crimson-Twilight-12B](https://huggingface.co/Vortex5/Crimson-Twilight-12B), while quantized GGUF versions (e.g., `Crimson-Twilight-12B-i1-GGUF`) are provided by mradermacher for efficient local inference.
+
+    > ✅ **Use case:** Narrative roleplay, creative writing, character-driven dialogue
+    > 🔧 **Base models:** Vortex5/Abyssal-Seraph-12B, Vortex5/Moonlit-Shadow-12B, Vortex5/Lunar-Abyss-12B, Vortex5/Luminous-Shadow-12B
+    > 📦 **Quantization:** Available in multiple GGUF formats (IQ2_M to Q6_K) for varied speed/accuracy trade-offs
+
+    *Note: The GGUF versions are quantized variants. The original, unquantized model description is based on the base repository.*
+  overrides:
+    parameters:
+      model: Crimson-Twilight-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Crimson-Twilight-12B.i1-Q4_K_M.gguf
+      sha256: bdec53a01c8c7d10c2925240ea1ca2e8e7b2f7604de538da80ac1fb906019655
+      uri: huggingface://mradermacher/Crimson-Twilight-12B-i1-GGUF/Crimson-Twilight-12B.i1-Q4_K_M.gguf
