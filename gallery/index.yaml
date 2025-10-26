@@ -22628,3 +22628,54 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-claude-4-distill-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF
+  description: |
+    **Model Name:** `gpt-oss-20b`
+    **Repository:** [openai/gpt-oss-20b](https://huggingface.co/openai/gpt-oss-20b)
+    **License:** Apache 2.0 (permissive, commercial-friendly)
+    **Framework:** Hugging Face Transformers, vLLM, Ollama, LM Studio, and more
+
+    ### 📌 Overview
+    A powerful, open-weight large language model from OpenAI designed for reasoning, agentic tasks, and flexible customization. The `gpt-oss-20b` variant (21B parameters, 3.6B active) is optimized for lower-latency, local, or specialized use cases while maintaining strong performance.
+
+    ### 🔑 Key Features
+    - ✅ **Open and free to use**: Apache 2.0 license with no copyleft or patent restrictions.
+    - ✅ **Native chain-of-thought reasoning**: Full access to internal reasoning steps for debugging and trust.
+    - ✅ **Agentic capabilities**: Supports function calling, web browsing, Python code execution, and structured outputs.
+    - ✅ **Configurable reasoning effort**: Adjust speed vs. depth with low, medium, or high reasoning modes.
+    - ✅ **Efficient inference**: Uses native MXFP4 quantization for MoE layers; runs efficiently on 16GB+ GPU memory.
+    - ✅ **Fine-tunable**: Suitable for customization on consumer hardware.
+
+    ### 🧠 Use Cases
+    - Research & development
+    - Local AI assistants
+    - Agent-based applications
+    - Educational tools
+    - Custom chatbots & reasoning systems
+
+    ### 📦 Supported Tools
+    Available via:
+    - **Transformers** (`pip install transformers`)
+    - **vLLM** (high-throughput inference)
+    - **Ollama** (`ollama pull gpt-oss:20b`)
+    - **LM Studio**, **llama.cpp**, and more
+
+    ### 📚 Learn More
+    - [OpenAI gpt-oss blog](https://openai.com/index/introducing-gpt-oss/)
+    - [System card & guides](https://openai.com/index/gpt-oss-model-card)
+    - [Unsloth docs (optimization & quantization)](https://docs.unsloth.ai/basics/gpt-oss)
+
+    > 💡 **Note**: This is the original, unquantized base model. Quantized versions (e.g., GGUF, 4-bit) are available from partners like Unsloth and TheBloke. Always verify the model source for your use case.
+
+    ---
+    **Ideal for**: Developers, researchers, and creators seeking a powerful, flexible, and open LLM with agent and reasoning capabilities.
+  overrides:
+    parameters:
+      model: gpt-oss-20b-claude-4-distill.i1-Q4_K_S.gguf
+  files:
+    - filename: gpt-oss-20b-claude-4-distill.i1-Q4_K_S.gguf
+      sha256: 64cab7837403dcea12943ff24c665f86670d58e140be569b1abc447d41546708
+      uri: huggingface://mradermacher/gpt-oss-20b-claude-4-distill-i1-GGUF/gpt-oss-20b-claude-4-distill.i1-Q4_K_S.gguf
