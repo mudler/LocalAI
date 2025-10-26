@@ -22599,3 +22599,64 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "agentflow-planner-7b"
+  urls:
+    - https://huggingface.co/Mungert/agentflow-planner-7b-GGUF
+  description: |
+    **Model Name:** Qwen2.5-7B-Instruct
+    **Repository:** [Qwen/Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 📌 **Model Overview**
+    Qwen2.5-7B-Instruct is a powerful, instruction-tuned large language model with **7.61 billion parameters**, built on the Qwen2.5 foundation. It excels in **reasoning, coding, mathematics, and long-context understanding**, making it ideal for complex, multi-step tasks.
+
+    ### ✨ **Key Features**
+    - **Long Context Support**: Handles up to **131,072 tokens** (context) and generates up to **8,192 tokens** per response.
+    - **Advanced Instruction Following**: Strongly optimized for chat and task execution with high accuracy.
+    - **Multilingual**: Supports **29+ languages**, including English, Chinese, Japanese, Korean, and European languages.
+    - **Structured Output Generation**: Excellent at producing JSON and other structured data.
+    - **Efficient Architecture**: Uses RoPE, SwiGLU, RMSNorm, and Grouped Query Attention (GQA) for performance and scalability.
+
+    ### 🚀 **Use Cases**
+    - Conversational AI & virtual assistants
+    - Code generation and debugging
+    - Long-form content creation (reports, summaries, stories)
+    - Technical documentation and data analysis
+    - Multilingual applications
+
+    ### 🔧 **How to Use**
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model_name = "Qwen/Qwen2.5-7B-Instruct"
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="auto", device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain quantum computing in simple terms."}
+    ]
+
+    text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = tokenizer(text, return_tensors="pt").to(model.device)
+
+    outputs = model.generate(**inputs, max_new_tokens=512)
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+    ```
+
+    ### 📚 **Learn More**
+    - [Official Blog](https://qwenlm.github.io/blog/qwen2.5/)
+    - [GitHub Repository](https://github.com/QwenLM/Qwen2.5)
+    - [Documentation](https://qwen.readthedocs.io/en/latest/)
+
+    > **Note**: This is the **original, unquantized model**. The GGUF version from `Mungert/agentflow-planner-7b-GGUF` is a quantized variant of this model and may have reduced performance. Use this Hugging Face version for best results.
+  overrides:
+    parameters:
+      model: agentflow-planner-7b-q4_k_m.gguf
+  files:
+    - filename: agentflow-planner-7b-q4_k_m.gguf
+      sha256: d7cf595f26250b27b19f146fc6804b159a3c0da8e31da76db5d6b1ebc3db1dd3
+      uri: huggingface://Mungert/agentflow-planner-7b-GGUF/agentflow-planner-7b-q4_k_m.gguf
