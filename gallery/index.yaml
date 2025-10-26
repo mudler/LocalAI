@@ -22628,3 +22628,35 @@
     - filename: Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
       sha256: 6260b3e4f61583c8954914f10bfe4a6ca7fbbb7127d82e40b677aed43d573319
       uri: huggingface://mradermacher/Ostrich-32B-Qwen3-251003-i1-GGUF/Ostrich-32B-Qwen3-251003.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "70b_llama313_rp-i1"
+  urls:
+    - https://huggingface.co/mradermacher/70B_llama313_rp-i1-GGUF
+  description: |
+    **Model Name:** `70B_llama313_rp-i1-GGUF` (Quantized Version)
+    **Base Model:** `schonsense/70B_llama313_rp`
+    **Architecture:** Llama 3.1 70B (Multi-stage trained, fine-tuned for roleplay)
+    **License:** MIT / Commercial Use (Check original repo)
+    **Quantization:** GGUF (Multiple IQ and Q-based quantizations available, including i1-IQ4_XS, i1-Q4_K_M, i1-Q6_K)
+    **Use Case:** High-quality, mature, long-form fantasy roleplay with dark themes, complex moral choices, and realistic worldbuilding.
+    **Key Features:**
+    - Trained exclusively on RP-instruct and RP-adjacent data, minimizing "llama positivity" and incoherence.
+    - Correctly handles EOS token, eliminating garbage end-of-generation artifacts.
+    - Optimized for use with `llama-3.3-instruct`-style merging.
+    - Includes an imatrix for advanced quantization customization.
+    - Designed as a master Dungeon Master with spatial awareness and deep narrative consistency.
+
+    **Best For:** Roleplay enthusiasts, worldbuilders, and developers building immersive, gritty fantasy experiences.
+
+    **Original Base Model (for unquantized version):** [schonsense/70B_llama313_rp](https://huggingface.co/schonsense/70B_llama313_rp)
+    **Quantized By:** mradermacher
+    **Repository:** [mradermacher/70B_llama313_rp-i1-GGUF](https://huggingface.co/mradermacher/70B_llama313_rp-i1-GGUF)
+
+    > 📌 *Note: This is a quantized GGUF version. For the full, unquantized base model, use the original `schonsense/70B_llama313_rp` repository.*
+  overrides:
+    parameters:
+      model: 70B_llama313_rp.i1-Q4_K_M.gguf
+  files:
+    - filename: 70B_llama313_rp.i1-Q4_K_M.gguf
+      sha256: 7f481c879c9abdc56ca3f577ad6612e5d3490ebd7b74cb9e07aae5fc2e29569a
+      uri: huggingface://mradermacher/70B_llama313_rp-i1-GGUF/70B_llama313_rp.i1-Q4_K_M.gguf
