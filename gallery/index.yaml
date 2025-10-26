@@ -22678,3 +22678,29 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *deepseek
+  name: "deepseek-v3.1-terminus-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF
+  description: |
+    **Model Name:** DeepSeek-V3.1-Terminus
+    **Model Type:** Large Language Model (LLM)
+    **Architecture:** Mixture of Experts (MoE)
+    **Base Model:** deepseek-ai/DeepSeek-V3.1-Terminus
+    **Quantization:** MXFP4 (a mixed-precision quantization)
+    **Repository:** [noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF](https://huggingface.co/noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF)
+    **Pipeline:** Text Generation
+
+    **Description:**
+    DeepSeek-V3.1-Terminus is a state-of-the-art, Mixture-of-Experts (MoE) language model developed by DeepSeek. It excels in complex reasoning, coding, and multi-turn dialogue tasks. This repository hosts an MXFP4-quantized version of the model, optimized for efficient inference on consumer hardware while preserving high performance. The quantization is based on the original BF16 GGUF format from Unsloth, enabling fast and lightweight deployment via GGUF-compatible tools (e.g., llama.cpp). Ideal for developers and researchers seeking a powerful, accessible, and efficient model for local inference.
+
+    **Use Case:**
+    - Local AI applications
+    - Code generation
+    - Advanced reasoning and natural language understanding
+    - Low-resource deployment with high accuracy
+
+    **Note:** This is a quantized version; for the full-precision original model, refer to [deepseek-ai/DeepSeek-V3.1-Terminus](https://huggingface.co/deepseek-ai/DeepSeek-V3.1-Terminus).
+  overrides:
+    parameters:
+      model: noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF
