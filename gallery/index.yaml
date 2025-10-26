@@ -22599,3 +22599,29 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "70b_llama313_rp"
+  urls:
+    - https://huggingface.co/mradermacher/70B_llama313_rp-GGUF
+  description: |
+    **Model Name:** 70B_llama313_rp (Base Model: `schonsense/70B_llama313_rp`)
+    **Architecture:** Llama 3.1 70B (multi-stage fine-tuned)
+    **Training Focus:** Roleplay-specific instruction tuning
+    **Key Features:**
+    - Fine-tuned on mature, long-form fantasy roleplay (RP) and RP-adjacent instruction data.
+    - Optimized for narrative depth, spatial awareness, and realistic world-building.
+    - Correctly trained EOS token—eliminates trailing garbage in generations.
+    - Reduced "llama positivity" while maintaining coherent, immersive storytelling.
+    - Tokenized for compatibility with `llama-3.3-instruct` model merging.
+    - Includes system prompt and sampler settings designed for high-quality, player-driven roleplay.
+
+    **Use Case:** Ideal for immersive, dark fantasy, or gritty realism roleplay scenarios with complex moral choices and persistent consequences.
+
+    **Note:** The repository `mradermacher/70B_llama313_rp-GGUF` contains quantized GGUF versions of this model, but the **original base model** is `schonsense/70B_llama313_rp`, which should be referenced for accurate description and use.
+  overrides:
+    parameters:
+      model: 70B_llama313_rp.Q4_K_S.gguf
+  files:
+    - filename: 70B_llama313_rp.Q4_K_S.gguf
+      sha256: 36bee2d301e0ec162b389b6a9b3cf2e2f3c7951b763e7535ff91356d3d389c0b
+      uri: huggingface://mradermacher/70B_llama313_rp-GGUF/70B_llama313_rp.Q4_K_S.gguf
