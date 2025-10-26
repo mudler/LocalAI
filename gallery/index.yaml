@@ -22599,3 +22599,28 @@
     - filename: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
       sha256: 5dc9766b505d98d7a5ad960b321c1fafe508734ca12ff4b7c480f8afbbc1e03b
       uri: huggingface://mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF/Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "inclusionai.ring-flash-2.0"
+  urls:
+    - https://huggingface.co/DevQuasar/inclusionAI.Ring-flash-2.0-GGUF
+  description: |
+    **Model Name:** inclusionAI/Ring-flash-2.0
+    **Architecture:** Large Language Model (LLM) based on a transformer architecture, optimized for efficient text generation.
+    **Base Model:** Originally developed by **inclusionAI** and available at [huggingface.co/inclusionAI/Ring-flash-2.0](https://huggingface.co/inclusionAI/Ring-flash-2.0).
+    **Use Case:** Ideal for high-performance text generation, reasoning, and language understanding tasks.
+    **Key Features:**
+    - Optimized inference speed and memory efficiency via Ring-flash attention mechanism.
+    - Designed for scalability and long-context handling.
+    - Part of the inclusionAI initiative to democratize access to advanced AI models.
+    - Available in multiple quantized formats (e.g., GGUF) for deployment on consumer hardware.
+
+    **Note:** The repository `DevQuasar/inclusionAI.Ring-flash-2.0-GGUF` contains a quantized version of the original model. For the full, unquantized model, refer to the official base model: **inclusionAI/Ring-flash-2.0**.
+
+    ✨ *Make knowledge free for everyone* — [devquasar.com](https://devquasar.com)
+  overrides:
+    parameters:
+      model: inclusionAI.Ring-flash-2.0.Q4_K_M-00001-of-00005.gguf
+  files:
+    - filename: inclusionAI.Ring-flash-2.0.Q4_K_M-00001-of-00005.gguf
+      sha256: 9edcb6c55365af3aaff58be6c4bfde723e67b7e17f2c331e7e520b60174e43e1
+      uri: huggingface://DevQuasar/inclusionAI.Ring-flash-2.0-GGUF/inclusionAI.Ring-flash-2.0.Q4_K_M-00001-of-00005.gguf
