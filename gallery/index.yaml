@@ -22721,3 +22721,29 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "lightonocr-1b-1025-i1"
+  urls:
+    - https://huggingface.co/noctrex/LightOnOCR-1B-1025-i1-GGUF
+  description: |
+    **LightOnOCR-1B-1025** is a compact, end-to-end vision-language model designed for high-accuracy OCR and document understanding. Built on a Pixtral-based vision encoder and a Qwen3-based text decoder, it excels at extracting structured text from complex documents—including tables, receipts, forms, multi-column layouts, and mathematical notation—while preserving spatial layout information.
+
+    Trained on a large-scale multilingual PDF corpus, it supports **English, French, German, Spanish, Italian, Dutch, Portuguese, Swedish, and Danish**, making it ideal for European language use cases. The model is optimized for speed and efficiency, delivering **5x faster inference than dots.ocr** and processing **5.71 pages per second on a single H100 GPU**—costing less than **$0.01 per 1,000 pages**.
+
+    Available in multiple vocabulary variants (151k, 32k, 16k), the **151k variant (this model)** offers the best balance of accuracy and multilingual coverage, achieving state-of-the-art performance on benchmarks like Olmo-Bench.
+
+    Perfect for research, document automation, and enterprise-grade PDF processing. Fully compatible with vLLM for efficient deployment.
+
+    🔧 **Use Case**: PDF parsing, automated form processing, receipt OCR, academic paper analysis
+    🚀 **Try it**: [Demo on Hugging Face Spaces](https://huggingface.co/spaces/lightonai/LightOnOCR-1B-Demo)
+    📄 **Learn more**: [Blog Post](https://huggingface.co/blog/lightonai/lightonocr/)
+    🧩 **Fine-tuning Ready**: Supports LoRA and domain adaptation
+
+    Model License: Apache 2.0
+  overrides:
+    parameters:
+      model: LightOnOCR-1B-1025-i1-Q4_K_M.gguf
+  files:
+    - filename: LightOnOCR-1B-1025-i1-Q4_K_M.gguf
+      sha256: 9e96e1e4273635159b96d5ec39d75f3c86ad0712f7a88fb8ca719840abda6e64
+      uri: huggingface://noctrex/LightOnOCR-1B-1025-i1-GGUF/LightOnOCR-1B-1025-i1-Q4_K_M.gguf
