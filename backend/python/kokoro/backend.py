@@ -64,15 +64,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             # Generate audio using Kokoro pipeline
             generator = self.pipeline(request.text, voice=voice)
             
-            # Get the first (and typically only) audio segment
+            speechs = []
+            # Get all the audio segment
             for i, (gs, ps, audio) in enumerate(generator):
-                # Save audio to the destination file
-                sf.write(request.dst, audio, 24000)
+                speechs.append(audio)
                 print(f"Generated audio segment {i}: gs={gs}, ps={ps}", file=sys.stderr)
-                # For now, we only process the first segment
-                # If you need to handle multiple segments, you might want to modify this
-                break
-                
+            # Merges the audio segments and writes them to the destination
+            speech = torch.cat(speechs, dim=0)
+            sf.write(request.dst, speech, 24000)
+
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         
