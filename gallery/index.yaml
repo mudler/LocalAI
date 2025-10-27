@@ -22721,3 +22721,24 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "ling-1t-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-1T-i1-GGUF
+  description: |
+    **Ling-1T** is a groundbreaking 1-trillion-parameter, non-thinking foundation model built on the Ling 2.0 architecture, designed for high-efficiency, scalable reasoning. Trained on over 20 trillion high-quality, reasoning-dense tokens, it supports context lengths up to 128K using YaRN and features a 1/32 MoE activation ratio with 50 billion active parameters per token.
+
+    Ling-1T excels in complex reasoning, code generation, and aesthetic-aware front-end development, ranking first among open-source models on ArtifactsBench. Its evolutionary chain-of-thought (Evo-CoT) training and novel LPO (Linguistics-Unit Policy Optimization) method enable superior reasoning accuracy and stability, rivaling closed-source models like GPT-5 and Gemini-2.5-Pro.
+
+    With FP8 mixed-precision training and system-level optimizations, it is the largest FP8-trained model known, delivering up to 15%+ end-to-end speedup while maintaining near-lossless accuracy.
+
+    Ideal for research, long-context applications, and AI collaboration, Ling-1T sets a new standard for efficient, open-source reasoning intelligence.
+
+    🔍 **Explore**: [Hugging Face](https://huggingface.co/inclusionAI/Ling-1T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ling-1T) | [Try Online](https://zenmux.ai/inclusionai/ling-1t)
+  overrides:
+    parameters:
+      model: Ling-1T.i1-Q4_K_M.gguf.part01of13
+  files:
+    - filename: Ling-1T.i1-Q4_K_M.gguf.part01of13
+      sha256: 126005ac026df17b9ca384a209049107aac008e00747bd035d5bed0039538b23
+      uri: huggingface://mradermacher/Ling-1T-i1-GGUF/Ling-1T.i1-Q4_K_M.gguf.part01of13
