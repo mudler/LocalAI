@@ -17,7 +17,7 @@ require (
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-llama.cpp v0.0.0-20240314183750-6a8041ef6b46
 	github.com/gofiber/fiber/v2 v2.52.9
-	github.com/gofiber/swagger v1.0.0
+	github.com/gofiber/swagger v1.1.1
 	github.com/gofiber/template/html/v2 v2.1.2
 	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/gofrs/flock v0.13.0
@@ -297,7 +297,7 @@ require (
 	github.com/songgao/packets v0.0.0-20160404182456-549a10cd4091 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
-	github.com/swaggo/files/v2 v2.0.0 // indirect
+	github.com/swaggo/files/v2 v2.0.2 // indirect
 	github.com/tinylib/msgp v1.2.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.15 // indirect
 	github.com/tklauser/numcpus v0.10.0 // indirect
