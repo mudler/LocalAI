@@ -22678,3 +22678,34 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *qwen3
+  name: "pactoria-base-0.1"
+  urls:
+    - https://huggingface.co/mradermacher/pactoria-base-0.1-GGUF
+  description: |
+    **Model Name:** Pactoria Base 0.1
+    **Base Model:** Qwen3-0.6B (from `unsloth/qwen3-0.6b-base-bnb-4bit`)
+    **Type:** Fine-tuned Language Model (Text Generation)
+    **License:** Apache 2.0
+    **Repository:** [mradermacher/pactoria-base-0.1-GGUF](https://huggingface.co/mradermacher/pactoria-base-0.1-GGUF)
+
+    **Description:**
+    Pactoria Base 0.1 is a fine-tuned version of the lightweight Qwen3-0.6B language model, optimized for efficient inference using Unsloth’s high-performance training framework. It is trained to deliver strong reasoning, coding, and conversational capabilities while maintaining fast inference speeds. The model is available in multiple GGUF quantizations (from Q2_K to Q8_0), making it suitable for deployment on consumer hardware. Ideal for developers, researchers, and hobbyists seeking a compact yet capable LLM with low resource requirements.
+
+    **Key Features:**
+    - Based on Qwen3-0.6B, a small but powerful open-source LLM
+    - Fine-tuned with Unsloth for 2x faster training and efficient inference
+    - Available in multiple GGUF quantizations (including IQ4_XS, Q4_K_M, and Q8_0)
+    - Designed for use with tools like `llama.cpp`, `text-generation-webui`, and other GGUF-compatible systems
+    - Fully open-source and licensed under Apache 2.0
+
+    **Use Cases:** Local LLM inference, chatbots, code generation, and lightweight AI applications.
+
+    👉 Explore and download at: [https://huggingface.co/mradermacher/pactoria-base-0.1-GGUF](https://huggingface.co/mradermacher/pactoria-base-0.1-GGUF)
+  overrides:
+    parameters:
+      model: pactoria-base-0.1.Q4_K_M.gguf
+  files:
+    - filename: pactoria-base-0.1.Q4_K_M.gguf
+      sha256: 0696b782b899cb83041f3c0b7b2901471edd2aa28167f48747f4d6d65e350c0c
+      uri: huggingface://mradermacher/pactoria-base-0.1-GGUF/pactoria-base-0.1.Q4_K_M.gguf
