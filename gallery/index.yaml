@@ -22721,3 +22721,34 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-30b-a3b-instruct"
+  urls:
+    - https://huggingface.co/Hugguf/Qwen3-VL-30B-A3B-Instruct-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-30B-A3B-Instruct
+    **Repository:** [Hugguf/Qwen3-VL-30B-A3B-Instruct-GGUF](https://huggingface.co/Hugguf/Qwen3-VL-30B-A3B-Instruct-GGUF)
+    **Base Model:** [Qwen/Qwen3-VL-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Instruct)
+    **Model Type:** Multimodal Large Language Model (LLM) – Vision-Language
+    **Size:** 30 billion parameters
+    **Quantization:** GGUF (optimized for local inference via llama.cpp)
+    **Inference Pipeline:** Image-Text-to-Text
+    **License:** Apache 2.0
+
+    **Description:**
+    Qwen3-VL-30B-A3B-Instruct is a powerful multimodal large language model capable of understanding and generating responses based on both visual inputs (images) and textual prompts. It is a fine-tuned version of the Qwen3-VL-30B-A3B base model, specifically optimized for instruction-following tasks in a vision-language context.
+
+    This model excels in tasks such as visual question answering (VQA), image captioning, reasoning over images, and multimodal dialogue. The GGUF quantized version is designed for efficient local inference on consumer hardware using llama.cpp, making advanced multimodal AI accessible without requiring high-end GPUs.
+
+    While this repository contains a quantized GGUF version (likely created by the community), the **original base model** remains the official [Qwen/Qwen3-VL-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Instruct) from Tongyi Lab.
+
+    **Use Case:** Ideal for developers and researchers building local, privacy-preserving multimodal applications such as AI assistants, content creation tools, and visual reasoning systems.
+
+    > ✅ **Tip:** Use the official `Qwen/Qwen3-VL-30B-A3B-Instruct` model for training or high-precision inference; use this GGUF version for efficient, low-resource inference on CPU or GPU.
+  overrides:
+    parameters:
+      model: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: 6facccc5697bc7876def115e1755299ed4db9761fd0f90bb19b56ad4aa03f6ac
+      uri: huggingface://Hugguf/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
