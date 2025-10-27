@@ -22721,3 +22721,24 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-instruct"
+  urls:
+    - https://huggingface.co/ilintar/Qwen3-Next-80B-A3B-Instruct-GGUF
+  description: |
+    **Qwen3-Next-80B-A3B-Instruct** is a next-generation large language model developed by Alibaba's Qwen team, designed for high efficiency and ultra-long context handling. It features a hybrid architecture combining **Gated DeltaNet** and **Gated Attention**, enabling superior performance on long-context tasks. With 80 billion total parameters and only 3 billion activated per token via a high-sparsity Mixture-of-Experts (MoE) design, it delivers exceptional parameter efficiency and inference speed.
+
+    Key highlights:
+    - **Context Length**: Native support for up to **262,144 tokens**, extendable to **1 million tokens** using YaRN RoPE scaling.
+    - **Performance**: Matches or exceeds larger models like Qwen3-235B-A22B-Instruct on benchmarks including MMLU-Pro, GPQA, and LiveCodeBench.
+    - **Efficiency**: Achieves 10x higher inference throughput than comparable models while using only 10% of the training cost.
+    - **Use Cases**: Ideal for complex reasoning, long-form content generation, agentic workflows, and multilingual tasks.
+
+    This model is optimized for inference using frameworks like **vLLM** and **SGLang**, and supports OpenAI-compatible APIs. It excels in instruction following and tool use, making it a top choice for advanced AI applications requiring scale, speed, and intelligence.
+  overrides:
+    parameters:
+      model: qwen3_next_80b_a3b_instruct_q2_k.gguf
+  files:
+    - filename: qwen3_next_80b_a3b_instruct_q2_k.gguf
+      sha256: 75278e22bb732aa6fb307db64e95bab3146ebeb2466f0363577c4c1037885802
+      uri: huggingface://ilintar/Qwen3-Next-80B-A3B-Instruct-GGUF/qwen3_next_80b_a3b_instruct_q2_k.gguf
