@@ -22678,3 +22678,12 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *llama3
+  name: "nomi_r1_gguf"
+  urls:
+    - https://huggingface.co/Shekarss/Nomi_R1_GGUF
+  description: |
+    AI model: nomi_r1_gguf
+  overrides:
+    parameters:
+      model: Shekarss/Nomi_R1_GGUF
