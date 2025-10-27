@@ -1862,6 +1862,9 @@ const docTemplate = `{
                 "height": {
                     "type": "integer"
                 },
+                "input_reference": {
+                    "type": "string"
+                },
                 "model": {
                     "type": "string"
                 },
@@ -1877,8 +1880,14 @@ const docTemplate = `{
                 "response_format": {
                     "type": "string"
                 },
+                "seconds": {
+                    "type": "string"
+                },
                 "seed": {
                     "type": "integer"
+                },
+                "size": {
+                    "type": "string"
                 },
                 "start_image": {
                     "type": "string"
