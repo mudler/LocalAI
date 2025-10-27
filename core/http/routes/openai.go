@@ -108,6 +108,19 @@ func RegisterOpenAIRoutes(app *fiber.App,
 		imageChain...)
 	app.Post("/images/generations", imageChain...)
 
+	// videos (OpenAI-compatible endpoints mapped to LocalAI video handler)
+	videoChain := []fiber.Handler{
+		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
+		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+		re.SetOpenAIRequest,
+		openai.VideoEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()),
+	}
+
+	// OpenAI-style create video endpoint
+	app.Post("/v1/videos", videoChain...)
+	app.Post("/v1/videos/generations", videoChain...)
+	app.Post("/videos", videoChain...)
+
 	// List models
 	app.Get("/v1/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()))
 	app.Get("/models", openai.ListModelsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig()))

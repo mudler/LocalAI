@@ -35,6 +35,9 @@ type VideoRequest struct {
 	Height         int32   `json:"height" yaml:"height"`
 	NumFrames      int32   `json:"num_frames" yaml:"num_frames"`
 	FPS            int32   `json:"fps" yaml:"fps"`
+	Seconds        string  `json:"seconds,omitempty" yaml:"seconds,omitempty"`
+	Size           string  `json:"size,omitempty" yaml:"size,omitempty"`
+	InputReference string  `json:"input_reference,omitempty" yaml:"input_reference,omitempty"`
 	Seed           int32   `json:"seed" yaml:"seed"`
 	CFGScale       float32 `json:"cfg_scale" yaml:"cfg_scale"`
 	Step           int32   `json:"step" yaml:"step"`
