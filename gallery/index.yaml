@@ -22721,3 +22721,23 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "tongyi-deepresearch-30b-a3b-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Tongyi-DeepResearch-30B-A3B-MXFP4_MOE-GGUF
+  description: |
+    **Model Name:** Tongyi-DeepResearch-30B-A3B (Original Base Model)
+    **Repository:** [Alibaba-NLP/Tongyi-DeepResearch-30B-A3B](https://huggingface.co/Alibaba-NLP/Tongyi-DeepResearch-30B-A3B)
+    **Model Type:** Large Language Model (LLM)
+    **Architecture:** Mixture-of-Experts (MoE) with 30 billion total parameters, including 3 billion active parameters per token.
+    **Description:**
+    Tongyi-DeepResearch-30B-A3B is a state-of-the-art large language model developed by Alibaba's Tongyi Lab, designed for advanced reasoning, research tasks, and complex question answering. It leverages a Mixture-of-Experts (MoE) architecture to achieve high efficiency and strong performance, enabling deeper understanding and generation capabilities across diverse domains. The model is trained on a large-scale, high-quality dataset, making it suitable for tasks like scientific reasoning, code generation, and multi-step problem solving.
+
+    This version is the original, full-precision model—**not** a quantized variant. For quantized versions (e.g., GGUF), see the repository by `noctrex` for optimized inference.
+
+    **Use Case:** Ideal for research, advanced AI applications, and high-performance inference scenarios requiring robust reasoning and language understanding.
+
+    **License:** Apache 2.0 (check model card for details)
+  overrides:
+    parameters:
+      model: noctrex/Tongyi-DeepResearch-30B-A3B-MXFP4_MOE-GGUF
