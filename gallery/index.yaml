@@ -22721,3 +22721,66 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-thinking"
+  urls:
+    - https://huggingface.co/lefromage/Qwen3-Next-80B-A3B-Thinking-GGUF
+  description: |
+    **Model Name:** Qwen3-Next-80B-A3B-Thinking
+    **Repository:** [Qwen/Qwen3-Next-80B-A3B-Thinking](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Thinking)
+    **License:** Apache 2.0
+    **Pipeline:** Text Generation
+
+    ---
+
+    ### 🔍 **Overview**
+    Qwen3-Next-80B-A3B-Thinking is a state-of-the-art, reasoning-optimized large language model from the Qwen series, designed for high-performance, complex reasoning tasks. It features a hybrid architecture combining **Gated DeltaNet** and **Gated Attention**, enabling efficient processing of ultra-long contexts (up to 262,144 tokens natively, extendable to 1M with YaRN scaling). The model uses a **high-sparsity Mixture-of-Experts (MoE)** setup with only 3B activated parameters, delivering exceptional parameter efficiency and inference speed.
+
+    ### ⚙️ **Key Features**
+    - **80B total parameters**, 3B activated (MoE)
+    - **Hybrid Attention Architecture**: Gated DeltaNet + Gated Attention for long-context efficiency
+    - **Extremely long context support**: Native 262K tokens, scalable to 1M with YaRN
+    - **Advanced reasoning**: Optimized for step-by-step thinking and complex problem-solving
+    - **Multi-Token Prediction (MTP)**: Accelerates inference with reduced latency
+    - **Optimized for agentic workflows**: Built-in support for tool calling and structured output
+
+    ### 📊 **Performance Highlights**
+    - Outperforms Qwen3-32B-Thinking and Qwen3-30B-A3B-Thinking
+    - Surpasses **Gemini-2.5-Flash-Thinking** on multiple benchmarks (MMLU, GPQA, AIME, LiveCodeBench)
+    - Achieves **10× higher inference throughput** than comparable models at 32K+ context lengths
+    - Strong multilingual and coding capabilities across diverse domains
+
+    ### 🛠️ **Usage**
+    - Deploy with **vLLM**, **SGLang**, or Hugging Face Transformers
+    - Ideal for:
+      - Long-context document analysis
+      - Complex reasoning (math, programming, logic)
+      - Agent-based systems and tool use
+      - High-throughput inference with low latency
+
+    > ✅ **Tip**: Use `max_new_tokens=32768` and `temperature=0.6` for best results on complex tasks.
+
+    ---
+
+    📌 **Cite**:
+    ```bibtex
+    @misc{qwen3technicalreport,
+      title = {Qwen3 Technical Report},
+      author = {Qwen Team},
+      year = {2025},
+      eprint = {2505.09388},
+      archivePrefix = {arXiv},
+      primaryClass = {cs.CL},
+      url = {https://arxiv.org/abs/2505.09388}
+    }
+    ```
+
+    👉 **Try it live**: [Chat with Qwen on qwen.ai](https://chat.qwen.ai/)
+    🌐 **Learn more**: [Qwen3-Next Blog Post](https://qwen.ai/blog?id=4074cca80393150c248e508aa62983f9cb7d27cd)
+  overrides:
+    parameters:
+      model: Qwen__Qwen3-Next-80B-A3B-Thinking-Q2_K.gguf
+  files:
+    - filename: Qwen__Qwen3-Next-80B-A3B-Thinking-Q2_K.gguf
+      sha256: cb3831ffa3597d970c344961f8051946d0107bb69f96ddb90b865ef02e3faa30
+      uri: huggingface://lefromage/Qwen3-Next-80B-A3B-Thinking-GGUF/Qwen__Qwen3-Next-80B-A3B-Thinking-Q2_K.gguf
