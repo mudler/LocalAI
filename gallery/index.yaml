@@ -22721,3 +22721,12 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "k-1b"
+  urls:
+    - https://huggingface.co/ThomasTheMaker/k-1b-gguf
+  description: |
+    AI model: k-1b
+  overrides:
+    parameters:
+      model: ThomasTheMaker/k-1b-gguf
