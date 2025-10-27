@@ -22721,3 +22721,25 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "harmony-bird-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Harmony-Bird-12B-i1-GGUF
+  description: |
+    **Harmony-Bird-12B** is a 12-billion-parameter language model specifically designed for rich, engaging roleplay and storytelling. It is a high-quality merge of two powerful base models:
+
+    - **Vermilion-Sage-12B** (focused on coherence and logical reasoning)
+    - **Impish-Nemo-12B** (known for creativity, expressiveness, and personality)
+
+    Using the advanced **Harmony Forge** merge method (via MergeKit), the model intelligently blends strengths from both sources through adaptive consensus across parameter space and frequency domains, resulting in a balanced, stable, and highly responsive model with strong narrative and character performance.
+
+    Ideal for creative writing, chatbots, and immersive roleplay scenarios, Harmony-Bird-12B delivers natural dialogue, deep character consistency, and rich world-building capabilities — all while minimizing contradictions and noise.
+
+    *Note: The GGUF version you're viewing (mradermacher/Harmony-Bird-12B-i1-GGUF) is a quantized variant. The original model is based on the non-quantized, full-precision version from Vortex5/Harmony-Bird-12B.*
+  overrides:
+    parameters:
+      model: Harmony-Bird-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Harmony-Bird-12B.i1-Q4_K_M.gguf
+      sha256: 81ab8c1f2ade73bf114971bac1a9241d81629e3a0924cceda31475c9c1104ded
+      uri: huggingface://mradermacher/Harmony-Bird-12B-i1-GGUF/Harmony-Bird-12B.i1-Q4_K_M.gguf
