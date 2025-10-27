@@ -22721,3 +22721,22 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "lightonocr-1b-1025"
+  urls:
+    - https://huggingface.co/noctrex/LightOnOCR-1B-1025-GGUF
+  description: |
+    **LightOnOCR-1B-1025** is a compact, end-to-end vision-language model designed for high-accuracy Optical Character Recognition (OCR) and document understanding. Built on a Pixtral-based Vision Transformer encoder and a Qwen3-based lightweight text decoder, it excels at extracting structured text from complex documents—including multi-column layouts, tables, forms, receipts, and mathematical notation—without relying on external OCR pipelines.
+
+    Optimized for speed and efficiency, it processes up to **5.71 pages per second** on a single H100 GPU, making it **5× faster than dots.ocr** and significantly more cost-effective than larger models—costing **under $0.01 per 1,000 pages**.
+
+    Ideal for researchers and developers, it supports fine-tuning via LoRA and is available in multiple variants (1025, 32k, 16k vocab) for different language and performance needs. Trained on a diverse multilingual PDF corpus, it delivers state-of-the-art accuracy in its size category.
+
+    🔗 **[Model Card](https://huggingface.co/lightonai/LightOnOCR-1B-1025)** | 🚀 **[Try the Demo](https://huggingface.co/spaces/lightonai/LightOnOCR-1B-Demo)**
+  overrides:
+    parameters:
+      model: LightOnOCR-1B-1025-Q4_K_M.gguf
+  files:
+    - filename: LightOnOCR-1B-1025-Q4_K_M.gguf
+      sha256: da36fb008a81128553933a15dc6373c1d0692e3ed1c17e9115521d84c473dbd5
+      uri: huggingface://noctrex/LightOnOCR-1B-1025-GGUF/LightOnOCR-1B-1025-Q4_K_M.gguf
