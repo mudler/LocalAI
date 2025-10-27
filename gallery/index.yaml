@@ -22678,3 +22678,36 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *deepseek
+  name: "deepseek-v3.1-terminus-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF
+  description: |
+    **Model Name:** DeepSeek-V3.1-Terminus (Base Model)
+    **Repository:** [deepseek-ai/DeepSeek-V3.1-Terminus](https://huggingface.co/deepseek-ai/DeepSeek-V3.1-Terminus)
+    **Model Type:** Large Language Model (LLM)
+    **Architecture:** Mixture of Experts (MoE) – 128 total experts, 4 active per token
+    **Context Length:** 32,768 tokens
+    **License:** MIT License
+
+    **Description:**
+    DeepSeek-V3.1-Terminus is a state-of-the-art, open-source large language model developed by DeepSeek. It is built on a Mixture of Experts (MoE) architecture, enabling efficient scaling with high performance. With 128 experts and 4 active experts per token, it achieves strong reasoning, coding, and multilingual capabilities while maintaining computational efficiency.
+
+    The model supports a massive context length of up to 32,768 tokens, making it ideal for long-form content generation, document analysis, and complex reasoning tasks.
+
+    **Key Features:**
+    - Open-weight, publicly available
+    - Exceptional performance in code generation, math reasoning, and general instruction-following
+    - Trained on a diverse, high-quality dataset spanning multiple languages
+    - Designed for deployment in both research and production environments
+
+    **Use Cases:**
+    - Advanced code generation and debugging
+    - Long-context reasoning and document summarization
+    - Multilingual natural language understanding and generation
+    - Research and development in large-scale AI systems
+
+    **Note:** The repository `noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF` contains a quantized version of this model, optimized for efficient inference using GGUF format. The base model described here is the original, full-precision version.
+  overrides:
+    parameters:
+      model: noctrex/DeepSeek-V3.1-Terminus-MXFP4_MOE-GGUF
