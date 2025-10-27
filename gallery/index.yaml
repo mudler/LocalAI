@@ -22678,3 +22678,20 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *qwen25
+  name: "shisa-v2-qwen2.5-7b"
+  urls:
+    - https://huggingface.co/tatsuyaaaaaaa/shisa-v2-qwen2.5-7b-gguf
+  description: |
+    The **Shisa-v2-Qwen2.5-7B** is a Japanese-optimized large language model based on Qwen2.5-7B, fine-tuned and enhanced by Shisa-ai to excel in Japanese language understanding and generation. It is designed for high performance in multilingual and Japanese-specific tasks, including dialogue, reasoning, and content creation.
+
+    This particular version is a GGUF quantized variant (from the repository `tatsuyaaaaaaa/shisa-v2-qwen2.5-7b-gguf`), optimized for efficient local inference. However, the **original base model**—which contains the full, unquantized architecture and weights—is **shisa-ai/shisa-v2-qwen2.5-7b**, available on Hugging Face.
+
+    For accurate model description and full capabilities, refer to the original base model. This quantized version is ideal for users seeking lightweight, high-efficiency deployment on consumer hardware with minimal performance loss.
+  overrides:
+    parameters:
+      model: shisa-v2-qwen2.5-7b_Q4_K_M.gguf
+  files:
+    - filename: shisa-v2-qwen2.5-7b_Q4_K_M.gguf
+      sha256: fe4affea2fc51b8035bb7bafc13197dc05cdcc98d6f1d5ce7f55fe61e8535e0e
+      uri: huggingface://tatsuyaaaaaaa/shisa-v2-qwen2.5-7b-gguf/shisa-v2-qwen2.5-7b_Q4_K_M.gguf
