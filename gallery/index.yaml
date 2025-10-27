@@ -22678,3 +22678,22 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *llama3
+  name: "dentalgpt-7b-1026"
+  urls:
+    - https://huggingface.co/mradermacher/DentalGPT-7B-1026-GGUF
+  description: |
+    **DentalGPT-7B-1026** is a specialized 7-billion-parameter large language model fine-tuned for dental healthcare applications. Developed by Eric3200 and based on the Llama 2 architecture, this model is optimized for tasks such as dental diagnosis support, patient communication, clinical documentation, and medical knowledge retrieval within the dental domain. It has been trained on a curated dataset of dental literature, clinical guidelines, and patient interaction examples, enabling it to deliver accurate, context-aware responses tailored to dental professionals and patients alike.
+
+    The model is available in multiple quantized formats (GGUF) for efficient inference on consumer hardware, including Q4_K_S, Q5_K_S, Q6_K, and Q8_0 variants. A multi-modal projection file (mmproj) is also provided for enhanced performance with visual inputs (e.g., dental images).
+
+    While this repository (mradermacher/DentalGPT-7B-1026-GGUF) hosts quantized versions created by mradermacher, the original model was developed and released by **Eric3200** under the Apache 2.0 license.
+
+    Ideal for researchers, dental practitioners, and developers building AI-driven dental tools, DentalGPT-7B-1026 bridges domain-specific knowledge and practical usability in a lightweight, accessible format.
+  overrides:
+    parameters:
+      model: DentalGPT-7B-1026.Q4_K_M.gguf
+  files:
+    - filename: DentalGPT-7B-1026.Q4_K_M.gguf
+      sha256: c8011e8d3493dbc7d024065d488170b96d0f18b7263197abc6888b1bde59d442
+      uri: huggingface://mradermacher/DentalGPT-7B-1026-GGUF/DentalGPT-7B-1026.Q4_K_M.gguf
