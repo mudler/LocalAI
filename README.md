@@ -244,8 +244,7 @@ Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3A
 - 🔍 [Object Detection](https://localai.io/features/object-detection/)
 - 📈 [Reranker API](https://localai.io/features/reranker/)
 - 🆕🖧 [P2P Inferencing](https://localai.io/features/distribute/)
-- 🆕🔌 [Model Context Protocol (MCP)](https://localai.io/features/mcp/) - Agentic capabilities with external tools
-- [Agentic capabilities](https://github.com/mudler/LocalAGI)
+- 🆕🔌 [Model Context Protocol (MCP)](https://localai.io/docs/features/mcp/) - Agentic capabilities with external tools and [LocalAGI's Agentic capabilities](https://github.com/mudler/LocalAGI)
 - 🔊 Voice activity detection (Silero-VAD support)
 - 🌍 Integrated WebUI!
 
