@@ -22678,3 +22678,26 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *llama3
+  name: "ling-1t-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ling-1T-i1-GGUF
+  description: |
+    **Ling-1T** is a flagship 1-trillion-parameter, non-thinking foundation model from the Ling 2.0 series, designed for highly efficient and scalable reasoning. Built with a 1/32 MoE architecture (≈50B active parameters per token), it excels in complex reasoning tasks—rivaling closed-source models like GPT-5 and Gemini-2.5-Pro—while maintaining strong efficiency and interpretability.
+
+    Pre-trained on 20+ trillion high-quality, reasoning-dense tokens, Ling-1T supports up to **128K context length** via YaRN and uses an Evolutionary Chain-of-Thought (Evo-CoT) training curriculum. It achieves state-of-the-art performance in code generation, mathematics, logical reasoning, and visual front-end design—ranking first on ArtifactsBench among open-source models.
+
+    Key innovations include:
+    - **FP8 mixed-precision training** for 15%+ speedup and memory efficiency.
+    - **LPO (Linguistics-Unit Policy Optimization)** for stable, sentence-level RL alignment.
+    - **QK Normalization** and **MTP layers** for robust, scalable training.
+
+    Ling-1T is ideal for developers and researchers seeking a powerful, open-source model for advanced reasoning and creative AI applications.
+    **Base model**: `inclusionAI/Ling-1T` | **License**: MIT | **Context**: 128K | **Use Case**: Complex reasoning, code generation, AI collaboration.
+  overrides:
+    parameters:
+      model: Ling-1T.i1-Q4_K_M.gguf.part01of13
+  files:
+    - filename: Ling-1T.i1-Q4_K_M.gguf.part01of13
+      sha256: 126005ac026df17b9ca384a209049107aac008e00747bd035d5bed0039538b23
+      uri: huggingface://mradermacher/Ling-1T-i1-GGUF/Ling-1T.i1-Q4_K_M.gguf.part01of13
