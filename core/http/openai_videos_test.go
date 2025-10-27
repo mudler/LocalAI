@@ -1,4 +1,3 @@
-// +build ginkgo
 
 package http_test
 
