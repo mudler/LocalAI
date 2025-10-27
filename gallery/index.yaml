@@ -22678,3 +22678,16 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *mistral03
+  name: "rotor_24b_v.1"
+  urls:
+    - https://huggingface.co/mradermacher/Rotor_24B_V.1-GGUF
+  description: |
+    **Rotor_24B_V.1** is a high-performance, creatively focused language model created by merging multiple fine-tuned Mistral-Small 24B variants. Designed primarily for immersive roleplay and storytelling, it excels in generating natural, non-mechanical prose with strong narrative coherence and character consistency. The model handles long dialogues and complex contexts (up to 12k tokens) with ease, maintaining balance between SFW and NSFW content as appropriate. It performs well in text adventures, often engaging authentically without overstepping into unwanted character narration. Supporting both English and Russian with strong performance (French also tested successfully), it’s ideal for creative writers, roleplayers, and developers seeking a versatile, expressive, and stable LLM. Built using MergeKit and based on models from ZeroFata, ReadyArt, CrucibleLab, and Delta-Vector, it represents a significant step forward in narrative AI.
+  overrides:
+    parameters:
+      model: Rotor_24B_V.1.Q4_K_S.gguf
+  files:
+    - filename: Rotor_24B_V.1.Q4_K_S.gguf
+      sha256: 732dcf8847cb0a310f218166ed217896359b1cea12d113a3d8877f0ae2019b20
+      uri: huggingface://mradermacher/Rotor_24B_V.1-GGUF/Rotor_24B_V.1.Q4_K_S.gguf
