@@ -22721,3 +22721,29 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "rotor_24b_v.1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Rotor_24B_V.1-i1-GGUF
+  description: |
+    **Model Name:** Rotor_24B_V.1
+    **Base Model:** Merged fine-tuned variants of Mistral-Small 24B (including MS3.2-PaintedFantasy, The-Omega-Directive, Loki, and Austral-Winton)
+    **Language Support:** English, Russian, French
+    **Library:** Hugging Face Transformers
+    **Use Case:** Roleplay, creative writing, text adventures, and narrative generation
+    **Key Features:**
+    - Highly natural, non-mechanical prose style
+    - Excellent at following instructions and maintaining character consistency
+    - Handles long dialogues and 12k context with stability
+    - Balanced performance across SFW and NSFW content
+    - Strong creative and storytelling capabilities
+    - Optimized for immersive roleplay scenarios (e.g., text adventures)
+
+    **Note:** This is a *merged* model (not original), created by OddTheGreat using MergeKit. The GGUF quantized version available at `mradermacher/Rotor_24B_V.1-i1-GGUF` is a quantized derivative and should not be confused with the original base model. For the full original description, refer to the base model at `OddTheGreat/Rotor_24B_V.1`.
+  overrides:
+    parameters:
+      model: Rotor_24B_V.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Rotor_24B_V.1.i1-Q4_K_M.gguf
+      sha256: 623fbc088dba4406d1456cee799faa174724c189b4e4623b3844f338f145dd3f
+      uri: huggingface://mradermacher/Rotor_24B_V.1-i1-GGUF/Rotor_24B_V.1.i1-Q4_K_M.gguf
