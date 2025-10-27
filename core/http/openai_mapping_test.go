@@ -1,4 +1,3 @@
-//go:build ginkgo
 // +build ginkgo
 
 package http_test
