@@ -22721,3 +22721,32 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "edie_qwen2.5_0.5b_simple-qa-emotion"
+  urls:
+    - https://huggingface.co/HueyWoo/EDIE_qwen2.5_0.5B_Simple-QA-Emotion-gguf
+  description: |
+    **Model Name:** Qwen2.5-0.5B-Instruct
+    **Repository:** [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct)
+    **License:** Apache 2.0
+    **Language:** English (multilingual support for 29+ languages)
+    **Model Type:** Causal Language Model (Instruction-Tuned)
+    **Architecture:** Transformer with RoPE, SwiGLU, RMSNorm, GQA (14 query heads, 2 key/value heads)
+    **Parameters:** 0.49B (non-embedding: 0.36B)
+    **Context Length:** Up to 32,768 tokens (supports generation of up to 8,192 tokens)
+    **Key Features:**
+    - Strong performance in instruction following, code generation, mathematics, and structured output (e.g., JSON)
+    - Optimized for long-context reasoning (up to 128K tokens)
+    - Designed for chat and interactive applications with robust system prompt handling
+    - Available in GGUF format (via unsloth) for efficient local inference
+
+    **Use Case:** Ideal for lightweight, high-efficiency applications requiring strong reasoning, instruction adherence, and multilingual support — perfect for chatbots, QA systems, and edge deployment.
+
+    > **Note:** This is the original instruction-tuned model from Alibaba Cloud’s Qwen team. The `HueyWoo/EDIE_qwen2.5_0.5B_Simple-QA-Emotion-gguf` repository is a quantized finetune of this base model, not the original. Always refer to the official `Qwen/Qwen2.5-0.5B-Instruct` repo for the canonical description.
+  overrides:
+    parameters:
+      model: unsloth.Q4_K_M.gguf
+  files:
+    - filename: unsloth.Q4_K_M.gguf
+      sha256: e5a143f5b43e9825954908d8213b3b5d2ca70f85e36e24553bc82cd1563745b6
+      uri: huggingface://HueyWoo/EDIE_qwen2.5_0.5B_Simple-QA-Emotion-gguf/unsloth.Q4_K_M.gguf
