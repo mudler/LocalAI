@@ -22721,3 +22721,16 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "moonlight-16b-a3b-instruct-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Moonlight-16B-A3B-Instruct-MXFP4_MOE-GGUF
+  description: |
+    **Moonlight-16B-A3B-Instruct** is a large, instruction-tuned language model developed by Moonshot AI, based on a 16-billion parameter architecture with an Mixture-of-Experts (MoE) design. It is optimized for dialogue and complex reasoning tasks, leveraging the A3B (Adaptive Activation-based) MoE mechanism to improve efficiency and performance. The model excels in multi-turn conversations, code generation, and creative writing, while maintaining strong safety and alignment with human preferences.
+
+    This specific version, **Moonlight-16B-A3B-Instruct-MXFP4_MOE-GGUF**, is a quantized GGUF format variant, optimized for local inference with reduced memory usage and faster execution on consumer hardware. While it retains most of the original model’s capabilities, it is not the base model itself — the original, unquantized version is available at [moonshotai/Moonlight-16B-A3B-Instruct](https://huggingface.co/moonshotai/Moonlight-16B-A3B-Instruct).
+
+    For best performance and full model capabilities, use the original base model. The GGUF version is ideal for users seeking efficient, on-device inference.
+  overrides:
+    parameters:
+      model: noctrex/Moonlight-16B-A3B-Instruct-MXFP4_MOE-GGUF
