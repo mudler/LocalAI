@@ -22100,6 +22100,25 @@
     - filename: PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
       sha256: abd224325aea504a61fb749cc12649641165c33035b4e5923163387370878005
       uri: huggingface://mradermacher/PositiveDetox-Qwen2.5-14B-GGUF/PositiveDetox-Qwen2.5-14B.Q4_K_S.gguf
+- !!merge <<: *qwen25
+  name: "allenai_olmocr-2-7b-1025"
+  icon: https://cdn-uploads.huggingface.co/production/uploads/6734d6722769638944a5aa2e/DPsr3ZvRF9v-gdMa4EaHW.png
+  urls:
+    - https://huggingface.co/allenai/olmOCR-2-7B-1025
+    - https://huggingface.co/bartowski/allenai_olmOCR-2-7B-1025-GGUF
+  description: |
+      This is a release of the olmOCR model that's fine tuned from Qwen2.5-VL-7B-Instruct using the olmOCR-mix-1025 dataset. It has been additionally fine tuned using GRPO RL training to boost its performance at math equations, tables, and other tricky OCR cases.
+  overrides:
+    mmproj: mmproj-allenai_olmOCR-2-7B-1025-f16.gguf
+    parameters:
+      model: allenai_olmOCR-2-7B-1025-Q4_K_M.gguf
+  files:
+    - filename: allenai_olmOCR-2-7B-1025-Q4_K_M.gguf
+      sha256: 347935fc4c16808cf97c7adc563da92c67ad90eeb0504a465ff9fa98d2794f3e
+      uri: huggingface://bartowski/allenai_olmOCR-2-7B-1025-GGUF/allenai_olmOCR-2-7B-1025-Q4_K_M.gguf
+    - filename: mmproj-allenai_olmOCR-2-7B-1025-f16.gguf
+      sha256: 78d1690a4d98051f527104c33796b79faa05f158d14645e19db91fac99bd1b04
+      uri: https://huggingface.co/bartowski/allenai_olmOCR-2-7B-1025-GGUF/resolve/main/mmproj-allenai_olmOCR-2-7B-1025-f16.gguf
 - !!merge <<: *qwen3
   name: "qwen-sea-lion-v4-32b-it-i1"
   urls:
