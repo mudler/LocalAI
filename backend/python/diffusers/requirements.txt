@@ -1,5 +1,5 @@
 setuptools
-grpcio==1.75.1
+grpcio==1.76.0
 pillow
 protobuf
 certifi
