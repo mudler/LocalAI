@@ -28,7 +28,7 @@ require (
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.19.1
 	github.com/joho/godotenv v1.5.1
-	github.com/klauspost/cpuid/v2 v2.2.10
+	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/libp2p/go-libp2p v0.43.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/mholt/archiver/v3 v3.5.1
