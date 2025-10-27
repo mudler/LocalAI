@@ -87,6 +87,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			cogito.WithMCPs(sessions...),
 			cogito.WithIterations(3),  // default to 3 iterations
 			cogito.WithMaxAttempts(3), // default to 3 attempts
+			cogito.WithForceReasoning(),
 		}
 
 		if config.Agent.EnableReasoning {
@@ -103,10 +104,6 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 
 		if config.Agent.EnablePlanReEvaluator {
 			cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlanReEvaluator)
-		}
-
-		if config.Agent.EnableReEvaluation {
-			cogitoOpts = append(cogitoOpts, cogito.EnableToolReEvaluator)
 		}
 
 		if config.Agent.MaxIterations != 0 {
