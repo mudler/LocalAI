@@ -22678,3 +22678,27 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *qwen25coder
+  name: "aquif-3-moe-17b-a2.8b-think-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/aquif-3-moe-17B-A2.8B-Think-MXFP4_MOE-GGUF
+  description: |
+    **aquif-3-moe-17B-A2.8B-Think**
+    *An efficient, high-performance mixture-of-experts (MoE) model optimized for coding, math, and science.*
+
+    - **Size**: 17B total parameters, 2.8B active parameters (dynamic activation)
+    - **Architecture**: Mixture of Experts (MoE) — dynamically activates only relevant subnetworks for efficiency
+    - **Key Strengths**:
+      - Exceptional performance in math (80.2% on AIME 2024), coding (63.2% on LiveCodeBench), and science (56.7% on GPQA Diamond)
+      - Highly efficient inference — equivalent to dense models 10x larger
+      - Strong general knowledge (83.2% on MMLU)
+    - **Best For**:
+      - Complex reasoning tasks requiring precision and depth
+      - Resource-constrained environments due to MoE efficiency
+      - Research, coding, and STEM problem-solving
+    - **License**: Apache 2.0
+
+    > 📌 *Note: This is the original MoE model. The GGUF version is a quantized variant — the base model above is the full-precision version with optimal performance.*
+  overrides:
+    parameters:
+      model: noctrex/aquif-3-moe-17B-A2.8B-Think-MXFP4_MOE-GGUF
