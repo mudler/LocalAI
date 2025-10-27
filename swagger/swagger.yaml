@@ -700,6 +700,8 @@ definitions:
         type: integer
       height:
         type: integer
+      input_reference:
+        type: string
       model:
         type: string
       negative_prompt:
@@ -710,8 +712,12 @@ definitions:
         type: string
       response_format:
         type: string
+      seconds:
+        type: string
       seed:
         type: integer
+      size:
+        type: string
       start_image:
         type: string
       step:
