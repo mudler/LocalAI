@@ -1109,7 +1109,7 @@ jobs:
           make protogen-go
           make backends/llama-cpp-darwin
       - name: Upload llama-cpp.tar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: llama-cpp-tar
           path: backend-images/llama-cpp.tar
@@ -1197,7 +1197,7 @@ jobs:
           export PLATFORMARCH=darwin/amd64
           make backends/llama-cpp-darwin
       - name: Upload llama-cpp.tar
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: llama-cpp-tar-x86
           path: backend-images/llama-cpp.tar
