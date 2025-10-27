@@ -22721,3 +22721,34 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-2b-thinking"
+  urls:
+    - https://huggingface.co/NexaAI/Qwen3-VL-2B-Thinking-GGUF
+  description: |
+    **Qwen3-VL-2B-Thinking** is a 2-billion-parameter multimodal large language model from the Qwen3-VL series, specifically designed for advanced visual reasoning and transparent, step-by-step thinking. Built upon Qwen3-VL-2B, it is instruction-tuned with explicit "thinking" supervision to generate detailed, interpretable reasoning traces when analyzing images, diagrams, or UIs.
+
+    ### Key Features:
+    - **Step-by-step visual reasoning**: Delivers transparent thought processes for image understanding and problem-solving.
+    - **Multimodal comprehension**: Seamlessly fuses text and visual input for deep, context-aware analysis.
+    - **Advanced spatial & video understanding**: Excels at judging object positions, viewpoints, occlusions, and long-form video content (up to 1M tokens).
+    - **High-precision OCR & recognition**: Supports 32 languages, handles low-light, blur, rare characters, and complex document structures.
+    - **Strong agent capabilities**: Can interact with GUIs, generate code (HTML/CSS/JS), and support embodied AI applications.
+
+    ### Ideal For:
+    - Educational tools requiring explainable AI
+    - Debuggable AI agents and visual assistants
+    - Research in interpretable multimodal reasoning
+    - On-device deployment with low latency
+
+    ### Model Type:
+    Vision-Language Model (VLM) with reasoning enhancement
+    **Architecture**: Qwen3-VL (Dense, 2B parameters)
+    **License**: Apache 2.0
+    **Base Model**: [Qwen/Qwen3-VL-2B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-2B-Thinking)
+    **Quantized Version**: Available as GGUF (NexaAI/Qwen3-VL-2B-Thinking-GGUF)
+
+    > 📌 *Note: The GGUF version is quantized for efficiency and may have reduced precision; the original model is recommended for maximum performance and accuracy.*
+  overrides:
+    parameters:
+      model: NexaAI/Qwen3-VL-2B-Thinking-GGUF
