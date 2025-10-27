@@ -22678,3 +22678,29 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *llama3
+  name: "ling-1t"
+  urls:
+    - https://huggingface.co/unsloth/Ling-1T-GGUF
+  description: |
+    **Ling-1T** is a flagship 1-trillion-parameter, non-thinking language model developed by inclusionAI as part of the Ling 2.0 series. Designed for efficient, scalable reasoning, it features 50 billion active parameters per token using a 1/32 MoE (Mixture of Experts) architecture and supports context lengths up to 128K via YaRN scaling.
+
+    Pre-trained on over 20 trillion high-quality, reasoning-dense tokens, Ling-1T excels in complex reasoning tasks such as mathematics, code generation, logical inference, and front-end development. It incorporates an Evolutionary Chain-of-Thought (Evo-CoT) training pipeline and a novel sentence-level policy optimization method (LPO) to achieve state-of-the-art performance among open-source models—rivaling proprietary systems like GPT-5 and Gemini-2.5-Pro in benchmarks including AIME 25 and BFCL V3.
+
+    The model demonstrates strong emergent capabilities, including aesthetic-aware code generation and multi-lingual content creation, and is the largest known FP8-trained foundation model to date. It is available on Hugging Face and ModelScope with full support for deployment via vLLM and SGLang.
+
+    **Key Highlights:**
+    - **1 trillion total parameters** | **50 billion active per token**
+    - **128K context length** (via YaRN)
+    - Trained on **20T+ reasoning-dense tokens**
+    - **Open-source**, MIT-licensed
+    - Top-ranked on **AIME 25**, **ArtifactsBench**, and **BFCL V3**
+
+    Ideal for advanced reasoning, agentic systems, and high-precision language tasks.
+  overrides:
+    parameters:
+      model: Q4_K_M
+  files:
+    - filename: Q4_K_M
+      sha256: 0cc98b00331d88692d59bba4d244626279fc2f02
+      uri: huggingface://unsloth/Ling-1T-GGUF/Q4_K_M
