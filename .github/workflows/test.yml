@@ -124,7 +124,7 @@ jobs:
           PATH="$PATH:/root/go/bin" GO_TAGS="tts" make --jobs 5 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
           connect-timeout-seconds: 180
@@ -183,7 +183,7 @@ jobs:
             PATH="$PATH:$HOME/go/bin" make backends/local-store backends/silero-vad backends/llama-cpp backends/whisper backends/piper backends/stablediffusion-ggml docker-build-aio e2e-aio
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
           connect-timeout-seconds: 180
@@ -226,7 +226,7 @@ jobs:
           PATH="$PATH:$HOME/go/bin" BUILD_TYPE="GITHUB_CI_HAS_BROKEN_METAL" CMAKE_ARGS="-DGGML_F16C=OFF -DGGML_AVX512=OFF -DGGML_AVX2=OFF -DGGML_FMA=OFF" make --jobs 4 --output-sync=target test
       - name: Setup tmate session if tests fail
         if: ${{ failure() }}
-        uses: mxschmitt/action-tmate@v3.22
+        uses: mxschmitt/action-tmate@v3.23
         with:
           detached: true
           connect-timeout-seconds: 180
