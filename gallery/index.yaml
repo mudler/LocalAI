@@ -22697,3 +22697,27 @@
   overrides:
     parameters:
       model: mradermacher/70B_Book_stock-i1-GGUF
+- !!merge <<: *qwen25
+  name: "chemdfm-r-14b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ChemDFM-R-14B-i1-GGUF
+  description: |
+    **ChemDFM-R-14B** is a specialized large language model designed for advanced chemical reasoning, developed by OpenDFM. Built upon the Qwen2.5-14B base model, it is fine-tuned using a novel mix-sourced distillation approach and domain-specific reinforcement learning to excel in chemistry-related tasks.
+
+    Key features:
+    - Trained on *ChemFG*, a comprehensive dataset of atomized chemical knowledge (e.g., functional group detection and reaction changes).
+    - Generates interpretable, rationale-driven responses with clear reasoning steps.
+    - Optimized for tasks like molecule analysis, reaction prediction, and chemical reasoning.
+    - Supports both English and Chinese.
+
+    This model stands out as a state-of-the-art reasoning system in chemistry, offering transparency, reliability, and strong performance across diverse benchmarks. Ideal for researchers and professionals in drug discovery, materials science, and chemical education.
+
+    🔗 *Paper:* [ChemDFM-R: A Chemical Reasoning LLM Enhanced with Atomized Chemical Knowledge](https://arxiv.org/abs/2507.21990)
+    🔗 *Model:* [OpenDFM/ChemDFM-R-14B](https://huggingface.co/OpenDFM/ChemDFM-R-14B)
+  overrides:
+    parameters:
+      model: ChemDFM-R-14B.i1-Q4_K_M.gguf
+  files:
+    - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
+      sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
+      uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
