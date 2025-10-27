@@ -22721,3 +22721,57 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "unifiedreward-edit-qwen-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/UnifiedReward-Edit-qwen-32b-i1-GGUF
+  description: |
+    **Model Name:** UnifiedReward-Edit-qwen-32b
+    **Repository:** [CodeGoat24/UnifiedReward-Edit-qwen-32b](https://huggingface.co/CodeGoat24/UnifiedReward-Edit-qwen-32b)
+    **Base Model:** Qwen-32b
+    **Type:** Multimodal Unified Reward Model
+    **License:** MIT
+
+    ---
+
+    ### 🌟 Description
+    **UnifiedReward-Edit-qwen-32b** is a state-of-the-art, large-scale reward model designed for **image editing evaluation**, supporting both **Text-to-Image** and **Image-to-Image** generation tasks. It enables high-precision, human-aligned assessment of image edits by providing three key evaluation modes:
+
+    - ✅ **Pairwise Ranking**: Determine which of two edited images is better.
+    - ✅ **Pairwise Scoring**: Assign individual scores to each image in a pair.
+    - ✅ **Pointwise Scoring**: Evaluate single images on two axes — **instruction-following accuracy** and **overall image quality**.
+
+    Trained on curated data from [EditScore](https://huggingface.co/datasets/EditScore/EditScore-Reward-Data) and [EditReward](https://huggingface.co/datasets/TIGER-Lab/EditReward-Data), this model advances the standard for automated, fine-grained image editing evaluation.
+
+    ---
+
+    ### 📚 Key Features
+    - Built on the **Qwen-32b** architecture with enhanced multimodal reasoning.
+    - Designed for use in **AI image editing pipelines** (e.g., diffusion model refinement).
+    - Supports **zero-shot evaluation** of image edits without retraining.
+    - Open-sourced with full training data and inference code available.
+
+    ---
+
+    ### 🧪 Use Cases
+    - Evaluate and rank image edits from diffusion models (e.g., Stable Diffusion, LCM).
+    - Fine-tune image generation pipelines using reinforcement learning (RLAIF).
+    - Benchmark image editing performance in research and product development.
+
+    ---
+
+    ### 📖 References
+    - **Paper**: [Unified Reward Model for Multimodal Understanding and Generation](https://arxiv.org/pdf/2503.05236)
+    - **Project Page**: [https://codegoat24.github.io/UnifiedReward/](https://codegoat24.github.io/UnifiedReward/)
+    - **GitHub**: [https://github.com/CodeGoat24/UnifiedReward](https://github.com/CodeGoat24/UnifiedReward)
+
+    ---
+
+    ✅ **Ideal for researchers, developers, and AI practitioners building next-gen image generation and editing systems.**
+  overrides:
+    parameters:
+      model: UnifiedReward-Edit-qwen-32b.i1-Q4_K_M.gguf
+  files:
+    - filename: UnifiedReward-Edit-qwen-32b.i1-Q4_K_M.gguf
+      sha256: 9650d9f806451bd066e579e5f951d7f9ba91d155518d55393d2a7deb37bb0234
+      uri: huggingface://mradermacher/UnifiedReward-Edit-qwen-32b-i1-GGUF/UnifiedReward-Edit-qwen-32b.i1-Q4_K_M.gguf
