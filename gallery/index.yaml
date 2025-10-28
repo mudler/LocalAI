@@ -22859,3 +22859,12 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *llama3
+  name: "precognition-123b-v1a"
+  urls:
+    - https://huggingface.co/BeaverAI/Precognition-123B-v1a-GGUF
+  description: |
+    AI model: precognition-123b-v1a
+  overrides:
+    parameters:
+      model: BeaverAI/Precognition-123B-v1a-GGUF
