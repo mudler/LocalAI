@@ -22721,3 +22721,16 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "checkpoints"
+  urls:
+    - https://huggingface.co/Naphula/Checkpoint-GGUFs
+  description: |
+    The repository **Naphula/Checkpoint-GGUFs** contains quantized GGUF format models (Q6) derived from intermediate checkpoint versions between **Goetia** and the upcoming **Asmodeus**. These are not official releases from the original model authors but are community-driven quantizations intended for efficient local inference.
+
+    ⚠️ **Important Note**: This repository does *not* host the original, full-precision base model. Instead, it provides optimized, smaller quantized versions (GGUF) for use with tools like `llama.cpp`, suitable for running on consumer hardware. For the original model description, full-precision weights, and official documentation, refer to the base model repositories (e.g., the original Goetia or Asmodeus projects, which are likely hosted elsewhere on Hugging Face).
+
+    👉 **Use Case**: Ideal for users seeking lightweight, fast-running versions of the model with acceptable quality, especially for local inference on devices with limited GPU or RAM.
+  overrides:
+    parameters:
+      model: Naphula/Checkpoint-GGUFs
