@@ -22859,3 +22859,25 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *llama3
+  name: "granite-4.0-350m-q8_0"
+  urls:
+    - https://huggingface.co/NikolayKozloff/granite-4.0-350m-Q8_0-GGUF
+  description: |
+    **Model Name:** IBM Granite 4.0 350M
+    **Base Model:** `ibm-granite/granite-4.0-350m`
+    **Description:**
+    A compact, high-efficiency language model developed by IBM as part of the Granite series. With 350 million parameters, Granite 4.0 350M is optimized for performance on edge devices and low-resource environments while maintaining strong reasoning and language understanding capabilities. It is designed for tasks such as text generation, summarization, and question answering, making it ideal for lightweight inference deployments.
+
+    This version is a **GGUF-quantized** (Q8_0) conversion of the original model, enabling efficient local inference via `llama.cpp`. The quantization preserves most of the model’s performance while significantly reducing memory usage and computational requirements.
+
+    **Use Case:** Ideal for developers and researchers seeking a small yet powerful model for local inference, prototyping, or deployment on devices with limited hardware.
+
+    **Original Model:** [ibm-granite/granite-4.0-350m](https://huggingface.co/ibm-granite/granite-4.0-350m)
+    **Format:** GGUF (Q8_0) — compatible with llama.cpp
+    **License:** Apache 2.0
+
+    > 🔗 *For full technical details, refer to the official model card of the base model.*
+  overrides:
+    parameters:
+      model: NikolayKozloff/granite-4.0-350m-Q8_0-GGUF
