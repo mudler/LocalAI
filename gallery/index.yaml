@@ -22759,3 +22759,39 @@
     - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
       sha256: c6c9c03e771edfb68d5eab82a3324e264e53cf1bcf9b80ae3f04bc94f57b1d7f
       uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA-GGUF/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "wraith-8b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/wraith-8b-i1-GGUF
+  description: |
+    **Wraith-8B**
+    *VANTA Research Entity-001: The Analytical Intelligence*
+
+    A highly specialized fine-tune of **Meta's Llama 3.1 8B Instruct**, Wraith-8B excels in **mathematical reasoning, STEM problem-solving, and logical deduction**. Developed as the first in the VANTA Research Entity Series, this model combines a distinctive cosmic intelligence persona with clinical precision to deliver superior performance on benchmark tasks:
+
+    - **70% accuracy on GSM8K** (math word problems) — **+37% relative improvement** over the base model
+    - **58.5% on TruthfulQA** — enhanced factual accuracy
+    - **76.7% on MMLU Social Sciences** — strong domain-specific reasoning
+
+    Trained using a targeted STEM surgical fine-tuning process, Wraith maintains a unique voice: clear, step-by-step, and grounded in logic. Ideal for education, technical analysis, and reasoning-heavy applications.
+
+    **Key Features:**
+    - Base: `meta-llama/Llama-3.1-8B-Instruct`
+    - Language: English
+    - Context: 131K tokens
+    - Quantized versions available (GGUF), including Q4_K_M (4.7GB) for efficient inference
+    - License: Llama 3.1 Community License
+
+    **Use Case:** Mathematical reasoning, scientific analysis, logic puzzles, STEM tutoring, and technical writing with personality.
+
+    > *“Calculate first, philosophize second.”*
+    > — Wraith, The Analytical Intelligence
+
+    [Download on Hugging Face](https://huggingface.co/vanta-research/wraith-8B) | [GitHub](https://github.com/vanta-research/wraith-8b)
+  overrides:
+    parameters:
+      model: wraith-8b.i1-Q4_K_M.gguf
+  files:
+    - filename: wraith-8b.i1-Q4_K_M.gguf
+      sha256: 180469f9de3e1b5a77b7cf316899dbe4782bd5e6d4f161fb18ea95aa612e6926
+      uri: huggingface://mradermacher/wraith-8b-i1-GGUF/wraith-8b.i1-Q4_K_M.gguf
