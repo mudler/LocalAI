@@ -22721,3 +22721,27 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-thinking"
+  urls:
+    - https://huggingface.co/lefromage/Qwen3-Next-80B-A3B-Thinking-GGUF
+  description: |
+    **Model Name:** Qwen3-Next-80B-A3B-Thinking
+    **Base Model:** Qwen/Qwen3-Next-80B-A3B-Thinking
+    **Architecture:** Large Language Model (LLM) based on Qwen3, with advanced reasoning and thinking capabilities
+    **Size:** 80 billion parameters
+    **License:** Apache 2.0
+    **Pipeline:** Text Generation
+    **Quantization:** Available in multiple GGUF formats (Q2_K, Q3_K_M, Q4_K_S, Q4_0, Q4_MXFP4_MOE) for efficient inference via llama.cpp
+    **Use Case:** High-performance reasoning, complex query answering, and natural language generation, suitable for local deployment on consumer and enterprise GPUs (e.g., NVIDIA L40S, Apple M4 Max)
+
+    This model is a highly capable, open-source, reasoning-optimized LLM designed for deep thinking and accurate responses. While the repository contains quantized GGUF versions for efficient inference, the original base model is the **Qwen3-Next-80B-A3B-Thinking** from the official Qwen team. Ideal for developers and researchers seeking strong reasoning performance in a lightweight, deployable format.
+
+    > 🔗 *Note: The provided GGUF files are quantized versions; the original model can be found at [Qwen/Qwen3-Next-80B-A3B-Thinking](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Thinking).*
+  overrides:
+    parameters:
+      model: Qwen__Qwen3-Next-80B-A3B-Thinking-Q4_K_S.gguf
+  files:
+    - filename: Qwen__Qwen3-Next-80B-A3B-Thinking-Q4_K_S.gguf
+      sha256: 0b9d5d1267619f464f883127ff5a0ba08af0f6a16908bfd46f43f007eaf2fb14
+      uri: huggingface://lefromage/Qwen3-Next-80B-A3B-Thinking-GGUF/Qwen__Qwen3-Next-80B-A3B-Thinking-Q4_K_S.gguf
