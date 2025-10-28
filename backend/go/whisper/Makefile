@@ -58,7 +58,18 @@ sources/whisper.cpp:
 	git checkout $(WHISPER_CPP_VERSION) && \
 	git submodule update --init --recursive --depth 1 --single-branch
 
-whisper: main.go gowhisper.go libgowhisper-avx.so libgowhisper-avx2.so libgowhisper-avx512.so libgowhisper-fallback.so
+# Detect OS
+UNAME_S := $(shell uname -s)
+
+# Only build CPU variants on Linux
+ifeq ($(UNAME_S),Linux)
+	VARIANT_TARGETS = libgowhisper-avx.so libgowhisper-avx2.so libgowhisper-avx512.so libgowhisper-fallback.so
+else
+	# On non-Linux (e.g., Darwin), build only fallback variant
+	VARIANT_TARGETS = libgowhisper-fallback.so
+endif
+
+whisper: main.go gowhisper.go $(VARIANT_TARGETS)
 	CGO_ENABLED=0 $(GOCMD) build -tags "$(GO_TAGS)" -o whisper ./
 
 package: whisper
@@ -70,32 +81,35 @@ clean: purge
 	rm -rf libgowhisper*.so sources/whisper.cpp whisper
 
 purge:
-	rm -rf build whisper-*-build
+	rm -rf build*
 
-# Build all variants
+# Build all variants (Linux only)
+ifeq ($(UNAME_S),Linux)
 libgowhisper-avx.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:avx${RESET})
 	SO_TARGET=libgowhisper-avx.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) libgowhisper-custom
-	rm -rfv build
+	rm -rfv build*
 
 libgowhisper-avx2.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:avx2${RESET})
 	SO_TARGET=libgowhisper-avx2.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=on -DGGML_AVX512=off -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) libgowhisper-custom
-	rm -rfv build
+	rm -rfv build*
 
 libgowhisper-avx512.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:avx512${RESET})
 	SO_TARGET=libgowhisper-avx512.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=on -DGGML_FMA=on -DGGML_F16C=on" $(MAKE) libgowhisper-custom
-	rm -rfv build
+	rm -rfv build*
+endif
 
+# Build fallback variant (all platforms)
 libgowhisper-fallback.so: sources/whisper.cpp
 	$(MAKE) purge
 	$(info ${GREEN}I whisper build info:fallback${RESET})
 	SO_TARGET=libgowhisper-fallback.so CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) libgowhisper-custom
-	rm -rfv build
+	rm -rfv build*
 
 libgowhisper-custom: CMakeLists.txt gowhisper.cpp gowhisper.h
 	mkdir -p build-$(SO_TARGET) && \
