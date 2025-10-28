@@ -22759,3 +22759,66 @@
     - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
       sha256: c6c9c03e771edfb68d5eab82a3324e264e53cf1bcf9b80ae3f04bc94f57b1d7f
       uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA-GGUF/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-almost-human-6b-iii-240-omega2"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Almost-Human-6B-III-240-OMEGA2-GGUF
+  description: |
+    **Model Name:** Qwen3-Almost-Human-6B-III-240-OMEGA2
+    **Base Model:** Qwen3-Jan-v1-256k-ctx-6B-Brainstorm20x
+    **Repository:** [DavidAU/Qwen3-Almost-Human-6B-III-240-OMEGA2](https://huggingface.co/DavidAU/Qwen3-Almost-Human-6B-III-240-OMEGA2)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 🌟 **Description**
+    A creatively enhanced, instruction-tuned variant of Qwen3-6B, fine-tuned on a curated dataset inspired by the works and persona of Philip K. Dick. This model is designed to deliver deeper, more human-like reasoning, rich prose, and nuanced creativity while maintaining strong coding and task-following capabilities.
+
+    Built using the **Brainstorm 20x** methodology, the model’s reasoning architecture is expanded and calibrated across 20 distinct "thinking centers," enabling:
+    - More vivid, coherent, and emotionally engaging writing.
+    - Enhanced detail and connection to context.
+    - Reduced clichés and improved narrative flow.
+    - Stronger performance in brainstorming, storytelling, and complex problem-solving.
+
+    ---
+
+    ### 🧠 **Key Features**
+    - **Long Context:** Supports up to **256k tokens** (ideal for extended narratives or large codebases).
+    - **Creative & Technical Balance:** Excels at both **code generation** and **creative writing**, making it ideal for developers, writers, and AI artists.
+    - **Fine-Tuned with Human Voice:** Incorporates biographical materials and personal notes of Philip K. Dick to restore "human" depth and tone.
+    - **Optimized for Reasoning:** Designed with enhanced thinking depth and step-by-step reasoning capabilities.
+
+    ---
+
+    ### 📌 **Best Use Cases**
+    - Creative writing (short stories, screenplays, speculative fiction)
+    - Complex code generation with deep logic
+    - Brainstorming and ideation
+    - Roleplay and narrative-driven chat
+    - Long-form content generation with emotional depth
+
+    ---
+
+    ### ⚙️ **Recommended Settings**
+    - **Temperature:** 0.3–0.7 (or 0.8–1.5 for creative tasks)
+    - **Top-p:** 0.8, **Min-p:** 0.05
+    - **Repetition Penalty:** 1.05–1.15
+    - **Smoothing Factor:** 1.5 (for smoother, more natural output in tools like KoboldCpp or oobabooga)
+
+    ---
+
+    ### 📦 **Available Formats**
+    Full-precision (safe tensors), GGUF, GPTQ, EXL2, AWQ, HQQ — ready for diverse deployment environments.
+
+    > ✅ **Note:** The repository by `mradermacher` contains quantized GGUF versions. The **original, unquantized model** described here is the true source: [DavidAU/Qwen3-Almost-Human-6B-III-240-OMEGA2](https://huggingface.co/DavidAU/Qwen3-Almost-Human-6B-III-240-OMEGA2).
+
+    ---
+
+    ✨ *A model not just for tasks — but for imagination.*
+  overrides:
+    parameters:
+      model: Qwen3-Almost-Human-6B-III-240-OMEGA2.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Almost-Human-6B-III-240-OMEGA2.Q4_K_M.gguf
+      sha256: faa46b5726b662863de5323f05dc2ed262a5164fece178b5a90326ddab7c07ee
+      uri: huggingface://mradermacher/Qwen3-Almost-Human-6B-III-240-OMEGA2-GGUF/Qwen3-Almost-Human-6B-III-240-OMEGA2.Q4_K_M.gguf
