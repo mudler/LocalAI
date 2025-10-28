@@ -22859,3 +22859,22 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *llama3
+  name: "coldbrew-nemo-12b-arcane-base-test1"
+  urls:
+    - https://huggingface.co/Theros/ColdBrew-Nemo-12B-Arcane-Base-test1-Q4_K_M-GGUF
+  description: |
+    The **ColdBrew-Nemo-12B-Arcane-Base-test1** is a 12-billion-parameter large language model based on the Nemo architecture, fine-tuned with a creative, narrative-driven style inspired by the *Arcane* universe. Originally developed by **SvalTek**, this model excels in storytelling, character dialogue, and immersive world-building, making it ideal for creative writing, roleplay, and imaginative text generation.
+
+    It is built upon a Mistral-like architecture, optimized for high-quality, coherent, and stylistically rich responses. The model is available in GGUF format (Q4_K_M quantization), making it efficient for local inference via llama.cpp on consumer hardware, including CPUs and GPUs.
+
+    While the repository `Theros/ColdBrew-Nemo-12B-Arcane-Base-test1-Q4_K_M-GGUF` contains a quantized version of the model, the original base model—**SvalTek/ColdBrew-Nemo-12B-Arcane-Base-test1**—is the source of the full, unquantized weights and should be referenced for accurate model details.
+
+    **Use case**: Ideal for writers, game developers, and AI enthusiasts seeking a stylized, expressive language model with strong narrative capabilities.
+  overrides:
+    parameters:
+      model: coldbrew-nemo-12b-arcane-base-test1-q4_k_m.gguf
+  files:
+    - filename: coldbrew-nemo-12b-arcane-base-test1-q4_k_m.gguf
+      sha256: 712ef72689e1b0bb29a513bf0a43e4a9301561557850392f53f5f19e25d3681c
+      uri: huggingface://Theros/ColdBrew-Nemo-12B-Arcane-Base-test1-Q4_K_M-GGUF/coldbrew-nemo-12b-arcane-base-test1-q4_k_m.gguf
