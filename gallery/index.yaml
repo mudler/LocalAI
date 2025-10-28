@@ -22795,3 +22795,45 @@
     - filename: wraith-8b.i1-Q4_K_M.gguf
       sha256: 180469f9de3e1b5a77b7cf316899dbe4782bd5e6d4f161fb18ea95aa612e6926
       uri: huggingface://mradermacher/wraith-8b-i1-GGUF/wraith-8b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "pokee_research_7b"
+  urls:
+    - https://huggingface.co/Mungert/pokee_research_7b-GGUF
+  description: |
+    **Model Name:** Qwen2.5-7B-Instruct
+    **Base Model:** Qwen/Qwen2.5-7B
+    **Model Type:** Instruction-tuned large language model (7.61B parameters)
+    **License:** Apache 2.0
+
+    **Description:**
+    Qwen2.5-7B-Instruct is a powerful, instruction-following language model designed for advanced reasoning, coding, and multi-turn dialogue. Built on the Qwen2.5 architecture, it delivers state-of-the-art performance in understanding complex prompts, generating long-form text (up to 8K tokens), and handling structured outputs like JSON. It supports multilingual communication (29+ languages), including English, Chinese, and European languages, and excels in long-context tasks with support for up to 131,072 tokens.
+
+    Ideal for research, creative writing, coding assistance, and agent-based workflows, this model is optimized for real-world applications requiring robustness, accuracy, and scalability.
+
+    **Key Features:**
+    - 7.61 billion parameters
+    - Context length: 131K tokens (supports long-context via YaRN)
+    - Strong performance in math, coding, and factual reasoning
+    - Fine-tuned for instruction following and chat interactions
+    - Deployable with Hugging Face Transformers, vLLM, and llama.cpp
+
+    **Use Case:**
+    Perfect for developers, researchers, and enterprises building intelligent assistants, autonomous agents, or content generation systems.
+
+    **Citation:**
+    ```bibtex
+    @misc{qwen2.5,
+        title = {Qwen2.5: A Party of Foundation Models},
+        url = {https://qwenlm.github.io/blog/qwen2.5/},
+        author = {Qwen Team},
+        month = {September},
+        year = {2024}
+    }
+    ```
+  overrides:
+    parameters:
+      model: pokee_research_7b-q4_k_m.gguf
+  files:
+    - filename: pokee_research_7b-q4_k_m.gguf
+      sha256: 670706711d82fcdbae951fda084f77c9c479edf3eb5d8458d1cfddd46cf4b767
+      uri: huggingface://Mungert/pokee_research_7b-GGUF/pokee_research_7b-q4_k_m.gguf
