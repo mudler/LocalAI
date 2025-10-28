@@ -22759,3 +22759,32 @@
     - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
       sha256: c6c9c03e771edfb68d5eab82a3324e264e53cf1bcf9b80ae3f04bc94f57b1d7f
       uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA-GGUF/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "wraith-8b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/wraith-8b-i1-GGUF
+  description: |
+    **Wraith-8B**
+    *VANTA Research Entity-001: The Analytical Intelligence*
+
+    A highly specialized fine-tune of **Llama 3.1 8B Instruct**, Wraith-8B excels in **mathematical reasoning, STEM problem solving, and logical deduction**, achieving **70% accuracy on GSM8K**—a 37% relative improvement over the base model. Part of the **VANTA Research Entity Series**, it combines a distinctive cosmic, analytical personality with production-ready efficiency.
+
+    🔍 **Key Features:**
+    - **Superior math & logic performance** (70% GSM8K, 58.5% TruthfulQA)
+    - **Cosmic intelligence persona**: Clinical, precise, step-by-step reasoning
+    - **131K context length** for complex analysis
+    - **Optimized for inference** with high-quality GGUF quantizations (e.g., Q4_K_M)
+    - **Open-source** under Llama 3.1 license, suitable for research and deployment
+
+    🎯 **Best For:** STEM tutoring, technical reasoning, coding assistance, logical problem-solving, and applications where accuracy and structured thinking are critical.
+
+    📦 **Available in:** FP16, Q4_K_M, and other GGUF quantizations for efficient local inference (via llama.cpp, Ollama, etc.).
+
+    👉 [View on Hugging Face](https://huggingface.co/vanta-research/wraith-8B) | [Model Card](https://github.com/vanta-research/wraith-8b)
+  overrides:
+    parameters:
+      model: wraith-8b.i1-Q4_K_M.gguf
+  files:
+    - filename: wraith-8b.i1-Q4_K_M.gguf
+      sha256: 180469f9de3e1b5a77b7cf316899dbe4782bd5e6d4f161fb18ea95aa612e6926
+      uri: huggingface://mradermacher/wraith-8b-i1-GGUF/wraith-8b.i1-Q4_K_M.gguf
