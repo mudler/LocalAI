@@ -22721,3 +22721,26 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "has_4.0_0.6b_gguf"
+  urls:
+    - https://huggingface.co/xuanwulab/HaS_4.0_0.6B_GGUF
+  description: |
+    The **HaS_4.0_0.6B** model is a 600-million-parameter language model developed by Xuanwu Lab, designed for efficient, high-performance inference. It is part of the HaS (HuaZhi AI Series) family, optimized for tasks such as dialogue generation, reasoning, and code understanding. The model is available in GGUF format, making it suitable for local deployment on devices with limited resources, including consumer-grade GPUs and even CPU-based systems.
+
+    While this specific repository contains a quantized version of the model (intended for efficiency and accessibility), the base model is rooted in a robust architecture trained on diverse and large-scale text data. It demonstrates strong reasoning capabilities and strong performance in both general language understanding and domain-specific tasks.
+
+    Note: This repository contains a quantized variant; for the full-precision, original model description and weights, refer to the base model in the official HaS series or Xuanwu Lab's primary releases.
+
+    ---
+
+    ✅ **Model Name**: HaS_4.0_0.6B (Quantized GGUF)
+    ✅ **Size**: 0.6B parameters (quantized)
+    ✅ **Format**: GGUF (optimized for local inference)
+    ✅ **Use Case**: On-device language tasks, chat, reasoning, coding
+    ✅ **License**: MIT
+
+    > ⚠️ For the original, unquantized model description and training details, consult the official HaS series release from Xuanwu Lab. This version is a compressed, inference-optimized variant.
+  overrides:
+    parameters:
+      model: xuanwulab/HaS_4.0_0.6B_GGUF
