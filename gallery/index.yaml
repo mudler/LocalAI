@@ -22721,3 +22721,29 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-thinking"
+  urls:
+    - https://huggingface.co/lefromage/Qwen3-Next-80B-A3B-Thinking-GGUF
+  description: |
+    **Qwen3-Next-80B-A3B-Thinking** is a next-generation, high-efficiency large language model from Alibaba's Qwen team, designed for advanced reasoning and agentic tasks. Built on a hybrid architecture combining **Gated DeltaNet** and **Gated Attention**, it enables ultra-long context handling (up to 262,144 tokens natively, extendable to 1M with YaRN) while maintaining high inference throughput.
+
+    Key features:
+    - **80B total parameters** with only **3B activated per token** via high-sparsity Mixture-of-Experts (MoE), drastically reducing compute costs.
+    - **Multi-Token Prediction (MTP)** for faster generation and improved training efficiency.
+    - Optimized with **zero-centered layernorm** and **stability enhancements** for robust performance during training and inference.
+    - Specialized for **thinking-mode reasoning**: Automatically generates detailed step-by-step reasoning before outputting final answers, ideal for complex problem-solving.
+
+    It outperforms models like Qwen3-32B-Thinking and even surpasses proprietary models like Gemini-2.5-Flash-Thinking across benchmarks in knowledge, reasoning, coding, alignment, and agent tasks.
+
+    **Ideal for**: Research, long-context analysis, complex reasoning, and agentic workflows. Supports deployment via **vLLM**, **SGLang**, or Hugging Face Transformers with OpenAI-compatible APIs.
+
+    > 🔗 **Model Repository**: [Qwen/Qwen3-Next-80B-A3B-Thinking](https://huggingface.co/Qwen/Qwen3-Next-80B-A3B-Thinking)
+    > 📚 **Technical Report**: [Qwen3 Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
+  overrides:
+    parameters:
+      model: Qwen__Qwen3-Next-80B-A3B-Thinking-Q4_K_S.gguf
+  files:
+    - filename: Qwen__Qwen3-Next-80B-A3B-Thinking-Q4_K_S.gguf
+      sha256: 0b9d5d1267619f464f883127ff5a0ba08af0f6a16908bfd46f43f007eaf2fb14
+      uri: huggingface://lefromage/Qwen3-Next-80B-A3B-Thinking-GGUF/Qwen__Qwen3-Next-80B-A3B-Thinking-Q4_K_S.gguf
