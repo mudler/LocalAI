@@ -22759,3 +22759,22 @@
     - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
       sha256: c6c9c03e771edfb68d5eab82a3324e264e53cf1bcf9b80ae3f04bc94f57b1d7f
       uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA-GGUF/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "violet-eclipse-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Violet-Eclipse-12B-i1-GGUF
+  description: |
+    **Violet-Eclipse-12B** is a 12-billion-parameter language model created by merging multiple specialized 12B models using the *Model Stock* merge method. It is built upon **Retreatcost’s KansenSakura-Erosion-RP-12b** as the base, with significant contributions from **Impish Nemo 12B**, **Forgotten-directive-Neon-stock**, **Guns and Roses R1**, and **MN-Violet-Lotus-12B**.
+
+    This model is specifically optimized for **creative roleplay, imaginative storytelling, and NSFW content generation**, blending the narrative depth, expressive style, and character-driven writing of its source models. It is ideal for users seeking rich, immersive, and highly stylized dialogue and prose.
+
+    While it is available in GGUF format (quantized for efficient local inference), the original unquantized model is based on the **MrRikyz/Violet-Eclipse-12B** repository. The model is licensed under the combined terms of its source models.
+
+    > 🔍 *Note: The GGUF version hosted at `mradermacher/Violet-Eclipse-12B-i1-GGUF` is a quantized variant. For the full, original model description and unquantized weights, refer to [MrRikyz/Violet-Eclipse-12B](https://huggingface.co/MrRikyz/Violet-Eclipse-12B).*
+  overrides:
+    parameters:
+      model: Violet-Eclipse-12B.i1-Q4_K_S.gguf
+  files:
+    - filename: Violet-Eclipse-12B.i1-Q4_K_S.gguf
+      sha256: 92e8adb3322d2fd8de0347daca62cdc81eac358d62a0cca9ddfe373b7910f0b7
+      uri: huggingface://mradermacher/Violet-Eclipse-12B-i1-GGUF/Violet-Eclipse-12B.i1-Q4_K_S.gguf
