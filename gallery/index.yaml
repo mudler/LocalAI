@@ -22759,3 +22759,29 @@
     - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
       sha256: c6c9c03e771edfb68d5eab82a3324e264e53cf1bcf9b80ae3f04bc94f57b1d7f
       uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA-GGUF/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "lodos-24b-instruct-2510-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Lodos-24B-Instruct-2510-i1-GGUF
+  description: |
+    **Lodos-24B-Instruct-2510** is a 24-billion-parameter instruction-tuned language model based on the **Mistral-Small-3.2-24B-Instruct-2506** architecture, developed by hasanbasbunar and fine-tuned using the Unsloth framework for accelerated training. It is optimized for high-quality text generation, reasoning, and instruction following.
+
+    This model was fine-tuned with Hugging Face’s TRL library, enabling efficient training and superior performance on diverse tasks. The model is available in multiple GGUF quantized formats (e.g., Q4_K_M, Q6_K), making it suitable for deployment on consumer hardware with minimal performance loss.
+
+    **Key Features:**
+    - Based on the **Mistral-3.2** architecture
+    - Trained with **Unsloth** for 2x faster training
+    - Fine-tuned with **TRL** and supervised fine-tuning (SFT)
+    - Optimized for instruction-following and complex reasoning
+    - Available in multiple quantizations for efficient local inference
+
+    **Best for:** Developers and researchers seeking a high-performing, efficient, and accessible large language model for local inference and application deployment.
+
+    > **Note:** The original model is hosted at `hasanbasbunar/Lodos-24B-Instruct-2510`. The repository `mradermacher/Lodos-24B-Instruct-2510-i1-GGUF` contains quantized versions, not the original base model.
+  overrides:
+    parameters:
+      model: Lodos-24B-Instruct-2510.i1-Q4_K_M.gguf
+  files:
+    - filename: Lodos-24B-Instruct-2510.i1-Q4_K_M.gguf
+      sha256: bc605bd91a089a6251ad96a324308d08fc1edc1e432a2f1ac61222fbbd6936e6
+      uri: huggingface://mradermacher/Lodos-24B-Instruct-2510-i1-GGUF/Lodos-24B-Instruct-2510.i1-Q4_K_M.gguf
