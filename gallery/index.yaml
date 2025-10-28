@@ -22721,3 +22721,12 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "cerebras.glm-4.5-air-reap-82b-a12b"
+  urls:
+    - https://huggingface.co/DevQuasar/cerebras.GLM-4.5-Air-REAP-82B-A12B-GGUF
+  description: |
+    AI model: cerebras.glm-4.5-air-reap-82b-a12b
+  overrides:
+    parameters:
+      model: DevQuasar/cerebras.GLM-4.5-Air-REAP-82B-A12B-GGUF
