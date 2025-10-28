@@ -22859,3 +22859,31 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *qwen25
+  name: "qwen-capybara-medium"
+  urls:
+    - https://huggingface.co/evalstate/qwen-capybara-medium-gguf
+  description: |
+    **Qwen2.5-0.5B (Base Model)**
+    *By Qwen Team | Hugging Face*
+
+    A compact yet powerful foundation language model from the Qwen2.5 series, designed for efficiency and performance. With 0.49 billion parameters, it offers strong reasoning, coding, and mathematical capabilities, enhanced by specialized training in structured data understanding and long-context generation (up to 32,768 tokens). Features include:
+
+    - **Architecture**: Causal Transformer with RoPE, SwiGLU, RMSNorm, and GQA (Grouped Query Attention)
+    - **Context Length**: 32,768 tokens (supports long-form content generation up to 8K tokens)
+    - **Multilingual**: Supports over 29 languages including Chinese, English, French, Japanese, and Arabic
+    - **Training Stage**: Pretrained (intended for fine-tuning via SFT, RLHF, or continued pretraining)
+    - **Best For**: Developers and researchers seeking a lightweight, high-performance base model for downstream tasks.
+
+    > ✅ *Not recommended for direct chat use — ideal for fine-tuning and research.*
+    > 🔗 [Official Blog](https://qwenlm.github.io/blog/qwen2.5/) | [Documentation](https://qwen.readthedocs.io/en/latest/) | [GitHub](https://github.com/QwenLM/Qwen2.5)
+    > 📝 *Cite: @misc{qwen2.5, ...*
+
+    **Note**: The model hosted at `evalstate/qwen-capybara-medium-gguf` is a *quantized GGUF conversion* of a LoRA-finetuned version of this base model. The original base model remains unquantized and is maintained by the official Qwen team.
+  overrides:
+    parameters:
+      model: qwen-capybara-medium-q4_k_m.gguf
+  files:
+    - filename: qwen-capybara-medium-q4_k_m.gguf
+      sha256: aeecc1f1fa4adaac10ee09f946181cf3ce62855685fc1b2b6c4be4085dea7e47
+      uri: huggingface://evalstate/qwen-capybara-medium-gguf/qwen-capybara-medium-q4_k_m.gguf
