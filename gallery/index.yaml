@@ -22837,3 +22837,25 @@
     - filename: pokee_research_7b-q4_k_m.gguf
       sha256: 670706711d82fcdbae951fda084f77c9c479edf3eb5d8458d1cfddd46cf4b767
       uri: huggingface://Mungert/pokee_research_7b-GGUF/pokee_research_7b-q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "deepkat-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/DeepKAT-32B-i1-GGUF
+  description: |
+    **DeepKAT-32B** is a high-performance, open-source coding agent built by merging two leading RL-tuned models—**DeepSWE-Preview** and **KAT-Dev**—on the **Qwen3-32B** base architecture using Arcee MergeKit’s TIES method. This 32B parameter model excels in complex software engineering tasks, including code generation, bug fixing, refactoring, and autonomous agent workflows with tool use.
+
+    Key strengths:
+    - Achieves ~62% SWE-Bench Verified score (on par with top open-source models).
+    - Strong performance in multi-file reasoning, multi-turn planning, and sparse reward environments.
+    - Optimized for agentic behavior with step-by-step reasoning and tool chaining.
+
+    Ideal for developers, AI researchers, and teams building intelligent code assistants or autonomous software agents.
+
+    > 🔗 **Base Model**: Qwen/Qwen3-32B
+    > 🛠️ **Built With**: MergeKit (TIES), RL-finetuned components
+    > 📊 **Benchmarks**: SWE-Bench Verified: ~62%, HumanEval Pass@1: ~85%
+
+    *Note: The model is a merge of two RL-tuned models and not a direct training from scratch.*
+  overrides:
+    parameters:
+      model: mradermacher/DeepKAT-32B-i1-GGUF
