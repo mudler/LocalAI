@@ -10,7 +10,8 @@ CURDIR=$(dirname "$(realpath $0)")
 # Create lib directory
 mkdir -p $CURDIR/package/lib
 
-cp -avf $CURDIR/whisper $CURDIR/libgowhisper.so $CURDIR/package/
+cp -avf $CURDIR/whisper $CURDIR/package/
+cp -fv $CURDIR/libgowhisper-*.so $CURDIR/package/
 cp -fv $CURDIR/run.sh $CURDIR/package/
 
 # Detect architecture and copy appropriate libraries
