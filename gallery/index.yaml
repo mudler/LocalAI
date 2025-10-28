@@ -22721,3 +22721,27 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "ibm-granite-docling-258m"
+  urls:
+    - https://huggingface.co/danchev/ibm-granite-docling-258M-GGUF
+  description: |
+    **Model Name**: IBM Granite Docling 258M (GGUF)
+    **Base Model**: [ibm-granite/granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M)
+    **License**: Apache 2.0
+    **Language**: English
+    **Pipeline**: image-text-to-text
+    **Size**: 258M parameters
+    **Format**: GGUF (optimized for local inference with `llama.cpp`)
+
+    **Description**:
+    The IBM Granite Docling 258M is a lightweight, instruction-tuned model designed for advanced document understanding tasks. It excels at analyzing and extracting structured information from diverse document layouts—including text, tables, lists, and images—making it ideal for document classification, information extraction, and question answering on real-world documents.
+
+    This GGUF version is optimized for efficient local inference using `llama.cpp`, enabling fast, low-resource deployment on CPU or GPU. It is compatible with tools like **Docling**, allowing users to convert documents into rich, structured outputs such as Markdown or HTML.
+
+    **Use Case**: Ideal for developers and researchers working on document AI applications who need a compact, high-performing model for on-device or edge deployment.
+
+    > 📌 *Note: This is a quantized GGUF variant. For the original full-precision model, see the base: [ibm-granite/granite-docling-258M](https://huggingface.co/ibm-granite/granite-docling-258M).*
+  overrides:
+    parameters:
+      model: danchev/ibm-granite-docling-258M-GGUF
