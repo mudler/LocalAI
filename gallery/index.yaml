@@ -22859,3 +22859,34 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *mistral03
+  name: "saiga_nemo_12b"
+  urls:
+    - https://huggingface.co/NightForger/saiga_nemo_12b-GGUF
+  description: |
+    **Model Name:** Saiga/MistralNemo 12B (Russian fine-tuned)
+    **Base Model:** Mistral-Nemo-Instruct-2407 (abliterated version)
+    **Repository:** [IlyaGusev/saiga_nemo_12b](https://huggingface.co/IlyaGusev/saiga_nemo_12b)
+    **License:** Apache 2.0
+
+    **Description:**
+    A high-performance Russian-language large language model fine-tuned from Mistral-Nemo-Instruct-2407. This version, developed by Ilya Gusev, is specifically optimized for natural, fluent, and context-aware conversation in Russian, with strong capabilities in instruction following, reasoning, and creative writing. Trained on curated datasets including Saiga-scored and Saiga-preferences, it excels in both factual and open-ended tasks, with notable performance in evaluation benchmarks like RuArenaHard and PingPong.
+
+    **Key Features:**
+    - ✅ Russian language fluency with cultural and linguistic nuance
+    - ✅ Strong instruction-following and chat capabilities
+    - ✅ Based on the powerful Mistral Nemo architecture
+    - ✅ Multiple versions available (v1, v2, v3) with progressive improvements
+    - ✅ Ideal for multilingual and Russian-focused applications
+
+    **Use Case:**
+    Perfect for chatbots, content generation, tutoring, and any application requiring high-quality Russian language understanding and generation.
+
+    **Note:** The GGUF version (e.g., `NightForger/saiga_nemo_12b-GGUF`) is a quantized, inference-optimized variant — the original, full-precision model is available in this repository.
+  overrides:
+    parameters:
+      model: model_Q4_K_M.gguf
+  files:
+    - filename: model_Q4_K_M.gguf
+      sha256: a15ca2870ce8b31aefbc115fa5902e76db1af5312b256e0fda787ff5eeca150a
+      uri: huggingface://NightForger/saiga_nemo_12b-GGUF/model_Q4_K_M.gguf
