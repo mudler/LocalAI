@@ -22721,3 +22721,12 @@
     - filename: ChemDFM-R-14B.i1-Q4_K_M.gguf
       sha256: c5090dd547154712865fa26389790cad93f23a7b5cba90f5efc8b667ad61cd06
       uri: huggingface://mradermacher/ChemDFM-R-14B-i1-GGUF/ChemDFM-R-14B.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-glm-4.6-distill"
+  urls:
+    - https://huggingface.co/armand0e/gpt-oss-20b-glm-4.6-distill-GGUF
+  description: |
+    [{"index":0,"id":"","type":"function","function":{"name":"hf_readme","arguments":"{\"repository\":\"armand0e/gpt-oss-20b-glm-4.6-distill\"}"}}]
+  overrides:
+    parameters:
+      model: armand0e/gpt-oss-20b-glm-4.6-distill-GGUF
