@@ -22759,3 +22759,69 @@
     - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
       sha256: c6c9c03e771edfb68d5eab82a3324e264e53cf1bcf9b80ae3f04bc94f57b1d7f
       uri: huggingface://mradermacher/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA-GGUF/Qwen3-Deckard-Large-Almost-Human-6B-III-160-OMEGA.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "next-4b-q5_k_m"
+  urls:
+    - https://huggingface.co/Lamapi/next-4b-Q5_K_M-GGUF
+  description: |
+    **Model Name:** Next 4B (s330)
+    **Model Type:** Vision-Language Model (VLM)
+    **Base Model:** Gemma 3
+    **Parameters:** 4 Billion
+    **License:** MIT
+
+    ---
+
+    ### 🔍 **Overview**
+    Next 4B is Türkiye’s first open-source vision-language model, designed for efficient multimodal understanding and reasoning. Built on **Gemma 3**, it seamlessly combines text and image processing, enabling tasks like image captioning, visual question answering, and creative storytelling—all while maintaining strong performance in Turkish and multilingual contexts.
+
+    ---
+
+    ### ✨ **Key Features**
+    - 🖼️ **Multimodal Capable:** Understands and generates responses based on both text and images.
+    - 🇹🇷 **Turkish-Optimized:** High accuracy in Turkish with broad multilingual support.
+    - ⚡ **Efficient & Lightweight:** Supports 8-bit quantization for deployment on consumer-grade GPUs.
+    - 📊 **State-of-the-Art Performance:**
+      - MMLU: **84.6%** (5-shot)
+      - GSM8K: **82.7%**
+      - MATH: **70.5%**
+    - 🧠 **Advanced Reasoning:** Handles logical and analytical tasks with consistency.
+
+    ---
+
+    ### 🛠️ **Use Cases**
+    - Image captioning & description
+    - Visual question answering (VQA)
+    - Multimodal chat assistants
+    - Educational tools, creative writing, and research
+
+    ---
+
+    ### 📦 **How to Use**
+    ```python
+    from transformers import AutoTokenizer, AutoModelForCausalLM, AutoProcessor
+    from PIL import Image
+
+    model_id = "Lamapi/next-4b"
+    processor = AutoProcessor.from_pretrained(model_id)
+    model = AutoModelForCausalLM.from_pretrained(model_id)
+
+    image = Image.open("image.jpg")
+    messages = [
+        {"role": "system", "content": "You are Next-X1, a smart AI assistant trained by Lamapi. Proudly made in Turkey."},
+        {"role": "user", "content": [{"type": "image", "image": image}, {"type": "text", "text": "What is in this image?"}]}
+    ]
+
+    prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    inputs = processor(text=prompt, images=[image], return_tensors="pt")
+    output = model.generate(**inputs, max_new_tokens=50)
+    print(tokenizer.decode(output[0], skip_special_tokens=True))
+    ```
+
+    ---
+
+    > **Next 4B** — Türkiye’s first vision-language AI, built for efficiency, reasoning, and real-world multimodal applications.
+    > 🌍 Open-source | 🔗 [Hugging Face](https://huggingface.co/Lamapi/next-4b) | 📄 [MIT License](https://opensource.org/licenses/MIT)
+  overrides:
+    parameters:
+      model: Lamapi/next-4b-Q5_K_M-GGUF
