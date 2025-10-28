@@ -22859,3 +22859,26 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *qwen25coder
+  name: "minimax-m2"
+  urls:
+    - https://huggingface.co/cturan/MiniMax-M2-GGUF
+  description: |
+    **MiniMax-M2** is a compact, high-performance MoE (Mixture of Experts) model designed for elite coding and agentic workflows. With 230 billion total parameters and only 10 billion active parameters at inference, it delivers powerful general intelligence and advanced tool-use capabilities while remaining highly efficient—ideal for fast, cost-effective deployment in agents and interactive systems.
+
+    Key highlights:
+    - **Top-tier performance** in coding (SWE-Bench, Terminal-Bench) and agentic tasks (BrowseComp, HLE).
+    - **#1 ranking** among open-source models on the Artificial Analysis intelligence benchmark.
+    - **Interleaved thinking** architecture ensures strong reasoning and planning through natural thought-process integration.
+    - **Open-sourced** and available for local deployment via vLLM, SGLang, and other frameworks.
+
+    Perfect for developers, researchers, and teams seeking a lightweight yet powerful model that scales efficiently without sacrificing capability.
+    👉 **Model Hub**: [MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2)
+    🔗 **Use Case**: Agent systems, IDE assistants, code generation, and long-horizon tool use.
+  overrides:
+    parameters:
+      model: minimax-m2-Q2_K.gguf
+  files:
+    - filename: minimax-m2-Q2_K.gguf
+      sha256: a9d1875a4a38b9e24faa4b4ec0e3edfe306152dcd5a966a3c0d3116249cf4b47
+      uri: huggingface://cturan/MiniMax-M2-GGUF/minimax-m2-Q2_K.gguf
