@@ -22950,3 +22950,28 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "viscoder2-14b"
+  urls:
+    - https://huggingface.co/mradermacher/VisCoder2-14B-GGUF
+  description: |
+    **VisCoder2-14B** is a 14-billion-parameter multi-language visualization coding model developed by TIGER-Lab, designed for generating executable code that produces accurate and consistent visual outputs. Built on the **Qwen2.5-Coder-14B-Instruct** base model, it is fine-tuned via full-parameter supervised fine-tuning (SFT) on the **VisCode-Multi-679K** dataset — a large-scale instruction-tuned dataset spanning 12 programming languages.
+
+    The model specializes in **executable visualization code generation**, supporting complex tasks such as rendering charts, plots, and interactive visualizations from natural language prompts. It excels in both single-turn and multi-turn self-debugging scenarios, making it ideal for iterative code refinement.
+
+    Key features:
+    - Trained on 888 real-world visualization tasks across 8 languages (VisPlotBench benchmark).
+    - Strong performance in generating semantically correct, executable code.
+    - Designed for real-time, accurate visual rendering.
+    - Openly available under the Apache 2.0 license.
+
+    📌 **Use cases**: Code generation for data visualization, AI-driven debugging of visual code, multi-language interactive visualization agents.
+
+    🔗 [Project Page](https://tiger-ai-lab.github.io/VisCoder2) | 📚 [Paper (arXiv)](https://arxiv.org/abs/2510.23642) | 💻 [GitHub](https://github.com/TIGER-AI-Lab/VisCoder2) | 🤗 [Hugging Face](https://huggingface.co/TIGER-Lab/VisCoder2-14B)
+  overrides:
+    parameters:
+      model: VisCoder2-14B.Q4_K_S.gguf
+  files:
+    - filename: VisCoder2-14B.Q4_K_S.gguf
+      sha256: 08fd08de85aa545c7360211b909e55cb24f3d23ab6fa17da3f95d84c24bd63e4
+      uri: huggingface://mradermacher/VisCoder2-14B-GGUF/VisCoder2-14B.Q4_K_S.gguf
