@@ -22950,3 +22950,30 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "viscoder2-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/VisCoder2-32B-i1-GGUF
+  description: |
+    **VisCoder2-32B** is a 32-billion-parameter multi-language visualization coding model developed by TIGER-Lab, designed for generating executable code that produces accurate and semantically consistent visualizations. Built on **Qwen2.5-Coder-32B-Instruct**, it is fine-tuned on the **VisCode-Multi-679K** dataset—a large-scale instruction-tuned dataset spanning 12 programming languages—to enable robust code generation, rendering, and iterative self-debugging.
+
+    The model excels in tasks requiring both functional correctness and visual fidelity, making it ideal for applications in data visualization, scientific plotting, and interactive code generation. It demonstrates strong performance across languages and achieves significant gains in multi-turn self-debugging scenarios, as validated on the **VisPlotBench** benchmark.
+
+    **Key Features:**
+    - Trained for executable code generation with real-world visual outputs
+    - Supports 12 programming languages
+    - Designed for multi-round self-debugging and refinement
+    - Optimized for real-world visualization tasks
+
+    **Use Case:** Ideal for developers and researchers building intelligent visualization agents, coding assistants, or tools that generate and debug code for data and scientific visualization.
+
+    📌 **Paper**: [VisCoder2: Building Multi-Language Visualization Coding Agents](https://arxiv.org/abs/2510.23642)
+    🔗 **GitHub**: [TIGER-AI-Lab/VisCoder2](https://github.com/TIGER-AI-Lab/VisCoder2)
+    📚 **Dataset**: [VisCode-Multi-679K](https://huggingface.co/datasets/TIGER-Lab/VisCode-Multi-679K)
+  overrides:
+    parameters:
+      model: VisCoder2-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: VisCoder2-32B.i1-Q4_K_M.gguf
+      sha256: 999960768b55c3c7d336c9b632e54312d923f234c61157c1d4c35d6d0ffbfd7c
+      uri: huggingface://mradermacher/VisCoder2-32B-i1-GGUF/VisCoder2-32B.i1-Q4_K_M.gguf
