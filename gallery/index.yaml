@@ -22950,3 +22950,27 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *hermes-2-pro-mistral
+  name: "hermes-2.5-mistral-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Hermes-2.5-Mistral-7B-i1-GGUF
+  description: |
+    **Hermes-2.5-Mistral-7B** is a high-performance, instruction-tuned language model based on the Mistral-7B-v0.1 architecture. Developed by Teknium and fine-tuned on a large dataset of high-quality, GPT-4-generated and curated open-source data, it excels in reasoning, coding, and conversational abilities.
+
+    Key features:
+    - **Base Model**: Mistral-7B-v0.1
+    - **Training Data**: ~1 million instruction-following examples, including synthetic data from GPT-4 and diverse open datasets
+    - **Prompt Format**: ChatML (compatible with OpenAI API and modern LLM interfaces)
+    - **Performance**: Outperforms most Mistral-based fine-tunes across benchmarks—surpassing GPT4All (73.12 avg), AGIEval (43.07%), and TruthfulQA (53.04%)—with strong gains in code evaluation (50.7% Pass@1 on HumanEval)
+    - **Use Case**: Ideal for chat, coding assistance, and complex reasoning tasks
+
+    This model is available in multiple quantized GGUF formats (e.g., Q4_K_M, Q6_K) for efficient local inference via llama.cpp and tools like LM Studio.
+
+    > ✅ *Note: The model is not quantized by default—quantized versions are provided separately by third parties (e.g., TheBloke, mradermacher). The original, full-precision version can be found at [godcodev/Hermes-2.5-Mistral-7B](https://huggingface.co/godcodev/Hermes-2.5-Mistral-7B).*
+  overrides:
+    parameters:
+      model: Hermes-2.5-Mistral-7B.i1-Q4_K_S.gguf
+  files:
+    - filename: Hermes-2.5-Mistral-7B.i1-Q4_K_S.gguf
+      sha256: e3f794c8325d1334410eb5479e83689b53246418fddc9f336b687c832cabbf0b
+      uri: huggingface://mradermacher/Hermes-2.5-Mistral-7B-i1-GGUF/Hermes-2.5-Mistral-7B.i1-Q4_K_S.gguf
