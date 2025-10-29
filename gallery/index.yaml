@@ -22859,3 +22859,19 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *qwenimage
+  name: "dasiwawan22i2v14b"
+  urls:
+    - https://huggingface.co/Bedovyy/dasiwaWAN22I2V14B-GGUF
+  description: |
+    The **dasiwaWAN22I2V14B-GGUF** model is a quantized version of the **Dasiwa WAN 2.2 I2V 14B** model, a large-scale image-to-video (I2V) generation model designed to generate high-quality videos from input images. Originally developed by the community and hosted on Civitai, this model leverages advanced diffusion architectures to produce smooth, coherent, and visually rich video sequences.
+
+    The GGUF-quantized variant (by Bedovyy) is optimized for efficient local inference using tools like ComfyUI, enabling faster and more memory-efficient deployment on consumer hardware. The model uses FP8 dequantization and GGUF format conversion for compatibility with lightweight inference backends.
+
+    ⚠️ **Note**: This is a quantized (compressed) version of the original model, not the base model itself. The original high-fidelity version can be found at: [https://civitai.com/models/1981116/dasiwa-wan-22-i2v-14b-lightspeed](https://civitai.com/models/1981116/dasiwa-wan-22-i2v-14b-lightspeed)
+
+    **Use Case**: Image-to-video generation with a focus on stylized, animated, or dynamic video output from static images.
+    **Ideal For**: Creators, artists, and developers seeking efficient local I2V generation with minimal GPU requirements.
+  overrides:
+    parameters:
+      model: Bedovyy/dasiwaWAN22I2V14B-GGUF
