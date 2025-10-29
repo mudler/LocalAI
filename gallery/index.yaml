@@ -22950,3 +22950,25 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "harmonic-lumina-12b"
+  urls:
+    - https://huggingface.co/mradermacher/Harmonic-Lumina-12B-GGUF
+  description: |
+    **Harmonic-Lumina-12B** is a 12-billion-parameter large language model created through a custom merging technique called *harmony_prism*. It combines three distinct models — **Harmony-Bird-12B**, **Violet-Mist-12B**, and **Luminous-Shadow-12B** — to create a balanced, high-performing model with enhanced coherence, expressive style, and logical consistency.
+
+    Using stochastic coherence sampling and adaptive weighting, the merge preserves the unique "resonance" of each source model while unifying tone, structure, and reasoning. The result is a versatile, high-quality model ideal for roleplay, creative writing, and complex reasoning tasks.
+
+    - **Base Models**: Vortex5/Harmony-Bird-12B, Vortex5/Violet-Mist-12B, Vortex5/Luminous-Shadow-12B
+    - **Merge Method**: `harmony_prism` (custom, entropy-stabilized, structure- and style-aware)
+    - **Architecture**: Transformer-based (LLaMA-like)
+    - **Use Case**: Creative writing, roleplay, dialogue generation, and general-purpose reasoning
+
+    *Note: The model is available in multiple quantized formats (GGUF) for efficient local inference.*
+  overrides:
+    parameters:
+      model: Harmonic-Lumina-12B.Q4_K_S.gguf
+  files:
+    - filename: Harmonic-Lumina-12B.Q4_K_S.gguf
+      sha256: 6e6c58cb0132ba08f055d98cb421deaed943438875f5045daf8cc99e02e0fc15
+      uri: huggingface://mradermacher/Harmonic-Lumina-12B-GGUF/Harmonic-Lumina-12B.Q4_K_S.gguf
