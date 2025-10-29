@@ -22950,3 +22950,40 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "aligner-7b"
+  urls:
+    - https://huggingface.co/mradermacher/aligner-7b-GGUF
+  description: |
+    **Model Name:** Qwen2.5-7B-Instruct
+    **Repository:** [Qwen/Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+    **Architecture:** Causal Language Model (based on Qwen2.5)
+    **Size:** 7.61 billion parameters
+    **Context Length:** Up to 131,072 tokens (with YaRN for long-context support)
+    **License:** Apache 2.0
+
+    ### Description:
+    Qwen2.5-7B-Instruct is a powerful, instruction-tuned large language model designed for high-performance, human-aligned conversations. Built on the Qwen2.5 foundation, it excels in reasoning, coding, math, and multilingual tasks across 29+ languages. With advanced long-context capabilities (up to 128K tokens), it supports extended text generation (up to 8K tokens), structured output (e.g., JSON), and robust handling of complex prompts.
+
+    This model is ideal for chatbots, content creation, code generation, and tasks requiring deep understanding and accurate instruction following. Optimized for speed and efficiency, it runs efficiently on modern GPUs and is compatible with frameworks like Hugging Face Transformers and vLLM.
+
+    ### Key Features:
+    - ✅ Strong instruction following and role-playing
+    - ✅ Support for long-form content (128K context)
+    - ✅ High-quality code & math reasoning
+    - ✅ Multilingual (Chinese, English, French, Spanish, German, Japanese, Korean, Arabic, and more)
+    - ✅ JSON & structured output generation
+    - ✅ Fast inference with support for vLLM and GGUF quantization
+
+    ### Use Case:
+    Perfect for developers, researchers, and enterprises building intelligent, conversational AI systems with high accuracy and scalability.
+
+    👉 **Try it now**: [Chat with Qwen2.5-7B-Instruct on Qwen Chat](https://chat.qwenlm.ai/)
+    📖 **Learn more**: [Qwen2.5 Blog](https://qwenlm.github.io/blog/qwen2.5/) | [Documentation](https://qwen.readthedocs.io/)
+  overrides:
+    parameters:
+      model: aligner-7b.Q4_K_M.gguf
+  files:
+    - filename: aligner-7b.Q4_K_M.gguf
+      sha256: 6fff7171f74bf7ce5956481af861ec20b31388e0039b2657edc6b378c7dfb28b
+      uri: huggingface://mradermacher/aligner-7b-GGUF/aligner-7b.Q4_K_M.gguf
