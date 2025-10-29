@@ -22950,3 +22950,22 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-33-nemotron-super-49b-v15-bias-injections-reduced-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced-i1-GGUF
+  description: |
+    The **Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced** model is a large language model developed by **hirundo-io**, based on the **Llama-33** architecture, which is a highly specialized variant of the Llama series. This model is part of the **Nemotron-Super** family, designed for high-performance reasoning and generative capabilities with a focus on reducing bias through targeted training adjustments.
+
+    It is a **49-billion parameter** model trained on extensive multilingual and technical datasets, optimized for accuracy, coherence, and safety. The model has undergone multiple iterations to reduce harmful bias while maintaining strong performance across diverse tasks, including complex reasoning, code generation, and dialogue.
+
+    While the repository `mradermacher/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced-i1-GGUF` hosts **quantized GGUF versions** of this model (ideal for local inference), the original, full-precision model can be found in the base repository: `hirundo-io/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced`.
+
+    This model is suitable for researchers, developers, and enterprises seeking a powerful, responsibly fine-tuned foundation model with reduced bias and strong multilingual capabilities, particularly in environments requiring on-device or low-resource inference.
+  overrides:
+    parameters:
+      model: Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced.i1-Q4_K_M.gguf
+      sha256: 1787ab4cb290a9661c000283acf0ed86d5e53594d2ec859a874699b123734d30
+      uri: huggingface://mradermacher/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced-i1-GGUF/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced.i1-Q4_K_M.gguf
