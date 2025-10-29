@@ -22859,3 +22859,71 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *granite4
+  name: "ibm-granite.granite-4.0-h-350m"
+  urls:
+    - https://huggingface.co/DevQuasar/ibm-granite.granite-4.0-h-350m-GGUF
+  description: |
+    **Model Name:** IBM Granite-4.0-H-350M
+    **Repository:** [ibm-granite/granite-4.0-h-350m](https://huggingface.co/ibm-granite/granite-4.0-h-350m)
+    **License:** Apache 2.0
+    **Pipeline:** Text Generation
+    **Architecture:** Decoder-only dense Transformer with GQA, Mamba2, SwiGLU MLP, RMSNorm, and shared input/output embeddings
+    **Size:** 350M parameters (340M active)
+    **Context Length:** Up to 32K tokens
+
+    ---
+
+    ### 📌 Overview
+    Granite-4.0-H-350M is a lightweight, instruction-tuned language model developed by IBM’s Granite Team. Built on the *Granite-4.0-H-350M-Base* foundation, it leverages a mix of open-source instruction datasets, synthetic data, and human-curated examples to deliver strong performance in real-world applications.
+
+    Designed for efficiency, this model excels in on-device deployment and fine-tuning scenarios, making it ideal for researchers and developers seeking powerful AI capabilities without heavy compute requirements.
+
+    ---
+
+    ### ✅ Key Features & Capabilities
+    - **Strong instruction following** with high alignment (IFEval: 67.63 average score)
+    - **Multilingual support** (English, German, Spanish, French, Japanese, Portuguese, Arabic, Czech, Italian, Korean, Dutch, Chinese)
+    - **Advanced tool calling** with OpenAI-style function schema support
+    - **Code generation** (HumanEval pass@1: 39%)
+    - **Retrieval-Augmented Generation (RAG)** and **Fill-In-the-Middle (FIM)** completions
+    - **Safety-aligned** with strong performance on SALAD-Bench (96.55%) and AttaQ (81.76%)
+
+    ---
+
+    ### 📊 Performance Highlights (350M Dense Model)
+    | Benchmark       | Score (5-shot) |
+    |------------------|----------------|
+    | MMLU             | 35.01          |
+    | BBH              | 33.07          |
+    | GSM8K (8-shot)   | 30.71          |
+    | IFEval (Strict)  | 61.63          |
+    | BFCL v3 (Tool Calling) | 39.32     |
+
+    ---
+
+    ### 🔧 Use Cases
+    - On-device AI applications
+    - Research prototyping and domain-specific fine-tuning
+    - Multilingual dialogue systems
+    - Code completion and function calling workflows
+    - RAG pipelines and summarization
+
+    ---
+
+    ### 📚 Resources
+    - [Granite Documentation](https://www.ibm.com/granite/docs/)
+    - [GitHub Repo](https://github.com/ibm-granite/granite-4.0-nano-language-models)
+    - [HF Collection: Granite 4.0 Nano Models](https://huggingface.co/collections/ibm-granite/granite-40-nano-language-models-68e5775c80b60e43b72cfa16)
+
+    ---
+
+    > 💡 *“Make knowledge free for everyone”* — IBM Granite Team
+    > **Note**: This is the original, non-quantized model. The GGUF version (e.g., `DevQuasar/ibm-granite.granite-4.0-h-350m-GGUF`) is a quantized variant for efficient inference.
+  overrides:
+    parameters:
+      model: ibm-granite.granite-4.0-h-350m.Q4_K_M.gguf
+  files:
+    - filename: ibm-granite.granite-4.0-h-350m.Q4_K_M.gguf
+      sha256: a68024b40ae9b39f7c901daa11a075b67d40fc06fa770154253f8c3ecbce9f70
+      uri: huggingface://DevQuasar/ibm-granite.granite-4.0-h-350m-GGUF/ibm-granite.granite-4.0-h-350m.Q4_K_M.gguf
