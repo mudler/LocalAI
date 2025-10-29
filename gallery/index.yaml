@@ -22859,3 +22859,16 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *llama32
+  name: "zero-3b"
+  urls:
+    - https://huggingface.co/podsni/zero-3B-GGUF
+  description: |
+    The **zero-3B-GGUF** model is a quantized version of the **Hermes-3-Llama-3.2-3B** language model, fine-tuned and converted to GGUF format for efficient inference using **llama.cpp**. It is optimized for performance on CPU and edge devices, making it ideal for local deployment. The model is part of the Llama 3.2 family, leveraging the strong base capabilities of Llama 3.2 while being fine-tuned for enhanced reasoning and conversational abilities through the Hermes 3 alignment. This version is not the original model from Meta but rather a community-optimized adaptation by the **Unsloth** team, available in multiple quantization levels (Q4_K_M, Q5_K_M, Q8_0) to balance speed and quality. While highly efficient, it is not the base model — the original, unquantized model is based on **Llama 3.2 3B** and was fine-tuned with the Hermes 3 instruction-following methodology.
+  overrides:
+    parameters:
+      model: Hermes-3-Llama-3.2-3B.Q4_K_M.gguf
+  files:
+    - filename: Hermes-3-Llama-3.2-3B.Q4_K_M.gguf
+      sha256: 13d5e63be29d631c71110d86440139627130b2cb8d3bc5c172e39f5ca6fd5b68
+      uri: huggingface://podsni/zero-3B-GGUF/Hermes-3-Llama-3.2-3B.Q4_K_M.gguf
