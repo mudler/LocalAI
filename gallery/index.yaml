@@ -22950,3 +22950,24 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "januscoder-14b-q5_k_s"
+  urls:
+    - https://huggingface.co/NikolayKozloff/JanusCoder-14B-Q5_K_S-GGUF
+  description: |
+    **JanusCoder-14B** is a 14-billion-parameter open-source foundational model developed by InternLM, designed to unify visual and programmatic understanding for advanced code intelligence. Built upon the Qwen3-14B language model and trained on **JANUSCODE-800K**—the largest multimodal code corpus to date—JanusCoder excels at generating, interpreting, and editing code from text, images, or mixed inputs. It supports tasks like creating data visualizations, generating interactive web interfaces, and constructing complex animations with precise programmatic control.
+
+    The model is optimized for flexible, multimodal code generation and editing, making it ideal for developers and researchers working on visual programming, interactive UIs, and data-driven applications. It performs strongly across benchmarks such as PandasPlotBench, ArtifactsBench, and DTVBench (Manim/Wolfram), outperforming several leading models including Qwen3-14B and LLaMA3-8B.
+
+    **Key Features**:
+    - Based on Qwen3-14B architecture
+    - Trained on 800K diverse multimodal code examples
+    - Supports image-to-code and text-to-code generation
+    - Ideal for interactive visual programming and code-driven animation
+    - Openly available under Apache 2.0 license
+
+    🔗 **Model Card**: [internlm/JanusCoder-14B](https://huggingface.co/internlm/JanusCoder-14B)
+    📄 **Technical Report**: [arXiv:2510.23538](https://arxiv.org/abs/2510.23538)
+  overrides:
+    parameters:
+      model: NikolayKozloff/JanusCoder-14B-Q5_K_S-GGUF
