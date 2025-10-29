@@ -22950,3 +22950,27 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "viscoder2-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/VisCoder2-7B-i1-GGUF
+  description: |
+    **VisCoder2-7B** is a lightweight, multi-language visualization coding model designed for generating executable code that produces accurate and consistent visual outputs. Trained on the **VisCode-Multi-679K** dataset—spanning 12 programming languages—it excels at turning natural language instructions into functional visualization code, with strong support for iterative self-debugging.
+
+    Built on **Qwen2.5-Coder-7B-Instruct**, the model is fine-tuned via full-parameter supervised fine-tuning to align code execution with visual intent, making it ideal for tasks like plotting, data visualization, and interactive diagram generation across diverse programming environments.
+
+    **Key Features:**
+    - ✅ Generates **executable code** that renders correctly
+    - ✅ Supports **12 programming languages**
+    - ✅ Trained for **multi-turn self-debugging**
+    - ✅ Evaluates strongly on **VisPlotBench**, a benchmark for visualization tasks
+
+    Perfect for developers, researchers, and AI agents working on visual coding challenges.
+    👉 [Read the paper](https://arxiv.org/abs/2510.23642) | [Explore on Hugging Face](https://huggingface.co/TIGER-Lab/VisCoder2-7B) | [GitHub Repo](https://github.com/TIGER-AI-Lab/VisCoder2)
+  overrides:
+    parameters:
+      model: VisCoder2-7B.i1-Q4_K_M.gguf
+  files:
+    - filename: VisCoder2-7B.i1-Q4_K_M.gguf
+      sha256: 4aa2a6a00ba17e49b273d70c0361c3ef76f76795a714e5ca20dd5b1f3a86ebdb
+      uri: huggingface://mradermacher/VisCoder2-7B-i1-GGUF/VisCoder2-7B.i1-Q4_K_M.gguf
