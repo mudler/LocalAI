@@ -22950,3 +22950,55 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistral-large-instruct-2411-draft-0.4b-v3.0"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0-GGUF
+  description: |
+    ### **Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0**
+    *By jukofyork | Base model: Qwen/Qwen2.5-0.5B-Instruct*
+
+    ---
+
+    **Overview**
+    A lightweight, 0.4B-parameter **draft model** designed for speculative decoding with **Mistral-Large-Instruct-2411** and **Mistral-Large-Instruct-2407**. Optimized for faster inference with reduced computational cost while maintaining strong instruction-following capabilities.
+
+    ---
+
+    **Key Features**
+    - **Architecture**: Transplanted from **Qwen2.5-0.5B-Instruct**, adapted to Mistral’s tokenization and structure.
+    - **Fine-Tuned On**: ~2.8B tokens from diverse datasets:
+      - `common-crawl-sample`
+      - `the-stack-smol-xl`
+      - `Everything_Instruct` (instruction-focused content)
+    - **Training**: Full fine-tuning using QLoRA over 6×RTX A6000 GPUs with 32k context support.
+    - **Context Length**: Default: 32k. Can be extended to 64k or 128k using YaRN RoPE scaling.
+    - **Inference Ready**: Available in GGUF format for efficient use with `llama.cpp` and other local inference engines.
+    - **Tokenization**: Compatible with Mistral’s instruction format (`[INST]`, `[/INST]`, `<tool_call>`, etc.) for seamless integration.
+
+    ---
+
+    **Use Cases**
+    - Accelerating long-context inference via speculative decoding.
+    - Lightweight alternative for real-time or resource-constrained applications.
+    - Ideal for researchers and developers testing or deploying high-speed, instruction-aware models.
+
+    ---
+
+    **Model Availability**
+    - **Original (non-quantized)**: `jukofyork/Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0`
+    - **Quantized Versions**: Available via `mradermacher/Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0-GGUF` (multiple GGUF quantizations, including IQ4_XS, Q4_K_M, Q8_0, etc.)
+
+    ---
+
+    **License**: Apache 2.0
+    **Tags**: `draft`, `speculative-decoding`, `0.4B`, `instruction-tuned`, `long-context`
+
+    > ✅ *Note: This is a draft model — not intended for direct use in production. Use only with a larger target model (e.g., Mistral-Large-Instruct) for speculative decoding.*
+  overrides:
+    parameters:
+      model: Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0.Q4_K_M.gguf
+  files:
+    - filename: Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0.Q4_K_M.gguf
+      sha256: d8a2747e49ec1f43e25c98f9fd62dafd1d15c2afcc25066f2b32be8ce77aa4ca
+      uri: huggingface://mradermacher/Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0-GGUF/Mistral-Large-Instruct-2411-DRAFT-0.4B-v3.0.Q4_K_M.gguf
