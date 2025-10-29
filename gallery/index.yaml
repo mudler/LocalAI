@@ -22950,3 +22950,41 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-4b"
+  urls:
+    - https://huggingface.co/mrgoldengun/Qwen3-4B-Q2_K-GGUF
+  description: |
+    **Model Name:** Qwen3-4B
+    **Type:** Causal Language Model (LLM)
+    **Size:** 4.0 billion parameters
+    **Architecture:** Dense, with support for both **thinking mode** (for complex reasoning, math, coding) and **non-thinking mode** (for efficient dialogue) within a single model.
+
+    ### Key Features:
+    - **Dual-mode reasoning**: Seamlessly switch between deep thinking (for logic, math, code) and fast, conversational mode.
+    - **Advanced reasoning & instruction-following**: Outperforms previous Qwen models in logical reasoning, coding, and creative tasks.
+    - **Strong agent capabilities**: Excellent at tool integration and complex task execution.
+    - **Multilingual support**: Trained on 100+ languages and dialects with robust translation and instruction-following abilities.
+    - **Extended context**: Native support for up to **32,768 tokens**, extendable to **131,072 tokens** using YaRN RoPE scaling.
+
+    ### Use Cases:
+    - Complex problem solving (math, programming)
+    - Long-form content generation
+    - Multilingual chat and dialogue
+    - Agent-based workflows with tool use
+
+    ### Ideal For:
+    Researchers, developers, and enterprises needing a lightweight yet powerful LLM with advanced reasoning and agentic behavior.
+
+    > 🔗 **Official Repository**: [Qwen/Qwen3-4B](https://huggingface.co/Qwen/Qwen3-4B)
+    > 📚 **Documentation & Blog**: [qwenlm.github.io](https://qwenlm.github.io)
+    > 🧠 **Try it live**: [Qwen Chat](https://chat.qwen.ai)
+
+    *Note: This model is the original, non-quantized version. The GGUF quantized variant (e.g., `mrgoldengun/Qwen3-4B-Q2_K-GGUF`) is a conversion for efficient local inference but may have reduced precision.*
+  overrides:
+    parameters:
+      model: qwen3-4b-q2_k.gguf
+  files:
+    - filename: qwen3-4b-q2_k.gguf
+      sha256: cc350afd5f4f2210cd11283f44c3d3b5c0892b32afc6ac89288114eaf650ef48
+      uri: huggingface://mrgoldengun/Qwen3-4B-Q2_K-GGUF/qwen3-4b-q2_k.gguf
