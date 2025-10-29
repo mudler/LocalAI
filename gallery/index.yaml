@@ -22950,3 +22950,29 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-33-nemotron-super-49b-v15-bias-injections-reduced"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced-GGUF
+  description: |
+    The **Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced** is a large language model based on the Llama-33 architecture, developed and fine-tuned by **hirundo-io**. It is a high-capacity, 49-billion-parameter model optimized for advanced natural language understanding and generation, with a focus on reducing bias through targeted injection techniques during training. The model is trained on a diverse and extensive dataset, making it suitable for complex tasks such as reasoning, code generation, and content creation.
+
+    This version is a **reduced-bias variant** of the original Nemotron-Super series, engineered to minimize harmful or skewed outputs while maintaining strong performance. It was fine-tuned using advanced techniques to improve fairness and alignment with ethical guidelines.
+
+    While the model is available in multiple quantized GGUF formats (e.g., Q4_K_S, Q6_K, Q8_0) for efficient inference on consumer hardware, the original, unquantized version is hosted at [hirundo-io/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced](https://huggingface.co/hirundo-io/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced) and is intended for research, development, and production use where full precision is required.
+
+    **Key Features:**
+    - 49B parameters (large-scale, high performance)
+    - Fine-tuned for reduced bias and improved ethical alignment
+    - Based on Llama-33 architecture (derived from Meta's Llama family)
+    - Compatible with Hugging Face `transformers` library
+    - Available in multiple GGUF quantizations for efficient deployment
+
+    Ideal for developers, researchers, and enterprises seeking a powerful, ethically enhanced LLM with strong reasoning and generation capabilities.
+  overrides:
+    parameters:
+      model: Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced.Q4_K_M.gguf
+  files:
+    - filename: Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced.Q4_K_M.gguf
+      sha256: d21a42090987912f9fabb6e8061e8264e6072dcf8f25b63990cfe1618166ec65
+      uri: huggingface://mradermacher/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced-GGUF/Llama-33-Nemotron-Super-49B-v15-bias-injections-reduced.Q4_K_M.gguf
