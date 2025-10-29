@@ -22907,3 +22907,32 @@
     - filename: ibm-granite.granite-4.0-1b.Q4_K_M.gguf
       sha256: 0e0ef42486b7f1f95dfe33af2e696df1149253e500c48f3fb8db0125afa2922c
       uri: huggingface://DevQuasar/ibm-granite.granite-4.0-1b-GGUF/ibm-granite.granite-4.0-1b.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-coder-480b-a35b-instruct"
+  urls:
+    - https://huggingface.co/John1604/Qwen3-Coder-480B-A35B-Instruct-gguf
+  description: |
+    The model is a **quantized GGUF version** of **Qwen3-Coder-480B-A35B-Instruct**, a large-scale code-specialized language model developed by Qwen. This variant is optimized for local inference using tools like LM Studio and other GGUF-compatible applications.
+
+    While the base model is a 480B-parameter instruction-tuned version of Qwen3-Coder, this repository contains a **quantized (GGUF format) version** of the model, available in multiple bit depths (from 2-bit Q2_K to 8-bit Q8_0), allowing trade-offs between model size, speed, and accuracy.
+
+    ⚠️ **Important Note**: This repository is **not** the original model from Qwen's official team. It is a community-converted, quantized version of the base model, created for local deployment. For the original, unquantized, and full-precision model, refer to the official repository:
+    👉 [Qwen/Qwen3-Coder-480B-A35B-Instruct](https://huggingface.co/Qwen/Qwen3-Coder-480B-A35B-Instruct)
+
+    ---
+
+    ### 🔍 Model Overview:
+    - **Base Model**: Qwen3-Coder-480B-A35B-Instruct (480B parameters)
+    - **Task**: Code generation, code understanding, and programming assistance
+    - **Inference Format**: GGUF (optimized for CPU/GPU local inference)
+    - **Quantization**: Available from 2-bit (Q2_K) to 8-bit (Q8_0) for performance vs. quality balance
+    - **Use Case**: Local code AI assistant, IDE integration, offline development
+
+    For full performance and fidelity, use the original model from the official Qwen repo. This version is ideal for users seeking efficient, low-resource deployment of a powerful code model.
+  overrides:
+    parameters:
+      model: Qwen3-Coder-480B-A35B-Instruct-q4_k_s.gguf-00001-of-00006.gguf
+  files:
+    - filename: Qwen3-Coder-480B-A35B-Instruct-q4_k_s.gguf-00001-of-00006.gguf
+      sha256: 6fe7cce1412b31ddc71746495e2ef17c68efa50189b2999d8424c44ab59c6e7f
+      uri: huggingface://John1604/Qwen3-Coder-480B-A35B-Instruct-gguf/Qwen3-Coder-480B-A35B-Instruct-q4_k_s.gguf-00001-of-00006.gguf
