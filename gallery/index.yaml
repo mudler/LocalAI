@@ -22859,3 +22859,51 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *granite4
+  name: "ibm-granite.granite-4.0-1b"
+  urls:
+    - https://huggingface.co/DevQuasar/ibm-granite.granite-4.0-1b-GGUF
+  description: |
+    ### **Granite-4.0-1B**
+    *By IBM | Apache 2.0 License*
+
+    **Overview:**
+    Granite-4.0-1B is a lightweight, instruction-tuned language model designed for efficient on-device and research use. Built on a decoder-only dense transformer architecture, it delivers strong performance in instruction following, code generation, tool calling, and multilingual tasks—making it ideal for applications requiring low latency and minimal resource usage.
+
+    **Key Features:**
+    - **Size:** 1.6 billion parameters (1B Dense), optimized for efficiency.
+    - **Capabilities:**
+      - Text generation, summarization, question answering
+      - Code completion and function calling (e.g., API integration)
+      - Multilingual support (English, Spanish, French, German, Japanese, Chinese, Arabic, Korean, Portuguese, Italian, Dutch, Czech)
+      - Robust safety and alignment via instruction tuning and reinforcement learning
+    - **Architecture:** Uses GQA (Grouped Query Attention), SwiGLU activation, RMSNorm, shared input/output embeddings, and RoPE position embeddings.
+    - **Context Length:** Up to 128K tokens — suitable for long-form content and complex reasoning.
+    - **Training:** Finetuned from *Granite-4.0-1B-Base* using open-source datasets, synthetic data, and human-curated instruction pairs.
+
+    **Performance Highlights (1B Dense):**
+    - **MMLU (5-shot):** 59.39
+    - **HumanEval (pass@1):** 74
+    - **IFEval (Alignment):** 80.82
+    - **GSM8K (8-shot):** 76.35
+    - **SALAD-Bench (Safety):** 93.44
+
+    **Use Cases:**
+    - On-device AI applications
+    - Research and prototyping
+    - Fine-tuning for domain-specific tasks
+    - Low-resource environments with high performance expectations
+
+    **Resources:**
+    - [Hugging Face Model](https://huggingface.co/ibm-granite/granite-4.0-1b)
+    - [Granite Docs](https://www.ibm.com/granite/docs/)
+    - [GitHub Repository](https://github.com/ibm-granite/granite-4.0-nano-language-models)
+
+    > *“Make knowledge free for everyone.” – IBM Granite Team*
+  overrides:
+    parameters:
+      model: ibm-granite.granite-4.0-1b.Q4_K_M.gguf
+  files:
+    - filename: ibm-granite.granite-4.0-1b.Q4_K_M.gguf
+      sha256: 0e0ef42486b7f1f95dfe33af2e696df1149253e500c48f3fb8db0125afa2922c
+      uri: huggingface://DevQuasar/ibm-granite.granite-4.0-1b-GGUF/ibm-granite.granite-4.0-1b.Q4_K_M.gguf
