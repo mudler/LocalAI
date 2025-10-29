@@ -22950,3 +22950,26 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "tars-sft-7b"
+  urls:
+    - https://huggingface.co/mradermacher/TARS-SFT-7B-GGUF
+  description: |
+    **TARS-SFT-7B** is a 7-billion-parameter, safety-focused, instruction-tuned language model developed as part of the *Training Adaptive Reasoners for Safety* (TARS) framework. Built on top of **Qwen2.5-7B-Instruct**, it is specifically fine-tuned to enhance reasoning and safety alignment through supervised fine-tuning (SFT), serving as the base model for reinforcement learning (RL) in safety-critical applications.
+
+    Designed to improve robustness against harmful or unsafe outputs, TARS-SFT-7B demonstrates strong reasoning capabilities while prioritizing ethical and reliable behavior. It is ideal for applications requiring trustworthy AI reasoning, such as content moderation, secure dialogue systems, and responsible AI deployment.
+
+    - **Base Model**: Qwen2.5-7B-Instruct
+    - **Training Approach**: Supervised Fine-Tuning (SFT)
+    - **Use Case**: Safety-aligned reasoning, RL training, secure AI systems
+    - **License**: Apache 2.0
+    - **Paper**: [Reasoning as an Adaptive Defense for Safety](https://arxiv.org/abs/2507.00971)
+
+    Perfect for researchers and developers seeking a lightweight, safety-conscious model for advanced reasoning tasks.
+  overrides:
+    parameters:
+      model: TARS-SFT-7B.Q4_K_S.gguf
+  files:
+    - filename: TARS-SFT-7B.Q4_K_S.gguf
+      sha256: 18823ee21f338d7ef06ceb9285efd9c81c78580650c3cb38e203805c59db2e8e
+      uri: huggingface://mradermacher/TARS-SFT-7B-GGUF/TARS-SFT-7B.Q4_K_S.gguf
