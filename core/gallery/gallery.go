@@ -61,12 +61,15 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	term = strings.ToLower(term)
 	for _, m := range gm {
 		if fuzzy.Match(term, strings.ToLower(m.GetName())) ||
-			fuzzy.Match(term, strings.ToLower(m.GetDescription())) ||
 			fuzzy.Match(term, strings.ToLower(m.GetGallery().Name)) ||
+			strings.Contains(strings.ToLower(m.GetName()), term) ||
+			strings.Contains(strings.ToLower(m.GetDescription()), term) ||
+			strings.Contains(strings.ToLower(m.GetGallery().Name), term) ||
 			strings.Contains(strings.ToLower(strings.Join(m.GetTags(), ",")), term) {
 			filteredModels = append(filteredModels, m)
 		}
 	}
+
 	return filteredModels
 }
 
