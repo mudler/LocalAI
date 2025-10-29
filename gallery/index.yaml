@@ -22950,3 +22950,16 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *flux
+  name: "wan_2.2_10steps_gguf"
+  urls:
+    - https://huggingface.co/StefanFalkok/Wan_2.2_10steps_GGUF
+  description: |
+    The model **Wan 2.2 10steps GGUF** is a quantized version of the Wan 2.2 multimodal diffusion model, optimized for efficient inference using the GGUF format. It supports text-to-video (T2V) and image-to-video (I2V) generation with 10 inference steps, enabling fast and lightweight video synthesis on consumer hardware. The model was fine-tuned on diverse video datasets and is designed for creative applications such as short-form video generation and animation.
+
+    > ⚠️ Note: This is a **quantized** version (GGUF format) created by the community (StefanFalkok), **not the original model**. The original base model is likely based on a diffusion architecture such as Stable Video Diffusion or a similar foundation, but the official release and full technical description should be referenced from the original author’s repository.
+
+    For accurate details about the base architecture, training data, and full capabilities, please refer to the original model's official repository, which is not hosted under this quantized version. This GGUF variant is intended for local inference with tools like `llama.cpp` or compatible systems.
+  overrides:
+    parameters:
+      model: StefanFalkok/Wan_2.2_10steps_GGUF
