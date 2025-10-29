@@ -22859,3 +22859,28 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *qwen3
+  name: "apollo-astralis-4b"
+  urls:
+    - https://huggingface.co/mradermacher/apollo-astralis-4b-GGUF
+  description: |
+    **Apollo-Astralis V1 4B**
+    *Developed by VANTA Research | Based on Qwen3-4B-Thinking*
+
+    A warm, enthusiastic, and highly collaborative reasoning model designed for engaging, empathetic conversations. Built on the Qwen3-4B-Thinking base and fine-tuned with LoRA for enhanced logical thinking, emotional intelligence, and consistent persona. Excels in step-by-step problem-solving, celebrates achievements with genuine energy, and maintains a supportive, "we’re in this together" tone.
+
+    - **Use Case**: Conversational reasoning, collaborative learning, creative brainstorming, empathetic AI assistant
+    - **Strengths**: Emotional warmth, clear reasoning steps, high engagement, natural language
+    - **Architecture**: Causal Transformer (4B parameters, 33M trainable via LoRA)
+    - **License**: Apache 2.0
+    - **Base Model**: [Qwen/Qwen3-4B-Thinking](https://huggingface.co/Qwen/Qwen3-4B-Thinking-2507)
+    - **Recommended For**: Users seeking a friendly, intelligent assistant that combines sharp thinking with emotional support and excitement.
+
+    > *“This model doesn’t just solve problems — it celebrates them.”*
+  overrides:
+    parameters:
+      model: apollo-astralis-4b.Q4_K_M.gguf
+  files:
+    - filename: apollo-astralis-4b.Q4_K_M.gguf
+      sha256: c6820185ed41dea08059eb107aa8be3ca9a7adcb4b2470da545cca7d196c1455
+      uri: huggingface://mradermacher/apollo-astralis-4b-GGUF/apollo-astralis-4b.Q4_K_M.gguf
