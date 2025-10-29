@@ -22859,3 +22859,32 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *gemma3
+  name: "gemma3toxictextclassifier-q8_0"
+  urls:
+    - https://huggingface.co/cike-dev/Gemma3ToxicTextClassifier-Q8_0-GGUF
+  description: |
+    **Model Name:** Gemma3ToxicTextClassifier
+    **Base Model:** [unsloth/gemma-3-270m-it](https://huggingface.co/unsloth/gemma-3-270m-it)
+    **Task:** Toxic Text Classification (fine-tuned via Supervised Fine-Tuning)
+    **Framework:** Hugging Face Transformers + TRL (v0.23.0)
+    **License:** [MIT](https://github.com/huggingface/trl/blob/main/LICENSE) (see model card)
+
+    **Description:**
+    A fine-tuned variant of the lightweight **Gemma-3-270m-it** model, specifically optimized for detecting toxic or harmful text. Trained using Supervised Fine-Tuning (SFT) with the Hugging Face TRL library, this model is suitable for applications requiring real-time inference and low-resource deployment. Designed for efficient performance on consumer hardware, it maintains strong accuracy while being highly accessible via standard Transformers pipelines.
+
+    **Use Case:**
+    Ideal for content moderation, chatbot safety filtering, or any system requiring rapid identification of toxic language in user-generated text.
+
+    **Quick Usage:**
+    ```python
+    from transformers import pipeline
+    classifier = pipeline("text-generation", model="cike-dev/Gemma3ToxicTextClassifier", device="cuda")
+    response = classifier("Is this message toxic? 'You're an idiot.'")[0]["generated_text"]
+    print(response)
+    ```
+
+    > ⚠️ Note: This model is *not* the original Gemma model — it is a fine-tuned version of `unsloth/gemma-3-270m-it`. For the base model details, refer to [unsloth/gemma-3-270m-it](https://huggingface.co/unsloth/gemma-3-270m-it).
+  overrides:
+    parameters:
+      model: cike-dev/Gemma3ToxicTextClassifier-Q8_0-GGUF
