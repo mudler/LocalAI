@@ -22907,3 +22907,46 @@
     - filename: ibm-granite.granite-4.0-1b.Q4_K_M.gguf
       sha256: 0e0ef42486b7f1f95dfe33af2e696df1149253e500c48f3fb8db0125afa2922c
       uri: huggingface://DevQuasar/ibm-granite.granite-4.0-1b-GGUF/ibm-granite.granite-4.0-1b.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "apollo-astralis-4b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/apollo-astralis-4b-i1-GGUF
+  description: |
+    **Apollo-Astralis V1 4B**
+    *A warm, enthusiastic, and empathetic reasoning model built on Qwen3-4B-Thinking*
+
+    **Overview**
+    Apollo-Astralis V1 4B is a 4-billion-parameter conversational AI designed for collaborative, emotionally intelligent problem-solving. Developed by VANTA Research, it combines rigorous logical reasoning with a vibrant, supportive communication style—making it ideal for creative brainstorming, educational support, and personal development.
+
+    **Key Features**
+    - 🤔 **Explicit Reasoning**: Uses `</tool_call>` tags to break down thought processes step by step
+    - 💬 **Warm & Enthusiastic Tone**: Celebrates achievements with energy and empathy
+    - 🤝 **Collaborative Style**: Engages users with "we" language and clarifying questions
+    - 🔍 **High Accuracy**: Achieves 100% in enthusiasm detection and 90% in empathy recognition
+    - 🎯 **Fine-Tuned for Real-World Use**: Trained with LoRA on a dataset emphasizing emotional intelligence and consistency
+
+    **Base Model**
+    Built on **Qwen3-4B-Thinking** and enhanced with lightweight LoRA fine-tuning (33M trainable parameters).
+    Available in both full and quantized (GGUF) formats via Hugging Face and Ollama.
+
+    **Use Cases**
+    - Personal coaching & motivation
+    - Creative ideation & project planning
+    - Educational tutoring with emotional support
+    - Mental wellness conversations (complementary, not替代)
+
+    **License**
+    Apache 2.0 — open for research, commercial, and personal use.
+
+    **Try It**
+    👉 [Hugging Face Page](https://huggingface.co/VANTA-Research/apollo-astralis-v1-4b)
+    👉 [Ollama](https://ollama.com/vanta-research/apollo-astralis-v1-4b)
+
+    *Developed by VANTA Research — where reasoning meets warmth.*
+  overrides:
+    parameters:
+      model: apollo-astralis-4b.i1-Q4_K_M.gguf
+  files:
+    - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
+      sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
+      uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
