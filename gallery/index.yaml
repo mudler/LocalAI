@@ -22907,3 +22907,18 @@
     - filename: ibm-granite.granite-4.0-1b.Q4_K_M.gguf
       sha256: 0e0ef42486b7f1f95dfe33af2e696df1149253e500c48f3fb8db0125afa2922c
       uri: huggingface://DevQuasar/ibm-granite.granite-4.0-1b-GGUF/ibm-granite.granite-4.0-1b.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-med"
+  urls:
+    - https://huggingface.co/rishiraj/gemma-3-med-gguf
+  description: |
+    The **gemma-3-med-gguf** model is a quantized version of the Gemma-3 series, specifically fine-tuned for medical domain tasks. It is based on Google's Gemma-3 architecture, a family of lightweight, open-source language models designed for efficiency and performance on edge and mobile devices. This variant has been adapted to understand and generate medical text, making it suitable for applications such as clinical note summarization, medical question answering, and health information extraction.
+
+    The model is available in GGUF format, which enables efficient inference on CPU and low-resource hardware using tools like `llama.cpp`. While the original Gemma-3 models were developed by Google, this particular version was created and shared by the community contributor **rishiraj**, who performed the quantization and packaging for broader accessibility.
+
+    ⚠️ **Note**: This is a quantized (lower-precision) version, so it may have slightly reduced accuracy compared to the original full-precision model. For the most accurate and complete description, refer to the base model: **gemma-3-8b** (or **gemma-3-27b**, depending on the variant) from the official [Google Research GitHub](https://github.com/google-research/gemma).
+
+    For use in production or research, consider verifying performance on medical benchmarks and using the original model for training or high-accuracy inference.
+  overrides:
+    parameters:
+      model: rishiraj/gemma-3-med-gguf
