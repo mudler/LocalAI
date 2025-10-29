@@ -22859,3 +22859,25 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *qwen3
+  name: "qwen3-next-80b-a3b-thinking-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-Next-80B-A3B-Thinking-MXFP4_MOE-GGUF
+  description: |
+    **Qwen3-Next-80B-A3B-Thinking**
+    *An ultra-large-scale, high-efficiency reasoning model for complex, long-context tasks*
+
+    - **Architecture**: Hybrid attention with **Gated DeltaNet** and **Gated Attention**, combined with a **high-sparsity Mixture-of-Experts (MoE)** design (512 experts, 10 active per layer) for unprecedented inference efficiency and capacity.
+    - **Parameters**: 80B total (3B activated per token), optimized for scalability and low FLOPs per token.
+    - **Context Length**: Native support for **262,144 tokens**, extendable to **1,010,000 tokens** using YaRN RoPE scaling.
+    - **Key Features**:
+      - Designed for **complex reasoning** with native "thinking mode" (outputs wrapped in `</tool_call>...` for structured reflection).
+      - **Multi-Token Prediction (MTP)** boosts training and inference performance.
+      - Outperforms leading models like **Gemini-2.5-Flash-Thinking**, **Qwen3-30B-A3B-Thinking**, and **Qwen3-32B-Thinking** across MMLU, GPQA, coding, and agent benchmarks.
+    - **Use Cases**: Ideal for long-form reasoning, multi-step problem solving, agent-based workflows, and ultra-long document analysis.
+    - **Deployment**: Works with **vLLM**, **SGLang**, and **Hugging Face Transformers** (with latest versions).
+
+    > 🔍 *Note: This is the original base model — the GGUF version from `noctrex/Qwen3-Next-80B-A3B-Thinking-MXFP4_MOE-GGUF` is a quantized variant for local inference, not the original model.*
+  overrides:
+    parameters:
+      model: noctrex/Qwen3-Next-80B-A3B-Thinking-MXFP4_MOE-GGUF
