@@ -22859,3 +22859,41 @@
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
+- !!merge <<: *qwen25
+  name: "edie_qwen2.5_0.5b_simple-qa-emotion"
+  urls:
+    - https://huggingface.co/HueyWoo/EDIE_qwen2.5_0.5B_Simple-QA-Emotion-gguf
+  description: |
+    **Model Name:** Qwen2.5-0.5B-Instruct
+    **Author:** Qwen Team (Alibaba Cloud)
+    **Repository:** [Qwen/Qwen2.5-0.5B-Instruct](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct)
+    **License:** Apache 2.0
+
+    ### Description:
+    A lightweight, instruction-tuned large language model from the Qwen2.5 series, designed for efficient and effective conversational AI. With only 0.5 billion parameters, it delivers strong performance in natural language understanding, code generation, mathematical reasoning, and structured output generation (e.g., JSON), while maintaining high efficiency and low memory usage.
+
+    ### Key Features:
+    - ✅ **Instruction-Following:** Fine-tuned for dialogue and task execution using high-quality conversational datasets.
+    - 📚 **Knowledge & Reasoning:** Enhanced capabilities in coding, math, and domain-specific reasoning.
+    - 🧠 **Long Context Support:** Handles up to **32,768 tokens** context and generates up to **8,192 tokens**.
+    - 🌍 **Multilingual:** Supports over 29 languages, including Chinese, English, French, Spanish, German, Japanese, Korean, and more.
+    - ⚡ **Efficient Architecture:** Uses advanced techniques like GQA (Grouped Query Attention), RoPE, SwiGLU, and RMSNorm for optimal speed and memory usage.
+    - 📦 **Easy Integration:** Compatible with Hugging Face Transformers and supports GGUF, vLLM, and other inference engines.
+
+    ### Ideal Use Cases:
+    - Lightweight chatbots and assistants
+    - Educational tools and coding tutors
+    - Multilingual applications
+    - On-device or edge inference (due to small size and efficiency)
+
+    ### Recommended For:
+    Developers seeking a compact, high-performing, and versatile LLM for real-time, multilingual, and instruction-aware applications.
+
+    > 🔗 **Get Started:** [View on Hugging Face](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) | [Documentation](https://qwen.readthedocs.io/en/latest/) | [Blog: Qwen2.5 Launch](https://qwenlm.github.io/blog/qwen2.5/)
+  overrides:
+    parameters:
+      model: unsloth.Q4_K_M.gguf
+  files:
+    - filename: unsloth.Q4_K_M.gguf
+      sha256: 2142bbf26ff749cdbde0918e4b865620c34f3cbfa9538f122d94c3ccf0f3e0b9
+      uri: huggingface://HueyWoo/EDIE_qwen2.5_0.5B_Simple-QA-Emotion-gguf/unsloth.Q4_K_M.gguf
