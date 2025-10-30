@@ -23071,3 +23071,12 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "cardjson-24b-v1c"
+  urls:
+    - https://huggingface.co/BeaverAI/CardJSON-24B-v1c-GGUF
+  description: |
+    AI model: cardjson-24b-v1c
+  overrides:
+    parameters:
+      model: BeaverAI/CardJSON-24B-v1c-GGUF
