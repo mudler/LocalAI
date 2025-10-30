@@ -23071,3 +23071,57 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vlto-32b-thinking-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-VLTO-32B-Thinking
+    **Repository:** `qingy2024/Qwen3-VLTO-32B-Thinking`
+    **Type:** Large Language Model (Text-Only)
+    **Base Model:** Qwen/Qwen3-VL-32B-Thinking (derived from Qwen3-VL-32B, stripped of vision components)
+    **Architecture:** Transformer-based, text-only variant of the multimodal Qwen3-VL model
+    **License:** Apache 2.0
+
+    ---
+
+    ### 📌 Description:
+    Qwen3-VLTO-32B-Thinking is a **32-billion-parameter text-only language model** derived from the original Qwen3-VL-32B-Thinking multimodal model. It has been carefully stripped of its vision encoder and multimodal components, leaving a pure, high-performance text generation model. This makes it ideal for tasks requiring advanced reasoning, instruction-following, and long-context understanding — all without the need for image input.
+
+    The model is fine-tuned for **reasoning and thinking tasks**, enhancing its ability to solve complex problems step-by-step. It maintains full compatibility with the standard Qwen3 text model ecosystem, including Hugging Face `transformers`, and can be used in any application that supports LLM inference.
+
+    ---
+
+    ### 📦 Key Features:
+    - **Text-only**: Optimized for language understanding and generation.
+    - **High reasoning capability**: Trained for structured thinking and problem-solving.
+    - **Large context length**: Supports long inputs and outputs (up to 32K tokens).
+    - **Ready for inference**: Fully compatible with `transformers`, `llama.cpp`, and other LLM frameworks.
+    - **Open weights**: Freely available under Apache 2.0 license.
+
+    ---
+
+    ### 🧪 Use Cases:
+    - Advanced chatbots and assistants
+    - Code generation and debugging
+    - Logical reasoning and mathematical problem solving
+    - Long-form content creation
+    - Research and experimentation with large-scale LLMs
+
+    ---
+
+    ### 🔗 Links:
+    - [Model Card on Hugging Face](https://huggingface.co/qingy2024/Qwen3-VLTO-32B-Thinking)
+    - [Original VL Model](https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking)
+    - [Quantized GGUF Versions (by mradermacher)](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-i1-GGUF)
+
+    ---
+
+    > ✅ **Note**: This is the *original*, non-quantized, full-precision version. For lightweight inference, refer to the GGUF quantizations by mradermacher.
+  overrides:
+    parameters:
+      model: Qwen3-VLTO-32B-Thinking.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VLTO-32B-Thinking.i1-Q4_K_M.gguf
+      sha256: 241606d9aade2086c7d7bc76f3b8770fc64a3981a3db6f824706208b2041bf4b
+      uri: huggingface://mradermacher/Qwen3-VLTO-32B-Thinking-i1-GGUF/Qwen3-VLTO-32B-Thinking.i1-Q4_K_M.gguf
