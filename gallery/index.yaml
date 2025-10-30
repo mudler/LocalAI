@@ -23071,3 +23071,91 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-nemotron-70b-reward-principle"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-Nemotron-70B-Reward-Principle-GGUF
+  description: |
+    ### **Model Description: Llama-3.3-Nemotron-70B-Reward-Principle**
+
+    **Base Model:** Meta-Llama-3.3-70B-Instruct
+    **Type:** Reward Model (Scalar)
+    **Size:** 70 billion parameters
+    **Architecture:** Transformer (Llama 3.3)
+    **Language:** English
+    **License:** [NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/)
+
+    ---
+
+    ### **Overview**
+    Llama-3.3-Nemotron-70B-Reward-Principle is a state-of-the-art reward model fine-tuned to evaluate how well an LLM-generated response satisfies a given user-specified principle (e.g., correctness, helpfulness, safety). It assigns a numerical reward score—higher values indicate better alignment with the principle—enabling precise, scalable evaluation of model outputs.
+
+    ---
+
+    ### **Key Features**
+    - **High Performance:** Ranked among the top reward models on both **JudgeBench (76.3%)** and **RM-Bench (83.6%)**.
+    - **Flexible Use:** Evaluates responses across diverse domains including chat, math, code, and safety.
+    - **Built on Llama 3.3:** Leverages the robust foundation of Meta’s Llama-3.3-70B-Instruct model.
+    - **Trained on HelpSteer3:** Fine-tuned on 77K human-annotated, principle-based feedback pairs.
+    - **Optimized for GPU:** Designed to run efficiently on NVIDIA GPUs (Ampere/Hopper/Turing).
+
+    ---
+
+    ### **Use Cases**
+    - LLM evaluation and ranking in AI alignment research
+    - Fine-tuning and reinforcement learning (RLHF/RLAIF) pipelines
+    - Benchmarking model behavior under specific criteria
+    - Building autonomous AI judges for safety and quality control
+
+    ---
+
+    ### **Quick Start (Hugging Face Transformers)**
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model_name = "nvidia/Llama-3.3-Nemotron-70B-Reward-Principle"
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype=torch.bfloat16, device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+    prompt = "What is 1+1?"
+    response = "1+1=2"
+    principle = "correctness"
+
+    messages = [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": response},
+        {"role": "user", "content": f"Evaluate in terms of {principle}. Only answer Yes or No."}
+    ]
+
+    inputs = tokenizer.apply_chat_template(messages, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        outputs = model.generate(inputs, max_new_tokens=1, output_scores=True, return_dict_in_generate=True)
+        score_yes = outputs.scores[0][0][9642].item()
+        score_no = outputs.scores[0][0][2822].item()
+        reward = score_yes - score_no
+    print(f"Reward score: {reward:.3f}")  # Higher = better alignment
+    ```
+
+    ---
+
+    ### **Citation**
+    ```bibtex
+    @misc{wang2025rlbffbinaryflexiblefeedback,
+      title = {RLBFF: Binary Flexible Feedback to bridge between Human Feedback & Verifiable Rewards},
+      author = {Zhilin Wang and Jiaqi Zeng and Olivier Delalleau and Ellie Evans and Daniel Egert and Hoo-Chang Shin and Felipe Soares and Yi Dong and Oleksii Kuchaiev},
+      year = {2025},
+      eprint = {2509.21319},
+      archivePrefix = {arXiv},
+      primaryClass = {cs.CL},
+      url = {https://arxiv.org/abs/2509.21319}
+    }
+    ```
+
+    > ✅ **Note:** This is the **original, non-quantized** model from NVIDIA. Quantized versions (e.g., GGUF) are available separately and may differ in performance. Use this version for research, evaluation, and high-accuracy tasks.
+  overrides:
+    parameters:
+      model: Llama-3.3-Nemotron-70B-Reward-Principle.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-Nemotron-70B-Reward-Principle.Q4_K_M.gguf
+      sha256: 704c529a367ee2eceb72ffb3e12c68a5ea65278fc772e51308b7e8f7ef40fec4
+      uri: huggingface://mradermacher/Llama-3.3-Nemotron-70B-Reward-Principle-GGUF/Llama-3.3-Nemotron-70B-Reward-Principle.Q4_K_M.gguf
