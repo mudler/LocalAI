@@ -23071,3 +23071,30 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "ui-ins-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/UI-Ins-32B-i1-GGUF
+  description: |
+    **Model Name:** UI-Ins-32B
+    **Base Model:** Qwen2.5-VL-32B-Instruct
+    **Task:** GUI Grounding & Agent Reasoning
+    **License:** CC-BY-NC-SA 4.0 (non-commercial use only)
+
+    **Description:**
+    UI-Ins-32B is a state-of-the-art vision-language model designed for advanced GUI grounding, enabling AI agents to understand and execute natural language instructions on graphical user interfaces. Built on the Qwen2.5-VL-32B-Instruct foundation, it introduces the *Instruction-as-Reasoning* paradigm—treating instructions as dynamic reasoning pathways that the model can analyze, select, and compose to improve accuracy and robustness.
+
+    Through a two-stage training process (SFT + RL), UI-Ins-32B achieves **87.3% accuracy on UI-I2E-Bench**, **57.0% on ScreenSpot-Pro**, and **84.9% on MMBench-GUI L2**, setting new benchmarks in GUI grounding. It also demonstrates strong agentic capabilities, achieving **74.1% success rate on AndroidWorld**.
+
+    Ideal for researchers and developers building intelligent GUI agents, this model supports multi-perspective instruction analysis, dynamic reasoning, and precise action prediction—making it a powerful tool for human-AI interaction in visual environments.
+
+    🔗 *Paper:* [UI-Ins: Enhancing GUI Grounding with Multi-Perspective Instruction-as-Reasoning](https://arxiv.org/abs/2510.20286)
+    🔗 *Hugging Face:* [Tongyi-MiA/UI-Ins-32B](https://huggingface.co/Tongyi-MiA/UI-Ins-32B)
+    🎨 *Use Case:* AI-powered automation, GUI agent development, interactive UI systems
+  overrides:
+    parameters:
+      model: UI-Ins-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: UI-Ins-32B.i1-Q4_K_M.gguf
+      sha256: 685b628e53470d875291d61ef70aadd8c95d77e1d694d0fee88520cd0848e414
+      uri: huggingface://mradermacher/UI-Ins-32B-i1-GGUF/UI-Ins-32B.i1-Q4_K_M.gguf
