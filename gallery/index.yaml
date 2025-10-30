@@ -23071,3 +23071,41 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-nemotron-32b-rlbff-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-Nemotron-32B-RLBFF
+    **Base Model:** Qwen/Qwen3-32B
+    **Developer:** NVIDIA
+    **License:** NVIDIA Open Model License
+
+    **Description:**
+    Qwen3-Nemotron-32B-RLBFF is a high-performance, fine-tuned large language model built on the Qwen3-32B foundation. It is specifically optimized to generate high-quality, helpful responses in a default thinking mode through advanced reinforcement learning with binary flexible feedback (RLBFF). Trained on the HelpSteer3 dataset, this model excels in reasoning, planning, coding, and information-seeking tasks while maintaining strong safety and alignment with human preferences.
+
+    **Key Performance (as of Sep 2025):**
+    - **MT-Bench:** 9.50 (near GPT-4-Turbo level)
+    - **Arena Hard V2:** 55.6%
+    - **WildBench:** 70.33%
+
+    **Architecture & Efficiency:**
+    - 32 billion parameters, based on the Qwen3 Transformer architecture
+    - Designed for deployment on NVIDIA GPUs (Ampere, Hopper, Turing)
+    - Achieves performance comparable to DeepSeek R1 and O3-mini at less than 5% of the inference cost
+
+    **Use Case:**
+    Ideal for applications requiring reliable, thoughtful, and safe responses—such as advanced chatbots, research assistants, and enterprise AI systems.
+
+    **Access & Usage:**
+    Available on Hugging Face with support for Hugging Face Transformers and vLLM.
+    **Cite:** [Wang et al., 2025 — RLBFF: Binary Flexible Feedback](https://arxiv.org/abs/2509.21319)
+
+    👉 *Note: The GGUF version (mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF) is a user-quantized variant. The original model is available at nvidia/Qwen3-Nemotron-32B-RLBFF.*
+  overrides:
+    parameters:
+      model: Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
+      sha256: 000e8c65299fc232d1a832f1cae831ceaa16425eccfb7d01702d73e8bd3eafee
+      uri: huggingface://mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF/Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
