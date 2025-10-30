@@ -23047,3 +23047,27 @@
     - filename: Qwen3-VLTO-32B-Thinking.Q4_K_M.gguf
       sha256: d88b75df7c40455dfa21ded23c8b25463a8d58418bb6296304052b7e70e96954
       uri: huggingface://mradermacher/Qwen3-VLTO-32B-Thinking-GGUF/Qwen3-VLTO-32B-Thinking.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-the-grand-horror-27b"
+  urls:
+    - https://huggingface.co/DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF
+  description: |
+    The **Gemma-3-The-Grand-Horror-27B-GGUF** model is a **fine-tuned version** of Google's **Gemma 3 27B** language model, specifically optimized for **extreme horror-themed text generation**. It was trained using the **Unsloth framework** on a custom in-house dataset of horror content, resulting in a model that produces vivid, graphic, and psychologically intense narratives—featuring gore, madness, and disturbing imagery—often even when prompts don't explicitly request horror.
+
+    Key characteristics:
+    - **Base Model**: Gemma 3 27B (original by Google, not the quantized version)
+    - **Fine-tuned For**: High-intensity horror storytelling, long-form narrative generation, and immersive scene creation
+    - **Use Case**: Creative writing, horror RP, dark fiction, and experimental storytelling
+    - **Not Suitable For**: General use, children, sensitive audiences, or content requiring neutral/positive tone
+    - **Quantization**: Available in GGUF format (e.g., q3k, q4, etc.), making it accessible for local inference on consumer hardware
+
+    > ✅ **Note**: The model card you see is for a **quantized, fine-tuned derivative**, not the original. The true base model is **Gemma 3 27B**, available at: https://huggingface.co/google/gemma-3-27b
+
+    This model is not for all audiences — it generates content with a consistently dark, unsettling tone. Use responsibly.
+  overrides:
+    parameters:
+      model: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+  files:
+    - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+      sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
+      uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
