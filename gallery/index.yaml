@@ -23150,3 +23150,35 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-4b-thinking"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-4B-Thinking-GGUF
+  description: |
+    **Qwen3-VL-4B-Thinking** is a state-of-the-art vision-language model from the Qwen series, designed for advanced multimodal understanding and reasoning. It excels in tasks involving both images and text, offering powerful capabilities in visual perception, spatial reasoning, long-context understanding (up to 256K tokens, expandable to 1M), and video comprehension.
+
+    Key features include:
+    - **Visual Agent**: Can interact with GUIs, recognize elements, and perform tasks on devices.
+    - **Visual Coding**: Generates code (HTML, CSS, JS, Draw.io) from visual inputs.
+    - **Advanced Spatial & Temporal Reasoning**: Understands object positions, viewpoints, occlusions, and video events with precise timestamp alignment.
+    - **Enhanced OCR**: Supports 32 languages with strong performance under challenging conditions (blur, low light, tilt).
+    - **Multimodal Reasoning**: Superior in STEM, logical deduction, and evidence-based responses.
+    - **High-Fidelity Pretraining**: Recognizes a wide range of visual content—celebrities, products, landmarks, flora/fauna, and more.
+
+    Built with innovative architectures like **Interleaved-MRoPE**, **DeepStack**, and **Text–Timestamp Alignment**, it delivers seamless fusion of text and vision for unified, lossless comprehension.
+
+    This model is available in a 4B-parameter **Thinking** version, optimized for reasoning tasks, and is ideal for applications in AI agents, document understanding, educational tools, and embodied AI systems.
+
+    > ✅ **Base model**: `Qwen/Qwen3-VL-4B-Thinking`
+    > 📌 **License**: Apache 2.0
+    > 🛠️ **Library**: Hugging Face Transformers
+    > 🧠 **Use Case**: Vision-language understanding, multimodal reasoning, agent-based tasks, long-context analysis
+
+    *Originally developed by Alibaba’s Qwen team, this repository contains the official weights for the base model.*
+  overrides:
+    parameters:
+      model: Qwen3-VL-4B-Thinking.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-4B-Thinking.Q4_K_M.gguf
+      sha256: c02a7af30195a6fbbb1a1b4a8210c1b0de90808a44616ae3a4232489d1772571
+      uri: huggingface://mradermacher/Qwen3-VL-4B-Thinking-GGUF/Qwen3-VL-4B-Thinking.Q4_K_M.gguf
