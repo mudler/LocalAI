@@ -23109,3 +23109,44 @@
     - filename: Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
       sha256: 000e8c65299fc232d1a832f1cae831ceaa16425eccfb7d01702d73e8bd3eafee
       uri: huggingface://mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF/Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "financial-gpt-oss-20b-q8-i1"
+  urls:
+    - https://huggingface.co/mradermacher/financial-gpt-oss-20b-q8-i1-GGUF
+  description: |
+    ### **Financial GPT-OSS 20B (Base Model)**
+
+    **Model Type:** Causal Language Model (Fine-tuned for Financial Analysis)
+    **Architecture:** Mixture of Experts (MoE) – 20B parameters, 32 experts (4 active per token)
+    **Base Model:** `unsloth/gpt-oss-20b-unsloth-bnb-4bit`
+    **Fine-tuned With:** LoRA (Low-Rank Adaptation) on financial conversation data
+    **Training Data:** 22,250 financial dialogue pairs covering stocks (AAPL, NVDA, TSLA, etc.), technical analysis, risk assessment, and trading signals
+    **Context Length:** 131,072 tokens
+    **Quantization:** Q8_0 GGUF (for efficient inference)
+    **License:** Apache 2.0
+
+    **Key Features:**
+    - Specialized in financial market analysis: technical indicators (RSI, MACD), risk assessments, trading signals, and price forecasts
+    - Handles complex financial queries with structured, actionable insights
+    - Designed for real-time use with low-latency inference (GGUF format)
+    - Supports S&P 500 stocks and major asset classes across tech, healthcare, energy, and finance sectors
+
+    **Use Case:** Ideal for traders, analysts, and developers building financial AI tools. Use with caution—**not financial advice**.
+
+    **Citation:**
+    ```bibtex
+    @misc{financial-gpt-oss-20b-q8,
+      title={Financial GPT-OSS 20B Q8: Fine-tuned Financial Analysis Model},
+      author={beenyb},
+      year={2025},
+      publisher={Hugging Face Hub},
+      url={https://huggingface.co/beenyb/financial-gpt-oss-20b-q8}
+    }
+    ```
+  overrides:
+    parameters:
+      model: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+  files:
+    - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+      sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
+      uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
