@@ -22950,3 +22950,16 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-3-the-grand-horror-4b"
+  urls:
+    - https://huggingface.co/DavidAU/Gemma-3-The-Grand-Horror-4B-GGUF
+  description: |
+    AI model: gemma-3-the-grand-horror-4b
+  overrides:
+    parameters:
+      model: Gemma-3-The-Grand-Horror-4B-Q2_k.gguf
+  files:
+    - filename: Gemma-3-The-Grand-Horror-4B-Q2_k.gguf
+      sha256: e0c4933cd6aebf38bf3b7b07a59cecb797d73cb5c7fef1736e27c7372eaa8946
+      uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-4B-GGUF/Gemma-3-The-Grand-Horror-4B-Q2_k.gguf
