@@ -23109,3 +23109,61 @@
     - filename: Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
       sha256: 000e8c65299fc232d1a832f1cae831ceaa16425eccfb7d01702d73e8bd3eafee
       uri: huggingface://mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF/Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "ramen-shio-235b"
+  urls:
+    - https://huggingface.co/mradermacher/RAMEN-SHIO-235B-GGUF
+  description: |
+    **Model Name:** RAMEN-SHIO-235B
+    **Base Model:** Qwen/Qwen3-235B-A22B-Thinking-2507
+    **Architecture:** Mixture-of-Experts (MoE), Qwen3-based
+    **Language:** Japanese (primarily), multilingual support
+    **License:** Apache 2.0
+    **Repository:** [weblab-llm-competition-2025-bridge/RAMEN-SHIO-235B](https://huggingface.co/weblab-llm-competition-2025-bridge/RAMEN-SHIO-235B)
+
+    ---
+
+    ### 📌 Overview
+    RAMEN-SHIO-235B is a highly advanced, large-scale language model developed by **Team RAMEN** for the **Matsuo Lab LLM Development Competition 2025**. Built on the Qwen3-235B-A22B-Thinking-2507 foundation, it is optimized using **Direct Preference Optimization (DPO)** to excel in **complex, high-level reasoning tasks** across scientific, mathematical, and humanities domains.
+
+    ### 🚀 Key Features
+    - **Mixture-of-Experts (MoE)** architecture: Enables efficient scaling and high performance on reasoning-intensive tasks.
+    - **Superior reasoning capabilities**: Achieves top-tier performance on benchmarks like *Humanity's Last Exam (HLE)*, outperforming its base model significantly.
+    - **Designed for academic-level reasoning**: Tailored for graduate-level problem-solving in STEM and humanities.
+    - **Supports long-context inference** (up to 262,144 tokens with 2-node setup).
+    - **Optimized for vLLM inference** with efficient memory usage via `expandable_segments:True`.
+
+    ### 📊 Performance Highlights
+    - **HLE (text-only)**: **18.58** (vs. 17.92 for base model)
+    - **HLE 300-split1 (3 rounds)**: Up to **21.64 ±4.93** (1st run), demonstrating strong robustness
+    - **Do-Not-Answer (DNA)**: 91.80% accuracy (indicating excellent refusal behavior)
+
+    ### ⚙️ Usage
+    - **Inference**: Use with **vLLM 0.10.1.1** and H100 80GB GPUs (8+ per node recommended).
+    - **Not for casual use**: Requires high-end hardware and expertise.
+    - **Model cards** provide detailed Slurm scripts, configuration, and troubleshooting.
+
+    ### 📌 Citation
+    ```bibtex
+    @misc{ramen_shio_235b_2025,
+      title={RAMEN-SHIO-235B: Reasoning AI Model Engineering Network},
+      author={Team RAMEN},
+      year={2025},
+      note={松尾研 LLM 開発コンペ 2025}
+    }
+    ```
+
+    ---
+
+    ✅ **Ideal for**: Researchers, AI engineers, and institutions tackling advanced reasoning, long-form problem-solving, and high-precision language understanding in Japanese and English.
+    🚫 **Not recommended for**: Low-resource or general-purpose use.
+
+    ---
+    📌 **Explore the official model card**: [https://huggingface.co/weblab-llm-competition-2025-bridge/RAMEN-SHIO-235B](https://huggingface.co/weblab-llm-competition-2025-bridge/RAMEN-SHIO-235B)
+  overrides:
+    parameters:
+      model: RAMEN-SHIO-235B.Q4_K_M.gguf.part1of3
+  files:
+    - filename: RAMEN-SHIO-235B.Q4_K_M.gguf.part1of3
+      sha256: 8d4a1c9362edb176d7a53e8da3799edad406043376689611dcba9863c8673ea8
+      uri: huggingface://mradermacher/RAMEN-SHIO-235B-GGUF/RAMEN-SHIO-235B.Q4_K_M.gguf.part1of3
