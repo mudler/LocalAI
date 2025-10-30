@@ -23150,3 +23150,25 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "januscoder-8b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/JanusCoder-8B-i1-GGUF
+  description: |
+    **JanusCoder-8B** is an open-source 8-billion-parameter foundational model developed by InternLM, designed to unify visual and programmatic understanding for advanced code intelligence. Built upon Qwen3-8B, it is trained on **JANUSCODE-800K**, the largest multimodal code corpus to date, enabling it to generate and edit code from text, images, or combined inputs. The model excels in tasks such as generating interactive UIs, data visualizations, and complex animations, making it ideal for developers and researchers working on code synthesis and visual programming.
+
+    Key features:
+    - **Multimodal input support**: Accepts text, images, or both to generate code.
+    - **High performance**: Outperforms models like Qwen3-8B, LLaMA3-8B, and GPT-4o on benchmarks such as PandasPlotBench and DTVBench.
+    - **Open-source**: Fully available on Hugging Face with Apache 2.0 license.
+    - **Use cases**: Code generation from visual or textual prompts, interactive web UI creation, animation scripting, and programmatic editing of visual effects.
+
+    📌 *Perfect for building intelligent code assistants, visual programming tools, and AI-driven development environments.*
+    🔗 Learn more: [Hugging Face Model Page](https://huggingface.co/internlm/JanusCoder-8B) | [GitHub Repo](https://github.com/InternLM/JanusCoder)
+  overrides:
+    parameters:
+      model: JanusCoder-8B.i1-Q4_K_M.gguf
+  files:
+    - filename: JanusCoder-8B.i1-Q4_K_M.gguf
+      sha256: 56ea6f4db58f5cfe5eea7a7c79ca29ecde457161f56f1a42a5d2a6832b04dcb3
+      uri: huggingface://mradermacher/JanusCoder-8B-i1-GGUF/JanusCoder-8B.i1-Q4_K_M.gguf
