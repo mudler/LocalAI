@@ -22950,3 +22950,75 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-nemotron-70b-reward-principle"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-Nemotron-70B-Reward-Principle-GGUF
+  description: |
+    **Model Name:** Llama-3.3-Nemotron-70B-Reward-Principle
+    **Base Model:** Meta-Llama-3.3-70B-Instruct
+    **Model Type:** Reward Model (Scalar)
+    **License:** NVIDIA Open Model License (with Llama 3.3 Community License)
+    **Release Date:** October 27, 2025
+
+    ---
+
+    ### 📌 Description:
+    Llama-3.3-Nemotron-70B-Reward-Principle is a high-performance **reward model** fine-tuned from the Meta-Llama-3.3-70B-Instruct foundation. It evaluates how well an LLM-generated response aligns with a user-specified principle (e.g., correctness, helpfulness, safety) by assigning a scalar reward score.
+
+    The model is trained on **HelpSteer3**, a dataset of 77,564 human-annotated prompt-response pairs, and achieves state-of-the-art performance on key benchmarks:
+    - **RM-Bench:** 83.6% (top-performing reward model)
+    - **JudgeBench:** 76.3% (top scalar reward model)
+
+    It enables precise, automated evaluation of LLM outputs—ideal for reinforcement learning, alignment research, and AI safety testing.
+
+    ---
+
+    ### 🔧 Key Features:
+    - **Architecture:** Transformer-based, Llama 3.3
+    - **Parameters:** 70B
+    - **Input:** Conversation history + user-specified principle (up to 4K tokens)
+    - **Output:** Single float reward score (higher = better alignment)
+    - **Hardware:** Optimized for NVIDIA GPUs (Ampere/Hopper/Turing)
+    - **Framework:** Hugging Face Transformers (PyTorch)
+
+    ---
+
+    ### 📚 Use Cases:
+    - Training reward models for RLHF/RLAIF
+    - Evaluating LLM responses for safety, accuracy, and helpfulness
+    - Benchmarking AI alignment and reasoning capabilities
+
+    ---
+
+    ### 📄 Citation:
+    ```bibtex
+    @misc{wang2025rlbffbinaryflexiblefeedback,
+      title={RLBFF: Binary Flexible Feedback to bridge between Human Feedback & Verifiable Rewards},
+      author={Zhilin Wang and Jiaqi Zeng and Olivier Delalleau and Ellie Evans and Daniel Egert and Hoo-Chang Shin and Felipe Soares and Yi Dong and Oleksii Kuchaiev},
+      year={2025},
+      eprint={2509.21319},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2509.21319},
+    }
+    ```
+
+    ---
+
+    ### 🔗 Resources:
+    - [Model Card](https://huggingface.co/nvidia/Llama-3.3-Nemotron-70B-Reward-Principle)
+    - [Paper (arXiv)](https://arxiv.org/abs/2509.21319)
+    - [RM-Bench Leaderboard](https://arxiv.org/abs/2410.16184)
+    - [JudgeBench Leaderboard](https://huggingface.co/spaces/ScalerLab/JudgeBench)
+
+    ---
+
+    ✅ *Built with Llama. Deployable on NVIDIA GPUs. Ideal for researchers and developers focused on AI alignment and evaluation.*
+  overrides:
+    parameters:
+      model: Llama-3.3-Nemotron-70B-Reward-Principle.Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-Nemotron-70B-Reward-Principle.Q4_K_M.gguf
+      sha256: 704c529a367ee2eceb72ffb3e12c68a5ea65278fc772e51308b7e8f7ef40fec4
+      uri: huggingface://mradermacher/Llama-3.3-Nemotron-70B-Reward-Principle-GGUF/Llama-3.3-Nemotron-70B-Reward-Principle.Q4_K_M.gguf
