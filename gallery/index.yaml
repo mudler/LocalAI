@@ -23071,3 +23071,77 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-nemotron-70b-reward-principle-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-Nemotron-70B-Reward-Principle-i1-GGUF
+  description: |
+    **Model Name:** Llama-3.3-Nemotron-70B-Reward-Principle
+    **Base Model:** meta-llama/Llama-3.3-70B-Instruct
+    **Repository:** [nvidia/Llama-3.3-Nemotron-70B-Reward-Principle](https://huggingface.co/nvidia/Llama-3.3-Nemotron-70B-Reward-Principle)
+    **License:** [NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/)
+
+    ---
+
+    ### 📌 **Description**
+    Llama-3.3-Nemotron-70B-Reward-Principle is a **large-scale reward model** trained to evaluate how well a language model response aligns with a user-specified principle (e.g., accuracy, helpfulness, safety). It takes a conversation and a principle as input and outputs a **scalar reward score**, where higher values indicate stronger adherence to the principle.
+
+    Built on **Llama 3.3 70B Instruct**, this model is fine-tuned using the **HelpSteer3** dataset and excels in evaluating AI-generated responses across diverse domains, including chat, math, code, and safety.
+
+    ---
+
+    ### 🏆 **Performance Highlights (as of Sep 2025)**
+    - **RM-Bench Score:** 83.6% — Top-performing reward model on this benchmark
+    - **JudgeBench Score:** 76.3% — Among the best for LLM-as-a-judge evaluation
+    - Trained on conversations up to 4,096 tokens; supports inputs up to 128K tokens.
+
+    ---
+
+    ### 🧠 **Use Case**
+    Ideal for **AI alignment**, **LLM evaluation**, and **reinforcement learning with human feedback (RLHF)** workflows. Enables systematic comparison of multiple responses based on specific criteria.
+
+    ---
+
+    ### 🔧 **Quick Usage (Python)**
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model = AutoModelForCausalLM.from_pretrained("nvidia/Llama-3.3-Nemotron-70B-Reward-Principle", torch_dtype=torch.bfloat16, device_map="auto")
+    tokenizer = AutoTokenizer.from_pretrained("nvidia/Llama-3.3-Nemotron-70B-Reward-Principle")
+
+    prompt = "What is 1+1?"
+    response = "1+1=2"
+    principle = "correctness"
+
+    messages = [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": response},
+        {"role": "user", "content": f"Evaluate in terms of {principle}. Answer Yes or No."}
+    ]
+
+    inputs = tokenizer.apply_chat_template(messages, return_tensors="pt", add_generation_prompt=True).to(model.device)
+    outputs = model.generate(inputs, max_new_tokens=1, output_scores=True, return_dict_in_generate=True)
+
+    # Reward = score(Yes) - score(No)
+    reward = outputs.scores[0][0][9642] - outputs.scores[0][0][2822]
+    print(f"Reward score: {reward.item():.3f}")  # Higher = better alignment
+    ```
+
+    ---
+
+    ### 📚 **References**
+    - Paper: [RLBFF: Binary Flexible Feedback to bridge Human Feedback & Verifiable Rewards](https://arxiv.org/abs/2509.21319)
+    - Dataset: [HelpSteer3](https://huggingface.co/datasets/nvidia/HelpSteer3)
+    - Benchmarks: [RM-Bench](https://arxiv.org/abs/2410.16184), [JudgeBench](https://huggingface.co/spaces/ScalerLab/JudgeBench)
+
+    ---
+
+    **✅ Best for:** AI safety evaluation, response ranking, and training aligned LLMs.
+    **⚠️ Note:** Designed for evaluation, not generation. Not suitable for direct conversation.
+  overrides:
+    parameters:
+      model: Llama-3.3-Nemotron-70B-Reward-Principle.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-Nemotron-70B-Reward-Principle.i1-Q4_K_M.gguf
+      sha256: da73ebdd0cf5ebd29cfa931ea8291443e86fd261036d6222e71f0be3b281f3cb
+      uri: huggingface://mradermacher/Llama-3.3-Nemotron-70B-Reward-Principle-i1-GGUF/Llama-3.3-Nemotron-70B-Reward-Principle.i1-Q4_K_M.gguf
