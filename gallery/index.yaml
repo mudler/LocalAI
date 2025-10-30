@@ -22950,3 +22950,27 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "minimaxai.minimax-m2"
+  urls:
+    - https://huggingface.co/DevQuasar/MiniMaxAI.MiniMax-M2-GGUF
+  description: |
+    The **MiniMax-M2** model is a large language model developed by **MiniMaxAI**, designed for advanced text generation and reasoning tasks. It is part of MiniMax's series of open-weight models, optimized for high performance in natural language understanding and generation. The model supports multi-turn dialogue, code generation, and complex reasoning, making it suitable for a wide range of applications including chatbots, content creation, and research.
+
+    This repository contains a **GGUF quantized version** of the original model, enabling efficient inference on consumer hardware. The base model, **MiniMaxAI/MiniMax-M2**, is available on Hugging Face and retains the full capabilities of the original architecture. The quantized variant sacrifices minimal accuracy for significantly reduced memory and computational requirements, making it accessible for local deployment.
+
+    **Key Features:**
+    - **Model Type:** Large Language Model (LLM)
+    - **Base Model:** MiniMaxAI/MiniMax-M2
+    - **Pipeline:** Text generation
+    - **Quantization:** GGUF (optimized for CPU/GPU inference)
+    - **Use Case:** Chat, coding, reasoning, content generation
+
+    For the full model experience with maximum performance and accuracy, use the original **MiniMaxAI/MiniMax-M2** repository. This quantized version is ideal for users prioritizing speed and efficiency on limited hardware.
+  overrides:
+    parameters:
+      model: MiniMaxAI.MiniMax-M2.Q4_K_M-00001-of-00011.gguf
+  files:
+    - filename: MiniMaxAI.MiniMax-M2.Q4_K_M-00001-of-00011.gguf
+      sha256: 1013ff1cf8f44eb9252048bb2884242bfc7e29a6720c60318bed969ce5a3bf28
+      uri: huggingface://DevQuasar/MiniMaxAI.MiniMax-M2-GGUF/MiniMaxAI.MiniMax-M2.Q4_K_M-00001-of-00011.gguf
