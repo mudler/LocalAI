@@ -23010,3 +23010,40 @@
     - filename: Qwen3-VLTO-32B-Instruct.i1-Q4_K_S.gguf
       sha256: 789d55249614cd1acee1a23278133cd56ca898472259fa2261f77d65ed7f8367
       uri: huggingface://mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF/Qwen3-VLTO-32B-Instruct.i1-Q4_K_S.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vlto-32b-thinking"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-GGUF
+  description: |
+    **Model Name:** Qwen3-VLTO-32B-Thinking
+    **Model Type:** Large Language Model (Text-Only)
+    **Base Model:** Qwen/Qwen3-VL-32B-Thinking (vanilla Qwen3-VL-32B with vision components removed)
+    **Architecture:** Transformer-based, 32-billion parameter model optimized for reasoning and complex text generation.
+
+    ### Description:
+    Qwen3-VLTO-32B-Thinking is a pure text-only variant of the Qwen3-VL-32B-Thinking model, stripped of its vision capabilities while preserving the full reasoning and language understanding power. It is derived by transferring the weights from the vision-language model into a text-only transformer architecture, maintaining the same high-quality behavior for tasks such as logical reasoning, code generation, and dialogue.
+
+    This model is ideal for applications requiring deep linguistic reasoning and long-context understanding without image input. It supports advanced multimodal reasoning capabilities *in text form*—perfect for research, chatbots, and content generation.
+
+    ### Key Features:
+    - ✅ 32B parameters, high reasoning capability
+    - ✅ No vision components — fully text-only
+    - ✅ Trained for complex thinking and step-by-step reasoning
+    - ✅ Compatible with Hugging Face Transformers and GGUF inference tools
+    - ✅ Available in multiple quantization levels (Q2_K to Q8_0) for efficient deployment
+
+    ### Use Case:
+    Ideal for advanced text generation, logical inference, coding, and conversational AI where vision is not needed.
+
+    > 🔗 **Base Model**: [Qwen/Qwen3-VL-32B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking)
+    > 📦 **Quantized Versions**: Available via [mradermacher/Qwen3-VLTO-32B-Thinking-GGUF](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-GGUF)
+
+    ---
+    *Note: The original model was created by Alibaba’s Qwen team. This variant was adapted by qingy2024 and quantized by mradermacher.*
+  overrides:
+    parameters:
+      model: Qwen3-VLTO-32B-Thinking.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VLTO-32B-Thinking.Q4_K_M.gguf
+      sha256: d88b75df7c40455dfa21ded23c8b25463a8d58418bb6296304052b7e70e96954
+      uri: huggingface://mradermacher/Qwen3-VLTO-32B-Thinking-GGUF/Qwen3-VLTO-32B-Thinking.Q4_K_M.gguf
