@@ -23150,3 +23150,30 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "ramen-shio-235b"
+  urls:
+    - https://huggingface.co/mradermacher/RAMEN-SHIO-235B-GGUF
+  description: |
+    **RAMEN-SHIO-235B** is a highly specialized, large-scale reasoning language model developed by Team RAMEN for the Matsuura Lab LLM Development Competition 2025. Built on top of **Qwen3-235B-A22B-Thinking-2507**, it is a **Mixture-of-Experts (MoE)** model optimized via **Direct Preference Optimization (DPO)** to excel in complex, multi-domain reasoning tasks.
+
+    Designed for advanced academic-level reasoning, it excels in **mathematics, natural sciences, and humanities**, demonstrating state-of-the-art performance on rigorous benchmarks like Humanity’s Last Exam (HLE), achieving a score of **18.58**—a significant improvement over its base model.
+
+    The model is optimized for high-efficiency inference using **vLLM**, with support for tensor and pipeline parallelism. It requires substantial resources (e.g., H100 80GB × 8 or more) for full-scale deployment.
+
+    **Key Highlights**:
+    - **Base Model**: Qwen/Qwen3-235B-A22B-Thinking-2507
+    - **Architecture**: Mixture-of-Experts (MoE)
+    - **Optimization**: DPO (Direct Preference Optimization)
+    - **Target Use Case**: High-level academic reasoning, long-form, multi-step problem solving
+    - **Language**: Japanese (with strong multilingual capability)
+    - **License**: Apache 2.0
+
+    This model represents a major advancement in reasoning capability for large-scale LLMs, particularly in Japanese and complex knowledge domains.
+  overrides:
+    parameters:
+      model: RAMEN-SHIO-235B.Q4_K_M.gguf.part1of3
+  files:
+    - filename: RAMEN-SHIO-235B.Q4_K_M.gguf.part1of3
+      sha256: 8d4a1c9362edb176d7a53e8da3799edad406043376689611dcba9863c8673ea8
+      uri: huggingface://mradermacher/RAMEN-SHIO-235B-GGUF/RAMEN-SHIO-235B.Q4_K_M.gguf.part1of3
