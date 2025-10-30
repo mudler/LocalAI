@@ -23071,3 +23071,12 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *llama3
+  name: "gemma3-4b-iq4-xs"
+  urls:
+    - https://huggingface.co/LuisMonBo/gemma3-4b-IQ4-XS-GGUF
+  description: |
+    AI model: gemma3-4b-iq4-xs
+  overrides:
+    parameters:
+      model: LuisMonBo/gemma3-4b-IQ4-XS-GGUF
