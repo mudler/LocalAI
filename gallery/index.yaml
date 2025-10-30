@@ -22950,3 +22950,78 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-yoyo-v4-42b-a3b-thinking-total-recall-st-tng-iv-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV
+    **Base Model:** Qwen3-Coder-30B-A3B-Instruct (Mixture of Experts, 128 experts, 8 active)
+    **Repository:** [mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV-i1-GGUF)
+    **Type:** Quantized GGUF (via mradermacher) | Full Precision Source Available at [DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV](https://huggingface.co/DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV)
+
+    ---
+
+    ### 🔍 **Overview**
+    A high-performance, **42B-parameter MoE (Mixture of Experts)** model built on **Qwen3-Coder-30B-A3B-Instruct**, fine-tuned with **Brainstorm 20x** and **Star Trek: TNG immersion (50%)**. Designed for advanced **coding**, **creative reasoning**, and **long-context tasks** with native support for up to **1 million tokens**.
+
+    This version excels in **agentic coding**, **complex problem-solving**, and **nuanced prose generation** — ideal for developers, researchers, and AI storytellers.
+
+    ---
+
+    ### 🌟 **Key Features**
+    - ✅ **42B parameters**, 67 layers, 807 tensors
+    - 🧠 **Mixture of Experts (MoE)**: 128 total experts, 8 activated per token
+    - 🧩 **Brainstorm 20x**: Enhanced reasoning depth, richer connections, and sharper focus
+    - 🛰️ **TNG Immersion (50%)**: Trained on Star Trek: The Next Generation lore — boosts logical consistency, creativity, and narrative coherence
+    - 📜 **1M Token Context**: Native support, ideal for codebases, long documents, and multi-turn conversations
+    - 🛠️ **Optional Thinking Mode**: Enable deep reasoning via system prompt (enclosed in `###ponder###` tags)
+    - 📊 **Proven Performance**: Outperforms baseline models on ARC, OpenBookQA, and Winogrande benchmarks
+    - 📦 **Fully Quantizable**: GGUF, GPTQ, AWQ, EXL2, HQQ, and MLX formats available
+
+    ---
+
+    ### 💡 **Best Use Cases**
+    - **Advanced code generation** across 20+ programming languages
+    - **Long-form creative writing** with strong narrative flow and character depth
+    - **Agentic workflows** with tool use and planning
+    - **Research & brainstorming** with structured, multi-step reasoning
+    - **Roleplay & interactive storytelling** with TNG-inspired logic and tone
+
+    ---
+
+    ### 📝 **Recommended Settings**
+    - **Experts**: 6–12 (depending on task complexity)
+    - **Temperature**: 0.3–0.7
+    - **Repetition Penalty**: 1.05–1.15
+    - **Top-k**: 20–100 | **Top-p**: 0.95
+    - Use **"smoothing" (e.g., 1.5)** in web UIs for smoother output
+
+    ---
+
+    ### 📌 **Model Origin**
+    The **full-precision source model** is developed by **DavidAU**, based on **YOYO-AI/Qwen3-30B-A3B-YOYO-V4**, and further enhanced using **Unsloth** and **Brainstorm 20x**. The GGUF version is **quantized by mradermacher** for efficient local inference.
+
+    ---
+
+    ### 🔗 **Resources**
+    - [Full Model Card & Settings](https://huggingface.co/DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV)
+    - [Quantization & Usage Guide](https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV-i1-GGUF)
+    - [Benchmark Review by Nightmedia](https://huggingface.co/nightmedia/)
+
+    ---
+
+    > **“To boldly go where no quantization has gone before — that is the Yoyo way.”**
+    > – Spock (in spirit)
+
+    ---
+
+    📦 **Available in GGUF (i1-IQ2_M to i1-Q6_K)** – ideal for local use with llama.cpp, Ollama, LMStudio, and more.
+    ⭐ **Recommended**: `i1-Q4_K_S` (best balance) or `i1-Q4_K_M` (fast & high quality).
+  overrides:
+    parameters:
+      model: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV.i1-Q4_K_M.gguf
+      sha256: e739c23108f920879f0dac21a7d8619a0b49f103f019837fdd511b5dd3b2cba0
+      uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-ST-TNG-IV.i1-Q4_K_M.gguf
