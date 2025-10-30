@@ -23071,3 +23071,27 @@
     - filename: Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
       sha256: 46f0b06b785d19804a1a796bec89a8eeba8a4e2ef21e2ab8dbb8fa2ff0d675b1
       uri: huggingface://DavidAU/Gemma-3-The-Grand-Horror-27B-GGUF/Gemma-3-The-Grand-Horror-27B-Q4_k_m.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-32b-thinking"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-VL-32B-Thinking-GGUF
+  description: |
+    **Qwen3-VL-32B-Thinking** is a powerful vision-language model from the Qwen series, designed for advanced multimodal understanding and reasoning. It excels in tasks involving both images and text, offering state-of-the-art performance in visual perception, spatial reasoning, long-context comprehension (up to 1M tokens), and video understanding.
+
+    Key features:
+    - **High-precision visual reasoning**: Recognizes complex scenes, objects, and spatial relationships with strong 2D/3D grounding.
+    - **Advanced multimodal capabilities**: Understands and generates responses across images, videos, and text — ideal for agent-based tasks, GUI interaction, and visual coding (e.g., generating HTML/CSS/JS from images).
+    - **Long-context support**: Handles books, long videos, and extended dialogues with full recall and timestamp-aware indexing.
+    - **Enhanced text understanding**: Matches top pure LLMs in language fluency and logical reasoning, with strong performance in STEM and evidence-based tasks.
+    - **Supports 32 languages in OCR**, including challenging conditions like blur, low light, and rare characters.
+
+    This model is available in a dense and MoE (Mixture of Experts) architecture, with a **Thinking** variant optimized for complex reasoning and tool use. It’s suitable for cloud and edge deployment and is compatible with Hugging Face Transformers and llama.cpp (via GGUF quantization).
+
+    *Original model by Qwen Team, available at [Qwen/Qwen3-VL-32B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking).*
+  overrides:
+    parameters:
+      model: Qwen3-VL-32B-Thinking-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-32B-Thinking-Q4_K_M.gguf
+      sha256: c7874a2175235c427c2b97fa806630020d1cf0caf66c475aa230145d3491cf27
+      uri: huggingface://noctrex/Qwen3-VL-32B-Thinking-GGUF/Qwen3-VL-32B-Thinking-Q4_K_M.gguf
