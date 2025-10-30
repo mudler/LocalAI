@@ -22950,3 +22950,12 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "gguf"
+  urls:
+    - https://huggingface.co/seodongchan/gguf
+  description: |
+    AI model: gguf
+  overrides:
+    parameters:
+      model: seodongchan/gguf
