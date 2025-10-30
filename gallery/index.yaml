@@ -22950,3 +22950,21 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-0.6b"
+  urls:
+    - https://huggingface.co/Junwoo-Seo/Qwen3-0.6B-Q4_K_M-GGUF
+  description: |
+    **Qwen3-0.6B** is a 0.6-billion-parameter large language model from the Qwen series, designed for high-performance reasoning, instruction-following, and multilingual tasks. It supports seamless switching between **thinking mode** (for complex logic, math, and coding) and **non-thinking mode** (for efficient dialogue), enabling optimal performance across diverse applications. With a context length of 32,768 tokens and strong capabilities in agent-based interactions, creative writing, and multilingual understanding (100+ languages), it excels in real-world use. Built on advanced pretraining and post-training, it outperforms prior models in reasoning and alignment while supporting deployment via Hugging Face Transformers, vLLM, SGLang, and other frameworks. Ideal for developers and researchers seeking a compact yet powerful model with rich functionality.
+
+    > **Model ID**: `Qwen/Qwen3-0.6B`
+    > **License**: Apache 2.0
+    > **Base Model**: Qwen/Qwen3-0.6B-Base
+    > **Use Case**: Reasoning, dialogue, agent tasks, multilingual support
+  overrides:
+    parameters:
+      model: Qwen3-0.6B-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-0.6B-Q4_K_M.gguf
+      sha256: 12b6a3a116f615e7e402174ac2784a5868f7dd3b2ad2dd4c3356c313421c090a
+      uri: huggingface://Junwoo-Seo/Qwen3-0.6B-Q4_K_M-GGUF/Qwen3-0.6B-Q4_K_M.gguf
