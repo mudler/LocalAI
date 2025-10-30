@@ -22950,3 +22950,63 @@
     - filename: apollo-astralis-4b.i1-Q4_K_M.gguf
       sha256: 94e1d371420b03710fc7de030c1c06e75a356d9388210a134ee2adb4792a2626
       uri: huggingface://mradermacher/apollo-astralis-4b-i1-GGUF/apollo-astralis-4b.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vlto-32b-instruct-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-32B-Instruct (Text-Only Variant: Qwen3-VLTO-32B-Instruct)
+    **Base Model:** Qwen/Qwen3-VL-32B-Instruct
+    **Repository:** [mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF)
+    **Type:** Large Language Model (LLM) – Text-Only (Vision-Language model stripped of vision components)
+    **Architecture:** Qwen3-VL, adapted for pure text generation
+    **Size:** 32 billion parameters
+    **License:** Apache 2.0
+    **Framework:** Hugging Face Transformers
+
+    ---
+
+    ### 🔍 **Description**
+
+    This is a **text-only variant** of the powerful **Qwen3-VL-32B-Instruct** multimodal model, stripped of its vision components to function as a high-performance pure language model. The model retains the full text understanding and generation capabilities of its parent — including strong reasoning, long-context handling (up to 32K+ tokens), and advanced multimodal training-derived coherence — while being optimized for text-only tasks.
+
+    It was created by loading the weights from the full Qwen3-VL-32B-Instruct model into a text-only Qwen3 architecture, preserving all linguistic and reasoning strengths without the need for image input.
+
+    Perfect for applications requiring deep reasoning, long-form content generation, code synthesis, and dialogue — with all the benefits of the Qwen3 series, now in a lightweight, text-focused form.
+
+    ---
+
+    ### 📌 Key Features
+
+    - ✅ **High-Performance Text Generation** – Built on top of the state-of-the-art Qwen3-VL architecture
+    - ✅ **Extended Context Length** – Supports up to 32,768 tokens (ideal for long documents and complex tasks)
+    - ✅ **Strong Reasoning & Planning** – Excels at logic, math, coding, and multi-step reasoning
+    - ✅ **Optimized for GGUF Format** – Available in multiple quantized versions (IQ3_M, Q2_K, etc.) for efficient inference on consumer hardware
+    - ✅ **Free to Use & Modify** – Apache 2.0 license
+
+    ---
+
+    ### 📦 Use Case Suggestions
+
+    - Long-form writing, summarization, and editing
+    - Code generation and debugging
+    - AI agents and task automation
+    - High-quality chat and dialogue systems
+    - Research and experimentation with large-scale LLMs on local devices
+
+    ---
+
+    ### 📚 References
+
+    - Original Model: [Qwen/Qwen3-VL-32B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct)
+    - Technical Report: [Qwen3 Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
+    - Quantization by: [mradermacher](https://huggingface.co/mradermacher)
+
+    > ✅ **Note**: The model shown here is **not the original vision-language model** — it's a **text-only conversion** of the Qwen3-VL-32B-Instruct model, ideal for pure language tasks.
+  overrides:
+    parameters:
+      model: Qwen3-VLTO-32B-Instruct.i1-Q4_K_S.gguf
+  files:
+    - filename: Qwen3-VLTO-32B-Instruct.i1-Q4_K_S.gguf
+      sha256: 789d55249614cd1acee1a23278133cd56ca898472259fa2261f77d65ed7f8367
+      uri: huggingface://mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF/Qwen3-VLTO-32B-Instruct.i1-Q4_K_S.gguf
