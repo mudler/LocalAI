@@ -23181,3 +23181,53 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-235b-a22b-instruct-mxfp4_moe"
+  urls:
+    - https://huggingface.co/noctrex/Qwen3-VL-235B-A22B-Instruct-MXFP4_MOE-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-235B-A22B-Instruct
+    **Model Type:** Vision-Language Model (VLM)
+    **Architecture:** MoE (Mixture of Experts) with 235B parameters
+    **Base Model:** Qwen3-VL-235B-A22B-Instruct (original by Alibaba)
+    **Quantization:** MXFP4_MOE (quantized version by noctrex, not original)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 🌟 Description:
+
+    Qwen3-VL-235B-A22B-Instruct is a state-of-the-art **vision-language model** developed by Alibaba, designed to understand and generate rich, multimodal content. It combines powerful visual perception with advanced language capabilities, enabling seamless interaction between images, videos, and text.
+
+    This model supports **long-context reasoning (up to 1M tokens)**, making it ideal for processing books, lengthy documents, and extended video content. It excels in **spatial reasoning, visual coding, OCR across 32 languages**, and **agent-based GUI interaction**, allowing it to perform complex tasks like navigating interfaces or generating code from diagrams.
+
+    Equipped with **interleaved-MRoPE**, **DeepStack**, and **text-timestamp alignment**, it delivers superior performance in video understanding and fine-grained visual analysis.
+
+    The **Instruct** variant is optimized for dialogue and task completion, making it suitable for chatbots, intelligent assistants, and multimodal agents.
+
+    > ⚠️ **Note:** The model hosted at `noctrex/Qwen3-VL-235B-A22B-Instruct-MXFP4_MOE-GGUF` is a **quantized version** (MXFP4_MOE) of the original. The true base model is available at: [Qwen/Qwen3-VL-235B-A22B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct).
+
+    ---
+
+    ### ✅ Key Features:
+    - 235B-parameter MoE architecture
+    - 256K native context, expandable to 1M tokens
+    - Advanced spatial & video understanding
+    - 32-language OCR with high accuracy
+    - Visual agent capabilities (GUI interaction)
+    - Supports image, video, and text inputs
+    - Optimized for reasoning, coding, and multimodal tasks
+
+    ---
+
+    ### 🔗 Resources:
+    - **Original Model:** [Qwen/Qwen3-VL-235B-A22B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct)
+    - **Technical Report:** [Qwen3 Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
+    - **Chat Demo:** [Qwen Chat](https://chat.qwenlm.ai/)
+
+    ---
+
+    📌 *Perfect for researchers, developers, and enterprises building intelligent, multimodal AI systems.*
+  overrides:
+    parameters:
+      model: noctrex/Qwen3-VL-235B-A22B-Instruct-MXFP4_MOE-GGUF
