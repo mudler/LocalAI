@@ -19,37 +19,37 @@
     - https://huggingface.co/unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF
   description: |
     Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
-    
+
     This generation delivers comprehensive upgrades across the board: superior text understanding & generation, deeper visual perception & reasoning, extended context length, enhanced spatial and video dynamics comprehension, and stronger agent interaction capabilities.
-    
+
     Available in Dense and MoE architectures that scale from edge to cloud, with Instruct and reasoning‑enhanced Thinking editions for flexible, on-demand deployment.
-    
+
     #### Key Enhancements:
-    
+
     * **Visual Agent**: Operates PC/mobile GUIs—recognizes elements, understands functions, invokes tools, completes tasks.
-    
+
     * **Visual Coding Boost**: Generates Draw.io/HTML/CSS/JS from images/videos.
-    
+
     * **Advanced Spatial Perception**: Judges object positions, viewpoints, and occlusions; provides stronger 2D grounding and enables 3D grounding for spatial reasoning and embodied AI.
-    
+
     * **Long Context & Video Understanding**: Native 256K context, expandable to 1M; handles books and hours-long video with full recall and second-level indexing.
-    
+
     * **Enhanced Multimodal Reasoning**: Excels in STEM/Math—causal analysis and logical, evidence-based answers.
-    
+
     * **Upgraded Visual Recognition**: Broader, higher-quality pretraining is able to “recognize everything”—celebrities, anime, products, landmarks, flora/fauna, etc.
-    
+
     * **Expanded OCR**: Supports 32 languages (up from 19); robust in low light, blur, and tilt; better with rare/ancient characters and jargon; improved long-document structure parsing.
-    
+
     * **Text Understanding on par with pure LLMs**: Seamless text–vision fusion for lossless, unified comprehension.
-    
+
     #### Model Architecture Updates:
-    
+
     1. **Interleaved-MRoPE**: Full‑frequency allocation over time, width, and height via robust positional embeddings, enhancing long‑horizon video reasoning.
-    
+
     2. **DeepStack**: Fuses multi‑level ViT features to capture fine-grained details and sharpen image–text alignment.
-    
+
     3. **Text–Timestamp Alignment:** Moves beyond T‑RoPE to precise, timestamp‑grounded event localization for stronger video temporal modeling.
-    
+
     This is the weight repository for Qwen3-VL-30B-A3B-Instruct.
   overrides:
     mmproj: mmproj/mmproj-F16.gguf
@@ -130,7 +130,7 @@
     - filename: mmproj/mmproj-Qwen3-VL-4B-Thinking-F16.gguf
       sha256: 72354fcd3fc75935b84e745ca492d6e78dd003bb5a020d71b296e7650926ac87
       uri: huggingface://unsloth/Qwen3-VL-4B-Thinking-GGUF/mmproj-F16.gguf
-- !!merge <<: *llama3
+- !!merge <<: *qwen3vl
   name: "qwen3-vl-2b-thinking"
   urls:
     - https://huggingface.co/unsloth/Qwen3-VL-2B-Thinking-GGUF
