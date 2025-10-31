@@ -23150,3 +23150,44 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "deepwerewolf-qwen3-8b-grpo-agentic-chinese"
+  urls:
+    - https://huggingface.co/mradermacher/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese-GGUF
+  description: |
+    **Model Name**: Qwen3-8B
+    **Repository**: [Qwen/Qwen3-8B](https://huggingface.co/Qwen/Qwen3-8B)
+    **Base Model**: Qwen/Qwen3-8B-Base
+    **License**: Apache 2.0
+
+    ### 🔍 Overview
+    Qwen3-8B is a state-of-the-art 8.2-billion-parameter causal language model from Alibaba's Qwen series. It excels in reasoning, instruction-following, agent capabilities, and multilingual tasks. The model uniquely supports **seamless switching between thinking mode** (for complex logic, math, and coding) and **non-thinking mode** (for fast, general-purpose dialogue) — all within a single model.
+
+    ### ✨ Key Features
+    - **Dual-mode inference**: Toggle between deep reasoning (thinking) and efficient response generation (non-thinking).
+    - **Advanced reasoning**: Outperforms prior models in math, code generation, and logical reasoning.
+    - **Agent-ready**: Built-in tool calling and integration capabilities with Qwen-Agent.
+    - **Long context support**: Natively handles up to **32,768 tokens**, extendable to **131,072 tokens** via YaRN RoPE scaling.
+    - **Multilingual**: Supports over 100 languages with strong translation and instruction-following abilities.
+
+    ### ⚙️ Usage
+    - Use with `transformers`, `vLLM`, `SGLang`, `llama.cpp`, or Ollama.
+    - Enable `enable_thinking=True` for reasoning tasks (e.g., math, coding), or `False` for speed.
+    - Supports dynamic mode switching via `/think` and `/no_think` in prompts.
+
+    ### 📚 Reference
+    - [Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
+    - [Official Blog](https://qwenlm.github.io/blog/qwen3/)
+    - [Documentation](https://qwen.readthedocs.io/en/latest/)
+
+    > **Ideal for**: Research, agentic AI, multilingual applications, and high-accuracy reasoning tasks.
+
+    ---
+    *Note: The model served here is the original, unquantized Qwen3-8B. For quantized versions (GGUF), see community repos like `mradermacher/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese-GGUF`, which are based on this base model.*
+  overrides:
+    parameters:
+      model: DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese.Q4_K_M.gguf
+  files:
+    - filename: DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese.Q4_K_M.gguf
+      sha256: 32a341badc695d9e8bc1bdae92c67b81295d6e3cfd8e901a508f323718db5141
+      uri: huggingface://mradermacher/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese-GGUF/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese.Q4_K_M.gguf
