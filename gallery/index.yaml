@@ -23181,3 +23181,32 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "unifiedreward-edit-qwen-72b"
+  urls:
+    - https://huggingface.co/mradermacher/UnifiedReward-Edit-qwen-72b-GGUF
+  description: |
+    **UnifiedReward-Edit-qwen-72b** is a state-of-the-art, large-scale unified reward model built on the Qwen-72B architecture, specifically designed for evaluating image editing quality in both Text-to-Image and Image-to-Image generation tasks. Developed by CodeGoat24, this model excels in three key evaluation modes:
+
+    - **Pairwise Ranking**: Determines which of two edited images is better.
+    - **Pairwise Scoring**: Assigns individual scores to each image in a pair.
+    - **Pointwise Scoring**: Rates a single image on two dimensions—**instruction-following accuracy** and **overall visual quality**.
+
+    Trained on curated datasets from EditScore and EditReward, UnifiedReward-Edit offers a robust, scalable solution for fine-grained, human-aligned image editing evaluation.
+
+    ✅ Supports GGUF quantization for efficient inference
+    ✅ Designed for integration into editing pipelines and diffusion model optimization
+    ✅ Openly available with full training data and inference code via GitHub
+
+    **Model Card**: https://huggingface.co/CodeGoat24/UnifiedReward-Edit-qwen-72b
+    **Paper**: [arXiv:2503.05236](https://arxiv.org/pdf/2503.05236)
+    **Project Page**: [https://codegoat24.github.io/UnifiedReward/](https://codegoat24.github.io/UnifiedReward/)
+
+    *Note: The model in this repository (mradermacher/UnifiedReward-Edit-qwen-72b-GGUF) is a quantized version of the original model. The base model is hosted at `CodeGoat24/UnifiedReward-Edit-qwen-72b`.*
+  overrides:
+    parameters:
+      model: UnifiedReward-Edit-qwen-72b.Q4_K_M.gguf
+  files:
+    - filename: UnifiedReward-Edit-qwen-72b.Q4_K_M.gguf
+      sha256: 5fca85647cf74c49c14fd043c620143c3e1c4597cd1b861a2d4b4a418f46b078
+      uri: huggingface://mradermacher/UnifiedReward-Edit-qwen-72b-GGUF/UnifiedReward-Edit-qwen-72b.Q4_K_M.gguf
