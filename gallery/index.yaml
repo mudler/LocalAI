@@ -63,6 +63,23 @@
       sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/mmproj-F16.gguf
 - !!merge <<: *qwen3vl
+  name: "qwen3-vl-30b-a3b-thinking"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF
+  description: |
+    Qwen3-VL-30B-A3B-Thinking is a 30B parameter model that is thinking.
+  overrides:
+    mmproj: mmproj/mmproj-F16.gguf
+    parameters:
+      model: Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
+      sha256: d3e12c6b15f59cc1c6db685d33eb510184d006ebbff0e038e7685e57ce628b3b
+      uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
+    - filename: mmproj/mmproj-F16.gguf
+      sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
+      uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/mmproj-F16.gguf
+- !!merge <<: *qwen3vl
   name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated"
   urls:
     - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF
