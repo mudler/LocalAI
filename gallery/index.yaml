@@ -23150,3 +23150,34 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-grand-horror-light-1.7b"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF
+  description: |
+    **Model Name:** Qwen3-Grand-Horror-Light-1.7B
+    **Base Model:** qingy2024/Qwen3-VLTO-1.7B-Instruct
+    **Model Type:** Fine-tuned Language Model (Text Generation)
+    **Size:** 1.7B parameters
+    **License:** Apache 2.0
+    **Language:** English
+    **Use Case:** Horror storytelling, creative writing, roleplay, scene generation
+    **Fine-Tuned On:** Custom horror dataset (`DavidAU/horror-nightmare1`)
+    **Training Method:** Fine-tuned via Unsloth
+    **Key Features:**
+    - Specialized in generating atmospheric, intense horror content with elements of madness, gore, and suspense
+    - Optimized for roleplay and narrative generation with low to medium horror intensity
+    - Supports high-quality output across multiple quantization levels (Q2_K to Q8_0, f16)
+    - Designed for use with tools like KoboldCpp, oobabooga/text-generation-webui, and Silly Tavern
+    - Recommended settings: Temperature 0.4–1.2, Repetition penalty 1.1, Smoothing factor 1.5 for smoother output
+
+    **Note:** This model is a fine-tuned variant of the Qwen3 series, not a quantized version. The original base model is available at [qingy2024/Qwen3-VLTO-1.7B-Instruct](https://huggingface.co/qingy2024/Qwen3-VLTO-1.7B-Instruct) and was further adapted for horror-themed creative writing.
+
+    **Ideal For:** Creators, writers, and roleplayers seeking a compact, expressive model for immersive horror storytelling.
+  overrides:
+    parameters:
+      model: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+      sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
+      uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
