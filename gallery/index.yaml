@@ -23150,3 +23150,34 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "unpuzzler-sft-qwen-7b-answer-i1"
+  urls:
+    - https://huggingface.co/mradermacher/UnPuzzler-sft-qwen-7b-answer-i1-GGUF
+  description: |
+    **Model Name:** UnPuzzler-sft-qwen-7b-answer
+    **Base Model:** Qwen2.5-7B-Instruct (from `unsloth/Qwen2.5-7B-Instruct`)
+    **Fine-Tuned By:** unlogic-ai
+    **License:** Apache 2.0
+
+    **Description:**
+    A high-performance, fine-tuned instruction-following variant of Qwen2.5-7B-Instruct, specifically optimized for reasoning and puzzle-solving tasks. Trained using Unsloth for accelerated training and efficient inference, this model excels at logical reasoning, complex problem-solving, and generating accurate, structured answers. Ideal for applications requiring deep understanding, step-by-step reasoning, and high-quality text generation.
+
+    **Key Features:**
+    - Built on **Qwen2.5-7B-Instruct**, a state-of-the-art 7-billion parameter language model
+    - Fine-tuned for **reasoning and answer generation** with strong performance on puzzle and logic-based tasks
+    - Efficiently trained using **Unsloth** for faster training and inference
+    - Available in multiple GGUF quantizations for local deployment (e.g., via llama.cpp)
+
+    **Use Case:**
+    Perfect for interactive reasoning assistants, educational tools, puzzle solvers, and advanced chatbots requiring deep analytical capability.
+
+    **Repository:** [unlogic-ai/UnPuzzler-sft-qwen-7b-answer](https://huggingface.co/unlogic-ai/UnPuzzler-sft-qwen-7b-answer)
+    **Quantized Versions:** Available at [mradermacher/UnPuzzler-sft-qwen-7b-answer-i1-GGUF](https://huggingface.co/mradermacher/UnPuzzler-sft-qwen-7b-answer-i1-GGUF) (for local inference)
+  overrides:
+    parameters:
+      model: UnPuzzler-sft-qwen-7b-answer.i1-Q4_K_M.gguf
+  files:
+    - filename: UnPuzzler-sft-qwen-7b-answer.i1-Q4_K_M.gguf
+      sha256: 303d59ea231856171217c8a6bede07a819d4e288e7c322c152b3587a7449dfce
+      uri: huggingface://mradermacher/UnPuzzler-sft-qwen-7b-answer-i1-GGUF/UnPuzzler-sft-qwen-7b-answer.i1-Q4_K_M.gguf
