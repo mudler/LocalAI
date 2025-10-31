@@ -23150,3 +23150,16 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-deckard-large-almost-human-6b-iii-final-omega.i1.gguf"
+  urls:
+    - https://huggingface.co/MegaTronX/Qwen3-Deckard-Large-Almost-Human-6B-III-Final-OMEGA.i1-Q4_K_M.gguf
+  description: |
+    AI model: qwen3-deckard-large-almost-human-6b-iii-final-omega.i1.gguf
+  overrides:
+    parameters:
+      model: Qwen3-Deckard-Large-Almost-Human-6B-III-Final-OMEGA.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Deckard-Large-Almost-Human-6B-III-Final-OMEGA.i1-Q4_K_M.gguf
+      sha256: 2f91b50e62a88458de43711a2f136418f1425985b8bd0111ab202d9324e19fae
+      uri: huggingface://MegaTronX/Qwen3-Deckard-Large-Almost-Human-6B-III-Final-OMEGA.i1-Q4_K_M.gguf/Qwen3-Deckard-Large-Almost-Human-6B-III-Final-OMEGA.i1-Q4_K_M.gguf
