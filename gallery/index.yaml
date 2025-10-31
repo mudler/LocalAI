@@ -1,4 +1,67 @@
 ---
+- &qwen3vl
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
+  icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  license: apache-2.0
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - image-to-text
+    - multimodal
+    - cpu
+    - qwen
+    - qwen3
+    - thinking
+    - reasoning
+  name: "qwen3-vl-30b-a3b-instruct"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF
+  description: |
+    Meet Qwen3-VL — the most powerful vision-language model in the Qwen series to date.
+    
+    This generation delivers comprehensive upgrades across the board: superior text understanding & generation, deeper visual perception & reasoning, extended context length, enhanced spatial and video dynamics comprehension, and stronger agent interaction capabilities.
+    
+    Available in Dense and MoE architectures that scale from edge to cloud, with Instruct and reasoning‑enhanced Thinking editions for flexible, on-demand deployment.
+    
+    #### Key Enhancements:
+    
+    * **Visual Agent**: Operates PC/mobile GUIs—recognizes elements, understands functions, invokes tools, completes tasks.
+    
+    * **Visual Coding Boost**: Generates Draw.io/HTML/CSS/JS from images/videos.
+    
+    * **Advanced Spatial Perception**: Judges object positions, viewpoints, and occlusions; provides stronger 2D grounding and enables 3D grounding for spatial reasoning and embodied AI.
+    
+    * **Long Context & Video Understanding**: Native 256K context, expandable to 1M; handles books and hours-long video with full recall and second-level indexing.
+    
+    * **Enhanced Multimodal Reasoning**: Excels in STEM/Math—causal analysis and logical, evidence-based answers.
+    
+    * **Upgraded Visual Recognition**: Broader, higher-quality pretraining is able to “recognize everything”—celebrities, anime, products, landmarks, flora/fauna, etc.
+    
+    * **Expanded OCR**: Supports 32 languages (up from 19); robust in low light, blur, and tilt; better with rare/ancient characters and jargon; improved long-document structure parsing.
+    
+    * **Text Understanding on par with pure LLMs**: Seamless text–vision fusion for lossless, unified comprehension.
+    
+    #### Model Architecture Updates:
+    
+    1. **Interleaved-MRoPE**: Full‑frequency allocation over time, width, and height via robust positional embeddings, enhancing long‑horizon video reasoning.
+    
+    2. **DeepStack**: Fuses multi‑level ViT features to capture fine-grained details and sharpen image–text alignment.
+    
+    3. **Text–Timestamp Alignment:** Moves beyond T‑RoPE to precise, timestamp‑grounded event localization for stronger video temporal modeling.
+    
+    This is the weight repository for Qwen3-VL-30B-A3B-Instruct.
+  overrides:
+    mmproj: mmproj/mmproj-F16.gguf
+    parameters:
+      model: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: 75d8f4904016d90b71509c8576ebd047a0606cc5aa788eada29d4bedf9b761a6
+      uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+    - filename: mmproj/mmproj-F16.gguf
+      sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
+      uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/mmproj-F16.gguf
 - &jamba
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65e60c0ed5313c06372446ff/QwehUHgP2HtVAMW5MzJ2j.png
   name: "ai21labs_ai21-jamba-reasoning-3b"
