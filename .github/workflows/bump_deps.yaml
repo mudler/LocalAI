@@ -1,10 +1,10 @@
-name: Bump dependencies
+name: Bump Backend dependencies
 on:
   schedule:
     - cron: 0 20 * * *
   workflow_dispatch:
 jobs:
-  bump:
+  bump-backends:
     strategy:
       fail-fast: false
       matrix:
