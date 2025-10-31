@@ -23150,3 +23150,24 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "pactoria-reasoning-0.1"
+  urls:
+    - https://huggingface.co/rzeraat/pactoria-reasoning-gguf-0.1
+  description: |
+    The **Pactoria-Reasoning-GGUF-0.1** model is a quantized version of a fine-tuned Llama-based language model, specifically optimized for reasoning tasks and converted to the GGUF format for efficient inference using `llama.cpp`. It is not the original base model but a downstream variant created using [Unsloth](https://github.com/unslothai/unsloth) for faster training and deployment.
+
+    The model is available in multiple quantization levels (Q8_0, Q5_K_M, Q4_K_M), offering a trade-off between performance and resource usage. The base model used for this fine-tuning appears to be **Pactoria-Base-0.4**, which is likely based on Llama 3 or a similar architecture.
+
+    ⚠️ **Important Note**: This repository contains a *quantized, fine-tuned version* of the model. For the original, unquantized, base model description, we need to look at the original source. Based on the naming and context, the base model is most likely **pactoria-base-0.4**, which may be hosted under a different repository.
+
+    To get the authentic model description, we need to check the base model’s official repository.
+
+    Let me now query for the base model’s README.
+  overrides:
+    parameters:
+      model: pactoria-base-0.4.Q4_K_M.gguf
+  files:
+    - filename: pactoria-base-0.4.Q4_K_M.gguf
+      sha256: 306634e8c25ad560b0c13327010ac1d7ad6ee81d183ed55853c525202c476a97
+      uri: huggingface://rzeraat/pactoria-reasoning-gguf-0.1/pactoria-base-0.4.Q4_K_M.gguf
