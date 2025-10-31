@@ -62,6 +62,23 @@
     - filename: mmproj/mmproj-F16.gguf
       sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/mmproj-F16.gguf
+- !!merge <<: *qwen3vl
+  name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF
+  description: |
+    These are quantizations of the model Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF
+  overrides:
+    mmproj: mmproj/mmproj-Huihui-Qwen3-VL-30B-A3B-F16.gguf
+    parameters:
+      model: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-Q4_K_M.gguf
+  files:
+    - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-Q4_K_M.gguf
+      sha256: 1e94a65167a39d2ff4427393746d4dbc838f3d163c639d932e9ce983f575eabf
+      uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Huihui-Qwen3-VL-30B-A3B-F16.gguf
+      sha256: 4bfd655851a5609b29201154e0bd4fe5f9274073766b8ab35b3a8acba0dd77a7
+      uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF/mmproj-F16.gguf
 - &jamba
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/65e60c0ed5313c06372446ff/QwehUHgP2HtVAMW5MzJ2j.png
   name: "ai21labs_ai21-jamba-reasoning-3b"
