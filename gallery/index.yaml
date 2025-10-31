@@ -23150,3 +23150,12 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "learn-gemma-3-270m-it-finetune"
+  urls:
+    - https://huggingface.co/prakkosal/learn-gemma-3-270m-it-finetune-gguf
+  description: |
+    AI model: learn-gemma-3-270m-it-finetune
+  overrides:
+    parameters:
+      model: prakkosal/learn-gemma-3-270m-it-finetune-gguf
