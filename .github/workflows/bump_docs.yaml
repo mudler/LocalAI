@@ -1,10 +1,10 @@
-name: Bump dependencies
+name: Bump Documentation
 on:
   schedule:
     - cron: 0 20 * * *
   workflow_dispatch:
 jobs:
-  bump:
+  bump-docs:
     strategy:
       fail-fast: false
       matrix:
