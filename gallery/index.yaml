@@ -23150,3 +23150,38 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-vl-30b-a3b-instruct"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF
+  description: |
+    **Qwen3-VL-30B-A3B-Instruct** is a state-of-the-art vision-language model from the Qwen series, designed for advanced multimodal understanding and generation. With a 30-billion parameter MoE (Mixture of Experts) architecture, it excels in integrating visual and textual information with exceptional precision.
+
+    ### Key Features:
+    - **Multimodal Intelligence**: Seamlessly processes images, videos, and text together, enabling deep understanding across modalities.
+    - **Long Context & Video Reasoning**: Supports up to 256K tokens (expandable to 1M), making it ideal for analyzing long documents, videos, and complex scenes.
+    - **Advanced Visual Perception**: Features **Interleaved-MRoPE** and **DeepStack** for fine-grained spatial reasoning, object localization, and 3D grounding.
+    - **Visual Agent & Coding**: Can interpret GUIs, perform tasks via visual commands, and generate code (HTML, CSS, JS, Draw.io) from images.
+    - **High-Quality OCR**: Recognizes text across 32 languages, including rare/ancient scripts and low-quality inputs.
+    - **Strong STEM & Logical Reasoning**: Performs well on mathematical and causal reasoning tasks with evidence-based answers.
+
+    ### Use Cases:
+    - Image/video captioning and analysis
+    - Visual question answering
+    - Document understanding and summarization
+    - GUI interaction and automation
+    - Multimodal code generation
+
+    ### Model Type:
+    - **Architecture**: Qwen3 Vision-Language MoE (A3B-Instruct)
+    - **License**: Apache 2.0
+    - **Repository**: [Qwen/Qwen3-VL-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Instruct)
+
+    This model is optimized for high-performance inference and is fully compatible with Hugging Face Transformers and `llama.cpp`. It represents the cutting edge in multimodal AI, combining powerful vision and language capabilities in a single, scalable framework.
+  overrides:
+    parameters:
+      model: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: 75d8f4904016d90b71509c8576ebd047a0606cc5aa788eada29d4bedf9b761a6
+      uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
