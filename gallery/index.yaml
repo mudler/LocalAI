@@ -23150,3 +23150,34 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-yoyo-v4-42b-a3b-thinking-total-recall-pdk-v"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V-GGUF
+  description: |
+    **Model Name:** Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V
+    **Repository:** [DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V](https://huggingface.co/DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V)
+    **Base Model:** Qwen3-Coder-30B-A3B-Instruct (Mixture of Experts)
+    **Size:** 42B parameters (refined from 30B base with advanced fine-tuning)
+    **Architecture:** Mixture of Experts (MoE) – 128 experts, 8 activated per token
+    **Context Length:** Native support for up to **1 million tokens** (via Yarn extension)
+    **Language Support:** English, French, Chinese, German
+    **Use Cases:** Advanced coding, agentic programming, creative writing, long-context reasoning, brainstorming, and complex problem-solving
+
+    ### Key Features:
+    - **Brainstorm 20x Enhancement**: A proprietary fine-tuning process that deepens reasoning, improves coherence, and enhances narrative quality without compromising instruction-following.
+    - **Optional Thinking Mode**: Includes a system prompt to enable structured internal reasoning chains (`###ponder### ... ###/ponder###`).
+    - **Highly Optimized for Coding & Creativity**: Excels in code generation, debugging, and complex multi-turn interactions.
+    - **Full Precision Source Files Available**: Supports GGUF, GPTQ, EXL2, AWQ, and HQQ quantization formats.
+    - **Extended Context Handling**: Designed for repository-scale understanding and long-form content generation.
+
+    > 📌 **Best For:** Developers, researchers, and creators who need a powerful, flexible, and deeply reasoning model with massive context and advanced code/creative capabilities.
+
+    **Quantized Versions Available via [mradermacher](https://huggingface.co/mradermacher)** – Full precision model recommended for highest fidelity.
+  overrides:
+    parameters:
+      model: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V.Q4_K_M.gguf
+      sha256: c718c07005d0146b695da96474a184178182cb49c195e595f6d0fbac77132e28
+      uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PDK-V.Q4_K_M.gguf
