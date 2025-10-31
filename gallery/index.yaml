@@ -23181,3 +23181,62 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF
+  description: |
+    **Model Name:** Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated
+    **Base Model:** Qwen/Qwen3-VL-30B-A3B-Instruct
+    **Repository:** [huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated)
+    **Model Type:** Multimodal Large Language Model (LLM) – Image-Text to Text
+    **License:** Apache 2.0
+
+    ### Description:
+    This is an **uncensored, abliterated version** of the Qwen3-VL-30B-A3B-Instruct model, designed for advanced image-text understanding and generation without content restrictions. The model was modified using the *abliteration* technique to remove refusal behaviors, enabling it to describe or analyze images even in sensitive or controversial contexts.
+
+    Key Features:
+    - **Multimodal Capabilities**: Accepts both images and text input for rich, context-aware responses.
+    - **No Refusal Behavior**: Unlike standard versions, it does not refuse to analyze or describe images based on content.
+    - **High Performance**: Built on the large-scale Qwen3-VL-30B architecture with optimized inference capabilities.
+    - **Use Case Ready**: Ideal for research, creative applications, and testing where unrestricted output is desired.
+
+    ### Important Notes:
+    - **Not suitable for public or production use** due to potential for inappropriate content.
+    - Users must **review outputs carefully** and comply with legal and ethical guidelines.
+    - Recommended for **experimental, academic, or controlled environments only**.
+
+    > ✅ **Use this model if you need a fully unrestricted multimodal AI that can analyze any image without hesitation.**
+    > ⚠️ **Exercise caution—no safety filtering is active.**
+
+    For deployment, use with `llama.cpp`, `transformers`, or via Ollama.
+    👉 Full documentation and example code available in the [Hugging Face repo](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated).
+  overrides:
+    parameters:
+      model: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-Q4_K_M.gguf
+  files:
+    - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-Q4_K_M.gguf
+      sha256: 1e94a65167a39d2ff4427393746d4dbc838f3d163c639d932e9ce983f575eabf
+      uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-vl-8b-instruct"
+  urls:
+    - https://huggingface.co/Mungert/Qwen3-VL-8B-Instruct-GGUF
+  description: |
+    AI model: qwen3-vl-8b-instruct
+  overrides:
+    parameters:
+      model: Qwen3-VL-8B-Instruct-q4_k_m.gguf
+  files:
+    - filename: Qwen3-VL-8B-Instruct-q4_k_m.gguf
+      sha256: a4d0b6e9d97ed31053fce7e2466c775ef39919bb86b1c56309b0e9089d540d45
+      uri: huggingface://Mungert/Qwen3-VL-8B-Instruct-GGUF/Qwen3-VL-8B-Instruct-q4_k_m.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-vl-7b-instruct-f32.gguf"
+  urls:
+    - https://huggingface.co/Jamshaid89/Qwen2.5-VL-7B-Instruct-GGUF-F32.gguf
+  description: |
+    AI model: qwen2.5-vl-7b-instruct-f32.gguf
+  overrides:
+    parameters:
+      model: Jamshaid89/Qwen2.5-VL-7B-Instruct-GGUF-F32.gguf
