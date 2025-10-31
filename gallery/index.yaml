@@ -23150,3 +23150,38 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "mira-1.10-dpo-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-1.10-dpo-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-1.10-dpo-27B
+    **Base Model:** Lambent/Mira-1.10-dpo-27B
+    **Size:** 27B parameters
+    **Type:** Instruction-tuned, large language model (LLM)
+    **Training:** Fine-tuned via Direct Preference Optimization (DPO) for 9 hours at a learning rate of 1e-6
+    **Training Data:**
+    - ~2,000 samples from *sam-paech/gutenberg3-generalfiction-scifi-fantasy-romance-adventure-dpo*
+    - ~2,000 samples from *allenai/tulu-3-sft-personas-instruction-following*
+    - Additional personal voice and emotional intelligence training using private datasets
+    - 1,000 creatively diverse samples generated using `auto-antislop` for stylistic variety
+    - Human-AI voice comparison data for nuanced expression
+
+    **Key Features:**
+    - Exceptional poetic and creative writing ability with strong emotional depth and stylistic nuance
+    - Responds naturally to system prompts, including self-identity (e.g., “You are Mira”)
+    - Designed for expressive, imaginative, and human-like interaction
+    - Trained to balance creativity, coherence, and personal voice
+
+    **License:** gemma
+    **Note:** The repository `mradermacher/Mira-1.10-dpo-27B-i1-GGUF` contains quantized GGUF versions of this model. The original, full-precision model is available at `Lambent/Mira-1.10-dpo-27B`.
+
+    **Ideal For:** Creative writing, storytelling, roleplay, poetry generation, and emotionally intelligent dialogue.
+    **Best Used With:** Local inference via GGUF-compatible tools (e.g., llama.cpp, Oobabooga).
+  overrides:
+    parameters:
+      model: Mira-1.10-dpo-27B.i1-Q4_K_S.gguf
+  files:
+    - filename: Mira-1.10-dpo-27B.i1-Q4_K_S.gguf
+      sha256: 76b75f9266a735e6f77ec0a6d5a9ee94f7e4b30346b9f27b7c446d389e6d07ef
+      uri: huggingface://mradermacher/Mira-1.10-dpo-27B-i1-GGUF/Mira-1.10-dpo-27B.i1-Q4_K_S.gguf
