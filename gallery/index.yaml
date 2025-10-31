@@ -23363,3 +23363,25 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "rent-qwen-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/RENT-Qwen-7B-i1-GGUF
+  description: |
+    **Model Name:** RENT-Qwen-7B
+    **Base Model:** Qwen2.5-7B-Instruct
+    **Training Approach:** Unsupervised Reinforcement Learning via Entropy Minimization (RENT) — no external rewards or labeled data required
+    **Dataset:** AIME 2024 (math problem-solving benchmark)
+    **Key Achievement:** Outperforms the base model on AIME, achieving a mean score of **0.232 ± 0.003** (vs. 0.110 ± 0.004 for base), demonstrating strong reasoning capabilities without supervision.
+    **Use Case:** Ideal for reasoning tasks, especially where labeled data is scarce. Best suited for evaluation on math and logical reasoning benchmarks.
+    **Note:** This is a fine-tuned variant of Qwen2.5-7B-Instruct, trained using an innovative unsupervised RL method. The model is not quantized — the original full-precision weights are available in the base repository.
+
+    👉 **Base Model:** [Qwen/Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+    👉 **Training Paper & Code:** [RENT GitHub Repo](https://github.com/satrams/rent-rl) | [arXiv Paper](https://arxiv.org/abs/2505.22660)
+  overrides:
+    parameters:
+      model: RENT-Qwen-7B.i1-Q4_K_M.gguf
+  files:
+    - filename: RENT-Qwen-7B.i1-Q4_K_M.gguf
+      sha256: bc0bd3cc994e90297072066bcc3e61e9352bfc28e7cffc09013b6134fb5bb5e2
+      uri: huggingface://mradermacher/RENT-Qwen-7B-i1-GGUF/RENT-Qwen-7B.i1-Q4_K_M.gguf
