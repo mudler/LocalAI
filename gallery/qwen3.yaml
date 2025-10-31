@@ -6,15 +6,20 @@ config_file: |
   backend: "llama-cpp"
   template:
     chat_message: |
-      <|im_start|>{{ .RoleName }}
-      {{ if .FunctionCall -}}
-      {{ else if eq .RoleName "tool" -}}
+      <|im_start|>{{if eq .RoleName "tool" }}user{{else}}{{ .RoleName }}{{end}}
+      {{ if eq .RoleName "tool" -}}
+      <tool_response>
       {{ end -}}
       {{ if .Content -}}
       {{.Content }}
       {{ end -}}
+      {{ if eq .RoleName "tool" -}}
+      </tool_response>
+      {{ end -}}
       {{ if .FunctionCall -}}
+      <tool_call>
       {{toJson .FunctionCall}}
+      </tool_call>
       {{ end -}}<|im_end|>
     function: |
       <|im_start|>system
