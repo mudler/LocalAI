@@ -23363,3 +23363,39 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "deepwerewolf-qwen3-8b-grpo-agentic-chinese"
+  urls:
+    - https://huggingface.co/mradermacher/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese-GGUF
+  description: |
+    **Model Name:** DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese
+    **Base Model:** Qwen/Qwen3-8B
+    **Author:** haowu11 (original training), mradermacher (GGUF quantization)
+    **Language:** Chinese (with strong English support)
+    **Model Type:** Instruction-tuned, agentic large language model
+    **Architecture:** Qwen3-8B (8-billion parameter autoregressive transformer)
+    **Fine-Tuning:** Trained using Grouped-Response Policy Optimization (GrPO) for enhanced reasoning and agent-like behavior
+    **Use Case:** Ideal for complex reasoning, multi-step tasks, code generation, and interactive agent applications in Chinese and English
+    **Quantized By:** mradermacher (GGUF format, available in multiple quantization levels from Q2_K to Q8_0 and f16)
+
+    **Overview:**
+    DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese is a high-performance, instruction-tuned variant of Qwen3-8B, specifically optimized for agentic workflows with strong reasoning and task execution capabilities. Built upon the Qwen3-8B foundation, it is fine-tuned using Grouped-Response Policy Optimization (GrPO) to improve decision-making and long-horizon task performance. The model excels in multi-step reasoning, dialogue, and autonomous task execution, making it particularly well-suited for AI agent applications.
+
+    This version is available in multiple GGUF quantizations (from Q2_K to Q8_0), enabling efficient deployment on consumer hardware. The original full-precision model is available at `haowu11/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese`, while the quantized versions are hosted by mradermacher for easy local inference.
+
+    **Key Features:**
+    - Trained for agentic behavior with advanced reasoning
+    - Strong performance in Chinese and bilingual tasks
+    - Optimized for local deployment via GGUF quantization
+    - Supports multi-turn dialogue and complex instruction following
+
+    **Use with:** llama.cpp, Ollama, Text Generation WebUI, and other GGUF-compatible tools.
+
+    **Note:** The GGUF files are quantized versions by mradermacher; the original model was created by haowu11 based on Qwen3-8B and the DeepWerewolf project.
+  overrides:
+    parameters:
+      model: DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese.Q4_K_M.gguf
+  files:
+    - filename: DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese.Q4_K_M.gguf
+      sha256: 32a341badc695d9e8bc1bdae92c67b81295d6e3cfd8e901a508f323718db5141
+      uri: huggingface://mradermacher/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese-GGUF/DeepWereWolf-Qwen3-8B-Grpo-Agentic-Chinese.Q4_K_M.gguf
