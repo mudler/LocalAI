@@ -148,6 +148,23 @@
       sha256: 4eabc90a52fe890d6ca1dad92548782eab6edc91f012a365fff95cf027ba529d
       uri: huggingface://unsloth/Qwen3-VL-2B-Thinking-GGUF/mmproj-F16.gguf
 - !!merge <<: *qwen3vl
+  name: "qwen3-vl-2b-instruct"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF
+  description: |
+    Qwen3-VL-2B-Instruct is the 2B parameter model of the Qwen3-VL series.
+  overrides:
+    mmproj: mmproj/mmproj-Qwen3-VL-2B-Instruct-F16.gguf
+    parameters:
+      model: Qwen3-VL-2B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-2B-Instruct-Q4_K_M.gguf
+      sha256: 858fcf2a39dc73b26dd86592cb0a5f949b59d1edb365d1dea98e46b02e955e56
+      uri: huggingface://unsloth/Qwen3-VL-2B-Instruct-GGUF/Qwen3-VL-2B-Instruct-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Qwen3-VL-2B-Instruct-F16.gguf
+      sha256: cd5a851d3928697fa1bd76d459d2cc409b6cf40c9d9682b2f5c8e7c6a9f9630f
+      uri: huggingface://unsloth/Qwen3-VL-2B-Instruct-GGUF/mmproj-F16.gguf
+- !!merge <<: *qwen3vl
   name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated"
   urls:
     - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-GGUF
