@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/rocm6.0
-torch==2.6.0+rocm6.1
+torch==2.7.1+cpu
 torchaudio==2.6.0+rocm6.1
 transformers
 # https://github.com/mudler/LocalAI/pull/6240#issuecomment-3329518289
