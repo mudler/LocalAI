@@ -23363,3 +23363,39 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "finr1-llama-8b-multi-language-thinking-i1"
+  urls:
+    - https://huggingface.co/mradermacher/FinR1-llama-8b-multi-language-thinking-i1-GGUF
+  description: |
+    **FinR1-llama-8b-multi-language-thinking**
+    *An 8-billion-parameter, multilingual financial reasoning model built on Llama-3.1-8B-Instruct*
+
+    **Overview:**
+    FinR1 is a highly specialized, instruction-tuned language model designed for advanced financial analysis, quantitative reasoning, and multilingual support. It excels in structured thinking, numerical accuracy, and cross-lingual financial question answering across 60+ languages.
+
+    **Key Features:**
+    - ✅ **Financial Reasoning**: Solves complex financial tasks with step-by-step logic using `.TextEdit` reasoning traces.
+    - 🌍 **Multilingual Support**: Trained in English, Arabic, Chinese, Spanish, Uzbek, Japanese, and 50+ other languages.
+    - 📊 **Quantitative Precision**: 99% accuracy on numerical calculations and table interpretation (tested on FinQA, LIMO, Cortex-1).
+    - 🧠 **Structured Outputs**: Generates clear, explainable reasoning paths ideal for RAG, auditing, and decision support.
+    - 🔗 **Base Model**: Built on **meta-llama/Llama-3.1-8B-Instruct** with LoRA fine-tuning and reasoning trace integration.
+
+    **Use Cases:**
+    - Financial report summarization
+    - Multilingual investment analysis
+    - Spreadsheet and data table interpretation
+    - Automated financial QA and advisory systems
+
+    **Model Type:** Llama-3.1-based, fine-tuned, 8B parameters, bfloat16/4-bit LoRA compatible
+    **License:** Llama 3.1
+    **Hugging Face:** [Josephgflowers/FinR1-llama-8b-multi-language-thinking](https://huggingface.co/Josephgflowers/FinR1-llama-8b-multi-language-thinking)
+
+    > *Ideal for developers, analysts, and AI researchers needing reliable, transparent financial reasoning across languages.*
+  overrides:
+    parameters:
+      model: FinR1-llama-8b-multi-language-thinking.i1-Q2_K.gguf
+  files:
+    - filename: FinR1-llama-8b-multi-language-thinking.i1-Q2_K.gguf
+      sha256: 89dfdbd85293a9a093d2cf44bde6ef414dd1a01ebb9d1a5cfabcc6fc7fd73ce4
+      uri: huggingface://mradermacher/FinR1-llama-8b-multi-language-thinking-i1-GGUF/FinR1-llama-8b-multi-language-thinking.i1-Q2_K.gguf
