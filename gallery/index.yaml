@@ -23363,3 +23363,34 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "chandra-ocr"
+  urls:
+    - https://huggingface.co/noctrex/Chandra-OCR-GGUF
+  description: |
+    **Chandra – Advanced Document OCR with Layout Preservation**
+
+    Chandra is a state-of-the-art vision-language model designed for highly accurate document understanding and OCR. It excels at extracting text, tables, forms, mathematical expressions, and diagrams from images and PDFs, while preserving detailed layout information.
+
+    **Key Features:**
+    - Outputs structured results in **Markdown, HTML, or JSON** formats
+    - Strong support for **handwriting, multi-column layouts, tables, and complex formatting**
+    - Accurately reconstructs **forms with checkboxes** and **diagrams with captions**
+    - Supports **40+ languages**
+    - High performance on benchmarks like **olmocr**, outperforming many leading models in layout-aware OCR tasks
+
+    **Use Cases:**
+    - Digitizing scanned documents and forms
+    - Extracting data from academic papers, textbooks, and technical manuals
+    - Processing handwritten notes and financial documents
+    - Building intelligent document processing (IDP) pipelines
+
+    **Try It:**
+    - Free online playground: [https://www.datalab.to/playground](https://www.datalab.to/playground)
+    - Hosted API: [https://www.datalab.to/](https://www.datalab.to/)
+    - Install via pip: `pip install chandra-ocr`
+
+    Chandra is ideal for applications where **content accuracy and layout fidelity** are critical. Built on a robust foundation and continuously improved, it represents a major leap in document AI.
+  overrides:
+    parameters:
+      model: noctrex/Chandra-OCR-GGUF
