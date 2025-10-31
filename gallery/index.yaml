@@ -23150,3 +23150,26 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "rivermind-12b-v1"
+  urls:
+    - https://huggingface.co/TheDrummer/Rivermind-12B-v1-GGUF
+  description: |
+    **Rivermind 12B v1** is a large language model based on **Mistral-Nemo-Instruct-2407**, a powerful 12.8-billion-parameter instruction-tuned model developed by Mistral AI and NVIDIA. It is designed for high-performance reasoning, multilingual understanding (supporting English, French, German, Spanish, Italian, Portuguese, Russian, Chinese, and Japanese), and code generation.
+
+    Key features:
+    - **Architecture**: Transformer with 40 layers, 5,120 hidden dimension, 32 attention heads, and a 128K context window.
+    - **Performance**: Outperforms models of similar size across benchmarks including MMLU (68.0% 5-shot), TriviaQA (73.8%), and multilingual tasks.
+    - **Inference-ready**: Optimized for use with `transformers`, `mistral-inference`, and `NeMo`.
+    - **Fine-tuned for instruction following**: Ideal for chat, reasoning, and tool-use applications.
+
+    This model is a drop-in replacement for Mistral 7B, making it ideal for developers and researchers seeking strong performance with long-context capabilities.
+
+    *Note: The GGUF version available at TheDrummer/Rivermind-12B-v1-GGUF is a quantized variant. The original, unquantized model is based on the official Mistral-Nemo-Instruct-2407 release.*
+  overrides:
+    parameters:
+      model: Rivermind-12B-v1b-Q4_K_M.gguf
+  files:
+    - filename: Rivermind-12B-v1b-Q4_K_M.gguf
+      sha256: 59f118bd66dddc6ca52091b4e9fdc1a6449b2e615b108b7f538cd984f685ad2d
+      uri: huggingface://TheDrummer/Rivermind-12B-v1-GGUF/Rivermind-12B-v1b-Q4_K_M.gguf
