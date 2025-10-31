@@ -23150,3 +23150,20 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "mira-1.10-dpo-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-1.10-dpo-27B-i1-GGUF
+  description: |
+    **Mira-1.10-dpo-27B** is a 27-billion-parameter large language model fine-tuned using Direct Preference Optimization (DPO) for enhanced instruction-following, emotional intelligence, and creative expression. Built upon the foundational Lambent/Mira-1.10 base, the model was trained on a curated mix of public datasets—including literary fiction, persona-based dialogue, and creative writing—combined with private, high-quality preference data. Notably, it incorporates stylistic diversity through self-generated creative samples and voice-matching training, resulting in a nuanced, expressive, and deeply human-like output.
+
+    The model excels in poetic, narrative, and emotionally resonant writing, demonstrating strong coherence, originality, and sensitivity to tone. It is particularly well-suited for creative writing, roleplay, and conversational AI applications where personality and depth matter. While the GGUF variant available on Hugging Face is quantized for local inference, the original model represents a significant advancement in personality-driven, high-fidelity language generation.
+
+    *Note: This is the base model repository. The quantized version (mradermacher/Mira-1.10-dpo-27B-i1-GGUF) is a community-converted, optimized format for local use and does not include the original model's full training details or metadata.*
+  overrides:
+    parameters:
+      model: Mira-1.10-dpo-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-1.10-dpo-27B.i1-Q4_K_M.gguf
+      sha256: 24f30723e931230135d7e76ba1342e7c2f671036185f363a5863b8a5305b80c5
+      uri: huggingface://mradermacher/Mira-1.10-dpo-27B-i1-GGUF/Mira-1.10-dpo-27B.i1-Q4_K_M.gguf
