@@ -77,8 +77,8 @@
       sha256: d3e12c6b15f59cc1c6db685d33eb510184d006ebbff0e038e7685e57ce628b3b
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
     - filename: mmproj/mmproj-F16.gguf
-      sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/mmproj-F16.gguf
+      sha256: 752f8f67171e1d3c752b638b1b210a4c75dd0731200595f496ef8b26040ce35d
 - !!merge <<: *qwen3vl
   name: "qwen3-vl-4b-instruct"
   urls:
@@ -197,8 +197,8 @@
     - https://huggingface.co/ai21labs/AI21-Jamba-Reasoning-3B
     - https://huggingface.co/bartowski/ai21labs_AI21-Jamba-Reasoning-3B-GGUF
   description: |
-      AI21’s Jamba Reasoning 3B is a top-performing reasoning model that packs leading scores on intelligence benchmarks and highly-efficient processing into a compact 3B build.
-      The hybrid design combines Transformer attention with Mamba (a state-space model). Mamba layers are more efficient for sequence processing, while attention layers capture complex dependencies. This mix reduces memory overhead, improves throughput, and makes the model run smoothly on laptops, GPUs, and even mobile devices, while maintainig impressive quality.
+    AI21’s Jamba Reasoning 3B is a top-performing reasoning model that packs leading scores on intelligence benchmarks and highly-efficient processing into a compact 3B build.
+    The hybrid design combines Transformer attention with Mamba (a state-space model). Mamba layers are more efficient for sequence processing, while attention layers capture complex dependencies. This mix reduces memory overhead, improves throughput, and makes the model run smoothly on laptops, GPUs, and even mobile devices, while maintainig impressive quality.
   overrides:
     parameters:
       model: ai21labs_AI21-Jamba-Reasoning-3B-Q4_K_M.gguf
@@ -220,7 +220,7 @@
     - https://huggingface.co/ibm-granite/granite-4.0-h-small
     - https://huggingface.co/bartowski/ibm-granite_granite-4.0-h-small-GGUF
   description: |
-      Granite-4.0-H-Small is a 32B parameter long-context instruct model finetuned from Granite-4.0-H-Small-Base using a combination of open source instruction datasets with permissive license and internally collected synthetic datasets. This model is developed using a diverse set of techniques with a structured chat format, including supervised finetuning, model alignment using reinforcement learning, and model merging. Granite 4.0 instruct models feature improved instruction following (IF) and tool-calling capabilities, making them more effective in enterprise applications.
+    Granite-4.0-H-Small is a 32B parameter long-context instruct model finetuned from Granite-4.0-H-Small-Base using a combination of open source instruction datasets with permissive license and internally collected synthetic datasets. This model is developed using a diverse set of techniques with a structured chat format, including supervised finetuning, model alignment using reinforcement learning, and model merging. Granite 4.0 instruct models feature improved instruction following (IF) and tool-calling capabilities, making them more effective in enterprise applications.
   overrides:
     parameters:
       model: ibm-granite_granite-4.0-h-small-Q4_K_M.gguf
@@ -234,7 +234,7 @@
     - https://huggingface.co/ibm-granite/granite-4.0-h-tiny
     - https://huggingface.co/bartowski/ibm-granite_granite-4.0-h-tiny-GGUF
   description: |
-     Granite-4.0-H-Tiny is a 7B parameter long-context instruct model finetuned from Granite-4.0-H-Tiny-Base using a combination of open source instruction datasets with permissive license and internally collected synthetic datasets. This model is developed using a diverse set of techniques with a structured chat format, including supervised finetuning, model alignment using reinforcement learning, and model merging. Granite 4.0 instruct models feature improved instruction following (IF) and tool-calling capabilities, making them more effective in enterprise applications.
+    Granite-4.0-H-Tiny is a 7B parameter long-context instruct model finetuned from Granite-4.0-H-Tiny-Base using a combination of open source instruction datasets with permissive license and internally collected synthetic datasets. This model is developed using a diverse set of techniques with a structured chat format, including supervised finetuning, model alignment using reinforcement learning, and model merging. Granite 4.0 instruct models feature improved instruction following (IF) and tool-calling capabilities, making them more effective in enterprise applications.
   overrides:
     parameters:
       model: ibm-granite_granite-4.0-h-tiny-Q4_K_M.gguf
@@ -562,14 +562,14 @@
     - https://huggingface.co/LiquidAI/LFM2-1.2B-Extract
     - https://huggingface.co/bartowski/LiquidAI_LFM2-1.2B-Extract-GGUF
   description: |
-      Based on LFM2-1.2B, LFM2-1.2B-Extract is designed to extract important information from a wide variety of unstructured documents (such as articles, transcripts, or reports) into structured outputs like JSON, XML, or YAML.
+    Based on LFM2-1.2B, LFM2-1.2B-Extract is designed to extract important information from a wide variety of unstructured documents (such as articles, transcripts, or reports) into structured outputs like JSON, XML, or YAML.
 
-      Use cases:
+    Use cases:
 
-          Extracting invoice details from emails into structured JSON.
-          Converting regulatory filings into XML for compliance systems.
-          Transforming customer support tickets into YAML for analytics pipelines.
-          Populating knowledge graphs with entities and attributes from unstructured reports.
+        Extracting invoice details from emails into structured JSON.
+        Converting regulatory filings into XML for compliance systems.
+        Transforming customer support tickets into YAML for analytics pipelines.
+        Populating knowledge graphs with entities and attributes from unstructured reports.
   overrides:
     parameters:
       model: LiquidAI_LFM2-1.2B-Extract-Q4_K_M.gguf
@@ -3104,7 +3104,7 @@
     - https://huggingface.co/prithivMLmods/Gliese-4B-OSS-0410
     - https://huggingface.co/mradermacher/Gliese-4B-OSS-0410-i1-GGUF
   description: |
-      Gliese-4B-OSS-0410 is a reasoning-focused model fine-tuned on Qwen-4B for enhanced reasoning and polished token probability distributions, delivering balanced multilingual generation across mathematics and general-purpose reasoning tasks. The model is fine-tuned on curated GPT-OSS synthetic dataset entries, improving its ability to handle structured reasoning, probabilistic inference, and multilingual tasks with precision.
+    Gliese-4B-OSS-0410 is a reasoning-focused model fine-tuned on Qwen-4B for enhanced reasoning and polished token probability distributions, delivering balanced multilingual generation across mathematics and general-purpose reasoning tasks. The model is fine-tuned on curated GPT-OSS synthetic dataset entries, improving its ability to handle structured reasoning, probabilistic inference, and multilingual tasks with precision.
   overrides:
     parameters:
       model: Gliese-4B-OSS-0410.i1-Q4_K_M.gguf
@@ -3222,13 +3222,7 @@
   urls:
     - https://huggingface.co/Gen-Verse/Qwen3-4B-RA-SFT
     - https://huggingface.co/mradermacher/Qwen3-4B-RA-SFT-GGUF
-  description: |
-    a 4B-sized agentic reasoning model that is finetuned with our 3k Agentic SFT dataset, based on Qwen3-4B-Instruct-2507.
-    In our work, we systematically investigate three dimensions of agentic RL: data, algorithms, and reasoning modes. Our findings reveal
-
-    🎯 Data Quality Matters: Real end-to-end trajectories and high-diversity datasets significantly outperform synthetic alternatives
-    ⚡ Training Efficiency: Exploration-friendly techniques like reward clipping and entropy maintenance boost training efficiency
-    🧠 Reasoning Strategy: Deliberative reasoning with selective tool calls surpasses frequent invocation or verbose self-reasoning We contribute high-quality SFT and RL datasets, demonstrating that simple recipes enable even 4B models to outperform 32B models on the most challenging reasoning benchmarks.
+  description: "a 4B-sized agentic reasoning model that is finetuned with our 3k Agentic SFT dataset, based on Qwen3-4B-Instruct-2507.\nIn our work, we systematically investigate three dimensions of agentic RL: data, algorithms, and reasoning modes. Our findings reveal\n\n\U0001F3AF Data Quality Matters: Real end-to-end trajectories and high-diversity datasets significantly outperform synthetic alternatives\n⚡ Training Efficiency: Exploration-friendly techniques like reward clipping and entropy maintenance boost training efficiency\n\U0001F9E0 Reasoning Strategy: Deliberative reasoning with selective tool calls surpasses frequent invocation or verbose self-reasoning We contribute high-quality SFT and RL datasets, demonstrating that simple recipes enable even 4B models to outperform 32B models on the most challenging reasoning benchmarks.\n"
   overrides:
     parameters:
       model: Qwen3-4B-RA-SFT.Q4_K_M.gguf
@@ -3242,15 +3236,7 @@
   urls:
     - https://huggingface.co/Gen-Verse/DemyAgent-4B
     - https://huggingface.co/mradermacher/DemyAgent-4B-i1-GGUF
-  description: |
-    This repository contains the DemyAgent-4B model weights, a 4B-sized agentic reasoning model that achieves state-of-the-art performance on challenging benchmarks including AIME2024/2025, GPQA-Diamond, and LiveCodeBench-v6. DemyAgent-4B is trained using our GRPO-TCR recipe with 30K high-quality agentic RL data, demonstrating that small models can outperform much larger alternatives (14B/32B) through effective RL training strategies.
-    🌟 Introduction
-
-    In our work, we systematically investigate three dimensions of agentic RL: data, algorithms, and reasoning modes. Our findings reveal:
-
-        🎯 Data Quality Matters: Real end-to-end trajectories and high-diversity datasets significantly outperform synthetic alternatives
-        ⚡ Training Efficiency: Exploration-friendly techniques like reward clipping and entropy maintenance boost training efficiency
-        🧠 Reasoning Strategy: Deliberative reasoning with selective tool calls surpasses frequent invocation or verbose self-reasoning We contribute high-quality SFT and RL datasets, demonstrating that simple recipes enable even 4B models to outperform 32B models on the most challenging reasoning benchmarks.
+  description: "This repository contains the DemyAgent-4B model weights, a 4B-sized agentic reasoning model that achieves state-of-the-art performance on challenging benchmarks including AIME2024/2025, GPQA-Diamond, and LiveCodeBench-v6. DemyAgent-4B is trained using our GRPO-TCR recipe with 30K high-quality agentic RL data, demonstrating that small models can outperform much larger alternatives (14B/32B) through effective RL training strategies.\n\U0001F31F Introduction\n\nIn our work, we systematically investigate three dimensions of agentic RL: data, algorithms, and reasoning modes. Our findings reveal:\n\n    \U0001F3AF Data Quality Matters: Real end-to-end trajectories and high-diversity datasets significantly outperform synthetic alternatives\n    ⚡ Training Efficiency: Exploration-friendly techniques like reward clipping and entropy maintenance boost training efficiency\n    \U0001F9E0 Reasoning Strategy: Deliberative reasoning with selective tool calls surpasses frequent invocation or verbose self-reasoning We contribute high-quality SFT and RL datasets, demonstrating that simple recipes enable even 4B models to outperform 32B models on the most challenging reasoning benchmarks.\n"
   overrides:
     parameters:
       model: DemyAgent-4B.i1-Q4_K_M.gguf
@@ -10819,7 +10805,7 @@
     - https://huggingface.co/Alibaba-NLP/WebWatcher-7B
     - https://huggingface.co/mradermacher/WebWatcher-7B-GGUF
   description: |
-      WebWatcher is a multimodal agent for deep research that possesses enhanced visual-language reasoning capabilities. Our work presents a unified framework that combines complex vision-language reasoning with multi-tool interaction.
+    WebWatcher is a multimodal agent for deep research that possesses enhanced visual-language reasoning capabilities. Our work presents a unified framework that combines complex vision-language reasoning with multi-tool interaction.
   overrides:
     mmproj: WebWatcher-7B.mmproj-Q8_0.gguf
     parameters:
@@ -10838,7 +10824,7 @@
     - https://huggingface.co/Alibaba-NLP/WebWatcher-32B
     - https://huggingface.co/mradermacher/WebWatcher-32B-GGUF
   description: |
-      WebWatcher is a multimodal agent for deep research that possesses enhanced visual-language reasoning capabilities. Our work presents a unified framework that combines complex vision-language reasoning with multi-tool interaction.
+    WebWatcher is a multimodal agent for deep research that possesses enhanced visual-language reasoning capabilities. Our work presents a unified framework that combines complex vision-language reasoning with multi-tool interaction.
   overrides:
     mmproj: WebWatcher-32B.mmproj-Q8_0.gguf
     parameters:
@@ -21985,19 +21971,7 @@
   name: "biomed-r1-32b-i1"
   urls:
     - https://huggingface.co/mradermacher/BioMed-R1-32B-i1-GGUF
-  description: |
-    **BioMed-R1-32B** is a large-scale, medical-domain language model developed by the Zou Lab at Stanford University. Built upon the **Qwen2.5-32B-Instruct** base, it is specifically fine-tuned to enhance reasoning and factual accuracy in clinical and biomedical contexts. The model excels in handling complex medical questions, with a focus on self-correction, backtracking, and robust performance under adversarial conditions—key traits for reliable medical decision support.
-
-    Key features:
-    - **Base model**: Qwen/Qwen2.5-32B-Instruct
-    - **Domain**: Specialized for medical reasoning and knowledge retrieval
-    - **Training**: Supervised fine-tuning and reinforcement learning on reasoning-heavy and adversarial examples
-    - **Performance**: Top-tier among similarly sized biomedical LLMs, particularly on reasoning-intensive tasks
-    - **Use case**: Clinical reasoning, diagnostic support, medical QA, and research
-
-    Available via Hugging Face, it can be deployed using vLLM, SGLang, or standard Transformers pipelines. Ideal for researchers and developers working in healthcare AI.
-
-    > 📌 **Citation**: Thapa et al., *Disentangling Reasoning and Knowledge in Medical Large Language Models*, arXiv:2505.11462 (2025)
+  description: "**BioMed-R1-32B** is a large-scale, medical-domain language model developed by the Zou Lab at Stanford University. Built upon the **Qwen2.5-32B-Instruct** base, it is specifically fine-tuned to enhance reasoning and factual accuracy in clinical and biomedical contexts. The model excels in handling complex medical questions, with a focus on self-correction, backtracking, and robust performance under adversarial conditions—key traits for reliable medical decision support.\n\nKey features:\n- **Base model**: Qwen/Qwen2.5-32B-Instruct\n- **Domain**: Specialized for medical reasoning and knowledge retrieval\n- **Training**: Supervised fine-tuning and reinforcement learning on reasoning-heavy and adversarial examples\n- **Performance**: Top-tier among similarly sized biomedical LLMs, particularly on reasoning-intensive tasks\n- **Use case**: Clinical reasoning, diagnostic support, medical QA, and research\n\nAvailable via Hugging Face, it can be deployed using vLLM, SGLang, or standard Transformers pipelines. Ideal for researchers and developers working in healthcare AI.\n\n> \U0001F4CC **Citation**: Thapa et al., *Disentangling Reasoning and Knowledge in Medical Large Language Models*, arXiv:2505.11462 (2025)\n"
   overrides:
     parameters:
       model: BioMed-R1-32B.i1-Q4_K_M.gguf
@@ -22202,36 +22176,7 @@
   name: "aevum-0.6b-finetuned"
   urls:
     - https://huggingface.co/mradermacher/Aevum-0.6B-Finetuned-GGUF
-  description: |
-    **Model Name:** Aevum-0.6B-Finetuned
-    **Base Model:** Qwen3-0.6B
-    **Architecture:** Decoder-only Transformer
-    **Parameters:** 0.6 Billion
-    **Task:** Code Generation, Instruction Following
-    **Languages:** English, Python (optimized for code)
-    **License:** Apache 2.0
-
-    **Overview:**
-    Aevum-0.6B-Finetuned is a highly efficient, small-scale language model fine-tuned for code generation and task following. Built on the Qwen3-0.6B foundation, it delivers strong performance—achieving a **HumanEval Pass@1 score of 21.34%**—making it the most parameter-efficient sub-1B model in its category.
-
-    **Key Features:**
-    - Optimized for low-latency inference on CPU and edge devices.
-    - Fine-tuned on MBPP and DeepMind Code Contests for superior code generation accuracy.
-    - Ideal for lightweight development, education, and prototyping.
-
-    **Use Case:**
-    Perfect for developers and researchers needing a fast, compact, and open model for Python code generation without requiring high-end hardware.
-
-    **Performance Benchmark:**
-    Outperforms larger models in efficiency: comparable to models 10x its size in task accuracy.
-
-    **Cite:**
-    @misc{aveum06B2025, title={aevum-0.6B-Finetuned: Lightweight Python Code Generation Model}, author={anonymous}, year={2025}}
-
-    **Try it:**
-    Use via Hugging Face `transformers` library with minimal setup.
-
-    👉 [Model Page on Hugging Face](https://huggingface.co/Aevum-Official/aveum-0.6B-Finetuned)
+  description: "**Model Name:** Aevum-0.6B-Finetuned\n**Base Model:** Qwen3-0.6B\n**Architecture:** Decoder-only Transformer\n**Parameters:** 0.6 Billion\n**Task:** Code Generation, Instruction Following\n**Languages:** English, Python (optimized for code)\n**License:** Apache 2.0\n\n**Overview:**\nAevum-0.6B-Finetuned is a highly efficient, small-scale language model fine-tuned for code generation and task following. Built on the Qwen3-0.6B foundation, it delivers strong performance—achieving a **HumanEval Pass@1 score of 21.34%**—making it the most parameter-efficient sub-1B model in its category.\n\n**Key Features:**\n- Optimized for low-latency inference on CPU and edge devices.\n- Fine-tuned on MBPP and DeepMind Code Contests for superior code generation accuracy.\n- Ideal for lightweight development, education, and prototyping.\n\n**Use Case:**\nPerfect for developers and researchers needing a fast, compact, and open model for Python code generation without requiring high-end hardware.\n\n**Performance Benchmark:**\nOutperforms larger models in efficiency: comparable to models 10x its size in task accuracy.\n\n**Cite:**\n@misc{aveum06B2025, title={aevum-0.6B-Finetuned: Lightweight Python Code Generation Model}, author={anonymous}, year={2025}}\n\n**Try it:**\nUse via Hugging Face `transformers` library with minimal setup.\n\n\U0001F449 [Model Page on Hugging Face](https://huggingface.co/Aevum-Official/aveum-0.6B-Finetuned)\n"
   overrides:
     parameters:
       model: Aevum-0.6B-Finetuned.Q4_K_M.gguf
@@ -22289,7 +22234,7 @@
     - https://huggingface.co/allenai/olmOCR-2-7B-1025
     - https://huggingface.co/bartowski/allenai_olmOCR-2-7B-1025-GGUF
   description: |
-      This is a release of the olmOCR model that's fine tuned from Qwen2.5-VL-7B-Instruct using the olmOCR-mix-1025 dataset. It has been additionally fine tuned using GRPO RL training to boost its performance at math equations, tables, and other tricky OCR cases.
+    This is a release of the olmOCR model that's fine tuned from Qwen2.5-VL-7B-Instruct using the olmOCR-mix-1025 dataset. It has been additionally fine tuned using GRPO RL training to boost its performance at math equations, tables, and other tricky OCR cases.
   overrides:
     mmproj: mmproj-allenai_olmOCR-2-7B-1025-f16.gguf
     parameters:
@@ -22375,17 +22320,7 @@
   name: "verbamaxima-12b-i1"
   urls:
     - https://huggingface.co/mradermacher/VerbaMaxima-12B-i1-GGUF
-  description: |
-    **VerbaMaxima-12B** is a highly experimental, large language model created through advanced merging techniques using [mergekit](https://github.com/cg123/mergekit). It is based on *natong19/Mistral-Nemo-Instruct-2407-abliterated* and further refined by combining multiple 12B-scale models—including *TheDrummer/UnslopNemo-12B-v4*, *allura-org/Tlacuilo-12B*, and *Trappu/Magnum-Picaro-0.7-v2-12b*—using **model_stock** and **task arithmetic** with a negative lambda for creative deviation.
-
-    The result is a model designed for nuanced, believable storytelling with reduced "purple prose" and enhanced world-building. It excels in roleplay and co-writing scenarios, offering a more natural, less theatrical tone. While experimental and not fully optimized, it delivers a unique, expressive voice ideal for creative and narrative-driven applications.
-
-    > ✅ **Base Model**: natong19/Mistral-Nemo-Instruct-2407-abliterated
-    > 🔄 **Merge Method**: Task Arithmetic + Model Stock
-    > 📌 **Use Case**: Roleplay, creative writing, narrative generation
-    > 🧪 **Status**: Experimental, high potential, not production-ready
-
-    *Note: This is the original, unquantized model. The GGUF version (mradermacher/VerbaMaxima-12B-i1-GGUF) is a quantized derivative for inference on local hardware.*
+  description: "**VerbaMaxima-12B** is a highly experimental, large language model created through advanced merging techniques using [mergekit](https://github.com/cg123/mergekit). It is based on *natong19/Mistral-Nemo-Instruct-2407-abliterated* and further refined by combining multiple 12B-scale models—including *TheDrummer/UnslopNemo-12B-v4*, *allura-org/Tlacuilo-12B*, and *Trappu/Magnum-Picaro-0.7-v2-12b*—using **model_stock** and **task arithmetic** with a negative lambda for creative deviation.\n\nThe result is a model designed for nuanced, believable storytelling with reduced \"purple prose\" and enhanced world-building. It excels in roleplay and co-writing scenarios, offering a more natural, less theatrical tone. While experimental and not fully optimized, it delivers a unique, expressive voice ideal for creative and narrative-driven applications.\n\n> ✅ **Base Model**: natong19/Mistral-Nemo-Instruct-2407-abliterated\n> \U0001F504 **Merge Method**: Task Arithmetic + Model Stock\n> \U0001F4CC **Use Case**: Roleplay, creative writing, narrative generation\n> \U0001F9EA **Status**: Experimental, high potential, not production-ready\n\n*Note: This is the original, unquantized model. The GGUF version (mradermacher/VerbaMaxima-12B-i1-GGUF) is a quantized derivative for inference on local hardware.*\n"
   overrides:
     parameters:
       model: VerbaMaxima-12B.i1-Q4_K_M.gguf
@@ -22442,21 +22377,7 @@
   name: "spanish_rpg-3.2-1b"
   urls:
     - https://huggingface.co/Novaciano/Spanish_RPG-3.2-1B-GGUF
-  description: |
-    **Model Name:** Spanish_RPG-3.2-1B
-    **Base Model:** Llama 3.2 1B (via fine-tuning)
-    **Repository:** [Novaciano/Spanish_RPG-3.2-1B](https://huggingface.co/Novaciano/Spanish_RPG-3.2-1B)
-    **License:** Llama 3.2 (LLM)
-    **Language:** Spanish (es)
-    **Task:** Roleplay (NSFW/Adult Content)
-    **Model Type:** Fine-tuned, Merge-based (Arcee Fusion)
-    **Description:**
-    A high-precision, Spanish-language roleplay model optimized for immersive, character-driven storytelling with NSFW content. Built on the foundation of *Alice-In-The-Dark-RP-NSFW-3.2-1B* and enhanced with code-generation data from *Llama-3.2-1B-GenerativePerturbations*, this model excels in generating natural, emotionally expressive, and coherent responses in roleplay formats — ideal for narrative, adult, and creative storytelling scenarios.
-
-    Designed for low-resource environments, it performs efficiently on CPUs, making it accessible for mobile and edge devices. Supports the classic internet roleplay format (`*action* dialogue *narration*`) and works seamlessly with KoboldAI, Koboldcpp, and llama.cpp.
-
-    > 📌 *Note: This model contains uncensored, adult content and is not suitable for all audiences.*
-    > 🧪 *Intended as a prototype for testing and creative use — not for production deployment.*
+  description: "**Model Name:** Spanish_RPG-3.2-1B\n**Base Model:** Llama 3.2 1B (via fine-tuning)\n**Repository:** [Novaciano/Spanish_RPG-3.2-1B](https://huggingface.co/Novaciano/Spanish_RPG-3.2-1B)\n**License:** Llama 3.2 (LLM)\n**Language:** Spanish (es)\n**Task:** Roleplay (NSFW/Adult Content)\n**Model Type:** Fine-tuned, Merge-based (Arcee Fusion)\n**Description:**\nA high-precision, Spanish-language roleplay model optimized for immersive, character-driven storytelling with NSFW content. Built on the foundation of *Alice-In-The-Dark-RP-NSFW-3.2-1B* and enhanced with code-generation data from *Llama-3.2-1B-GenerativePerturbations*, this model excels in generating natural, emotionally expressive, and coherent responses in roleplay formats — ideal for narrative, adult, and creative storytelling scenarios.\n\nDesigned for low-resource environments, it performs efficiently on CPUs, making it accessible for mobile and edge devices. Supports the classic internet roleplay format (`*action* dialogue *narration*`) and works seamlessly with KoboldAI, Koboldcpp, and llama.cpp.\n\n> \U0001F4CC *Note: This model contains uncensored, adult content and is not suitable for all audiences.*\n> \U0001F9EA *Intended as a prototype for testing and creative use — not for production deployment.*\n"
   overrides:
     parameters:
       model: Spanish_RPG-3.2-1B-Q4_K_M.gguf
@@ -22495,20 +22416,7 @@
   name: "simia-tau-sft-qwen3-8b"
   urls:
     - https://huggingface.co/mradermacher/Simia-Tau-SFT-Qwen3-8B-GGUF
-  description: |
-    The **Simia-Tau-SFT-Qwen3-8B** is a fine-tuned version of the Qwen3-8B language model, developed by Simia-Agent and adapted for enhanced instruction-following capabilities. This model is optimized for dialogue and task-oriented interactions, making it highly effective for real-world applications requiring nuanced understanding and coherent responses.
-
-    The model is available in multiple quantized formats (GGUF), including Q4_K_S, Q5_K_M, Q8_0, and others, enabling efficient deployment across devices with varying computational resources. These quantized versions maintain strong performance while reducing memory footprint and inference latency.
-
-    While this repository hosts a quantized variant (specifically designed for GGUF-based inference via tools like llama.cpp), the original base model is **Qwen3-8B**, a large-scale open-source language model from Alibaba Cloud. The fine-tuning (SFT) process improves its alignment with human intent and enhances its ability to follow complex instructions.
-
-    > 🔍 **Note**: This is a quantized version; for the full-precision base model, refer to [Simia-Agent/Simia-Tau-SFT-Qwen3-8B](https://huggingface.co/Simia-Agent/Simia-Tau-SFT-Qwen3-8B) on Hugging Face.
-
-    **Use Case**: Ideal for chatbots, assistant systems, and interactive applications requiring strong reasoning, safety, and fluency.
-    **Model Size**: 8B parameters (quantized for efficiency).
-    **License**: See the original model's license (typically Apache 2.0 for Qwen series).
-
-    👉 Recommended for edge deployment with GGUF-compatible tools.
+  description: "The **Simia-Tau-SFT-Qwen3-8B** is a fine-tuned version of the Qwen3-8B language model, developed by Simia-Agent and adapted for enhanced instruction-following capabilities. This model is optimized for dialogue and task-oriented interactions, making it highly effective for real-world applications requiring nuanced understanding and coherent responses.\n\nThe model is available in multiple quantized formats (GGUF), including Q4_K_S, Q5_K_M, Q8_0, and others, enabling efficient deployment across devices with varying computational resources. These quantized versions maintain strong performance while reducing memory footprint and inference latency.\n\nWhile this repository hosts a quantized variant (specifically designed for GGUF-based inference via tools like llama.cpp), the original base model is **Qwen3-8B**, a large-scale open-source language model from Alibaba Cloud. The fine-tuning (SFT) process improves its alignment with human intent and enhances its ability to follow complex instructions.\n\n> \U0001F50D **Note**: This is a quantized version; for the full-precision base model, refer to [Simia-Agent/Simia-Tau-SFT-Qwen3-8B](https://huggingface.co/Simia-Agent/Simia-Tau-SFT-Qwen3-8B) on Hugging Face.\n\n**Use Case**: Ideal for chatbots, assistant systems, and interactive applications requiring strong reasoning, safety, and fluency.\n**Model Size**: 8B parameters (quantized for efficiency).\n**License**: See the original model's license (typically Apache 2.0 for Qwen series).\n\n\U0001F449 Recommended for edge deployment with GGUF-compatible tools.\n"
   overrides:
     parameters:
       model: Simia-Tau-SFT-Qwen3-8B.Q4_K_S.gguf
@@ -22520,33 +22428,7 @@
   name: "qwen3-coder-reap-25b-a3b-i1"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF
-  description: |
-    **Model Name:** Qwen3-Coder-REAP-25B-A3B (Base Model: cerebras/Qwen3-Coder-REAP-25B-A3B)
-    **Model Type:** Large Language Model (LLM) for Code Generation
-    **Architecture:** Mixture-of-Experts (MoE) – Qwen3-Coder variant
-    **Size:** 25B parameters (with 3 active experts at inference time)
-    **License:** Apache 2.0
-    **Library:** Hugging Face Transformers
-    **Language Support:** Primarily English, optimized for coding tasks across multiple programming languages
-
-    **Description:**
-    The **Qwen3-Coder-REAP-25B-A3B** is a high-performance, open-source, Mixture-of-Experts (MoE) language model developed by Cerebras Systems, specifically fine-tuned for advanced code generation and reasoning. Built on the Qwen3 architecture, this model excels in understanding complex codebases, generating syntactically correct and semantically meaningful code, and solving programming challenges across diverse domains.
-
-    This version is the **original, unquantized base model** and serves as the foundation for various quantized GGUF variants (e.g., by mradermacher), which are optimized for local inference with reduced memory footprint while preserving strong performance.
-
-    Ideal for developers, AI researchers, and engineers working on code completion, debugging, documentation generation, and automated software development workflows.
-
-    ✅ **Key Features:**
-    - State-of-the-art code generation
-    - 25B parameter scale with expert routing
-    - MoE architecture for efficient inference
-    - Full compatibility with Hugging Face Transformers
-    - Designed for real-world coding tasks
-
-    **Base Model Repository:** [cerebras/Qwen3-Coder-REAP-25B-A3B](https://huggingface.co/cerebras/Qwen3-Coder-REAP-25B-A3B)
-    **Quantized Versions:** Available via [mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF) (for local inference with GGUF)
-
-    > 🔍 **Note:** The quantized versions (e.g., GGUF) are optimized for performance on consumer hardware and are not the original model. For the full, unquantized model description, refer to the base model above.
+  description: "**Model Name:** Qwen3-Coder-REAP-25B-A3B (Base Model: cerebras/Qwen3-Coder-REAP-25B-A3B)\n**Model Type:** Large Language Model (LLM) for Code Generation\n**Architecture:** Mixture-of-Experts (MoE) – Qwen3-Coder variant\n**Size:** 25B parameters (with 3 active experts at inference time)\n**License:** Apache 2.0\n**Library:** Hugging Face Transformers\n**Language Support:** Primarily English, optimized for coding tasks across multiple programming languages\n\n**Description:**\nThe **Qwen3-Coder-REAP-25B-A3B** is a high-performance, open-source, Mixture-of-Experts (MoE) language model developed by Cerebras Systems, specifically fine-tuned for advanced code generation and reasoning. Built on the Qwen3 architecture, this model excels in understanding complex codebases, generating syntactically correct and semantically meaningful code, and solving programming challenges across diverse domains.\n\nThis version is the **original, unquantized base model** and serves as the foundation for various quantized GGUF variants (e.g., by mradermacher), which are optimized for local inference with reduced memory footprint while preserving strong performance.\n\nIdeal for developers, AI researchers, and engineers working on code completion, debugging, documentation generation, and automated software development workflows.\n\n✅ **Key Features:**\n- State-of-the-art code generation\n- 25B parameter scale with expert routing\n- MoE architecture for efficient inference\n- Full compatibility with Hugging Face Transformers\n- Designed for real-world coding tasks\n\n**Base Model Repository:** [cerebras/Qwen3-Coder-REAP-25B-A3B](https://huggingface.co/cerebras/Qwen3-Coder-REAP-25B-A3B)\n**Quantized Versions:** Available via [mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-Coder-REAP-25B-A3B-i1-GGUF) (for local inference with GGUF)\n\n> \U0001F50D **Note:** The quantized versions (e.g., GGUF) are optimized for performance on consumer hardware and are not the original model. For the full, unquantized model description, refer to the base model above.\n"
   overrides:
     parameters:
       model: Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_S.gguf
@@ -22558,56 +22440,7 @@
   name: "qwen3-6b-almost-human-xmen-x4-x2-x1-dare-e32"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32-GGUF
-  description: |
-    **Model Name:** Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32
-    **Author:** DavidAU (based on original Qwen3-6B architecture)
-    **Repository:** [DavidAU/Qwen3-Almost-Human-XMEN-X4-X2-X1-Dare-e32](https://huggingface.co/DavidAU/Qwen3-Almost-Human-XMEN-X4-X2-X1-Dare-e32)
-    **Base Model:** Qwen3-6B (original Qwen3 6B from Alibaba)
-    **License:** Apache 2.0
-    **Quantization Status:** Full-precision (float32) source model available; GGUF quantizations also provided by third parties (e.g., mradermacher)
-
-    ---
-
-    ### 🌟 Model Description
-
-    **Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32** is a creatively enhanced, instruction-tuned variant of the Qwen3-6B model, meticulously fine-tuned to emulate the literary voice and psychological depth of **Philip K. Dick**. Developed by DavidAU using **Unsloth** and trained on multiple proprietary datasets—including works of PK Dick, personal notes, letters, and creative writing—this model excels in **narrative richness, emotional nuance, and complex reasoning**.
-
-    It is the result of a **"DARE-TIES" merge** combining four distinct training variants: X4, X2, and two X1 models, with the final fusion mastered in **32-bit precision (float32)** for maximum fidelity. The model incorporates **Brainstorm 20x**, a novel reasoning enhancement technique that expands and recalibrates the model’s internal reasoning centers 20 times to improve coherence, detail, and creative depth—without compromising instruction-following.
-
-    ---
-
-    ### ✨ Key Features
-
-    - **Enhanced Prose & Storytelling:** Generates vivid, immersive, and deeply human-like narratives with foreshadowing, similes, metaphors, and emotional engagement.
-    - **Strong Reasoning & Creativity:** Ideal for brainstorming, roleplay, long-form writing, and complex problem-solving.
-    - **High Context (256K):** Supports extensive conversations and long-form content.
-    - **Optimized for Creative & Coding Tasks:** Performs exceptionally well with detailed prompts and step-by-step refinement.
-    - **Full-Precision Source Available:** Original float32 model is provided—ideal for advanced users and model developers.
-
-    ---
-
-    ### 🛠️ Recommended Use Cases
-
-    - Creative writing & fiction generation
-    - Roleplaying and character-driven dialogue
-    - Complex brainstorming and ideation
-    - Code generation with narrative context
-    - Literary and philosophical exploration
-
-    > 🔍 **Note:** The GGUF quantized version (e.g., by mradermacher) is **not the original**—it’s a derivative. For the **true base model**, use the **DavidAU/Qwen3-Almost-Human-X1-6B-e32** repository, which hosts the original, full-precision model.
-
-    ---
-
-    ### 📌 Tips for Best Results
-
-    - Use **CHATML or Jinja templates**
-    - Set `temperature: 0.3–0.7`, `top_p: 0.8`, `repetition_penalty: 1.05–1.1`
-    - Enable **smoothing factor (1.5)** in tools like KoboldCpp or Text-Gen-WebUI for smoother output
-    - Use **Q6 or Q8 GGUF quants** for best performance on complex tasks
-
-    ---
-
-    ✨ **In short:** A poetic, introspective, and deeply human-like AI—crafted to feel like a real mind, not just a machine. Perfect for those who want **intelligence with soul**.
+  description: "**Model Name:** Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32\n**Author:** DavidAU (based on original Qwen3-6B architecture)\n**Repository:** [DavidAU/Qwen3-Almost-Human-XMEN-X4-X2-X1-Dare-e32](https://huggingface.co/DavidAU/Qwen3-Almost-Human-XMEN-X4-X2-X1-Dare-e32)\n**Base Model:** Qwen3-6B (original Qwen3 6B from Alibaba)\n**License:** Apache 2.0\n**Quantization Status:** Full-precision (float32) source model available; GGUF quantizations also provided by third parties (e.g., mradermacher)\n\n---\n\n### \U0001F31F Model Description\n\n**Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32** is a creatively enhanced, instruction-tuned variant of the Qwen3-6B model, meticulously fine-tuned to emulate the literary voice and psychological depth of **Philip K. Dick**. Developed by DavidAU using **Unsloth** and trained on multiple proprietary datasets—including works of PK Dick, personal notes, letters, and creative writing—this model excels in **narrative richness, emotional nuance, and complex reasoning**.\n\nIt is the result of a **\"DARE-TIES\" merge** combining four distinct training variants: X4, X2, and two X1 models, with the final fusion mastered in **32-bit precision (float32)** for maximum fidelity. The model incorporates **Brainstorm 20x**, a novel reasoning enhancement technique that expands and recalibrates the model’s internal reasoning centers 20 times to improve coherence, detail, and creative depth—without compromising instruction-following.\n\n---\n\n### ✨ Key Features\n\n- **Enhanced Prose & Storytelling:** Generates vivid, immersive, and deeply human-like narratives with foreshadowing, similes, metaphors, and emotional engagement.\n- **Strong Reasoning & Creativity:** Ideal for brainstorming, roleplay, long-form writing, and complex problem-solving.\n- **High Context (256K):** Supports extensive conversations and long-form content.\n- **Optimized for Creative & Coding Tasks:** Performs exceptionally well with detailed prompts and step-by-step refinement.\n- **Full-Precision Source Available:** Original float32 model is provided—ideal for advanced users and model developers.\n\n---\n\n### \U0001F6E0️ Recommended Use Cases\n\n- Creative writing & fiction generation\n- Roleplaying and character-driven dialogue\n- Complex brainstorming and ideation\n- Code generation with narrative context\n- Literary and philosophical exploration\n\n> \U0001F50D **Note:** The GGUF quantized version (e.g., by mradermacher) is **not the original**—it’s a derivative. For the **true base model**, use the **DavidAU/Qwen3-Almost-Human-X1-6B-e32** repository, which hosts the original, full-precision model.\n\n---\n\n### \U0001F4CC Tips for Best Results\n\n- Use **CHATML or Jinja templates**\n- Set `temperature: 0.3–0.7`, `top_p: 0.8`, `repetition_penalty: 1.05–1.1`\n- Enable **smoothing factor (1.5)** in tools like KoboldCpp or Text-Gen-WebUI for smoother output\n- Use **Q6 or Q8 GGUF quants** for best performance on complex tasks\n\n---\n\n✨ **In short:** A poetic, introspective, and deeply human-like AI—crafted to feel like a real mind, not just a machine. Perfect for those who want **intelligence with soul**.\n"
   overrides:
     parameters:
       model: Qwen3-6B-Almost-Human-XMEN-X4-X2-X1-Dare-e32.Q4_K_M.gguf
@@ -22619,46 +22452,19 @@
   name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated-mxfp4_moe"
   urls:
     - https://huggingface.co/noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF
-  description: |
-    **Model Name:** Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated
-    **Base Model:** Qwen3-VL-30B (a large multimodal language model)
-    **Repository:** [huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated)
-    **Quantization:** MXFP4_MOE (GGUF format, optimized for inference on consumer hardware)
-    **Model Type:** Instruction-tuned, multimodal (text + vision)
-    **Size:** 30 billion parameters (MoE architecture with active 3.7B parameters per token)
-    **License:** Apache 2.0
-
-    **Description:**
-    Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated is an advanced, instruction-tuned multimodal large language model based on Qwen3-VL-30B, enhanced with a mixture-of-experts (MoE) architecture and fine-tuned for strong reasoning, visual understanding, and dialogue capabilities. It supports both text and image inputs, making it suitable for tasks such as image captioning, visual question answering, and complex instruction following. This version is quantized using MXFP4_MOE for efficient inference while preserving high performance.
-
-    Ideal for developers and researchers seeking a powerful, efficient, and open-source multimodal model for real-world applications.
-
-    > 🔍 *Note: This is a text-only version.*
+  description: "**Model Name:** Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated\n**Base Model:** Qwen3-VL-30B (a large multimodal language model)\n**Repository:** [huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated](https://huggingface.co/huihui-ai/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated)\n**Quantization:** MXFP4_MOE (GGUF format, optimized for inference on consumer hardware)\n**Model Type:** Instruction-tuned, multimodal (text + vision)\n**Size:** 30 billion parameters (MoE architecture with active 3.7B parameters per token)\n**License:** Apache 2.0\n\n**Description:**\nHuihui-Qwen3-VL-30B-A3B-Instruct-abliterated is an advanced, instruction-tuned multimodal large language model based on Qwen3-VL-30B, enhanced with a mixture-of-experts (MoE) architecture and fine-tuned for strong reasoning, visual understanding, and dialogue capabilities. It supports both text and image inputs, making it suitable for tasks such as image captioning, visual question answering, and complex instruction following. This version is quantized using MXFP4_MOE for efficient inference while preserving high performance.\n\nIdeal for developers and researchers seeking a powerful, efficient, and open-source multimodal model for real-world applications.\n\n> \U0001F50D *Note: This is a text-only version.*\n"
   overrides:
     parameters:
       model: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
   files:
     - filename: Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
-      sha256: acfe87d0bd3a286a31fffff780a2d7e9cc9e0b72721a6ba5c1b1c68641fb641e
       uri: huggingface://noctrex/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE-GGUF/Huihui-Qwen3-VL-30B-A3B-Instruct-abliterated-MXFP4_MOE.gguf
+      sha256: 5f458db67228615462fa467085938df88cc1b84d0cedda2bcec52cdc757643f9
 - !!merge <<: *afm
   name: "a2fm-32b-rl"
   urls:
     - https://huggingface.co/mradermacher/A2FM-32B-rl-GGUF
-  description: |
-    **A²FM-32B-rl** is a 32-billion-parameter adaptive foundation model designed for hybrid reasoning and agentic tasks. It dynamically selects between *instant*, *reasoning*, and *agentic* execution modes using a **route-then-align** framework, enabling smarter, more efficient AI behavior.
-
-    Trained with **Adaptive Policy Optimization (APO)**, it achieves state-of-the-art performance on benchmarks like AIME25 (70.4%) and BrowseComp (13.4%), while reducing inference cost by up to **45%** compared to traditional reasoning methods—delivering high accuracy at low cost.
-
-    Originally developed by **PersonalAILab**, this model is optimized for tool-aware, multi-step problem solving and is ideal for advanced AI agents requiring both precision and efficiency.
-
-    🔹 *Model Type:* Adaptive Agent Foundation Model
-    🔹 *Size:* 32B
-    🔹 *Use Case:* Agentic reasoning, tool use, cost-efficient AI agents
-    🔹 *Training Approach:* Route-then-align + Adaptive Policy Optimization (APO)
-    🔹 *Performance:* SOTA on reasoning and agentic benchmarks
-
-    📄 [Paper](https://arxiv.org/abs/2510.12838) | 🐙 [GitHub](https://github.com/OPPO-PersonalAI/Adaptive_Agent_Foundation_Models)
+  description: "**A²FM-32B-rl** is a 32-billion-parameter adaptive foundation model designed for hybrid reasoning and agentic tasks. It dynamically selects between *instant*, *reasoning*, and *agentic* execution modes using a **route-then-align** framework, enabling smarter, more efficient AI behavior.\n\nTrained with **Adaptive Policy Optimization (APO)**, it achieves state-of-the-art performance on benchmarks like AIME25 (70.4%) and BrowseComp (13.4%), while reducing inference cost by up to **45%** compared to traditional reasoning methods—delivering high accuracy at low cost.\n\nOriginally developed by **PersonalAILab**, this model is optimized for tool-aware, multi-step problem solving and is ideal for advanced AI agents requiring both precision and efficiency.\n\n\U0001F539 *Model Type:* Adaptive Agent Foundation Model\n\U0001F539 *Size:* 32B\n\U0001F539 *Use Case:* Agentic reasoning, tool use, cost-efficient AI agents\n\U0001F539 *Training Approach:* Route-then-align + Adaptive Policy Optimization (APO)\n\U0001F539 *Performance:* SOTA on reasoning and agentic benchmarks\n\n\U0001F4C4 [Paper](https://arxiv.org/abs/2510.12838) | \U0001F419 [GitHub](https://github.com/OPPO-PersonalAI/Adaptive_Agent_Foundation_Models)\n"
   overrides:
     parameters:
       model: A2FM-32B-rl.Q4_K_S.gguf
@@ -22670,19 +22476,7 @@
   name: "pokeeai.pokee_research_7b"
   urls:
     - https://huggingface.co/DevQuasar/PokeeAI.pokee_research_7b-GGUF
-  description: |
-    **PokeeResearch-7B** is a 7-billion-parameter deep research agent developed by Pokee AI, designed for advanced, multi-step reasoning and autonomous research workflows. Built on the Qwen2.5-7B-Instruct foundation and fine-tuned using Reinforcement Learning from AI Feedback (RLAIF), it excels at complex, fact-grounded tasks such as information retrieval, cross-source verification, and synthesis across multiple research threads.
-
-    Key features:
-    - **Purpose-built for deep research**: Handles multi-hop queries with self-correction and structured reasoning.
-    - **Trained on MiroRL-GenQA**: High-quality, reasoning-intensive question-answer pairs.
-    - **State-of-the-art performance**: Outperforms other 7B models on benchmarks like GAIA, BrowseComp, and HotpotQA.
-    - **Open-source & transparent**: Fully accessible via GitHub and Hugging Face, licensed under Apache 2.0.
-
-    Ideal for researchers, developers, and enterprises seeking a reliable, scalable agent for scientific discovery, automated analysis, and knowledge synthesis.
-
-    👉 *Explore the model:* [PokeeAI/pokee_research_7b](https://huggingface.co/PokeeAI/pokee_research_7b)
-    📚 *Learn more:* [GitHub Repository](https://github.com/Pokee-AI/PokeeResearchOSS)
+  description: "**PokeeResearch-7B** is a 7-billion-parameter deep research agent developed by Pokee AI, designed for advanced, multi-step reasoning and autonomous research workflows. Built on the Qwen2.5-7B-Instruct foundation and fine-tuned using Reinforcement Learning from AI Feedback (RLAIF), it excels at complex, fact-grounded tasks such as information retrieval, cross-source verification, and synthesis across multiple research threads.\n\nKey features:\n- **Purpose-built for deep research**: Handles multi-hop queries with self-correction and structured reasoning.\n- **Trained on MiroRL-GenQA**: High-quality, reasoning-intensive question-answer pairs.\n- **State-of-the-art performance**: Outperforms other 7B models on benchmarks like GAIA, BrowseComp, and HotpotQA.\n- **Open-source & transparent**: Fully accessible via GitHub and Hugging Face, licensed under Apache 2.0.\n\nIdeal for researchers, developers, and enterprises seeking a reliable, scalable agent for scientific discovery, automated analysis, and knowledge synthesis.\n\n\U0001F449 *Explore the model:* [PokeeAI/pokee_research_7b](https://huggingface.co/PokeeAI/pokee_research_7b)\n\U0001F4DA *Learn more:* [GitHub Repository](https://github.com/Pokee-AI/PokeeResearchOSS)\n"
   overrides:
     parameters:
       model: PokeeAI.pokee_research_7b.Q4_K_M.gguf
@@ -22694,48 +22488,7 @@
   name: "gpt-oss-20b-esper3.1-i1"
   urls:
     - https://huggingface.co/mradermacher/gpt-oss-20b-Esper3.1-i1-GGUF
-  description: |
-    **Model Name:** gpt-oss-20b-Esper3.1
-    **Repository:** [ValiantLabs/gpt-oss-20b-Esper3.1](https://huggingface.co/ValiantLabs/gpt-oss-20b-Esper3.1)
-    **Base Model:** openai/gpt-oss-20b
-    **Type:** Instruction-tuned, reasoning-focused language model
-    **Size:** 20 billion parameters
-    **License:** Apache 2.0
-
-    ---
-
-    ### 🔍 **Overview**
-    gpt-oss-20b-Esper3.1 is a specialized, instruction-tuned variant of the 20B open-source GPT model, developed by **Valiant Labs**. It excels in **advanced coding, software architecture, and DevOps reasoning**, making it ideal for technical problem-solving and AI-driven engineering tasks.
-
-    ### ✨ **Key Features**
-    - **Expert in DevOps & Cloud Systems:** Trained on high-difficulty datasets (e.g., Titanium3, Tachibana3, Mitakihara), it delivers precise, actionable guidance for AWS, Kubernetes, Terraform, Ansible, Docker, Jenkins, and more.
-    - **Strong Code Reasoning:** Optimized for complex programming tasks, including full-stack development, scripting, and debugging.
-    - **High-Quality Inference:** Uses `bf16` precision for full-precision performance; quantized versions (e.g., GGUF) available for efficient local inference.
-    - **Open-Source & Free to Use:** Fully open-access, built on the public gpt-oss-20b foundation and trained with community datasets.
-
-    ### 📌 **Use Cases**
-    - Designing scalable cloud architectures
-    - Writing and optimizing infrastructure-as-code
-    - Debugging complex DevOps pipelines
-    - AI-assisted software development and documentation
-    - Real-time technical troubleshooting
-
-    ### 💡 **Getting Started**
-    Use the standard `text-generation` pipeline with the `transformers` library. Supports role-based prompting (e.g., `user`, `assistant`) and performs best with high-reasoning prompts.
-
-    ```python
-    from transformers import pipeline
-
-    pipe = pipeline("text-generation", model="ValiantLabs/gpt-oss-20b-Esper3.1", torch_dtype="auto", device_map="auto")
-    messages = [{"role": "user", "content": "Design a Kubernetes cluster for a high-traffic web app with CI/CD via GitHub Actions."}]
-    outputs = pipe(messages, max_new_tokens=2000)
-    print(outputs[0]["generated_text"][-1])
-    ```
-
-    ---
-
-    > 🔗 **Model Gallery Entry**:
-    > *gpt-oss-20b-Esper3.1 – A powerful, open-source 20B model tuned for expert-level DevOps, coding, and system architecture. Built by Valiant Labs using high-quality technical datasets. Perfect for engineers, architects, and AI developers.*
+  description: "**Model Name:** gpt-oss-20b-Esper3.1\n**Repository:** [ValiantLabs/gpt-oss-20b-Esper3.1](https://huggingface.co/ValiantLabs/gpt-oss-20b-Esper3.1)\n**Base Model:** openai/gpt-oss-20b\n**Type:** Instruction-tuned, reasoning-focused language model\n**Size:** 20 billion parameters\n**License:** Apache 2.0\n\n---\n\n### \U0001F50D **Overview**\ngpt-oss-20b-Esper3.1 is a specialized, instruction-tuned variant of the 20B open-source GPT model, developed by **Valiant Labs**. It excels in **advanced coding, software architecture, and DevOps reasoning**, making it ideal for technical problem-solving and AI-driven engineering tasks.\n\n### ✨ **Key Features**\n- **Expert in DevOps & Cloud Systems:** Trained on high-difficulty datasets (e.g., Titanium3, Tachibana3, Mitakihara), it delivers precise, actionable guidance for AWS, Kubernetes, Terraform, Ansible, Docker, Jenkins, and more.\n- **Strong Code Reasoning:** Optimized for complex programming tasks, including full-stack development, scripting, and debugging.\n- **High-Quality Inference:** Uses `bf16` precision for full-precision performance; quantized versions (e.g., GGUF) available for efficient local inference.\n- **Open-Source & Free to Use:** Fully open-access, built on the public gpt-oss-20b foundation and trained with community datasets.\n\n### \U0001F4CC **Use Cases**\n- Designing scalable cloud architectures\n- Writing and optimizing infrastructure-as-code\n- Debugging complex DevOps pipelines\n- AI-assisted software development and documentation\n- Real-time technical troubleshooting\n\n### \U0001F4A1 **Getting Started**\nUse the standard `text-generation` pipeline with the `transformers` library. Supports role-based prompting (e.g., `user`, `assistant`) and performs best with high-reasoning prompts.\n\n```python\nfrom transformers import pipeline\n\npipe = pipeline(\"text-generation\", model=\"ValiantLabs/gpt-oss-20b-Esper3.1\", torch_dtype=\"auto\", device_map=\"auto\")\nmessages = [{\"role\": \"user\", \"content\": \"Design a Kubernetes cluster for a high-traffic web app with CI/CD via GitHub Actions.\"}]\noutputs = pipe(messages, max_new_tokens=2000)\nprint(outputs[0][\"generated_text\"][-1])\n```\n\n---\n\n> \U0001F517 **Model Gallery Entry**:\n> *gpt-oss-20b-Esper3.1 – A powerful, open-source 20B model tuned for expert-level DevOps, coding, and system architecture. Built by Valiant Labs using high-quality technical datasets. Perfect for engineers, architects, and AI developers.*\n"
   overrides:
     parameters:
       model: gpt-oss-20b-Esper3.1.i1-Q4_K_M.gguf
@@ -22747,52 +22500,7 @@
   name: "almost-human-x3-32bit-1839-6b-i1"
   urls:
     - https://huggingface.co/mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF
-  description: |
-    **Model Name:** Almost-Human-X3-32bit-1839-6B
-    **Base Model:** Qwen3-Jan-v1-256k-ctx-6B-Brainstorm20x
-    **Author:** DavidAU
-    **Repository:** [DavidAU/Almost-Human-X3-32bit-1839-6B](https://huggingface.co/DavidAU/Almost-Human-X3-32bit-1839-6B)
-    **License:** Apache 2.0
-
-    ---
-
-    ### 🔍 **Overview**
-    A high-precision, full-precision (float32) fine-tuned variant of the Qwen3-Jan model, specifically trained to emulate the literary and philosophical depth of Philip K. Dick. This model is the third in the "Almost-Human" series, built with advanced **"Brainstorm 20x"** methodology to enhance reasoning, coherence, and narrative quality—without sacrificing instruction-following ability.
-
-    ### 🎯 **Key Features**
-    - **Full Precision (32-bit):** Trained at 16-bit for 3 epochs, then finalized at float32 for maximum fidelity and performance.
-    - **Extended Context (256k tokens):** Ideal for long-form writing, complex reasoning, and detailed code generation.
-    - **Advanced Reasoning via Brainstorm 20x:** The model’s reasoning centers are expanded, calibrated, and interconnected 20 times, resulting in:
-      - Richer, more nuanced prose
-      - Stronger emotional engagement
-      - Deeper narrative focus and foreshadowing
-      - Fewer clichés, more originality
-      - Enhanced coherence and detail
-    - **Optimized for Creativity & Code:** Excels at brainstorming, roleplay, storytelling, and multi-step coding tasks.
-
-    ### 🛠️ **Usage Tips**
-    - Use **CHATML or Jinja templates** for best results.
-    - Recommended settings: Temperature 0.3–0.7 (higher for creativity), Top-p 0.8, Repetition penalty 1.05–1.1.
-    - Best used with **"smoothing" (1.5)** in GUIs like KoboldCpp or oobabooga.
-    - For complex tasks, use **Q6 or Q8 GGUF quantizations**.
-
-    ### 📦 **Model Formats**
-    - **Full precision (safe tensors)** – for training or high-fidelity inference
-    - **GGUF, GPTQ, EXL2, AWQ, HQQ** – available via quantization (see [mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF](https://huggingface.co/mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF) for quantized versions)
-
-    ---
-
-    ### 💬 **Ideal For**
-    - Creative writing, speculative fiction, and philosophical storytelling
-    - Complex code generation with deep reasoning
-    - Roleplay, character-driven dialogue, and immersive narratives
-    - Researchers and developers seeking a highly expressive, human-like model
-
-    > 📌 **Note:** This is the original source model. The GGUF versions by mradermacher are quantized derivatives — not the base model.
-
-    ---
-    **Explore the source:** [DavidAU/Almost-Human-X3-32bit-1839-6B](https://huggingface.co/DavidAU/Almost-Human-X3-32bit-1839-6B)
-    **Quantization guide:** [mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF](https://huggingface.co/mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF)
+  description: "**Model Name:** Almost-Human-X3-32bit-1839-6B\n**Base Model:** Qwen3-Jan-v1-256k-ctx-6B-Brainstorm20x\n**Author:** DavidAU\n**Repository:** [DavidAU/Almost-Human-X3-32bit-1839-6B](https://huggingface.co/DavidAU/Almost-Human-X3-32bit-1839-6B)\n**License:** Apache 2.0\n\n---\n\n### \U0001F50D **Overview**\nA high-precision, full-precision (float32) fine-tuned variant of the Qwen3-Jan model, specifically trained to emulate the literary and philosophical depth of Philip K. Dick. This model is the third in the \"Almost-Human\" series, built with advanced **\"Brainstorm 20x\"** methodology to enhance reasoning, coherence, and narrative quality—without sacrificing instruction-following ability.\n\n### \U0001F3AF **Key Features**\n- **Full Precision (32-bit):** Trained at 16-bit for 3 epochs, then finalized at float32 for maximum fidelity and performance.\n- **Extended Context (256k tokens):** Ideal for long-form writing, complex reasoning, and detailed code generation.\n- **Advanced Reasoning via Brainstorm 20x:** The model’s reasoning centers are expanded, calibrated, and interconnected 20 times, resulting in:\n  - Richer, more nuanced prose\n  - Stronger emotional engagement\n  - Deeper narrative focus and foreshadowing\n  - Fewer clichés, more originality\n  - Enhanced coherence and detail\n- **Optimized for Creativity & Code:** Excels at brainstorming, roleplay, storytelling, and multi-step coding tasks.\n\n### \U0001F6E0️ **Usage Tips**\n- Use **CHATML or Jinja templates** for best results.\n- Recommended settings: Temperature 0.3–0.7 (higher for creativity), Top-p 0.8, Repetition penalty 1.05–1.1.\n- Best used with **\"smoothing\" (1.5)** in GUIs like KoboldCpp or oobabooga.\n- For complex tasks, use **Q6 or Q8 GGUF quantizations**.\n\n### \U0001F4E6 **Model Formats**\n- **Full precision (safe tensors)** – for training or high-fidelity inference\n- **GGUF, GPTQ, EXL2, AWQ, HQQ** – available via quantization (see [mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF](https://huggingface.co/mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF) for quantized versions)\n\n---\n\n### \U0001F4AC **Ideal For**\n- Creative writing, speculative fiction, and philosophical storytelling\n- Complex code generation with deep reasoning\n- Roleplay, character-driven dialogue, and immersive narratives\n- Researchers and developers seeking a highly expressive, human-like model\n\n> \U0001F4CC **Note:** This is the original source model. The GGUF versions by mradermacher are quantized derivatives — not the base model.\n\n---\n**Explore the source:** [DavidAU/Almost-Human-X3-32bit-1839-6B](https://huggingface.co/DavidAU/Almost-Human-X3-32bit-1839-6B)\n**Quantization guide:** [mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF](https://huggingface.co/mradermacher/Almost-Human-X3-32bit-1839-6B-i1-GGUF)\n"
   overrides:
     parameters:
       model: Almost-Human-X3-32bit-1839-6B.i1-Q4_K_M.gguf
@@ -22883,19 +22591,7 @@
   name: "chemdfm-r-14b-i1"
   urls:
     - https://huggingface.co/mradermacher/ChemDFM-R-14B-i1-GGUF
-  description: |
-    **ChemDFM-R-14B** is a specialized large language model designed for advanced chemical reasoning, developed by OpenDFM. Built upon the Qwen2.5-14B base model, it is fine-tuned using a novel mix-sourced distillation approach and domain-specific reinforcement learning to excel in chemistry-related tasks.
-
-    Key features:
-    - Trained on *ChemFG*, a comprehensive dataset of atomized chemical knowledge (e.g., functional group detection and reaction changes).
-    - Generates interpretable, rationale-driven responses with clear reasoning steps.
-    - Optimized for tasks like molecule analysis, reaction prediction, and chemical reasoning.
-    - Supports both English and Chinese.
-
-    This model stands out as a state-of-the-art reasoning system in chemistry, offering transparency, reliability, and strong performance across diverse benchmarks. Ideal for researchers and professionals in drug discovery, materials science, and chemical education.
-
-    🔗 *Paper:* [ChemDFM-R: A Chemical Reasoning LLM Enhanced with Atomized Chemical Knowledge](https://arxiv.org/abs/2507.21990)
-    🔗 *Model:* [OpenDFM/ChemDFM-R-14B](https://huggingface.co/OpenDFM/ChemDFM-R-14B)
+  description: "**ChemDFM-R-14B** is a specialized large language model designed for advanced chemical reasoning, developed by OpenDFM. Built upon the Qwen2.5-14B base model, it is fine-tuned using a novel mix-sourced distillation approach and domain-specific reinforcement learning to excel in chemistry-related tasks.\n\nKey features:\n- Trained on *ChemFG*, a comprehensive dataset of atomized chemical knowledge (e.g., functional group detection and reaction changes).\n- Generates interpretable, rationale-driven responses with clear reasoning steps.\n- Optimized for tasks like molecule analysis, reaction prediction, and chemical reasoning.\n- Supports both English and Chinese.\n\nThis model stands out as a state-of-the-art reasoning system in chemistry, offering transparency, reliability, and strong performance across diverse benchmarks. Ideal for researchers and professionals in drug discovery, materials science, and chemical education.\n\n\U0001F517 *Paper:* [ChemDFM-R: A Chemical Reasoning LLM Enhanced with Atomized Chemical Knowledge](https://arxiv.org/abs/2507.21990)\n\U0001F517 *Model:* [OpenDFM/ChemDFM-R-14B](https://huggingface.co/OpenDFM/ChemDFM-R-14B)\n"
   overrides:
     parameters:
       model: ChemDFM-R-14B.i1-Q4_K_M.gguf
@@ -23023,21 +22719,7 @@
   name: "deepkat-32b-i1"
   urls:
     - https://huggingface.co/mradermacher/DeepKAT-32B-i1-GGUF
-  description: |
-    **DeepKAT-32B** is a high-performance, open-source coding agent built by merging two leading RL-tuned models—**DeepSWE-Preview** and **KAT-Dev**—on the **Qwen3-32B** base architecture using Arcee MergeKit’s TIES method. This 32B parameter model excels in complex software engineering tasks, including code generation, bug fixing, refactoring, and autonomous agent workflows with tool use.
-
-    Key strengths:
-    - Achieves ~62% SWE-Bench Verified score (on par with top open-source models).
-    - Strong performance in multi-file reasoning, multi-turn planning, and sparse reward environments.
-    - Optimized for agentic behavior with step-by-step reasoning and tool chaining.
-
-    Ideal for developers, AI researchers, and teams building intelligent code assistants or autonomous software agents.
-
-    > 🔗 **Base Model**: Qwen/Qwen3-32B
-    > 🛠️ **Built With**: MergeKit (TIES), RL-finetuned components
-    > 📊 **Benchmarks**: SWE-Bench Verified: ~62%, HumanEval Pass@1: ~85%
-
-    *Note: The model is a merge of two RL-tuned models and not a direct training from scratch.*
+  description: "**DeepKAT-32B** is a high-performance, open-source coding agent built by merging two leading RL-tuned models—**DeepSWE-Preview** and **KAT-Dev**—on the **Qwen3-32B** base architecture using Arcee MergeKit’s TIES method. This 32B parameter model excels in complex software engineering tasks, including code generation, bug fixing, refactoring, and autonomous agent workflows with tool use.\n\nKey strengths:\n- Achieves ~62% SWE-Bench Verified score (on par with top open-source models).\n- Strong performance in multi-file reasoning, multi-turn planning, and sparse reward environments.\n- Optimized for agentic behavior with step-by-step reasoning and tool chaining.\n\nIdeal for developers, AI researchers, and teams building intelligent code assistants or autonomous software agents.\n\n> \U0001F517 **Base Model**: Qwen/Qwen3-32B\n> \U0001F6E0️ **Built With**: MergeKit (TIES), RL-finetuned components\n> \U0001F4CA **Benchmarks**: SWE-Bench Verified: ~62%, HumanEval Pass@1: ~85%\n\n*Note: The model is a merge of two RL-tuned models and not a direct training from scratch.*\n"
   overrides:
     parameters:
       model: mradermacher/DeepKAT-32B-i1-GGUF
@@ -23093,38 +22775,7 @@
   name: "apollo-astralis-4b-i1"
   urls:
     - https://huggingface.co/mradermacher/apollo-astralis-4b-i1-GGUF
-  description: |
-    **Apollo-Astralis V1 4B**
-    *A warm, enthusiastic, and empathetic reasoning model built on Qwen3-4B-Thinking*
-
-    **Overview**
-    Apollo-Astralis V1 4B is a 4-billion-parameter conversational AI designed for collaborative, emotionally intelligent problem-solving. Developed by VANTA Research, it combines rigorous logical reasoning with a vibrant, supportive communication style—making it ideal for creative brainstorming, educational support, and personal development.
-
-    **Key Features**
-    - 🤔 **Explicit Reasoning**: Uses `</tool_call>` tags to break down thought processes step by step
-    - 💬 **Warm & Enthusiastic Tone**: Celebrates achievements with energy and empathy
-    - 🤝 **Collaborative Style**: Engages users with "we" language and clarifying questions
-    - 🔍 **High Accuracy**: Achieves 100% in enthusiasm detection and 90% in empathy recognition
-    - 🎯 **Fine-Tuned for Real-World Use**: Trained with LoRA on a dataset emphasizing emotional intelligence and consistency
-
-    **Base Model**
-    Built on **Qwen3-4B-Thinking** and enhanced with lightweight LoRA fine-tuning (33M trainable parameters).
-    Available in both full and quantized (GGUF) formats via Hugging Face and Ollama.
-
-    **Use Cases**
-    - Personal coaching & motivation
-    - Creative ideation & project planning
-    - Educational tutoring with emotional support
-    - Mental wellness conversations (complementary, not替代)
-
-    **License**
-    Apache 2.0 — open for research, commercial, and personal use.
-
-    **Try It**
-    👉 [Hugging Face Page](https://huggingface.co/VANTA-Research/apollo-astralis-v1-4b)
-    👉 [Ollama](https://ollama.com/vanta-research/apollo-astralis-v1-4b)
-
-    *Developed by VANTA Research — where reasoning meets warmth.*
+  description: "**Apollo-Astralis V1 4B**\n*A warm, enthusiastic, and empathetic reasoning model built on Qwen3-4B-Thinking*\n\n**Overview**\nApollo-Astralis V1 4B is a 4-billion-parameter conversational AI designed for collaborative, emotionally intelligent problem-solving. Developed by VANTA Research, it combines rigorous logical reasoning with a vibrant, supportive communication style—making it ideal for creative brainstorming, educational support, and personal development.\n\n**Key Features**\n- \U0001F914 **Explicit Reasoning**: Uses `</tool_call>` tags to break down thought processes step by step\n- \U0001F4AC **Warm & Enthusiastic Tone**: Celebrates achievements with energy and empathy\n- \U0001F91D **Collaborative Style**: Engages users with \"we\" language and clarifying questions\n- \U0001F50D **High Accuracy**: Achieves 100% in enthusiasm detection and 90% in empathy recognition\n- \U0001F3AF **Fine-Tuned for Real-World Use**: Trained with LoRA on a dataset emphasizing emotional intelligence and consistency\n\n**Base Model**\nBuilt on **Qwen3-4B-Thinking** and enhanced with lightweight LoRA fine-tuning (33M trainable parameters).\nAvailable in both full and quantized (GGUF) formats via Hugging Face and Ollama.\n\n**Use Cases**\n- Personal coaching & motivation\n- Creative ideation & project planning\n- Educational tutoring with emotional support\n- Mental wellness conversations (complementary, not替代)\n\n**License**\nApache 2.0 — open for research, commercial, and personal use.\n\n**Try It**\n\U0001F449 [Hugging Face Page](https://huggingface.co/VANTA-Research/apollo-astralis-v1-4b)\n\U0001F449 [Ollama](https://ollama.com/vanta-research/apollo-astralis-v1-4b)\n\n*Developed by VANTA Research — where reasoning meets warmth.*\n"
   overrides:
     parameters:
       model: apollo-astralis-4b.i1-Q4_K_M.gguf
@@ -23136,55 +22787,7 @@
   name: "qwen3-vlto-32b-instruct-i1"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF
-  description: |
-    **Model Name:** Qwen3-VL-32B-Instruct (Text-Only Variant: Qwen3-VLTO-32B-Instruct)
-    **Base Model:** Qwen/Qwen3-VL-32B-Instruct
-    **Repository:** [mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF)
-    **Type:** Large Language Model (LLM) – Text-Only (Vision-Language model stripped of vision components)
-    **Architecture:** Qwen3-VL, adapted for pure text generation
-    **Size:** 32 billion parameters
-    **License:** Apache 2.0
-    **Framework:** Hugging Face Transformers
-
-    ---
-
-    ### 🔍 **Description**
-
-    This is a **text-only variant** of the powerful **Qwen3-VL-32B-Instruct** multimodal model, stripped of its vision components to function as a high-performance pure language model. The model retains the full text understanding and generation capabilities of its parent — including strong reasoning, long-context handling (up to 32K+ tokens), and advanced multimodal training-derived coherence — while being optimized for text-only tasks.
-
-    It was created by loading the weights from the full Qwen3-VL-32B-Instruct model into a text-only Qwen3 architecture, preserving all linguistic and reasoning strengths without the need for image input.
-
-    Perfect for applications requiring deep reasoning, long-form content generation, code synthesis, and dialogue — with all the benefits of the Qwen3 series, now in a lightweight, text-focused form.
-
-    ---
-
-    ### 📌 Key Features
-
-    - ✅ **High-Performance Text Generation** – Built on top of the state-of-the-art Qwen3-VL architecture
-    - ✅ **Extended Context Length** – Supports up to 32,768 tokens (ideal for long documents and complex tasks)
-    - ✅ **Strong Reasoning & Planning** – Excels at logic, math, coding, and multi-step reasoning
-    - ✅ **Optimized for GGUF Format** – Available in multiple quantized versions (IQ3_M, Q2_K, etc.) for efficient inference on consumer hardware
-    - ✅ **Free to Use & Modify** – Apache 2.0 license
-
-    ---
-
-    ### 📦 Use Case Suggestions
-
-    - Long-form writing, summarization, and editing
-    - Code generation and debugging
-    - AI agents and task automation
-    - High-quality chat and dialogue systems
-    - Research and experimentation with large-scale LLMs on local devices
-
-    ---
-
-    ### 📚 References
-
-    - Original Model: [Qwen/Qwen3-VL-32B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct)
-    - Technical Report: [Qwen3 Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
-    - Quantization by: [mradermacher](https://huggingface.co/mradermacher)
-
-    > ✅ **Note**: The model shown here is **not the original vision-language model** — it's a **text-only conversion** of the Qwen3-VL-32B-Instruct model, ideal for pure language tasks.
+  description: "**Model Name:** Qwen3-VL-32B-Instruct (Text-Only Variant: Qwen3-VLTO-32B-Instruct)\n**Base Model:** Qwen/Qwen3-VL-32B-Instruct\n**Repository:** [mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Instruct-i1-GGUF)\n**Type:** Large Language Model (LLM) – Text-Only (Vision-Language model stripped of vision components)\n**Architecture:** Qwen3-VL, adapted for pure text generation\n**Size:** 32 billion parameters\n**License:** Apache 2.0\n**Framework:** Hugging Face Transformers\n\n---\n\n### \U0001F50D **Description**\n\nThis is a **text-only variant** of the powerful **Qwen3-VL-32B-Instruct** multimodal model, stripped of its vision components to function as a high-performance pure language model. The model retains the full text understanding and generation capabilities of its parent — including strong reasoning, long-context handling (up to 32K+ tokens), and advanced multimodal training-derived coherence — while being optimized for text-only tasks.\n\nIt was created by loading the weights from the full Qwen3-VL-32B-Instruct model into a text-only Qwen3 architecture, preserving all linguistic and reasoning strengths without the need for image input.\n\nPerfect for applications requiring deep reasoning, long-form content generation, code synthesis, and dialogue — with all the benefits of the Qwen3 series, now in a lightweight, text-focused form.\n\n---\n\n### \U0001F4CC Key Features\n\n- ✅ **High-Performance Text Generation** – Built on top of the state-of-the-art Qwen3-VL architecture\n- ✅ **Extended Context Length** – Supports up to 32,768 tokens (ideal for long documents and complex tasks)\n- ✅ **Strong Reasoning & Planning** – Excels at logic, math, coding, and multi-step reasoning\n- ✅ **Optimized for GGUF Format** – Available in multiple quantized versions (IQ3_M, Q2_K, etc.) for efficient inference on consumer hardware\n- ✅ **Free to Use & Modify** – Apache 2.0 license\n\n---\n\n### \U0001F4E6 Use Case Suggestions\n\n- Long-form writing, summarization, and editing\n- Code generation and debugging\n- AI agents and task automation\n- High-quality chat and dialogue systems\n- Research and experimentation with large-scale LLMs on local devices\n\n---\n\n### \U0001F4DA References\n\n- Original Model: [Qwen/Qwen3-VL-32B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct)\n- Technical Report: [Qwen3 Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)\n- Quantization by: [mradermacher](https://huggingface.co/mradermacher)\n\n> ✅ **Note**: The model shown here is **not the original vision-language model** — it's a **text-only conversion** of the Qwen3-VL-32B-Instruct model, ideal for pure language tasks.\n"
   overrides:
     parameters:
       model: Qwen3-VLTO-32B-Instruct.i1-Q4_K_S.gguf
@@ -23196,32 +22799,7 @@
   name: "qwen3-vlto-32b-thinking"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-GGUF
-  description: |
-    **Model Name:** Qwen3-VLTO-32B-Thinking
-    **Model Type:** Large Language Model (Text-Only)
-    **Base Model:** Qwen/Qwen3-VL-32B-Thinking (vanilla Qwen3-VL-32B with vision components removed)
-    **Architecture:** Transformer-based, 32-billion parameter model optimized for reasoning and complex text generation.
-
-    ### Description:
-    Qwen3-VLTO-32B-Thinking is a pure text-only variant of the Qwen3-VL-32B-Thinking model, stripped of its vision capabilities while preserving the full reasoning and language understanding power. It is derived by transferring the weights from the vision-language model into a text-only transformer architecture, maintaining the same high-quality behavior for tasks such as logical reasoning, code generation, and dialogue.
-
-    This model is ideal for applications requiring deep linguistic reasoning and long-context understanding without image input. It supports advanced multimodal reasoning capabilities *in text form*—perfect for research, chatbots, and content generation.
-
-    ### Key Features:
-    - ✅ 32B parameters, high reasoning capability
-    - ✅ No vision components — fully text-only
-    - ✅ Trained for complex thinking and step-by-step reasoning
-    - ✅ Compatible with Hugging Face Transformers and GGUF inference tools
-    - ✅ Available in multiple quantization levels (Q2_K to Q8_0) for efficient deployment
-
-    ### Use Case:
-    Ideal for advanced text generation, logical inference, coding, and conversational AI where vision is not needed.
-
-    > 🔗 **Base Model**: [Qwen/Qwen3-VL-32B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking)
-    > 📦 **Quantized Versions**: Available via [mradermacher/Qwen3-VLTO-32B-Thinking-GGUF](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-GGUF)
-
-    ---
-    *Note: The original model was created by Alibaba’s Qwen team. This variant was adapted by qingy2024 and quantized by mradermacher.*
+  description: "**Model Name:** Qwen3-VLTO-32B-Thinking\n**Model Type:** Large Language Model (Text-Only)\n**Base Model:** Qwen/Qwen3-VL-32B-Thinking (vanilla Qwen3-VL-32B with vision components removed)\n**Architecture:** Transformer-based, 32-billion parameter model optimized for reasoning and complex text generation.\n\n### Description:\nQwen3-VLTO-32B-Thinking is a pure text-only variant of the Qwen3-VL-32B-Thinking model, stripped of its vision capabilities while preserving the full reasoning and language understanding power. It is derived by transferring the weights from the vision-language model into a text-only transformer architecture, maintaining the same high-quality behavior for tasks such as logical reasoning, code generation, and dialogue.\n\nThis model is ideal for applications requiring deep linguistic reasoning and long-context understanding without image input. It supports advanced multimodal reasoning capabilities *in text form*—perfect for research, chatbots, and content generation.\n\n### Key Features:\n- ✅ 32B parameters, high reasoning capability\n- ✅ No vision components — fully text-only\n- ✅ Trained for complex thinking and step-by-step reasoning\n- ✅ Compatible with Hugging Face Transformers and GGUF inference tools\n- ✅ Available in multiple quantization levels (Q2_K to Q8_0) for efficient deployment\n\n### Use Case:\nIdeal for advanced text generation, logical inference, coding, and conversational AI where vision is not needed.\n\n> \U0001F517 **Base Model**: [Qwen/Qwen3-VL-32B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-32B-Thinking)\n> \U0001F4E6 **Quantized Versions**: Available via [mradermacher/Qwen3-VLTO-32B-Thinking-GGUF](https://huggingface.co/mradermacher/Qwen3-VLTO-32B-Thinking-GGUF)\n\n---\n*Note: The original model was created by Alibaba’s Qwen team. This variant was adapted by qingy2024 and quantized by mradermacher.*\n"
   overrides:
     parameters:
       model: Qwen3-VLTO-32B-Thinking.Q4_K_M.gguf
@@ -23257,33 +22835,7 @@
   name: "qwen3-nemotron-32b-rlbff-i1"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF
-  description: |
-    **Model Name:** Qwen3-Nemotron-32B-RLBFF
-    **Base Model:** Qwen/Qwen3-32B
-    **Developer:** NVIDIA
-    **License:** NVIDIA Open Model License
-
-    **Description:**
-    Qwen3-Nemotron-32B-RLBFF is a high-performance, fine-tuned large language model built on the Qwen3-32B foundation. It is specifically optimized to generate high-quality, helpful responses in a default thinking mode through advanced reinforcement learning with binary flexible feedback (RLBFF). Trained on the HelpSteer3 dataset, this model excels in reasoning, planning, coding, and information-seeking tasks while maintaining strong safety and alignment with human preferences.
-
-    **Key Performance (as of Sep 2025):**
-    - **MT-Bench:** 9.50 (near GPT-4-Turbo level)
-    - **Arena Hard V2:** 55.6%
-    - **WildBench:** 70.33%
-
-    **Architecture & Efficiency:**
-    - 32 billion parameters, based on the Qwen3 Transformer architecture
-    - Designed for deployment on NVIDIA GPUs (Ampere, Hopper, Turing)
-    - Achieves performance comparable to DeepSeek R1 and O3-mini at less than 5% of the inference cost
-
-    **Use Case:**
-    Ideal for applications requiring reliable, thoughtful, and safe responses—such as advanced chatbots, research assistants, and enterprise AI systems.
-
-    **Access & Usage:**
-    Available on Hugging Face with support for Hugging Face Transformers and vLLM.
-    **Cite:** [Wang et al., 2025 — RLBFF: Binary Flexible Feedback](https://arxiv.org/abs/2509.21319)
-
-    👉 *Note: The GGUF version (mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF) is a user-quantized variant. The original model is available at nvidia/Qwen3-Nemotron-32B-RLBFF.*
+  description: "**Model Name:** Qwen3-Nemotron-32B-RLBFF\n**Base Model:** Qwen/Qwen3-32B\n**Developer:** NVIDIA\n**License:** NVIDIA Open Model License\n\n**Description:**\nQwen3-Nemotron-32B-RLBFF is a high-performance, fine-tuned large language model built on the Qwen3-32B foundation. It is specifically optimized to generate high-quality, helpful responses in a default thinking mode through advanced reinforcement learning with binary flexible feedback (RLBFF). Trained on the HelpSteer3 dataset, this model excels in reasoning, planning, coding, and information-seeking tasks while maintaining strong safety and alignment with human preferences.\n\n**Key Performance (as of Sep 2025):**\n- **MT-Bench:** 9.50 (near GPT-4-Turbo level)\n- **Arena Hard V2:** 55.6%\n- **WildBench:** 70.33%\n\n**Architecture & Efficiency:**\n- 32 billion parameters, based on the Qwen3 Transformer architecture\n- Designed for deployment on NVIDIA GPUs (Ampere, Hopper, Turing)\n- Achieves performance comparable to DeepSeek R1 and O3-mini at less than 5% of the inference cost\n\n**Use Case:**\nIdeal for applications requiring reliable, thoughtful, and safe responses—such as advanced chatbots, research assistants, and enterprise AI systems.\n\n**Access & Usage:**\nAvailable on Hugging Face with support for Hugging Face Transformers and vLLM.\n**Cite:** [Wang et al., 2025 — RLBFF: Binary Flexible Feedback](https://arxiv.org/abs/2509.21319)\n\n\U0001F449 *Note: The GGUF version (mradermacher/Qwen3-Nemotron-32B-RLBFF-i1-GGUF) is a user-quantized variant. The original model is available at nvidia/Qwen3-Nemotron-32B-RLBFF.*\n"
   overrides:
     parameters:
       model: Qwen3-Nemotron-32B-RLBFF.i1-Q4_K_M.gguf
