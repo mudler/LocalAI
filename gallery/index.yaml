@@ -23150,3 +23150,12 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "llama-3.2-1b-instruct"
+  urls:
+    - https://huggingface.co/Rohit-Katkar2003/Llama-3.2-1B-Instruct-GGUF
+  description: |
+    AI model: llama-3.2-1b-instruct
+  overrides:
+    parameters:
+      model: Rohit-Katkar2003/Llama-3.2-1B-Instruct-GGUF
