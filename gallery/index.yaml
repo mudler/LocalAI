@@ -130,6 +130,23 @@
     - filename: mmproj/mmproj-Qwen3-VL-4B-Thinking-F16.gguf
       sha256: 72354fcd3fc75935b84e745ca492d6e78dd003bb5a020d71b296e7650926ac87
       uri: huggingface://unsloth/Qwen3-VL-4B-Thinking-GGUF/mmproj-F16.gguf
+- !!merge <<: *llama3
+  name: "qwen3-vl-2b-thinking"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-2B-Thinking-GGUF
+  description: |
+    Qwen3-VL-2B-Thinking is the 2B parameter model of the Qwen3-VL series that is thinking.
+  overrides:
+    mmproj: mmproj/mmproj-Qwen3-VL-2B-Thinking-F16.gguf
+    parameters:
+      model: Qwen3-VL-2B-Thinking-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-2B-Thinking-Q4_K_M.gguf
+      sha256: 5f282086042d96b78b138839610f5148493b354524090fadc5c97c981b70a26e
+      uri: huggingface://unsloth/Qwen3-VL-2B-Thinking-GGUF/Qwen3-VL-2B-Thinking-Q4_K_M.gguf
+    - filename: mmproj/mmproj-Qwen3-VL-2B-Thinking-F16.gguf
+      sha256: 4eabc90a52fe890d6ca1dad92548782eab6edc91f012a365fff95cf027ba529d
+      uri: huggingface://unsloth/Qwen3-VL-2B-Thinking-GGUF/mmproj-F16.gguf
 - !!merge <<: *qwen3vl
   name: "huihui-qwen3-vl-30b-a3b-instruct-abliterated"
   urls:
