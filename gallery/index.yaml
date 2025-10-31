@@ -23150,3 +23150,41 @@
     - filename: financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
       sha256: 14586673de2a769f88bd51f88464b9b1f73d3ad986fa878b2e0c1473f1c1fc59
       uri: huggingface://mradermacher/financial-gpt-oss-20b-q8-i1-GGUF/financial-gpt-oss-20b-q8.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-vl-235b-a22b-instruct"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-235B-A22B-Instruct-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct**
+    *by Qwen Team (Alibaba Cloud)*
+
+    A state-of-the-art vision-language model in the Qwen series, Qwen3-VL is the most powerful multimodal model to date. It combines advanced visual perception with exceptional language understanding, enabling deep reasoning across images, videos, and text.
+
+    **Key Features:**
+    - **235B parameters** with MoE (Mixture of Experts) architecture for scalable performance.
+    - Supports **256K native context length** (expandable to 1M), ideal for long documents and video analysis.
+    - **Advanced multimodal reasoning** in STEM, logic, and visual coding (e.g., generates HTML/CSS/JS from images).
+    - **Enhanced spatial and temporal understanding** with precise object localization and timestamp-aware video analysis.
+    - **Visual agent capabilities** for interacting with UIs and performing tasks on PC/mobile devices.
+    - **32-language OCR** with high accuracy under challenging conditions (low light, blur, tilt).
+    - Seamlessly integrates text and vision for unified, lossless comprehension.
+
+    **Architecture Innovations:**
+    - **Interleaved-MRoPE** for superior long-horizon video reasoning.
+    - **DeepStack** for fine-grained visual-text alignment.
+    - **Text–Timestamp Alignment** for precise event localization in videos.
+
+    **Best For:** Complex multimodal tasks including visual reasoning, document analysis, video understanding, and agent-based interactions.
+
+    **Model ID:** `Qwen/Qwen3-VL-235B-A22B-Instruct`
+    **License:** Apache 2.0
+    **Official Repository:** [https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct)
+
+    > 📌 Note: This is the *original*, non-quantized model from the official Qwen team. The GGUF version (e.g., `unsloth/Qwen3-VL-235B-A22B-Instruct-GGUF`) is a quantized variant for efficient inference and should not be confused with the base model.
+  overrides:
+    parameters:
+      model: UD-Q2_K_XL
+  files:
+    - filename: UD-Q2_K_XL
+      sha256: 3249c3bf674a2e8bc942e04a2c8cc9d9f9e4a4c8
+      uri: huggingface://unsloth/Qwen3-VL-235B-A22B-Instruct-GGUF/UD-Q2_K_XL
