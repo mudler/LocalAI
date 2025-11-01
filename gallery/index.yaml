@@ -22915,3 +22915,26 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *afm
+  name: "reform-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ReForm-32B-i1-GGUF
+  description: |
+    **ReForm-32B** is a large-scale, reflective autoformalization language model developed by Guoxin Chen and collaborators, designed to convert natural language mathematical problems into precise formal proofs (e.g., in Lean 4) with high semantic accuracy. It leverages a novel training paradigm called **Prospective Bounded Sequence Optimization (PBSO)**, enabling the model to iteratively *generate → verify → refine* its outputs, significantly improving correctness and consistency.
+
+    Key features:
+    - **State-of-the-art performance**: Achieves +22.6% average improvement over leading baselines across benchmarks like miniF2F, ProofNet, Putnam, and AIME 2025.
+    - **Reflective reasoning**: Incorporates self-correction through a built-in verification loop, mimicking expert problem-solving.
+    - **High-fidelity formalization**: Optimized for mathematical rigor, making it ideal for formal verification and AI-driven theorem proving.
+
+    Originally released by the author **GuoxinChen/ReForm-32B**, this model is part of an open research effort in AI for mathematics. It is now available in GGUF format (e.g., via `mradermacher/ReForm-32B-i1-GGUF`) for efficient local inference.
+
+    > 📌 *For the original, unquantized model, refer to:* [GuoxinChen/ReForm-32B](https://huggingface.co/GuoxinChen/ReForm-32B)
+    > 📚 *Paper:* [ReForm: Reflective Autoformalization with PBSO](https://arxiv.org/abs/2510.24592)
+  overrides:
+    parameters:
+      model: ReForm-32B.i1-Q4_K_M.gguf
+  files:
+    - filename: ReForm-32B.i1-Q4_K_M.gguf
+      sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
+      uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
