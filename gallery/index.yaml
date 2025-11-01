@@ -23363,3 +23363,27 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "gelato-30b-a3b"
+  urls:
+    - https://huggingface.co/noctrex/Gelato-30B-A3B-GGUF
+  description: |
+    **Gelato-30B-A3B** is a state-of-the-art vision-language model designed specifically for GUI (graphical user interface) computer-use tasks. Built on the **Qwen3-VL-30B-A3B-Instruct** foundation, it has been fine-tuned on the large-scale **Click-100k** dataset to achieve expert-level accuracy in understanding and interacting with desktop interfaces.
+
+    Key highlights:
+    - **Strong grounding performance**: Achieves **63.88% accuracy on ScreenSpot-Pro** and **73.40% on OS-World-G**, outperforming prior specialized models like GTA1-32B and even much larger VLMs such as Qwen3-VL-235B.
+    - **Efficient activation**: Only 3.3B parameters activated during inference, making it highly efficient despite its 30B total size.
+    - **Open-source & accessible**: Fully open-source under the Apache 2.0 license, with full training code and datasets available.
+    - **Agent-ready**: When paired with powerful reasoning models like GPT-5, Gelato enables frontier-level agentic behavior for tasks such as web navigation, software interaction, and UI automation.
+
+    Ideal for researchers and developers building AI agents that interact with graphical interfaces in real-world environments.
+    **Repository**: [mlfoundations-cua-dev/Gelato-30B-A3B](https://huggingface.co/mlfoundations-cua-dev/Gelato-30B-A3B)
+    **Dataset**: [Click-100k](https://huggingface.co/datasets/mlfoundations/clicks-100k)
+    **Benchmark Results**: [OS-World Leaderboard](https://github.com/mlfoundations/grounding-model-os-world)
+  overrides:
+    parameters:
+      model: Gelato-30B-A3B-Q4_K_M.gguf
+  files:
+    - filename: Gelato-30B-A3B-Q4_K_M.gguf
+      sha256: d44af330b10adaa291dced867ae90bbbdc8d502f97d994d7209828efe6343824
+      uri: huggingface://noctrex/Gelato-30B-A3B-GGUF/Gelato-30B-A3B-Q4_K_M.gguf
