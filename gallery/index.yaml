@@ -22938,3 +22938,59 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-4b-thinking-2507-gspo-easy"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF
+  description: |
+    **Model Name:** Qwen3-4B-Thinking-2507-GSPO-Easy
+    **Base Model:** Qwen3-4B (by Alibaba Cloud)
+    **Fine-tuned With:** GRPO (Generalized Reward Policy Optimization)
+    **Framework:** Hugging Face TRL (Transformers Reinforcement Learning)
+    **License:** [MIT](https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy/blob/main/LICENSE)
+
+    ---
+
+    ### 📌 Description:
+    A fine-tuned 4-billion-parameter version of **Qwen3-4B**, optimized for **step-by-step reasoning and complex problem-solving** using **GRPO**, a reinforcement learning method designed to enhance mathematical and logical reasoning in language models.
+
+    This model excels in tasks requiring **structured thinking**, such as solving math problems, logical puzzles, and multi-step reasoning, making it ideal for applications in education, AI assistants, and reasoning benchmarks.
+
+    ### 🔧 Key Features:
+    - Trained with **TRL 0.23.1** and **Transformers 4.57.1**
+    - Optimized for **high-quality reasoning output**
+    - Part of the **Qwen3-4B-Thinking** series, designed to simulate human-like thought processes
+    - Compatible with Hugging Face `transformers` and `pipeline` API
+
+    ### 📚 Use Case:
+    Perfect for applications demanding **deep reasoning**, such as:
+    - AI tutoring systems
+    - Advanced chatbots with explanation capabilities
+    - Automated problem-solving in STEM domains
+
+    ### 📌 Quick Start (Python):
+    ```python
+    from transformers import pipeline
+
+    question = "If you had a time machine, but could only go to the past or the future once and never return, which would you choose and why?"
+    generator = pipeline("text-generation", model="leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy", device="cuda")
+    output = generator([{"role": "user", "content": question}], max_new_tokens=128, return_full_text=False)[0]
+    print(output["generated_text"])
+    ```
+
+    > ✅ **Note**: This is the **original, non-quantized base model**. Quantized versions (e.g., GGUF) are available separately under the same repository for efficient inference on consumer hardware.
+
+    ---
+
+    🔗 **Model Page:** [https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy](https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy)
+    📝 **Training Details & Visualizations:** [WandB Dashboard](https://wandb.ai/leonwenderoth-tu-darmstadt/huggingface/runs/t42skrc7)
+
+    ---
+    *Fine-tuned using GRPO — a method proven to boost mathematical reasoning in open language models. Cite: Shao et al., 2024 (arXiv:2402.03300)*
+  overrides:
+    parameters:
+      model: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+      sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
+      uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
