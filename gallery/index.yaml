@@ -22938,3 +22938,23 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "minimax-m2"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2-GGUF
+  description: |
+    **MiniMax-M2** is a highly efficient, open-source MoE (Mixture of Experts) model designed for advanced coding and agentic workflows. With **230 billion total parameters** and only **10 billion activated per inference**, it delivers elite performance in code generation, tool use, and complex task planning — rivaling much larger models — while remaining fast, cost-effective, and easy to deploy.
+
+    Key highlights:
+    - ✅ **#1 ranked open-source model** on the Artificial Analysis Intelligence Benchmark.
+    - ✅ Top-tier performance on coding benchmarks like **SWE-bench Verified (69.4%)**, **Terminal-Bench (46.3%)**, and **BrowseComp (44%)**.
+    - ✅ Built for **real-world agent use**: excels in multi-step reasoning, code editing, and browser/tool integration.
+    - ✅ Optimized for **low latency & high throughput**, ideal for interactive agents and batched inference.
+    - ✅ Supports **interleaved thinking** (`
+  overrides:
+    parameters:
+      model: MiniMax-M2.Q4_K_M.gguf.part1of3
+  files:
+    - filename: MiniMax-M2.Q4_K_M.gguf.part1of3
+      sha256: 7de0f4d19c742d27b2afec662456feb972f8e1183d7fcec97fbf832a567dbefb
+      uri: huggingface://mradermacher/MiniMax-M2-GGUF/MiniMax-M2.Q4_K_M.gguf.part1of3
