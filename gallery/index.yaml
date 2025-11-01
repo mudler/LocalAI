@@ -22938,3 +22938,12 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "testing-arcticrust-002s"
+  urls:
+    - https://huggingface.co/kromquant/testing-arcticrust-002-GGUFs
+  description: |
+    AI model: testing-arcticrust-002s
+  overrides:
+    parameters:
+      model: kromquant/testing-arcticrust-002-GGUFs
