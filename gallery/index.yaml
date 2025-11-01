@@ -22938,3 +22938,42 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "wraith-8b"
+  urls:
+    - https://huggingface.co/mradermacher/wraith-8b-GGUF
+  description: |
+    **Wraith-8B**
+    *VANTA Research Entity-001: The Analytical Intelligence*
+
+    A specialized fine-tune of **Llama 3.1 8B Instruct**, Wraith-8B is engineered for **superior mathematical reasoning and logical problem-solving**. It achieves **70% accuracy on GSM8K** (37% relative improvement over base) and excels in STEM, social sciences, and truthfulness benchmarks—while maintaining a distinctive cosmic, analytical persona.
+
+    ### Key Features:
+    - ✅ **70% GSM8K accuracy** – Best-in-class math reasoning
+    - ✅ **66.4% MMLU overall** – Strong performance across disciplines
+    - ✅ **76.7% MMLU Social Sciences** – Exceptional in policy, geography, law
+    - ✅ **131k context length** – Handles long-form analysis
+    - ✅ **Personality-driven design** – Clinical detachment, step-by-step clarity
+    - ✅ **Production-ready GGUF quantizations** – Fast inference on consumer hardware
+
+    ### Ideal For:
+    - STEM tutoring & education
+    - Technical problem-solving & coding
+    - Logical analysis & deductive reasoning
+    - Truthful, grounded Q&A with detailed justification
+
+    > *“Calculate first, philosophize second.”*
+    > — Wraith, the Analytical Intelligence
+
+    **Base Model:** `meta-llama/Llama-3.1-8B-Instruct`
+    **License:** Llama 3.1 Community License
+    **Available on:** Hugging Face, Ollama, llama.cpp
+
+    [View on Hugging Face](https://huggingface.co/vanta-research/wraith-8B) | [Ollama Model](https://ollama.com/vanta-research/wraith-8b)
+  overrides:
+    parameters:
+      model: wraith-8b.Q4_K_M.gguf
+  files:
+    - filename: wraith-8b.Q4_K_M.gguf
+      sha256: 573d23cbc9a568e198f04b0a165b574f9fff162a2b95d2e27a258e75aaa7810f
+      uri: huggingface://mradermacher/wraith-8b-GGUF/wraith-8b.Q4_K_M.gguf
