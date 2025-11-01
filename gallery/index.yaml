@@ -22938,3 +22938,40 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "c2s-pythia-410m-diverse-single-and-multi-cell-tasks"
+  urls:
+    - https://huggingface.co/mradermacher/C2S-Pythia-410m-diverse-single-and-multi-cell-tasks-GGUF
+  description: |
+    **Model Name:** C2S-Pythia-410m-diverse-single-and-multi-cell-tasks
+    **Base Model:** EleutherAI/pythia-410m
+    **Repository:** [vandijklab/C2S-Pythia-410m-diverse-single-and-multi-cell-tasks](https://huggingface.co/vandijklab/C2S-Pythia-410m-diverse-single-and-multi-cell-tasks)
+    **License:** CC BY 4.0
+
+    **Description:**
+    A fine-tuned variant of the 410M-parameter EleutherAI Pythia model, specialized for single-cell genomics. Trained on over 57 million human and mouse cells from diverse datasets (CellxGene, Human Cell Atlas), the model converts scRNA-seq data into "cell sentences" — ordered gene sequences reflecting expression levels. It supports a wide range of tasks including cell type and tissue prediction, conditional generation of single or multiple cells, abstract-to-cells and cells-to-abstract synthesis, and gene set inference. Designed for researchers in computational biology, this model enables powerful, LLM-driven analysis of single-cell data with interpretability and scalability.
+
+    **Key Features:**
+    - Based on the Pythia-410m architecture (EleutherAI)
+    - Fine-tuned using the Cell2Sentence (C2S) framework
+    - Supports single-cell and multi-cell generation, classification, and reasoning
+    - Trained on 800+ scRNA-seq datasets across multiple tissues and species
+    - Extended context length (up to 8192 tokens) via rotary positional embeddings
+
+    **Use Cases:**
+    - In silico cell type prediction
+    - Synthetic biology and data augmentation
+    - Interpretation of complex multi-cellular states
+    - Bridging genomic data with natural language (e.g., generating scientific abstracts from cell profiles)
+
+    **Paper:** [Cell2Sentence: Language Modeling for Single-Cell Genomics](https://www.biorxiv.org/content/10.1101/2023.09.11.557287v3)
+    **GitHub:** [vandijklab/cell2sentence](https://github.com/vandijklab/cell2sentence)
+
+    *Note: Quantized versions are available at `mradermacher/C2S-Pythia-410m-diverse-single-and-multi-cell-tasks-GGUF`, but this is the original, full-precision model description.*
+  overrides:
+    parameters:
+      model: C2S-Pythia-410m-diverse-single-and-multi-cell-tasks.Q4_K_M.gguf
+  files:
+    - filename: C2S-Pythia-410m-diverse-single-and-multi-cell-tasks.Q4_K_M.gguf
+      sha256: 905e364a160b52fb7308502417fa8f20da51cdf92f6ab897909085985495446f
+      uri: huggingface://mradermacher/C2S-Pythia-410m-diverse-single-and-multi-cell-tasks-GGUF/C2S-Pythia-410m-diverse-single-and-multi-cell-tasks.Q4_K_M.gguf
