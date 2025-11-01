@@ -22938,3 +22938,18 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "iceabsintherp-7b-imats"
+  urls:
+    - https://huggingface.co/Casual-Autopsy/IceAbsintheRP-7b-imat-GGUFs
+  description: |
+    The **IceAbsintheRP-7b-imat** model is a 7-billion-parameter language model based on the **Llama-2-7b** architecture, fine-tuned for roleplay and creative dialogue. It is specifically optimized for immersive, narrative-driven interactions, making it well-suited for use in storytelling, character roleplay, and interactive fiction. The model is available in GGUF format (quantized for efficient inference), enabling deployment on consumer hardware like GPUs and even CPU-based systems.
+
+    The fine-tuning was performed using the **Imat (Instruct Model Adaptation Technique)**, which enhances instruction-following and coherence in conversational settings. The model is **not** the original Llama-2-7b released by Meta — rather, it is a community-created, specialized adaptation with a focus on expressive, creative, and roleplay-oriented responses.
+
+    Note: The repository you accessed contains a quantized version (GGUF format) of the model, which is likely a derivative work by the community (Casual-Autopsy). The original base model is **Llama-2-7b**, and this version is a fine-tuned, roleplay-optimized variant.
+
+    For the most accurate, unquantized base model description, refer to the official **Meta Llama-2-7b** release on Hugging Face or the [Llama 2 official page](https://ai.meta.com/llama/).
+  overrides:
+    parameters:
+      model: Casual-Autopsy/IceAbsintheRP-7b-imat-GGUFs
