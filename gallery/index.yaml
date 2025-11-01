@@ -23363,3 +23363,43 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen.qwen3-vl-235b-a22b-instruct"
+  urls:
+    - https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-235B-A22B-Instruct-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct**
+    *By Qwen Team (Alibaba Cloud)*
+
+    The most powerful vision-language model in the Qwen series to date, Qwen3-VL-235B-A22B-Instruct combines state-of-the-art multimodal understanding with exceptional reasoning capabilities. With a massive 235-billion parameter MoE (Mixture of Experts) architecture, it excels in visual perception, spatial reasoning, long-context analysis (up to 1M tokens), and video understanding.
+
+    **Key Features:**
+    - **Advanced Vision & Language Fusion**: Seamlessly integrates image and text input for lossless, unified comprehension.
+    - **Visual Agent Capabilities**: Can interpret and interact with GUIs on PC/mobile devices, enabling task automation.
+    - **High-Resolution & Spatial Reasoning**: Accurately judges object positions, viewpoints, and occlusions; supports 3D grounding for embodied AI.
+    - **Long-Form & Video Understanding**: Native 256K context (expandable to 1M), with precise timestamp-based event localization for video analysis.
+    - **Enhanced OCR**: Supports 32 languages, performs well under low light, blur, and tilt; excels at reading complex documents and rare characters.
+    - **Strong Multimodal Reasoning**: Outperforms in STEM, causal analysis, and evidence-based problem solving.
+    - **Visual Coding**: Generates code (HTML/CSS/JS/Draw.io) from images or videos.
+
+    **Architecture Innovations:**
+    - **Interleaved-MRoPE**: Improved positional encoding for better temporal and spatial modeling.
+    - **DeepStack**: Fuses multi-level ViT features for sharper image-text alignment.
+    - **Text–Timestamp Alignment**: Enables precise event localization in long videos.
+
+    **Use Cases:** AI agents, visual content analysis, automated GUI interaction, document understanding, video summarization, scientific reasoning, and more.
+
+    **License:** Apache 2.0
+    **Model Type:** Vision-Language, Instruction-Tuned, MoE (Mixture of Experts)
+    **Context Length:** Up to 1M tokens
+    **Pipeline:** `image-text-to-text`
+
+    👉 [Try it on Qwen Chat](https://chat.qwenlm.ai/)
+    📚 [Learn more in the Qwen3 Technical Report](https://arxiv.org/abs/2505.09388)
+  overrides:
+    parameters:
+      model: Qwen.Qwen3-VL-235B-A22B-Instruct.Q4_K_M-00001-of-00011.gguf
+  files:
+    - filename: Qwen.Qwen3-VL-235B-A22B-Instruct.Q4_K_M-00001-of-00011.gguf
+      sha256: 41c963cc019dbb4d946ca7ff69baed17181b33dd7dbd8498d75dfccb21549fe0
+      uri: huggingface://DevQuasar/Qwen.Qwen3-VL-235B-A22B-Instruct-GGUF/Qwen.Qwen3-VL-235B-A22B-Instruct.Q4_K_M-00001-of-00011.gguf
