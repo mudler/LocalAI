@@ -22938,3 +22938,34 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *deepseek
+  name: "deepseek-v3.1-terminus"
+  urls:
+    - https://huggingface.co/ling1000T/DeepSeek-V3.1-Terminus-gguf
+  description: |
+    **Model Name:** DeepSeek-V3.1-Terminus
+    **Base Model:** DeepSeek-V3.1-Base
+    **License:** MIT
+    **Repository:** [deepseek-ai/DeepSeek-V3.1-Terminus](https://huggingface.co/deepseek-ai/DeepSeek-V3.1-Terminus)
+
+    **Description:**
+    DeepSeek-V3.1-Terminus is an enhanced version of the DeepSeek-V3.1 series, optimized for improved language consistency, agent performance, and tool-use capabilities. It delivers strong reasoning, coding, and multi-agent functionality, with notable improvements in benchmarks such as Humanity's Last Exam (+5.8 points), BrowseComp (+8.5 points), and SimpleQA (+3.4 points). The model features refined chat templates and updated agent tooling, including support for search and code agents with improved reliability. Ideal for advanced reasoning, agentic workflows, and multilingual tasks.
+
+    **Key Features:**
+    - ✅ Enhanced language consistency (reduced mixed Chinese-English & abnormal characters)
+    - ✅ Improved agent performance (search, code, and tool use)
+    - ✅ State-of-the-art results in reasoning and coding benchmarks
+    - ✅ Compatible with DeepSeek-V3 inference pipeline and chat template
+    - ✅ Suitable for local deployment via transformers, GGUF, or inference servers
+
+    **Use Case:**
+    Advanced reasoning, agentic AI systems, coding assistants, multilingual applications, and research.
+
+    > 📌 *Note: This is the original, unquantized model. For quantized versions (e.g., GGUF), see the `ling1000T/DeepSeek-V3.1-Terminus-gguf` repository.*
+  overrides:
+    parameters:
+      model: DeepSeek-V3.1-Terminus-q4_k_m.gguf-00001-of-00009.gguf
+  files:
+    - filename: DeepSeek-V3.1-Terminus-q4_k_m.gguf-00001-of-00009.gguf
+      sha256: d1be41a151943aafa317f323798925e777477b0410985a2cb6caf26800e846e3
+      uri: huggingface://ling1000T/DeepSeek-V3.1-Terminus-gguf/DeepSeek-V3.1-Terminus-q4_k_m.gguf-00001-of-00009.gguf
