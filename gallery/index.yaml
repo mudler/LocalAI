@@ -22938,3 +22938,63 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen.qwen3-vl-30b-a3b-thinking"
+  urls:
+    - https://huggingface.co/DevQuasar/Qwen.Qwen3-VL-30B-A3B-Thinking-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-30B-A3B-Thinking
+    **Repository:** [Qwen/Qwen3-VL-30B-A3B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Thinking)
+    **License:** Apache 2.0
+    **Pipeline:** Image-text-to-text
+
+    ---
+
+    ### 🌟 Description:
+
+    **Qwen3-VL-30B-A3B-Thinking** is a state-of-the-art **vision-language model** in the Qwen series, designed for advanced multimodal understanding and reasoning. Built on a 30B parameter architecture with an MoE (Mixture of Experts) design, this model excels in complex tasks combining image, video, and text input.
+
+    It supports **256K native context length** (expandable to 1M), enabling deep comprehension of long documents, videos, and large-scale visual scenes. Its architecture incorporates **Interleaved-MRoPE** for improved temporal and spatial reasoning, **DeepStack** for fine-grained visual feature fusion, and **text-timestamp alignment** for precise video event localization.
+
+    ### 🔍 Key Features:
+    - **Visual Agent Capabilities**: Can interpret and interact with GUIs (PC/mobile), recognize UI elements, and perform tasks autonomously.
+    - **Advanced Visual Coding**: Generates code (HTML/CSS/JS/Draw.io) from images or diagrams.
+    - **High-Fidelity OCR**: Supports 32 languages, including low-light, tilted, or blurred text, and complex layouts.
+    - **Spatial & 3D Reasoning**: Accurately judges object positions, viewpoints, and occlusions.
+    - **Strong Multimodal Reasoning**: Exceptional in STEM, logical reasoning, and evidence-based responses.
+    - **Unified Text-Vision Understanding**: Seamless fusion of text and visual data for lossless comprehension.
+
+    ### 🛠️ Use Cases:
+    - Document and video summarization
+    - Visual question answering (VQA)
+    - Image-to-code generation
+    - GUI automation and agent-based interaction
+    - Long-context multimodal analysis (e.g., books, videos, slides)
+
+    ### 📌 Ideal For:
+    Researchers, developers, and enterprises working on advanced AI agents, embodied AI, content creation, and large-scale multimodal systems.
+
+    ---
+
+    > **Note:** This is the *original, unquantized* model from Alibaba’s Qwen team. The GGUF variant (e.g., `DevQuasar/Qwen.Qwen3-VL-30B-A3B-Thinking-GGUF`) is a quantized version for local inference.
+
+    ---
+    **Cite:**
+    ```bibtex
+    @misc{qwen3technicalreport,
+      title={Qwen3 Technical Report},
+      author={Qwen Team},
+      year={2025},
+      eprint={2505.09388},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2505.09388}
+    }
+    ```
+  overrides:
+    parameters:
+      model: Qwen.Qwen3-VL-30B-A3B-Thinking.Q4_K_M.gguf
+  files:
+    - filename: Qwen.Qwen3-VL-30B-A3B-Thinking.Q4_K_M.gguf
+      sha256: 9ac0d152d00967dc67f0b0c2629c0073a4e64474d7cc325612fbf92ce115fe05
+      uri: huggingface://DevQuasar/Qwen.Qwen3-VL-30B-A3B-Thinking-GGUF/Qwen.Qwen3-VL-30B-A3B-Thinking.Q4_K_M.gguf
