@@ -22938,3 +22938,65 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *sentencentransformers
+  name: "nomic-embed-text-v1.5"
+  urls:
+    - https://huggingface.co/s3dev-ai/nomic-embed-text-v1.5-gguf
+  description: |
+    ### **nomic-embed-text-v1.5**
+    *Resizable, Long-Context Text Embeddings with Matryoshka Learning*
+
+    **Model Type**: Sentence Transformer (BERT-based)
+    **Language**: English
+    **License**: Apache 2.0
+    **Repository**: [nomic-ai/nomic-embed-text-v1.5](https://huggingface.co/nomic-ai/nomic-embed-text-v1.5)
+
+    ---
+
+    #### 🔍 **Overview**
+    nomic-embed-text-v1.5 is a state-of-the-art, long-context sentence embedding model designed for real-world production use. It supports sequences up to **8,192 tokens**, making it ideal for processing long documents, code, or complex queries. The model uses **Matryoshka Representation Learning**, enabling dynamic embedding dimensionality (768 → 64) with minimal performance loss—perfect for balancing speed, accuracy, and memory usage.
+
+    #### 🚀 **Key Features**
+    - **Task-Aware Prompts**: Embeddings require task prefixes like `search_document:`, `search_query:`, `clustering:`, or `classification:` to optimize behavior.
+    - **Long Context Support**: Native support for sequences up to 8,192 tokens via rotary scaling.
+    - **High Performance**: Achieves **62.28 MTEB score** (768-dim), outperforming most open-source embeddings.
+    - **Flexible Dimensions**: Maintain performance across 768, 512, 256, 128, and even 64-dim embeddings.
+    - **Multimodal Ready**: Serves as the text component for the **nomic-embed-vision-v1.5** multimodal model.
+
+    #### 📊 **Performance Highlights**
+    - **MTEB Score**: 62.28 (768-dim)
+    - **STS Benchmark (STS-B)**: 84.23 Pearson (cosine similarity)
+    - **Retrieval (Quora)**: 84.18% MAP
+    - **Clustering (Reddit)**: 61.05% v-measure
+
+    #### 💡 **Use Cases**
+    - RAG (Retrieval-Augmented Generation)
+    - Semantic search & document similarity
+    - Clustering, classification, and zero-shot inference
+    - Long-form content analysis (e.g., legal, technical, or research text)
+
+    #### 🛠️ **Quick Start**
+    ```python
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer("nomic-ai/nomic-embed-text-v1.5", trust_remote_code=True)
+
+    sentences = ["search_query: What is TSNE?", "search_document: TSNE is a dimensionality reduction algorithm..."]
+    embeddings = model.encode(sentences)
+    ```
+
+    #### 📚 **Learn More**
+    - [Blog Post](https://www.nomic.ai/blog/posts/nomic-embed-text-v1)
+    - [Technical Report (arXiv)](https://arxiv.org/abs/2402.01613)
+    - [Nomic Platform](https://atlas.nomic.ai)
+
+    ---
+
+    > ✅ *Ideal for developers, researchers, and enterprises needing scalable, high-accuracy embeddings with flexible deployment options.*
+  overrides:
+    parameters:
+      model: nomic-embed-text-v1.5-Q4_K_M.gguf
+  files:
+    - filename: nomic-embed-text-v1.5-Q4_K_M.gguf
+      sha256: 0947110205634572a10804ed8a468f168d2675ec761c7cdb6720a485e907f81e
+      uri: huggingface://s3dev-ai/nomic-embed-text-v1.5-gguf/nomic-embed-text-v1.5-Q4_K_M.gguf
