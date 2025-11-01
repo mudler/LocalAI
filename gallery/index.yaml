@@ -22915,7 +22915,7 @@
     - filename: Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
       sha256: cbbb0c5f6874130a8ae253377fdc7ad25fa2c1e9bb45f1aaad88db853ef985dc
       uri: huggingface://mradermacher/Qwen3-Grand-Horror-Light-1.7B-GGUF/Qwen3-Grand-Horror-Light-1.7B.Q4_K_M.gguf
-- !!merge <<: *afm
+- !!merge <<: *qwen3
   name: "reform-32b-i1"
   urls:
     - https://huggingface.co/mradermacher/ReForm-32B-i1-GGUF
