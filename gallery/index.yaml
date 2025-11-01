@@ -22938,3 +22938,84 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "aitana-ta-2b-s"
+  urls:
+    - https://huggingface.co/mradermacher/Aitana-TA-2B-S-GGUF
+  description: |
+    **Model Name:** Aitana-TA-2B-S
+    **Author:** gplsi (Language Processing and Information Systems, Universidad de Alicante)
+    **Base Model:** BSC-LT/salamandraTA-2b-instruct
+    **License:** Apache 2.0
+    **Language Pair:** Spanish ↔ Valencian (bidirectional translation)
+    **Model Type:** Instruction-tuned language model for sentence-level translation
+
+    ---
+
+    ### 🌟 Overview
+    Aitana-TA-2B-S is a specialized 2-billion-parameter language model fine-tuned for high-quality translation between **Spanish and Valencian**, two closely related but distinct languages spoken in eastern Spain. It is built upon the SalamandraTA-2B-Instruct model and trained specifically on parallel sentence-aligned data from the AMIC corpus.
+
+    This model excels in translation tasks, leveraging instruction-following capabilities using the ChatML template format. It is optimized for accuracy, fluency, and cultural nuance in both directions—Spanish → Valencian and Valencian → Spanish—with strong performance across multiple evaluation metrics.
+
+    ---
+
+    ### 📊 Performance Highlights (Phrases Task – IberoBench)
+    | Metric       | Spanish → Valencian | Valencian → Spanish | Valencian → Catalan | Catalan → Valencian |
+    |--------------|---------------------|---------------------|---------------------|---------------------|
+    | **BLEU**     | 63.35               | 81.15               | 79.24               | 79.95               |
+    | **ChrF**     | 83.32               | 91.03               | 90.74               | 91.61               |
+    | **COMET**    | 0.93                | 0.95                | 0.95                | **0.96**            |
+    | **TER**      | **22.45**           | **11.21**           | **10.11**           | **10.54**           |
+
+    *Note: Lower TER and higher BLEU/ChrF/COMET indicate better translation quality.*
+
+    ---
+
+    ### ⚙️ Technical Details
+    - **Architecture:** Llama-style decoder (based on LLaMA architecture)
+    - **Fine-tuning:** 1 epoch, learning rate 1e-5, max sequence length 2048
+    - **Training Infrastructure:** 4x NVIDIA A100 GPUs using FSDP sharding
+    - **Framework:** PyTorch Lightning (Fabric)
+    - **Tokenizer:** Hugging Face Transformers-compatible
+
+    ---
+
+    ### 📌 Use Case
+    Ideal for applications requiring **accurate, fluent translation between Spanish and Valencian**, such as:
+    - Public sector services in the Valencian Community
+    - Cultural and educational content localization
+    - Natural language processing pipelines for minority languages
+
+    > ❗ **Note:** Not recommended for general-purpose NLP tasks outside of translation.
+
+    ---
+
+    ### 📚 Citation
+    ```bibtex
+    @misc{gplsi-5w1h-llama3b,
+      author       = {Sepúlveda-Torres, Robiert and Galeano, Santiago and Gutiérrez, Yoan},
+      title        = {Aitana-TA-2B-S: Translation model from Spanish to Valencian},
+      year         = {2025},
+      howpublished = {\url{https://huggingface.co/gplsi/Aitana-TA-2B-S}},
+      note         = {Accessed: 2025-10-03}
+    }
+    ```
+
+    ---
+
+    ### 🔗 Access
+    - **Original Model (Full Precision):** [https://huggingface.co/gplsi/Aitana-TA-2B-S](https://huggingface.co/gplsi/Aitana-TA-2B-S)
+    - **GGUF Quantizations (by mradermacher):** [https://huggingface.co/mradermacher/Aitana-TA-2B-S-GGUF](https://huggingface.co/mradermacher/Aitana-TA-2B-S-GGUF)
+
+    ---
+
+    ✅ **Perfect for:** Translation-focused projects in Spanish–Valencian linguistic contexts
+    🔐 **Open-source & freely usable** under Apache 2.0 license
+    🎯 **Built for precision, culture-aware output in regional language pairs**
+  overrides:
+    parameters:
+      model: Aitana-TA-2B-S.Q4_K_M.gguf
+  files:
+    - filename: Aitana-TA-2B-S.Q4_K_M.gguf
+      sha256: 9cdcf745224602396c4c65e5f3cccddd5177cb6e2a9f00fd12c8b8a27069fc29
+      uri: huggingface://mradermacher/Aitana-TA-2B-S-GGUF/Aitana-TA-2B-S.Q4_K_M.gguf
