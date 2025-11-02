@@ -142,8 +142,8 @@
       model: Qwen3-VL-2B-Thinking-Q4_K_M.gguf
   files:
     - filename: Qwen3-VL-2B-Thinking-Q4_K_M.gguf
-      sha256: 5f282086042d96b78b138839610f5148493b354524090fadc5c97c981b70a26e
       uri: huggingface://unsloth/Qwen3-VL-2B-Thinking-GGUF/Qwen3-VL-2B-Thinking-Q4_K_M.gguf
+      sha256: 6b3c336314bca30dd7efed54109fd3430a0b1bfd177b0300e5f11f8eae987f30
     - filename: mmproj/mmproj-Qwen3-VL-2B-Thinking-F16.gguf
       sha256: 4eabc90a52fe890d6ca1dad92548782eab6edc91f012a365fff95cf027ba529d
       uri: huggingface://unsloth/Qwen3-VL-2B-Thinking-GGUF/mmproj-F16.gguf
@@ -22919,18 +22919,7 @@
   name: "reform-32b-i1"
   urls:
     - https://huggingface.co/mradermacher/ReForm-32B-i1-GGUF
-  description: |
-    **ReForm-32B** is a large-scale, reflective autoformalization language model developed by Guoxin Chen and collaborators, designed to convert natural language mathematical problems into precise formal proofs (e.g., in Lean 4) with high semantic accuracy. It leverages a novel training paradigm called **Prospective Bounded Sequence Optimization (PBSO)**, enabling the model to iteratively *generate → verify → refine* its outputs, significantly improving correctness and consistency.
-
-    Key features:
-    - **State-of-the-art performance**: Achieves +22.6% average improvement over leading baselines across benchmarks like miniF2F, ProofNet, Putnam, and AIME 2025.
-    - **Reflective reasoning**: Incorporates self-correction through a built-in verification loop, mimicking expert problem-solving.
-    - **High-fidelity formalization**: Optimized for mathematical rigor, making it ideal for formal verification and AI-driven theorem proving.
-
-    Originally released by the author **GuoxinChen/ReForm-32B**, this model is part of an open research effort in AI for mathematics. It is now available in GGUF format (e.g., via `mradermacher/ReForm-32B-i1-GGUF`) for efficient local inference.
-
-    > 📌 *For the original, unquantized model, refer to:* [GuoxinChen/ReForm-32B](https://huggingface.co/GuoxinChen/ReForm-32B)
-    > 📚 *Paper:* [ReForm: Reflective Autoformalization with PBSO](https://arxiv.org/abs/2510.24592)
+  description: "**ReForm-32B** is a large-scale, reflective autoformalization language model developed by Guoxin Chen and collaborators, designed to convert natural language mathematical problems into precise formal proofs (e.g., in Lean 4) with high semantic accuracy. It leverages a novel training paradigm called **Prospective Bounded Sequence Optimization (PBSO)**, enabling the model to iteratively *generate → verify → refine* its outputs, significantly improving correctness and consistency.\n\nKey features:\n- **State-of-the-art performance**: Achieves +22.6% average improvement over leading baselines across benchmarks like miniF2F, ProofNet, Putnam, and AIME 2025.\n- **Reflective reasoning**: Incorporates self-correction through a built-in verification loop, mimicking expert problem-solving.\n- **High-fidelity formalization**: Optimized for mathematical rigor, making it ideal for formal verification and AI-driven theorem proving.\n\nOriginally released by the author **GuoxinChen/ReForm-32B**, this model is part of an open research effort in AI for mathematics. It is now available in GGUF format (e.g., via `mradermacher/ReForm-32B-i1-GGUF`) for efficient local inference.\n\n> \U0001F4CC *For the original, unquantized model, refer to:* [GuoxinChen/ReForm-32B](https://huggingface.co/GuoxinChen/ReForm-32B)\n> \U0001F4DA *Paper:* [ReForm: Reflective Autoformalization with PBSO](https://arxiv.org/abs/2510.24592)\n"
   overrides:
     parameters:
       model: ReForm-32B.i1-Q4_K_M.gguf
@@ -22942,51 +22931,7 @@
   name: "qwen3-4b-thinking-2507-gspo-easy"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF
-  description: |
-    **Model Name:** Qwen3-4B-Thinking-2507-GSPO-Easy
-    **Base Model:** Qwen3-4B (by Alibaba Cloud)
-    **Fine-tuned With:** GRPO (Generalized Reward Policy Optimization)
-    **Framework:** Hugging Face TRL (Transformers Reinforcement Learning)
-    **License:** [MIT](https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy/blob/main/LICENSE)
-
-    ---
-
-    ### 📌 Description:
-    A fine-tuned 4-billion-parameter version of **Qwen3-4B**, optimized for **step-by-step reasoning and complex problem-solving** using **GRPO**, a reinforcement learning method designed to enhance mathematical and logical reasoning in language models.
-
-    This model excels in tasks requiring **structured thinking**, such as solving math problems, logical puzzles, and multi-step reasoning, making it ideal for applications in education, AI assistants, and reasoning benchmarks.
-
-    ### 🔧 Key Features:
-    - Trained with **TRL 0.23.1** and **Transformers 4.57.1**
-    - Optimized for **high-quality reasoning output**
-    - Part of the **Qwen3-4B-Thinking** series, designed to simulate human-like thought processes
-    - Compatible with Hugging Face `transformers` and `pipeline` API
-
-    ### 📚 Use Case:
-    Perfect for applications demanding **deep reasoning**, such as:
-    - AI tutoring systems
-    - Advanced chatbots with explanation capabilities
-    - Automated problem-solving in STEM domains
-
-    ### 📌 Quick Start (Python):
-    ```python
-    from transformers import pipeline
-
-    question = "If you had a time machine, but could only go to the past or the future once and never return, which would you choose and why?"
-    generator = pipeline("text-generation", model="leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy", device="cuda")
-    output = generator([{"role": "user", "content": question}], max_new_tokens=128, return_full_text=False)[0]
-    print(output["generated_text"])
-    ```
-
-    > ✅ **Note**: This is the **original, non-quantized base model**. Quantized versions (e.g., GGUF) are available separately under the same repository for efficient inference on consumer hardware.
-
-    ---
-
-    🔗 **Model Page:** [https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy](https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy)
-    📝 **Training Details & Visualizations:** [WandB Dashboard](https://wandb.ai/leonwenderoth-tu-darmstadt/huggingface/runs/t42skrc7)
-
-    ---
-    *Fine-tuned using GRPO — a method proven to boost mathematical reasoning in open language models. Cite: Shao et al., 2024 (arXiv:2402.03300)*
+  description: "**Model Name:** Qwen3-4B-Thinking-2507-GSPO-Easy\n**Base Model:** Qwen3-4B (by Alibaba Cloud)\n**Fine-tuned With:** GRPO (Generalized Reward Policy Optimization)\n**Framework:** Hugging Face TRL (Transformers Reinforcement Learning)\n**License:** [MIT](https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy/blob/main/LICENSE)\n\n---\n\n### \U0001F4CC Description:\nA fine-tuned 4-billion-parameter version of **Qwen3-4B**, optimized for **step-by-step reasoning and complex problem-solving** using **GRPO**, a reinforcement learning method designed to enhance mathematical and logical reasoning in language models.\n\nThis model excels in tasks requiring **structured thinking**, such as solving math problems, logical puzzles, and multi-step reasoning, making it ideal for applications in education, AI assistants, and reasoning benchmarks.\n\n### \U0001F527 Key Features:\n- Trained with **TRL 0.23.1** and **Transformers 4.57.1**\n- Optimized for **high-quality reasoning output**\n- Part of the **Qwen3-4B-Thinking** series, designed to simulate human-like thought processes\n- Compatible with Hugging Face `transformers` and `pipeline` API\n\n### \U0001F4DA Use Case:\nPerfect for applications demanding **deep reasoning**, such as:\n- AI tutoring systems\n- Advanced chatbots with explanation capabilities\n- Automated problem-solving in STEM domains\n\n### \U0001F4CC Quick Start (Python):\n```python\nfrom transformers import pipeline\n\nquestion = \"If you had a time machine, but could only go to the past or the future once and never return, which would you choose and why?\"\ngenerator = pipeline(\"text-generation\", model=\"leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy\", device=\"cuda\")\noutput = generator([{\"role\": \"user\", \"content\": question}], max_new_tokens=128, return_full_text=False)[0]\nprint(output[\"generated_text\"])\n```\n\n> ✅ **Note**: This is the **original, non-quantized base model**. Quantized versions (e.g., GGUF) are available separately under the same repository for efficient inference on consumer hardware.\n\n---\n\n\U0001F517 **Model Page:** [https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy](https://huggingface.co/leonMW/Qwen3-4B-Thinking-2507-GSPO-Easy)\n\U0001F4DD **Training Details & Visualizations:** [WandB Dashboard](https://wandb.ai/leonwenderoth-tu-darmstadt/huggingface/runs/t42skrc7)\n\n---\n*Fine-tuned using GRPO — a method proven to boost mathematical reasoning in open language models. Cite: Shao et al., 2024 (arXiv:2402.03300)*\n"
   overrides:
     parameters:
       model: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
@@ -22998,24 +22943,7 @@
   name: "qwen3-yoyo-v4-42b-a3b-thinking-total-recall-pkdick-v-i1"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF
-  description: |
-    ### **Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V**
-    **Base Model:** Qwen3-Coder-30B-A3B-Instruct (Mixture of Experts)
-    **Size:** 42B parameters (finetuned version)
-    **Context Length:** 1 million tokens (native), supports up to 256K natively with Yarn extension
-    **Architecture:** Mixture of Experts (MoE) — 128 experts, 8 activated per forward pass
-    **Fine-tuned For:** Advanced coding, agentic workflows, creative writing, and long-context reasoning
-    **Key Features:**
-    - Enhanced with **Brainstorm 20x** fine-tuning for deeper reasoning, richer prose, and improved coherence
-    - Optimized for **coding in multiple languages**, tool use, and long-form creative tasks
-    - Includes optional **"thinking" mode** via system prompt for structured internal reasoning
-    - Trained on **PK Dick Dataset** (inspired by Philip K. Dick’s works) for narrative depth and conceptual richness
-    - Supports **high-quality GGUF, GPTQ, AWQ, EXL2, and HQQ quantizations** for efficient local inference
-    - Recommended settings: 6–10 active experts, temperature 0.3–0.7, repetition penalty 1.05–1.1
-
-    **Best For:** Developers, creative writers, researchers, and AI researchers seeking a powerful, expressive, and highly customizable model with exceptional long-context and coding performance.
-
-    > 🌟 *Note: This is a quantization and fine-tune of the original Qwen3-Coder-30B-A3B-Instruct by DavidAU, further enhanced by mradermacher’s GGUF conversion. The base model remains the authoritative version.*
+  description: "### **Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V**\n**Base Model:** Qwen3-Coder-30B-A3B-Instruct (Mixture of Experts)\n**Size:** 42B parameters (finetuned version)\n**Context Length:** 1 million tokens (native), supports up to 256K natively with Yarn extension\n**Architecture:** Mixture of Experts (MoE) — 128 experts, 8 activated per forward pass\n**Fine-tuned For:** Advanced coding, agentic workflows, creative writing, and long-context reasoning\n**Key Features:**\n- Enhanced with **Brainstorm 20x** fine-tuning for deeper reasoning, richer prose, and improved coherence\n- Optimized for **coding in multiple languages**, tool use, and long-form creative tasks\n- Includes optional **\"thinking\" mode** via system prompt for structured internal reasoning\n- Trained on **PK Dick Dataset** (inspired by Philip K. Dick’s works) for narrative depth and conceptual richness\n- Supports **high-quality GGUF, GPTQ, AWQ, EXL2, and HQQ quantizations** for efficient local inference\n- Recommended settings: 6–10 active experts, temperature 0.3–0.7, repetition penalty 1.05–1.1\n\n**Best For:** Developers, creative writers, researchers, and AI researchers seeking a powerful, expressive, and highly customizable model with exceptional long-context and coding performance.\n\n> \U0001F31F *Note: This is a quantization and fine-tune of the original Qwen3-Coder-30B-A3B-Instruct by DavidAU, further enhanced by mradermacher’s GGUF conversion. The base model remains the authoritative version.*\n"
   overrides:
     parameters:
       model: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
