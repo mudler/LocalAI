@@ -22994,3 +22994,75 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-yoyo-v4-42b-a3b-thinking-total-recall-pkdick-v-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V
+    **Base Model:** Qwen3-Coder-30B-A3B-Instruct (Mixture of Experts)
+    **Repository:** [DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V](https://huggingface.co/DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V)
+    **Quantized By:** mradermacher (GGUF format)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 🌟 **Model Overview**
+
+    A high-performance, experimental fine-tuned variant of **Qwen3-Coder-30B-A3B-Instruct**, enhanced with the **Brainstorm 20x** methodology and trained on in-house datasets inspired by Philip K. Dick’s works. This model achieves **1 million token context natively**, making it ideal for long-form coding, creative writing, and complex agentic tasks.
+
+    Built on a **Mixture of Experts (MoE)** architecture with **128 total experts** (8 activated per token), it delivers deep reasoning, nuanced prose, and strong coding capabilities. The model includes **optional thinking blocks** for structured internal reasoning, enabling advanced problem-solving and deliberation.
+
+    ---
+
+    ### 💡 **Key Features**
+
+    - **42B Parameters** | **67 Layers** | **1M Token Context**
+    - **Mixture of Experts (MoE)**: 128 experts, 8 active per forward pass
+    - **Brainstorm 20x**: Enhanced reasoning depth, richer narrative quality, and improved coherence
+    - **Optional Thinking Mode**: Supports internal monologue via `###ponder###` tags
+    - **Code Generation**: Top-tier performance across programming languages (Python, JavaScript, Rust, etc.)
+    - **Agentic Capabilities**: Strong support for function calling, tool use, and multi-step workflows
+    - **Multi-lingual**: Trained in English, French, German, and Chinese
+
+    ---
+
+    ### 🛠️ **Use Cases**
+
+    - Long-context code analysis and generation
+    - Creative writing, world-building, and narrative development
+    - Agentic AI workflows with reasoning and tool use
+    - Research, brainstorming, and complex problem-solving
+    - High-quality chat and roleplay applications
+
+    ---
+
+    ### ⚙️ **Recommended Settings**
+
+    - **Temperature:** 0.3–0.7
+    - **Top-p:** 0.95 | **Top-k:** 20–100
+    - **Repetition Penalty:** 1.05–1.1
+    - **Active Experts:** 6–12 (depending on task complexity)
+    - **Use "Thinking" Prompt** to activate internal reasoning:
+      ```text
+      Enable deep thinking subroutine. You are a deep thinking AI... ###ponder### ... ###/ponder###
+      ```
+
+    ---
+
+    ### 🔗 **Resources**
+
+    - **Original Base Model:** [Qwen/Qwen3-Coder-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct)
+    - **Source Files & Guides:** [DavidAU/d-au-source-files-for-gguf-exl2-awq-gptq-hqq](https://huggingface.co/collections/DavidAU/d-au-source-files-for-gguf-exl2-awq-gptq-hqq-etc-etc-66b55cb8ba25f914cbf210be)
+    - **Full Performance Guide:** [Maximizing Model Performance – Samplers & Parameters](https://huggingface.co/DavidAU/Maximizing-Model-Performance-All-Quants-Types-And-Full-Precision-by-Samplers_Parameters)
+
+    ---
+
+    📌 **Note:** This is a **fine-tuned, quantized version** (GGUF) of the original model. For full precision and source code, refer to the base repository above.
+  overrides:
+    parameters:
+      model: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_S.gguf
+  files:
+    - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_S.gguf
+      sha256: 3d17e1f3fd02a58dc0261689107b8d5804718332d7b967119ce768ce04fd5acc
+      uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_S.gguf
