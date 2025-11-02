@@ -22938,3 +22938,30 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "rivermind-24b-v1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Rivermind-24B-v1-i1-GGUF
+  description: |
+    **Rivermind 24B v1** is a 24-billion-parameter large language model developed by TheDrummer, fine-tuned for creativity, dynamic storytelling, and expressive language use. Built upon the **Mistral-Small-3.2-24B-Instruct-2506** foundation, it excels in narrative generation, imaginative writing, and natural, engaging对话—ideal for creative professionals, writers, and developers seeking expressive AI interaction.
+
+    Key characteristics:
+    - **Focus on creativity & expressiveness** over strict alignment or safety constraints.
+    - Designed for **entertainment, storytelling, and unrestricted ideation**.
+    - Optimized for **natural language fluency, emotional tone, and narrative coherence**.
+    - Available in **GGUF format** for efficient local inference, with multiple quantization levels (e.g., Q4_K_M, Q6_K) for balance between speed, size, and quality.
+
+    This model is not aligned for compliance or safety—suitable for use cases where creative freedom and linguistic richness are prioritized over conservative outputs.
+
+    > 🌐 **Base model**: [Mistral-Small-3.2-24B-Instruct-2506](https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506)
+    > 🔗 **Original model**: [TheDrummer/Rivermind-24B-v1](https://huggingface.co/TheDrummer/Rivermind-24B-v1)
+    > 📦 **GGUF quantizations**: Available at [mradermacher/Rivermind-24B-v1-i1-GGUF](https://huggingface.co/mradermacher/Rivermind-24B-v1-i1-GGUF) (quantized by mradermacher)
+
+    *Note: The model is licensed under CC-BY-NC-4.0 — non-commercial use only.*
+  overrides:
+    parameters:
+      model: Rivermind-24B-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: Rivermind-24B-v1.i1-Q4_K_M.gguf
+      sha256: 3be7079d0528bfda2f6ac678126373c7cffec9ab283e2e966e00635da1410c44
+      uri: huggingface://mradermacher/Rivermind-24B-v1-i1-GGUF/Rivermind-24B-v1.i1-Q4_K_M.gguf
