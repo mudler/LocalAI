@@ -22994,3 +22994,16 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "iceblink-v3-sft-3"
+  urls:
+    - https://huggingface.co/ApocalypseParty/Iceblink-v3-SFT-3-gguf
+  description: |
+    AI model: iceblink-v3-sft-3
+  overrides:
+    parameters:
+      model: Iceblink-v3-SFT-3-Q4_K_S-00001-of-00002.gguf
+  files:
+    - filename: Iceblink-v3-SFT-3-Q4_K_S-00001-of-00002.gguf
+      sha256: b343cedc36b3284f9c755d66d1801cebcf09249d0c15bb65daa55b5ead57e388
+      uri: huggingface://ApocalypseParty/Iceblink-v3-SFT-3-gguf/Iceblink-v3-SFT-3-Q4_K_S-00001-of-00002.gguf
