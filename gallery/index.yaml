@@ -23023,3 +23023,40 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "viswe"
+  urls:
+    - https://huggingface.co/Akicou/ViSWE-GGUF
+  description: |
+    **Model Name**: Akicou/ViSWE
+    **Architecture**: Qwen2.5-Coder-32B-Instruct-based (33B parameters)
+    **Base Model**: Skywork/Skywork-SWE-32B
+    **Merged With**: TIGER-Lab/VisCoder2-32B
+    **Merge Method**: Arcee Fusion (MergeKit), using dynamic thresholds for selective parameter integration
+    **Dtype**: bfloat16 (full precision)
+    **Context Length**: 32K tokens
+    **Use Case**: Advanced software engineering and executable visualization generation
+
+    **Overview**:
+    Akicou/ViSWE is a high-performance, merged large language model designed for complex code generation and visualization tasks. It combines the robust software engineering capabilities of Skywork-SWE-32B—trained on real-world GitHub bug-fixing and code tasks—with the powerful visualization generation of VisCoder2-32B, which specializes in generating executable code for 12 programming languages with self-debugging features.
+
+    This model excels in tasks such as:
+    - Fixing software bugs
+    - Implementing complex features
+    - Generating interactive, multi-language visualization code
+    - Iterative debugging and refinement
+
+    Ideal for developers, researchers, and AI agents working on advanced software development pipelines, especially those requiring both code logic and visual output.
+
+    **Note**: The quantized GGUF versions are available in the companion repository [Akicou/ViSWE-GGUF](https://huggingface.co/Akicou/ViSWE-GGUF), optimized for efficient inference on consumer hardware. The original full-precision model is available at [Akicou/ViSWE](https://huggingface.co/Akicou/ViSWE).
+
+    **Citations**:
+    - Skywork-SWE: Zeng et al. (2025), arXiv:2506.19290
+    - VisCoder2: Ni et al. (2025), arXiv:2510.23642
+  overrides:
+    parameters:
+      model: ViSWE.Q4_K_M.gguf
+  files:
+    - filename: ViSWE.Q4_K_M.gguf
+      sha256: 85565c358dda52a6e94802b79d4f42594afe30f8c76ea5a5d88612c43371db11
+      uri: huggingface://Akicou/ViSWE-GGUF/ViSWE.Q4_K_M.gguf
