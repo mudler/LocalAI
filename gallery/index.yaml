@@ -22994,3 +22994,27 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-yoyo-v4-42b-a3b-thinking-total-recall-pkdick-v-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF
+  description: |
+    The **Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V** is a large-scale, **Mixture-of-Experts (MoE)** language model based on **Qwen3**, specifically fine-tuned for advanced code generation and reasoning tasks. It features:
+
+    - **42 billion total parameters** with **128 experts**, where only **8 experts are activated per token**, enabling high efficiency and scalability.
+    - **1 million context window**, allowing it to process extremely long inputs, ideal for complex codebases, documentation, or multi-step reasoning.
+    - Fine-tuned on the **PKDick-Dataset**, enhancing its performance in coding, brainstorming, and structured problem-solving.
+    - **Optional "Thinking" mode** with enhanced reasoning capabilities, supporting step-by-step logic and reflective reasoning.
+    - Trained using **unsloth optimization** techniques, resulting in improved training stability and performance.
+    - Designed for **high-precision code generation**, software development, and AI-assisted programming workflows.
+
+    This model is optimized for developers and AI researchers seeking a powerful, scalable, and context-aware code model. It is available in multiple GGUF quantization formats for efficient local inference (e.g., via llama.cpp), making it accessible for deployment on consumer hardware.
+
+    > ⚠️ Note: The model hosted at `mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF` is a **quantized version** of the original model. The **base model** is hosted at `DavidAU/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V`, which contains the full, unquantized weights and should be used for reference and training.
+  overrides:
+    parameters:
+      model: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+      sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
+      uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
