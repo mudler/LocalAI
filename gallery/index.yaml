@@ -23023,3 +23023,40 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-vl-235b-a22b-instruct-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-235B-A22B-Instruct-i1-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct** is a state-of-the-art vision-language model from the Qwen series, designed for advanced multimodal understanding and reasoning. With a massive 235 billion parameters and a dense architecture, it excels in integrating visual and textual information with exceptional depth and precision.
+
+    ### Key Features:
+    - **Vision-Language Mastery**: Combines cutting-edge visual perception with high-fidelity text generation, enabling seamless understanding of images, videos, and documents.
+    - **Advanced Spatial & Temporal Reasoning**: Supports 256K context (expandable to 1M), enabling full comprehension of long-form content like books and hours-long videos with second-level precision.
+    - **Visual Agent Capabilities**: Can interpret and interact with GUIs (PC/mobile), recognize UI elements, execute tasks, and perform visual coding (e.g., generating HTML/CSS/JS from images).
+    - **Enhanced OCR & Multilingual Support**: Recognizes 32 languages with robust performance under poor conditions (low light, blur, tilt) and handles rare, ancient, or technical characters.
+    - **Deep Multimodal Fusion**: Features Interleaved-MRoPE, DeepStack, and Text–Timestamp Alignment for superior alignment between image content and textual context.
+    - **Strong Reasoning & STEM Performance**: Delivers causal analysis and logical, evidence-based answers, particularly strong in math and science domains.
+
+    ### Use Cases:
+    - Content analysis and summarization from images and videos
+    - Document understanding and extraction (e.g., receipts, forms, complex layouts)
+    - GUI automation and human-computer interaction
+    - Visual coding and design generation
+    - Long-context reasoning across multimodal inputs
+
+    This model is ideal for researchers, developers, and enterprises seeking the highest level of multimodal intelligence in a scalable, production-ready format.
+
+    > **Base Model**: Qwen3-VL-235B-A22B-Instruct
+    > **Architecture**: Dense, Vision-Language Model with MoE variants available
+    > **License**: Apache 2.0
+    > **Repository**: [huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct)
+
+    *Note: The GGUF quantized version by mradermacher is a community-quantized variant for local inference; this description reflects the original, unquantized base model.*
+  overrides:
+    parameters:
+      model: Qwen3-VL-235B-A22B-Instruct.i1-Q4_K_M.gguf.part1of3
+  files:
+    - filename: Qwen3-VL-235B-A22B-Instruct.i1-Q4_K_M.gguf.part1of3
+      sha256: 25595b5d9ade9c001bff3c4867205a14c56bb421eb23d0d36637db5169fadc14
+      uri: huggingface://mradermacher/Qwen3-VL-235B-A22B-Instruct-i1-GGUF/Qwen3-VL-235B-A22B-Instruct.i1-Q4_K_M.gguf.part1of3
