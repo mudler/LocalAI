@@ -23023,3 +23023,37 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "minimax-m2-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2-i1-GGUF
+  description: |
+    **MiniMax-M2** is a compact, high-performance MoE (Mixture of Experts) language model designed for elite coding and agent workflows. With **230 billion total parameters** and only **10 billion activated parameters**, it delivers frontier-level performance in coding, tool use, and agentic reasoning while maintaining fast inference, low latency, and cost efficiency.
+
+    ### 🔑 Key Features:
+    - **Top-tier Agent Performance**: Leads in benchmarks like BrowseComp, SWE-bench, and Terminal-Bench, excelling at long-horizon toolchains, multi-file edits, and test-validated fixes.
+    - **Open-Source & Deployable**: Released under the MIT license. Fully open for local deployment via vLLM, SGLang, MLX, and other frameworks.
+    - **Interleaved Thinking**: Uses a `<tool_call>...</tool_call>` format for internal reasoning—ensure this content is preserved in prompts for optimal behavior.
+    - **Designed for Efficiency**: Ideal for real-time agents, CI/CD pipelines, and scalable deployments with minimal infrastructure overhead.
+
+    ### 📊 Benchmark Highlights:
+    - **#1 Open-Source Model (AA Intelligence Score: 61)**
+    - **69.4% pass rate on SWE-bench Verified**
+    - **44% on BrowseComp** — unmatched among open models
+
+    ### 🛠️ Use Cases:
+    - Developer assistants, IDE bots, and terminal agents
+    - Automated testing, debugging, and code generation
+    - Long-context planning and complex task execution
+
+    > ✅ **Deploy it today**: https://huggingface.co/MiniMaxAI/MiniMax-M2
+    > 🚀 **Free for limited time**: [MiniMax Agent](https://agent.minimax.io/) | [API Platform](https://platform.minimax.io)
+
+    MiniMax-M2 proves that you don’t need a giant model to get max performance—**small, smart, and fast**.
+  overrides:
+    parameters:
+      model: MiniMax-M2.i1-Q4_K_M.gguf.part1of3
+  files:
+    - filename: MiniMax-M2.i1-Q4_K_M.gguf.part1of3
+      sha256: cb5a8b11a9cdaf3551e381772926e7188157f0fd50f25e07f0d3192537e92897
+      uri: huggingface://mradermacher/MiniMax-M2-i1-GGUF/MiniMax-M2.i1-Q4_K_M.gguf.part1of3
