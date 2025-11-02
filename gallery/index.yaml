@@ -22994,3 +22994,32 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-yoyo-v4-42b-a3b-thinking-total-recall-pkdick-v-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF
+  description: |
+    ### **Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V**
+    **Base Model:** Qwen3-Coder-30B-A3B-Instruct (Mixture of Experts)
+    **Size:** 42B parameters (finetuned version)
+    **Context Length:** 1 million tokens (native), supports up to 256K natively with Yarn extension
+    **Architecture:** Mixture of Experts (MoE) — 128 experts, 8 activated per forward pass
+    **Fine-tuned For:** Advanced coding, agentic workflows, creative writing, and long-context reasoning
+    **Key Features:**
+    - Enhanced with **Brainstorm 20x** fine-tuning for deeper reasoning, richer prose, and improved coherence
+    - Optimized for **coding in multiple languages**, tool use, and long-form creative tasks
+    - Includes optional **"thinking" mode** via system prompt for structured internal reasoning
+    - Trained on **PK Dick Dataset** (inspired by Philip K. Dick’s works) for narrative depth and conceptual richness
+    - Supports **high-quality GGUF, GPTQ, AWQ, EXL2, and HQQ quantizations** for efficient local inference
+    - Recommended settings: 6–10 active experts, temperature 0.3–0.7, repetition penalty 1.05–1.1
+
+    **Best For:** Developers, creative writers, researchers, and AI researchers seeking a powerful, expressive, and highly customizable model with exceptional long-context and coding performance.
+
+    > 🌟 *Note: This is a quantization and fine-tune of the original Qwen3-Coder-30B-A3B-Instruct by DavidAU, further enhanced by mradermacher’s GGUF conversion. The base model remains the authoritative version.*
+  overrides:
+    parameters:
+      model: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+      sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
+      uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
