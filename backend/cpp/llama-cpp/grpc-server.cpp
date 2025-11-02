@@ -270,6 +270,11 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
         add_rpc_devices(std::string(llama_grpc_servers));
     }
     
+    // Initialize ctx_shift to false by default (can be overridden by options)
+    params.ctx_shift = false;
+    // Initialize cache_ram_mib to -1 by default (no limit, can be overridden by options)
+    params.cache_ram_mib = -1;
+
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
@@ -279,8 +284,20 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
             optval = "true";
         }
 
-        if (!strcmp(optname, "gpu")) {
-          //  llama.has_gpu = true;
+        if (!strcmp(optname, "context_shift")) {
+            if (!strcmp(optval, "true") || !strcmp(optval, "1") || !strcmp(optval, "yes") || !strcmp(optval, "on") || !strcmp(optval, "enabled")) {
+                params.ctx_shift = true;
+            } else if (!strcmp(optval, "false") || !strcmp(optval, "0") || !strcmp(optval, "no") || !strcmp(optval, "off") || !strcmp(optval, "disabled")) {
+                params.ctx_shift = false;
+            }
+        } else if (!strcmp(optname, "cache_ram")) {
+            if (optval != NULL) {
+                try {
+                    params.cache_ram_mib = std::stoi(optval);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (-1)
+                }
+            }
         }
     }
 
@@ -342,8 +359,6 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     }
 
     params.no_kv_offload = request->nokvoffload();
-    params.ctx_shift = false; // We control context-shifting in any case (and we disable it as it could just lead to infinite loops)
-
     params.embedding = request->embeddings() || request->reranking();
     if (request->reranking()) {
         params.pooling_type = LLAMA_POOLING_TYPE_RANK;
