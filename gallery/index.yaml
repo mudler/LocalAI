@@ -23023,3 +23023,55 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-14b-claude-sonnet-4.5-reasoning-distill"
+  urls:
+    - https://huggingface.co/Liontix/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF
+  description: |
+    **Model Name:** Qwen3-14B
+    **Repository:** [Qwen/Qwen3-14B](https://huggingface.co/Qwen/Qwen3-14B)
+    **License:** Apache 2.0
+
+    ### Overview
+    Qwen3-14B is a powerful 14.8-billion-parameter autoregressive language model from the Qwen series, designed for advanced reasoning, instruction following, and multilingual tasks. It uniquely supports **seamless switching between thinking mode** (for complex logic, math, and coding) and **non-thinking mode** (for efficient dialogue), making it versatile across diverse applications.
+
+    ### Key Features
+    - ✅ **Dual-mode reasoning**: Switch between deep thinking (ideal for math, code, logic) and fast non-thinking (for natural conversation).
+    - ✅ **Strong reasoning & code generation**: Outperforms prior models in mathematical, coding, and commonsense reasoning benchmarks.
+    - ✅ **Advanced agent capabilities**: Excels in tool use and external function calling, ideal for agentic workflows.
+    - ✅ **Multilingual support**: Trained on 100+ languages with strong performance in instruction following and translation.
+    - ✅ **Long context handling**: Native support for up to 32,768 tokens, extendable to 131,072 via YaRN RoPE scaling.
+
+    ### Use Cases
+    - Complex problem solving (math, programming)
+    - Multi-turn dialogue & creative writing
+    - Tool-integrated AI agents
+    - Long-form content generation & summarization
+
+    ### Inference Support
+    Works with Hugging Face `transformers`, vLLM, SGLang, llama.cpp, Ollama, LMStudio, and more.
+    Optimized for both local and cloud deployment.
+
+    ---
+
+    **Cite:**
+    ```bibtex
+    @misc{qwen3technicalreport,
+      title={Qwen3 Technical Report},
+      author={Qwen Team},
+      year={2025},
+      eprint={2505.09388},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2505.09388}
+    }
+    ```
+
+    > 📌 *Note: The model provided by Liontix (e.g., `Liontix/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF`) is a distillation/quantization of this base model, trained on a specialized dataset. The official Qwen3-14B is the original, full-precision model from Qwen.*
+  overrides:
+    parameters:
+      model: Qwen3-14B-claude-sonnet-4.5-high-reasoning-distill-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-14B-claude-sonnet-4.5-high-reasoning-distill-Q4_K_M.gguf
+      sha256: 359ab47955bd5b81350129fdbcb8bb4fce1539cf6f6bd031dba4b856d7c2e2c2
+      uri: huggingface://Liontix/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF/Qwen3-14B-claude-sonnet-4.5-high-reasoning-distill-Q4_K_M.gguf
