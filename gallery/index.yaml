@@ -22994,3 +22994,16 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "unsloth_qwen3vl_finetune_gguf_01112025"
+  urls:
+    - https://huggingface.co/Sravanthi2018/unsloth_Qwen3VL_finetune_GGUF_01112025
+  description: |
+    AI model: unsloth_qwen3vl_finetune_gguf_01112025
+  overrides:
+    parameters:
+      model: unsloth_finetune.Q4_K_M.gguf
+  files:
+    - filename: unsloth_finetune.Q4_K_M.gguf
+      sha256: 9a2ee85c7a929e3ddceaa18f765708db48af77d6c1495c37101deb98929e0837
+      uri: huggingface://Sravanthi2018/unsloth_Qwen3VL_finetune_GGUF_01112025/unsloth_finetune.Q4_K_M.gguf
