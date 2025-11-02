@@ -271,7 +271,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     }
     
     // Initialize ctx_shift to false by default (can be overridden by options)
-    params.ctx_shift = true;
+    params.ctx_shift = false;
     // Initialize cache_ram_mib to -1 by default (no limit, can be overridden by options)
     params.cache_ram_mib = -1;
 
