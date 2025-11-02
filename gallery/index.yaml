@@ -23023,3 +23023,31 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "gervasio-70b-portuguese-ptpt-decoder-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gervasio-70b-portuguese-ptpt-decoder-i1-GGUF
+  description: |
+    **Gervásio 70B PTPT Decoder**
+    *An open, high-performance language model for Portuguese*
+
+    - **Model Type**: Decoder-only, Transformer-based (LLaMA-3.3 70B architecture)
+    - **Language**: Fully trained and optimized for **European Portuguese (pt-pt)**
+    - **Parameters**: 70 billion
+    - **Key Features**:
+      - Fine-tuned on diverse Portuguese datasets including **extraGLUE-Instruct**, **MMLU-PTPT**, **NatInst-PTPT**, **Wiki-PTPT**, and curated Wikipedia content
+      - Designed for instruction following, reasoning, question answering, and natural text generation
+      - Available in **16-bit** and **4-bit GGUF quantized** versions (for efficient local inference)
+    - **Performance**: Achieves strong results on Portuguese benchmarks (e.g., **82.04% MMLU accuracy**, **96.00% COPA F1**) — competitive with top English models
+    - **License**: MIT (fully open for research and commercial use)
+    - **Use Case**: Ideal for Portuguese-language generative AI applications, chatbots, content creation, and NLP research
+
+    > 📌 *Developed by the NLX Natural Language and Speech Group at the University of Lisbon, Portugal.*
+    > 🔗 [View on Hugging Face](https://huggingface.co/PORTULAN/gervasio-70b-portuguese-ptpt-decoder) | [Try in Evaristo.ai](https://evaristo.ai)
+  overrides:
+    parameters:
+      model: gervasio-70b-portuguese-ptpt-decoder.i1-Q4_K_M.gguf
+  files:
+    - filename: gervasio-70b-portuguese-ptpt-decoder.i1-Q4_K_M.gguf
+      sha256: 53b4c096714fa51fc5249e6d46d3ced2e62784a9738e86c5899c68e3b0859ebd
+      uri: huggingface://mradermacher/gervasio-70b-portuguese-ptpt-decoder-i1-GGUF/gervasio-70b-portuguese-ptpt-decoder.i1-Q4_K_M.gguf
