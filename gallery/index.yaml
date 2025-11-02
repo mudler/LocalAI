@@ -23023,3 +23023,35 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-235b-a22b-instruct-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-235B-A22B-Instruct-i1-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct**
+    *The Most Powerful Vision-Language Model in the Qwen Series*
+
+    Qwen3-VL is a state-of-the-art multimodal large language model designed for advanced visual and linguistic understanding. With a massive 235 billion parameters, it excels in complex tasks involving image, video, and text inputs.
+
+    **Key Features:**
+    - **Advanced Vision & Reasoning**: Superior object recognition, spatial perception, and 3D grounding for real-world understanding.
+    - **Long-Context & Video AI**: Native support for up to 256K tokens (expandable to 1M), enabling full comprehension of books, long videos, and complex scenes with precise timestamp alignment.
+    - **Visual Agent & Coding**: Can interact with GUIs, interpret screenshots, and generate code (HTML/CSS/JS/Draw.io) from visual input.
+    - **Multimodal Fusion**: Seamlessly combines text and vision for lossless, unified understanding—ideal for STEM, OCR, and reasoning tasks.
+    - **Architecture Innovations**: Leverages Interleaved-MRoPE, DeepStack, and Text–Timestamp Alignment for enhanced perception and temporal modeling.
+
+    Built for edge-to-cloud deployment, Qwen3-VL is available in Dense and Mixture-of-Experts (MoE) variants, with Instruct and Thinking editions for flexible, high-performance applications.
+
+    **Use Cases**: Visual search, automated content analysis, intelligent assistants, robotics, and data-driven decision support.
+
+    > 🌐 Try it live: [Qwen Chat](https://chat.qwenlm.ai/)
+    > 📚 Learn more: [Qwen3 Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
+
+    *Developed by Alibaba Cloud's Qwen Team.*
+  overrides:
+    parameters:
+      model: Qwen3-VL-235B-A22B-Instruct.i1-Q4_K_M.gguf.part1of3
+  files:
+    - filename: Qwen3-VL-235B-A22B-Instruct.i1-Q4_K_M.gguf.part1of3
+      sha256: 25595b5d9ade9c001bff3c4867205a14c56bb421eb23d0d36637db5169fadc14
+      uri: huggingface://mradermacher/Qwen3-VL-235B-A22B-Instruct-i1-GGUF/Qwen3-VL-235B-A22B-Instruct.i1-Q4_K_M.gguf.part1of3
