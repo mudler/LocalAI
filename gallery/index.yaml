@@ -22938,3 +22938,12 @@
     - filename: ReForm-32B.i1-Q4_K_M.gguf
       sha256: a7f69d6e2efe002368bc896fc5682d34a1ac63669a4db0f42faf44a29012dc3f
       uri: huggingface://mradermacher/ReForm-32B-i1-GGUF/ReForm-32B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "huihui-mistral-small-3.2-24b-instruct-2506-abliterated-v2"
+  urls:
+    - https://huggingface.co/noctrex/Huihui-Mistral-Small-3.2-24B-Instruct-2506-abliterated-v2-GGUF
+  description: |
+    AI model: huihui-mistral-small-3.2-24b-instruct-2506-abliterated-v2
+  overrides:
+    parameters:
+      model: noctrex/Huihui-Mistral-Small-3.2-24B-Instruct-2506-abliterated-v2-GGUF
