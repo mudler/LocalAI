@@ -23023,3 +23023,41 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "gervasio-70b-portuguese-ptpt-decoder-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gervasio-70b-portuguese-ptpt-decoder-i1-GGUF
+  description: |
+    **Gervásio 70B PTPT – A State-of-the-Art Open Decoder for Portuguese**
+
+    Gervásio 70B PTPT is a large, fully open-source language decoder developed by the University of Lisbon’s NLX-Natural Language and Speech Group. Built on the LLaMA-3.3 70B architecture, it is specifically optimized for **European Portuguese**, making it one of the most advanced models for Portuguese language generation, reasoning, and instruction following.
+
+    Key features:
+    - **70 billion parameters**, 80 layers, 64 attention heads, and a 128K token vocabulary.
+    - Trained on diverse, high-quality Portuguese datasets including translated benchmarks (MMLU, GLUE, SuperGLUE), Wikipedia, and custom instruction data.
+    - Fine-tuned with a causal language modeling objective using supervised fine-tuning and a zero-out strategy to enhance response quality.
+    - Achieves strong performance across benchmarks: **82.04% accuracy on MMLU**, **96.00% on COPA**, and **79.13% on MRPC**, outperforming its English counterpart in key Portuguese-specific tasks.
+
+    Available in both **16-bit** and **4-bit GGUF quantized** versions, Gervásio 70B PTPT is suitable for deployment in research, education, and production environments. It powers the Evaristo.ai chatbot and is part of the open Gervásio, Albertina, and Serafim model families.
+
+    **License**: MIT
+    **Citation**:
+    ```bibtex
+    @misc{gervasio,
+      title={Advancing Generative AI for Portuguese with Open Decoder Gervásio PT-*},
+      author={Rodrigo Santos, João Silva, Luís Gomes, João Rodrigues, António Branco},
+      year={2024},
+      eprint={2402.18766},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL}
+    }
+    ```
+
+    Ideal for developers, researchers, and organizations seeking powerful, ethical, and accessible Portuguese-language AI.
+  overrides:
+    parameters:
+      model: gervasio-70b-portuguese-ptpt-decoder.i1-Q4_K_S.gguf
+  files:
+    - filename: gervasio-70b-portuguese-ptpt-decoder.i1-Q4_K_S.gguf
+      sha256: 27fc296eb0937a9a83c8c79af8bec07e40b41cfaba6cdc2e8c3bd4faf367937b
+      uri: huggingface://mradermacher/gervasio-70b-portuguese-ptpt-decoder-i1-GGUF/gervasio-70b-portuguese-ptpt-decoder.i1-Q4_K_S.gguf
