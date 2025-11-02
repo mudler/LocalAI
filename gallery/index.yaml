@@ -22994,3 +22994,35 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-14b-claude-sonnet-4.5-reasoning-distill"
+  urls:
+    - https://huggingface.co/Liontix/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF
+  description: |
+    **Model Name:** Qwen3-14B Claude Sonnet 4.5 Reasoning Distill (GGUF)
+    **Base Model:** Qwen3-14B (from Alibaba) — fine-tuned via distillation
+    **Type:** Large Language Model (LLM) — Quantized GGUF format for efficient inference
+    **Size:** 14B parameters (distilled from a larger system, with effective active parameters optimized for reasoning)
+    **Training Focus:** High-quality reasoning, coding, and scientific problem-solving
+    **Training Data:** Distilled from Claude Sonnet 4.5 (reasoning-focused) dataset, augmented with high-effort reasoning examples
+    **Key Features:**
+    - Optimized for complex reasoning tasks
+    - Efficient for local inference via GGUF quantization
+    - Fine-tuned on a high-quality reasoning dataset (Liontix/claude-sonnet-4.5-high-reasoning-250x)
+    - Based on **unsloth/Qwen3-14B-unsloth-bnb-4bit**, which is a fine-tuned version of the original Qwen3-14B by Alibaba
+
+    **Use Cases:**
+    - Advanced reasoning and logical deduction
+    - Code generation and debugging
+    - Scientific and technical problem-solving
+
+    **Note:** This is a distilled, quantized version (GGUF) built on top of a fine-tuned Qwen3-14B base — not the original model by Alibaba. For the official model description, refer to the base model: [Qwen/Qwen3-14B](https://huggingface.co/Qwen/Qwen3-14B).
+
+    ✅ Ideal for users seeking strong reasoning performance with low-resource deployment.
+  overrides:
+    parameters:
+      model: Qwen3-14B-claude-sonnet-4.5-high-reasoning-distill-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-14B-claude-sonnet-4.5-high-reasoning-distill-Q4_K_M.gguf
+      sha256: 359ab47955bd5b81350129fdbcb8bb4fce1539cf6f6bd031dba4b856d7c2e2c2
+      uri: huggingface://Liontix/Qwen3-14B-Claude-Sonnet-4.5-Reasoning-Distill-GGUF/Qwen3-14B-claude-sonnet-4.5-high-reasoning-distill-Q4_K_M.gguf
