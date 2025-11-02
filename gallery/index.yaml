@@ -22994,3 +22994,87 @@
     - filename: Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
       sha256: f75798ff521ce54c1663fb59d2d119e5889fd38ce76d9e07c3a28ceb13cf2eb2
       uri: huggingface://mradermacher/Qwen3-4B-Thinking-2507-GSPO-Easy-GGUF/Qwen3-4B-Thinking-2507-GSPO-Easy.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-30b-a3b-instruct"
+  urls:
+    - https://huggingface.co/redponike/Qwen3-VL-30B-A3B-Instruct-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-30B-A3B-Instruct
+    **Repository:** [Qwen/Qwen3-VL-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Instruct)
+    **License:** Apache 2.0
+    **Pipeline Tag:** `image-text-to-text`
+
+    ---
+
+    ### 🌟 Description:
+
+    **Qwen3-VL-30B-A3B-Instruct** is the most advanced vision-language model in the Qwen series, designed for rich, multimodal understanding and generation. Built on a 30-billion-parameter MoE (Mixture of Experts) architecture, it combines exceptional visual perception with state-of-the-art language reasoning.
+
+    Key capabilities include:
+    - **Ultra-long context (256K tokens, expandable to 1M)** — ideal for processing books, long videos, and complex documents.
+    - **Advanced spatial & video reasoning** — precise object localization, viewpoint understanding, and timestamp-aware video analysis.
+    - **Visual agent functionality** — interacts with GUIs, interprets UI elements, and performs tasks on desktop/mobile platforms.
+    - **Visual coding** — generates HTML, CSS, JavaScript, and Draw.io diagrams directly from images or video.
+    - **Enhanced OCR** — supports 32 languages, excels in low-light, blurred, or tilted conditions.
+    - **Unified multimodal understanding** — seamlessly integrates text and vision for lossless, deep comprehension.
+
+    Equipped with **Interleaved-MRoPE**, **DeepStack**, and **Text–Timestamp Alignment**, it sets new benchmarks in multimodal reasoning, especially in STEM, spatial reasoning, and embodied AI.
+
+    ---
+
+    ### 📌 Use Cases:
+    - Document and video analysis
+    - GUI automation and interaction
+    - Visual programming and design
+    - Long-form content summarization
+    - Multilingual OCR and information extraction
+
+    ---
+
+    ### 🚀 Quick Start:
+    ```python
+    from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor
+
+    model = Qwen3VLMoeForConditionalGeneration.from_pretrained("Qwen/Qwen3-VL-30B-A3B-Instruct", device_map="auto")
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen3-VL-30B-A3B-Instruct")
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": "path/to/image.jpg"},
+                {"type": "text", "text": "Describe this image in detail."}
+            ]
+        }
+    ]
+
+    inputs = processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt").to(model.device)
+    generated_ids = model.generate(**inputs, max_new_tokens=128)
+    print(processor.batch_decode(generated_ids, skip_special_tokens=True))
+    ```
+
+    ---
+
+    ### 📚 Citation:
+    ```bibtex
+    @misc{qwen3technicalreport,
+      title={Qwen3 Technical Report},
+      author={Qwen Team},
+      year={2025},
+      eprint={2505.09388},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2505.09388}
+    }
+    ```
+
+    ---
+
+    ✨ **Perfect for researchers, developers, and enterprises building next-gen multimodal AI systems.**
+  overrides:
+    parameters:
+      model: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: a5dd7327a2fb4b987cdc439f985832674da213a59d5adbaebde889d49757fac2
+      uri: huggingface://redponike/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
