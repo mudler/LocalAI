@@ -23023,3 +23023,63 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "grovemoe-inst-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GroveMoE-Inst-i1-GGUF
+  description: |
+    ### **GroveMoE-Inst**
+    **Repository:** [`inclusionAI/GroveMoE-Inst`](https://huggingface.co/inclusionAI/GroveMoE-Inst)
+    **License:** Apache 2.0
+    **Architecture:** Sparse Mixture-of-Experts (MoE) with **adjugate experts** for dynamic, efficient computation
+    **Size:** 33 billion total parameters, only **3.14–3.28 billion active per token**
+    **Base Model:** Qwen3-30B-A3B-Base (up-cycled with mid-training + supervised fine-tuning)
+    **Task:** Text generation (instruction-tuned)
+    **Context Length:** Up to 32,768 tokens
+
+    ---
+
+    ### 🔍 **Key Features**
+    - **Efficient Inference**: Ultra-low active parameter count enables high throughput and reduced cost.
+    - **State-of-the-Art Performance**: Outperforms models like Qwen3-32B and Mistral-Small on benchmarks:
+      - **MMLU-Pro**: 72.8
+      - **SuperGPQA**: 47.7
+      - **OlympiadBench**: 71.2
+      - **MultiPL-E**: 74.5
+    - **Optimized for Reasoning**: Designed for complex, multi-step tasks with high output length support (up to 16,384 tokens).
+
+    ---
+
+    ### 🚀 **How to Use**
+    - **Hugging Face Transformers**:
+      ```python
+      from transformers import AutoModelForCausalLM, AutoTokenizer
+      model_name = "inclusionAI/GroveMoE-Inst"
+      tokenizer = AutoTokenizer.from_pretrained(model_name)
+      model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+      ```
+    - **SGLang & llama.cpp**: Full support via official integrations for deployment at scale.
+
+    ---
+
+    ### 📌 **Citation**
+    ```bibtex
+    @article{GroveMoE,
+      title = {GroveMoE: Towards Efficient and Superior MoE LLMs with Adjugate Experts},
+      author = {Wu, Haoyuan and Chen, Haoxing and Chen, Xiaodong and others},
+      journal = {arXiv preprint arXiv:2508.07785},
+      year = {2025}
+    }
+    ```
+
+    ---
+
+    > ✅ **Ideal for** researchers and developers seeking a high-performance, energy-efficient MoE model for reasoning, instruction following, and long-context tasks.
+    > ⚠️ **Note**: The GGUF quantized versions (e.g., `mradermacher/GroveMoE-Inst-i1-GGUF`) are **not** the original model — use `inclusionAI/GroveMoE-Inst` for the full, unquantized base model.
+  overrides:
+    parameters:
+      model: GroveMoE-Inst.i1-Q4_K_M.gguf
+  files:
+    - filename: GroveMoE-Inst.i1-Q4_K_M.gguf
+      sha256: e1d8ce9e762f74e65d85bea1e8f8e06db70f2dd735cecee9a6d889c71e6fc010
+      uri: huggingface://mradermacher/GroveMoE-Inst-i1-GGUF/GroveMoE-Inst.i1-Q4_K_M.gguf
