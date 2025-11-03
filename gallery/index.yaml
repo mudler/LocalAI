@@ -23006,3 +23006,74 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "sneaky-3.2-1b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Sneaky-3.2-1B-i1-GGUF
+  description: |
+    **Model Name:** Sneaky-3.2-1B
+    **Base Model:** `shimonbh/llama-3.1-1B-Instruct-Hebrew`
+    **Repository:** [Novaciano/Sneaky-3.2-1B](https://huggingface.co/Novaciano/Sneaky-3.2-1B)
+    **Model Type:** Fine-tuned, merged LLM (1.1B parameters)
+    **Framework:** Hugging Face Transformers
+    **License:** [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) (Non-commercial use only)
+
+    ---
+
+    ### 🔍 Description:
+    **Sneaky-3.2-1B** is a custom 1.1-billion-parameter language model created by merging multiple specialized LLMs using the **Model Stock** method via [mergekit](https://github.com/cg123/mergekit). It is built upon **`shimonbh/llama-3.1-1B-Instruct-Hebrew`** as a base, augmented with contributions from:
+
+    - **`marcuscedricridia/badllama3.2-1B`** – A quirky, adversarial-style model with unconventional training data.
+    - **`CodeAtCMU/Llama-3.2-1B-GenerativePerturbations_full_sft_code_data_120K_imaginary`** – A model fine-tuned on synthetic code and imaginative data for creative programming tasks.
+
+    This fusion results in a model that blends instructive capabilities with experimental, creative, and code-related behavior — ideal for developers, researchers, and AI artists exploring boundary-pushing language models.
+
+    The model is **not** a direct release from Meta or the original authors of Llama 3. It is a community-driven, experimental merge with a distinct personality: unpredictable, inventive, and optimized for niche creative coding and synthetic reasoning tasks.
+
+    > ⚠️ **Note:** This is a **non-official**, **non-commercial**, and **quantized-adjacent** model. The original full-precision version is available at [Novaciano/Sneaky-3.2-1B](https://huggingface.co/Novaciano/Sneaky-3.2-1B), while GGUF quantizations (like the one in `mradermacher/Sneaky-3.2-1B-i1-GGUF`) are community-optimized versions for lightweight inference.
+
+    ---
+
+    ### 📌 Use Cases:
+    - Creative coding & prompt engineering
+    - Experimental AI storytelling & roleplay
+    - Lightweight inference on edge devices (with GGUF quantizations)
+    - Research into model merging and perturbation techniques
+
+    ---
+
+    ### 🔄 How to Use:
+    ```python
+    from transformers import AutoTokenizer, AutoModelForCausalLM
+
+    model_name = "Novaciano/Sneaky-3.2-1B"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name, torch_dtype="bfloat16")
+
+    # Generate text
+    inputs = tokenizer("Explain quantum computing like I'm five:", return_tensors="pt")
+    outputs = model.generate(**inputs, max_new_tokens=100)
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+    ```
+
+    ---
+
+    ### 📥 Download the Full Model:
+    👉 [Novaciano/Sneaky-3.2-1B](https://huggingface.co/Novaciano/Sneaky-3.2-1B)
+    👉 GGUF Quantizations: [mradermacher/Sneaky-3.2-1B-i1-GGUF](https://huggingface.co/mradermacher/Sneaky-3.2-1B-i1-GGUF)
+
+    ---
+
+    **💡 Tip:** For best results, use with `transformers>=4.38` and `mergekit` for reproduction.
+    **💬 Community:** Join the discussion at [mradermacher/model_requests](https://huggingface.co/mradermacher/model_requests) for model requests and feedback.
+
+    ---
+
+    > 🧠 This model is **not** a replacement for Llama 3.2, but an experimental, artistic, and technically interesting fusion — "Sneaky" in name and nature.
+  overrides:
+    parameters:
+      model: Sneaky-3.2-1B.i1-Q4_K_M.gguf
+  files:
+    - filename: Sneaky-3.2-1B.i1-Q4_K_M.gguf
+      sha256: 87c48c368aae42de962f162301414eeb206d16b0eb2ee796f56445441c26be4b
+      uri: huggingface://mradermacher/Sneaky-3.2-1B-i1-GGUF/Sneaky-3.2-1B.i1-Q4_K_M.gguf
