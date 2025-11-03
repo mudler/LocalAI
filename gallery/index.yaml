@@ -23023,3 +23023,30 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-timetravel-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-TimeTravel-i1-GGUF
+  description: |
+    ### **Qwen3-VL-TimeTravel**
+    *A fine-tuned multimodal model for historical artifact description*
+
+    **Base Model**: Qwen3-VL-8B-Instruct (via unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit)
+    **Fine-tuned On**: MBZUAI/TimeTravel dataset (10,000+ expert-verified historical artifacts)
+    **Task**: Image captioning and contextual description of cultural heritage objects
+    **Training**: LoRA fine-tuning with Unsloth, targeting vision, language, attention, and MLP layers
+    **Key Feature**: Specialized for cross-cultural, historically accurate artifact understanding across 266 cultures and 10 civilizations
+
+    This model excels at generating rich, nuanced descriptions of historical artifacts—ideal for use in archaeology, museum digitization, education, and AI research in cultural heritage.
+
+    👉 **Use Case**: Generate detailed, factually grounded descriptions from images of ancient artifacts.
+    📄 **Citation**: [Ghaboura et al., 2025 – Time Travel: A Comprehensive Benchmark for LMMs](https://arxiv.org/abs/2502.14865)
+
+    *Note: This is a quantized LoRA-finetuned version. The base model is available at [unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit](https://huggingface.co/unsloth/Qwen3-VL-8B-Instruct-unsloth-bnb-4bit).*
+  overrides:
+    parameters:
+      model: Qwen3-VL-TimeTravel.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-TimeTravel.i1-Q4_K_M.gguf
+      sha256: a7aaab05af5e6d94e73970c91d179c167f32c904cfa9006bd1cd81aece13a6b7
+      uri: huggingface://mradermacher/Qwen3-VL-TimeTravel-i1-GGUF/Qwen3-VL-TimeTravel.i1-Q4_K_M.gguf
