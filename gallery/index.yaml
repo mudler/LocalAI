@@ -23006,3 +23006,85 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-30b-a3b-instruct-abliterated-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-30B-A3B-Instruct-abliterated-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-30B-A3B-Instruct
+    **Repository:** `Qwen/Qwen3-VL-30B-A3B-Instruct`
+    **Architecture:** Mixture of Experts (MoE) Vision-Language Model
+    **Size:** 30B parameters
+    **License:** Apache 2.0
+
+    ---
+
+    ### 🌟 Overview
+    Qwen3-VL-30B-A3B-Instruct is a state-of-the-art multimodal large language model developed by Alibaba's Qwen team. It excels in deep visual understanding, complex reasoning, and rich text generation across diverse image and video inputs.
+
+    Built on the advanced **Qwen3-VL-MoE** architecture, this model leverages dynamic expert routing to deliver high precision and scalability. It supports long-context reasoning (up to 1M tokens), robust spatial perception, and strong video understanding, making it ideal for complex real-world applications.
+
+    ---
+
+    ### 🔍 Key Features
+    - **Deep Multimodal Reasoning**: Excels in STEM, causal analysis, and evidence-based answers.
+    - **Advanced Visual Perception**: Recognizes fine details, object positions, viewpoints, occlusions, and supports 3D grounding.
+    - **Long Context & Video Understanding**: Native 256K context (expandable to 1M); handles books, videos, and complex sequences with precise timestamp alignment.
+    - **High-Quality OCR**: Supports 32 languages, including rare/ancient scripts and jargon.
+    - **Visual Agent & Coding**: Can interact with GUIs, generate HTML/CSS/JS/Diagrams from images, and automate tasks.
+    - **Multilingual Output**: Fluent in multiple languages with strong text–vision fusion.
+
+    ---
+
+    ### 📌 Use Cases
+    - Creative captioning & visual storytelling
+    - Scientific image analysis & reasoning
+    - GUI automation and human-computer interaction
+    - Long-form document and video summarization
+    - Multimodal research and agent-based systems
+
+    ---
+
+    ### ⚠️ Note
+    The model is **not filtered or censored**, making it unsuitable for production environments requiring strict moderation. Use responsibly.
+
+    ---
+
+    ### 📚 Quick Start
+    ```python
+    from transformers import Qwen3VLMoeForConditionalGeneration, AutoProcessor
+
+    model = Qwen3VLMoeForConditionalGeneration.from_pretrained("Qwen/Qwen3-VL-30B-A3B-Instruct", device_map="auto", torch_dtype="auto")
+    processor = AutoProcessor.from_pretrained("Qwen/Qwen3-VL-30B-A3B-Instruct")
+
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": "https://example.com/image.jpg"},
+                {"type": "text", "text": "Describe this image in detail."}
+            ]
+        }
+    ]
+
+    inputs = processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True, return_tensors="pt").to("cuda")
+    generated_ids = model.generate(**inputs, max_new_tokens=128)
+    output_text = processor.batch_decode(generated_ids, skip_special_tokens=True, clean_up_tokenization_spaces=False)[0]
+    print(output_text)
+    ```
+
+    ---
+
+    **Citation:**
+    > @misc{qwen3technicalreport, title={Qwen3 Technical Report}, author={Qwen Team}, year={2025}, eprint={2505.09388}, archivePrefix={arXiv}, primaryClass={cs.CL}, url={https://arxiv.org/abs/2505.09388}
+
+    ---
+    **Official Demo:** [Chat with Qwen](https://chat.qwenlm.ai/)
+    **Hugging Face:** [Qwen/Qwen3-VL-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Instruct)
+  overrides:
+    parameters:
+      model: Qwen3-VL-30B-A3B-Instruct-abliterated.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Instruct-abliterated.i1-Q4_K_M.gguf
+      sha256: 19d250140945c4345fb336e165f532b588f4155a84ab7bdaf3d3a3bc40be7fce
+      uri: huggingface://mradermacher/Qwen3-VL-30B-A3B-Instruct-abliterated-i1-GGUF/Qwen3-VL-30B-A3B-Instruct-abliterated.i1-Q4_K_M.gguf
