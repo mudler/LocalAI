@@ -23006,3 +23006,16 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-8b-instruct-heretic-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.1-8B-Instruct-heretic-i1-GGUF
+  description: |
+    The model is a quantized version of **Llama-3.1-8B-Instruct**, originally developed by Meta AI. This specific repository, `mradermacher/Llama-3.1-8B-Instruct-heretic-i1-GGUF`, hosts a GGUF-converted and variously quantized variant of the model, created by the community (not by the original authors). It is based on the **Llama-3.1-8B-Instruct** architecture, optimized for efficient inference on consumer hardware via GGUF format.
+
+    The model supports multiple quantization levels (e.g., Q2_K_S, Q4_K_M, Q5_K_M, Q6_K, etc.), allowing users to balance performance, memory usage, and inference quality. It is intended for instruction-following tasks and is particularly suitable for local deployment with tools like `llama.cpp`, `ollama`, or `text-generation-webui`.
+
+    ⚠️ **Note**: This is a community-quantized version and **not** the original model from Meta. For the official, full-precision version, refer to [Meta's Llama-3.1-8B-Instruct](https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct).
+  overrides:
+    parameters:
+      model: mradermacher/Llama-3.1-8B-Instruct-heretic-i1-GGUF
