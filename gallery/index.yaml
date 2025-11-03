@@ -23023,3 +23023,31 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3vl_euclid_30b"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3VL_Euclid_30B-GGUF
+  description: |
+    **Model Name:** Qwen3VL-Euclid-30B
+    **Base Model:** Qwen/Qwen3-VL-30B-A3B-Instruct
+    **Description:**
+    A large vision-language model fine-tuned on Euclid30K, a dataset of 30K geometry-based reasoning tasks designed to enhance spatial perception and deductive reasoning. This version of Qwen3VL-30B demonstrates significant improvements in spatial intelligence across multiple benchmarks—including Super-CLEVR (+6.06%), Omni3D Bench (+2.19%), VSIBench (+5.80%), and MindCube (+0.93%)—without requiring task-specific architectural changes. The model excels at geometric reasoning, shape visualization, mental rotation, and multi-step spatial deduction, making it ideal for applications involving complex visual reasoning and structured problem-solving.
+
+    **Key Features:**
+    - Fine-tuned using Group Relative Policy Optimization (GRPO)
+    - Trained on geometric surrogate tasks to improve spatial reasoning
+    - Zero-shot performance gains across diverse spatial benchmarks
+    - Supports both English and Chinese
+
+    **Use Cases:**
+    Visual reasoning, robotics planning, spatial intelligence evaluation, educational AI, and complex multimodal problem solving.
+
+    **License:** Apache 2.0
+    **Repository:** [LiamLian0727/Qwen3VL_Euclid_30B](https://huggingface.co/LiamLian0727/Qwen3VL_Euclid_30B)
+  overrides:
+    parameters:
+      model: Qwen3VL_Euclid_30B.Q4_K_M.gguf
+  files:
+    - filename: Qwen3VL_Euclid_30B.Q4_K_M.gguf
+      sha256: 0e6472c259aceac3b26ff2506712458725bae79d51d6d4d7ef767f431e29144e
+      uri: huggingface://mradermacher/Qwen3VL_Euclid_30B-GGUF/Qwen3VL_Euclid_30B.Q4_K_M.gguf
