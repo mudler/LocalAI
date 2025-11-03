@@ -23023,3 +23023,26 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "avitotech.avibe"
+  urls:
+    - https://huggingface.co/DevQuasar/AvitoTech.avibe-GGUF
+  description: |
+    **Model Name:** AvitoTech/avibe
+    **Base Model:** Qwen3-8B-Base
+    **Language Support:** Russian, English
+    **License:** Apache 2.0
+
+    **Description:**
+    A-vibe is a large language model developed by Avito Tech, a technology subsidiary of Avito, fine-tuned on Russian and English language data with domain-specific optimization for the Avito marketplace. Built on Qwen3-8B-Base, the model features a custom tokenizer optimized for Russian, resulting in higher tokenization density and faster inference—up to 25% faster for Russian text generation compared to the base model.
+
+    The model was further enhanced through supervised fine-tuning (SFT), reinforcement learning (RL), and instruction tuning, significantly improving its performance on Russian-language benchmarks (e.g., MMLU-RU, GPQA-Diamond-RU, Math-500-RU), outperforming the original Qwen3-8B in most categories. It also demonstrates strong capabilities in function calling and mathematical reasoning.
+
+    With a reduced parameter count of ~7.9B (from 8.2B), A-vibe delivers faster inference and improved efficiency, making it ideal for real-time applications in Russian-language AI services.
+
+    **Use Case:** Ideal for customer service, content generation, and intelligent assistance in Russian-speaking environments—especially within e-commerce and digital marketplaces.
+
+    **Quick Start:** Available via Hugging Face Transformers with full compatibility for chat templates, function calling, and low-latency inference.
+  overrides:
+    parameters:
+      model: DevQuasar/AvitoTech.avibe-GGUF
