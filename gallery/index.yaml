@@ -23006,3 +23006,46 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "wr30a-deep-7b-0711"
+  urls:
+    - https://huggingface.co/mradermacher/WR30a-Deep-7B-0711-GGUF
+  description: |
+    **Model Name:** WR30a-Deep-7B-0711
+    **Base Model:** Qwen2.5-VL-7B-Instruct
+    **Repository:** [prithivMLmods/WR30a-Deep-7B-0711](https://huggingface.co/prithivMLmods/WR30a-Deep-7B-0711)
+    **License:** Apache 2.0
+
+    ### 📌 Description
+    WR30a-Deep-7B-0711 is a fine-tuned, experimental vision-language model built on the Qwen2.5-VL-7B-Instruct architecture. It excels in **image captioning**, **visual analysis**, and **image reasoning**, trained on 1.5 million image-text pairs to deliver state-of-the-art performance across diverse visual content.
+
+    ### 🔍 Key Features
+    - **High-accuracy image captioning** with rich, context-aware descriptions
+    - **Advanced visual reasoning** for understanding complex scenes and relationships
+    - **Support for variable image dimensions and aspect ratios**
+    - **Strong performance across domains**: art, OCR, STEM, and real-world imagery
+    - Designed for use in **visual question answering**, accessibility tools, content moderation, and creative applications
+
+    ### ⚙️ Technical Highlights
+    - **Architecture:** Qwen2.5-VLForConditionalGeneration
+    - **Training:** 1.5M image-text pairs, bfloat16 precision
+    - **Hardware:** Trained on 2× NVIDIA A40 GPUs (19 vCPUs)
+    - **Stage:** Experimental – ideal for research, prototyping, and advanced use cases
+
+    ### 📌 Ideal For
+    - Researchers and developers working on multimodal AI
+    - Applications requiring deep visual understanding (e.g., education, accessibility, content creation)
+    - High-quality image-to-text generation with detailed reasoning
+
+    > ✅ **Note:** This is the original, unquantized model. For GGUF-quantized versions (e.g., Q4_K_M, Q8_0), see: [mradermacher/WR30a-Deep-7B-0711-GGUF](https://huggingface.co/mradermacher/WR30a-Deep-7B-0711-GGUF)
+
+    ---
+    **Use it with:** `transformers`, `qwen-vl-utils`, and `auto-processor`
+    **Try it live:** [Hugging Face Spaces](https://huggingface.co/spaces) or via `pip install transformers` and the above code.
+  overrides:
+    parameters:
+      model: WR30a-Deep-7B-0711.Q4_K_M.gguf
+  files:
+    - filename: WR30a-Deep-7B-0711.Q4_K_M.gguf
+      sha256: 6dbc83d88da37515c8e6d904ac9e35b46cd47b538247b1f65d1a2cd76b989e6b
+      uri: huggingface://mradermacher/WR30a-Deep-7B-0711-GGUF/WR30a-Deep-7B-0711.Q4_K_M.gguf
