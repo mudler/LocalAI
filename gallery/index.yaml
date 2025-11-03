@@ -23023,3 +23023,31 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "astrosage-70b-20251009-i1"
+  urls:
+    - https://huggingface.co/mradermacher/AstroSage-70B-20251009-i1-GGUF
+  description: |
+    **AstroSage-70B-20251009**
+    *Developed by AstroMLab | Base: Llama-3.1-70B | Domain: Astronomy & Astrophysics*
+
+    AstroSage-70B is a 70-billion-parameter, domain-specialized language model fine-tuned for advanced research and education in astronomy, astrophysics, cosmology, and astronomical instrumentation. Built on the Meta-Llama-3.1-70B foundation, it underwent extensive continued pre-training (CPT) on a vast corpus of astronomical literature (including 100k+ astro-ph papers) and supervised fine-tuning (SFT) on astronomy-specific instruction datasets.
+
+    Key features:
+    - **Specialized Knowledge**: Trained on papers from April 2007 to January 2024, with a knowledge cutoff around early 2024.
+    - **Reasoning Capability**: Supports chain-of-thought reasoning via `detailed thinking on` system prompt.
+    - **Chat Template**: Uses the standard Llama-3.1 format with a role-specific system prompt.
+    - **Model Merging**: Final model is a weighted average of AstroSage-SFT (70%) and Llama-3.1-Instruct (30%).
+
+    Ideal for: Scientific Q&A, literature summarization, hypothesis generation, code assistance in data analysis, and educational support in space sciences.
+
+    **License**: Llama 3.1 Community License
+    **Reference**: [arXiv:2505.17592](https://arxiv.org/abs/2505.17592)
+    **Model Page**: [huggingface.co/AstroMLab/AstroSage-70B-20251009](https://huggingface.co/AstroMLab/AstroSage-70B-20251009)
+  overrides:
+    parameters:
+      model: AstroSage-70B-20251009.i1-Q4_K_M.gguf
+  files:
+    - filename: AstroSage-70B-20251009.i1-Q4_K_M.gguf
+      sha256: 1f9b3b08b0cd6695872287c799d25ed0149150c6b263f5d31b08e8cd51e39e24
+      uri: huggingface://mradermacher/AstroSage-70B-20251009-i1-GGUF/AstroSage-70B-20251009.i1-Q4_K_M.gguf
