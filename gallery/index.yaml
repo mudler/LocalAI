@@ -23023,3 +23023,46 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "grovemoe-inst-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GroveMoE-Inst-i1-GGUF
+  description: |
+    **GroveMoE-Inst**
+    *by inclusionAI*
+
+    **Model Type:** Large Language Model (LLM) – Mixture of Experts (MoE)
+    **Base Model:** Qwen3-30B-A3B-Base (up-cycled with mid-training and supervised fine-tuning)
+    **Total Parameters:** 33 billion
+    **Active Parameters per Token:** ~3.14–3.28 billion (sparse activation)
+    **Architecture:** Innovative **adjugate experts** enabling dynamic, efficient computation—shared operations are computed once and reused, significantly reducing FLOPs.
+    **License:** Apache 2.0
+
+    **Performance Highlights:**
+    - Achieves top-tier results across benchmarks:
+      - **MMLU-Pro:** 72.8 (top 1)
+      - **SuperGPQA:** 47.7 (top 1)
+      - **OlympiadBench:** 71.2 (top 1)
+      - **MultiPL-E:** 74.5 (top 1)
+
+    **Use Cases:** Ideal for complex reasoning, instruction following, and high-efficiency inference.
+    **Framework Support:** Hugging Face Transformers, SGLang, llama.cpp
+
+    **Citation:**
+    ```bibtex
+    @article{GroveMoE,
+      title = {GroveMoE: Towards Efficient and Superior MoE LLMs with Adjugate Experts},
+      author = {Wu, Haoyuan and Chen, Haoxing and Chen, Xiaodong and others},
+      journal = {arXiv preprint arXiv:2508.07785},
+      year = {2025}
+    }
+    ```
+
+    👉 [View on Hugging Face](https://huggingface.co/inclusionAI/GroveMoE-Inst) | 📄 [Paper](https://arxiv.org/abs/2508.07785) | 🔗 [GitHub](https://github.com/inclusionAI/GroveMoE)
+  overrides:
+    parameters:
+      model: GroveMoE-Inst.i1-Q4_K_M.gguf
+  files:
+    - filename: GroveMoE-Inst.i1-Q4_K_M.gguf
+      sha256: e1d8ce9e762f74e65d85bea1e8f8e06db70f2dd735cecee9a6d889c71e6fc010
+      uri: huggingface://mradermacher/GroveMoE-Inst-i1-GGUF/GroveMoE-Inst.i1-Q4_K_M.gguf
