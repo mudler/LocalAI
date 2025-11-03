@@ -22981,3 +22981,28 @@
     - filename: GroveMoE-Base.i1-Q4_K_M.gguf
       sha256: 9d7186ba9531bf689c91176468d7a35c0aaac0cd52bd44d4ed8f7654949ef4f4
       uri: huggingface://mradermacher/GroveMoE-Base-i1-GGUF/GroveMoE-Base.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "nvidia.qwen3-nemotron-32b-rlbff"
+  urls:
+    - https://huggingface.co/DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF
+  description: |
+    The **nvidia/Qwen3-Nemotron-32B-RLBFF** is a large language model based on the Qwen3 architecture, fine-tuned by NVIDIA using Reinforcement Learning from Human Feedback (RLHF) for improved alignment with human preferences. With 32 billion parameters, it excels in complex reasoning, instruction following, and natural language generation, making it suitable for advanced tasks such as code generation, dialogue systems, and content creation.
+
+    This model is part of NVIDIA’s Nemotron series, designed to deliver high performance and safety in real-world applications. It is optimized for efficient deployment while maintaining strong language understanding and generation capabilities.
+
+    **Key Features:**
+    - **Base Model**: Qwen3-32B
+    - **Fine-tuning**: Reinforcement Learning from Human Feedback (RLBFF)
+    - **Use Case**: Advanced text generation, coding, dialogue, and reasoning
+    - **License**: MIT (check Hugging Face for full details)
+
+    👉 [View on Hugging Face](https://huggingface.co/nvidia/Qwen3-Nemotron-32B-RLBFF)
+
+    *Note: The GGUF version hosted by DevQuasar is a quantized variant for efficient local inference. The original, unquantized model is available at the link above.*
+  overrides:
+    parameters:
+      model: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+  files:
+    - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+      sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
+      uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
