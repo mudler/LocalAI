@@ -23023,3 +23023,20 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "grovemoe-base-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GroveMoE-Base-i1-GGUF
+  description: |
+    **GroveMoE-Base** is a 33-billion-parameter sparse Mixture-of-Experts (MoE) language model developed by inclusionAI, featuring a novel **adjugate experts** architecture that dynamically allocates computation, activating only **3.14–3.28 billion parameters per token**. This design significantly reduces FLOPs while maintaining strong performance. Trained via mid-training and supervised fine-tuning (SFT) on Qwen3-30B-A3B-Base, it preserves prior knowledge while enhancing new capabilities. The model is ideal for efficient, high-quality text generation in resource-constrained environments.
+
+    *Based on the original work by inclusionAI; the GGUF version (mradermacher/GroveMoE-Base-i1-GGUF) is a quantized variant by the community.*
+
+    🔗 [View on Hugging Face](https://huggingface.co/inclusionAI/GroveMoE-Base) | 📄 [Paper (arXiv)](https://arxiv.org/abs/2508.07785) | 🐱 [GitHub](https://github.com/inclusionAI/GroveMoE)
+  overrides:
+    parameters:
+      model: GroveMoE-Base.i1-Q4_K_M.gguf
+  files:
+    - filename: GroveMoE-Base.i1-Q4_K_M.gguf
+      sha256: 9d7186ba9531bf689c91176468d7a35c0aaac0cd52bd44d4ed8f7654949ef4f4
+      uri: huggingface://mradermacher/GroveMoE-Base-i1-GGUF/GroveMoE-Base.i1-Q4_K_M.gguf
