@@ -23006,3 +23006,23 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "nextcoder-32b-auto-round"
+  urls:
+    - https://huggingface.co/kalle07/NextCoder-32B-GGUF-auto-round
+  description: |
+    **NextCoder-32B** is a state-of-the-art code-editing large language model developed by Microsoft, built on top of the Qwen2.5-Coder-32B-Instruct base model. It is trained using the novel **SeleKT (Selective Knowledge Transfer)** finetuning methodology, which significantly enhances code editing capabilities while preserving generalizability and supporting long-context inputs (up to 32K tokens).
+
+    Key Features:
+    - **High-performance code editing**: Achieves **23.6%** pass rate on the Aider-Polyglot benchmark — surpassing its base model by 44% and matching GPT-4o performance on complex edits.
+    - **Architecture**: 64-layer transformer with RoPE, SwiGLU activation, RMSNorm, and Grouped Query Attention (40 Q heads, 8 KV heads).
+    - **Parameters**: 32.5 billion total parameters (31.0B non-embedding), optimized for both accuracy and efficiency.
+    - **Use Case**: Ideal for tasks requiring precise, context-aware code generation and modification, including bug fixing, refactoring, and code completion.
+    - **License**: MIT (with attribution to the original Qwen2.5-Coder base model).
+
+    This model is part of the NextCoder family (7B, 14B, 32B), designed to meet diverse development needs with robust and scalable code intelligence.
+    **Paper**: [NextCoder: Robust Adaptation of Code LMs to Diverse Code Edits](https://www.microsoft.com/en-us/research/publication/nextcoder-robust-adaptation-of-code-lms-to-diverse-code-edits/)
+    **GitHub**: [microsoft/NextCoder](https://github.com/microsoft/NextCoder)
+  overrides:
+    parameters:
+      model: kalle07/NextCoder-32B-GGUF-auto-round
