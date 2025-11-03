@@ -23023,3 +23023,33 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "lmunit-llama3.1-70b"
+  urls:
+    - https://huggingface.co/mradermacher/LMUnit-llama3.1-70b-GGUF
+  description: |
+    **Model Name:** LMUnit-llama3.1-70b
+    **Base Model:** Meta's Llama-3.1-70B-Instruct
+    **Developed By:** Contextual AI
+    **Model Type:** Fine-tuned language model for fine-grained, natural language-based evaluation of AI responses
+    **Primary Use Case:** Evaluating the quality of model outputs using unit tests (e.g., accuracy, relevance, safety, structure) via human-like judgment
+
+    **Key Features:**
+    - Trained on multi-objective signals (pairwise comparisons, direct ratings, criterion-specific feedback)
+    - Generates continuous scores (1–5) indicating how well a response satisfies a given unit test
+    - Achieves state-of-the-art performance on evaluation benchmarks: **FLASK (72.03)**, **BiGGen-Bench (67.69)**, and **RewardBench (93.5% accuracy)**
+    - Highly aligned with human preferences, ranking in the top 5 of RewardBench and top 2 on RewardBench2
+    - Designed to support nuanced, scenario-specific evaluations of long-form and complex outputs
+
+    **Ideal For:** Researchers and developers building systems that require precise, interpretable, and human-aligned evaluation of LLM outputs — especially in testing, benchmarking, and alignment pipelines.
+
+    **Paper:** [LMUnit: Fine-grained Evaluation with Natural Language Unit Tests](https://arxiv.org/abs/2412.13091)
+    **GitHub:** [ContextualAI/LMUnit](https://github.com/ContextualAI/LMUnit)
+    **Hugging Face:** [ContextualAI/LMUnit-llama3.1-70b](https://huggingface.co/ContextualAI/LMUnit-llama3.1-70b)
+  overrides:
+    parameters:
+      model: LMUnit-llama3.1-70b.Q4_K_S.gguf
+  files:
+    - filename: LMUnit-llama3.1-70b.Q4_K_S.gguf
+      sha256: 59b192396784ed498d00ef96091b0e128ce6ed42f28d1669aa3d3e21720f6a2e
+      uri: huggingface://mradermacher/LMUnit-llama3.1-70b-GGUF/LMUnit-llama3.1-70b.Q4_K_S.gguf
