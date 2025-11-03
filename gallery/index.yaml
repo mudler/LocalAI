@@ -23023,3 +23023,38 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "nvidia.qwen3-nemotron-32b-rlbff"
+  urls:
+    - https://huggingface.co/DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF
+  description: |
+    **Model Name:** Qwen3-Nemotron-32B-RLBFF
+    **Base Model:** Qwen/Qwen3-32B
+    **License:** NVIDIA Open Model License
+    **Repository:** [nvidia/Qwen3-Nemotron-32B-RLBFF](https://huggingface.co/nvidia/Qwen3-Nemotron-32B-RLBFF)
+
+    **Description:**
+    Qwen3-Nemotron-32B-RLBFF is a 32-billion-parameter large language model fine-tuned from Qwen3-32B using the **RLBFF (Binary Flexible Feedback)** method. It is optimized to generate high-quality, helpful responses in standard reasoning mode, with significant improvements over the base model across key benchmarks.
+
+    The model was trained on the **HelpSteer3** dataset — a large-scale, human-annotated collection of instruction-response pairs with detailed feedback — to enhance response coherence, accuracy, and task alignment.
+
+    **Key Performance Metrics (as of Sept 2025):**
+    - **MT-Bench Score:** 9.50 (approaching GPT-4-Turbo)
+    - **Arena Hard V2:** 55.6% win rate
+    - **WildBench Score:** 70.33%
+
+    Despite its advanced performance, it achieves this at **less than 5% of the inference cost** of comparable models like DeepSeek R1, making it highly efficient for deployment on NVIDIA GPU platforms (Ampere/Hopper architectures).
+
+    **Use Case:** Ideal for applications requiring robust, cost-efficient, and high-quality text generation in complex reasoning and dialogue scenarios.
+
+    **Note:** This model is research-focused and intended for evaluation, experimentation, and development. Always review the [NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/) before use.
+
+    ✅ *Available via Hugging Face Transformers and vLLM for optimized inference.*
+    📎 *Citation: [Wang et al., 2025](https://arxiv.org/abs/2509.21319)*
+  overrides:
+    parameters:
+      model: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+  files:
+    - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+      sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
+      uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
