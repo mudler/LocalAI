@@ -23006,3 +23006,37 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *codellama
+  name: "swe-play-7b-swe-i1"
+  urls:
+    - https://huggingface.co/mradermacher/SWE-Play-7B-swe-i1-GGUF
+  description: |
+    The **SWE-Play-7B-swe** model is a 7-billion-parameter language model fine-tuned for software engineering tasks, based on the Llama-2 architecture. It is specifically trained on a high-quality dataset of code and related documentation to excel in tasks such as code generation, code completion, debugging, and understanding programming logic.
+
+    The original model was developed by **StephenZhu** and is available at [StephenZhu/SWE-Play-7B-swe](https://huggingface.co/StephenZhu/SWE-Play-7B-swe). The repository you've shared — `mradermacher/SWE-Play-7B-swe-i1-GGUF` — contains **quantized GGUF versions** of this base model, created by mradermacher for efficient local inference using tools like `llama.cpp`. These quantizations include various levels of compression (e.g., Q4_K_M, IQ3_M, IQ4_NL) to balance performance, memory usage, and accuracy.
+
+    ⚠️ **Note**: The model in this repository is a **quantized version** and not the original full-precision model. For the full model description, including training details, architecture, and intended use cases, refer to the original base model: [StephenZhu/SWE-Play-7B-swe](https://huggingface.co/StephenZhu/SWE-Play-7B-swe).
+
+    ---
+
+    ### 📌 Model Gallery Summary:
+
+    **Name:** SWE-Play-7B-swe (Quantized GGUF)
+    **Base Model:** [StephenZhu/SWE-Play-7B-swe](https://huggingface.co/StephenZhu/SWE-Play-7B-swe)
+    **Size:** 7B parameters
+    **Task:** Software Engineering (code generation, completion, understanding)
+    **Format:** GGUF (quantized for local inference)
+    **Quantization:** Multiple variants (Q2_K_S to Q5_K_S, IQ variants)
+    **Best for:** Developers seeking fast, efficient on-device coding assistance with good accuracy
+
+    > 🔗 **Original Model**: https://huggingface.co/StephenZhu/SWE-Play-7B-swe
+    > 📦 **Quantized Versions**: https://huggingface.co/mradermacher/SWE-Play-7B-swe-i1-GGUF
+
+    *(Note: This repository contains quantized versions. Use the original base model link for full model details.)*
+  overrides:
+    parameters:
+      model: SWE-Play-7B-swe.i1-Q4_K_M.gguf
+  files:
+    - filename: SWE-Play-7B-swe.i1-Q4_K_M.gguf
+      sha256: d9a635ac678175a913a8c17c85aa31688ab5d638f06f4216b5b92d862a8005fe
+      uri: huggingface://mradermacher/SWE-Play-7B-swe-i1-GGUF/SWE-Play-7B-swe.i1-Q4_K_M.gguf
