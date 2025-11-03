@@ -23023,3 +23023,26 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "grovemoe-inst-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GroveMoE-Inst-i1-GGUF
+  description: |
+    **GroveMoE-Inst** is a highly efficient, sparse mixture-of-experts (MoE) language model developed by inclusionAI, designed for superior performance with minimal active parameters. Built upon the Qwen3-30B-A3B-Base architecture and enhanced through mid-training and supervised fine-tuning (SFT), it features **33 billion total parameters** but activates only **3.14–3.28 billion** per token—drastically reducing computational cost while maintaining strong reasoning and instruction-following capabilities.
+
+    Key highlights:
+    - **Innovative Architecture**: Employs "adjugate experts" to dynamically allocate computation, enabling shared, reusable operations that significantly cut FLOPs.
+    - **Strong Performance**: Outperforms larger models on benchmarks like MMLU-Pro (72.8), SuperGPQA (47.7), GPQA-Diamond (61.3), and MultiPL-E (74.5).
+    - **Optimized for Inference**: Ideal for real-world applications with long context (up to 32K tokens), low latency, and high throughput.
+    - **Open & Accessible**: Available via Hugging Face with full support for Transformers, SGLang, and llama.cpp.
+
+    Perfect for developers and researchers seeking a high-performance, efficient MoE model for complex reasoning, coding, and dialogue tasks.
+    **Paper**: [GroveMoE: Towards Efficient and Superior MoE LLMs with Adjugate Experts](https://arxiv.org/abs/2508.07785)
+    **Model Hub**: [inclusionAI/GroveMoE-Inst](https://huggingface.co/inclusionAI/GroveMoE-Inst)
+  overrides:
+    parameters:
+      model: GroveMoE-Inst.i1-Q4_K_M.gguf
+  files:
+    - filename: GroveMoE-Inst.i1-Q4_K_M.gguf
+      sha256: e1d8ce9e762f74e65d85bea1e8f8e06db70f2dd735cecee9a6d889c71e6fc010
+      uri: huggingface://mradermacher/GroveMoE-Inst-i1-GGUF/GroveMoE-Inst.i1-Q4_K_M.gguf
