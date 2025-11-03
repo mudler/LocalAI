@@ -23006,3 +23006,20 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "evilmind-24b-v1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Evilmind-24B-v1-i1-GGUF
+  description: |
+    **Evilmind-24B-v1** is a large language model created by merging two 24B-parameter models—**BeaverAI_Fallen-Mistral-Small-3.1-24B-v1e_textonly** and **Rivermind-24B-v1**—using SLERP interpolation (t=0.5) to combine their strengths. Built on the Mistral architecture, this model excels in creative, uncensored, and realistic text generation, with a distinctive voice that leans into edgy, imaginative, and often provocative content.
+
+    The merge leverages the narrative depth and stylistic flair of both source models, producing a highly expressive and versatile AI capable of generating rich, detailed, and unconventional outputs. Designed for advanced users, it’s ideal for storytelling, roleplay, and experimental writing, though it may contain NSFW or controversial content.
+
+    > 🔍 *Note: This is the original base model. The GGUF quantized version hosted by mradermacher is a derivative (quantized for inference) and not the original author’s release.*
+  overrides:
+    parameters:
+      model: Evilmind-24B-v1.i1-Q4_K_M.gguf
+  files:
+    - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
+      sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
+      uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
