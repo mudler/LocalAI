@@ -4,6 +4,7 @@ package gallery
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -310,8 +311,10 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 				}
 			}
 		}
-	} else {
+	} else if !errors.Is(err, os.ErrNotExist) {
 		log.Warn().Err(err).Msg("Failed to read system backends, proceeding with user-managed backends")
+	} else if errors.Is(err, os.ErrNotExist) {
+		log.Debug().Msg("No system backends found")
 	}
 
 	// User-managed backends and alias collection
