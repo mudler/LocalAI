@@ -22981,3 +22981,34 @@
     - filename: GroveMoE-Base.i1-Q4_K_M.gguf
       sha256: 9d7186ba9531bf689c91176468d7a35c0aaac0cd52bd44d4ed8f7654949ef4f4
       uri: huggingface://mradermacher/GroveMoE-Base-i1-GGUF/GroveMoE-Base.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "qwen3-vl-4b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-4B-Instruct-abliterated-GGUF
+  description: |
+    **Model Name**: Qwen3-VL-4B-Instruct-abliterated
+    **Base Model**: Qwen/Qwen3-VL-4B-Instruct
+    **License**: Apache 2.0
+    **Library**: Transformers
+    **Task**: Image-Text to Text (Multimodal Reasoning & Captioning)
+
+    **Description**:
+    A fine-tuned, uncensored variant of Qwen3-VL-4B-Instruct designed for high-fidelity, detailed image captioning and multimodal reasoning. This model excels at generating rich, descriptive outputs—even for complex, abstract, or sensitive visual content—while supporting diverse aspect ratios and resolutions. Ideal for research in content moderation, creative storytelling, and generative AI evaluation, it prioritizes depth and accuracy over strict content filtering.
+
+    **Key Features**:
+    - Uncensored, abliterated reasoning & captioning
+    - Strong performance across varied image types and aspect ratios
+    - Trained on multimodal instruction data with high-detail output
+    - Built on the Qwen3-VL-4B architecture with enhanced descriptive capabilities
+
+    **Use Case**:
+    Research, creative applications, red-teaming, and advanced multimodal reasoning where detailed, unfiltered output is required. Not recommended for production systems with strict safety requirements.
+
+    **Note**: This is a quantized and modified version of the original base model; the official source is **Qwen/Qwen3-VL-4B-Instruct**.
+  overrides:
+    parameters:
+      model: Qwen3-VL-4B-Instruct-abliterated.Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-4B-Instruct-abliterated.Q4_K_M.gguf
+      sha256: 1378a7def11ebe800ccd881b09a00a432a08bd5b0d507ed83c0ffb05010f16f5
+      uri: huggingface://mradermacher/Qwen3-VL-4B-Instruct-abliterated-GGUF/Qwen3-VL-4B-Instruct-abliterated.Q4_K_M.gguf
