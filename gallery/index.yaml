@@ -23006,3 +23006,30 @@
     - filename: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
       sha256: 5dfc9f1dc21885371b12a6e0857d86d6deb62b6601b4d439e4dfe01195a462f1
       uri: huggingface://DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF/nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
+- !!merge <<: *deepseek-r1
+  name: "r2mu-deepseek-r1-distill-llama-8b"
+  urls:
+    - https://huggingface.co/mradermacher/R2MU-DeepSeek-R1-Distill-Llama-8B-GGUF
+  description: |
+    The **R2MU-DeepSeek-R1-Distill-Llama-8B** is a distilled 8-billion-parameter language model based on the DeepSeek-R1 architecture, fine-tuned and optimized by the OPTML-Group. It leverages distillation techniques to retain strong performance while reducing size and inference cost, making it efficient for deployment on consumer hardware. The model is built upon the Llama-2 family of models and is trained on a broad range of text data to support diverse language tasks including reasoning, coding, and general conversation.
+
+    This particular version is available in multiple quantized formats (e.g., Q4_K_S, Q5_K_M, Q8_0) via the GGUF format, enabling efficient inference using tools like `llama.cpp`. The model is designed for use in local, low-resource environments without sacrificing too much accuracy.
+
+    **Key Features:**
+    - Base model: DeepSeek-R1-Distill-Llama-8B (originally by OPTML-Group)
+    - Architecture: Llama-style transformer, 8B parameters
+    - Distilled from a larger model to balance speed and performance
+    - Quantized versions available for efficient local inference
+    - Trained on diverse, high-quality text data
+    - Ideal for applications like chatbots, code generation, and reasoning
+
+    > ✅ *Note: The model is a distilled and quantized version. The original base model can be found at [OPTML-Group/R2MU-DeepSeek-R1-Distill-Llama-8B](https://huggingface.co/OPTML-Group/R2MU-DeepSeek-R1-Distill-Llama-8B) — this repository contains GGUF-quantized variants for local inference.*
+
+    **Use Case**: Excellent for lightweight, high-performance inference on laptops, edge devices, or local servers.
+  overrides:
+    parameters:
+      model: R2MU-DeepSeek-R1-Distill-Llama-8B.Q4_K_M.gguf
+  files:
+    - filename: R2MU-DeepSeek-R1-Distill-Llama-8B.Q4_K_M.gguf
+      sha256: c5104c70e1b43aa205e46d0e88c015541239d978d5c016825aefa3dc959cf568
+      uri: huggingface://mradermacher/R2MU-DeepSeek-R1-Distill-Llama-8B-GGUF/R2MU-DeepSeek-R1-Distill-Llama-8B.Q4_K_M.gguf
