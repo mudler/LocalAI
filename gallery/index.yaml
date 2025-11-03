@@ -23023,3 +23023,33 @@
     - filename: Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
       sha256: 6955283520e3618fe349bb75f135eae740f020d9d7f5ba38503482e5d97f6f59
       uri: huggingface://mradermacher/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V-i1-GGUF/Qwen3-Yoyo-V4-42B-A3B-Thinking-TOTAL-RECALL-PKDick-V.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "grovemoe-base-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GroveMoE-Base-i1-GGUF
+  description: |
+    **GroveMoE-Base**
+    *Efficient, Sparse Mixture-of-Experts LLM with Adjugate Experts*
+
+    GroveMoE-Base is a 33-billion-parameter sparse Mixture-of-Experts (MoE) language model designed for high efficiency and strong performance. Unlike dense models, only 3.14–3.28 billion parameters are activated per token, drastically reducing computational cost while maintaining high capability.
+
+    **Key Features:**
+    - **Novel Architecture**: Uses *adjugate experts* to dynamically allocate computation, enabling shared processing and significant FLOP reduction.
+    - **Efficient Inference**: Achieves high throughput with low latency, ideal for deployment in resource-constrained environments.
+    - **Based on Qwen3-30B-A3B-Base**: Up-cycled through mid-training and supervised fine-tuning, preserving strong pre-trained knowledge while adding new capabilities.
+
+    **Use Cases:**
+    Ideal for applications requiring efficient large-scale language understanding and generation—such as chatbots, content creation, and code generation—where speed and resource efficiency are critical.
+
+    **Paper:** [GroveMoE: Towards Efficient and Superior MoE LLMs with Adjugate Experts](https://arxiv.org/abs/2508.07785)
+    **Model Hub:** [inclusionAI/GroveMoE-Base](https://huggingface.co/inclusionAI/GroveMoE-Base)
+    **GitHub:** [github.com/inclusionAI/GroveMoE](https://github.com/inclusionAI/GroveMoE)
+
+    *Note: The GGUF quantized versions (e.g., mradermacher/GroveMoE-Base-i1-GGUF) are community-quantized derivatives. The original model is the base model by inclusionAI.*
+  overrides:
+    parameters:
+      model: GroveMoE-Base.i1-Q4_K_M.gguf
+  files:
+    - filename: GroveMoE-Base.i1-Q4_K_M.gguf
+      sha256: 9d7186ba9531bf689c91176468d7a35c0aaac0cd52bd44d4ed8f7654949ef4f4
+      uri: huggingface://mradermacher/GroveMoE-Base-i1-GGUF/GroveMoE-Base.i1-Q4_K_M.gguf
