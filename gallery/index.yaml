@@ -23049,3 +23049,32 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "kimi-k2-base-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Kimi-K2-Base-i1-GGUF
+  description: |
+    **Kimi-K2-Base** is a state-of-the-art **Mixture-of-Experts (MoE)** language model developed by Moonshot AI, featuring **1 trillion total parameters** with **32 billion activated parameters** per token. Designed for high-performance reasoning, coding, and agentic tasks, it leverages a novel **MuonClip optimizer** and **MLA attention mechanism** for scalable training and exceptional efficiency.
+
+    ### Key Features:
+    - **Architecture**: Mixture-of-Experts (MoE) with 384 total experts and 8 selected per token.
+    - **Context Length**: Up to **128K tokens**, enabling long-form reasoning and document processing.
+    - **Capabilities**: Strong performance in coding (SWE-bench, LiveCodeBench), math (MATH, AIME), tool use (AceBench, Tau2), and general knowledge (MMLU, MMLU-Pro).
+    - **Base Model**: Ideal for researchers and developers seeking full control for fine-tuning and custom agent development.
+
+    ### Performance Highlights:
+    - **SWE-bench Verified (Agentic Coding)**: 71.6% pass@1 (multiple attempts).
+    - **MMLU (General Knowledge)**: 87.8% accuracy (5-shot).
+    - **MATH Benchmark**: 70.2% pass@1.
+    - **Chinese Evaluation (C-Eval)**: 92.5% accuracy.
+
+    Available on Hugging Face under the **Modified MIT License**. Recommended for deployment with **vLLM**, **SGLang**, or **TensorRT-LLM**.
+
+    > **Note**: This is the *original base model*. The GGUF version (e.g., `mradermacher/Kimi-K2-Base-i1-GGUF`) is a quantized derivative by a third party and not maintained by Moonshot AI. For the official, full-precision model, use [`moonshotai/Kimi-K2-Base`](https://huggingface.co/moonshotai/Kimi-K2-Base).
+  overrides:
+    parameters:
+      model: Kimi-K2-Base.i1-Q4_K_M.gguf.part01of13
+  files:
+    - filename: Kimi-K2-Base.i1-Q4_K_M.gguf.part01of13
+      sha256: a48ed53274228ed818c7369e63dfc7416d91d3b898beef5618d80d03915ee24f
+      uri: huggingface://mradermacher/Kimi-K2-Base-i1-GGUF/Kimi-K2-Base.i1-Q4_K_M.gguf.part01of13
