@@ -23049,3 +23049,45 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "lmunit-llama3.1-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/LMUnit-llama3.1-70b-i1-GGUF
+  description: |
+    **Model Name:** LMUnit-llama3.1-70b
+    **Developer:** Contextual AI
+    **Base Model:** meta-llama/Llama-3.1-70B-Instruct
+    **License:** CC BY-NC 4.0 (for evaluation use only)
+
+    **Description:**
+    LMUnit is a highly specialized, fine-tuned language model designed for fine-grained evaluation of AI responses using natural language unit tests. It assesses how well a response satisfies specific criteria by generating a continuous score between 1 and 5, enabling precise, human-aligned evaluation across diverse tasks.
+
+    Trained on synthetic data with multi-objective learning, LMUnit excels in preference modeling, direct scoring, and nuanced task evaluation—achieving top-tier results on benchmarks like FLASK, BiGGen Bench, and RewardBench (93.5% accuracy). It is optimized for use in evaluation pipelines, particularly for testing the correctness, coherence, and alignment of long-form and complex AI-generated outputs.
+
+    **Use Case:**
+    Ideal for researchers and developers building robust evaluation systems, benchmarking LLMs, or validating the quality of model outputs in production environments.
+
+    **Key Features:**
+    - Finetuned from Llama-3.1-70B-Instruct
+    - Evaluates responses using natural language unit tests
+    - High alignment with human judgment
+    - Supports continuous scoring (1–5) for fine-grained feedback
+    - Open access for research and evaluation (non-commercial use)
+
+    **Citation:**
+    ```bibtex
+    @inproceedings{saadfalcon2025lmunit,
+      title={{LMUnit}: Fine-grained Evaluation with Natural Language Unit Tests},
+      author={Jon Saad-Falcon and Rajan Vivek and William Berrios and Nandita Shankar Naik and Matija Franklin and Bertie Vidgen and Amanpreet Singh and Douwe Kiela and Shikib Mehri},
+      booktitle={Findings of the Association for Computational Linguistics: EMNLP 2025},
+      year={2025},
+      url={https://arxiv.org/abs/2412.13091}
+    }
+    ```
+  overrides:
+    parameters:
+      model: LMUnit-llama3.1-70b.i1-Q4_K_M.gguf
+  files:
+    - filename: LMUnit-llama3.1-70b.i1-Q4_K_M.gguf
+      sha256: 4f2cff716b66a5234a1b9468b34ac752f0ca013fa31a023f64e838933905af57
+      uri: huggingface://mradermacher/LMUnit-llama3.1-70b-i1-GGUF/LMUnit-llama3.1-70b.i1-Q4_K_M.gguf
