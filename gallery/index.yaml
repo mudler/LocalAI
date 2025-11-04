@@ -23023,3 +23023,31 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "axiom-mistral-7b-instruct-v0.2.q4_k_m.gguf"
+  urls:
+    - https://huggingface.co/AIIntentionz/axiom-mistral-7b-instruct-v0.2.Q4_K_M.gguf
+  description: |
+    **Model Name:** Mistral-7B-Instruct-v0.2
+    **Repository:** `mistralai/Mistral-7B-Instruct-v0.2`
+    **License:** Apache 2.0
+
+    **Description:**
+    A powerful, instruction-tuned variant of the Mistral-7B-v0.2 large language model, designed for high-quality, interactive dialogue. It supports a 32k context window, enabling long-form reasoning, document analysis, and complex multi-turn conversations. Trained with advanced techniques including RoPE (Rotary Position Embedding) with a theta of 1e6 and no sliding-window attention, it offers improved scalability and performance over earlier versions.
+
+    The model uses a distinct `[INST]` and `[/INST]` instruction format, making it ideal for chat-based applications. It is compatible with Hugging Face Transformers and the Mistral Common library, with full support for chat template integration.
+
+    **Key Features:**
+    - 7 billion parameters
+    - 32k context length
+    - Optimized for instruction following and conversational AI
+    - Open-weight, freely available for research and commercial use
+
+    **Use Cases:**
+    AI assistants, code generation, content creation, summarization, and any application requiring nuanced, instruction-guided responses.
+
+    > 🔗 **Base Model:** [Mistral-7B-Instruct-v0.2 (official)](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.2)
+    > ⚠️ The model you found (`AIIntentionz/axiom-mistral-7b-instruct-v0.2.Q4_K_M.gguf`) is a quantized (Q4_K_M) version, likely created by a third party—**not the original model author**. Always refer to the official `mistralai/Mistral-7B-Instruct-v0.2` repository for the full, unquantized base model and accurate documentation.
+  overrides:
+    parameters:
+      model: AIIntentionz/axiom-mistral-7b-instruct-v0.2.Q4_K_M.gguf
