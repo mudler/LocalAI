@@ -23023,3 +23023,16 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-4b-instruct"
+  urls:
+    - https://huggingface.co/Mungert/Qwen3-VL-4B-Instruct-GGUF
+  description: |
+    AI model: qwen3-vl-4b-instruct
+  overrides:
+    parameters:
+      model: Qwen3-VL-4B-Instruct-q4_k_m.gguf
+  files:
+    - filename: Qwen3-VL-4B-Instruct-q4_k_m.gguf
+      sha256: 49e39226331ed4ff003cfdf7d82764b4373ce9e4c2e699fce4b8b9f4b0244d58
+      uri: huggingface://Mungert/Qwen3-VL-4B-Instruct-GGUF/Qwen3-VL-4B-Instruct-q4_k_m.gguf
