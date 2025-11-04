@@ -23023,3 +23023,29 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "yanoljanext-rosetta-27b-2511-i1"
+  urls:
+    - https://huggingface.co/mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF
+  description: |
+    **YanoljaNEXT-Rosetta-27B-2511**
+    *A multilingual, structure-preserving translation model built on Gemma3*
+
+    This 27-billion-parameter language model, developed by Yanolja NEXT, is fine-tuned from **Google’s Gemma3-27B** to excel at translating structured data (JSON, YAML, XML) while preserving the original format. It supports **32 languages**, including English, Chinese, Korean, Japanese, German, French, Spanish, and more, with balanced training across all languages.
+
+    Designed specifically for **high-accuracy, structured translation tasks**—such as localizing product catalogs, translating travel content, or handling technical documentation—the model ensures output remains syntactically valid and semantically precise.
+
+    It achieves top-tier performance on English-to-Korean translation (CHrF++ score: **37.21**) and is optimized for efficient inference. The model is released under the **Gemma license**, making it suitable for research and commercial use with proper attribution.
+
+    **Use Case:** Ideal for developers and localization teams needing reliable, format-aware translation in multilingual applications.
+
+    **Base Model:** `google/gemma-3-27b-pt`
+    **License:** Gemma (via Google)
+    **Repository:** [yanolja/YanoljaNEXT-Rosetta-27B-2511](https://huggingface.co/yanolja/YanoljaNEXT-Rosetta-27B-2511)
+  overrides:
+    parameters:
+      model: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+  files:
+    - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+      sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
+      uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
