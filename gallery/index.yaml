@@ -23023,3 +23023,42 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "lmunit-llama3.1-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/LMUnit-llama3.1-70b-i1-GGUF
+  description: |
+    **Model Name:** LMUnit-llama3.1-70b
+    **Base Model:** Llama-3.1-70B-Instruct
+    **Developer:** Contextual AI
+    **Task:** Fine-grained natural language evaluation using unit tests
+    **Language:** English
+
+    **Description:**
+    LMUnit is a high-performance language model fine-tuned for precise, criterion-based evaluation of LLM responses. It takes a prompt, response, and a natural language unit test as input, then returns a continuous score (1–5) indicating how well the response satisfies the test criteria. Trained with multi-objective learning, synthetic data, and importance weighting, it achieves state-of-the-art performance across evaluation benchmarks like FLASK, BiGGen Bench, and RewardBench, with near-human alignment (93.5% accuracy on RewardBench). Ideal for detailed, reliable assessment of response quality in research, benchmarking, and model development.
+
+    **Key Features:**
+    - Optimized for fine-grained, criteria-driven evaluation
+    - High alignment with human preferences
+    - Superior performance on FLASK, BiGGen Bench, and LFQA
+    - Based on Llama-3.1-70B-Instruct (original, non-quantized version)
+
+    **Use Case:** Evaluating response accuracy, coherence, and adherence to specific criteria in complex or nuanced tasks.
+
+    **Citation:**
+    ```bibtex
+    @inproceedings{saadfalcon2025lmunit,
+      title={{LMUnit}: Fine-grained Evaluation with Natural Language Unit Tests},
+      author={Jon Saad-Falcon and Rajan Vivek and William Berrios and Nandita Shankar Naik and Matija Franklin and Bertie Vidgen and Amanpreet Singh and Douwe Kiela and Shikib Mehri},
+      booktitle={Findings of the Association for Computational Linguistics: EMNLP 2025},
+      year={2025},
+      url={https://arxiv.org/abs/2412.13091}
+    }
+    ```
+  overrides:
+    parameters:
+      model: LMUnit-llama3.1-70b.i1-Q4_K_M.gguf
+  files:
+    - filename: LMUnit-llama3.1-70b.i1-Q4_K_M.gguf
+      sha256: 4f2cff716b66a5234a1b9468b34ac752f0ca013fa31a023f64e838933905af57
+      uri: huggingface://mradermacher/LMUnit-llama3.1-70b-i1-GGUF/LMUnit-llama3.1-70b.i1-Q4_K_M.gguf
