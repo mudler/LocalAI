@@ -23049,3 +23049,73 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "apriel-1.5-15b-thinker-cybersec-merged-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED-i1-GGUF
+  description: |
+    **Model Name:** Apriel-1.5-15b-Thinker-CYBERSEC-MERGED
+    **Author:** Sainikhil Juluri (based on ServiceNow-AI’s Apriel-1.5-15b-Thinker)
+    **License:** Apache 2.0
+    **Model Type:** Vision-Language Model (LLaVA-based, 15B parameters)
+    **Language:** English
+    **Fine-tuned for:** Cybersecurity & Network Intrusion Detection
+
+    ---
+
+    ### 🔍 **Overview**
+    A production-ready, fully merged vision-language model fine-tuned on the **NSL-KDD dataset** for cybersecurity applications. Designed to analyze network traffic patterns and detect threats such as DoS, probes, R2L, and U2R attacks, with strong support for **Retrieval-Augmented Generation (RAG)** workflows.
+
+    ### 🛠️ **Key Features**
+    - **Trained with RAFT + DoRA**: Enhances context-aware response generation, citation accuracy, and ability to distinguish relevant from irrelevant information.
+    - **Optimized for RAG**: Ideal for integrating with external knowledge sources to improve security threat analysis.
+    - **Fully Merged**: No adapter layers — ready to use directly with `transformers` or inference endpoints.
+    - **High Performance**: Achieved 97% loss reduction (3.14 → 0.038–0.092) in just 12 hours of training on an A100 GPU.
+
+    ### 📊 **Training & Data**
+    - **Dataset:** NSL-KDD (49,997 labeled examples)
+    - **Attack Distribution:**
+      - Normal: 53.5%
+      - DoS: 36.5%
+      - Probe: 9.3%
+      - R2L: 0.8%
+      - U2R: 0.04%
+    - **Training Method:** 4-bit QLoRA with DoRA (LoRA Rank=64, Alpha=128)
+    - **Precision:** BFloat16, 12-hour training on Google Colab Pro
+
+    ### 💼 **Use Cases**
+    - Cybersecurity threat classification
+    - Network intrusion detection
+    - Security incident analysis
+    - Educational and research use in AI-driven security
+
+    ### ⚠️ **Limitations & Notes**
+    - Not suitable as a standalone security system — always use with human oversight.
+    - Trained on older network data; may not reflect modern cloud/IoT threats.
+    - English-only output; vision encoder is frozen.
+    - Avoid using in real-time critical infrastructure without validation.
+
+    ### 📌 **Usage Example**
+    ```python
+    from transformers import AutoModelForVision2Seq, AutoProcessor
+
+    model = AutoModelForVision2Seq.from_pretrained("sainikhiljuluri2015/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED", torch_dtype="bfloat16", device_map="auto")
+    processor = AutoProcessor.from_pretrained("sainikhiljuluri2015/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED")
+
+    messages = [
+        {"role": "system", "content": "You are a cybersecurity expert analyzing network traffic."},
+        {"role": "user", "content": "Based on this connection pattern, is there a potential DoS attack?"}
+    ]
+    ```
+
+    ---
+
+    🔹 **Ideal for:** Researchers, security engineers, and AI practitioners building intelligent, context-aware cybersecurity systems using RAG and multimodal analysis.
+    📌 **Cite:** Juluri, S. (2024). *Apriel Cybersecurity Model: DoRA + RAFT Fine-tuned for Network Intrusion Detection* — [HuggingFace Link](https://huggingface.co/sainikhiljuluri2015/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED)
+  overrides:
+    parameters:
+      model: Apriel-1.5-15b-Thinker-CYBERSEC-MERGED.i1-Q4_K_M.gguf
+  files:
+    - filename: Apriel-1.5-15b-Thinker-CYBERSEC-MERGED.i1-Q4_K_M.gguf
+      sha256: 148574906a889677b5f3277e10d3141a1f5965398f3e148de10eb118227b07df
+      uri: huggingface://mradermacher/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED-i1-GGUF/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED.i1-Q4_K_M.gguf
