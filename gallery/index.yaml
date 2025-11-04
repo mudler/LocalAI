@@ -23023,3 +23023,41 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "gelato-30b-a3b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Gelato-30B-A3B-i1-GGUF
+  description: |
+    ### 🍨 Gelato-30B-A3B – A State-of-the-Art Vision-Language Model for GUI Grounding
+
+    **Overview**
+    Gelato-30B-A3B is a high-performance, open-source vision-language model (VLM) specifically designed for computer-use agent tasks. Trained on the large-scale **Click-100k** dataset, it excels at locating UI elements in graphical user interfaces (GUIs), making it ideal for automated interaction with software, web applications, and operating systems.
+
+    **Key Features**
+    - **Base Model**: Built upon **Qwen3-VL-30B-A3B-Instruct**, a powerful multimodal LLM with strong reasoning and vision capabilities.
+    - **Specialized Training**: Fine-tuned using data curation and reinforcement learning to achieve superior grounding accuracy.
+    - **High Accuracy**: Achieves **63.88% on ScreenSpot-Pro** and **73.40% on OS-World-G**, outperforming prior specialized models like GTA1-32B and even larger VLMs such as Qwen3-VL-235B.
+    - **Efficient Inference**: Activated size of only **3.3 GB**, enabling efficient deployment on consumer hardware.
+    - **Open Source & Free**: Fully open-access under the Apache 2.0 license with full training code and datasets available.
+
+    **Use Cases**
+    - Automating repetitive GUI interactions (e.g., form filling, software navigation)
+    - Building AI agents for desktop and web automation
+    - Research in computer-use agent behavior and human-AI collaboration
+
+    **Inference Example**
+    Given a screen image and a natural language instruction like *"Reload the cache"*, Gelato outputs precise (x,y) coordinates of the target UI element—enabling accurate mouse clicks or touch actions.
+
+    **Model Link**
+    👉 [View on Hugging Face: mlfoundations-cua-dev/Gelato-30B-A3B](https://huggingface.co/mlfoundations-cua-dev/Gelato-30B-A3B)
+
+    **Ideal For**
+    Developers, AI researchers, and automation engineers seeking a lightweight, high-accuracy model for GUI interaction and agent-based tasks.
+    *Bonus*: When paired with GPT-5, it enables frontier-level agentic performance on OS-World.
+  overrides:
+    parameters:
+      model: Gelato-30B-A3B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gelato-30B-A3B.i1-Q4_K_M.gguf
+      sha256: b353b25d0e193340dbf68261d930f5456adb2933a85d74be5296757d85337f45
+      uri: huggingface://mradermacher/Gelato-30B-A3B-i1-GGUF/Gelato-30B-A3B.i1-Q4_K_M.gguf
