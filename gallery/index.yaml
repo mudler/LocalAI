@@ -23049,3 +23049,16 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "dark-world-24b-v1"
+  urls:
+    - https://huggingface.co/Naphula/Dark-World-24B-v1-GGUF
+  description: |
+    AI model: dark-world-24b-v1
+  overrides:
+    parameters:
+      model: Dark-World-24B-v1-Q4_K_M.gguf
+  files:
+    - filename: Dark-World-24B-v1-Q4_K_M.gguf
+      sha256: 2b466cb515a63f531e7932d0b7ee656c5f45f8f7e96434039ca8f048c559653e
+      uri: huggingface://Naphula/Dark-World-24B-v1-GGUF/Dark-World-24B-v1-Q4_K_M.gguf
