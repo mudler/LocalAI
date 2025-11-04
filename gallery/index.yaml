@@ -23049,3 +23049,32 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "minimax-m2-bf16-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2-BF16-i1-GGUF
+  description: |
+    **MiniMax-M2** is a compact, high-performance **MoE (Mixture of Experts)** language model with **230 billion total parameters** and only **10 billion activated parameters** at inference time. Designed for elite coding and agentic workflows, it delivers top-tier performance in real-world tasks like code generation, tool use, web browsing, and multi-step problem solving—while maintaining a lightweight, cost-effective footprint.
+
+    ### Key Features:
+    - **Superior Agent Performance**: Excels in complex, long-horizon toolchains (e.g., browser, shell, retrieval, code execution).
+    - **Leading Coding Abilities**: Strong on SWE-Bench, Multi-SWE-Bench, Terminal-Bench, and ArtifactsBench—ideal for IDE and CI/CD integration.
+    - **Efficient & Scalable**: Low latency, high throughput, and excellent unit economics due to optimized activation size.
+    - **Open-Source & Free**: Weights available on Hugging Face for local deployment and research.
+
+    ### Benchmarks:
+    - Ranked **#1 among open-source models** in general intelligence (Artificial Analysis).
+    - Top performer in coding (SWE-bench Verified: 69.4), agentic reasoning (BrowseComp: 44), and math/science (AIME25: 78).
+
+    > **Best for**: Developers, researchers, and teams building intelligent agents, code assistants, and scalable AI tools—without the cost or latency of larger models.
+
+    🌐 **Model Repo**: [https://huggingface.co/MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2)
+    📘 **Deployment Guides**: vLLM, SGLang, and more available in the model repo.
+    💡 **Note**: Use `temperature=1.0`, `top_p=0.95`, `top_k=40`; preserve `[..., ...]` thinking tokens in history for best results.
+  overrides:
+    parameters:
+      model: MiniMax-M2-BF16.i1-Q4_K_S.gguf.part1of3
+  files:
+    - filename: MiniMax-M2-BF16.i1-Q4_K_S.gguf.part1of3
+      sha256: e64782a534d55116b1f0c2826837dcad12d840ff56ec4a68fb9fcdeec85144ef
+      uri: huggingface://mradermacher/MiniMax-M2-BF16-i1-GGUF/MiniMax-M2-BF16.i1-Q4_K_S.gguf.part1of3
