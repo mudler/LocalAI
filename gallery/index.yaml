@@ -23049,3 +23049,83 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "lightonocr-1b-1025"
+  urls:
+    - https://huggingface.co/noctrex/LightOnOCR-1B-1025-GGUF
+  description: |
+    **Model Name:** LightOnOCR-1B-1025
+    **Repository:** [lightonai/LightOnOCR-1B-1025](https://huggingface.co/lightonai/LightOnOCR-1B-1025)
+    **License:** Apache 2.0
+    **Pipeline:** Image-to-Text (OCR & Document Understanding)
+    **Languages:** English, French, German, Spanish, Italian, Dutch, Portuguese, Swedish, Danish
+
+    ---
+
+    ### 🔍 **Description**
+
+    LightOnOCR-1B-1025 is a compact, end-to-end vision-language model designed for high-accuracy Optical Character Recognition (OCR) and document understanding. Built on a Pixtral-based vision encoder and a Qwen3-derived text decoder, it delivers state-of-the-art performance in its size category while being significantly faster and more cost-effective than larger general-purpose models.
+
+    This model excels at extracting structured text from complex documents—handling tables, forms, receipts, multi-column layouts, and mathematical notation—without relying on external OCR pipelines.
+
+    ---
+
+    ### ⚡ **Key Features**
+
+    - **Speed:** Up to 5× faster than dots.ocr, 2× faster than PaddleOCR-VL-0.9B
+    - **Efficiency:** Processes ~5.71 pages per second on a single H100 (~493k pages/day) at under $0.01 per 1,000 pages
+    - **Multilingual Support:** Trained on diverse multilingual PDFs (Latin script)
+    - **End-to-End Architecture:** Fully differentiable; ideal for fine-tuning and integration
+    - **Optimized for Real-World Use:** Works well with PDFs rendered at ~1540px longest edge
+
+    ---
+
+    ### 📊 **Performance Highlights (Olmo-Bench)**
+
+    | Task             | Score |
+    |------------------|-------|
+    | Overall Accuracy | **76.1** |
+    | Multi-Column     | 80.0 |
+    | Tables           | 35.2 |
+    | Tiny Text        | 88.7 |
+
+    ---
+
+    ### 🧩 **Use Cases**
+
+    - Automated document processing
+    - Receipt and invoice parsing
+    - Scientific paper and book OCR
+    - Form and table extraction
+    - Low-cost, scalable OCR for enterprise workflows
+
+    ---
+
+    ### 📦 **Variants Available**
+
+    - **`LightOnOCR-1B-1025` (default)** – Full multilingual model (151k vocab)
+    - **`LightOnOCR-1B-32k`** – Fast, pruned vocabulary (32k tokens), optimized for European languages
+    - **`LightOnOCR-1B-16k`** – Most compact variant (16k tokens), smallest memory footprint
+
+    ---
+
+    ### 🚀 **Getting Started**
+
+    Run with vLLM for blazing-fast inference:
+
+    ```bash
+    vllm serve lightonai/LightOnOCR-1B-1025 --limit-mm-per-prompt '{"image": 1}' --async-scheduling
+    ```
+
+    👉 **[Try the demo](https://huggingface.co/spaces/lightonai/LightOnOCR-1B-Demo)** | 📝 **[Read the blog](https://huggingface.co/blog/lightonai/lightonocr/)**
+
+    ---
+
+    **Ideal for developers, researchers, and enterprises seeking fast, accurate, and affordable document intelligence.**
+  overrides:
+    parameters:
+      model: LightOnOCR-1B-1025-Q4_K_M.gguf
+  files:
+    - filename: LightOnOCR-1B-1025-Q4_K_M.gguf
+      sha256: da36fb008a81128553933a15dc6373c1d0692e3ed1c17e9115521d84c473dbd5
+      uri: huggingface://noctrex/LightOnOCR-1B-1025-GGUF/LightOnOCR-1B-1025-Q4_K_M.gguf
