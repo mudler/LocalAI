@@ -23049,3 +23049,32 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3vl_euclid_30b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3VL_Euclid_30B-i1-GGUF
+  description: |
+    The **Qwen3VL_Euclid_30B** is a large multimodal vision-language model based on the Qwen3 family, designed for advanced reasoning and understanding of both text and visual inputs. It is trained on the **Euclid30K** dataset, which includes diverse multimodal content, enabling strong performance in tasks such as image captioning, visual question answering, and complex reasoning over images and text.
+
+    This specific version is a **30-billion parameter** model with enhanced capabilities for handling high-resolution visual inputs and complex multimodal queries. The model supports **English and Chinese** and is built using the Hugging Face `transformers` library.
+
+    While the repository `mradermacher/Qwen3VL_Euclid_30B-i1-GGUF` contains **quantized GGUF versions** of the model (optimized for local inference with tools like `llama.cpp`), the original base model — which retains full precision and is suitable for research and high-fidelity applications — is hosted at **[LiamLian0727/Qwen3VL_Euclid_30B](https://huggingface.co/LiamLian0727/Qwen3VL_Euclid_30B)**.
+
+    > ✅ **For the original, full-precision model description and usage, refer to the base model repository.**
+    > 🔁 This quantized version is not the original model, but a downstream quantization by mradermacher for efficient local deployment.
+
+    **Key Features:**
+    - Multimodal: text + image input
+    - 30B parameters
+    - Trained on Euclid30K
+    - Supports English and Chinese
+    - Available in multiple quantizations for local inference (GGUF format)
+
+    **Ideal for:** Researchers, developers, and AI enthusiasts working with multimodal reasoning, especially those deploying models locally on consumer hardware.
+  overrides:
+    parameters:
+      model: Qwen3VL_Euclid_30B.i1-Q4_K_M.gguf
+  files:
+    - filename: Qwen3VL_Euclid_30B.i1-Q4_K_M.gguf
+      sha256: 565b9cf6137181dc784ab571801d315c4976b33ea4a3ee7de9d1caf2eceb019b
+      uri: huggingface://mradermacher/Qwen3VL_Euclid_30B-i1-GGUF/Qwen3VL_Euclid_30B.i1-Q4_K_M.gguf
