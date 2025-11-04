@@ -23049,3 +23049,30 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "apriel-1.5-15b-thinker-cybersec-merged"
+  urls:
+    - https://huggingface.co/mradermacher/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED-GGUF
+  description: |
+    **Apriel-1.5-15b-Thinker** is a 15-billion-parameter vision-language model developed by ServiceNow AI, designed for advanced reasoning and multimodal understanding. Built on a strong foundation of continual pretraining and supervised fine-tuning (SFT), it delivers state-of-the-art performance in reasoning tasks—comparable to models ten times its size—while remaining efficient enough to run on a single GPU.
+
+    The model excels in:
+    - **Text reasoning & problem solving** (scoring 52 on the Artificial Analysis index)
+    - **Image understanding** (without dedicated image SFT, leveraging cross-modal transfer)
+    - **Enterprise applications**, including code generation, logical inference, and instruction following
+
+    It supports complex, multi-step reasoning via a structured chat template, guiding users through step-by-step thinking before delivering final responses in a clean format. Ideal for agent-based systems, RAG workflows, and AI-powered assistance in technical domains.
+
+    **Key Features:**
+    - ✅ 15B parameters – compact yet powerful
+    - ✅ Multimodal reasoning (text + image)
+    - ✅ Built-in reasoning and tool-use support
+    - ✅ Efficient deployment (single GPU capable)
+    - ✅ MIT licensed – open for research and commercial use
+
+    **Use Case:** Cybersecurity analysis, enterprise AI assistants, code generation, and complex reasoning tasks.
+
+    > *Note: The model has been further fine-tuned for cybersecurity by Sainikhil Juluri (sainikhiljuluri2015/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED), but the original base model remains this ServiceNow AI version.*
+  overrides:
+    parameters:
+      model: mradermacher/Apriel-1.5-15b-Thinker-CYBERSEC-MERGED-GGUF
