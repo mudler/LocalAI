@@ -23023,3 +23023,28 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "minimax-m2-bf16"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2-BF16-GGUF
+  description: |
+    **MiniMax-M2** is a high-performance, open-source MoE (Mixture of Experts) model designed for advanced coding and agent-based workflows. With 230 billion total parameters and only 10 billion activated per inference, it delivers elite performance in real-world coding tasks and complex, long-horizon tool use—while remaining efficient and deployable.
+
+    Key features:
+    - **Best-in-class open-source performance**: Ranks #1 among open-source models on AI Intelligence benchmarks (AA), outperforming many larger models.
+    - **Superior coding capabilities**: Excels in multi-file edits, terminal workflows, test-validated repairs, and SWE-bench-style tasks.
+    - **Agent-ready design**: Built for interleaved thinking and tool use, ideal for agents executing complex chains across shell, browser, and code runners.
+    - **Efficient & scalable**: Low latency, high throughput, and optimized for real-time interaction and batch inference.
+
+    Perfect for developers, researchers, and companies seeking powerful, cost-effective AI agents without frontier-scale compute demands.
+
+    **Model Repository**: [huggingface.co/MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2)
+    **License**: MIT
+    **Use Case**: Coding assistants, agentic workflows, local deployment with vLLM, SGLang, and more.
+  overrides:
+    parameters:
+      model: MiniMax-M2-BF16.Q4_K_S.gguf.part1of3
+  files:
+    - filename: MiniMax-M2-BF16.Q4_K_S.gguf.part1of3
+      sha256: 12d85daccafb4c87e53ac00d0b4dacbbe3a794d0cf5c1611e154d66d412bc953
+      uri: huggingface://mradermacher/MiniMax-M2-BF16-GGUF/MiniMax-M2-BF16.Q4_K_S.gguf.part1of3
