@@ -23049,3 +23049,31 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "minimax-m2-bf16-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2-BF16-i1-GGUF
+  description: |
+    **MiniMax-M2** is a compact, high-performance MoE (Mixture of Experts) model designed for elite coding and agentic workflows. With 230 billion total parameters and only 10 billion activated per inference, it delivers top-tier intelligence in a lightweight, cost-effective package.
+
+    It excels at end-to-end coding tasks—like multi-file edits, debugging, and test-validated fixes—and shines in complex agent scenarios involving web browsing, tool use, and long-horizon planning. Benchmarks show it ranks #1 among open-source models in overall intelligence and leads in coding and agent evaluation suites like SWE-bench, Terminal-Bench, and BrowseComp.
+
+    Ideal for developers and researchers seeking powerful, deployable models with fast inference, low latency, and high throughput, MiniMax-M2 balances cutting-edge performance with efficient resource usage.
+
+    > **Key Highlights**:
+    > - 10B active parameters, 230B total
+    > - #1 open-source model in overall intelligence (Artificial Analysis)
+    > - State-of-the-art agentic & coding performance
+    > - Open-source, locally deployable via vLLM, SGLang, and more
+    > - Interleaved thinking format: retains `[..., …]` reasoning tokens for optimal behavior
+
+    **Use Case**: Local AI agents, code assistants, research, and scalable inference with minimal cost.
+
+    🔗 [Hugging Face: MiniMaxAI/MiniMax-M2](https://huggingface.co/MiniMaxAI/MiniMax-M2)
+  overrides:
+    parameters:
+      model: MiniMax-M2-BF16.i1-Q4_K_M.gguf.part1of3
+  files:
+    - filename: MiniMax-M2-BF16.i1-Q4_K_M.gguf.part1of3
+      sha256: fc8d980129878dfe46b4fedb3818c22c2222768b1fb10e90a0decf9f36493d3a
+      uri: huggingface://mradermacher/MiniMax-M2-BF16-i1-GGUF/MiniMax-M2-BF16.i1-Q4_K_M.gguf.part1of3
