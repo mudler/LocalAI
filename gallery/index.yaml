@@ -23023,3 +23023,36 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-235b-a22b-instruct"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-235B-A22B-Instruct-GGUF
+  description: |
+    **Qwen3-VL-235B-A22B-Instruct**
+    *By Qwen Team (Alibaba Cloud)*
+
+    A state-of-the-art vision-language model, Qwen3-VL-235B-A22B-Instruct is the most powerful model in the Qwen series to date. Built on a mixture-of-experts (MoE) architecture, it boasts 235 billion parameters and excels in multimodal understanding and reasoning. It supports ultra-long context (up to 1M tokens), advanced video comprehension, and precise spatial and temporal reasoning.
+
+    Key capabilities:
+    - **Visual Agent**: Interacts with GUIs, recognizes UI elements, and performs tasks autonomously.
+    - **Visual Coding**: Generates HTML, CSS, JavaScript, and Draw.io diagrams from images or videos.
+    - **Advanced OCR**: Supports 32 languages with robust handling of low-light, blur, tilt, and rare characters.
+    - **Long-Context & Video**: Native 256K context, expandable to 1M; handles full-length videos and books with fine-grained indexing.
+    - **Spatial & 3D Grounding**: Understands object positions, viewpoints, and occlusions for embodied AI and robotics.
+    - **Multimodal Reasoning**: Strong performance in STEM, logic, and evidence-based problem solving.
+
+    Built with innovative architectures like **Interleaved-MRoPE**, **DeepStack**, and **Text–Timestamp Alignment**, it enables superior fusion of vision and language.
+
+    Ideal for research, AI agents, content creation, and enterprise applications requiring deep visual and linguistic comprehension.
+
+    📚 **Cite**:
+    `@misc{qwen3technicalreport, title={Qwen3 Technical Report}, author={Qwen Team}, year={2025}, eprint={2505.09388}, archivePrefix={arXiv}, primaryClass={cs.CL}}`
+
+    🔗 [Model Card](https://huggingface.co/Qwen/Qwen3-VL-235B-A22B-Instruct) | [Chat Demo](https://chat.qwenlm.ai/) | [Technical Report (arXiv)](https://arxiv.org/abs/2505.09388)
+  overrides:
+    parameters:
+      model: Q4_K_M
+  files:
+    - filename: Q4_K_M
+      sha256: 2895b581290ecac58d8115118029fd13fa4cdc22
+      uri: huggingface://unsloth/Qwen3-VL-235B-A22B-Instruct-GGUF/Q4_K_M
