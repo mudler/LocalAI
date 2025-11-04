@@ -23049,3 +23049,29 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-gpt-5-codex-distill"
+  urls:
+    - https://huggingface.co/armand0e/gpt-oss-20b-gpt-5-codex-distill-GGUF
+  description: |
+    **Model Name:** GPT-OSS 20B (Fine-tuned for Code & Tool-Calling)
+    **Base Model:** [unsloth/gpt-oss-20b-unsloth-bnb-4bit](https://huggingface.co/unsloth/gpt-oss-20b-unsloth-bnb-4bit)
+    **Author:** armand0e (fine-tuned)
+    **License:** Apache 2.0
+    **Repository:** [armand0e/gpt-oss-20b-gpt-5-codex-distill-GGUF](https://huggingface.co/armand0e/gpt-oss-20b-gpt-5-codex-distill-GGUF)
+    **Quantization:** GGUF (optimized for local inference)
+
+    ### Description:
+    This is a fine-tuned version of the **GPT-OSS 20B** model, originally developed by the Unsloth team and optimized for efficient training using 4-bit quantization (BNB). The model was further enhanced by armand0e through a distillation process based on the GPT-5 Codex dataset, improving its coding and tool-calling capabilities.
+
+    It is designed for **high-performance local inference**, with a GGUF-quantized variant that runs efficiently on consumer hardware. While still under development and undergoing active refinement—particularly around tool-calling reliability—this model shows strong potential for code generation, reasoning, and AI assistant tasks.
+
+    ### Use Cases:
+    - Code generation and debugging
+    - Local AI assistant with tool integration
+    - Research and experimentation with quantized LLMs
+
+    > 🔍 *Note: This is a quantized, fine-tuned version. For the original base model, refer to [unsloth/gpt-oss-20b-unsloth-bnb-4bit](https://huggingface.co/unsloth/gpt-oss-20b-unsloth-bnb-4bit).*
+  overrides:
+    parameters:
+      model: armand0e/gpt-oss-20b-gpt-5-codex-distill-GGUF
