@@ -35,7 +35,7 @@ require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.1.0
 	github.com/mudler/cogito v0.5.0
-	github.com/mudler/edgevpn v0.31.0
+	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/nikolalohinski/gonja/v2 v2.4.1
 	github.com/onsi/ginkgo/v2 v2.27.2
