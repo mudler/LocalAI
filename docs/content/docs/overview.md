@@ -51,25 +51,34 @@ LocalAI is more than just a single tool - it's a complete ecosystem:
 
 ## Getting Started
 
-The fastest way to get started is with our one-line installer:
-
-```bash
-curl https://localai.io/install.sh | sh
-```
 
 ### macOS Download
+
+You can use the DMG application for Mac:
 
 <a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
   <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
 </a>
 
-Or use Docker for a quick start:
+> Note: the DMGs are not signed by Apple as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
+
+## Docker
+
+You can use Docker for a quick start:
 
 ```bash
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
 ```
 
 For more detailed installation options and configurations, see our [Getting Started guide](/basics/getting_started/).
+
+## One-liner
+
+The fastest way to get started is with our one-line installer (Linux):
+
+```bash
+curl https://localai.io/install.sh | sh
+```
 
 ## Key Features
 
