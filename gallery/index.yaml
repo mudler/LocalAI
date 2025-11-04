@@ -23023,3 +23023,43 @@
     - filename: Evilmind-24B-v1.i1-Q4_K_M.gguf
       sha256: 22e56c86b4f4a8f7eb3269f72a6bb0f06a7257ff733e21063fdec6691a52177d
       uri: huggingface://mradermacher/Evilmind-24B-v1-i1-GGUF/Evilmind-24B-v1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "gelato-30b-a3b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Gelato-30B-A3B-i1-GGUF
+  description: |
+    **Model Name:** Gelato-30B-A3B
+    **Base Model:** Qwen3-VL-30B-A3B-Instruct
+    **Repository:** [mlfoundations-cua-dev/Gelato-30B-A3B](https://huggingface.co/mlfoundations-cua-dev/Gelato-30B-A3B)
+    **Type:** Vision-Language Model (VLM) for GUI Grounding
+    **License:** Apache 2.0
+    **Size:** 30B parameters (activated size: ~3.3B)
+
+    **Description:**
+    Gelato-30B-A3B is a state-of-the-art vision-language model designed specifically for grounding tasks in graphical user interfaces (GUIs). Trained on the open-source **Click-100k** dataset, it achieves **63.88% accuracy on ScreenSpot-Pro** and **73.40% on OS-World-G**, outperforming larger models like Qwen3-VL-235B and specialized agents such as GTA1-32B.
+
+    Built on the Qwen3-VL-30B-A3B-Instruct foundation, Gelato excels at understanding user instructions and locating UI elements in screenshots with high precision—outputting normalized (x, y) coordinates in the range [0, 1000]. It is ideal for use in agentic systems, automation pipelines, and computer-use AI assistants.
+
+    **Key Features:**
+    - Optimized for real-world GUI interaction tasks
+    - High accuracy despite moderate size (30B total, 3.3B activated)
+    - Open-source and compatible with Hugging Face Transformers
+    - Supports multimodal input (image + text)
+    - Designed for zero-shot object detection in screen interfaces
+
+    **Use Case:**
+    Perfect for building AI agents that interact with desktop or mobile UIs, such as automated testing, assistive technology, or interactive screen navigation.
+
+    **Inference Example:**
+    Given a screenshot and instruction like *"Reload the cache"*, Gelato predicts the exact UI element to click—ideal for integrating into end-to-end agentic workflows.
+
+    👉 **Try it out**: [mlfoundations-cua-dev/Gelato-30B-A3B](https://huggingface.co/mlfoundations-cua-dev/Gelato-30B-A3B)
+    📊 **Benchmark Results**: [Evaluation Details](./evaluation)
+    📁 **Dataset**: [Click-100k](https://huggingface.co/datasets/mlfoundations/clicks-100k)
+  overrides:
+    parameters:
+      model: Gelato-30B-A3B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gelato-30B-A3B.i1-Q4_K_M.gguf
+      sha256: b353b25d0e193340dbf68261d930f5456adb2933a85d74be5296757d85337f45
+      uri: huggingface://mradermacher/Gelato-30B-A3B-i1-GGUF/Gelato-30B-A3B.i1-Q4_K_M.gguf
