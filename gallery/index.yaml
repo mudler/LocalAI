@@ -23049,3 +23049,16 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "mistral-7b"
+  urls:
+    - https://huggingface.co/Omkar1803/mistral-7b-gguf
+  description: |
+    AI model: mistral-7b
+  overrides:
+    parameters:
+      model: mistral-7b-instruct-v0.2.Q4_K_M.gguf
+  files:
+    - filename: mistral-7b-instruct-v0.2.Q4_K_M.gguf
+      sha256: 3e0039fd0273fcbebb49228943b17831aadd55cbcbf56f0af00499be2040ccf9
+      uri: huggingface://Omkar1803/mistral-7b-gguf/mistral-7b-instruct-v0.2.Q4_K_M.gguf
