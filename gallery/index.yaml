@@ -23049,3 +23049,42 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-30b-a3b-instruct"
+  urls:
+    - https://huggingface.co/Mungert/Qwen3-VL-30B-A3B-Instruct-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-30B-A3B-Instruct
+    **Model Type:** Vision-Language Model (VLM)
+    **Architecture:** Mixture of Experts (MoE), 30B parameters
+    **License:** Apache 2.0
+
+    **Description:**
+    Qwen3-VL-30B-A3B-Instruct is a state-of-the-art vision-language model from the Qwen series, designed for advanced multimodal understanding and reasoning. It excels in interpreting complex visual inputs—such as images and videos—while seamlessly integrating them with rich text understanding. With a native context length of up to 256K (expandable to 1M), it supports long-form content analysis, including full-book comprehension and hour-long video processing with precise temporal indexing.
+
+    Key capabilities include:
+    - **Advanced spatial and video reasoning** with Interleaved-MRoPE and Text-Timestamp Alignment for accurate event localization.
+    - **Visual agent functionality**: Can interpret and interact with GUIs on desktop and mobile devices.
+    - **Visual coding**: Generates code (HTML/CSS/JS/Draw.io) from visual inputs.
+    - **High-precision OCR** across 32 languages, including low-light, blurred, or tilted images and rare/ancient scripts.
+    - **Strong multimodal reasoning** in STEM, math, and evidence-based problem solving.
+    - **Deep image-text alignment** via DeepStack, enabling fine-grained visual understanding and 3D grounding.
+
+    **Use Cases:**
+    - AI assistants with visual comprehension
+    - Document and video analysis
+    - Automated UI interaction and task automation
+    - Content creation from visual inputs
+    - Research and enterprise applications requiring robust multimodal intelligence
+
+    **Repository:** [Qwen/Qwen3-VL-30B-A3B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-30B-A3B-Instruct)
+    **Inference Support:** Hugging Face Transformers, llama.cpp (GGUF), ModelScope
+
+    > ✅ **Note:** This is the **original, unquantized** model by Alibaba's Qwen Team. The GGUF version (e.g., `Mungert/Qwen3-VL-30B-A3B-Instruct-GGUF`) is a community-quantized variant for local inference and may differ in performance and precision. Always refer to the official repository for the canonical model.
+  overrides:
+    parameters:
+      model: Qwen3-VL-30B-A3B-Instruct-q4_k_m.gguf
+  files:
+    - filename: Qwen3-VL-30B-A3B-Instruct-q4_k_m.gguf
+      sha256: 2fdbcf02a8c6c87a0c1273a456a12fa865b62f4588d2ea0493b2add16f30424e
+      uri: huggingface://Mungert/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-q4_k_m.gguf
