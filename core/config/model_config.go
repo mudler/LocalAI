@@ -46,7 +46,6 @@ type ModelConfig struct {
 	functionCallString, functionCallNameString string                 `yaml:"-" json:"-"`
 	ResponseFormat                             string                 `yaml:"-" json:"-"`
 	ResponseFormatMap                          map[string]interface{} `yaml:"-" json:"-"`
-	JsonSchema                                 string                 `yaml:"-" json:"-"` // JSON schema string (when use_llama_grammar is enabled)
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function" json:"function"`
 
@@ -592,7 +591,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecases) bool {
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecases) bool {
 	if (u & FLAG_CHAT) == FLAG_CHAT {
-		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
+		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
 			return false
 		}
 	}

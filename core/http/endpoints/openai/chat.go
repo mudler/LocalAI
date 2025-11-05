@@ -246,7 +246,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					// Pass json_schema directly to llama.cpp for grammar generation
 					schemaBytes, err := json.Marshal(d.JsonSchema.Schema)
 					if err == nil {
-						config.JsonSchema = string(schemaBytes)
+						input.JSONSchema = string(schemaBytes)
 					} else {
 						log.Error().Err(err).Msg("Failed marshaling json_schema")
 						// Fallback to generating grammar
@@ -311,7 +311,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// Pass json_schema directly to llama.cpp for grammar generation
 				schemaBytes, err := json.Marshal(jsStruct)
 				if err == nil {
-					config.JsonSchema = string(schemaBytes)
+					input.JSONSchema = string(schemaBytes)
 				} else {
 					log.Error().Err(err).Msg("Failed marshaling json_schema for functions")
 					// Fallback to generating grammar
@@ -336,7 +336,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				// Pass json_schema directly to llama.cpp for grammar generation
 				schemaBytes, err := json.Marshal(input.JSONFunctionGrammarObject)
 				if err == nil {
-					config.JsonSchema = string(schemaBytes)
+					input.JSONSchema = string(schemaBytes)
 				} else {
 					log.Error().Err(err).Msg("Failed marshaling json_schema from JSONFunctionGrammarObject")
 					// Fallback to generating grammar
@@ -655,7 +655,7 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 		audios = append(audios, m.StringAudios...)
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, input.JSONSchema)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

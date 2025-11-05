@@ -38,7 +38,8 @@ func ComputeChoices(
 	}
 
 	// get the model function to call for the result
-	predFunc, err := backend.ModelInference(req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback)
+	predFunc, err := backend.ModelInference(
+		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, req.JSONSchema)
 	if err != nil {
 		return result, backend.TokenUsage{}, err
 	}
