@@ -23049,3 +23049,47 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "nv-reason-cxr-3b"
+  urls:
+    - https://huggingface.co/samwell/NV-Reason-CXR-3B-GGUF
+  description: |
+    Certainly! Here's a clear, concise, and professional description of the **NV-Reason-CXR-3B** model suitable for inclusion in a model gallery:
+
+    ---
+
+    ### **NV-Reason-CXR-3B**
+    *Vision-Language Model for Chest X-ray Analysis*
+
+    **Model Type:** Vision-Language Model (VLM)
+    **Architecture:** Qwen2.5-VL-3B Instruct
+    **Size:** 3 billion parameters
+    **Language:** English
+    **Specialization:** Medical imaging – Chest X-ray (CXR) analysis
+    **License:** NSCLV1 (for research and educational use only)
+
+    A powerful 3B-parameter vision-language model developed by **NVIDIA**, specifically fine-tuned for interpreting chest X-ray images. Built on the Qwen2.5-VL architecture, it excels at generating detailed, clinically relevant descriptions of radiological findings such as lung opacity, pleural effusion, and cardiac enlargement.
+
+    Designed for research and educational purposes, NV-Reason-CXR-3B enables robust image-to-text reasoning in radiology workflows. It supports multimodal inputs (image + text prompts) and is optimized for tasks like automated report generation, lesion detection, and radiology teaching.
+
+    > ⚠️ **Important Note**: This model is **not approved for clinical diagnosis or production medical use**. All outputs must be reviewed by qualified healthcare professionals.
+
+    **Ideal for:**
+    - Medical AI research
+    - Radiology education
+    - Mobile and edge deployment (via GGUF quantized versions)
+    - Prototyping AI-powered diagnostic tools
+
+    **Base Model:** [nvidia/NV-Reason-CXR-3B](https://huggingface.co/nvidia/NV-Reason-CXR-3B)
+    **Quantized versions available for edge inference** (e.g., mobile, desktop) via GGUF format.
+
+    ---
+
+    ✅ *Model card updated with official details from the original repository — not the quantized version.*
+  overrides:
+    parameters:
+      model: nv-reason-cxr-3b-Q4_K_M.gguf
+  files:
+    - filename: nv-reason-cxr-3b-Q4_K_M.gguf
+      sha256: 2afda03db80955d1dd908f6628f8203da7944c1d21b1dccac1a8d35377bcb508
+      uri: huggingface://samwell/NV-Reason-CXR-3B-GGUF/nv-reason-cxr-3b-Q4_K_M.gguf
