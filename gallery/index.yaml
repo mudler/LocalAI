@@ -23049,3 +23049,29 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "orca-agent-v0.1"
+  urls:
+    - https://huggingface.co/mradermacher/Orca-Agent-v0.1-GGUF
+  description: |
+    **Orca-Agent-v0.1** is a 14-billion-parameter orchestration agent built on top of **Qwen3-14B**, designed to act as a smart decision-maker in multi-agent coding systems. Rather than writing code directly, it strategically breaks down complex tasks into subtasks, delegates to specialized agents (e.g., explorers and coders), verifies results, and maintains contextual knowledge throughout execution.
+
+    Trained using GRPO and curriculum learning on 32 H100 GPUs, it achieves strong performance on TerminalBench (18.25% accuracy) when paired with a Qwen3-Coder-30B MoE subagent—nearly matching the performance of a 480B model. It's optimized for real-world coding workflows, especially in infrastructure automation and system recovery.
+
+    **Key Features:**
+    - Full fine-tuned Qwen3-14B base model
+    - Designed for multi-agent collaboration (orchestrator + subagents)
+    - Trained on real terminal tasks with structured feedback
+    - Serves via vLLM or SGLang for high-throughput inference
+
+    **Use Case:** Ideal for advanced autonomous coding systems, DevOps automation, and complex problem-solving in technical environments.
+
+    👉 **Original Training Repo:** [github.com/Danau5tin/Orca-Agent-RL](https://github.com/Danau5tin/Orca-Agent-RL)
+    👉 **Orchestration Code:** [github.com/Danau5tin/multi-agent-coding-system](https://github.com/Danau5tin/multi-agent-coding-system)
+  overrides:
+    parameters:
+      model: Orca-Agent-v0.1.Q4_K_M.gguf
+  files:
+    - filename: Orca-Agent-v0.1.Q4_K_M.gguf
+      sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
+      uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
