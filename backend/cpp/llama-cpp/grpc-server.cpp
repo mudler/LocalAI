@@ -254,26 +254,15 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     params.n_gpu_layers = request->ngpulayers();
     params.n_batch = request->nbatch();
     params.n_ubatch = request->nbatch(); // fixes issue with reranking models being limited to 512 tokens (the default n_ubatch size); allows for setting the maximum input amount of tokens thereby avoiding this error "input is too large to process. increase the physical batch size"
-    // Set params.n_parallel by environment variable (LLAMA_PARALLEL), defaults to 1
-    //params.n_parallel = 1;
-    const char *env_parallel = std::getenv("LLAMACPP_PARALLEL");
-    if (env_parallel != NULL) {
-        params.n_parallel = std::stoi(env_parallel);
-        params.cont_batching = true;
-    } else {
-        params.n_parallel = 1;
-    }
-
-
-    const char *llama_grpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
-    if (llama_grpc_servers != NULL) {
-        add_rpc_devices(std::string(llama_grpc_servers));
-    }
     
     // Initialize ctx_shift to false by default (can be overridden by options)
     params.ctx_shift = false;
     // Initialize cache_ram_mib to -1 by default (no limit, can be overridden by options)
     params.cache_ram_mib = -1;
+    // Initialize n_parallel to 1 by default (can be overridden by options)
+    params.n_parallel = 1;
+    // Initialize grpc_servers to empty (can be overridden by options)
+    std::string grpc_servers_option = "";
 
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
@@ -298,6 +287,46 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
                     // If conversion fails, keep default value (-1)
                 }
             }
+        } else if (!strcmp(optname, "parallel") || !strcmp(optname, "n_parallel")) {
+            if (optval != NULL) {
+                try {
+                    params.n_parallel = std::stoi(optval);
+                    if (params.n_parallel > 1) {
+                        params.cont_batching = true;
+                    }
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (1)
+                }
+            }
+        } else if (!strcmp(optname, "grpc_servers") || !strcmp(optname, "rpc_servers")) {
+            if (optval != NULL) {
+                grpc_servers_option = std::string(optval);
+            }
+        }
+    }
+
+    // Set params.n_parallel from environment variable if not set via options (fallback)
+    if (params.n_parallel == 1) {
+        const char *env_parallel = std::getenv("LLAMACPP_PARALLEL");
+        if (env_parallel != NULL) {
+            try {
+                params.n_parallel = std::stoi(env_parallel);
+                if (params.n_parallel > 1) {
+                    params.cont_batching = true;
+                }
+            } catch (const std::exception& e) {
+                // If conversion fails, keep default value (1)
+            }
+        }
+    }
+
+    // Add RPC devices from option or environment variable (fallback)
+    if (!grpc_servers_option.empty()) {
+        add_rpc_devices(grpc_servers_option);
+    } else {
+        const char *llama_grpc_servers = std::getenv("LLAMACPP_GRPC_SERVERS");
+        if (llama_grpc_servers != NULL) {
+            add_rpc_devices(std::string(llama_grpc_servers));
         }
     }
 
