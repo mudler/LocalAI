@@ -23049,3 +23049,22 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "gigsama-tool-call-v2"
+  urls:
+    - https://huggingface.co/skaffum/gigsama-tool-call-v2-gguf
+  description: |
+    The model **gigsama-tool-call-v2-gguf** is a quantized version of a larger language model fine-tuned for tool calling capabilities, specifically designed to interact with external tools in a structured and reliable manner. It is based on a foundational LLM architecture (likely a variant of Llama or similar) and has been further optimized for tasks involving API calls, function execution, and reasoning in tool-augmented workflows.
+
+    The "gguf" suffix indicates that this is a quantized model format (developed by the GGUF project), which allows for efficient inference on consumer hardware such as CPUs and lower-end GPUs. The original model was likely trained or fine-tuned by the **GigSama** team (or community contributors) to improve performance in tool-use scenarios, such as dynamic data retrieval, code execution, or API integration.
+
+    Important note: This is **not** the original model authored by the foundational model provider. It is a downstream, quantized variant created for accessibility and performance, and therefore lacks the original author’s full technical documentation. For the base, unquantized model and original training details, you should refer to the original repository or model card from the base architecture (e.g., Llama 3, Mistral, etc.) used in the training pipeline.
+
+    This model is ideal for developers and researchers seeking lightweight, efficient tool-use inference with minimal hardware requirements.
+  overrides:
+    parameters:
+      model: Merged-Model-1.7B-Q4_K_M.gguf
+  files:
+    - filename: Merged-Model-1.7B-Q4_K_M.gguf
+      sha256: bdd7c1d93bd7fa5fb8524a5c386aa6c828e4a62a9ac0e6159b56b4cf5a044629
+      uri: huggingface://skaffum/gigsama-tool-call-v2-gguf/Merged-Model-1.7B-Q4_K_M.gguf
