@@ -23049,3 +23049,12 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "aquif-3.5-max-42b-a3b"
+  urls:
+    - https://huggingface.co/CoruNethron/aquif-3.5-Max-42B-A3B-Q4_K_M-GGUF
+  description: |
+    AI model: aquif-3.5-max-42b-a3b
+  overrides:
+    parameters:
+      model: CoruNethron/aquif-3.5-Max-42B-A3B-Q4_K_M-GGUF
