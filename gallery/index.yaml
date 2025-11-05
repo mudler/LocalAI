@@ -23049,3 +23049,16 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "maya1"
+  urls:
+    - https://huggingface.co/Mungert/maya1-GGUF
+  description: |
+    AI model: maya1
+  overrides:
+    parameters:
+      model: maya1-q4_k_m.gguf
+  files:
+    - filename: maya1-q4_k_m.gguf
+      sha256: 3011979df72c9905853a699dca8d00e317598c80af231b6a0f5f0105f2ea9736
+      uri: huggingface://Mungert/maya1-GGUF/maya1-q4_k_m.gguf
