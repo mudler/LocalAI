@@ -23049,3 +23049,35 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *qwenimage
+  name: "hunyuanimage-2.1-reprompt"
+  urls:
+    - https://huggingface.co/imikeliu/HunyuanImage-2.1-reprompt-gguf
+  description: |
+    **HunyuanImage-2.1**
+    *An Efficient 2K Text-to-Image Diffusion Model by Tencent Hunyuan*
+
+    HunyuanImage-2.1 is a state-of-the-art, open-source text-to-image diffusion model capable of generating ultra-high-resolution (2K, 2048×2048) images with exceptional detail and semantic accuracy. Built on a dual-stage architecture—featuring a powerful base model and a high-fidelity refiner—it excels in text-image alignment, multilingual support (Chinese and English), and complex scene understanding.
+
+    Key features:
+    - 🖼️ **2K Resolution Generation** with support for flexible aspect ratios (1:1, 16:9, 9:16, 4:3, etc.)
+    - 📝 **Prompt Enhancement (Reprompt)**: Automatically rewrites user prompts to improve visual quality and detail.
+    - 🧠 **Advanced Architecture**: Combines a multimodal LLM and character-aware ByT5 encoder for superior text rendering and semantic control.
+    - ⚡ **Efficient Inference**: Utilizes a high-compression VAE and meanflow distillation for fast, low-memory operation—even on 24GB GPUs via FP8 quantization.
+    - 📊 **Top-Tier Performance**: Achieves SOTA results on SSAE and GSB benchmarks, matching or exceeding closed-source models.
+
+    Ideal for creative professionals, researchers, and developers seeking high-quality, reliable, and efficient text-to-image generation with strong cross-lingual and compositional fidelity.
+
+    > **Model Type**: Text-to-Image Diffusion
+    > **License**: [Tencent Hunyuan Community License](https://github.com/Tencent-Hunyuan/HunyuanImage-2.1/blob/master/LICENSE)
+    > **Repository**: [Tencent-Hunyuan/HunyuanImage-2.1](https://github.com/Tencent-Hunyuan/HunyuanImage-2.1)
+    > **Demo**: [Try it live](https://huggingface.co/spaces/tencent/HunyuanImage-2.1)
+
+    *Note: The GGUF version in `imikeliu/HunyuanImage-2.1-reprompt-gguf` is a quantized conversion of this original model. The full model capabilities are best experienced with the official PyTorch implementation.*
+  overrides:
+    parameters:
+      model: reprompt-Q2_K.gguf
+  files:
+    - filename: reprompt-Q2_K.gguf
+      sha256: 9e6ef1dd5ef395acdb5f95e1f2397ed6bf491ee258776e77b1e0703608e820cd
+      uri: huggingface://imikeliu/HunyuanImage-2.1-reprompt-gguf/reprompt-Q2_K.gguf
