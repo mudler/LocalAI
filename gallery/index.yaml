@@ -23075,3 +23075,38 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "kalm-embedding-gemma3-12b-2511-i1"
+  urls:
+    - https://huggingface.co/mradermacher/KaLM-Embedding-Gemma3-12B-2511-i1-GGUF
+  description: |
+    **KaLM-Embedding-Gemma3-12B-2511** is a high-performance, open-source embedding model developed by Tencent, based on Google's **Gemma 3 12B** foundation. It is specifically fine-tuned for semantic retrieval and text similarity tasks, achieving state-of-the-art results on the **MMTEB (Multilingual Multitask Evaluation Benchmark)**, ranking **#1 overall** with a Borda score of 72.32.
+
+    ### Key Features:
+    - **Model Size**: 11.76B parameters
+    - **Embedding Dimension**: 3,840 (highly expressive, suitable for complex tasks)
+    - **Max Input Length**: 32,000 tokens (ideal for long-context applications)
+    - **Pooling Strategy**: Last-token pooling
+    - **Supported Tasks**: Retrieval, Reranking, Classification, Clustering, Multilabel Classification, and Instruction-based Embedding
+    - **Optimized for**: Semantic search, question answering, document similarity, and multilingual applications
+
+    ### Use Cases:
+    - High-accuracy document retrieval and search
+    - Enterprise-grade question-answering systems
+    - Large-scale clustering and categorization
+    - Integration with frameworks like **sentence-transformers** and **vLLM** for scalable inference
+
+    ### Model Access:
+    - **Hugging Face**: [`tencent/KaLM-Embedding-Gemma3-12B-2511`](https://huggingface.co/tencent/KaLM-Embedding-Gemma3-12B-2511)
+    - **Paper**: [KaLM-Embedding: Superior Training Data Brings A Stronger Embedding Model (arXiv:2501.01028)](https://arxiv.org/abs/2501.01028)
+
+    > 📌 *Note: The model is available in GGUF format (e.g., `mradermacher/KaLM-Embedding-Gemma3-12B-2511-i1-GGUF`) for efficient local inference, but the original, full-precision model is hosted at the official Hugging Face repository above.*
+
+    Perfect for researchers and developers seeking powerful, scalable, and accurate embedding capabilities with strong multilingual and long-context support.
+  overrides:
+    parameters:
+      model: KaLM-Embedding-Gemma3-12B-2511.i1-Q4_K_M.gguf
+  files:
+    - filename: KaLM-Embedding-Gemma3-12B-2511.i1-Q4_K_M.gguf
+      sha256: e75dcbe5132dabccd9fac0920bfc5c4de6e9d13a39be128ce0384ec2a27de189
+      uri: huggingface://mradermacher/KaLM-Embedding-Gemma3-12B-2511-i1-GGUF/KaLM-Embedding-Gemma3-12B-2511.i1-Q4_K_M.gguf
