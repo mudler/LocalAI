@@ -46,6 +46,7 @@ type ModelConfig struct {
 	functionCallString, functionCallNameString string                 `yaml:"-" json:"-"`
 	ResponseFormat                             string                 `yaml:"-" json:"-"`
 	ResponseFormatMap                          map[string]interface{} `yaml:"-" json:"-"`
+	JsonSchema                                 string                 `yaml:"-" json:"-"` // JSON schema string (when use_llama_grammar is enabled)
 
 	FunctionsConfig functions.FunctionsConfig `yaml:"function" json:"function"`
 
@@ -497,6 +498,24 @@ func (c *ModelConfig) HasTemplate() bool {
 
 func (c *ModelConfig) GetModelConfigFile() string {
 	return c.modelConfigFile
+}
+
+// HasOption checks if a specific option is enabled in the Options slice
+// Option format can be "option_name" or "option_name:value"
+func (c *ModelConfig) HasOption(optionName string) bool {
+	for _, opt := range c.Options {
+		// Split by colon to get option name and value
+		parts := strings.SplitN(opt, ":", 2)
+		if len(parts) > 0 && parts[0] == optionName {
+			// Check if value is truthy (if provided)
+			if len(parts) == 1 {
+				return true // No value means enabled
+			}
+			value := strings.ToLower(strings.TrimSpace(parts[1]))
+			return value == "true" || value == "1" || value == "yes" || value == "on" || value == "enabled"
+		}
+	}
+	return false
 }
 
 type ModelConfigUsecases int

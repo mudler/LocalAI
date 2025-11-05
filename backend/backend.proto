@@ -154,6 +154,7 @@ message PredictOptions {
   repeated string Videos = 45;
   repeated string Audios = 46;
   string CorrelationId = 47;
+  string JsonSchema = 48;  // JSON schema for grammar generation (when use_llama_grammar is enabled)
 }
 
 // The response message containing the result

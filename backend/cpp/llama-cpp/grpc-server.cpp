@@ -91,7 +91,7 @@ static void start_llama_server(server_context& ctx_server) {
     ctx_server.queue_tasks.start_loop();
 }
 
-json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server)
+json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server, bool use_llama_grammar = false)
 {
     
     // Create now a json data from the prediction options instead
@@ -113,7 +113,43 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["mirostat_eta"] = predict->mirostateta();
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
-    data["grammar"] = predict->grammar();
+    
+    // Handle grammar/json_schema based on use_llama_grammar flag
+    // Priority: JsonSchema field > grammar field (when use_llama_grammar is enabled)
+    std::string json_schema_str = predict->jsonschema();
+    std::string grammar_str = predict->grammar();
+    
+    if (!json_schema_str.empty()) {
+        // JsonSchema field is set - use it directly (highest priority)
+        try {
+            json json_schema_obj = json::parse(json_schema_str);
+            data["json_schema"] = json_schema_obj;
+            // Don't set grammar when json_schema is provided (llama.cpp requirement)
+        } catch (const json::parse_error& e) {
+            // If json_schema is invalid JSON, fall back to grammar
+            if (!grammar_str.empty()) {
+                data["grammar"] = grammar_str;
+            }
+        }
+    } else if (use_llama_grammar && !grammar_str.empty()) {
+        // use_llama_grammar is enabled and no JsonSchema field - try to parse grammar as JSON
+        // This is a fallback for backward compatibility
+        try {
+            json test_json = json::parse(grammar_str);
+            // If parsing succeeds, it's JSON - pass as json_schema
+            data["json_schema"] = test_json;
+            // Don't set grammar when json_schema is provided (llama.cpp requirement)
+        } catch (const json::parse_error&) {
+            // Not valid JSON, use as regular grammar
+            data["grammar"] = grammar_str;
+        }
+    } else {
+        // Normal behavior: use grammar as-is
+        if (!grammar_str.empty()) {
+            data["grammar"] = grammar_str;
+        }
+    }
+    
     // Only set prompt if UseTokenizerTemplate is false or if no Messages are provided
     // When UseTokenizerTemplate is true and Messages are provided, prompt will be set via chat templates in Predict/PredictStream
     if (!predict->usetokenizertemplate() || predict->messages_size() == 0) {
@@ -121,8 +157,6 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     }
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
-    // TODO: add back json_schema and let this be controlled by the user
-    // data["json_schema"] = predict->jsonschema();
 
     // Add the correlationid to json data
     data["correlation_id"] = predict->correlationid();
@@ -233,7 +267,7 @@ static void add_rpc_devices(std::string servers) {
 }
 
 static void params_parse(server_context& ctx_server, const backend::ModelOptions* request,
-                                common_params & params) {
+                                common_params & params, bool& use_llama_grammar_out) {
    
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
 
@@ -307,6 +341,25 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
             }
         }
     }
+    
+    // Parse use_llama_grammar option separately since we need to store it in BackendServiceImpl
+    // We'll set it in LoadModel after parsing options
+    bool use_llama_grammar_option = false;
+    for (int i = 0; i < request->options_size(); i++) {
+        std::string opt = request->options(i);
+        char *optname = strtok(&opt[0], ":");
+        char *optval = strtok(NULL, ":");
+        if (optval == NULL) {
+            optval = "true";
+        }
+        
+        if (!strcmp(optname, "use_llama_grammar") || !strcmp(optname, "llama_grammar")) {
+            if (!strcmp(optval, "true") || !strcmp(optval, "1") || !strcmp(optval, "yes") || !strcmp(optval, "on") || !strcmp(optval, "enabled")) {
+                use_llama_grammar_option = true;
+            }
+        }
+    }
+    use_llama_grammar_out = use_llama_grammar_option;
 
     // Set params.n_parallel from environment variable if not set via options (fallback)
     if (params.n_parallel == 1) {
@@ -438,6 +491,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
 class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
+    bool use_llama_grammar = false; // Flag to enable llama.cpp grammar generation from json_schema
 
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
@@ -451,7 +505,9 @@ public:
     grpc::Status LoadModel(ServerContext* context, const backend::ModelOptions* request, backend::Result* result) {
         // Implement LoadModel RPC
         common_params params;
-        params_parse(ctx_server, request, params);
+        bool use_llama_grammar_flag = false;
+        params_parse(ctx_server, request, params, use_llama_grammar_flag);
+        use_llama_grammar = use_llama_grammar_flag;
 
         common_init();
 
@@ -513,7 +569,7 @@ public:
     }
 
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
-        json data = parse_options(true, request, ctx_server);
+        json data = parse_options(true, request, ctx_server, use_llama_grammar);
 
 
         //Raise error if embeddings is set to true
@@ -541,15 +597,28 @@ public:
                 }
 
                 // Parse messages using llama.cpp's chat message parser
+                // This will automatically extract tool_calls from messages if they are embedded in the JSON
+                // (tool_calls are typically embedded in assistant messages in OpenAI format)
                 auto chat_messages = common_chat_msgs_parse_oaicompat(messages_json);
 
                 // Prepare chat template inputs
                 common_chat_templates_inputs inputs;
                 inputs.messages = chat_messages;
-                inputs.grammar = data.value("grammar", "");
+                // Grammars are fully supported - passed from request->grammar() or request->jsonschema()
+                // When json_schema is provided, it takes precedence over grammar
+                if (data.contains("json_schema")) {
+                    // json_schema is already a JSON object in data, convert to string for inputs
+                    inputs.json_schema = data["json_schema"].dump();
+                    inputs.grammar = ""; // Don't set grammar when json_schema is provided (llama.cpp requirement)
+                } else {
+                    inputs.grammar = data.value("grammar", "");
+                    inputs.json_schema = ""; // Not provided, use empty string
+                }
                 inputs.use_jinja = ctx_server.params_base.use_jinja;
                 inputs.add_generation_prompt = true;
                 inputs.chat_template_kwargs = ctx_server.params_base.default_template_kwargs;
+                // Tool calls are embedded in messages and will be parsed by common_chat_msgs_parse_oaicompat
+                // tools and tool_choice use defaults (empty tools vector, COMMON_CHAT_TOOL_CHOICE_AUTO)
 
                 // Apply chat template
                 auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
@@ -695,7 +764,7 @@ public:
     }
 
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
-         json data = parse_options(true, request, ctx_server);
+         json data = parse_options(true, request, ctx_server, use_llama_grammar);
 
         data["stream"] = false;
         //Raise error if embeddings is set to true
@@ -722,15 +791,28 @@ public:
                 }
 
                 // Parse messages using llama.cpp's chat message parser
+                // This will automatically extract tool_calls from messages if they are embedded in the JSON
+                // (tool_calls are typically embedded in assistant messages in OpenAI format)
                 auto chat_messages = common_chat_msgs_parse_oaicompat(messages_json);
 
                 // Prepare chat template inputs
                 common_chat_templates_inputs inputs;
                 inputs.messages = chat_messages;
-                inputs.grammar = data.value("grammar", "");
+                // Grammars are fully supported - passed from request->grammar() or request->jsonschema()
+                // When json_schema is provided, it takes precedence over grammar
+                if (data.contains("json_schema")) {
+                    // json_schema is already a JSON object in data, convert to string for inputs
+                    inputs.json_schema = data["json_schema"].dump();
+                    inputs.grammar = ""; // Don't set grammar when json_schema is provided (llama.cpp requirement)
+                } else {
+                    inputs.grammar = data.value("grammar", "");
+                    inputs.json_schema = ""; // Not provided, use empty string
+                }
                 inputs.use_jinja = ctx_server.params_base.use_jinja;
                 inputs.add_generation_prompt = true;
                 inputs.chat_template_kwargs = ctx_server.params_base.default_template_kwargs;
+                // Tool calls are embedded in messages and will be parsed by common_chat_msgs_parse_oaicompat
+                // tools and tool_choice use defaults (empty tools vector, COMMON_CHAT_TOOL_CHOICE_AUTO)
 
                 // Apply chat template
                 auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
@@ -861,7 +943,7 @@ public:
 
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
 
-        json body = parse_options(false, request, ctx_server);
+        json body = parse_options(false, request, ctx_server, use_llama_grammar);
 
         body["stream"] = false;
 
@@ -1042,7 +1124,7 @@ public:
     }
 
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
-        json body = parse_options(false, request, ctx_server);
+        json body = parse_options(false, request, ctx_server, use_llama_grammar);
         body["stream"] = false;
         
         json tokens_response = json::array();
