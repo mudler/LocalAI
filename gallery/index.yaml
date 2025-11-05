@@ -23049,3 +23049,41 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "ring-1t-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-1T-i1-GGUF
+  description: |
+    **Model Name:** Ring-1T
+    **Base Model:** inclusionAI/Ring-1T
+    **Architecture:** Trillion-parameter MoE (Mixture of Experts) model based on the Ling 2.0 architecture
+    **Context Length:** Up to 128K tokens (supports YaRN scaling)
+    **License:** MIT
+    **Language:** English (multilingual support in development)
+    **Key Features:**
+    - One of the first open-source trillion-parameter reasoning models, designed for deep, step-by-step thinking.
+    - Trained with Verifiable Reward Reinforcement Learning (RLVR) and advanced techniques like Icepop for stable training.
+    - Achieves state-of-the-art performance in mathematical reasoning (AIME, IMO), coding (LiveCodeBench, ICPC), logical reasoning (ARC-AGI), and creative tasks.
+    - Excels in complex problem-solving—successfully solved multiple IMO problems at silver medal level in single attempts.
+    - Available in FP8 and BF16 formats for efficient deployment.
+
+    **Use Cases:**
+    - Advanced reasoning and problem-solving
+    - Long-form content generation with deep coherence
+    - Research and benchmarking in large-scale AI systems
+
+    **Access:**
+    - 📥 Download: [Hugging Face](https://huggingface.co/inclusionAI/Ring-1T) | [ModelScope](https://www.modelscope.cn/models/inclusionAI/Ring-1T)
+    - 💬 Try online: [ZenMux](https://zenmux.ai/inclusionai/ring-1t)
+    - 🔌 API: Compatible with OpenAI format via ZenMux
+
+    **Note:** The model is not quantized—this is the original, full-precision version. Quantized versions (e.g., GGUF) are community-derived and not from the original authors.
+
+    **Best For:** Researchers, developers, and AI enthusiasts seeking cutting-edge open-source reasoning capability at scale.
+  overrides:
+    parameters:
+      model: Ring-1T.i1-Q4_K_M.gguf.part01of13
+  files:
+    - filename: Ring-1T.i1-Q4_K_M.gguf.part01of13
+      sha256: d16af524859d440892a0b69b8ed9db12a27a8fb02c3ef77336948a5e9db8d0f8
+      uri: huggingface://mradermacher/Ring-1T-i1-GGUF/Ring-1T.i1-Q4_K_M.gguf.part01of13
