@@ -23049,3 +23049,33 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "scarlet-eclipse-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Scarlet-Eclipse-12B-i1-GGUF
+  description: |
+    **Scarlet-Eclipse-12B** is a 12-billion-parameter language model created through a custom, coherence-aware merging process using **MergeKit**. It combines the strengths of three base models:
+    - **Vortex5/LunaMaid-12B** (base)
+    - **Vortex5/Crimson-Twilight-12B**
+    - **Vortex5/Harmony-Bird-12B**
+
+    The merge employs a directional "flowforge" method that intelligently shifts the base model along a weighted consensus direction defined by its donor models, preserving structural integrity while enhancing narrative depth and roleplay capabilities.
+
+    **Key Features:**
+    - Optimized for **rich storytelling and immersive roleplay**
+    - Uses **bfloat16 precision** for high-quality inference
+    - Tokenizer inherited from LunaMaid-12B
+    - Designed to deliver evocative, stylistically cohesive responses
+
+    **Notable For:**
+    - A balanced fusion of emotional depth, creativity, and coherence
+    - Ideal for fictional dialogue, world-building, and character-driven interaction
+
+    > ✅ *This is the original, unquantized model. Quantized versions (e.g., GGUF) are derived from this base by third parties (e.g., mradermacher) for efficient deployment.*
+  overrides:
+    parameters:
+      model: Scarlet-Eclipse-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Scarlet-Eclipse-12B.i1-Q4_K_M.gguf
+      sha256: 14dd1eb102df07ec26789e3ef2785cce9561a4a490f8c19089ae84ab2459f411
+      uri: huggingface://mradermacher/Scarlet-Eclipse-12B-i1-GGUF/Scarlet-Eclipse-12B.i1-Q4_K_M.gguf
