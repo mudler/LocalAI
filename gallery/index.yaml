@@ -23049,3 +23049,26 @@
     - filename: YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
       sha256: 0a599099e93ad521045e17d82365a73c1738fff0603d6cb2c9557e96fbc907cb
       uri: huggingface://mradermacher/YanoljaNEXT-Rosetta-27B-2511-i1-GGUF/YanoljaNEXT-Rosetta-27B-2511.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "openpangu-embedded-7b-v1.1"
+  urls:
+    - https://huggingface.co/noctrex/openPangu-Embedded-7B-V1.1-GGUF
+  description: |
+    The **openPangu-Embedded-7B-V1.1** is a 7-billion-parameter language model developed by FreedomIntelligence, designed for efficient, high-performance text generation in embedded and resource-constrained environments. It is optimized for low-latency inference while maintaining strong reasoning and language capabilities. The model is based on the Pangu architecture, with enhancements tailored for compact deployment and real-time applications.
+
+    This version is a GGUF-quantized variant (available via the `noctrex/openPangu-Embedded-7B-V1.1-GGUF` repository), meaning it has been compressed for smaller memory footprint and faster inference on local hardware — ideal for edge devices and offline use. However, the original, unquantized model (from [FreedomIntelligence/openPangu-Embedded-7B-V1.1](https://huggingface.co/FreedomIntelligence/openPangu-Embedded-7B-V1.1)) should be referenced for the full, original model description, training details, and performance benchmarks.
+
+    **Key Features:**
+    - 7B parameters, optimized for efficiency
+    - High performance in reasoning, coding, and multilingual tasks
+    - Designed for deployment on edge devices and local systems
+    - Available in multiple quantization levels (GGUF format)
+
+    **Ideal for:** Developers and researchers seeking a compact, powerful, and locally deployable LLM with strong performance. Use the original repository for training details and full model behavior.
+  overrides:
+    parameters:
+      model: openPangu-Embedded-7B-V1.1-Q4_K_M.gguf
+  files:
+    - filename: openPangu-Embedded-7B-V1.1-Q4_K_M.gguf
+      sha256: 1caa06329bca3d2786d8a137ce63d075fb46dcbf933ccad22df12229544a0839
+      uri: huggingface://noctrex/openPangu-Embedded-7B-V1.1-GGUF/openPangu-Embedded-7B-V1.1-Q4_K_M.gguf
