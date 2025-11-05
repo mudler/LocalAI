@@ -57,9 +57,8 @@ static void start_llama_server(server_context& ctx_server) {
     //     common_chat_templates_source(ctx_server.chat_templates.get()),
     //     common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja).c_str(), ctx_server.params_base.default_template_kwargs);
 
-    // Reset the chat templates
-    // TODO: We should make this configurable by respecting the option that is already present in LocalAI for vLLM
-    ctx_server.chat_templates.reset();
+    // Keep the chat templates initialized in load_model() so they can be used when UseTokenizerTemplate is enabled
+    // Templates will only be used conditionally in Predict/PredictStream when UseTokenizerTemplate is true and Messages are provided
 
     ctx_server.queue_tasks.on_new_task([&ctx_server](server_task && task) {
         ctx_server.process_single_task(std::move(task));
@@ -115,7 +114,11 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
     data["grammar"] = predict->grammar();
-    data["prompt"] = predict->prompt();
+    // Only set prompt if UseTokenizerTemplate is false or if no Messages are provided
+    // When UseTokenizerTemplate is true and Messages are provided, prompt will be set via chat templates in Predict/PredictStream
+    if (!predict->usetokenizertemplate() || predict->messages_size() == 0) {
+        data["prompt"] = predict->prompt();
+    }
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
     // TODO: add back json_schema and let this be controlled by the user
@@ -524,7 +527,43 @@ public:
         try {
             std::vector<server_task> tasks;
 
-            const auto & prompt = data.at("prompt");
+            std::string prompt_str;
+            // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
+            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
+                // Convert proto Messages to JSON format
+                json messages_json = json::array();
+                for (int i = 0; i < request->messages_size(); i++) {
+                    const auto& msg = request->messages(i);
+                    json msg_json;
+                    msg_json["role"] = msg.role();
+                    msg_json["content"] = msg.content();
+                    messages_json.push_back(msg_json);
+                }
+
+                // Parse messages using llama.cpp's chat message parser
+                auto chat_messages = common_chat_msgs_parse_oaicompat(messages_json);
+
+                // Prepare chat template inputs
+                common_chat_templates_inputs inputs;
+                inputs.messages = chat_messages;
+                inputs.grammar = data.value("grammar", "");
+                inputs.use_jinja = ctx_server.params_base.use_jinja;
+                inputs.add_generation_prompt = true;
+                inputs.chat_template_kwargs = ctx_server.params_base.default_template_kwargs;
+
+                // Apply chat template
+                auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
+                prompt_str = chat_params.prompt;
+            } else {
+                // Use prompt directly from data
+                if (data.contains("prompt") && data["prompt"].is_string()) {
+                    prompt_str = data["prompt"].get<std::string>();
+                } else {
+                    prompt_str = request->prompt();
+                }
+            }
+
+            const auto & prompt = prompt_str;
             const auto type = SERVER_TASK_TYPE_COMPLETION;
             // TODO: this log can become very long, put it behind a flag or think about a more compact format
             //SRV_DBG("Prompt: %s\n", prompt.is_string() ? prompt.get<std::string>().c_str() : prompt.dump(2).c_str());
@@ -554,16 +593,12 @@ public:
 
             // process prompt
             std::vector<server_tokens> inputs;
-            if (!prompt.is_string()) {
-                throw std::runtime_error("prompt must be a string");
-            }
-
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt_str, files));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
+                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt_str, true, true);
             }
 
             tasks.reserve(inputs.size());
@@ -673,7 +708,43 @@ public:
         try {
             std::vector<server_task> tasks;
 
-            const auto & prompt = data.at("prompt");
+            std::string prompt_str;
+            // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
+            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
+                // Convert proto Messages to JSON format
+                json messages_json = json::array();
+                for (int i = 0; i < request->messages_size(); i++) {
+                    const auto& msg = request->messages(i);
+                    json msg_json;
+                    msg_json["role"] = msg.role();
+                    msg_json["content"] = msg.content();
+                    messages_json.push_back(msg_json);
+                }
+
+                // Parse messages using llama.cpp's chat message parser
+                auto chat_messages = common_chat_msgs_parse_oaicompat(messages_json);
+
+                // Prepare chat template inputs
+                common_chat_templates_inputs inputs;
+                inputs.messages = chat_messages;
+                inputs.grammar = data.value("grammar", "");
+                inputs.use_jinja = ctx_server.params_base.use_jinja;
+                inputs.add_generation_prompt = true;
+                inputs.chat_template_kwargs = ctx_server.params_base.default_template_kwargs;
+
+                // Apply chat template
+                auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
+                prompt_str = chat_params.prompt;
+            } else {
+                // Use prompt directly from data
+                if (data.contains("prompt") && data["prompt"].is_string()) {
+                    prompt_str = data["prompt"].get<std::string>();
+                } else {
+                    prompt_str = request->prompt();
+                }
+            }
+
+            const auto & prompt = prompt_str;
             const auto type = SERVER_TASK_TYPE_COMPLETION;
             // TODO: this log can become very long, put it behind a flag or think about a more compact format
             //SRV_DBG("Prompt: %s\n", prompt.is_string() ? prompt.get<std::string>().c_str() : prompt.dump(2).c_str());
@@ -708,17 +779,12 @@ public:
 
             // process prompt
             std::vector<server_tokens> inputs;
-            if (!prompt.is_string()) {
-                std::cout << "[PREDICT] Prompt must be a string" << std::endl;
-                throw std::runtime_error("prompt must be a string");
-            }
-
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt.get<std::string>(), files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt_str, files));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
+                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt_str, true, true);
             }
 
             tasks.reserve(inputs.size());
