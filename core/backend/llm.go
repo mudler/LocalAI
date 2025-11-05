@@ -96,6 +96,7 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 		opts.Prompt = s
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
+		opts.JsonSchema = c.JsonSchema
 		opts.Images = images
 		opts.Videos = videos
 		opts.Audios = audios

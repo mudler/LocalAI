@@ -493,7 +493,7 @@ func (c *ModelConfig) Validate() bool {
 }
 
 func (c *ModelConfig) HasTemplate() bool {
-	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
+	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != "" || c.TemplateConfig.UseTokenizerTemplate
 }
 
 func (c *ModelConfig) GetModelConfigFile() string {
