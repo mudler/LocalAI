@@ -23075,3 +23075,33 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "chrysologus-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Chrysologus-12B-i1-GGUF
+  description: |
+    **Model Name:** Chrysologus-12B
+    **Repository:** [Retreatcost/Chrysologus-12B](https://huggingface.co/Retreatcost/Chrysologus-12B)
+    **Base Model:** Merged from three 12B parameter LLMs using MergeKit
+    **Architecture:** Llama-based (12B parameters)
+    **License:** Apache 2.0
+    **Language:** English
+
+    ### Description:
+    Chrysologus-12B is a high-quality, instruction-following language model created by merging three prominent 12B-scale LLMs—**EtherealAurora-12B**, **Impish_Longtail_12B**, and **MN-Lyrebird-12B**—using the Karcher Mean method via MergeKit. The result is a model with strong narrative ability and improved instruction comprehension compared to its predecessors.
+
+    This model excels in creative storytelling and coherent text generation, with a reported **65.62% strict accuracy** on IFEval (0-shot) for text generation tasks.
+
+    > 💡 **Note:** The model at `mradermacher/Chrysologus-12B-i1-GGUF` is a quantized version of this base model, optimized for inference on consumer hardware. The original, full-precision version is available at `Retreatcost/Chrysologus-12B`.
+
+    ### Use Case:
+    Ideal for developers, researchers, and hobbyists seeking a powerful, open-source 12B model for creative writing, dialogue, and complex reasoning tasks—especially when deployed locally via GGUF quantization.
+
+    ✅ Open-source | ✅ Merged via Karcher Mean | ✅ Strong instruction following | ✅ Fully compatible with `transformers` and `llama.cpp`
+  overrides:
+    parameters:
+      model: Chrysologus-12B.i1-Q4_K_M.gguf
+  files:
+    - filename: Chrysologus-12B.i1-Q4_K_M.gguf
+      sha256: cb1ba49eacfce74fd9ca5b5c41080333d05832281e0ab35dde1b06f5ba047036
+      uri: huggingface://mradermacher/Chrysologus-12B-i1-GGUF/Chrysologus-12B.i1-Q4_K_M.gguf
