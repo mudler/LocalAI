@@ -23149,3 +23149,75 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "nv-reason-cxr-3b"
+  urls:
+    - https://huggingface.co/samwell/NV-Reason-CXR-3B-GGUF
+  description: |
+    **Model Name:** NV-Reason-CXR-3B
+    **Author:** NVIDIA
+    **Base Model:** Qwen2.5-VL-3B-Instruct
+    **License:** NSCLV1 (for research and educational use only)
+    **Model Type:** Vision-Language Model (VLM)
+    **Specialization:** Chest X-ray (CXR) analysis and medical reasoning
+
+    ---
+
+    ### 📌 Overview
+    NV-Reason-CXR-3B is a 3-billion-parameter vision-language model fine-tuned for detailed, step-by-step interpretation of chest X-ray images. It combines visual perception with clinical reasoning to generate structured, explainable outputs—ideal for medical education, research, and AI-driven radiology workflows.
+
+    ---
+
+    ### 🔍 Key Features
+    - **Medical Reasoning:** Produces transparent, chain-of-thought responses enclosed in `<thinking>` and `<answer>` tags.
+    - **Fine-Tuned for CXR:** Trained on large medical datasets (MIMIC-CXR, ChestXRay14, CheXpert) to detect abnormalities and support diagnostic reasoning.
+    - **High-Quality Outputs:** Delivers detailed, context-aware analysis of radiological findings with natural language explanations.
+    - **Flexible Input:** Accepts both chest X-ray images and natural language queries (e.g., “Identify lung opacities” or “Explain your findings”).
+
+    ---
+
+    ### ⚠️ Important Notes
+    - **Not for Clinical Use:** This model is **strictly for research, educational, and development purposes**.
+    - **Not FDA-approved:** Should **never be used** for clinical diagnosis, treatment decisions, or production medical applications.
+    - **Requires Expert Review:** All outputs must be validated by qualified healthcare professionals.
+
+    ---
+
+    ### 🛠️ Technical Details
+    - **Architecture:** Qwen2.5-VL-based Transformer
+    - **Input:** Image (JPEG/PNG), Text (prompt)
+    - **Output:** Structured text with reasoning steps
+    - **Framework:** Hugging Face Transformers (PyTorch)
+    - **Hardware:** Optimized for NVIDIA GPUs (A100, H100, L40S)
+    - **Quantized Version Available:** Yes (GGUF format, optimized for edge/mobile via llama.cpp)
+
+    ---
+
+    ### 📚 Use Cases
+    - Medical student training and AI-assisted learning
+    - Research in explainable AI for radiology
+    - Prototyping medical imaging tools
+    - Educational demonstrations of clinical reasoning
+
+    ---
+
+    ### 📌 Citation
+    ```bibtex
+    @misc{nvidia2024nvreasoncrx,
+      title={NV-Reason-CXR-3B: A Specialized Vision-Language Model for Chest X-ray Analysis},
+      author={NVIDIA},
+      year={2024},
+      publisher={Hugging Face},
+      url={https://huggingface.co/nvidia/NV-Reason-CXR-3B}
+    }
+    ```
+
+    > ✅ **Model Card Source:** [nvidia/NV-Reason-CXR-3B](https://huggingface.co/nvidia/NV-Reason-CXR-3B)
+    > ❌ *Note: The GGUF version (samwell/NV-Reason-CXR-3B-GGUF) is a quantized derivative—this description reflects the original, full-precision model.*
+  overrides:
+    parameters:
+      model: nv-reason-cxr-3b-Q4_K_M.gguf
+  files:
+    - filename: nv-reason-cxr-3b-Q4_K_M.gguf
+      sha256: 2afda03db80955d1dd908f6628f8203da7944c1d21b1dccac1a8d35377bcb508
+      uri: huggingface://samwell/NV-Reason-CXR-3B-GGUF/nv-reason-cxr-3b-Q4_K_M.gguf
