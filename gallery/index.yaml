@@ -23149,3 +23149,33 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-claude-4.5-sonnet-high-reasoning-distill"
+  urls:
+    - https://huggingface.co/TeichAI/gpt-oss-20b-claude-4.5-sonnet-high-reasoning-distill-GGUF
+  description: |
+    **Model Name:** gpt-oss-20b
+    **Repository:** `openai/gpt-oss-20b`
+    **Base Model:** OpenAI’s open-weight 20-billion-parameter model (21B total, 3.6B active parameters)
+    **License:** Apache 2.0 (free for commercial and research use)
+    **Architecture:** Transformer-based, with MoE (Mixture of Experts) layer trained in native MXFP4 precision
+    **Key Features:**
+    - Designed for high reasoning, agentic tasks, and complex problem-solving
+    - Supports configurable reasoning levels: Low, Medium, High (adjustable via system prompt)
+    - Native support for function calling, web browsing, Python code execution, and structured outputs
+    - Full chain-of-thought access for transparency and debugging
+    - Optimized for efficiency: Runs efficiently within 16GB of memory
+    - Compatible with major inference frameworks: Transformers, vLLM, Ollama, LM Studio, llama.cpp (GGUF), and more
+
+    **Use Cases:**
+    Ideal for developers and researchers building AI agents, reasoning systems, and customizable LLM applications. Perfect for local deployment and fine-tuning on consumer-grade hardware.
+
+    **Official Resources:**
+    - [Model Card](https://openai.com/index/introducing-gpt-oss/)
+    - [Documentation & Guides](https://docs.unsloth.ai/basics/gpt-oss)
+    - [GitHub Repository](https://github.com/openai/gpt-oss)
+
+    > ✅ *Note:* The `TeichAI/gpt-oss-20b-claude-4.5-sonnet-high-reasoning-distill-GGUF` model is a **quantized, fine-tuned variant** trained on Claude 4.5 reasoning data. The original `openai/gpt-oss-20b` is the true base model with official specifications and licensing.
+  overrides:
+    parameters:
+      model: TeichAI/gpt-oss-20b-claude-4.5-sonnet-high-reasoning-distill-GGUF
