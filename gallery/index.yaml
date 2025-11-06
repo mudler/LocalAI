@@ -23149,3 +23149,16 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "aya-8b-1k-32r-150epoch"
+  urls:
+    - https://huggingface.co/SirAB/aya-8b-1k-32r-150epoch-gguf
+  description: |
+    AI model: aya-8b-1k-32r-150epoch
+  overrides:
+    parameters:
+      model: aya-8b-gguf.q4_k_m.gguf
+  files:
+    - filename: aya-8b-gguf.q4_k_m.gguf
+      sha256: 77a07b6cb0c51044303f2939911f6ca996992320e412a3ce209e62f981319076
+      uri: huggingface://SirAB/aya-8b-1k-32r-150epoch-gguf/aya-8b-gguf.q4_k_m.gguf
