@@ -27,8 +27,6 @@ using grpc::Status;
 // END LocalAI
 
 
-
-
 /////////////////////////////////
 ////////////////////////////////
 //////// LOCALAI code starts below here
@@ -36,6 +34,14 @@ using grpc::Status;
 ////////////////////////////////
 
 bool loaded_model; // TODO: add a mutex for this, but happens only once loading the model
+
+// Forward declarations
+static void start_llama_server(server_context& ctx_server);
+static json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server);
+static ggml_type kv_cache_type_from_str(const std::string & s);
+static std::string get_all_kv_cache_types();
+static void add_rpc_devices(std::string servers);
+static void params_parse(server_context& ctx_server, const backend::ModelOptions* request, common_params & params);
 
 static void start_llama_server(server_context& ctx_server) {
 
@@ -307,6 +313,9 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     params.cpuparams.n_threads = request->threads();
     params.n_gpu_layers = request->ngpulayers();
     params.n_batch = request->nbatch();
+    params.verbosity = INT_MAX;
+    // Enable all debug logs by setting verbosity threshold to maximum
+    common_log_set_verbosity_thold(INT_MAX);
     params.n_ubatch = request->nbatch(); // fixes issue with reranking models being limited to 512 tokens (the default n_ubatch size); allows for setting the maximum input amount of tokens thereby avoiding this error "input is too large to process. increase the physical batch size"
     
     // Initialize ctx_shift to false by default (can be overridden by options)
@@ -511,6 +520,8 @@ public:
         params_parse(ctx_server, request, params);
 
         common_init();
+        // Ensure debug logs are enabled after common_init() sets up logging
+        common_log_set_verbosity_thold(params.verbosity);
 
         llama_backend_init();
         llama_numa_init(params.numa);
@@ -587,13 +598,38 @@ public:
             std::string prompt_str;
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
-                // Convert proto Messages to JSON format
+                // Convert proto Messages to JSON format compatible with common_chat_msgs_parse_oaicompat
                 json messages_json = json::array();
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
-                    msg_json["content"] = msg.content();
+                    
+                    // Handle content - can be string, null, or array
+                    if (!msg.content().empty()) {
+                        msg_json["content"] = msg.content();
+                    }
+                    
+                    // Add optional fields for OpenAI-compatible message format
+                    if (!msg.name().empty()) {
+                        msg_json["name"] = msg.name();
+                    }
+                    if (!msg.tool_call_id().empty()) {
+                        msg_json["tool_call_id"] = msg.tool_call_id();
+                    }
+                    if (!msg.reasoning_content().empty()) {
+                        msg_json["reasoning_content"] = msg.reasoning_content();
+                    }
+                    if (!msg.tool_calls().empty()) {
+                        // Parse tool_calls JSON string and add to message
+                        try {
+                            json tool_calls = json::parse(msg.tool_calls());
+                            msg_json["tool_calls"] = tool_calls;
+                        } catch (const json::parse_error& e) {
+                            SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
+                        }
+                    }
+                    
                     messages_json.push_back(msg_json);
                 }
 
@@ -781,13 +817,41 @@ public:
             std::string prompt_str;
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
-                // Convert proto Messages to JSON format
+                // Convert proto Messages to JSON format compatible with common_chat_msgs_parse_oaicompat
                 json messages_json = json::array();
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
-                    msg_json["content"] = msg.content();
+                    
+                    // Handle content - can be string, null, or array
+                    if (msg.content().empty() && !msg.tool_calls().empty()) {
+                        // Tool call messages may have null content
+                        msg_json["content"] = json();
+                    } else {
+                        msg_json["content"] = msg.content();
+                    }
+                    
+                    // Add optional fields for OpenAI-compatible message format
+                    if (!msg.name().empty()) {
+                        msg_json["name"] = msg.name();
+                    }
+                    if (!msg.tool_call_id().empty()) {
+                        msg_json["tool_call_id"] = msg.tool_call_id();
+                    }
+                    if (!msg.reasoning_content().empty()) {
+                        msg_json["reasoning_content"] = msg.reasoning_content();
+                    }
+                    if (!msg.tool_calls().empty()) {
+                        // Parse tool_calls JSON string and add to message
+                        try {
+                            json tool_calls = json::parse(msg.tool_calls());
+                            msg_json["tool_calls"] = tool_calls;
+                        } catch (const json::parse_error& e) {
+                            SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
+                        }
+                    }
+                    
                     messages_json.push_back(msg_json);
                 }
 

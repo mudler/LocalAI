@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
@@ -34,7 +33,7 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages []schema.Message, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, jsonSchema string) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, jsonSchema string) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
@@ -64,42 +63,8 @@ func ModelInference(ctx context.Context, s string, messages []schema.Message, im
 	var protoMessages []*proto.Message
 	// if we are using the tokenizer template, we need to convert the messages to proto messages
 	// unless the prompt has already been tokenized (non-chat endpoints + functions)
-	if c.TemplateConfig.UseTokenizerTemplate && s == "" {
-		protoMessages = make([]*proto.Message, len(messages))
-		for i, message := range messages {
-			protoMessages[i] = &proto.Message{
-				Role: message.Role,
-			}
-			// Handle message content - can be nil for tool call messages
-			if message.Content == nil {
-				// Tool call messages might have nil content, use empty string
-				protoMessages[i].Content = ""
-			} else {
-				switch ct := message.Content.(type) {
-				case string:
-					protoMessages[i].Content = ct
-				case []interface{}:
-					// If using the tokenizer template, in case of multimodal we want to keep the multimodal content as and return only strings here
-					data, _ := json.Marshal(ct)
-					resultData := []struct {
-						Text string `json:"text"`
-					}{}
-					json.Unmarshal(data, &resultData)
-					for _, r := range resultData {
-						protoMessages[i].Content += r.Text
-					}
-				default:
-					// For other types, try to convert to string or use empty string
-					if str, ok := ct.(string); ok {
-						protoMessages[i].Content = str
-					} else {
-						// Log warning but don't fail - use empty string for unsupported types
-						log.Warn().Msgf("unsupported type for schema.Message.Content for inference: %T, using empty string", ct)
-						protoMessages[i].Content = ""
-					}
-				}
-			}
-		}
+	if c.TemplateConfig.UseTokenizerTemplate && len(messages) > 0 {
+		protoMessages = messages.ToProto()
 	}
 
 	// in GRPC, the backend is supposed to answer to 1 single token if stream is not supported

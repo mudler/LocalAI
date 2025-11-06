@@ -86,10 +86,6 @@ func (e *Evaluator) EvaluateTemplateForPrompt(templateType TemplateType, config 
 		return in.Input, nil
 	}
 
-	if config.TemplateConfig.JinjaTemplate {
-		return e.evaluateJinjaTemplateForPrompt(templateType, template, in)
-	}
-
 	return e.cache.evaluateTemplate(templateType, template, in)
 }
 
@@ -97,72 +93,7 @@ func (e *Evaluator) evaluateTemplateForChatMessage(templateName string, messageD
 	return e.cache.evaluateTemplate(ChatMessageTemplate, templateName, messageData)
 }
 
-func (e *Evaluator) templateJinjaChat(templateName string, messageData []ChatMessageTemplateData, funcs []functions.Function) (string, error) {
-
-	conversation := make(map[string]interface{})
-	messages := make([]map[string]interface{}, len(messageData))
-
-	// convert from ChatMessageTemplateData to what the jinja template expects
-
-	for _, message := range messageData {
-		// TODO: this seems to cover minimum text templates. Can be expanded to cover more complex interactions
-		var data []byte
-		data, _ = json.Marshal(message.FunctionCall)
-		messages = append(messages, map[string]interface{}{
-			"role":      message.RoleName,
-			"content":   message.Content,
-			"tool_call": string(data),
-		})
-	}
-
-	conversation["messages"] = messages
-
-	// if tools are detected, add these
-	if len(funcs) > 0 {
-		conversation["tools"] = funcs
-	}
-
-	return e.cache.evaluateJinjaTemplate(ChatMessageTemplate, templateName, conversation)
-}
-
-func (e *Evaluator) evaluateJinjaTemplateForPrompt(templateType TemplateType, templateName string, in PromptTemplateData) (string, error) {
-
-	conversation := make(map[string]interface{})
-
-	conversation["system_prompt"] = in.SystemPrompt
-	conversation["content"] = in.Input
-
-	return e.cache.evaluateJinjaTemplate(templateType, templateName, conversation)
-}
-
 func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []schema.Message, config *config.ModelConfig, funcs []functions.Function, shouldUseFn bool) string {
-
-	if config.TemplateConfig.JinjaTemplate {
-		var messageData []ChatMessageTemplateData
-		for messageIndex, i := range messages {
-			fcall := i.FunctionCall
-			if len(i.ToolCalls) > 0 {
-				fcall = i.ToolCalls
-			}
-			messageData = append(messageData, ChatMessageTemplateData{
-				SystemPrompt: config.SystemPrompt,
-				Role:         config.Roles[i.Role],
-				RoleName:     i.Role,
-				Content:      i.StringContent,
-				FunctionCall: fcall,
-				FunctionName: i.Name,
-				LastMessage:  messageIndex == (len(messages) - 1),
-				Function:     config.Grammar != "" && (messageIndex == (len(messages) - 1)),
-				MessageIndex: messageIndex,
-			})
-		}
-
-		templatedInput, err := e.templateJinjaChat(config.TemplateConfig.ChatMessage, messageData, funcs)
-		if err == nil {
-			return templatedInput
-		}
-	}
-
 	var predInput string
 	suppressConfigSystemPrompt := false
 	mess := []string{}

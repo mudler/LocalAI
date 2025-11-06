@@ -217,6 +217,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
+		// If we are using a response format, we need to generate a grammar for it
 		if config.ResponseFormatMap != nil {
 			d := schema.ChatCompletionResponseFormat{}
 			dat, err := json.Marshal(config.ResponseFormatMap)
@@ -241,36 +242,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				if err != nil {
 					return err
 				}
-				// Check if use_llama_grammar option is enabled
-				if config.HasOption("use_llama_grammar") || config.HasOption("llama_grammar") {
-					// Pass json_schema directly to llama.cpp for grammar generation
-					schemaBytes, err := json.Marshal(d.JsonSchema.Schema)
-					if err == nil {
-						input.JSONSchema = string(schemaBytes)
-					} else {
-						log.Error().Err(err).Msg("Failed marshaling json_schema")
-						// Fallback to generating grammar
-						fs := &functions.JSONFunctionStructure{
-							AnyOf: []functions.Item{d.JsonSchema.Schema},
-						}
-						g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
-						if err == nil {
-							input.Grammar = g
-						} else {
-							log.Error().Err(err).Msg("Failed generating grammar")
-						}
-					}
+				fs := &functions.JSONFunctionStructure{
+					AnyOf: []functions.Item{d.JsonSchema.Schema},
+				}
+				g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
+				if err == nil {
+					input.Grammar = g
 				} else {
-					// Generate grammar using LocalAI's implementation
-					fs := &functions.JSONFunctionStructure{
-						AnyOf: []functions.Item{d.JsonSchema.Schema},
-					}
-					g, err := fs.Grammar(config.FunctionsConfig.GrammarOptions()...)
-					if err == nil {
-						input.Grammar = g
-					} else {
-						log.Error().Err(err).Msg("Failed generating grammar")
-					}
+					log.Error().Err(err).Msg("Failed generating grammar")
 				}
 			}
 		}
@@ -354,7 +333,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		// If we are using the tokenizer template, we don't need to process the messages
 		// unless we are processing functions
-		if !config.TemplateConfig.UseTokenizerTemplate || shouldUseFn {
+		if !config.TemplateConfig.UseTokenizerTemplate {
 			predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
 
 			log.Debug().Msgf("Prompt (after templating): %s", predInput)

@@ -383,6 +383,11 @@ message StatusResponse {
 message Message {
   string role = 1;
   string content = 2;
+  // Optional fields for OpenAI-compatible message format
+  string name = 3;                    // Tool name (for tool messages)
+  string tool_call_id = 4;            // Tool call ID (for tool messages)
+  string reasoning_content = 5;       // Reasoning content (for thinking models)
+  string tool_calls = 6;              // Tool calls as JSON string (for assistant messages with tool calls)
 }
 
 message DetectOptions {
