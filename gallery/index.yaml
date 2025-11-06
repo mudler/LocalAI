@@ -23149,3 +23149,32 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "minimax-m2-thrift-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2-THRIFT-i1-GGUF
+  description: |
+    **Model Name:** MiniMax-M2-THRIFT
+    **Base Model:** ModelCloud/MiniMax-M2-BF16
+    **Architecture:** Mixture-of-Experts (MoE)
+    **Size:** Pruned to 192 experts (from 256) with top-k = 8
+    **Quantization:** Available in multiple GGUF quantizations (e.g., Q4_K_M, Q6_K), optimized for inference with tools like llama.cpp
+    **License:** Apache 2.0
+    **Key Features:**
+    - 25% expert pruning reduces model size and inference cost while preserving performance
+    - Optimized for efficiency and speed via expert sparsity
+    - Supports advanced inference via SGLang and other GGUF-compatible tools
+    - Designed for high-quality, low-latency inference in resource-constrained environments
+
+    **Use Case:** Ideal for deployment in local or edge environments where performance and efficiency are critical.
+    **Original Model Author:** VibeStudio (based on ModelCloud/MiniMax-M2-BF16)
+    **Quantized by:** mradermacher (via GGUF conversion with imatrix support)
+
+    > **Note:** This is a pruned, optimized variant of the original MiniMax-M2-BF16 MoE model. The base model description is based on the original unquantized version at `VibeStudio/MiniMax-M2-THRIFT`.
+  overrides:
+    parameters:
+      model: MiniMax-M2-THRIFT.i1-Q4_K_M.gguf.part1of3
+  files:
+    - filename: MiniMax-M2-THRIFT.i1-Q4_K_M.gguf.part1of3
+      sha256: 53f5eed310057380ffc15222b156a08b1f057c134aad9fb764e0c22354dc1513
+      uri: huggingface://mradermacher/MiniMax-M2-THRIFT-i1-GGUF/MiniMax-M2-THRIFT.i1-Q4_K_M.gguf.part1of3
