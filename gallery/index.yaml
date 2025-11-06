@@ -23149,3 +23149,30 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "silvertongue-v3"
+  urls:
+    - https://huggingface.co/mradermacher/Silvertongue-V3-GGUF
+  description: |
+    **Silvertongue V3**
+    *24B, text-only, creative writing & roleplay specialist*
+
+    A powerful, 24-billion-parameter language model crafted through an SLERP merge of **DeepHermes3_24B_textonly** and **ChaosRose-24B**, fine-tuned for expressive, immersive storytelling and roleplay. Designed for high-quality prose, creative writing, and adult-themed content with a balanced, character-driven voice.
+
+    - **Strengths**: Exceptional descriptive flair, natural dialogue, strong narrative control, and intelligent response generation. Excels in RP, ERP, and narrative-driven creative writing with minimal prompting.
+    - **Tone**: Articulate, confident, and immersive—capable of subtle humor and layered storytelling without relying on clichés.
+    - **Use Case**: Ideal for writers, roleplayers, and creators seeking a versatile, expressive model that stays in character while maintaining narrative flow.
+    - **Note**: Generates explicit content. For mature audiences only (18+). Not suitable for all environments.
+
+    > *Created using MergeKit with bfloat16 precision. Optimized for 16K context windows with vLLM and llama.cpp.*
+
+    **Base Model**: Babsie/DeepHermes3_24B_textonly + Vortex5/ChaosRose-24B
+    **License**: Apache 2.0
+    **Tags**: creative writing, roleplay, prose-style, RP-friendly, NSFW, 18+, 24B, text-generation, mergekit, SLERP-merge
+  overrides:
+    parameters:
+      model: Silvertongue-V3.Q4_K_M.gguf
+  files:
+    - filename: Silvertongue-V3.Q4_K_M.gguf
+      sha256: 2ca0bc9c2ff9c7bc38ed5fefe3b1b72f3c710c696f0108f149f7d1a15ebc6ec0
+      uri: huggingface://mradermacher/Silvertongue-V3-GGUF/Silvertongue-V3.Q4_K_M.gguf
