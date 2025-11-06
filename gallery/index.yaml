@@ -23149,3 +23149,68 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ssft-32b-n6-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ssft-32B-N6-i1-GGUF
+  description: |
+    **Model Name:** SSFT-32B-N6 (Qwen2.5-32B-Instruct-based)
+    **Base Model:** Qwen/Qwen2.5-32B-Instruct
+    **License:** Apache 2.0
+    **Repository:** [shengjia-toronto/ssft-32B-N6](https://huggingface.co/shengjia-toronto/ssft-32B-N6)
+    **Paper:** [arXiv:2510.05132](https://arxiv.org/abs/2510.05132)
+
+    ---
+
+    ### 📌 Description
+
+    SSFT-32B-N6 is a state-of-the-art 32-billion-parameter large language model fine-tuned using **Supervised Self-Consistency Fine-Tuning (SSFT)**, designed to dramatically improve reasoning performance by enabling **parallel reasoning paths** via **Global Forking Tokens**.
+
+    This model builds on **Qwen2.5-32B-Instruct**, but is enhanced through a novel training methodology that allows the model to generate multiple reasoning traces simultaneously. These parallel traces are then aggregated (e.g., via majority vote) to significantly improve correctness, especially on complex reasoning tasks like math problem-solving and high-difficulty QA.
+
+    ---
+
+    ### ✅ Key Features
+
+    - **Parallel Reasoning:** Uses `<think1>`, `<think2>`, ..., `<think6>` tokens to generate up to 6 parallel reasoning paths.
+    - **High Accuracy:** Achieves **77.23% average Cons@6** and **82.11% Cons@32** on benchmark reasoning tasks (AIME, MATH, GPQA-D).
+    - **Strong Pass@1 Performance:** 68.15% average accuracy on single-trace generation.
+    - **Open-Source & Eval-Ready:** Comes with full evaluation code (LightEval integration) and pre-trained checkpoints.
+    - **Efficient Inference:** Trained with 8× B200 GPUs, optimized for practical deployment.
+
+    ---
+
+    ### 🧪 Performance Highlights (Cons@6)
+
+    | Task       | AIME 2024 | AIME 2025 | MATH-500 | GPQA-D | Avg    |
+    |------------|:---------:|:---------:|:--------:|:------:|:------:|
+    | **SSFT-32B** | **75.45** | **73.94** | **96.47** | **63.05** | **77.23** |
+
+    ---
+
+    ### 🛠 Use Case
+
+    Ideal for **reasoning-intensive applications**, such as:
+    - STEM problem-solving (math, physics)
+    - Competitive programming
+    - High-stakes QA systems
+    - Research and education tools requiring robust logic
+
+    ---
+
+    ### 🔗 Links
+
+    - 📄 **Paper:** [arXiv:2510.05132](https://arxiv.org/abs/2510.05132)
+    - 🤗 **Hugging Face:** [shengjia-toronto/ssft-32B-N6](https://huggingface.co/shengjia-toronto/ssft-32B-N6)
+    - 🧩 **Evaluation Code:** [GitHub - SSFT](https://github.com/Sheng-J/SSFT)
+
+    ---
+
+    > 💡 **Note**: The GGUF version in `mradermacher/ssft-32B-N6-i1-GGUF` is a quantized derivative; the **original training** and full model details are from the `shengjia-toronto/ssft-32B-N6` repository above.
+  overrides:
+    parameters:
+      model: ssft-32B-N6.i1-Q2_K.gguf
+  files:
+    - filename: ssft-32B-N6.i1-Q2_K.gguf
+      sha256: a23ba374497eeec46b2aae9ef34b2c0ab070572e4ae8901df4bc21a660cbcb2a
+      uri: huggingface://mradermacher/ssft-32B-N6-i1-GGUF/ssft-32B-N6.i1-Q2_K.gguf
