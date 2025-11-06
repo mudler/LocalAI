@@ -23149,3 +23149,22 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "ring-1t-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ring-1T-i1-GGUF
+  description: |
+    **Ring-1T** is a trillion-parameter open-source reasoning model developed by inclusionAI, designed for advanced natural language understanding and deep problem-solving. Built on the Ling 2.0 architecture, it features 50 billion activated parameters and supports context windows up to 128K tokens using YaRN scaling. Trained via large-scale verifiable reward reinforcement learning (RLVR) and stabilized with the proprietary Icepop method, Ring-1T excels in mathematical reasoning (including IMO-level problems), code generation, logical inference, and creative writing.
+
+    It outperforms leading open-source models in benchmarks like AIME, HMMT, LiveCodeBench, and Arena-Hard, showing strong competitiveness even against closed-source models like Gemini-2.5-Pro and GPT-5-Thinking. The model is available in full precision and FP8 variants on Hugging Face and ModelScope, with support for deployment via SGLang and vLLM. Ideal for researchers and developers seeking state-of-the-art reasoning capabilities, Ring-1T represents a major leap in scalable, open-source AI.
+
+    > 🔗 **Model Page**: [inclusionAI/Ring-1T on Hugging Face](https://huggingface.co/inclusionAI/Ring-1T)
+    > 🛠️ **Try Online**: [ZenMux](https://zenmux.ai/inclusionai/ring-1t) | [Ling Chat](https://ling.tbox.cn/chat)
+    > 📚 **License**: MIT
+  overrides:
+    parameters:
+      model: Ring-1T.i1-Q4_K_M.gguf.part01of13
+  files:
+    - filename: Ring-1T.i1-Q4_K_M.gguf.part01of13
+      sha256: d16af524859d440892a0b69b8ed9db12a27a8fb02c3ef77336948a5e9db8d0f8
+      uri: huggingface://mradermacher/Ring-1T-i1-GGUF/Ring-1T.i1-Q4_K_M.gguf.part01of13
