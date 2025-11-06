@@ -91,7 +91,7 @@ static void start_llama_server(server_context& ctx_server) {
     ctx_server.queue_tasks.start_loop();
 }
 
-json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server, bool use_llama_grammar = false)
+json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server)
 {
     
     // Create now a json data from the prediction options instead
@@ -116,38 +116,55 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     
     // Handle grammar/json_schema based on use_llama_grammar flag
     // Priority: JsonSchema field > grammar field (when use_llama_grammar is enabled)
+    // IMPORTANT: server.cpp requires: if json_schema exists, grammar must NOT exist
+    // See server.cpp line 420: if (data.contains("json_schema") && !data.contains("grammar"))
     std::string json_schema_str = predict->jsonschema();
     std::string grammar_str = predict->grammar();
+    
+    // Debug logging
+    if (!json_schema_str.empty()) {
+        SRV_INF("Received JsonSchema field: %s\n", json_schema_str.c_str());
+    }
+    if (!grammar_str.empty()) {
+        SRV_INF("Received Grammar field: %s\n", grammar_str.c_str());
+    }
     
     if (!json_schema_str.empty()) {
         // JsonSchema field is set - use it directly (highest priority)
         try {
             json json_schema_obj = json::parse(json_schema_str);
-            data["json_schema"] = json_schema_obj;
-            // Don't set grammar when json_schema is provided (llama.cpp requirement)
+            // Ensure json_schema is a JSON object (not a string)
+            // json_schema_to_grammar expects a JSON object representing the schema
+            if (json_schema_obj.is_object() || json_schema_obj.is_array()) {
+                data["json_schema"] = json_schema_obj;
+                SRV_INF("Set json_schema in data: %s\n", json_schema_obj.dump(2).c_str());
+                // Explicitly ensure grammar is NOT set when json_schema is provided
+                // This matches server.cpp's requirement: !data.contains("grammar")
+                // Do NOT set data["grammar"] here
+            } else {
+                // If it's not an object/array, it's invalid - fall back to grammar
+                SRV_INF("%s", "JsonSchema is not a valid JSON object/array, falling back to grammar\n");
+                if (!grammar_str.empty()) {
+                    data["grammar"] = grammar_str;
+                }
+            }
         } catch (const json::parse_error& e) {
             // If json_schema is invalid JSON, fall back to grammar
+            SRV_INF("Failed to parse JsonSchema as JSON: %s, falling back to grammar\n", e.what());
             if (!grammar_str.empty()) {
                 data["grammar"] = grammar_str;
             }
         }
-    } else if (use_llama_grammar && !grammar_str.empty()) {
-        // use_llama_grammar is enabled and no JsonSchema field - try to parse grammar as JSON
-        // This is a fallback for backward compatibility
-        try {
-            json test_json = json::parse(grammar_str);
-            // If parsing succeeds, it's JSON - pass as json_schema
-            data["json_schema"] = test_json;
-            // Don't set grammar when json_schema is provided (llama.cpp requirement)
-        } catch (const json::parse_error&) {
-            // Not valid JSON, use as regular grammar
+    } else if (!grammar_str.empty()) {
             data["grammar"] = grammar_str;
-        }
-    } else {
-        // Normal behavior: use grammar as-is
-        if (!grammar_str.empty()) {
-            data["grammar"] = grammar_str;
-        }
+            SRV_INF("Using grammar as-is: %s\n", grammar_str.c_str());
+    }
+    
+    // Final check: ensure we don't have both json_schema and grammar set
+    // This should never happen with the logic above, but double-check for safety
+    if (data.contains("json_schema") && data.contains("grammar")) {
+        SRV_WRN("%s", "Both json_schema and grammar are set - removing grammar to match server.cpp requirement\n");
+        data.erase("grammar");
     }
     
     // Only set prompt if UseTokenizerTemplate is false or if no Messages are provided
@@ -267,7 +284,7 @@ static void add_rpc_devices(std::string servers) {
 }
 
 static void params_parse(server_context& ctx_server, const backend::ModelOptions* request,
-                                common_params & params, bool& use_llama_grammar_out) {
+                                common_params & params) {
    
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
 
@@ -316,6 +333,12 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
             } else if (!strcmp(optval, "false") || !strcmp(optval, "0") || !strcmp(optval, "no") || !strcmp(optval, "off") || !strcmp(optval, "disabled")) {
                 params.ctx_shift = false;
             }
+        } else if (!strcmp(optname, "use_jinja") || !strcmp(optname, "jinja")) {
+            if (!strcmp(optval, "true") || !strcmp(optval, "1") || !strcmp(optval, "yes") || !strcmp(optval, "on") || !strcmp(optval, "enabled")) {
+                params.use_jinja = true;
+            } else if (!strcmp(optval, "false") || !strcmp(optval, "0") || !strcmp(optval, "no") || !strcmp(optval, "off") || !strcmp(optval, "disabled")) {
+                params.use_jinja = false;
+            }
         } else if (!strcmp(optname, "cache_ram")) {
             if (optval != NULL) {
                 try {
@@ -342,25 +365,6 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
         }
     }
     
-    // Parse use_llama_grammar option separately since we need to store it in BackendServiceImpl
-    // We'll set it in LoadModel after parsing options
-    bool use_llama_grammar_option = false;
-    for (int i = 0; i < request->options_size(); i++) {
-        std::string opt = request->options(i);
-        char *optname = strtok(&opt[0], ":");
-        char *optval = strtok(NULL, ":");
-        if (optval == NULL) {
-            optval = "true";
-        }
-        
-        if (!strcmp(optname, "use_llama_grammar") || !strcmp(optname, "llama_grammar")) {
-            if (!strcmp(optval, "true") || !strcmp(optval, "1") || !strcmp(optval, "yes") || !strcmp(optval, "on") || !strcmp(optval, "enabled")) {
-                use_llama_grammar_option = true;
-            }
-        }
-    }
-    use_llama_grammar_out = use_llama_grammar_option;
-
     // Set params.n_parallel from environment variable if not set via options (fallback)
     if (params.n_parallel == 1) {
         const char *env_parallel = std::getenv("LLAMACPP_PARALLEL");
@@ -491,7 +495,6 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
 class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
-    bool use_llama_grammar = false; // Flag to enable llama.cpp grammar generation from json_schema
 
 public:
     BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
@@ -505,9 +508,7 @@ public:
     grpc::Status LoadModel(ServerContext* context, const backend::ModelOptions* request, backend::Result* result) {
         // Implement LoadModel RPC
         common_params params;
-        bool use_llama_grammar_flag = false;
-        params_parse(ctx_server, request, params, use_llama_grammar_flag);
-        use_llama_grammar = use_llama_grammar_flag;
+        params_parse(ctx_server, request, params);
 
         common_init();
 
@@ -569,7 +570,7 @@ public:
     }
 
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
-        json data = parse_options(true, request, ctx_server, use_llama_grammar);
+        json data = parse_options(true, request, ctx_server);
 
 
         //Raise error if embeddings is set to true
@@ -764,7 +765,7 @@ public:
     }
 
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
-         json data = parse_options(true, request, ctx_server, use_llama_grammar);
+         json data = parse_options(true, request, ctx_server);
 
         data["stream"] = false;
         //Raise error if embeddings is set to true
@@ -943,7 +944,7 @@ public:
 
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
 
-        json body = parse_options(false, request, ctx_server, use_llama_grammar);
+        json body = parse_options(false, request, ctx_server);
 
         body["stream"] = false;
 
@@ -1124,7 +1125,7 @@ public:
     }
 
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
-        json body = parse_options(false, request, ctx_server, use_llama_grammar);
+        json body = parse_options(false, request, ctx_server);
         body["stream"] = false;
         
         json tokens_response = json::array();

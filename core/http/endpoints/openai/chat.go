@@ -282,6 +282,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 
 		switch {
+		// Generates grammar with internal's LocalAI engine
 		case (!config.FunctionsConfig.GrammarConfig.NoGrammar || strictMode) && shouldUseFn:
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
@@ -307,54 +308,33 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// Update input grammar or json_schema based on use_llama_grammar option
 			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
-			if config.HasOption("use_llama_grammar") || config.HasOption("llama_grammar") {
-				// Pass json_schema directly to llama.cpp for grammar generation
-				schemaBytes, err := json.Marshal(jsStruct)
-				if err == nil {
-					input.JSONSchema = string(schemaBytes)
-				} else {
-					log.Error().Err(err).Msg("Failed marshaling json_schema for functions")
-					// Fallback to generating grammar
-					g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
-					if err == nil {
-						config.Grammar = g
-					} else {
-						log.Error().Err(err).Msg("Failed generating grammar")
-					}
-				}
+			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
 			} else {
-				// Generate grammar using LocalAI's implementation
-				g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
-				if err == nil {
-					config.Grammar = g
-				} else {
-					log.Error().Err(err).Msg("Failed generating grammar")
-				}
+				log.Error().Err(err).Msg("Failed generating grammar")
 			}
 		case input.JSONFunctionGrammarObject != nil:
-			if config.HasOption("use_llama_grammar") || config.HasOption("llama_grammar") {
-				// Pass json_schema directly to llama.cpp for grammar generation
-				schemaBytes, err := json.Marshal(input.JSONFunctionGrammarObject)
-				if err == nil {
-					input.JSONSchema = string(schemaBytes)
-				} else {
-					log.Error().Err(err).Msg("Failed marshaling json_schema from JSONFunctionGrammarObject")
-					// Fallback to generating grammar
-					g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
-					if err == nil {
-						config.Grammar = g
-					} else {
-						log.Error().Err(err).Msg("Failed generating grammar")
-					}
-				}
+			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				config.Grammar = g
 			} else {
-				// Generate grammar using LocalAI's implementation
-				g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
-				if err == nil {
-					config.Grammar = g
-				} else {
-					log.Error().Err(err).Msg("Failed generating grammar")
-				}
+				log.Error().Err(err).Msg("Failed generating grammar")
+			}
+		// Pass jsonschema to the backend for grammar generation
+		case config.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn && config.TemplateConfig.UseTokenizerTemplate:
+			if config.FunctionToCall() != "" {
+				funcs = funcs.Select(config.FunctionToCall())
+			}
+
+			// Update input grammar or json_schema based on use_llama_grammar option
+			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
+			schemaBytes, err := json.Marshal(jsStruct)
+			if err == nil {
+				log.Debug().Msgf("JSONSchema: %s", string(schemaBytes))
+				input.JSONSchema = string(schemaBytes)
+			} else {
+				log.Error().Err(err).Msg("Failed marshaling json_schema for functions")
 			}
 		default:
 			// Force picking one of the functions by the request
