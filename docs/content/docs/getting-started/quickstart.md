@@ -31,9 +31,13 @@ See [Installer]({{% relref "docs/advanced/installer" %}}) for all the supported 
 
 ### macOS Download
 
+For MacOS a DMG is available:
+
 <a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
   <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
 </a>
+
+> Note: the DMGs are not signed by Apple and shows quarantined after install. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
 
 ### Run with docker
 

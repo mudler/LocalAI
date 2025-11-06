@@ -42,13 +42,13 @@ SOFTWARE.
     <!-- Main container with sidebar toggle -->
     <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
-      <div 
+      <div
         class="sidebar bg-[#1E293B] fixed top-16 bottom-0 left-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
-        
+
         <div class="p-4 flex justify-between items-center border-b border-[#101827]">
           <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
-          <button 
+          <button
             @click="sidebarOpen = false"
             class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
             <i class="fa-solid fa-times"></i>
@@ -66,7 +66,7 @@ SOFTWARE.
               onchange="window.location = this.value"
             >
               <option value="" disabled class="text-[#94A3B8]">Select a model</option>
-             
+
               {{ range .ModelsConfig }}
                 {{ $cfg := . }}
                 {{ range .KnownUsecaseStrings }}
@@ -113,14 +113,14 @@ SOFTWARE.
           <div x-data="{ activeTab: 'actions' }" class="space-y-4">
             <!-- Tab navigation -->
             <div class="flex border-b border-[#101827]">
-              <button 
-                @click="activeTab = 'actions'" 
+              <button
+                @click="activeTab = 'actions'"
                 :class="activeTab === 'actions' ? 'border-b-2 border-[#38BDF8] text-[#E5E7EB]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
                 class="py-2 px-4 text-sm font-medium">
                 Actions
               </button>
-              <button 
-                @click="activeTab = 'settings'" 
+              <button
+                @click="activeTab = 'settings'"
                 :class="activeTab === 'settings' ? 'border-b-2 border-[#38BDF8] text-[#E5E7EB]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
                 class="py-2 px-4 text-sm font-medium">
                 Settings
@@ -137,17 +137,17 @@ SOFTWARE.
               >
                 <i class="fa-solid fa-trash-can mr-2"></i> Clear chat
               </button>
-              
-              <a 
-                href="https://localai.io/features/text-generation/" 
+
+              <a
+                href="https://localai.io/features/text-generation/"
                 target="_blank"
                 class="w-full flex items-center px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
               >
                 <i class="fas fa-book mr-2"></i> Documentation
               </a>
-              
-              <a 
-                href="browse?term={{.Model}}" 
+
+              <a
+                href="browse?term={{.Model}}"
                 class="w-full flex items-center px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
               >
                 <i class="fas fa-brain mr-2"></i> Browse Model
@@ -155,7 +155,7 @@ SOFTWARE.
             </div>
 
             <!-- Settings tab -->
-            <div x-show="activeTab === 'settings'" x-data="{ showPromptForm: false }" class="space-y-3">           
+            <div x-show="activeTab === 'settings'" x-data="{ showPromptForm: false }" class="space-y-3">
               {{ if $model }}
               {{ $galleryConfig:= index $allGalleryConfigs $model}}
               {{ if $galleryConfig }}
@@ -174,7 +174,7 @@ SOFTWARE.
                   <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
-              
+
               <!-- MCP Mode Notification -->
               <div x-show="$store.chat.mcpMode" class="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-blue-100 text-xs">
                 <div class="flex items-start space-x-2">
@@ -188,17 +188,27 @@ SOFTWARE.
               {{ end }}
               {{ end }}
               {{ end }}
-              
-              <button 
-                @click="showPromptForm = !showPromptForm" 
+
+              <button
+                @click="showPromptForm = !showPromptForm"
                 class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
               >
                 <span><i class="fa-solid fa-message mr-2"></i> System Prompt</span>
                 <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
               </button>
-              
-              <div x-show="showPromptForm" class="p-3 bg-gray-700 rounded">
-                <form id="system_prompt" class="flex flex-col space-y-2">
+
+              <div x-show="showPromptForm" x-data="{
+                showToast: false,
+                previousPrompt: $store.chat.systemPrompt,
+                isUpdated() {
+                  if (this.previousPrompt !== $store.chat.systemPrompt) {
+                    this.showToast = true;
+                    this.previousPrompt = $store.chat.systemPrompt;
+                    setTimeout(() => {this.showToast = false;}, 2000);
+                  }
+                } 
+              }" class="p-3 bg-gray-700 rounded">
+                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-2">
                   <textarea
                     type="text"
                     id="systemPrompt"
@@ -207,6 +217,13 @@ SOFTWARE.
                     placeholder="System prompt"
                     x-model.lazy="$store.chat.systemPrompt"
                   ></textarea>
+                  <div
+                    x-show="showToast"
+                    x-transition
+                    class="mb-2 text-green-500 px-4 py-2 text-sm text-center"
+                  >
+                    System prompt updated!
+                  </div>
                   <button
                     type="submit"
                     class="px-3 py-2 text-sm rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
@@ -221,21 +238,21 @@ SOFTWARE.
       </div>
 
       <!-- Main chat container (shifts with sidebar) -->
-      <div 
+      <div
         class="flex-1 flex flex-col transition-all duration-300 ease-in-out"
         :class="sidebarOpen ? 'ml-64' : 'ml-0'">
-        
+
         <!-- Chat header with toggle button -->
         <div class="border-b border-gray-700 p-4 flex items-center">
           <!-- Sidebar toggle button moved to be the first element in the header and with clear styling -->
-          <button 
-            @click="sidebarOpen = !sidebarOpen" 
+          <button
+            @click="sidebarOpen = !sidebarOpen"
             class="mr-4 text-gray-300 hover:text-white focus:outline-none bg-gray-800 hover:bg-gray-700 p-2 rounded"
             style="min-width: 36px;"
             title="Toggle settings">
             <i class="fa-solid" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
           </button>
-          
+
           <div class="flex items-center">
             <i class="fa-solid fa-comments mr-2"></i>
             {{ if $model }}
@@ -384,7 +401,7 @@ SOFTWARE.
                   class="fa-solid fa-file text-gray-400 absolute right-28 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
                   title="Upload text, markdown or PDF file"
                 ></button>
-                
+
                 <!-- Send button and loader in the same position -->
                 <div class="absolute right-3 top-4">
                   <!-- Loader (hidden by default) -->
@@ -394,7 +411,7 @@ SOFTWARE.
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   </div>
-                  
+
                   <!-- Send button -->
                   <button
                     id="send-button"
@@ -437,7 +454,7 @@ SOFTWARE.
         </div>
       </div>
     </div>
-    
+
     <!-- Modal moved outside of sidebar to appear in center of page -->
     {{ if $model }}
     {{ $galleryConfig:= index $allGalleryConfigs $model}}
@@ -455,7 +472,7 @@ SOFTWARE.
               <span class="sr-only">Close modal</span>
             </button>
           </div>
-                  
+
           <!-- Body -->
           <div class="p-4 md:p-5 space-y-4">
             <div class="flex justify-center items-center">
@@ -468,9 +485,9 @@ SOFTWARE.
               {{range $galleryConfig.URLs}}
               <li><a href="{{ . }}" target="_blank">{{ . }}</a></li>
               {{end}}
-            </ul>                   
+            </ul>
           </div>
-                  
+
           <!-- Footer -->
           <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
             <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
