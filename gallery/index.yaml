@@ -23075,3 +23075,29 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "orca-agent-v0.1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Orca-Agent-v0.1-i1-GGUF
+  description: |
+    The **Orca-Agent-v0.1** model is a fine-tuned version of the **Orca-2** language model, specifically designed for agent-like behavior and reasoning tasks. It is based on the **Mistral-7B** architecture, leveraging the strong reasoning and instruction-following capabilities of its base model while being optimized for autonomous task execution and complex reasoning workflows.
+
+    This particular repository, `mradermacher/Orca-Agent-v0.1-i1-GGUF`, contains a **GGUF quantized version** of the model, meaning it has been converted into a compact, efficient format suitable for local inference on consumer hardware (e.g., via llama.cpp). The model supports multiple quantization levels (e.g., Q2_K, Q4_K_M, Q6_K), allowing users to balance performance and model size according to their hardware constraints.
+
+    While the repository is a quantized variant (not the original author's release), the base model originates from **Danau5tin's** fine-tuned Orca-Agent-v0.1, which itself builds upon **Microsoft's Orca-2** and **Mistral-7B**. It is ideal for applications requiring autonomous planning, tool use, and multi-step reasoning in a local environment.
+
+    **Key Features:**
+    - Based on **Mistral-7B** architecture
+    - Fine-tuned for **agent behaviors** and **reasoning**
+    - Available in **GGUF format** for efficient local inference
+    - Multiple quantization options for flexibility
+    - Ideal for **privacy-focused**, **offline AI agents**
+
+    > **Note:** This is a quantized version. For the original full-precision model, refer to the source: [Danau5tin/Orca-Agent-v0.1](https://huggingface.co/Danau5tin/Orca-Agent-v0.1)
+  overrides:
+    parameters:
+      model: Orca-Agent-v0.1.i1-Q4_K_M.gguf
+  files:
+    - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
+      sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
+      uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
