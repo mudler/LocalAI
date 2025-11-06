@@ -23149,3 +23149,29 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "llama-3.1-turkis-8b"
+  urls:
+    - https://huggingface.co/mradermacher/LLaMA-3.1-turkis-8b-GGUF
+  description: |
+    **Model Name:** LLaMA-3.1-Turkis-8B
+    **Base Model:** meta-llama/Llama-3.1-8B-Instruct
+    **Fine-Tuned By:** Ali-Yaser
+    **Language:** Turkish (tr)
+    **License:** Llama 3.1 Community License
+
+    **Description:**
+    A high-quality Turkish-language fine-tuned variant of Meta’s Llama 3.1 8B Instruct model, trained on a 1M-token Turkish dataset. This model is optimized for natural, fluent, and context-aware interactions in Turkish, making it ideal for applications requiring deep understanding of Turkish language and culture. Built upon the unsloth-optimized 4-bit quantized base model, it preserves strong performance while enabling efficient inference.
+
+    **Use Case:** Ideal for Turkish language generation, dialogue systems, content creation, and NLP research in Turkish.
+    **Note:** This model is a fine-tuned version and may produce varying results—recommended for testing and development.
+
+    **Repository:** [Ali-Yaser/LLaMA-3.1-turkis-8b](https://huggingface.co/Ali-Yaser/LLaMA-3.1-turkis-8b)
+    **Quantized Version (GGUF):** Available at [mradermacher/LLaMA-3.1-turkis-8b-GGUF](https://huggingface.co/mradermacher/LLaMA-3.1-turkis-8b-GGUF) for efficient local inference.
+  overrides:
+    parameters:
+      model: LLaMA-3.1-turkis-8b.Q4_K_M.gguf
+  files:
+    - filename: LLaMA-3.1-turkis-8b.Q4_K_M.gguf
+      sha256: 714584207adf1b71721d0bc05bbbed288b2db963b04360e727c580fb4afd4c24
+      uri: huggingface://mradermacher/LLaMA-3.1-turkis-8b-GGUF/LLaMA-3.1-turkis-8b.Q4_K_M.gguf
