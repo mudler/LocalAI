@@ -23075,3 +23075,69 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "glm-4.5-iceblink-v2-106b-a12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.5-Iceblink-v2-106B-A12B-i1-GGUF
+  description: |
+    ### **GLM-4.5-Iceblink-v2-106B-A12B (Base Model)**
+    **Repository**: [zerofata/GLM-4.5-Iceblink-v2-106B-A12B](https://huggingface.co/zerofata/GLM-4.5-Iceblink-v2-106B-A12B)
+    **Base Model**: zai-org/GLM-4.5-Air
+    **License**: MIT
+    **Language**: English
+    **Model Type**: Large Language Model (LLM) – Fine-tuned for creative writing and roleplay
+
+    ---
+
+    ### **Overview**
+    GLM-4.5-Iceblink-v2 is a high-performance, fine-tuned version of **GLM-4.5-Air**, optimized for **creative writing, roleplay (RP), and narrative generation**. It retains the strong reasoning and language capabilities of its base model while significantly enhancing dialogue quality, creativity, and verbosity—ideal for storytelling and interactive character roles.
+
+    The model is trained via **Supervised Fine-Tuning (SFT)** on approximately **13 million tokens** from diverse datasets including:
+    - Instruct-Anime
+    - Roleplay-Anime-Characters
+    - Instruct-Anime-CreativeWriting
+    - Summaries-Anime-FandomPages
+
+    This training emphasizes expressive, engaging, and coherent narrative output while maintaining high factual and contextual awareness.
+
+    ---
+
+    ### **Key Features**
+    - ✅ **Creative Writing & Roleplay Focus**: Delivers rich, dynamic, and immersive character interactions.
+    - ✅ **High Verbal Fluency**: Generates natural, expressive, and stylistically varied text.
+    - ✅ **Advanced Training Framework**: Built using **MS-Swift + Megatron**, enabling efficient MoE (Mixture of Experts) training with a ~5–10x speedup over traditional methods.
+    - ✅ **Optimized Hyperparameters**: Low learning rate strategy prevents overfitting and enhances stability.
+    - ✅ **Open & Accessible**: Fully open-source (MIT license), with public datasets available.
+
+    ---
+
+    ### **Recommended Use Cases**
+    - AI storytelling and fanfiction generation
+    - Interactive roleplay (e.g., with SillyTavern)
+    - Character-driven dialogue systems
+    - Creative writing assistants
+
+    ---
+
+    ### **Suggested Settings (for SillyTavern)**
+    - **Temperature**: 0.8 – 0.9
+    - **TopP**: 0.95 – 1.00
+    - **MinP**: 0.05
+    - **Format**: Actions in plaintext, dialogue in quotes, thoughts in asterisks (*like this*)
+
+    ---
+
+    ### **Note**
+    This is the **original, unquantized base model**. The quantized version (e.g., by `mradermacher`) is a compressed variant for efficient inference—ideal for local deployment—but the original model preserves full precision and maximum performance.
+
+    ---
+
+    🔗 **Download & Explore**: [zerofata/GLM-4.5-Iceblink-v2-106B-A12B on Hugging Face](https://huggingface.co/zerofata/GLM-4.5-Iceblink-v2-106B-A12B)
+    💡 *Perfect for creators, writers, and roleplay enthusiasts seeking a powerful, expressive AI partner.*
+  overrides:
+    parameters:
+      model: GLM-4.5-Iceblink-v2-106B-A12B.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: GLM-4.5-Iceblink-v2-106B-A12B.i1-Q4_K_M.gguf.part1of2
+      sha256: 84df5f396ce454dad19c3609d31f7f24efd593c20fcecbddba22e2cb7132beff
+      uri: huggingface://mradermacher/GLM-4.5-Iceblink-v2-106B-A12B-i1-GGUF/GLM-4.5-Iceblink-v2-106B-A12B.i1-Q4_K_M.gguf.part1of2
