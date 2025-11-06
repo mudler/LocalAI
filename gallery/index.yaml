@@ -23075,3 +23075,34 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "roadxpert_ai-v1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/RoadXpert_AI-v1-i1-GGUF
+  description: |
+    **Model Name:** RoadXpert AI-v1 (109B MoE)
+    **Base Model:** meta-llama/Llama-4-Scout-17B-16E
+    **Repository:** [Arijit-09/RoadXpert_AI-v1](https://huggingface.co/Arijit-09/RoadXpert_AI-v1)
+    **License:** Llama 4 Community License Agreement
+
+    **Description:**
+    RoadXpert AI-v1 is a 109B parameter Mixture-of-Experts (MoE) language model developed by DeepCogito. It is instruction-tuned using Iterated Distillation and Amplification (IDA), enabling both direct response generation and self-reflective reasoning. Designed for high performance across coding, STEM, multilingual tasks, and long-context reasoning (up to 10M tokens), it outperforms models of similar size on major industry benchmarks. Trained in over 30 languages, it excels in tool calling, instruction following, and general helpfulness—making it ideal for advanced AI applications requiring reasoning and scalability.
+
+    **Key Features:**
+    - 109B parameters, MoE architecture for efficient inference
+    - Hybrid reasoning: direct answers or self-reflection before responding
+    - Trained on diverse, high-quality datasets with IDA alignment
+    - Supports long context (up to 10M tokens)
+    - Optimized for coding, STEM, multilingual, and tool-use tasks
+    - Open for commercial use under Llama 4 license
+
+    **Ideal for:** Advanced AI assistants, complex reasoning tasks, multilingual applications, and research requiring large-scale, high-accuracy language understanding.
+
+    > 📌 *Note: The GGUF quantized version by mradermacher is a user-converted variant. The original, full-precision model is hosted at [Arijit-09/RoadXpert_AI-v1](https://huggingface.co/Arijit-09/RoadXpert_AI-v1).*
+  overrides:
+    parameters:
+      model: RoadXpert_AI-v1.i1-Q4_K_M.gguf.part1of2
+  files:
+    - filename: RoadXpert_AI-v1.i1-Q4_K_M.gguf.part1of2
+      sha256: 9d061a42c321520af6dabb6b6bd354bb2b5fc5af1ca38ab93323a796d6b1e5ba
+      uri: huggingface://mradermacher/RoadXpert_AI-v1-i1-GGUF/RoadXpert_AI-v1.i1-Q4_K_M.gguf.part1of2
