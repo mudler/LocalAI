@@ -23149,3 +23149,34 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ssft-32b-n6"
+  urls:
+    - https://huggingface.co/mradermacher/ssft-32B-N6-GGUF
+  description: |
+    **Model Name:** SSFT-32B-N6 (Qwen2.5-32B-Instruct-based)
+    **Model Type:** Large Language Model (LLM) for advanced reasoning
+    **Base Model:** Qwen/Qwen2.5-32B-Instruct
+    **Training Approach:** Supervised Fine-Tuning with **Global Forking Tokens (SSFT)** – a novel method that enables parallel reasoning across multiple thought paths, significantly improving reasoning accuracy through majority voting over multiple generations.
+    **Key Capabilities:**
+    - Exceptional performance on mathematical and logical reasoning tasks
+    - Achieves **82.11% average score on Cons@32** (majority voting over 32 parallel reasoning paths)
+    - **77.23% average score on Cons@6**, demonstrating strong scalability in reasoning
+    - Optimized for **chain-of-thought** and **multi-step problem solving**
+    **Performance Highlights:**
+    - **MATH-500:** 96.80% Cons@32
+    - **AIME 2025:** 86.67% Cons@32
+    - **Pass@1:** 68.15% (single-generation accuracy)
+    **Use Case:** Ideal for applications requiring high-accuracy reasoning, such as automated math problem solving, scientific reasoning, and complex decision-making systems.
+    **License:** Apache 2.0
+    **Repository:** [huggingface.co/shengjia-toronto/ssft-32B-N6](https://huggingface.co/shengjia-toronto/ssft-32B-N6)
+    **Paper:** [arXiv:2510.05132 – "Training LLMs to Reason in Parallel with Global Forking Tokens"](https://arxiv.org/abs/2510.05132)
+
+    *Note: The model is available in GGUF format for efficient local inference (e.g., via llama.cpp). The original model was developed and trained by Sheng Jia et al. at the University of Toronto.*
+  overrides:
+    parameters:
+      model: ssft-32B-N6.Q4_K_M.gguf
+  files:
+    - filename: ssft-32B-N6.Q4_K_M.gguf
+      sha256: 85ac758e02f122da34ebf3e0b791d29e749e78804cd1e04a9f6c72ea154638d8
+      uri: huggingface://mradermacher/ssft-32B-N6-GGUF/ssft-32B-N6.Q4_K_M.gguf
