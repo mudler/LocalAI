@@ -23149,3 +23149,26 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "grimjim-12b-gemma-3-it-norm-preserved-biprojected-abliterated"
+  urls:
+    - https://huggingface.co/RossAscends/grimjim-12B-Gemma-3-it-norm-preserved-biprojected-abliterated-GGUF
+  description: |
+    **Model Name:** grimjim-12B-Gemma-3-it-norm-preserved-biprojected-abliterated
+    **Base Model:** gemma-3-12b-it-norm-preserved-biprojected-abliterated
+    **Architecture:** Gemma-3 12B (Instruction-Tuned)
+    **Quantization:** GGUF (multiple quantized versions available)
+    **License:** MIT
+
+    This is a high-performance, instruction-tuned 12-billion-parameter language model based on Google's Gemma-3 architecture, enhanced with advanced training techniques. The model features **norm preservation**, **biprojected layers**, and **abliteration** (a method to reduce redundancy and improve efficiency), resulting in sharper reasoning, better instruction following, and improved stability without compromising capability.
+
+    The original model was trained on diverse, high-quality datasets, enabling strong performance in coding, reasoning, and creative writing. This GGUF-quantized version is optimized for efficient local inference on consumer hardware, supporting tools like `llama.cpp` and other GGUF-compatible runtimes.
+
+    ✅ Ideal for: Local LLM inference, privacy-conscious applications, and developers seeking powerful, efficient models.
+    🌐 Original model: [grimjim/gemma-3-12b-it-norm-preserved-biprojected-abliterated](https://huggingface.co/grimjim/gemma-3-12b-it-norm-preserved-biprojected-abliterated)
+    📦 Quantized versions: Available in multiple GGUF sizes (e.g., Q4_K_M, Q5_K_S, Q8_0) for balance between speed and accuracy.
+
+    > 🔍 *Note: This repository contains quantized GGUF versions. The base model is authored by grimjim and not by Google.*
+  overrides:
+    parameters:
+      model: RossAscends/grimjim-12B-Gemma-3-it-norm-preserved-biprojected-abliterated-GGUF
