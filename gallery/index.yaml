@@ -23075,3 +23075,29 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "chrysologus-12b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Chrysologus-12B-i1-GGUF
+  description: |
+    **Chrysologus-12B** is a 12-billion-parameter language model created through a Karcher Mean merge of three high-quality base models:
+    - **EtherealAurora-12B** (yamatazen)
+    - **Impish_Longtail_12B** (Sicarius-Prototyping)
+    - **MN-Lyrebird-12B** (allura-org)
+
+    Built using **Mergekit**, this model excels in **storytelling** and **instruction following**, outperforming models like Impish-LongPen-12B in zero-shot reasoning tasks (IFEval: 65.62% strict accuracy).
+
+    It is designed for creative and coherent text generation with strong alignment to user intent. The model is available in multiple GGUF quantized formats for efficient local inference.
+
+    > **Note**: The original model was not authored by the uploader; this is a community-merged version based on publicly available models.
+    > **Base models**: [yamatazen/EtherealAurora-12B](https://huggingface.co/yamatazen/EtherealAurora-12B), [Sicarius-Prototyping/Impish_Longtail_12B](https://huggingface.co/Sicarius-Prototyping/Impish_Longtail_12B), [allura-org/MN-Lyrebird-12B](https://huggingface.co/allura-org/MN-Lyrebird-12B)
+
+    **Use case**: Creative writing, dialogue generation, and instruction-following tasks.
+    **License**: Apache 2.0 (original model licenses apply).
+  overrides:
+    parameters:
+      model: Chrysologus-12B.i1-Q4_K_S.gguf
+  files:
+    - filename: Chrysologus-12B.i1-Q4_K_S.gguf
+      sha256: 9e26e94f0b0eda0c77192cc010bbce37f17ef52ec5487eebb17dd4d333f14417
+      uri: huggingface://mradermacher/Chrysologus-12B-i1-GGUF/Chrysologus-12B.i1-Q4_K_S.gguf
