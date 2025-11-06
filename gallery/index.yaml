@@ -23149,3 +23149,27 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "silvertongue-v3-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Silvertongue-V3-i1-GGUF
+  description: |
+    **Silvertongue V3** – A 24B parameter creative writing and roleplay-focused language model, created by merging *DeepHermes3_24B_textonly* and *ChaosRose-24B* using SLERP interpolation. Designed for expressive, immersive narrative generation, it excels in prose-style writing, character-driven roleplay, and descriptive creative content—including mature themes—with a balanced, intelligent tone that avoids overused tropes.
+
+    Ideal for adult-oriented storytelling, ERP, and dynamic character interaction, the model responds well to subtle cues and maintains in-character consistency. It performs best with moderate temperature (0.8) and minimal repetition, even at extended context lengths (~16K tokens).
+
+    **Key Features:**
+    - Articulate, confident, and context-aware writing
+    - Versatile across creative writing, RP, and explicit content (18+)
+    - Low guardrail, NSFW-friendly, not for all audiences
+    - Created via mergekit with custom tokenizer alignment and SLERP blending
+    - Optimized for text-only generation with high narrative fidelity
+
+    *Note: This model is a fine-tuned, merged variant. The base model is DeepHermes3_24B_textonly (Hugging Face: Babsie/DeepHermes3_24B_textonly).*
+  overrides:
+    parameters:
+      model: Silvertongue-V3.i1-Q4_K_M.gguf
+  files:
+    - filename: Silvertongue-V3.i1-Q4_K_M.gguf
+      sha256: fafbf1c5f597956b7aa267b90a2e560e514678e83025ae01020e7309f2576d3d
+      uri: huggingface://mradermacher/Silvertongue-V3-i1-GGUF/Silvertongue-V3.i1-Q4_K_M.gguf
