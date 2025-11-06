@@ -88,3 +88,31 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Reranker service failed")
         finally:
             self.tearDown()
+
+    def test_rerank_crop(self):
+        """
+        This method tests if the embeddings are generated successfully
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                request = backend_pb2.RerankRequest(
+                    query="I love you",
+                    documents=["I hate you", "I really like you", "I hate ignoring top_n"],
+                    top_n=2
+                )
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="cross-encoder"))
+                self.assertTrue(response.success)
+               
+                rerank_response = stub.Rerank(request)
+                print(rerank_response.results[0])
+                self.assertIsNotNone(rerank_response.results)
+                self.assertEqual(len(rerank_response.results), 2)
+                self.assertEqual(rerank_response.results[0].text, "I really like you")
+                self.assertEqual(rerank_response.results[1].text, "I hate you")
+        except Exception as err:
+            print(err)
+            self.fail("Reranker service failed")
+        finally:
+            self.tearDown()

@@ -61,7 +61,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             if request.PipelineType != "": # Reuse the PipelineType field for language
                 kwargs['lang'] = request.PipelineType
             self.model_name = model_name
-            self.model = Reranker(model_name, **kwargs)  
+            self.model = Reranker(model_name, **kwargs)
         except Exception as err:
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
 
@@ -80,7 +80,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 index=res.doc_id,
                 text=res.text,
                 relevance_score=res.score
-            ) for res in ranked_results.results
+            ) for res in ranked_results.top_k(request.top_n)
         ]
 
         # Calculate the usage and total tokens
