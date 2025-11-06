@@ -23149,3 +23149,29 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "spiral-llama3-8b-multi-env"
+  urls:
+    - https://huggingface.co/mradermacher/Spiral-Llama3-8B-Multi-Env-GGUF
+  description: |
+    The **Spiral-Llama3-8B-Multi-Env** model is a fine-tuned variant of **Llama 3 8B**, developed by **spiral-rl** and optimized for multi-environment reasoning tasks. It is built upon Meta's Llama 3 base architecture, enhancing its capability to handle complex, context-rich reasoning across diverse domains such as coding, mathematics, logical inference, and real-world problem-solving.
+
+    This model is specifically trained to improve robustness and adaptability in dynamic or simulated environments, making it suitable for use in AI agents, interactive systems, and advanced reasoning applications. While the Hugging Face repository `mradermacher/Spiral-Llama3-8B-Multi-Env-GGUF` contains quantized GGUF versions (e.g., Q4_K_M, Q8_0) for efficient local inference, the original base model — **spiral-rl/Spiral-Llama3-8B-Multi-Env** — is the full, unquantized version used for training and evaluation.
+
+    **Key Features:**
+    - Based on **Llama 3 8B** (Meta)
+    - Fine-tuned for **multi-environment reasoning**
+    - Trained with a focus on **generalization, coherence, and task adaptability**
+    - Supports a wide range of downstream applications including agent-based systems and complex instruction following
+
+    **Note:** The model is available in GGUF format for local deployment via tools like `llama.cpp`, but for research and full performance evaluation, the base `spiral-rl/Spiral-Llama3-8B-Multi-Env` model is recommended.
+
+    > 🔗 **Base Model:** [spiral-rl/Spiral-Llama3-8B-Multi-Env](https://huggingface.co/spiral-rl/Spiral-Llama3-8B-Multi-Env)
+    > 📦 **Quantized Versions:** [mradermacher/Spiral-Llama3-8B-Multi-Env-GGUF](https://huggingface.co/mradermacher/Spiral-Llama3-8B-Multi-Env-GGUF)
+  overrides:
+    parameters:
+      model: Spiral-Llama3-8B-Multi-Env.Q4_K_M.gguf
+  files:
+    - filename: Spiral-Llama3-8B-Multi-Env.Q4_K_M.gguf
+      sha256: c46647fae58f2878517f28b5118c0368df59fd2dd9fb8f4396772827db58b8f4
+      uri: huggingface://mradermacher/Spiral-Llama3-8B-Multi-Env-GGUF/Spiral-Llama3-8B-Multi-Env.Q4_K_M.gguf
