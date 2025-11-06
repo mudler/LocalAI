@@ -660,6 +660,65 @@ public:
                 // Apply chat template
                 auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
                 prompt_str = chat_params.prompt;
+                
+                // Update data with grammar-related fields from chat_params
+                // These may include additional grammar info from the template (e.g., for tool calls)
+                if (!chat_params.grammar.empty()) {
+                    // Only set grammar if json_schema is not already set (llama.cpp requirement)
+                    if (!data.contains("json_schema")) {
+                        data["grammar"] = chat_params.grammar;
+                    }
+                }
+                data["grammar_lazy"] = chat_params.grammar_lazy;
+                
+                // Merge grammar triggers from chat_params
+                if (!chat_params.grammar_triggers.empty()) {
+                    json grammar_triggers = json::array();
+                    for (const auto& trigger : chat_params.grammar_triggers) {
+                        json trigger_json;
+                        trigger_json["value"] = trigger.value;
+                        // Always serialize as WORD type since upstream converts WORD to TOKEN internally
+                        trigger_json["type"] = static_cast<int>(COMMON_GRAMMAR_TRIGGER_TYPE_WORD);
+                        grammar_triggers.push_back(trigger_json);
+                    }
+                    // Merge with existing triggers if any
+                    if (data.contains("grammar_triggers") && data["grammar_triggers"].is_array()) {
+                        for (const auto& existing_trigger : data["grammar_triggers"]) {
+                            grammar_triggers.push_back(existing_trigger);
+                        }
+                    }
+                    data["grammar_triggers"] = grammar_triggers;
+                }
+                
+                // Merge preserved tokens from chat_params
+                if (!chat_params.preserved_tokens.empty()) {
+                    json preserved_tokens = json::array();
+                    for (const auto& token_str : chat_params.preserved_tokens) {
+                        preserved_tokens.push_back(token_str);
+                    }
+                    // Merge with existing preserved tokens if any
+                    if (data.contains("preserved_tokens") && data["preserved_tokens"].is_array()) {
+                        for (const auto& existing_token : data["preserved_tokens"]) {
+                            preserved_tokens.push_back(existing_token);
+                        }
+                    }
+                    data["preserved_tokens"] = preserved_tokens;
+                }
+                
+                // Add additional stops from chat_params
+                if (!chat_params.additional_stops.empty()) {
+                    if (!data.contains("stop") || !data["stop"].is_array()) {
+                        data["stop"] = json::array();
+                    }
+                    for (const auto& stop : chat_params.additional_stops) {
+                        data["stop"].push_back(stop);
+                    }
+                }
+                
+                // Set thinking_forced_open if present
+                if (chat_params.thinking_forced_open) {
+                    data["thinking_forced_open"] = chat_params.thinking_forced_open;
+                }
             } else {
                 // Use prompt directly from data
                 if (data.contains("prompt") && data["prompt"].is_string()) {
@@ -882,6 +941,65 @@ public:
                 // Apply chat template
                 auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
                 prompt_str = chat_params.prompt;
+                
+                // Update data with grammar-related fields from chat_params
+                // These may include additional grammar info from the template (e.g., for tool calls)
+                if (!chat_params.grammar.empty()) {
+                    // Only set grammar if json_schema is not already set (llama.cpp requirement)
+                    if (!data.contains("json_schema")) {
+                        data["grammar"] = chat_params.grammar;
+                    }
+                }
+                data["grammar_lazy"] = chat_params.grammar_lazy;
+                
+                // Merge grammar triggers from chat_params
+                if (!chat_params.grammar_triggers.empty()) {
+                    json grammar_triggers = json::array();
+                    for (const auto& trigger : chat_params.grammar_triggers) {
+                        json trigger_json;
+                        trigger_json["value"] = trigger.value;
+                        // Always serialize as WORD type since upstream converts WORD to TOKEN internally
+                        trigger_json["type"] = static_cast<int>(COMMON_GRAMMAR_TRIGGER_TYPE_WORD);
+                        grammar_triggers.push_back(trigger_json);
+                    }
+                    // Merge with existing triggers if any
+                    if (data.contains("grammar_triggers") && data["grammar_triggers"].is_array()) {
+                        for (const auto& existing_trigger : data["grammar_triggers"]) {
+                            grammar_triggers.push_back(existing_trigger);
+                        }
+                    }
+                    data["grammar_triggers"] = grammar_triggers;
+                }
+                
+                // Merge preserved tokens from chat_params
+                if (!chat_params.preserved_tokens.empty()) {
+                    json preserved_tokens = json::array();
+                    for (const auto& token_str : chat_params.preserved_tokens) {
+                        preserved_tokens.push_back(token_str);
+                    }
+                    // Merge with existing preserved tokens if any
+                    if (data.contains("preserved_tokens") && data["preserved_tokens"].is_array()) {
+                        for (const auto& existing_token : data["preserved_tokens"]) {
+                            preserved_tokens.push_back(existing_token);
+                        }
+                    }
+                    data["preserved_tokens"] = preserved_tokens;
+                }
+                
+                // Add additional stops from chat_params
+                if (!chat_params.additional_stops.empty()) {
+                    if (!data.contains("stop") || !data["stop"].is_array()) {
+                        data["stop"] = json::array();
+                    }
+                    for (const auto& stop : chat_params.additional_stops) {
+                        data["stop"].push_back(stop);
+                    }
+                }
+                
+                // Set thinking_forced_open if present
+                if (chat_params.thinking_forced_open) {
+                    data["thinking_forced_open"] = chat_params.thinking_forced_open;
+                }
             } else {
                 // Use prompt directly from data
                 if (data.contains("prompt") && data["prompt"].is_string()) {
