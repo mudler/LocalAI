@@ -23075,3 +23075,40 @@
     - filename: Orca-Agent-v0.1.Q4_K_M.gguf
       sha256: 2943397fe2c23959215218adbfaf361ca7974bbb0f948e08c230e6bccb1f130a
       uri: huggingface://mradermacher/Orca-Agent-v0.1-GGUF/Orca-Agent-v0.1.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "mistralai-mistral-nemo-instruct-2407-extensive-bp-abliteration-12b"
+  urls:
+    - https://huggingface.co/mradermacher/mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B-GGUF
+  description: |
+    **Model Name:** Mistral-Nemo-Instruct-2407 (12B) – Base Model
+    **Repository:** [mistralai/Mistral-Nemo-Instruct-2407](https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407)
+    **Model Type:** Large Language Model (LLM)
+    **Size:** 12 billion parameters
+    **Architecture:** Mixture of Experts (MoE) with a dense, instruction-tuned variant
+    **Language Support:** English, French, German, Spanish, Italian, Portuguese, Russian, Chinese, Japanese
+
+    ### Description:
+    The **Mistral-Nemo-Instruct-2407** is a powerful, instruction-tuned large language model developed by Mistral AI, built upon the Mistral architecture and fine-tuned for enhanced reasoning, dialogue, and task-following capabilities. It leverages a Mixture-of-Experts (MoE) design, enabling efficient scaling of performance with only a subset of experts activated per input, resulting in high throughput and low latency.
+
+    This model excels in complex reasoning, code generation, multilingual understanding, and structured task execution. It is ideal for applications requiring advanced natural language comprehension, such as chatbots, content creation, and AI-assisted coding. The model supports multiple languages and is optimized for real-world, interactive use cases.
+
+    ### Key Features:
+    - **Instruction-tuned** for clear, accurate responses to user prompts
+    - **MoE (Mixture of Experts)** architecture for efficiency and scalability
+    - **Multilingual** support across major global languages
+    - **High reasoning and creativity** with strong zero-shot and few-shot performance
+    - **Production-ready** with a lightweight API interface and Hugging Face Transformers compatibility
+
+    > ✅ **Note:** The model available at `mradermacher/mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B-GGUF` is a *quantized version* of this base model, with modifications (biprojected abliteration) that may affect coherence and performance. For the original, unmodified model, always refer to the official `mistralai/Mistral-Nemo-Instruct-2407` repository.
+
+    **License:** Apache 2.0
+    **Usage:** Recommended for research, enterprise, and commercial applications with proper attribution.
+
+    👉 [View on Hugging Face](https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407)
+  overrides:
+    parameters:
+      model: mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B.Q4_K_M.gguf
+  files:
+    - filename: mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B.Q4_K_M.gguf
+      sha256: 9253a73779c8fdcfc39b25e046d4b513eb7f499ac49b05f2807ad4129e0a10e0
+      uri: huggingface://mradermacher/mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B-GGUF/mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B.Q4_K_M.gguf
