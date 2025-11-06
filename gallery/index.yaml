@@ -23149,3 +23149,16 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "agatha-x-111b-v1b"
+  urls:
+    - https://huggingface.co/BeaverAI/Agatha-X-111B-v1b-GGUF
+  description: |
+    AI model: agatha-x-111b-v1b
+  overrides:
+    parameters:
+      model: Agatha-X-111B-v1b-Q4_K_M.gguf
+  files:
+    - filename: Agatha-X-111B-v1b-Q4_K_M.gguf
+      sha256: b6ae76db164abd9d883070033993675cc10c60e59441355fe5d6a4fe2aabe038
+      uri: huggingface://BeaverAI/Agatha-X-111B-v1b-GGUF/Agatha-X-111B-v1b-Q4_K_M.gguf
