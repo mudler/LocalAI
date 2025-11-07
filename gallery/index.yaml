@@ -23149,3 +23149,57 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "spiral-qwen3-4b-multi-env"
+  urls:
+    - https://huggingface.co/mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF
+  description: |
+    **Model Name:** Spiral-Qwen3-4B-Multi-Env
+    **Base Model:** Qwen3-4B (fine-tuned variant)
+    **Repository:** [spiral-rl/Spiral-Qwen3-4B-Multi-Env](https://huggingface.co/spiral-rl/Spiral-Qwen3-4B-Multi-Env)
+    **Quantized Version:** Available via GGUF (by mradermacher)
+
+    ---
+
+    ### 📌 Description:
+
+    Spiral-Qwen3-4B-Multi-Env is a fine-tuned, instruction-optimized version of the Qwen3-4B language model, specifically enhanced for multi-environment reasoning and complex task execution. Built upon the foundational Qwen3-4B architecture, this model demonstrates strong performance in coding, logical reasoning, and domain-specific problem-solving across diverse environments.
+
+    The model was developed by **spiral-rl**, with contributions from the community, and is designed to support advanced, real-world applications requiring robust reasoning, adaptability, and structured output generation. It is optimized for use in constrained environments, making it ideal for edge deployment and low-latency inference.
+
+    ---
+
+    ### 🔧 Key Features:
+    - **Architecture:** Qwen3-4B (Decoder-only, Transformer-based)
+    - **Fine-tuned For:** Multi-environment reasoning, instruction following, and complex task automation
+    - **Language Support:** English (primary), with strong multilingual capability
+    - **Model Size:** 4 billion parameters
+    - **Training Data:** Proprietary and public datasets focused on reasoning, coding, and task planning
+    - **Use Case:** Ideal for agent-based systems, automated workflows, and intelligent decision-making in dynamic environments
+
+    ---
+
+    ### 📦 Availability:
+    While the original base model is hosted at `spiral-rl/Spiral-Qwen3-4B-Multi-Env`, a **quantized GGUF version** is available for efficient inference on consumer hardware:
+    - **Repository:** [mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF](https://huggingface.co/mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF)
+    - **Quantizations:** Q2_K to Q8_0 (including IQ4_XS), f16, and Q4_K_M recommended for balance of speed and quality
+
+    ---
+
+    ### 💡 Ideal For:
+    - Local AI agents
+    - Edge deployment
+    - Code generation and debugging
+    - Multi-step task planning
+    - Research in low-resource reasoning systems
+
+    ---
+
+    > ✅ **Note:** The model card above reflects the *original, unquantized base model*. The quantized version (GGUF) is optimized for performance but may have minor quality trade-offs. For full fidelity, use the base model with full precision.
+  overrides:
+    parameters:
+      model: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+  files:
+    - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+      sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
+      uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
