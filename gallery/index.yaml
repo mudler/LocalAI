@@ -23203,3 +23203,16 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "llama31st_diag_gguf"
+  urls:
+    - https://huggingface.co/schonsense/llama31st_diag_GGUF
+  description: |
+    AI model: llama31st_diag_gguf
+  overrides:
+    parameters:
+      model: llama3_1_st_dialog_fa_IMAT_IO+_q4_k_m.gguf
+  files:
+    - filename: llama3_1_st_dialog_fa_IMAT_IO+_q4_k_m.gguf
+      sha256: b4abd70194d7e7a631be730d6cffc5e731a8ea7a4d24751370230638b769e0d4
+      uri: huggingface://schonsense/llama31st_diag_GGUF/llama3_1_st_dialog_fa_IMAT_IO+_q4_k_m.gguf
