@@ -23149,3 +23149,34 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama32
+  name: "ssft-32b-n6-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ssft-32B-N6-i1-GGUF
+  description: |
+    ### **SSFT-32B-N6** – A Highly Reasoning-Aware Large Language Model
+
+    **Model Overview:**
+    SSFT-32B-N6 is a 32-billion-parameter large language model fine-tuned for advanced reasoning tasks, built upon **Qwen2.5-32B-Instruct**. It is specifically designed to excel in mathematical problem-solving, logical reasoning, and multi-step inference through a novel training paradigm called **Set Supervised Fine-Tuning (SSFT)**, which enables parallel reasoning using "Global Forking Tokens."
+
+    **Key Features:**
+    - **Base Model:** Qwen/Qwen2.5-32B-Instruct
+    - **Training Approach:** SSFT introduces parallel reasoning by generating multiple thought trajectories (via `<think1>...<think6>`) simultaneously, then selecting the best path via majority voting (Cons@k).
+    - **Performance:**
+      - **Pass@1:** 68.15% average across benchmarks (AIME, MATH-500, GPQA-D)
+      - **Cons@6:** 77.23% average (demonstrates strong multi-path reasoning)
+      - **Cons@32:** 82.11% average (near-optimal performance with deep parallelization)
+    - **Use Case:** Ideal for complex reasoning tasks requiring high accuracy, such as math competitions, technical QA, and step-by-step decision-making.
+
+    **License:** Apache 2.0
+    **Repository:** [shengjia-toronto/ssft-32B-N6](https://huggingface.co/shengjia-toronto/ssft-32B-N6)
+    **Paper:** [Training LLMs to Reason in Parallel with Global Forking Tokens (arXiv:2510.05132)](https://arxiv.org/abs/2510.05132)
+
+    > **Note:** This is the original, non-quantized model. The GGUF variant (e.g., `mradermacher/ssft-32B-N6-i1-GGUF`) is a quantized version by a third party, not the original release. For full performance and accuracy, use the base model from the official repository.
+  overrides:
+    parameters:
+      model: ssft-32B-N6.i1-Q4_K_M.gguf
+  files:
+    - filename: ssft-32B-N6.i1-Q4_K_M.gguf
+      sha256: 94e2108838897864f0d1429bfc45cf469ccfa9a4c8b5c64991a4bef2d53243ff
+      uri: huggingface://mradermacher/ssft-32B-N6-i1-GGUF/ssft-32B-N6.i1-Q4_K_M.gguf
