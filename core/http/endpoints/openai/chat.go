@@ -616,7 +616,7 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 		}
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, input.JSONSchema, toolsJSON, toolChoiceJSON)
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

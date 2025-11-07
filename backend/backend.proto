@@ -154,9 +154,8 @@ message PredictOptions {
   repeated string Videos = 45;
   repeated string Audios = 46;
   string CorrelationId = 47;
-  string JsonSchema = 48;  // JSON schema for grammar generation (when use_llama_grammar is enabled)
-  string Tools = 49;  // JSON array of available tools/functions for tool calling
-  string ToolChoice = 50;  // JSON string or object specifying tool choice behavior
+  string Tools = 48;  // JSON array of available tools/functions for tool calling
+  string ToolChoice = 49;  // JSON string or object specifying tool choice behavior
 }
 
 // The response message containing the result

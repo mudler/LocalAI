@@ -86,4 +86,5 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	cfg.TemplateConfig.UseTokenizerTemplate = true
 	cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
 	cfg.Options = append(cfg.Options, "use_jinja:true")
+	cfg.KnownUsecaseStrings = append(cfg.KnownUsecaseStrings, "FLAG_CHAT")
 }

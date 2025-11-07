@@ -124,53 +124,16 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     // Priority: JsonSchema field > grammar field (when use_llama_grammar is enabled)
     // IMPORTANT: server.cpp requires: if json_schema exists, grammar must NOT exist
     // See server.cpp line 420: if (data.contains("json_schema") && !data.contains("grammar"))
-    std::string json_schema_str = predict->jsonschema();
     std::string grammar_str = predict->grammar();
     
     // Debug logging
-    if (!json_schema_str.empty()) {
-        SRV_INF("Received JsonSchema field: %s\n", json_schema_str.c_str());
-    }
     if (!grammar_str.empty()) {
         SRV_INF("Received Grammar field: %s\n", grammar_str.c_str());
     }
     
-    if (!json_schema_str.empty()) {
-        // JsonSchema field is set - use it directly (highest priority)
-        try {
-            json json_schema_obj = json::parse(json_schema_str);
-            // Ensure json_schema is a JSON object (not a string)
-            // json_schema_to_grammar expects a JSON object representing the schema
-            if (json_schema_obj.is_object() || json_schema_obj.is_array()) {
-                data["json_schema"] = json_schema_obj;
-                SRV_INF("Set json_schema in data: %s\n", json_schema_obj.dump(2).c_str());
-                // Explicitly ensure grammar is NOT set when json_schema is provided
-                // This matches server.cpp's requirement: !data.contains("grammar")
-                // Do NOT set data["grammar"] here
-            } else {
-                // If it's not an object/array, it's invalid - fall back to grammar
-                SRV_INF("%s", "JsonSchema is not a valid JSON object/array, falling back to grammar\n");
-                if (!grammar_str.empty()) {
-                    data["grammar"] = grammar_str;
-                }
-            }
-        } catch (const json::parse_error& e) {
-            // If json_schema is invalid JSON, fall back to grammar
-            SRV_INF("Failed to parse JsonSchema as JSON: %s, falling back to grammar\n", e.what());
-            if (!grammar_str.empty()) {
-                data["grammar"] = grammar_str;
-            }
-        }
-    } else if (!grammar_str.empty()) {
+    if (!grammar_str.empty()) {
             data["grammar"] = grammar_str;
             SRV_INF("Using grammar as-is: %s\n", grammar_str.c_str());
-    }
-    
-    // Final check: ensure we don't have both json_schema and grammar set
-    // This should never happen with the logic above, but double-check for safety
-    if (data.contains("json_schema") && data.contains("grammar")) {
-        SRV_WRN("%s", "Both json_schema and grammar are set - removing grammar to match server.cpp requirement\n");
-        data.erase("grammar");
     }
     
     // Only set prompt if UseTokenizerTemplate is false or if no Messages are provided

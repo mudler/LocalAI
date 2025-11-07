@@ -33,7 +33,7 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, jsonSchema string, tools string, toolChoice string) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
@@ -73,7 +73,6 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		opts.Prompt = s
 		opts.Messages = protoMessages
 		opts.UseTokenizerTemplate = c.TemplateConfig.UseTokenizerTemplate
-		opts.JsonSchema = jsonSchema
 		opts.Images = images
 		opts.Videos = videos
 		opts.Audios = audios

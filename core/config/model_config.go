@@ -268,14 +268,7 @@ type TemplateConfig struct {
 	ReplyPrefix string `yaml:"reply_prefix" json:"reply_prefix"`
 }
 
-func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
-	type BCAlias ModelConfig
-	var aux BCAlias
-	if err := value.Decode(&aux); err != nil {
-		return err
-	}
-	*c = ModelConfig(aux)
-
+func (c *ModelConfig) syncKnownUsecasesFromString() {
 	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
 	// Make sure the usecases are valid, we rewrite with what we identified
 	c.KnownUsecaseStrings = []string{}
@@ -284,6 +277,17 @@ func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
 			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
 		}
 	}
+}
+
+func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
+	type BCAlias ModelConfig
+	var aux BCAlias
+	if err := value.Decode(&aux); err != nil {
+		return err
+	}
+	*c = ModelConfig(aux)
+
+	c.syncKnownUsecasesFromString()
 	return nil
 }
 
@@ -460,6 +464,7 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 
 	guessDefaultsFromFile(cfg, lo.modelPath, ctx)
+	cfg.syncKnownUsecasesFromString()
 }
 
 func (c *ModelConfig) Validate() bool {
