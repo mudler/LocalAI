@@ -23149,3 +23149,12 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "testing-beam-004s"
+  urls:
+    - https://huggingface.co/kromquant/testing-beam-004-GGUFs
+  description: |
+    AI model: testing-beam-004s
+  overrides:
+    parameters:
+      model: kromquant/testing-beam-004-GGUFs
