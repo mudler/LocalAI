@@ -30,6 +30,7 @@ Thank you for your interest in contributing to LocalAI! We appreciate your time 
 3. Install the required dependencies ( see https://localai.io/basics/build/#build-localai-locally )
 4. Build LocalAI: `make build`
 5. Run LocalAI: `./local-ai`
+6. To Build and live reload: `make build-dev`
 
 ## Contributing
 
@@ -76,7 +77,7 @@ LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio make run-e2e-aio
 ## Documentation
 
 We are welcome the contribution of the documents, please open new PR or create a new issue. The documentation is available under `docs/` https://github.com/mudler/LocalAI/tree/master/docs
- 
+
 ## Community and Communication
 
 - You can reach out via the Github issue tracker.
