@@ -191,25 +191,6 @@ var chatMLTestMatch map[string]map[string]interface{} = map[string]map[string]in
 	},
 }
 
-var jinjaTest map[string]map[string]interface{} = map[string]map[string]interface{}{
-	"user": {
-		"expected": "<|begin_of_text|><|start_header_id|>user<|end_header_id|>\n\nA long time ago in a galaxy far, far away...<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n\n",
-		"config": &config.ModelConfig{
-			TemplateConfig: config.TemplateConfig{
-				ChatMessage:   toolCallJinja,
-				JinjaTemplate: true,
-			},
-		},
-		"functions":   []functions.Function{},
-		"shouldUseFn": false,
-		"messages": []schema.Message{
-			{
-				Role:          "user",
-				StringContent: "A long time ago in a galaxy far, far away...",
-			},
-		},
-	},
-}
 var _ = Describe("Templates", func() {
 	Context("chat message ChatML", func() {
 		var evaluator *Evaluator
@@ -231,19 +212,6 @@ var _ = Describe("Templates", func() {
 		})
 		for key := range llama3TestMatch {
 			foo := llama3TestMatch[key]
-			It("renders correctly `"+key+"`", func() {
-				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.ModelConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
-				Expect(templated).To(Equal(foo["expected"]), templated)
-			})
-		}
-	})
-	Context("chat message jinja", func() {
-		var evaluator *Evaluator
-		BeforeEach(func() {
-			evaluator = NewEvaluator("")
-		})
-		for key := range jinjaTest {
-			foo := jinjaTest[key]
 			It("renders correctly `"+key+"`", func() {
 				templated := evaluator.TemplateMessages(schema.OpenAIRequest{}, foo["messages"].([]schema.Message), foo["config"].(*config.ModelConfig), foo["functions"].([]functions.Function), foo["shouldUseFn"].(bool))
 				Expect(templated).To(Equal(foo["expected"]), templated)

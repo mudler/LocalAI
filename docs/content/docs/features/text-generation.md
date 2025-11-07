@@ -128,15 +128,43 @@ Models can be also preloaded or downloaded on demand. To learn about model galle
 
 #### YAML configuration
 
-To use the `llama.cpp` backend, specify `llama` as the backend in the YAML file:
+To use the `llama.cpp` backend, specify `llama-cpp` as the backend in the YAML file:
 
 ```yaml
 name: llama
-backend: llama
+backend: llama-cpp
 parameters:
   # Relative to the models path
   model: file.gguf
 ```
+
+#### Backend Options
+
+The `llama.cpp` backend supports additional configuration options that can be specified in the `options` field of your model YAML configuration. These options allow fine-tuning of the backend behavior:
+
+| Option | Type | Description | Example |
+|--------|------|-------------|---------|
+| `use_jinja` or `jinja` | boolean | Enable Jinja2 template processing for chat templates. When enabled, the backend uses Jinja2-based chat templates from the model for formatting messages. | `use_jinja:true` |
+| `context_shift` | boolean | Enable context shifting, which allows the model to dynamically adjust context window usage. | `context_shift:true` |
+| `cache_ram` | integer | Set the maximum RAM cache size in MiB for KV cache. Use `-1` for unlimited (default). | `cache_ram:2048` |
+| `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
+| `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
+
+**Example configuration with options:**
+
+```yaml
+name: llama-model
+backend: llama
+parameters:
+  model: model.gguf
+options:
+  - use_jinja:true
+  - context_shift:true
+  - cache_ram:4096
+  - parallel:2
+```
+
+**Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.
 
 #### Reference
 

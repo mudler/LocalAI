@@ -265,9 +265,18 @@ type TemplateConfig struct {
 
 	Multimodal string `yaml:"multimodal" json:"multimodal"`
 
-	JinjaTemplate bool `yaml:"jinja_template" json:"jinja_template"`
-
 	ReplyPrefix string `yaml:"reply_prefix" json:"reply_prefix"`
+}
+
+func (c *ModelConfig) syncKnownUsecasesFromString() {
+	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
+	// Make sure the usecases are valid, we rewrite with what we identified
+	c.KnownUsecaseStrings = []string{}
+	for k, usecase := range GetAllModelConfigUsecases() {
+		if c.HasUsecases(usecase) {
+			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
+		}
+	}
 }
 
 func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
@@ -278,14 +287,7 @@ func (c *ModelConfig) UnmarshalYAML(value *yaml.Node) error {
 	}
 	*c = ModelConfig(aux)
 
-	c.KnownUsecases = GetUsecasesFromYAML(c.KnownUsecaseStrings)
-	// Make sure the usecases are valid, we rewrite with what we identified
-	c.KnownUsecaseStrings = []string{}
-	for k, usecase := range GetAllModelConfigUsecases() {
-		if c.HasUsecases(usecase) {
-			c.KnownUsecaseStrings = append(c.KnownUsecaseStrings, k)
-		}
-	}
+	c.syncKnownUsecasesFromString()
 	return nil
 }
 
@@ -462,6 +464,7 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	}
 
 	guessDefaultsFromFile(cfg, lo.modelPath, ctx)
+	cfg.syncKnownUsecasesFromString()
 }
 
 func (c *ModelConfig) Validate() bool {
@@ -492,7 +495,7 @@ func (c *ModelConfig) Validate() bool {
 }
 
 func (c *ModelConfig) HasTemplate() bool {
-	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != ""
+	return c.TemplateConfig.Completion != "" || c.TemplateConfig.Edit != "" || c.TemplateConfig.Chat != "" || c.TemplateConfig.ChatMessage != "" || c.TemplateConfig.UseTokenizerTemplate
 }
 
 func (c *ModelConfig) GetModelConfigFile() string {
@@ -573,7 +576,7 @@ func (c *ModelConfig) HasUsecases(u ModelConfigUsecases) bool {
 // This avoids the maintenance burden of updating this list for each new backend - but unfortunately, that's the best option for some services currently.
 func (c *ModelConfig) GuessUsecases(u ModelConfigUsecases) bool {
 	if (u & FLAG_CHAT) == FLAG_CHAT {
-		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" {
+		if c.TemplateConfig.Chat == "" && c.TemplateConfig.ChatMessage == "" && !c.TemplateConfig.UseTokenizerTemplate {
 			return false
 		}
 	}

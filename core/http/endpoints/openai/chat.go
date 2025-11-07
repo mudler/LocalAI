@@ -217,6 +217,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
 		}
 
+		// If we are using a response format, we need to generate a grammar for it
 		if config.ResponseFormatMap != nil {
 			d := schema.ChatCompletionResponseFormat{}
 			dat, err := json.Marshal(config.ResponseFormatMap)
@@ -260,6 +261,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 
 		switch {
+		// Generates grammar with internal's LocalAI engine
 		case (!config.FunctionsConfig.GrammarConfig.NoGrammar || strictMode) && shouldUseFn:
 			noActionGrammar := functions.Function{
 				Name:        noActionName,
@@ -283,7 +285,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				funcs = funcs.Select(config.FunctionToCall())
 			}
 
-			// Update input grammar
+			// Update input grammar or json_schema based on use_llama_grammar option
 			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
 			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
@@ -298,6 +300,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			} else {
 				log.Error().Err(err).Msg("Failed generating grammar")
 			}
+
 		default:
 			// Force picking one of the functions by the request
 			if config.FunctionToCall() != "" {
@@ -316,7 +319,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 		// If we are using the tokenizer template, we don't need to process the messages
 		// unless we are processing functions
-		if !config.TemplateConfig.UseTokenizerTemplate || shouldUseFn {
+		if !config.TemplateConfig.UseTokenizerTemplate {
 			predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
 
 			log.Debug().Msgf("Prompt (after templating): %s", predInput)
@@ -597,7 +600,23 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 		audios = append(audios, m.StringAudios...)
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil)
+	// Serialize tools and tool_choice to JSON strings
+	toolsJSON := ""
+	if len(input.Tools) > 0 {
+		toolsBytes, err := json.Marshal(input.Tools)
+		if err == nil {
+			toolsJSON = string(toolsBytes)
+		}
+	}
+	toolChoiceJSON := ""
+	if input.ToolsChoice != nil {
+		toolChoiceBytes, err := json.Marshal(input.ToolsChoice)
+		if err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err
