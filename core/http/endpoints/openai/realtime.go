@@ -1072,7 +1072,8 @@ func processTextResponse(config *config.ModelConfig, session *Session, prompt st
 		result, tokenUsage, err := ComputeChoices(input, prompt, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
 			if !shouldUseFn {
 				// no function is called, just reply and use stop as finish reason
-				*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
+				stopReason := "stop"
+				*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
 				return
 			}
 
@@ -1120,8 +1121,9 @@ func processTextResponse(config *config.ModelConfig, session *Session, prompt st
 						)
 					} else {
 						// otherwise we return more choices directly
+						functionCallReason := "function_call"
 						*c = append(*c, schema.Choice{
-							FinishReason: "function_call",
+							FinishReason: &functionCallReason,
 							Message: &schema.Message{
 								Role:    "assistant",
 								Content: &textContentToReturn,

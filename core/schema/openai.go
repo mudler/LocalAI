@@ -50,7 +50,7 @@ type OpenAIResponse struct {
 
 type Choice struct {
 	Index        int      `json:"index"`
-	FinishReason string   `json:"finish_reason"`
+	FinishReason *string  `json:"finish_reason,omitempty"`
 	Message      *Message `json:"message,omitempty"`
 	Delta        *Message `json:"delta,omitempty"`
 	Text         string   `json:"text,omitempty"`

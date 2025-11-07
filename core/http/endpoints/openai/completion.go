@@ -162,7 +162,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 							Choices: []schema.Choice{
 								{
 									Index:        0,
-									FinishReason: "stop",
+									FinishReason: func() *string { s := "stop"; return &s }(),
 									Text:         "Internal error: " + err.Error(),
 								},
 							},
@@ -181,6 +181,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					}
 				}
 
+				stopReason := "stop"
 				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
@@ -188,7 +189,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					Choices: []schema.Choice{
 						{
 							Index:        0,
-							FinishReason: "stop",
+							FinishReason: &stopReason,
 						},
 					},
 					Object: "text_completion",
@@ -220,7 +221,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 			r, tokenUsage, err := ComputeChoices(
 				input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
-					*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
+					stopReason := "stop"
+					*c = append(*c, schema.Choice{Text: s, FinishReason: &stopReason, Index: k})
 				}, nil)
 			if err != nil {
 				return err

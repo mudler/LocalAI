@@ -36,7 +36,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			ID:      id,
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &textContentToReturn}}},
+			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
@@ -90,7 +90,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant", Content: &textContentToReturn}}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
 				Object:  "chat.completion.chunk",
 			}
 			responses <- initialMessage
@@ -383,13 +383,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						}
 						log.Error().Msgf("Stream ended with error: %v", err)
 
+						stopReason := "stop"
 						resp := &schema.OpenAIResponse{
 							ID:      id,
 							Created: created,
 							Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 							Choices: []schema.Choice{
 								{
-									FinishReason: "stop",
+									FinishReason: &stopReason,
 									Index:        0,
 									Delta:        &schema.Message{Content: "Internal error: " + err.Error()},
 								}},
@@ -424,9 +425,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
 					Choices: []schema.Choice{
 						{
-							FinishReason: finishReason,
+							FinishReason: &finishReason,
 							Index:        0,
-							Delta:        &schema.Message{Content: &textContentToReturn},
+							Delta:        &schema.Message{},
 						}},
 					Object: "chat.completion.chunk",
 					Usage:  *usage,
@@ -447,7 +448,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				if !shouldUseFn {
 					// no function is called, just reply and use stop as finish reason
-					*c = append(*c, schema.Choice{FinishReason: "stop", Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
+					stopReason := "stop"
+					*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
 					return
 				}
 
@@ -465,12 +467,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						return
 					}
 
+					stopReason := "stop"
 					*c = append(*c, schema.Choice{
-						FinishReason: "stop",
+						FinishReason: &stopReason,
 						Message:      &schema.Message{Role: "assistant", Content: &result}})
 				default:
+					toolCallsReason := "tool_calls"
 					toolChoice := schema.Choice{
-						FinishReason: "tool_calls",
+						FinishReason: &toolCallsReason,
 						Message: &schema.Message{
 							Role: "assistant",
 						},
@@ -494,8 +498,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							)
 						} else {
 							// otherwise we return more choices directly (deprecated)
+							functionCallReason := "function_call"
 							*c = append(*c, schema.Choice{
-								FinishReason: "function_call",
+								FinishReason: &functionCallReason,
 								Message: &schema.Message{
 									Role:    "assistant",
 									Content: &textContentToReturn,
