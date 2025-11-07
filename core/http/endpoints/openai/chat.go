@@ -396,9 +396,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							Object: "chat.completion.chunk",
 							Usage:  *usage,
 						}
-						respData, _ := json.Marshal(resp)
-
-						w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
+						respData, marshalErr := json.Marshal(resp)
+						if marshalErr != nil {
+							log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+							// Send a simple error message as fallback
+							w.WriteString("data: {\"error\":\"Internal error\"}\n\n")
+						} else {
+							w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
+						}
 						w.WriteString("data: [DONE]\n\n")
 						w.Flush()
 

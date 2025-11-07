@@ -168,8 +168,14 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 							},
 							Object: "text_completion",
 						}
-						errorData, _ := json.Marshal(errorResp)
-						fmt.Fprintf(w, "data: %s\n\n", string(errorData))
+						errorData, marshalErr := json.Marshal(errorResp)
+						if marshalErr != nil {
+							log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+							// Send a simple error message as fallback
+							fmt.Fprintf(w, "data: {\"error\":\"Internal error\"}\n\n")
+						} else {
+							fmt.Fprintf(w, "data: %s\n\n", string(errorData))
+						}
 						w.Flush()
 						break LOOP
 					}
