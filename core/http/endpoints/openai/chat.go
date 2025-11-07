@@ -300,21 +300,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			} else {
 				log.Error().Err(err).Msg("Failed generating grammar")
 			}
-		// Pass jsonschema to the backend for grammar generation
-		case config.FunctionsConfig.GrammarConfig.NoGrammar && shouldUseFn && config.TemplateConfig.UseTokenizerTemplate:
-			if config.FunctionToCall() != "" {
-				funcs = funcs.Select(config.FunctionToCall())
-			}
 
-			// Update input grammar or json_schema based on use_llama_grammar option
-			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
-			schemaBytes, err := json.Marshal(jsStruct)
-			if err == nil {
-				log.Debug().Msgf("JSONSchema: %s", string(schemaBytes))
-				input.JSONSchema = string(schemaBytes)
-			} else {
-				log.Error().Err(err).Msg("Failed marshaling json_schema for functions")
-			}
 		default:
 			// Force picking one of the functions by the request
 			if config.FunctionToCall() != "" {

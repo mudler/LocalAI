@@ -695,42 +695,59 @@ public:
                 body_json["messages"] = messages_json;
                 body_json["stream"] = true; // PredictStream is always streaming
                 
+                // Check if grammar is provided from Go layer (NoGrammar=false)
+                // If grammar is provided, we must use it and NOT let template generate grammar from tools
+                // oaicompat_chat_params_parse throws an error if both grammar and tools are provided
+                bool has_grammar_from_go = data.contains("grammar") && 
+                    data["grammar"].is_string() && 
+                    !data["grammar"].get<std::string>().empty();
+                
                 // Copy other relevant fields from data that oaicompat_chat_params_parse expects
-                // Tools and tool_choice are required for tool call grammar generation
-                if (data.contains("tools")) {
-                    body_json["tools"] = data["tools"];
-                    std::string tools_str = data["tools"].dump();
-                    SRV_INF("Using tools from data: %s\n", tools_str.c_str());
-                } else {
-                    SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
-                }
-                if (data.contains("tool_choice")) {
-                    // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
-                    // Convert object tool_choice to "required" (since a specific function is requested)
-                    if (data["tool_choice"].is_string()) {
-                        body_json["tool_choice"] = data["tool_choice"].get<std::string>();
-                    } else if (data["tool_choice"].is_object()) {
-                        // Object tool_choice means a specific function is requested, use "required"
-                        body_json["tool_choice"] = "required";
-                        std::string tool_choice_obj_str = data["tool_choice"].dump();
-                        SRV_INF("Converted object tool_choice to 'required': %s\n", tool_choice_obj_str.c_str());
+                // Tools and tool_choice are only passed when NoGrammar is true (grammar not provided)
+                // When grammar is provided from Go layer, we use it instead of template-generated grammar
+                if (!has_grammar_from_go) {
+                    // NoGrammar=true: pass tools and let template generate grammar
+                    if (data.contains("tools")) {
+                        body_json["tools"] = data["tools"];
+                        std::string tools_str = data["tools"].dump();
+                        SRV_INF("Using tools from data (NoGrammar=true): %s\n", tools_str.c_str());
                     } else {
-                        // Fallback: convert to string
-                        body_json["tool_choice"] = data["tool_choice"].dump();
+                        SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
                     }
-                    std::string tool_choice_str = body_json["tool_choice"].get<std::string>();
-                    SRV_INF("Using tool_choice: %s\n", tool_choice_str.c_str());
+                    if (data.contains("tool_choice")) {
+                        // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
+                        // Convert object tool_choice to "required" (since a specific function is requested)
+                        if (data["tool_choice"].is_string()) {
+                            body_json["tool_choice"] = data["tool_choice"].get<std::string>();
+                        } else if (data["tool_choice"].is_object()) {
+                            // Object tool_choice means a specific function is requested, use "required"
+                            body_json["tool_choice"] = "required";
+                            std::string tool_choice_obj_str = data["tool_choice"].dump();
+                            SRV_INF("Converted object tool_choice to 'required': %s\n", tool_choice_obj_str.c_str());
+                        } else {
+                            // Fallback: convert to string
+                            body_json["tool_choice"] = data["tool_choice"].dump();
+                        }
+                        std::string tool_choice_str = body_json["tool_choice"].get<std::string>();
+                        SRV_INF("Using tool_choice: %s\n", tool_choice_str.c_str());
+                    } else {
+                        // Default to "auto" if not specified
+                        body_json["tool_choice"] = "auto";
+                    }
                 } else {
-                    // Default to "auto" if not specified
-                    body_json["tool_choice"] = "auto";
+                    // Grammar is provided from Go layer (NoGrammar=false) - use it, don't pass tools
+                    SRV_INF("%s", "Grammar provided from Go layer - using it instead of template-generated grammar\n");
+                    // Grammar will be copied from data after parsing (it's already in data)
                 }
+                
                 if (data.contains("json_schema")) {
                     body_json["json_schema"] = data["json_schema"];
                 }
-                // Don't copy grammar when using chat templates - the template will generate grammar
-                // for tool calls if tools are present. oaicompat_chat_params_parse throws an error
-                // if both grammar and tools are provided (see utils.hpp line 700-701)
-                // Grammar from templates will be merged into data after parsing
+                // If grammar is provided from Go layer, copy it to body_json so it's preserved
+                // (though oaicompat_chat_params_parse may not use it if tools are present)
+                if (has_grammar_from_go) {
+                    body_json["grammar"] = data["grammar"];
+                }
                 if (data.contains("response_format")) {
                     body_json["response_format"] = data["response_format"];
                 }
@@ -749,11 +766,23 @@ public:
                 // Extract the prompt from parsed data
                 prompt_str = parsed_data.at("prompt").get<std::string>();
                 
+                // Preserve grammar from Go layer if it was provided (NoGrammar=false)
+                // Otherwise, use grammar from parsed_data (template-generated when NoGrammar=true)
+                json preserved_grammar;
+                if (has_grammar_from_go && data.contains("grammar")) {
+                    preserved_grammar = data["grammar"];
+                }
+                
                 // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, etc.)
                 // This ensures all template-generated fields are included
                 for (const auto& item : parsed_data.items()) {
                     if (item.key() != "prompt") { // Don't overwrite prompt_str, we already extracted it
-                        data[item.key()] = item.value();
+                        // If grammar was provided from Go layer, preserve it instead of template-generated grammar
+                        if (item.key() == "grammar" && has_grammar_from_go && !preserved_grammar.is_null()) {
+                            data["grammar"] = preserved_grammar;
+                        } else {
+                            data[item.key()] = item.value();
+                        }
                     }
                 }
             } else {
@@ -985,42 +1014,59 @@ public:
                 body_json["messages"] = messages_json;
                 body_json["stream"] = false;
                 
+                // Check if grammar is provided from Go layer (NoGrammar=false)
+                // If grammar is provided, we must use it and NOT let template generate grammar from tools
+                // oaicompat_chat_params_parse throws an error if both grammar and tools are provided
+                bool has_grammar_from_go = data.contains("grammar") && 
+                    data["grammar"].is_string() && 
+                    !data["grammar"].get<std::string>().empty();
+                
                 // Copy other relevant fields from data that oaicompat_chat_params_parse expects
-                // Tools and tool_choice are required for tool call grammar generation
-                if (data.contains("tools")) {
-                    body_json["tools"] = data["tools"];
-                    std::string tools_str = data["tools"].dump();
-                    SRV_INF("Using tools from data: %s\n", tools_str.c_str());
-                } else {
-                    SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
-                }
-                if (data.contains("tool_choice")) {
-                    // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
-                    // Convert object tool_choice to "required" (since a specific function is requested)
-                    if (data["tool_choice"].is_string()) {
-                        body_json["tool_choice"] = data["tool_choice"].get<std::string>();
-                    } else if (data["tool_choice"].is_object()) {
-                        // Object tool_choice means a specific function is requested, use "required"
-                        body_json["tool_choice"] = "required";
-                        std::string tool_choice_obj_str = data["tool_choice"].dump();
-                        SRV_INF("Converted object tool_choice to 'required': %s\n", tool_choice_obj_str.c_str());
+                // Tools and tool_choice are only passed when NoGrammar is true (grammar not provided)
+                // When grammar is provided from Go layer, we use it instead of template-generated grammar
+                if (!has_grammar_from_go) {
+                    // NoGrammar=true: pass tools and let template generate grammar
+                    if (data.contains("tools")) {
+                        body_json["tools"] = data["tools"];
+                        std::string tools_str = data["tools"].dump();
+                        SRV_INF("Using tools from data (NoGrammar=true): %s\n", tools_str.c_str());
                     } else {
-                        // Fallback: convert to string
-                        body_json["tool_choice"] = data["tool_choice"].dump();
+                        SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
                     }
-                    std::string tool_choice_str = body_json["tool_choice"].get<std::string>();
-                    SRV_INF("Using tool_choice: %s\n", tool_choice_str.c_str());
+                    if (data.contains("tool_choice")) {
+                        // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
+                        // Convert object tool_choice to "required" (since a specific function is requested)
+                        if (data["tool_choice"].is_string()) {
+                            body_json["tool_choice"] = data["tool_choice"].get<std::string>();
+                        } else if (data["tool_choice"].is_object()) {
+                            // Object tool_choice means a specific function is requested, use "required"
+                            body_json["tool_choice"] = "required";
+                            std::string tool_choice_obj_str = data["tool_choice"].dump();
+                            SRV_INF("Converted object tool_choice to 'required': %s\n", tool_choice_obj_str.c_str());
+                        } else {
+                            // Fallback: convert to string
+                            body_json["tool_choice"] = data["tool_choice"].dump();
+                        }
+                        std::string tool_choice_str = body_json["tool_choice"].get<std::string>();
+                        SRV_INF("Using tool_choice: %s\n", tool_choice_str.c_str());
+                    } else {
+                        // Default to "auto" if not specified
+                        body_json["tool_choice"] = "auto";
+                    }
                 } else {
-                    // Default to "auto" if not specified
-                    body_json["tool_choice"] = "auto";
+                    // Grammar is provided from Go layer (NoGrammar=false) - use it, don't pass tools
+                    SRV_INF("%s", "Grammar provided from Go layer - using it instead of template-generated grammar\n");
+                    // Grammar will be copied from data after parsing (it's already in data)
                 }
+                
                 if (data.contains("json_schema")) {
                     body_json["json_schema"] = data["json_schema"];
                 }
-                // Don't copy grammar when using chat templates - the template will generate grammar
-                // for tool calls if tools are present. oaicompat_chat_params_parse throws an error
-                // if both grammar and tools are provided (see utils.hpp line 700-701)
-                // Grammar from templates will be merged into data after parsing
+                // If grammar is provided from Go layer, copy it to body_json so it's preserved
+                // (though oaicompat_chat_params_parse may not use it if tools are present)
+                if (has_grammar_from_go) {
+                    body_json["grammar"] = data["grammar"];
+                }
                 if (data.contains("response_format")) {
                     body_json["response_format"] = data["response_format"];
                 }
@@ -1039,11 +1085,23 @@ public:
                 // Extract the prompt from parsed data
                 prompt_str = parsed_data.at("prompt").get<std::string>();
                 
+                // Preserve grammar from Go layer if it was provided (NoGrammar=false)
+                // Otherwise, use grammar from parsed_data (template-generated when NoGrammar=true)
+                json preserved_grammar;
+                if (has_grammar_from_go && data.contains("grammar")) {
+                    preserved_grammar = data["grammar"];
+                }
+                
                 // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, etc.)
                 // This ensures all template-generated fields are included
                 for (const auto& item : parsed_data.items()) {
                     if (item.key() != "prompt") { // Don't overwrite prompt_str, we already extracted it
-                        data[item.key()] = item.value();
+                        // If grammar was provided from Go layer, preserve it instead of template-generated grammar
+                        if (item.key() == "grammar" && has_grammar_from_go && !preserved_grammar.is_null()) {
+                            data["grammar"] = preserved_grammar;
+                        } else {
+                            data[item.key()] = item.value();
+                        }
                     }
                 }
             } else {
