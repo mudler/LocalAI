@@ -383,7 +383,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						}
 						log.Error().Msgf("Stream ended with error: %v", err)
 
-						stopReason := "stop"
+						stopReason := FinishReasonStop
 						resp := &schema.OpenAIResponse{
 							ID:      id,
 							Created: created,
@@ -412,11 +412,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 				}
 
-				finishReason := "stop"
+				finishReason := FinishReasonStop
 				if toolsCalled && len(input.Tools) > 0 {
-					finishReason = "tool_calls"
+					finishReason = FinishReasonToolCalls
 				} else if toolsCalled {
-					finishReason = "function_call"
+					finishReason = FinishReasonFunctionCall
 				}
 
 				resp := &schema.OpenAIResponse{
@@ -448,7 +448,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			tokenCallback := func(s string, c *[]schema.Choice) {
 				if !shouldUseFn {
 					// no function is called, just reply and use stop as finish reason
-					stopReason := "stop"
+					stopReason := FinishReasonStop
 					*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
 					return
 				}
@@ -467,12 +467,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						return
 					}
 
-					stopReason := "stop"
+					stopReason := FinishReasonStop
 					*c = append(*c, schema.Choice{
 						FinishReason: &stopReason,
 						Message:      &schema.Message{Role: "assistant", Content: &result}})
 				default:
-					toolCallsReason := "tool_calls"
+					toolCallsReason := FinishReasonToolCalls
 					toolChoice := schema.Choice{
 						FinishReason: &toolCallsReason,
 						Message: &schema.Message{
@@ -498,7 +498,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 							)
 						} else {
 							// otherwise we return more choices directly (deprecated)
-							functionCallReason := "function_call"
+							functionCallReason := FinishReasonFunctionCall
 							*c = append(*c, schema.Choice{
 								FinishReason: &functionCallReason,
 								Message: &schema.Message{
