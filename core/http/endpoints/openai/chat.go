@@ -358,6 +358,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			LOOP:
 				for {
 					select {
+					case <-input.Context.Done():
+						// Context was cancelled (client disconnected or request cancelled)
+						log.Debug().Msgf("Request context cancelled, stopping stream")
+						input.Cancel()
+						break LOOP
 					case ev := <-responses:
 						if len(ev.Choices) == 0 {
 							log.Debug().Msgf("No choices in the response, skipping")

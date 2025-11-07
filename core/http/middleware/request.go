@@ -161,7 +161,8 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 	correlationID := ctx.Get("X-Correlation-ID", uuid.New().String())
 	ctx.Set("X-Correlation-ID", correlationID)
 
-	c1, cancel := context.WithCancel(re.applicationConfig.Context)
+	//c1, cancel := context.WithCancel(re.applicationConfig.Context)
+	c1, cancel := context.WithCancel(ctx.Context())
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 
