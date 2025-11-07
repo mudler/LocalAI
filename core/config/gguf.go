@@ -85,4 +85,5 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	// Instruct to use template from llama.cpp
 	cfg.TemplateConfig.UseTokenizerTemplate = true
 	cfg.FunctionsConfig.GrammarConfig.NoGrammar = true
+	cfg.Options = append(cfg.Options, "use_jinja:true")
 }
