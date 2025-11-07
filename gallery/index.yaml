@@ -23149,3 +23149,86 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-12b-thinking-brainstorm20x-neo-max"
+  urls:
+    - https://huggingface.co/DavidAU/Qwen3-VL-12B-Thinking-Brainstorm20x-NEO-MAX-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-8B-Thinking
+    **Repository:** [Qwen/Qwen3-VL-8B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-8B-Thinking)
+    **Model Type:** Vision-Language (Multimodal)
+    **Architecture:** Qwen3-VL with enhanced reasoning capabilities
+    **Size:** 8 billion parameters (dense)
+    **Context Length:** Up to 256K tokens (expandable to 1M)
+    **License:** Apache 2.0
+
+    ---
+
+    ### ✨ Description:
+
+    Qwen3-VL-8B-Thinking is a powerful, multimodal language model developed by Alibaba’s Qwen team, designed to understand and reason across images, text, and video. It excels in complex tasks such as detailed image description, visual coding, spatial reasoning, and long-form content generation.
+
+    Built on the advanced Qwen3-VL architecture, this model features:
+    - **Interleaved-MRoPE**: Enhanced positional encoding for superior video and long-context reasoning.
+    - **DeepStack**: Fused ViT features for sharper image-text alignment and fine-grained detail understanding.
+    - **Text–Timestamp Alignment**: Precise event localization in videos for robust temporal modeling.
+    - **Visual Agent Capabilities**: Can interpret and interact with GUIs, recognize UI elements, and perform tasks.
+    - **Visual Coding Boost**: Generates code (HTML/CSS/JS/Draw.io) directly from images or diagrams.
+
+    It supports **32 languages** in OCR and handles challenging input conditions like blur, low light, and rare characters with high accuracy.
+
+    ---
+
+    ### 📌 Key Use Cases:
+    - Image-to-text descriptions & storytelling
+    - Visual programming & diagram interpretation
+    - Long-document and video summarization
+    - STEM reasoning with visual inputs
+    - Creative brainstorming and narrative generation
+    - GUI interaction (visual agent)
+
+    ---
+
+    ### 🧪 Performance Highlights:
+    - State-of-the-art in multimodal reasoning and visual understanding
+    - Strong performance on benchmarks including VQA, OCR, and code generation
+    - High-quality text generation with deep coherence and rich detail
+
+    ---
+
+    ### ⚙️ Usage Tips:
+    - Use `transformers` + `AutoProcessor` with `Qwen3VLForConditionalGeneration`
+    - Enable `flash_attention_2` for faster inference
+    - Ideal for long-context applications (e.g., book analysis, multi-page docs)
+    - Recommended settings: `temperature=0.7`, `top_p=0.9`, `repetition_penalty=1.05`, `max_new_tokens=128–4096`
+
+    ---
+
+    ### 📚 Citation:
+    ```bibtex
+    @misc{qwen3technicalreport,
+      title={Qwen3 Technical Report},
+      author={Qwen Team},
+      year={2025},
+      eprint={2505.09388},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2505.09388}
+    }
+    ```
+
+    ---
+
+    > 🔗 **Try it live:** [https://chat.qwenlm.ai](https://chat.qwenlm.ai)
+    > 📄 **Full documentation & code:** [Hugging Face - Qwen3-VL-8B-Thinking](https://huggingface.co/Qwen/Qwen3-VL-8B-Thinking)
+
+    ---
+
+    *Note: This is the original, unquantized base model. The GGUF quantization version (e.g., `DavidAU/Qwen3-VL-12B-Thinking-Brainstorm20x-NEO-MAX-GGUF`) is a modified, larger version with added "Brainstorm" adapter and Neo-Imatrix optimizations — not the official release.*
+  overrides:
+    parameters:
+      model: Qwen3-VL-12B-Thinking-Brainstorm20x-NEO-D_AU-Q4_K_M.gguf
+  files:
+    - filename: Qwen3-VL-12B-Thinking-Brainstorm20x-NEO-D_AU-Q4_K_M.gguf
+      sha256: 8ad83123de913b7d1c4a4a56ae4dd0e668a3209587a8161c605906c7922e06c1
+      uri: huggingface://DavidAU/Qwen3-VL-12B-Thinking-Brainstorm20x-NEO-MAX-GGUF/Qwen3-VL-12B-Thinking-Brainstorm20x-NEO-D_AU-Q4_K_M.gguf
