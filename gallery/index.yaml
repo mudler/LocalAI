@@ -23203,3 +23203,12 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "testing-luminous-001s"
+  urls:
+    - https://huggingface.co/kromquant/testing-luminous-001-GGUFs
+  description: |
+    AI model: testing-luminous-001s
+  overrides:
+    parameters:
+      model: kromquant/testing-luminous-001-GGUFs
