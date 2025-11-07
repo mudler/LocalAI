@@ -23203,3 +23203,16 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "aquif-3.5-max-42b-a3b"
+  urls:
+    - https://huggingface.co/Mungert/aquif-3.5-Max-42B-A3B-GGUF
+  description: |
+    AI model: aquif-3.5-max-42b-a3b
+  overrides:
+    parameters:
+      model: aquif-3.5-Max-42B-A3B-q3_k_m.gguf
+  files:
+    - filename: aquif-3.5-Max-42B-A3B-q3_k_m.gguf
+      sha256: bfe2375e350c97a8a3699f58487daf11057b9177ed6fbff6ad38be38e82f9e77
+      uri: huggingface://Mungert/aquif-3.5-Max-42B-A3B-GGUF/aquif-3.5-Max-42B-A3B-q3_k_m.gguf
