@@ -23149,3 +23149,45 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "ssft-32b-n6-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ssft-32B-N6-i1-GGUF
+  description: |
+    **Model Name:** SSFT-32B-N6
+    **Base Model:** Qwen/Qwen2.5-32B-Instruct
+    **Repository:** [shengjia-toronto/ssft-32B-N6](https://huggingface.co/shengjia-toronto/ssft-32B-N6)
+    **License:** Apache 2.0
+    **Tags:** math, chain-of-thought, reasoning, LLMs
+
+    ### 🔍 Description:
+    SSFT-32B-N6 is a state-of-the-art large language model trained using **Supervised Fine-Tuning with Global Forking Tokens (SSFT)**, designed to excel in complex reasoning tasks by enabling parallel reasoning paths. Built on the Qwen2.5-32B-Instruct foundation, this model is optimized for high accuracy in mathematical problem-solving, logical reasoning, and multi-step inference.
+
+    Key features:
+    - **Parallel Reasoning:** Uses `<think1>` to `<think6>` tokens to generate multiple reasoning paths simultaneously, improving robustness through majority voting (Cons@k).
+    - **Outstanding Performance:** Achieves **68.15% average Pass@1** and **82.11% average Cons@32** across benchmarks including AIME, MATH-500, and GPQA-D.
+    - **Open-Source & Eval-Ready:** Comes with full evaluation code using LightEval, ready for testing and benchmarking.
+
+    ### 📌 Use Case:
+    Ideal for applications requiring advanced reasoning, such as AI tutors, automated problem-solving systems, and research in cognitive modeling.
+
+    ### 📚 Paper:
+    [“Training LLMs to Reason in Parallel with Global Forking Tokens”](https://arxiv.org/abs/2510.05132)
+    **Citation:**
+    ```bibtex
+    @article{jia2025training,
+      title={Training Large Language Models To Reason In Parallel With Global Forking Tokens},
+      author={Jia, Sheng and Wang, Xiao and Kasiviswanathan, Shiva Prasad},
+      journal={arXiv preprint arXiv:2510.05132},
+      year={2025}
+    }
+    ```
+
+    > ✅ **Note:** The GGUF quantized version by `mradermacher` is a derivative of this model and not the original. For the base model description and full training details, refer to the original repository above.
+  overrides:
+    parameters:
+      model: ssft-32B-N6.i1-Q4_K_M.gguf
+  files:
+    - filename: ssft-32B-N6.i1-Q4_K_M.gguf
+      sha256: 94e2108838897864f0d1429bfc45cf469ccfa9a4c8b5c64991a4bef2d53243ff
+      uri: huggingface://mradermacher/ssft-32B-N6-i1-GGUF/ssft-32B-N6.i1-Q4_K_M.gguf
