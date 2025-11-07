@@ -155,6 +155,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 						}
 						log.Error().Msgf("Stream ended with error: %v", err)
 
+						stopReason := "stop"
 						errorResp := schema.OpenAIResponse{
 							ID:      id,
 							Created: created,
@@ -162,7 +163,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 							Choices: []schema.Choice{
 								{
 									Index:        0,
-									FinishReason: func() *string { s := "stop"; return &s }(),
+									FinishReason: &stopReason,
 									Text:         "Internal error: " + err.Error(),
 								},
 							},
