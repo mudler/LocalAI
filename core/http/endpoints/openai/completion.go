@@ -140,19 +140,36 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 							log.Debug().Msgf("No choices in the response, skipping")
 							continue
 						}
-						var buf bytes.Buffer
-						enc := json.NewEncoder(&buf)
-						enc.Encode(ev)
+						respData, err := json.Marshal(ev)
+						if err != nil {
+							log.Debug().Msgf("Failed to marshal response: %v", err)
+							continue
+						}
 
-						log.Debug().Msgf("Sending chunk: %s", buf.String())
-						fmt.Fprintf(w, "data: %v\n", buf.String())
+						log.Debug().Msgf("Sending chunk: %s", string(respData))
+						fmt.Fprintf(w, "data: %s\n\n", string(respData))
 						w.Flush()
 					case err := <-ended:
 						if err == nil {
 							break LOOP
 						}
 						log.Error().Msgf("Stream ended with error: %v", err)
-						fmt.Fprintf(w, "data: %v\n", "Internal error: "+err.Error())
+
+						errorResp := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   input.Model,
+							Choices: []schema.Choice{
+								{
+									Index:        0,
+									FinishReason: "stop",
+									Text:         "Internal error: " + err.Error(),
+								},
+							},
+							Object: "text_completion",
+						}
+						errorData, _ := json.Marshal(errorResp)
+						fmt.Fprintf(w, "data: %s\n\n", string(errorData))
 						w.Flush()
 						break LOOP
 					}

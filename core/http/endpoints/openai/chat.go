@@ -364,11 +364,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
 							toolsCalled = true
 						}
-						var buf bytes.Buffer
-						enc := json.NewEncoder(&buf)
-						enc.Encode(ev)
-						log.Debug().Msgf("Sending chunk: %s", buf.String())
-						_, err := fmt.Fprintf(w, "data: %v\n", buf.String())
+						respData, err := json.Marshal(ev)
+						if err != nil {
+							log.Debug().Msgf("Failed to marshal response: %v", err)
+							input.Cancel()
+							continue
+						}
+						log.Debug().Msgf("Sending chunk: %s", string(respData))
+						_, err = fmt.Fprintf(w, "data: %s\n\n", string(respData))
 						if err != nil {
 							log.Debug().Msgf("Sending chunk failed: %v", err)
 							input.Cancel()
