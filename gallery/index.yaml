@@ -23149,3 +23149,28 @@
     - filename: Orca-Agent-v0.1.i1-Q4_K_M.gguf
       sha256: 05548385128da98431f812d1b6bc3f1bff007a56a312dc98d9111b5fb51e1751
       uri: huggingface://mradermacher/Orca-Agent-v0.1-i1-GGUF/Orca-Agent-v0.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "gelato-30b-a3b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Gelato-30B-A3B-i1-GGUF
+  description: |
+    **Gelato-30B-A3B** is a state-of-the-art vision-language model designed for precise grounding in graphical user interfaces (GUIs). Built on the Qwen3-VL-30B-A3B-Instruct architecture and trained on the **Click-100k** dataset, Gelato excels at understanding and locating UI elements from visual inputs, making it ideal for tasks like automated screen interaction and computer use agents.
+
+    Key Features:
+    - **High Accuracy**: Achieves **63.88%** on ScreenSpot-Pro and **74.65%** on OS-World-G (Refined), outperforming larger models like Qwen3-VL-235B and specialized models like GTA1-32B.
+    - **Efficient Design**: Despite its small activated size (3B), it delivers SOTA performance in grounding tasks.
+    - **Zero-Shot Capabilities**: Can perform zero-shot object detection and coordinate prediction in GUIs without task-specific fine-tuning.
+    - **Real-World Applicability**: Ideal for robotic process automation, UI testing, and AI assistants that interact with desktop environments.
+
+    The model outputs normalized click coordinates (x, y) in the range [0, 1000], enabling precise, reproducible interaction with on-screen elements.
+
+    📌 **Use Case**: Automating repetitive GUI interactions, building AI agents for desktop workflows, and research in visual grounding and human-computer interaction.
+
+    📘 *Cite:* Gelato Team. (2025). *Gelato — From Data Curation to Reinforcement Learning: Building a Strong Grounding Model for Computer-Use Agents*. GitHub. https://github.com/mlfoundations/gelato
+  overrides:
+    parameters:
+      model: Gelato-30B-A3B.i1-Q4_K_M.gguf
+  files:
+    - filename: Gelato-30B-A3B.i1-Q4_K_M.gguf
+      sha256: b353b25d0e193340dbf68261d930f5456adb2933a85d74be5296757d85337f45
+      uri: huggingface://mradermacher/Gelato-30B-A3B-i1-GGUF/Gelato-30B-A3B.i1-Q4_K_M.gguf
