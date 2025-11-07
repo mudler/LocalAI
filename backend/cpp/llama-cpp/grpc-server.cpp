@@ -120,20 +120,14 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
     
-    // Handle grammar/json_schema based on use_llama_grammar flag
-    // Priority: JsonSchema field > grammar field (when use_llama_grammar is enabled)
-    // IMPORTANT: server.cpp requires: if json_schema exists, grammar must NOT exist
-    // See server.cpp line 420: if (data.contains("json_schema") && !data.contains("grammar"))
+
     std::string grammar_str = predict->grammar();
     
-    // Debug logging
-    if (!grammar_str.empty()) {
-        SRV_INF("Received Grammar field: %s\n", grammar_str.c_str());
-    }
+ 
     
     if (!grammar_str.empty()) {
-            data["grammar"] = grammar_str;
-            SRV_INF("Using grammar as-is: %s\n", grammar_str.c_str());
+        data["grammar"] = grammar_str;
+        SRV_INF("Using grammar: %s\n", grammar_str.c_str());
     }
     
     // Only set prompt if UseTokenizerTemplate is false or if no Messages are provided
