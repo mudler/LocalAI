@@ -1,6 +1,8 @@
 package openai
 
 import (
+	"encoding/json"
+
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 
@@ -37,9 +39,25 @@ func ComputeChoices(
 		audios = append(audios, m.StringAudios...)
 	}
 
+	// Serialize tools and tool_choice to JSON strings
+	toolsJSON := ""
+	if len(req.Tools) > 0 {
+		toolsBytes, err := json.Marshal(req.Tools)
+		if err == nil {
+			toolsJSON = string(toolsBytes)
+		}
+	}
+	toolChoiceJSON := ""
+	if req.ToolsChoice != nil {
+		toolChoiceBytes, err := json.Marshal(req.ToolsChoice)
+		if err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
 	// get the model function to call for the result
 	predFunc, err := backend.ModelInference(
-		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, req.JSONSchema)
+		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, req.JSONSchema, toolsJSON, toolChoiceJSON)
 	if err != nil {
 		return result, backend.TokenUsage{}, err
 	}

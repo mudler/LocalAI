@@ -178,6 +178,37 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     if (!predict->usetokenizertemplate() || predict->messages_size() == 0) {
         data["prompt"] = predict->prompt();
     }
+    
+    // Extract tools and tool_choice from proto and add to data JSON
+    if (!predict->tools().empty()) {
+        try {
+            // Parse tools JSON string and add to data
+            json tools_json = json::parse(predict->tools());
+            data["tools"] = tools_json;
+            SRV_INF("Extracted tools from proto: %s\n", predict->tools().c_str());
+        } catch (const json::parse_error& e) {
+            SRV_WRN("Failed to parse tools JSON from proto: %s\n", e.what());
+        }
+    }
+    if (!predict->toolchoice().empty()) {
+        try {
+            // Parse tool_choice JSON string
+            json tool_choice_json = json::parse(predict->toolchoice());
+            // tool_choice can be a string ("auto", "none", "required") or an object
+            // Store it as-is (string or object) so we can convert object to "required" later when adding to body_json
+            if (tool_choice_json.is_string()) {
+                data["tool_choice"] = tool_choice_json.get<std::string>();
+            } else {
+                // Store object as-is so we can detect it later and convert to "required"
+                data["tool_choice"] = tool_choice_json;
+            }
+            SRV_INF("Extracted tool_choice from proto: %s\n", predict->toolchoice().c_str());
+        } catch (const json::parse_error& e) {
+            // If parsing fails, treat as string
+            data["tool_choice"] = predict->toolchoice();
+            SRV_INF("Extracted tool_choice as string: %s\n", predict->toolchoice().c_str());
+        }
+    }
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
 
@@ -313,9 +344,9 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     params.cpuparams.n_threads = request->threads();
     params.n_gpu_layers = request->ngpulayers();
     params.n_batch = request->nbatch();
-    params.verbosity = INT_MAX;
+    //params.verbosity = INT_MAX;
     // Enable all debug logs by setting verbosity threshold to maximum
-    common_log_set_verbosity_thold(INT_MAX);
+    //common_log_set_verbosity_thold(INT_MAX);
     params.n_ubatch = request->nbatch(); // fixes issue with reranking models being limited to 512 tokens (the default n_ubatch size); allows for setting the maximum input amount of tokens thereby avoiding this error "input is too large to process. increase the physical batch size"
     
     // Initialize ctx_shift to false by default (can be overridden by options)
@@ -596,9 +627,11 @@ public:
             std::vector<server_task> tasks;
 
             std::string prompt_str;
+            std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
-                // Convert proto Messages to JSON format compatible with common_chat_msgs_parse_oaicompat
+                // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
+                json body_json;
                 json messages_json = json::array();
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
@@ -606,8 +639,34 @@ public:
                     msg_json["role"] = msg.role();
                     
                     // Handle content - can be string, null, or array
+                    // For multimodal content, we'll embed images/audio from separate fields
                     if (!msg.content().empty()) {
                         msg_json["content"] = msg.content();
+                    } else if (request->images_size() > 0 || request->audios_size() > 0) {
+                        // If no content but has images/audio, create content array
+                        json content_array = json::array();
+                        if (request->images_size() > 0) {
+                            for (int j = 0; j < request->images_size(); j++) {
+                                json image_chunk;
+                                image_chunk["type"] = "image_url";
+                                json image_url;
+                                image_url["url"] = "data:image/jpeg;base64," + request->images(j);
+                                image_chunk["image_url"] = image_url;
+                                content_array.push_back(image_chunk);
+                            }
+                        }
+                        if (request->audios_size() > 0) {
+                            for (int j = 0; j < request->audios_size(); j++) {
+                                json audio_chunk;
+                                audio_chunk["type"] = "input_audio";
+                                json input_audio;
+                                input_audio["data"] = request->audios(j);
+                                input_audio["format"] = "wav"; // default, could be made configurable
+                                audio_chunk["input_audio"] = input_audio;
+                                content_array.push_back(audio_chunk);
+                            }
+                        }
+                        msg_json["content"] = content_array;
                     }
                     
                     // Add optional fields for OpenAI-compatible message format
@@ -633,91 +692,69 @@ public:
                     messages_json.push_back(msg_json);
                 }
 
-                // Parse messages using llama.cpp's chat message parser
-                // This will automatically extract tool_calls from messages if they are embedded in the JSON
-                // (tool_calls are typically embedded in assistant messages in OpenAI format)
-                auto chat_messages = common_chat_msgs_parse_oaicompat(messages_json);
-
-                // Prepare chat template inputs
-                common_chat_templates_inputs inputs;
-                inputs.messages = chat_messages;
-                // Grammars are fully supported - passed from request->grammar() or request->jsonschema()
-                // When json_schema is provided, it takes precedence over grammar
-                if (data.contains("json_schema")) {
-                    // json_schema is already a JSON object in data, convert to string for inputs
-                    inputs.json_schema = data["json_schema"].dump();
-                    inputs.grammar = ""; // Don't set grammar when json_schema is provided (llama.cpp requirement)
+                body_json["messages"] = messages_json;
+                body_json["stream"] = true; // PredictStream is always streaming
+                
+                // Copy other relevant fields from data that oaicompat_chat_params_parse expects
+                // Tools and tool_choice are required for tool call grammar generation
+                if (data.contains("tools")) {
+                    body_json["tools"] = data["tools"];
+                    std::string tools_str = data["tools"].dump();
+                    SRV_INF("Using tools from data: %s\n", tools_str.c_str());
                 } else {
-                    inputs.grammar = data.value("grammar", "");
-                    inputs.json_schema = ""; // Not provided, use empty string
+                    SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
                 }
-                inputs.use_jinja = ctx_server.params_base.use_jinja;
-                inputs.add_generation_prompt = true;
-                inputs.chat_template_kwargs = ctx_server.params_base.default_template_kwargs;
-                // Tool calls are embedded in messages and will be parsed by common_chat_msgs_parse_oaicompat
-                // tools and tool_choice use defaults (empty tools vector, COMMON_CHAT_TOOL_CHOICE_AUTO)
+                if (data.contains("tool_choice")) {
+                    // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
+                    // Convert object tool_choice to "required" (since a specific function is requested)
+                    if (data["tool_choice"].is_string()) {
+                        body_json["tool_choice"] = data["tool_choice"].get<std::string>();
+                    } else if (data["tool_choice"].is_object()) {
+                        // Object tool_choice means a specific function is requested, use "required"
+                        body_json["tool_choice"] = "required";
+                        std::string tool_choice_obj_str = data["tool_choice"].dump();
+                        SRV_INF("Converted object tool_choice to 'required': %s\n", tool_choice_obj_str.c_str());
+                    } else {
+                        // Fallback: convert to string
+                        body_json["tool_choice"] = data["tool_choice"].dump();
+                    }
+                    std::string tool_choice_str = body_json["tool_choice"].get<std::string>();
+                    SRV_INF("Using tool_choice: %s\n", tool_choice_str.c_str());
+                } else {
+                    // Default to "auto" if not specified
+                    body_json["tool_choice"] = "auto";
+                }
+                if (data.contains("json_schema")) {
+                    body_json["json_schema"] = data["json_schema"];
+                }
+                // Don't copy grammar when using chat templates - the template will generate grammar
+                // for tool calls if tools are present. oaicompat_chat_params_parse throws an error
+                // if both grammar and tools are provided (see utils.hpp line 700-701)
+                // Grammar from templates will be merged into data after parsing
+                if (data.contains("response_format")) {
+                    body_json["response_format"] = data["response_format"];
+                }
+                if (data.contains("chat_template_kwargs")) {
+                    body_json["chat_template_kwargs"] = data["chat_template_kwargs"];
+                }
 
-                // Apply chat template
-                auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
-                prompt_str = chat_params.prompt;
+                // Use the same approach as server.cpp: call oaicompat_chat_params_parse
+                // This handles all template application, grammar merging, etc. automatically
+                // Files extracted from multimodal content in messages will be added to the files vector
+                // Create parser options with current chat_templates to ensure tmpls is not null
+                oaicompat_parser_options parser_opt = ctx_server.oai_parser_opt;
+                parser_opt.tmpls = ctx_server.chat_templates.get(); // Ensure tmpls is set to current chat_templates
+                json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
                 
-                // Update data with grammar-related fields from chat_params
-                // These may include additional grammar info from the template (e.g., for tool calls)
-                if (!chat_params.grammar.empty()) {
-                    // Only set grammar if json_schema is not already set (llama.cpp requirement)
-                    if (!data.contains("json_schema")) {
-                        data["grammar"] = chat_params.grammar;
-                    }
-                }
-                data["grammar_lazy"] = chat_params.grammar_lazy;
+                // Extract the prompt from parsed data
+                prompt_str = parsed_data.at("prompt").get<std::string>();
                 
-                // Merge grammar triggers from chat_params
-                if (!chat_params.grammar_triggers.empty()) {
-                    json grammar_triggers = json::array();
-                    for (const auto& trigger : chat_params.grammar_triggers) {
-                        json trigger_json;
-                        trigger_json["value"] = trigger.value;
-                        // Always serialize as WORD type since upstream converts WORD to TOKEN internally
-                        trigger_json["type"] = static_cast<int>(COMMON_GRAMMAR_TRIGGER_TYPE_WORD);
-                        grammar_triggers.push_back(trigger_json);
+                // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, etc.)
+                // This ensures all template-generated fields are included
+                for (const auto& item : parsed_data.items()) {
+                    if (item.key() != "prompt") { // Don't overwrite prompt_str, we already extracted it
+                        data[item.key()] = item.value();
                     }
-                    // Merge with existing triggers if any
-                    if (data.contains("grammar_triggers") && data["grammar_triggers"].is_array()) {
-                        for (const auto& existing_trigger : data["grammar_triggers"]) {
-                            grammar_triggers.push_back(existing_trigger);
-                        }
-                    }
-                    data["grammar_triggers"] = grammar_triggers;
-                }
-                
-                // Merge preserved tokens from chat_params
-                if (!chat_params.preserved_tokens.empty()) {
-                    json preserved_tokens = json::array();
-                    for (const auto& token_str : chat_params.preserved_tokens) {
-                        preserved_tokens.push_back(token_str);
-                    }
-                    // Merge with existing preserved tokens if any
-                    if (data.contains("preserved_tokens") && data["preserved_tokens"].is_array()) {
-                        for (const auto& existing_token : data["preserved_tokens"]) {
-                            preserved_tokens.push_back(existing_token);
-                        }
-                    }
-                    data["preserved_tokens"] = preserved_tokens;
-                }
-                
-                // Add additional stops from chat_params
-                if (!chat_params.additional_stops.empty()) {
-                    if (!data.contains("stop") || !data["stop"].is_array()) {
-                        data["stop"] = json::array();
-                    }
-                    for (const auto& stop : chat_params.additional_stops) {
-                        data["stop"].push_back(stop);
-                    }
-                }
-                
-                // Set thinking_forced_open if present
-                if (chat_params.thinking_forced_open) {
-                    data["thinking_forced_open"] = chat_params.thinking_forced_open;
                 }
             } else {
                 // Use prompt directly from data
@@ -733,26 +770,29 @@ public:
             // TODO: this log can become very long, put it behind a flag or think about a more compact format
             //SRV_DBG("Prompt: %s\n", prompt.is_string() ? prompt.get<std::string>().c_str() : prompt.dump(2).c_str());
 
-            std::vector<raw_buffer> files;
-            const auto &images_data = data.find("image_data");
-            if (images_data != data.end() && images_data->is_array())
-            {
-                for (const auto &img : *images_data)
+            // If not using chat templates, extract files from image_data/audio_data fields
+            // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
+            //if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
+                const auto &images_data = data.find("image_data");
+                if (images_data != data.end() && images_data->is_array())
                 {
-                    auto decoded_data = base64_decode(img["data"].get<std::string>());
-                    files.push_back(decoded_data);
+                    for (const auto &img : *images_data)
+                    {
+                        auto decoded_data = base64_decode(img["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
                 }
-            }
 
-            const auto &audio_data = data.find("audio_data");
-            if (audio_data != data.end() && audio_data->is_array())
-            {
-                for (const auto &audio : *audio_data)
+                const auto &audio_data = data.find("audio_data");
+                if (audio_data != data.end() && audio_data->is_array())
                 {
-                    auto decoded_data = base64_decode(audio["data"].get<std::string>());
-                    files.push_back(decoded_data);
+                    for (const auto &audio : *audio_data)
+                    {
+                        auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
                 }
-            }
+           // }
 
             const bool has_mtmd = ctx_server.mctx != nullptr;
 
@@ -874,9 +914,11 @@ public:
             std::vector<server_task> tasks;
 
             std::string prompt_str;
+            std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
             if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
-                // Convert proto Messages to JSON format compatible with common_chat_msgs_parse_oaicompat
+                // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
+                json body_json;
                 json messages_json = json::array();
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
@@ -884,11 +926,37 @@ public:
                     msg_json["role"] = msg.role();
                     
                     // Handle content - can be string, null, or array
-                    if (msg.content().empty() && !msg.tool_calls().empty()) {
+                    // For multimodal content, we'll embed images/audio from separate fields
+                    if (!msg.content().empty()) {
+                        msg_json["content"] = msg.content();
+                    } else if (request->images_size() > 0 || request->audios_size() > 0) {
+                        // If no content but has images/audio, create content array
+                        json content_array = json::array();
+                        if (request->images_size() > 0) {
+                            for (int j = 0; j < request->images_size(); j++) {
+                                json image_chunk;
+                                image_chunk["type"] = "image_url";
+                                json image_url;
+                                image_url["url"] = "data:image/jpeg;base64," + request->images(j);
+                                image_chunk["image_url"] = image_url;
+                                content_array.push_back(image_chunk);
+                            }
+                        }
+                        if (request->audios_size() > 0) {
+                            for (int j = 0; j < request->audios_size(); j++) {
+                                json audio_chunk;
+                                audio_chunk["type"] = "input_audio";
+                                json input_audio;
+                                input_audio["data"] = request->audios(j);
+                                input_audio["format"] = "wav"; // default, could be made configurable
+                                audio_chunk["input_audio"] = input_audio;
+                                content_array.push_back(audio_chunk);
+                            }
+                        }
+                        msg_json["content"] = content_array;
+                    } else if (!msg.tool_calls().empty()) {
                         // Tool call messages may have null content
                         msg_json["content"] = json();
-                    } else {
-                        msg_json["content"] = msg.content();
                     }
                     
                     // Add optional fields for OpenAI-compatible message format
@@ -914,91 +982,69 @@ public:
                     messages_json.push_back(msg_json);
                 }
 
-                // Parse messages using llama.cpp's chat message parser
-                // This will automatically extract tool_calls from messages if they are embedded in the JSON
-                // (tool_calls are typically embedded in assistant messages in OpenAI format)
-                auto chat_messages = common_chat_msgs_parse_oaicompat(messages_json);
-
-                // Prepare chat template inputs
-                common_chat_templates_inputs inputs;
-                inputs.messages = chat_messages;
-                // Grammars are fully supported - passed from request->grammar() or request->jsonschema()
-                // When json_schema is provided, it takes precedence over grammar
-                if (data.contains("json_schema")) {
-                    // json_schema is already a JSON object in data, convert to string for inputs
-                    inputs.json_schema = data["json_schema"].dump();
-                    inputs.grammar = ""; // Don't set grammar when json_schema is provided (llama.cpp requirement)
+                body_json["messages"] = messages_json;
+                body_json["stream"] = false;
+                
+                // Copy other relevant fields from data that oaicompat_chat_params_parse expects
+                // Tools and tool_choice are required for tool call grammar generation
+                if (data.contains("tools")) {
+                    body_json["tools"] = data["tools"];
+                    std::string tools_str = data["tools"].dump();
+                    SRV_INF("Using tools from data: %s\n", tools_str.c_str());
                 } else {
-                    inputs.grammar = data.value("grammar", "");
-                    inputs.json_schema = ""; // Not provided, use empty string
+                    SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
                 }
-                inputs.use_jinja = ctx_server.params_base.use_jinja;
-                inputs.add_generation_prompt = true;
-                inputs.chat_template_kwargs = ctx_server.params_base.default_template_kwargs;
-                // Tool calls are embedded in messages and will be parsed by common_chat_msgs_parse_oaicompat
-                // tools and tool_choice use defaults (empty tools vector, COMMON_CHAT_TOOL_CHOICE_AUTO)
+                if (data.contains("tool_choice")) {
+                    // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
+                    // Convert object tool_choice to "required" (since a specific function is requested)
+                    if (data["tool_choice"].is_string()) {
+                        body_json["tool_choice"] = data["tool_choice"].get<std::string>();
+                    } else if (data["tool_choice"].is_object()) {
+                        // Object tool_choice means a specific function is requested, use "required"
+                        body_json["tool_choice"] = "required";
+                        std::string tool_choice_obj_str = data["tool_choice"].dump();
+                        SRV_INF("Converted object tool_choice to 'required': %s\n", tool_choice_obj_str.c_str());
+                    } else {
+                        // Fallback: convert to string
+                        body_json["tool_choice"] = data["tool_choice"].dump();
+                    }
+                    std::string tool_choice_str = body_json["tool_choice"].get<std::string>();
+                    SRV_INF("Using tool_choice: %s\n", tool_choice_str.c_str());
+                } else {
+                    // Default to "auto" if not specified
+                    body_json["tool_choice"] = "auto";
+                }
+                if (data.contains("json_schema")) {
+                    body_json["json_schema"] = data["json_schema"];
+                }
+                // Don't copy grammar when using chat templates - the template will generate grammar
+                // for tool calls if tools are present. oaicompat_chat_params_parse throws an error
+                // if both grammar and tools are provided (see utils.hpp line 700-701)
+                // Grammar from templates will be merged into data after parsing
+                if (data.contains("response_format")) {
+                    body_json["response_format"] = data["response_format"];
+                }
+                if (data.contains("chat_template_kwargs")) {
+                    body_json["chat_template_kwargs"] = data["chat_template_kwargs"];
+                }
 
-                // Apply chat template
-                auto chat_params = common_chat_templates_apply(ctx_server.chat_templates.get(), inputs);
-                prompt_str = chat_params.prompt;
+                // Use the same approach as server.cpp: call oaicompat_chat_params_parse
+                // This handles all template application, grammar merging, etc. automatically
+                // Files extracted from multimodal content in messages will be added to the files vector
+                // Create parser options with current chat_templates to ensure tmpls is not null
+                oaicompat_parser_options parser_opt = ctx_server.oai_parser_opt;
+                parser_opt.tmpls = ctx_server.chat_templates.get(); // Ensure tmpls is set to current chat_templates
+                json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
                 
-                // Update data with grammar-related fields from chat_params
-                // These may include additional grammar info from the template (e.g., for tool calls)
-                if (!chat_params.grammar.empty()) {
-                    // Only set grammar if json_schema is not already set (llama.cpp requirement)
-                    if (!data.contains("json_schema")) {
-                        data["grammar"] = chat_params.grammar;
-                    }
-                }
-                data["grammar_lazy"] = chat_params.grammar_lazy;
+                // Extract the prompt from parsed data
+                prompt_str = parsed_data.at("prompt").get<std::string>();
                 
-                // Merge grammar triggers from chat_params
-                if (!chat_params.grammar_triggers.empty()) {
-                    json grammar_triggers = json::array();
-                    for (const auto& trigger : chat_params.grammar_triggers) {
-                        json trigger_json;
-                        trigger_json["value"] = trigger.value;
-                        // Always serialize as WORD type since upstream converts WORD to TOKEN internally
-                        trigger_json["type"] = static_cast<int>(COMMON_GRAMMAR_TRIGGER_TYPE_WORD);
-                        grammar_triggers.push_back(trigger_json);
+                // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, etc.)
+                // This ensures all template-generated fields are included
+                for (const auto& item : parsed_data.items()) {
+                    if (item.key() != "prompt") { // Don't overwrite prompt_str, we already extracted it
+                        data[item.key()] = item.value();
                     }
-                    // Merge with existing triggers if any
-                    if (data.contains("grammar_triggers") && data["grammar_triggers"].is_array()) {
-                        for (const auto& existing_trigger : data["grammar_triggers"]) {
-                            grammar_triggers.push_back(existing_trigger);
-                        }
-                    }
-                    data["grammar_triggers"] = grammar_triggers;
-                }
-                
-                // Merge preserved tokens from chat_params
-                if (!chat_params.preserved_tokens.empty()) {
-                    json preserved_tokens = json::array();
-                    for (const auto& token_str : chat_params.preserved_tokens) {
-                        preserved_tokens.push_back(token_str);
-                    }
-                    // Merge with existing preserved tokens if any
-                    if (data.contains("preserved_tokens") && data["preserved_tokens"].is_array()) {
-                        for (const auto& existing_token : data["preserved_tokens"]) {
-                            preserved_tokens.push_back(existing_token);
-                        }
-                    }
-                    data["preserved_tokens"] = preserved_tokens;
-                }
-                
-                // Add additional stops from chat_params
-                if (!chat_params.additional_stops.empty()) {
-                    if (!data.contains("stop") || !data["stop"].is_array()) {
-                        data["stop"] = json::array();
-                    }
-                    for (const auto& stop : chat_params.additional_stops) {
-                        data["stop"].push_back(stop);
-                    }
-                }
-                
-                // Set thinking_forced_open if present
-                if (chat_params.thinking_forced_open) {
-                    data["thinking_forced_open"] = chat_params.thinking_forced_open;
                 }
             } else {
                 // Use prompt directly from data
@@ -1014,30 +1060,31 @@ public:
             // TODO: this log can become very long, put it behind a flag or think about a more compact format
             //SRV_DBG("Prompt: %s\n", prompt.is_string() ? prompt.get<std::string>().c_str() : prompt.dump(2).c_str());
 
-            std::vector<raw_buffer> files;
-            const auto &images_data = data.find("image_data");
-           // std::cout << "[PREDICT] Images data: " << images_data->dump(2) << std::endl;
-           
-            if (images_data != data.end() && images_data->is_array())
-            {
-                std::cout << "[PREDICT] Processing " << images_data->size() << " images" << std::endl;
-                for (const auto &img : *images_data)
+            // If not using chat templates, extract files from image_data/audio_data fields
+            // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
+           // if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
+                const auto &images_data = data.find("image_data");
+                if (images_data != data.end() && images_data->is_array())
                 {
-                    std::cout << "[PREDICT] Processing image" << std::endl;
-                    auto decoded_data = base64_decode(img["data"].get<std::string>());
-                    files.push_back(decoded_data);
+                    std::cout << "[PREDICT] Processing " << images_data->size() << " images" << std::endl;
+                    for (const auto &img : *images_data)
+                    {
+                        std::cout << "[PREDICT] Processing image" << std::endl;
+                        auto decoded_data = base64_decode(img["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
                 }
-            }
 
-            const auto &audio_data = data.find("audio_data");
-            if (audio_data != data.end() && audio_data->is_array())
-            {
-                for (const auto &audio : *audio_data)
+                const auto &audio_data = data.find("audio_data");
+                if (audio_data != data.end() && audio_data->is_array())
                 {
-                    auto decoded_data = base64_decode(audio["data"].get<std::string>());
-                    files.push_back(decoded_data);
+                    for (const auto &audio : *audio_data)
+                    {
+                        auto decoded_data = base64_decode(audio["data"].get<std::string>());
+                        files.push_back(decoded_data);
+                    }
                 }
-            }
+           // }
 
             // process files
             const bool has_mtmd = ctx_server.mctx != nullptr;

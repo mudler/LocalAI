@@ -614,7 +614,23 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 		audios = append(audios, m.StringAudios...)
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, input.JSONSchema)
+	// Serialize tools and tool_choice to JSON strings
+	toolsJSON := ""
+	if len(input.Tools) > 0 {
+		toolsBytes, err := json.Marshal(input.Tools)
+		if err == nil {
+			toolsJSON = string(toolsBytes)
+		}
+	}
+	toolChoiceJSON := ""
+	if input.ToolsChoice != nil {
+		toolChoiceBytes, err := json.Marshal(input.ToolsChoice)
+		if err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, input.JSONSchema, toolsJSON, toolChoiceJSON)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err
