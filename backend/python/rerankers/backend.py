@@ -75,12 +75,13 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             documents.append(doc)
         ranked_results=self.model.rank(query=request.query, docs=documents, doc_ids=list(range(len(request.documents))))
         # Prepare results to return
+        print("top_n",request.top_n)
         results = [
             backend_pb2.DocumentResult(
                 index=res.doc_id,
                 text=res.text,
                 relevance_score=res.score
-            ) for res in ranked_results.top_k(request.top_n)
+            ) for res in (ranked_results.top_k(request.top_n) if request.top_n>0 else ranked_results)
         ]
 
         # Calculate the usage and total tokens
