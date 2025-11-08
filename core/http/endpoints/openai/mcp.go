@@ -50,12 +50,15 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		}
 
 		// Get MCP config from model config
-		remote, stdio := config.MCP.MCPConfigFromYAML()
+		remote, stdio, err := config.MCP.MCPConfigFromYAML()
+		if err != nil {
+			return fmt.Errorf("failed to get MCP config: %w", err)
+		}
 
 		// Check if we have tools in cache, or we have to have an initial connection
 		sessions, err := mcpTools.SessionsFromMCPConfig(config.Name, remote, stdio)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to get MCP sessions: %w", err)
 		}
 
 		if len(sessions) == 0 {
