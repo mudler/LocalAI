@@ -1,6 +1,7 @@
 package openai
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -76,6 +77,10 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		if appConfig.ApiKeys != nil {
 			apiKey = appConfig.ApiKeys[0]
 		}
+
+		ctxWithCancellation, cancel := context.WithCancel(ctx)
+		defer cancel()
+		handleConnectionCancellation(c, cancel)
 		// TODO: instead of connecting to the API, we should just wire this internally
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that
@@ -86,7 +91,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			cogito.WithStatusCallback(func(s string) {
 				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
-			cogito.WithContext(ctx),
+			cogito.WithContext(ctxWithCancellation),
 			cogito.WithMCPs(sessions...),
 			cogito.WithIterations(3),  // default to 3 iterations
 			cogito.WithMaxAttempts(3), // default to 3 attempts

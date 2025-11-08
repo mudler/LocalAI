@@ -30,7 +30,7 @@ import (
 // We access the connection directly via c.Context().Conn() to monitor it
 // during ComputeChoices execution, not after the response is sent
 // see: https://github.com/mudler/LocalAI/pull/7187#issuecomment-3506720906
-func handleConnectionCancellation(c *fiber.Ctx, input *schema.OpenAIRequest) {
+func handleConnectionCancellation(c *fiber.Ctx, cancelFunc func()) {
 	var conn net.Conn = c.Context().Conn()
 	if conn == nil {
 		return
@@ -42,8 +42,8 @@ func handleConnectionCancellation(c *fiber.Ctx, input *schema.OpenAIRequest) {
 			_, err := conn.Read(buf)
 			if err != nil {
 				// Connection closed - cancel the context to stop gRPC call
-				log.Debug().Msgf("Cancelling GRPC call")
-				input.Cancel()
+				log.Debug().Msgf("Calling cancellation function")
+				cancelFunc()
 				return
 			}
 		}
@@ -546,7 +546,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// NOTE: this is a workaround as fasthttp
 			// context cancellation does not fire in non-streaming requests
-			handleConnectionCancellation(c, input)
+			handleConnectionCancellation(c, input.Cancel)
 
 			result, tokenUsage, err := ComputeChoices(
 				input,
