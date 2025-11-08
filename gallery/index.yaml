@@ -23203,3 +23203,16 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "behemoth-x-123b-v2e"
+  urls:
+    - https://huggingface.co/BeaverAI/Behemoth-X-123B-v2e-GGUF
+  description: |
+    AI model: behemoth-x-123b-v2e
+  overrides:
+    parameters:
+      model: Behemoth-X-123B-v2e-Q4_K_M.gguf
+  files:
+    - filename: Behemoth-X-123B-v2e-Q4_K_M.gguf
+      sha256: 7750211bca4e18fa9f9e7facf5274cb28ab3fba304d14971939bff433e9af6ec
+      uri: huggingface://BeaverAI/Behemoth-X-123B-v2e-GGUF/Behemoth-X-123B-v2e-Q4_K_M.gguf
