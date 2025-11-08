@@ -1,6 +1,7 @@
 torch
 torchaudio
 transformers
+numpy>=1.24.0,<1.26.0
 # https://github.com/mudler/LocalAI/pull/6240#issuecomment-3329518289
 chatterbox-tts@git+https://git@github.com/mudler/chatterbox.git@faster
 accelerate
