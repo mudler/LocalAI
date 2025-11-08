@@ -23203,3 +23203,39 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "nousresearch-hermes-2-theta-llama-3-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/NousResearch-Hermes-2-Theta-Llama-3-70B-i1-GGUF
+  description: |
+    **Hermes 2 Theta Llama-3 70B**
+    *By Nous Research & Arcee AI*
+
+    A high-performance, instruction-tuned large language model based on the Llama-3 70B architecture, created through a fusion of Nous Research's Hermes 2 Pro and Meta's Llama-3 Instruct. This model is specifically optimized for **multi-turn conversations**, **function calling**, **structured outputs in JSON**, and **complex reasoning tasks**.
+
+    ### Key Features:
+    - **Advanced Prompt Format**: Uses ChatML for structured, steerable interactions with clear system prompts, user messages, and assistant responses.
+    - **Function Calling**: Trained to generate precise tool calls (e.g., for stock data, API integrations), enabling seamless integration with external systems.
+    - **Structured Output Mode**: Excels at producing clean, schema-compliant JSON responses, ideal for data extraction and RAG workflows.
+    - **Strong Performance**: Achieves top-tier results across benchmarks including GPT4All (76.93 avg), MTBench (9.04 avg), IFEval (87.99), and TruthfulQA (62.88).
+
+    ### Use Cases:
+    - Conversational AI with roleplay and personality control
+    - Automated data extraction and annotation
+    - AI agents with real-world tool integration
+    - High-quality reasoning, coding, and creative writing
+
+    ### Model Access:
+    - **Original Base Model**: [NousResearch/Hermes-2-Theta-Llama-3-70B](https://huggingface.co/NousResearch/Hermes-2-Theta-Llama-3-70B)
+    - **GGUF Quantized Versions** (for local inference): [Hermes-2-Theta-Llama-3-70B-GGUF](https://huggingface.co/NousResearch/Hermes-2-Theta-Llama-3-70B-GGUF)
+
+    > 📌 Note: The model is not currently available for direct download or inference on its own due to merge-stage modifications—please refer to the official repository for correct usage and inference code.
+
+    *Perfect for developers, researchers, and AI enthusiasts building advanced, real-world applications.*
+  overrides:
+    parameters:
+      model: NousResearch-Hermes-2-Theta-Llama-3-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: NousResearch-Hermes-2-Theta-Llama-3-70B.i1-Q4_K_M.gguf
+      sha256: 0fe9bffe4ebdbc2fd27d3677c1f850ae679e2395c248bcc2656db3f98d0250a2
+      uri: huggingface://mradermacher/NousResearch-Hermes-2-Theta-Llama-3-70B-i1-GGUF/NousResearch-Hermes-2-Theta-Llama-3-70B.i1-Q4_K_M.gguf
