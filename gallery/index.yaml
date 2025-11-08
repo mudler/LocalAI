@@ -23203,3 +23203,27 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "kani-tts-400m-ur"
+  urls:
+    - https://huggingface.co/mradermacher/kani-tts-400m-ur-GGUF
+  description: |
+    **Kani-TTS-400M-UR** is a high-quality Urdu Text-to-Speech (TTS) model designed to generate natural, expressive, and human-like speech in Urdu. Built on the Kani-TTS 400M architecture, it leverages a curated dataset of high-fidelity Urdu speech to deliver lifelike vocal output. The model is trained using PyTorch and Transformers, making it compatible with modern TTS workflows.
+
+    **Key Features:**
+    - **Language:** Urdu (🇵🇰)
+    - **Model Size:** ~400M parameters
+    - **Task:** Text-to-Speech synthesis
+    - **Base Model:** Kani-TTS 400M (originally derived from *nineninesix/kani-tts-450m-0.2-pt*)
+    - **License:** Apache 2.0
+
+    Ideal for applications requiring realistic Urdu voice generation, such as audiobooks, virtual assistants, or educational tools. Available for inference via Hugging Face, with a ready-to-use Colab notebook for easy deployment.
+
+    👉 *Try it now:* [Run Inference on Google Colab](https://colab.research.google.com/drive/1vdkSCSPN5DPlTETjQi994TGEaoF_xAsE?usp=sharing)
+  overrides:
+    parameters:
+      model: kani-tts-400m-ur.Q4_K_M.gguf
+  files:
+    - filename: kani-tts-400m-ur.Q4_K_M.gguf
+      sha256: 475b96d9f86123275910f92deddadb47d30ccd2809edf31e4b7c1ac71c03436a
+      uri: huggingface://mradermacher/kani-tts-400m-ur-GGUF/kani-tts-400m-ur.Q4_K_M.gguf
