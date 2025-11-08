@@ -23203,3 +23203,79 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "moonshotai.kimi-k2-thinking"
+  urls:
+    - https://huggingface.co/DevQuasar/moonshotai.Kimi-K2-Thinking-GGUF
+  description: |
+    **Model Name:** Kimi-K2-Thinking
+    **Repository:** [moonshotai/Kimi-K2-Thinking](https://huggingface.co/moonshotai/Kimi-K2-Thinking)
+    **Architecture:** Mixture-of-Experts (MoE)
+    **Size:** 1T total parameters (32B activated)
+    **Context Length:** 256K tokens
+    **Quantization:** Native INT4 (with Quantization-Aware Training for lossless performance)
+    **License:** Modified MIT
+
+    ---
+
+    ### 🌟 **Model Overview**
+    Kimi-K2-Thinking is a state-of-the-art open-source **agentic reasoning model** designed for complex, multi-step tasks. It excels in long-horizon, goal-driven workflows—such as research, coding, and writing—by dynamically reasoning and calling tools over hundreds of steps without performance degradation.
+
+    Built on a powerful Mixture-of-Experts (MoE) architecture, it leverages 384 experts with 8 selected per token, enabling scalable and efficient inference. Its 256K context window allows deep contextual understanding, making it ideal for long-form content and intricate problem-solving.
+
+    ---
+
+    ### ✨ **Key Features**
+    - **Deep Chain-of-Thought Reasoning**: Plans, reasons, and reflects step-by-step with high coherence.
+    - **Native Tool Orchestration**: Seamlessly integrates with tools (e.g., web search, code interpreter) for autonomous agent behavior.
+    - **2x Faster Inference**: Achieves ~2x speed-up with INT4 quantization via Quantization-Aware Training (QAT), without performance loss.
+    - **Long-Horizon Stability**: Maintains agency across 200–300 tool calls—far surpassing prior models.
+
+    ---
+
+    ### 📊 **Performance Highlights**
+    - **Humanity’s Last Exam (HLE)**: 51.0 (text-only, heavy), 44.9 (with tools)
+    - **AIME25**: 100.0 (with Python), 99.1 (with tools)
+    - **BrowseComp (Agentic Search)**: 60.2
+    - **SWE-bench Verified**: 71.3
+    - **MMLU-Pro**: 84.6
+    - **LiveCodeBench**: 83.1
+
+    > 📌 *Outperforms many proprietary models including GPT-5 and Claude Sonnet 4.5 in key agentic benchmarks.*
+
+    ---
+
+    ### 🔧 **Use Cases**
+    - Autonomous research agents
+    - AI coding assistants with tool use
+    - Long-form content generation with reasoning
+    - Complex problem-solving (math, logic, programming)
+
+    ---
+
+    ### 🚀 **Deployment**
+    Supported by:
+    - [vLLM](https://github.com/vllm-project/vllm)
+    - [SGLang](https://github.com/sglang-project/sglang)
+    - [KTransformers](https://github.com/aiXcoder/ktransformers)
+
+    Available via Moonshot AI’s API: [platform.moonshot.ai](https://platform.moonshot.ai)
+    OpenAI-compatible interface for easy integration.
+
+    ---
+
+    ### 📚 **Learn More**
+    - [Tech Blog – Kimi K2 Thinking](https://moonshotai.github.io/Kimi-K2/thinking.html)
+    - [Model Usage Guide](docs/deploy_guidance.md)
+    - [Tool Calling Guide](docs/tool_call_guidance.md)
+
+    ---
+
+    📌 *“Kimi-K2-Thinking: The agent that thinks deeper, acts smarter.”*
+  overrides:
+    parameters:
+      model: moonshotai.Kimi-K2-Thinking.Q4_K_M-00001-of-00053.gguf
+  files:
+    - filename: moonshotai.Kimi-K2-Thinking.Q4_K_M-00001-of-00053.gguf
+      sha256: ddfd84f484a1f548121374a6d437299fe4c3355118c98003c6efd0ad17cbcbd6
+      uri: huggingface://DevQuasar/moonshotai.Kimi-K2-Thinking-GGUF/moonshotai.Kimi-K2-Thinking.Q4_K_M-00001-of-00053.gguf
