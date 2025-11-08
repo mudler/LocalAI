@@ -23,6 +23,33 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
+// NOTE: this is a bad WORKAROUND! We should find a better way to handle this.
+// Fasthttp doesn't support context cancellation from the caller
+// for non-streaming requests, so we need to monitor the connection directly.
+// Monitor connection for client disconnection during non-streaming requests
+// We access the connection directly via c.Context().Conn() to monitor it
+// during ComputeChoices execution, not after the response is sent
+// see: https://github.com/mudler/LocalAI/pull/7187#issuecomment-3506720906
+func handleConnectionCancellation(c *fiber.Ctx, input *schema.OpenAIRequest) {
+	var conn net.Conn = c.Context().Conn()
+	if conn == nil {
+		return
+	}
+
+	go func() {
+		buf := make([]byte, 1)
+		for {
+			_, err := conn.Read(buf)
+			if err != nil {
+				// Connection closed - cancel the context to stop gRPC call
+				log.Debug().Msgf("Cancelling GRPC call")
+				input.Cancel()
+				return
+			}
+		}
+	}()
+}
+
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
 // @Param request body schema.OpenAIRequest true "query params"
@@ -517,28 +544,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			}
 
-			// NOTE: this is a bad WORKAROUND! We should find a better way to handle this.
-			// Fasthttp doesn't support context cancellation from the caller
-			// for non-streaming requests, so we need to monitor the connection directly.
-			// Monitor connection for client disconnection during non-streaming requests
-			// We access the connection directly via c.Context().Conn() to monitor it
-			// during ComputeChoices execution, not after the response is sent
-			// see: https://github.com/mudler/LocalAI/pull/7187#issuecomment-3506720906
-			var conn net.Conn = c.Context().Conn()
-			if conn != nil {
-				go func() {
-					buf := make([]byte, 1)
-					for {
-						_, err := conn.Read(buf)
-						if err != nil {
-							// Connection closed - cancel the context to stop gRPC call
-							log.Debug().Msgf("Cancelling GRPC call")
-							input.Cancel()
-							return
-						}
-					}
-				}()
-			}
+			// NOTE: this is a workaround as fasthttp
+			// context cancellation does not fire in non-streaming requests
+			handleConnectionCancellation(c, input)
 
 			result, tokenUsage, err := ComputeChoices(
 				input,
