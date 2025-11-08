@@ -23203,3 +23203,45 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "moonshotai.kimi-k2-thinking"
+  urls:
+    - https://huggingface.co/DevQuasar/moonshotai.Kimi-K2-Thinking-GGUF
+  description: |
+    **Model Name:** Kimi-K2-Thinking
+    **Repository:** [moonshotai/Kimi-K2-Thinking](https://huggingface.co/moonshotai/Kimi-K2-Thinking)
+    **License:** Modified MIT
+    **Architecture:** Mixture-of-Experts (MoE)
+    **Context Length:** 256K tokens
+    **Total Parameters:** 1T (activated: 32B)
+    **Quantization:** Native INT4 (quantization-aware trained for lossless performance)
+    **Pipeline Tag:** `text-generation`
+
+    ### 🌟 Description:
+    Kimi-K2-Thinking is a state-of-the-art open-source reasoning and agentic AI model developed by Moonshot AI. Designed for deep, multi-step reasoning and autonomous tool use, it excels in complex tasks requiring extended thought chains, such as research, coding, and long-horizon problem solving.
+
+    With a massive 256K context window and an MoE architecture (384 experts, 8 selected per token), it maintains coherent, goal-driven behavior across 200–300 sequential tool calls—surpassing previous models that degrade after 30–50 steps. It achieves **lossless INT4 quantization** via Quantization-Aware Training (QAT), enabling up to **2x faster inference** with minimal performance drop.
+
+    ### 🔍 Key Strengths:
+    - **Superior Reasoning & Tool Orchestration:** Leads benchmarks like *Humanity’s Last Exam (HLE)*, *SWE-bench*, *BrowseComp*, and *AIME25*.
+    - **Long-Horizon Agency:** Sustains stable, high-quality performance in multi-step workflows.
+    - **Efficient Deployment:** Optimized for vLLM, SGLang, and KTransformers with support for OpenAI-compatible APIs.
+    - **Open Access:** Full model weights available under a permissive license.
+
+    ### 🛠 Use Cases:
+    - Long-form reasoning & research agents
+    - Autonomous coding & debugging
+    - Multi-step web research & data gathering
+    - Tool-augmented chatbots and personal assistants
+
+    > 🔗 **Try it**: Access via [Kimi Platform](https://www.kimi.com) or deploy locally using vLLM.
+    > 📚 Learn more: [Tech Blog](https://moonshotai.github.io/Kimi-K2/thinking.html)
+
+    *Note: The GGUF version (e.g., `DevQuasar/moonshotai.Kimi-K2-Thinking-GGUF`) is a quantized derivative. Use the original `moonshotai/Kimi-K2-Thinking` for full capabilities and documentation.*
+  overrides:
+    parameters:
+      model: moonshotai.Kimi-K2-Thinking.Q4_K_M-00001-of-00053.gguf
+  files:
+    - filename: moonshotai.Kimi-K2-Thinking.Q4_K_M-00001-of-00053.gguf
+      sha256: ddfd84f484a1f548121374a6d437299fe4c3355118c98003c6efd0ad17cbcbd6
+      uri: huggingface://DevQuasar/moonshotai.Kimi-K2-Thinking-GGUF/moonshotai.Kimi-K2-Thinking.Q4_K_M-00001-of-00053.gguf
