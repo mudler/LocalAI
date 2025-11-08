@@ -189,7 +189,7 @@ else
 fi
 THREADS=${THREADS:-$procs}
 LATEST_VERSION=$(curl -s "https://api.github.com/repos/mudler/LocalAI/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
-LOCALAI_VERSION="${LOCALAI_VERSION:-$LATEST_VERSION}" #changed due to VERSION beign already defined in Fedora 42 Cloud Edition
+LOCALAI_VERSION="${LOCALAI_VERSION:-$LATEST_VERSION}" #changed due to VERSION being already defined in Fedora 42 Cloud Edition
 MODELS_PATH=${MODELS_PATH:-/usr/share/local-ai/models}
 
 

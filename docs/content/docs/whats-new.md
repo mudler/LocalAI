@@ -90,7 +90,7 @@ It is now possible for single-devices with one GPU to specify `--single-active-b
 
 #### Resources management
 
-Thanks to the continous community efforts (another cool contribution from {{< github "dave-gray101" >}} ) now it's possible to shutdown a backend programmatically via the API.
+Thanks to the continuous community efforts (another cool contribution from {{< github "dave-gray101" >}} ) now it's possible to shutdown a backend programmatically via the API.
 There is an ongoing effort in the community to better handling of resources. See also the [🔥Roadmap](https://localai.io/#-hot-topics--roadmap).
 
 #### New how-to section
