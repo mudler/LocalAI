@@ -23203,3 +23203,41 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "austral-24b-grpo"
+  urls:
+    - https://huggingface.co/mradermacher/Austral-24b-GRPO-GGUF
+  description: |
+    ### **Austral 24B Winton**
+    *Trained by Delta-Vector | Based on Mistral-24B | Fine-tuned for Roleplay & Creative Writing*
+
+    A high-performance, 24-billion-parameter language model fine-tuned for **roleplay, adventure storytelling, and creative writing**. Built on the foundation of *Codex-24B*, this model was enhanced through a multi-stage process including SFT (Supervised Fine-Tuning), KTO alignment for coherence, and final refinement using the Rep_Remover dataset to eliminate common generation "slops."
+
+    **Key Features:**
+    - ✅ **ChatML prompt format** – optimized for interactive dialogue
+    - ✅ **Mistral-based architecture** – efficient and powerful inference
+    - ✅ **Designed for narrative depth** – excels in plot progression, character consistency, and immersive storytelling
+    - ✅ **Lightweight quantization support** – available in GGUF and EXL3 formats for use with llama.cpp and TabbyAPI
+
+    **Ideal for:**
+    Adventure game scripts, roleplaying scenarios, creative fiction, and general-purpose storytelling.
+
+    **Training Highlights:**
+    - 80+ hours of training across 8×A100 GPUs
+    - Utilizes Axolotl framework
+    - Fine-tuned using diverse writing datasets with a focus on narrative quality and coherence
+
+    > *“More than 1.5 metres tall, about six metres long, and up to 1,000 kilograms heavy — Australovenator wintonensis was a fast and agile hunter. The largest known Australian theropod.”*
+    > — Inspired by nature, trained for imagination.
+
+    👉 **Model Base**: [Delta-Vector/MS3.2-Austral-24B-KTO](https://huggingface.co/Delta-Vector/MS3.2-Austral-24B-KTO)
+    🎨 **Visuals & Documentation**: [Austral 24B Winton Hugging Face Page](https://huggingface.co/Delta-Vector/MS3.2-Austral-Winton)
+
+    *Perfect for developers, writers, and creators seeking a fluent, reliable, and imaginative AI companion.*
+  overrides:
+    parameters:
+      model: Austral-24b-GRPO.Q4_K_S.gguf
+  files:
+    - filename: Austral-24b-GRPO.Q4_K_S.gguf
+      sha256: ae24afe4c163261e2496e90f0cfa5674aa6de19e8c622c0a350b8a4bc952aa00
+      uri: huggingface://mradermacher/Austral-24b-GRPO-GGUF/Austral-24b-GRPO.Q4_K_S.gguf
