@@ -127,6 +127,10 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 				log.Debug().Str("context localModelName", localModelName).Msg("overriding empty model name in request body with value found earlier in middleware chain")
 				input.ModelName(&localModelName)
 			}
+		} else {
+			// Update context locals with the model name from the request body
+			// This ensures downstream middleware (like metrics) can access it
+			ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME, input.ModelName(nil))
 		}
 
 		cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
