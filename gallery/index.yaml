@@ -23203,3 +23203,44 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "safework-rm-value-72b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/SafeWork-RM-Value-72B-i1-GGUF
+  description: |
+    **Model Name:** SafeWork-RM-Value-72B
+    **Base Model:** Qwen2.5-VL-72B-Instruct
+    **Type:** Multimodal Reward Model (Value Verifier)
+    **License:** Apache 2.0
+    **Repository:** [AI45Research/SafeWork-RM-Value-72B](https://huggingface.co/AI45Research/SafeWork-RM-Value-72B)
+
+    ---
+
+    ### 📌 Description:
+
+    SafeWork-RM-Value-72B is a large-scale multimodal reward model developed as part of the **SafeWork-R1** framework, designed to evaluate and align AI responses with human values through intrinsic safety reasoning. Built upon the Qwen2.5-VL-72B-Instruct foundation, this model serves as a **value verifier** in the SafeLadder reinforcement learning framework, enabling the co-evolution of safety and general intelligence.
+
+    Unlike traditional RLHF methods that rely solely on human preferences, SafeWork-RM-Value-72B is trained with curated datasets focused on safety, moral reasoning, and factual verification, allowing it to develop deep self-reflection and reasoning capabilities. It assesses whether a given response (text + image) aligns with human values by analyzing reasoning steps internally and producing a final judgment in the form of `boxed{good}` or `boxed{bad}`.
+
+    ### 🎯 Key Features:
+    - **Multimodal:** Accepts both text and image inputs.
+    - **High Accuracy:** Outperforms several state-of-the-art models on value alignment benchmarks, especially when reasoning is enabled.
+    - **Self-Reflective Reasoning:** Encourages internal thinking before judgment, improving consistency and reliability.
+    - **Open & Transparent:** Released under Apache 2.0 license with full technical documentation and inference code.
+
+    ### 🧪 Use Case:
+    Ideal for fine-tuning or evaluating AI agents where safety, ethical reasoning, and value alignment are critical—such as in content moderation, responsible AI deployment, or reinforcement learning systems.
+
+    ### 📚 Learn More:
+    - [Technical Report (arXiv)](https://arxiv.org/abs/2507.18576)
+    - [GitHub Repository](https://github.com/AI45Lab/SafeWork-R1)
+    - [Online Demo](https://safework-r1.ai45.shlab.org.cn/)
+
+    > ✅ *Use this model to build safer, more trustworthy AI systems — grounded in both performance and ethics.*
+  overrides:
+    parameters:
+      model: SafeWork-RM-Value-72B.i1-Q4_K_M.gguf
+  files:
+    - filename: SafeWork-RM-Value-72B.i1-Q4_K_M.gguf
+      sha256: 8143fe81a7bd0e31a53e36ceb4cac69b9c1735b9e08dd1a7a726fc9735be92e1
+      uri: huggingface://mradermacher/SafeWork-RM-Value-72B-i1-GGUF/SafeWork-RM-Value-72B.i1-Q4_K_M.gguf
