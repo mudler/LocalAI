@@ -1394,7 +1394,16 @@ public:
         if (error) {
             return grpc::Status(grpc::StatusCode::INTERNAL, "Error in receiving results");
         }
+        // Sort responses by score in descending order
+        std::sort(responses.begin(), responses.end(), [](const json& a, const json& b) {
+            return a.value("score", 0.0f) > b.value("score", 0.0f);
+        });
 
+        // Crop results by request.top_n if specified
+        int top_n = request->top_n();
+        if (top_n > 0 && top_n < static_cast<int>(responses.size())) {
+            responses = json(responses.begin(), responses.begin() + top_n);
+        }
         // Set usage information
         backend::Usage* usage = rerankResult->mutable_usage();
         int total_tokens = 0;
