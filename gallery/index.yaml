@@ -23203,3 +23203,36 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "metatune-gpt20b-r1.1"
+  urls:
+    - https://huggingface.co/mradermacher/metatune-gpt20b-R1.1-GGUF
+  description: |
+    **Model Name:** MetaTune GPT-20B-R1.1
+    **Base Model:** unsloth/gpt-oss-20b-unsloth-bnb-4bit
+    **Author:** EpistemeAI
+    **License:** Apache 2.0
+
+    **Description:**
+    MetaTune GPT-20B-R1.1 is a 20-billion-parameter open-weight language model fine-tuned from the GPT-OSS-20B base model using recursive self-improvement techniques. It excels at generating high-quality, detailed responses across a wide range of tasks, including complex reasoning, coding, and agentic workflows. The model is capable of self-evaluation and adaptive hyperparameter tuning, making it one of the first publicly available models designed for autonomous performance improvement.
+
+    **Key Features:**
+    - Fine-tuned via recursive self-improvement (RSI) for enhanced reasoning and output quality.
+    - Supports advanced reasoning levels (Low, Medium, High) via system prompts.
+    - Ideal for complex tasks such as scientific reasoning, mathematical problem-solving, and tool use (e.g., browsing, function calling).
+    - Optimized with Unsloth for faster training and inference.
+    - Benchmark results show strong performance on GPQA Diamond (+0.933 EM) and GSM8K (+1.0 EM).
+
+    **Recommended Usage:**
+    - Use with safety guardrails (e.g., `openai/gpt-oss-safeguard-20b`) to mitigate risks.
+    - Set `reasoning: high` for deep analytical tasks.
+    - Suitable for research, education, and development of autonomous AI agents.
+
+    **Note:** The GGUF quantized version available at `mradermacher/metatune-gpt20b-R1.1-GGUF` is a community-converted, quantized variant. The original, full-precision model is hosted at `EpistemeAI/metatune-gpt20b-R1.1`.
+  overrides:
+    parameters:
+      model: metatune-gpt20b-R1.1.Q4_K_S.gguf
+  files:
+    - filename: metatune-gpt20b-R1.1.Q4_K_S.gguf
+      sha256: a45e01f17036d197aa75e9013b5157ce901cad8920cfa189cce16ea3f2164d4a
+      uri: huggingface://mradermacher/metatune-gpt20b-R1.1-GGUF/metatune-gpt20b-R1.1.Q4_K_S.gguf
