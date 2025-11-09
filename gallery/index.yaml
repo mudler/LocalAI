@@ -23242,3 +23242,29 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "austral-24b-grpo-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Austral-24b-GRPO-i1-GGUF
+  description: |
+    **Austral-24b-GRPO** is a large language model developed by NewEden, created through a merge of two key components using the **MergeKit** framework:
+
+    - **Base model**: `Delta-Vector/MS3.2-Austral-Winton` — a foundational 24B parameter model known for strong reasoning and instruction-following capabilities.
+    - **Fine-tuned component**: A checkpoint from a writing judge training pipeline (`writing-judge-training-1e-5-power-2`), which enhances the model’s ability to evaluate and generate high-quality, coherent text.
+
+    The resulting model, **Austral-24b-GRPO**, is trained using **GRPO (Generalized Reward Policy Optimization)**, a reinforcement learning technique that improves alignment with human preferences, especially in creative and structured writing tasks.
+
+    It is designed for advanced language understanding, coherent long-form generation, and nuanced reasoning. While the model is available in quantized GGUF formats (e.g., via mradermacher's repo), the original unquantized version maintains full precision (bfloat16) and is suitable for high-performance inference.
+
+    > 🔗 **Original model**: [NewEden/Austral-24b-GRPO](https://huggingface.co/NewEden/Austral-24b-GRPO)
+    > 🔧 **Built with**: MergeKit, GRPO, and fine-tuning on writing quality judgments
+    > 📦 **Use case**: High-quality text generation, creative writing, code generation, and reasoning tasks
+
+    *Note: The quantized versions (e.g., from mradermacher/Austral-24b-GRPO-i1-GGUF) are derived from this base but should not be used if original fidelity is required.*
+  overrides:
+    parameters:
+      model: Austral-24b-GRPO.i1-Q4_K_M.gguf
+  files:
+    - filename: Austral-24b-GRPO.i1-Q4_K_M.gguf
+      sha256: 27b8a601cd5b3c1d14df0c457acff22ad8dd87757cb0354f1f9572e373b1f64f
+      uri: huggingface://mradermacher/Austral-24b-GRPO-i1-GGUF/Austral-24b-GRPO.i1-Q4_K_M.gguf
