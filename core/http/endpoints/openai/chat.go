@@ -90,7 +90,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			ID:      id,
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
+			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
 			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
@@ -110,7 +110,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
 				Usage:   usage,
 			}
@@ -144,7 +144,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
 			}
 			responses <- initialMessage
@@ -168,7 +168,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0}},
+				Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
 				Usage:   usage,
 			}
@@ -196,7 +196,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 									},
 								},
 							},
-						}}},
+						},
+						Index:        0,
+						FinishReason: nil,
+					}},
 					Object: "chat.completion.chunk",
 				}
 				responses <- initialMessage
@@ -219,7 +222,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 									},
 								},
 							},
-						}}},
+						},
+						Index:        0,
+						FinishReason: nil,
+					}},
 					Object: "chat.completion.chunk",
 				}
 			}
