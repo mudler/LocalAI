@@ -80,7 +80,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 
 		ctxWithCancellation, cancel := context.WithCancel(ctx)
 		defer cancel()
-		handleConnectionCancellation(c, cancel)
+		handleConnectionCancellation(c, cancel, ctxWithCancellation)
 		// TODO: instead of connecting to the API, we should just wire this internally
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that

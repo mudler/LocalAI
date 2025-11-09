@@ -3,6 +3,7 @@ package openai
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -30,21 +31,47 @@ import (
 // We access the connection directly via c.Context().Conn() to monitor it
 // during ComputeChoices execution, not after the response is sent
 // see: https://github.com/mudler/LocalAI/pull/7187#issuecomment-3506720906
-func handleConnectionCancellation(c *fiber.Ctx, cancelFunc func()) {
+func handleConnectionCancellation(c *fiber.Ctx, cancelFunc func(), requestCtx context.Context) {
 	var conn net.Conn = c.Context().Conn()
 	if conn == nil {
 		return
 	}
 
 	go func() {
+		defer func() {
+			// Clear read deadline when goroutine exits
+			conn.SetReadDeadline(time.Time{})
+		}()
+
 		buf := make([]byte, 1)
+		// Use a short read deadline to periodically check if connection is closed
+		// Without a deadline, Read() would block indefinitely waiting for data
+		// that will never come (client is waiting for response, not sending more data)
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
 		for {
-			_, err := conn.Read(buf)
-			if err != nil {
-				// Connection closed - cancel the context to stop gRPC call
-				log.Debug().Msgf("Calling cancellation function")
-				cancelFunc()
+			select {
+			case <-requestCtx.Done():
+				// Request completed or was cancelled - exit goroutine
 				return
+			case <-ticker.C:
+				// Set a short deadline - if connection is closed, read will fail immediately
+				// If connection is open but no data, it will timeout and we check again
+				conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+				_, err := conn.Read(buf)
+				if err != nil {
+					// Check if it's a timeout (connection still open, just no data)
+					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+						// Timeout is expected - connection is still open, just no data to read
+						// Continue the loop to check again
+						continue
+					}
+					// Connection closed or other error - cancel the context to stop gRPC call
+					log.Debug().Msgf("Calling cancellation function")
+					cancelFunc()
+					return
+				}
 			}
 		}
 	}()
@@ -546,7 +573,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// NOTE: this is a workaround as fasthttp
 			// context cancellation does not fire in non-streaming requests
-			handleConnectionCancellation(c, input.Cancel)
+			handleConnectionCancellation(c, input.Cancel, input.Context)
 
 			result, tokenUsage, err := ComputeChoices(
 				input,
