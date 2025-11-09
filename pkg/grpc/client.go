@@ -178,11 +178,22 @@ func (c *Client) PredictStream(ctx context.Context, in *pb.PredictOptions, f fun
 	}
 
 	for {
+		// Check if context is cancelled before receiving
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		reply, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
+			// Check if error is due to context cancellation
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			fmt.Println("Error", err)
 
 			return err

@@ -822,6 +822,12 @@ public:
         }
 
         ctx_server.receive_cmpl_results_stream(task_ids, [&](server_task_result_ptr & result) -> bool {
+            // Check if context is cancelled before processing result
+            if (context->IsCancelled()) {
+                ctx_server.cancel_tasks(task_ids);
+                return false;
+            }
+
             json res_json = result->to_json();
             if (res_json.is_array()) {
                 for (const auto & res : res_json) {
@@ -875,12 +881,17 @@ public:
             reply.set_message(error_data.value("content", ""));
             writer->Write(reply);
             return true;
-        }, [&]() {
-            // NOTE: we should try to check when the writer is closed here
-            return false;
+        }, [&context]() {
+            // Check if the gRPC context is cancelled
+            return context->IsCancelled();
         });
 
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+
+        // Check if context was cancelled during processing
+        if (context->IsCancelled()) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
 
         return grpc::Status::OK;
     }
@@ -1145,6 +1156,14 @@ public:
 
 
         std::cout << "[DEBUG] Waiting for results..." << std::endl;
+        
+        // Check cancellation before waiting for results
+        if (context->IsCancelled()) {
+            ctx_server.cancel_tasks(task_ids);
+            ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
+
         ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
             std::cout << "[DEBUG] Received " << results.size() << " results" << std::endl;
             if (results.size() == 1) {
@@ -1176,12 +1195,19 @@ public:
         }, [&](const json & error_data) {
             std::cout << "[DEBUG] Error in results: " << error_data.value("content", "") << std::endl;
             reply->set_message(error_data.value("content", ""));
-        }, [&]() {
-            return false;
+        }, [&context]() {
+            // Check if the gRPC context is cancelled
+            // This is checked every HTTP_POLLING_SECONDS (1 second) during receive_multi_results
+            return context->IsCancelled();
         });
 
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
         std::cout << "[DEBUG] Predict request completed successfully" << std::endl;
+
+        // Check if context was cancelled during processing
+        if (context->IsCancelled()) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
 
         return grpc::Status::OK;
     }
@@ -1234,6 +1260,13 @@ public:
             ctx_server.queue_tasks.post(std::move(tasks));
         }
 
+        // Check cancellation before waiting for results
+        if (context->IsCancelled()) {
+            ctx_server.cancel_tasks(task_ids);
+            ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
+
         // get the result
         ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
             for (auto & res : results) {
@@ -1242,11 +1275,17 @@ public:
             }
         }, [&](const json & error_data) {
             error = true;
-        }, [&]() {
-            return false;
+        }, [&context]() {
+            // Check if the gRPC context is cancelled
+            return context->IsCancelled();
         });
 
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+
+        // Check if context was cancelled during processing
+        if (context->IsCancelled()) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
 
         if (error) {
             return grpc::Status(grpc::StatusCode::INTERNAL, "Error in receiving results");
@@ -1325,6 +1364,13 @@ public:
             ctx_server.queue_tasks.post(std::move(tasks));
         }
 
+        // Check cancellation before waiting for results
+        if (context->IsCancelled()) {
+            ctx_server.cancel_tasks(task_ids);
+            ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
+
         // Get the results
         ctx_server.receive_multi_results(task_ids, [&](std::vector<server_task_result_ptr> & results) {
             for (auto & res : results) {
@@ -1333,11 +1379,17 @@ public:
             }
         }, [&](const json & error_data) {
             error = true;
-        }, [&]() {
-            return false;
+        }, [&context]() {
+            // Check if the gRPC context is cancelled
+            return context->IsCancelled();
         });
 
         ctx_server.queue_results.remove_waiting_task_ids(task_ids);
+
+        // Check if context was cancelled during processing
+        if (context->IsCancelled()) {
+            return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
+        }
 
         if (error) {
             return grpc::Status(grpc::StatusCode::INTERNAL, "Error in receiving results");

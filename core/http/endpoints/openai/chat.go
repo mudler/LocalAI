@@ -3,8 +3,10 @@ package openai
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -21,6 +23,59 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/valyala/fasthttp"
 )
+
+// NOTE: this is a bad WORKAROUND! We should find a better way to handle this.
+// Fasthttp doesn't support context cancellation from the caller
+// for non-streaming requests, so we need to monitor the connection directly.
+// Monitor connection for client disconnection during non-streaming requests
+// We access the connection directly via c.Context().Conn() to monitor it
+// during ComputeChoices execution, not after the response is sent
+// see: https://github.com/mudler/LocalAI/pull/7187#issuecomment-3506720906
+func handleConnectionCancellation(c *fiber.Ctx, cancelFunc func(), requestCtx context.Context) {
+	var conn net.Conn = c.Context().Conn()
+	if conn == nil {
+		return
+	}
+
+	go func() {
+		defer func() {
+			// Clear read deadline when goroutine exits
+			conn.SetReadDeadline(time.Time{})
+		}()
+
+		buf := make([]byte, 1)
+		// Use a short read deadline to periodically check if connection is closed
+		// Without a deadline, Read() would block indefinitely waiting for data
+		// that will never come (client is waiting for response, not sending more data)
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-requestCtx.Done():
+				// Request completed or was cancelled - exit goroutine
+				return
+			case <-ticker.C:
+				// Set a short deadline - if connection is closed, read will fail immediately
+				// If connection is open but no data, it will timeout and we check again
+				conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
+				_, err := conn.Read(buf)
+				if err != nil {
+					// Check if it's a timeout (connection still open, just no data)
+					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+						// Timeout is expected - connection is still open, just no data to read
+						// Continue the loop to check again
+						continue
+					}
+					// Connection closed or other error - cancel the context to stop gRPC call
+					log.Debug().Msgf("Calling cancellation function")
+					cancelFunc()
+					return
+				}
+			}
+		}
+	}()
+}
 
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
@@ -358,6 +413,11 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			LOOP:
 				for {
 					select {
+					case <-input.Context.Done():
+						// Context was cancelled (client disconnected or request cancelled)
+						log.Debug().Msgf("Request context cancelled, stopping stream")
+						input.Cancel()
+						break LOOP
 					case ev := <-responses:
 						if len(ev.Choices) == 0 {
 							log.Debug().Msgf("No choices in the response, skipping")
@@ -510,6 +570,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 
 			}
+
+			// NOTE: this is a workaround as fasthttp
+			// context cancellation does not fire in non-streaming requests
+			handleConnectionCancellation(c, input.Cancel, input.Context)
 
 			result, tokenUsage, err := ComputeChoices(
 				input,

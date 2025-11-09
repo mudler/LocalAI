@@ -93,19 +93,18 @@ type AgentConfig struct {
 	EnablePlanReEvaluator bool `yaml:"enable_plan_re_evaluator" json:"enable_plan_re_evaluator"`
 }
 
-func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers]) {
+func (c *MCPConfig) MCPConfigFromYAML() (MCPGenericConfig[MCPRemoteServers], MCPGenericConfig[MCPSTDIOServers], error) {
 	var remote MCPGenericConfig[MCPRemoteServers]
 	var stdio MCPGenericConfig[MCPSTDIOServers]
 
 	if err := yaml.Unmarshal([]byte(c.Servers), &remote); err != nil {
-		return remote, stdio
+		return remote, stdio, err
 	}
 
 	if err := yaml.Unmarshal([]byte(c.Stdio), &stdio); err != nil {
-		return remote, stdio
+		return remote, stdio, err
 	}
-
-	return remote, stdio
+	return remote, stdio, nil
 }
 
 type MCPGenericConfig[T any] struct {
