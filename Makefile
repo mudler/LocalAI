@@ -103,6 +103,10 @@ build-launcher: ## Build the launcher application
 
 build-all: build build-launcher ## Build both server and launcher
 
+build-dev: ## Run LocalAI in dev mode with live reload
+	@command -v air >/dev/null 2>&1 || go install github.com/air-verse/air@latest
+	air -c .air.toml
+
 dev-dist:
 	$(GORELEASER) build --snapshot --clean
 

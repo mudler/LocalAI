@@ -79,6 +79,12 @@ func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
 			Type:       "object",
 			Properties: property,
 		})
+		/*
+			js.AnyOf = append(js.OneOf, Item{
+				Type:       "object",
+				Properties: property,
+			})
+		*/
 	}
 	return js
 }

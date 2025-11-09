@@ -161,7 +161,17 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 	correlationID := ctx.Get("X-Correlation-ID", uuid.New().String())
 	ctx.Set("X-Correlation-ID", correlationID)
 
+	//c1, cancel := context.WithCancel(re.applicationConfig.Context)
+	// Use the application context as parent to ensure cancellation on app shutdown
+	// We'll monitor the Fiber context separately and cancel our context when the request is canceled
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
+	// Monitor the Fiber context and cancel our context when it's canceled
+	// This ensures we respect request cancellation without causing panics
+	go func() {
+		<-ctx.Context().Done()
+		// Fiber context was canceled (request completed or client disconnected)
+		cancel()
+	}()
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 

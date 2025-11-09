@@ -23203,3 +23203,42 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "metatune-gpt20b-r1.1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/metatune-gpt20b-R1.1-i1-GGUF
+  description: |
+    **Model Name:** MetaTune-GPT20B-R1.1
+    **Base Model:** unsloth/gpt-oss-20b-unsloth-bnb-4bit
+    **Repository:** [EpistemeAI/metatune-gpt20b-R1.1](https://huggingface.co/EpistemeAI/metatune-gpt20b-R1.1)
+    **License:** Apache 2.0
+
+    **Description:**
+    MetaTune-GPT20B-R1.1 is a large language model fine-tuned for recursive self-improvement, making it one of the first publicly released models capable of autonomously generating training data, evaluating its own performance, and adjusting its hyperparameters to improve over time. Built upon the open-weight GPT-OSS 20B architecture and trained with Unsloth's optimized 4-bit quantization, this model excels in complex reasoning, agentic tasks, and function calling. It supports tools like web browsing and structured output generation, and is particularly effective in high-reasoning use cases such as scientific problem-solving and math reasoning.
+
+    **Performance Highlights (Zero-shot):**
+    - **GPQA Diamond:** 93.3% exact match
+    - **GSM8K (Chain-of-Thought):** 100% exact match
+
+    **Recommended Use:**
+    - Advanced reasoning & planning
+    - Autonomous agent workflows
+    - Research, education, and technical problem-solving
+
+    **Safety Note:**
+    Use with caution. For safety-critical applications, pair with a safety guardrail model such as [openai/gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b).
+
+    **Fine-Tuned From:** unsloth/gpt-oss-20b-unsloth-bnb-4bit
+    **Training Method:** Recursive Self-Improvement on the [Recursive Self-Improvement Dataset](https://huggingface.co/datasets/EpistemeAI/recursive_self_improvement_dataset)
+    **Framework:** Hugging Face TRL + Unsloth for fast, efficient training
+
+    **Inference Tip:** Set reasoning level to "high" for best results and to reduce prompt injection risks.
+
+    👉 [View on Hugging Face](https://huggingface.co/EpistemeAI/metatune-gpt20b-R1.1) | [GitHub: Recursive Self-Improvement](https://github.com/openai/harmony)
+  overrides:
+    parameters:
+      model: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+  files:
+    - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+      sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
+      uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf

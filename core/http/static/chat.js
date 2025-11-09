@@ -27,19 +27,41 @@ SOFTWARE.
 
 */
 
+// Global variable to store the current AbortController
+let currentAbortController = null;
+let currentReader = null;
+
 function toggleLoader(show) {
-  const loader = document.getElementById('loader');
   const sendButton = document.getElementById('send-button');
+  const stopButton = document.getElementById('stop-button');
   
   if (show) {
-    loader.style.display = 'block';
     sendButton.style.display = 'none';
+    stopButton.style.display = 'block';
     document.getElementById("input").disabled = true;
   } else {
     document.getElementById("input").disabled = false;
-    loader.style.display = 'none';
     sendButton.style.display = 'block';
+    stopButton.style.display = 'none';
+    currentAbortController = null;
+    currentReader = null;
   }
+}
+
+function stopRequest() {
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+  if (currentReader) {
+    currentReader.cancel();
+    currentReader = null;
+  }
+  toggleLoader(false);
+  Alpine.store("chat").add(
+    "assistant",
+    `<span class='error'>Request cancelled by user</span>`,
+  );
 }
 
 function processThinkingTags(content) {
@@ -295,8 +317,9 @@ async function promptGPT(systemPrompt, input) {
   
   let response;
   try {
-    // Create AbortController for timeout handling
+    // Create AbortController for timeout handling and stop button
     const controller = new AbortController();
+    currentAbortController = controller; // Store globally so stop button can abort it
     const timeoutId = setTimeout(() => controller.abort(), mcpMode ? 300000 : 30000); // 5 minutes for MCP, 30 seconds for regular
     
     response = await fetch(endpoint, {
@@ -311,11 +334,20 @@ async function promptGPT(systemPrompt, input) {
     
     clearTimeout(timeoutId);
   } catch (error) {
+    // Don't show error if request was aborted by user (stop button)
     if (error.name === 'AbortError') {
-      Alpine.store("chat").add(
-        "assistant",
-        `<span class='error'>Request timeout: MCP processing is taking longer than expected. Please try again.</span>`,
-      );
+      // Check if this was a user-initiated abort (stop button was clicked)
+      // If currentAbortController is null, it means stopRequest() was called and already handled the UI
+      if (!currentAbortController) {
+        // User clicked stop button - error message already shown by stopRequest()
+        return;
+      } else {
+        // Timeout error (controller was aborted by timeout, not user)
+        Alpine.store("chat").add(
+          "assistant",
+          `<span class='error'>Request timeout: MCP processing is taking longer than expected. Please try again.</span>`,
+        );
+      }
     } else {
       Alpine.store("chat").add(
         "assistant",
@@ -323,6 +355,7 @@ async function promptGPT(systemPrompt, input) {
       );
     }
     toggleLoader(false);
+    currentAbortController = null;
     return;
   }
 
@@ -332,6 +365,7 @@ async function promptGPT(systemPrompt, input) {
       `<span class='error'>Error: POST ${endpoint} ${response.status}</span>`,
     );
     toggleLoader(false);
+    currentAbortController = null;
     return;
   }
 
@@ -360,10 +394,15 @@ async function promptGPT(systemPrompt, input) {
       // Highlight all code blocks
       hljs.highlightAll();
     } catch (error) {
-      Alpine.store("chat").add(
-        "assistant",
-        `<span class='error'>Error: Failed to parse MCP response</span>`,
-      );
+      // Don't show error if request was aborted by user
+      if (error.name !== 'AbortError' || currentAbortController) {
+        Alpine.store("chat").add(
+          "assistant",
+          `<span class='error'>Error: Failed to parse MCP response</span>`,
+        );
+      }
+    } finally {
+      currentAbortController = null;
     }
   } else {
     // Handle regular streaming response
@@ -376,8 +415,12 @@ async function promptGPT(systemPrompt, input) {
         "assistant",
         `<span class='error'>Error: Failed to decode API response</span>`,
       );
+      toggleLoader(false);
       return;
     }
+
+    // Store reader globally so stop button can cancel it
+    currentReader = reader;
 
     // Function to add content to the chat and handle DOM updates efficiently
     const addToChat = (token) => {
@@ -479,13 +522,20 @@ async function promptGPT(systemPrompt, input) {
       // Highlight all code blocks once at the end
       hljs.highlightAll();
     } catch (error) {
-      Alpine.store("chat").add(
-        "assistant",
-        `<span class='error'>Error: Failed to process stream</span>`,
-      );
+      // Don't show error if request was aborted by user
+      if (error.name !== 'AbortError' || !currentAbortController) {
+        Alpine.store("chat").add(
+          "assistant",
+          `<span class='error'>Error: Failed to process stream</span>`,
+        );
+      }
     } finally {
       // Perform any cleanup if necessary
-      reader.releaseLock();
+      if (reader) {
+        reader.releaseLock();
+      }
+      currentReader = null;
+      currentAbortController = null;
     }
   }
 
