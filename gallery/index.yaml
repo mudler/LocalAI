@@ -23242,3 +23242,31 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "smilodon-9b-v1"
+  urls:
+    - https://huggingface.co/Naphula/Smilodon-9B-v1-GGUF
+  description: |
+    **Smilodon 9B v1 (GGUF)**
+    *Creative, merged variant of Gemma-based models — not a base model*
+
+    This model is a **merged ensemble** of 12 distinct Gemma 2-based fine-tunes, created using MergeKit with the *karcher* method. It combines diverse personalities and capabilities from models like *G2-9B-Sugarquill*, *Tiger-Gemma-9B-v3*, *Delirium-v1*, and others, aiming for heightened creativity and narrative richness while maintaining strong reasoning and coherence.
+
+    While the model is **not a base model** and is **quantized to GGUF format** (suitable for local inference), its foundation lies in the **Gemma 2 9B architecture**, specifically inheriting core training and structure from *TheDrummer/Tiger-Gemma-9B-v3*, one of the primary contributors in the merge.
+
+    **Key facts:**
+    - **Architecture**: MistralForCausalLM (based on Gemma 2 9B)
+    - **Base model**: TheDrummer/Tiger-Gemma-9B-v3 (primary contributor)
+    - **Merge method**: Karcher averaging (weighted blending of 12 models)
+    - **License**: Gemma (non-commercial use)
+    - **Use case**: Creative writing, roleplay, open-ended storytelling
+    - **Note**: This is a **quantized, merged, and non-official** model — not a release by the original authors of any base model.
+
+    > ⚠️ *Not suitable for strict factual tasks. Best used for imaginative and expressive text generation.*
+  overrides:
+    parameters:
+      model: Smilodon-9B-v1-Q4_K_M.gguf
+  files:
+    - filename: Smilodon-9B-v1-Q4_K_M.gguf
+      sha256: 0b87816c377e143d5f2d82c7632dc782b6e6e7d5b0a812ceb06c96736bd4ff25
+      uri: huggingface://Naphula/Smilodon-9B-v1-GGUF/Smilodon-9B-v1-Q4_K_M.gguf
