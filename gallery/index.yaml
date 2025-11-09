@@ -23203,3 +23203,42 @@
     - filename: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
       sha256: e91914c18cb91f2a3ef96d8e62a18b595dd6c24fad901dea639e714bc7443b09
       uri: huggingface://mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF/Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "llama-3.3-krix-v2-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-krix-v2-i1-GGUF
+  description: |
+    **Model Name:** Llama-3.3-krix-v2
+    **Base Model:** meta-llama/Llama-3.3-70B-Instruct
+    **Fine-Tuned By:** Ali-Yaser
+    **License:** Llama 3.3 Community License
+    **Framework:** Hugging Face Transformers, Fine-Tuned with Unsloth & TRL
+
+    ---
+
+    ### 📌 Description:
+    Llama-3.3-krix-v2 is a high-quality, 70B-parameter instruction-tuned language model built on the **Llama 3.3 70B Instruct** base. Fine-tuned on a 100k-token dataset using Unsloth and Hugging Face's TRL library, this model delivers strong performance in reasoning, instruction following, and conversational fluency.
+
+    While it's a recent release (v2) and may occasionally produce inconsistent outputs, it represents a significant advancement in efficiency and capability for open-weight large language models.
+
+    Available in multiple GGUF quantizations (Q2_K to Q6_K) via the [mradermacher/Llama-3.3-krix-v2-i1-GGUF](https://huggingface.co/mradermacher/Llama-3.3-krix-v2-i1-GGUF) repository, this model is ideal for local inference with tools like llama.cpp, vLLM, and other GGUF-compatible systems.
+
+    > ✅ **Best for:** Local inference, high-performance reasoning, and experimentation with quantized LLMs.
+    > ⚠️ **Note:** Due to its recent fine-tuning, results may vary — use with caution in production.
+
+    ---
+
+    🔹 *Model Source:* [Ali-Yaser/Llama-3.3-krix-v2](https://huggingface.co/Ali-Yaser/Llama-3.3-krix-v2)
+    🔹 *Quantized Version:* [mradermacher/Llama-3.3-krix-v2-i1-GGUF](https://huggingface.co/mradermacher/Llama-3.3-krix-v2-i1-GGUF)
+    🔹 *Trained with:* [Unsloth](https://github.com/unslothai/unsloth) and [TRL](https://github.com/huggingface/trl)
+
+    ---
+
+    ✅ **Recommended for:** Developers and researchers seeking powerful, locally deployable LLMs with strong reasoning and instruction-following abilities.
+  overrides:
+    parameters:
+      model: Llama-3.3-krix-v2.i1-Q4_K_M.gguf
+  files:
+    - filename: Llama-3.3-krix-v2.i1-Q4_K_M.gguf
+      sha256: 7b2ad933012c825ef82469c434a7b4915e075ee67dc5ff4d08d1783850c00fd4
+      uri: huggingface://mradermacher/Llama-3.3-krix-v2-i1-GGUF/Llama-3.3-krix-v2.i1-Q4_K_M.gguf
