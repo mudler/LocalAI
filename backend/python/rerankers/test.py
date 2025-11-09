@@ -100,7 +100,7 @@ class TestBackendServicer(unittest.TestCase):
                 request = backend_pb2.RerankRequest(
                     query="I love you",
                     documents=["I hate you", "I really like you"],
-                  #  top_n=2
+                    top_n=0 # 
                 )
                 response = stub.LoadModel(backend_pb2.ModelOptions(Model="cross-encoder"))
                 self.assertTrue(response.success)
