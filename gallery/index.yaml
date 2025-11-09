@@ -23242,3 +23242,38 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "the_darkside-16.6b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/The_Darkside-16.6B-i1-GGUF
+  description: |
+    **Model Name:** The_Darkside-16.6B
+    **Repository:** [Bumoch/The_Darkside-16.6B](https://huggingface.co/Bumoch/The_Darkside-16.6B)
+    **Base Model:** `inflatebot/MN-12B-Mag-Mell-R1`
+    **Architecture:** Merged Mistral-based model (16.6B parameters)
+    **Merge Method:** Mergekit (Passthrough + Multislerp)
+    **Models Merged:**
+    - `inflatebot/MN-12B-Mag-Mell-R1` (base)
+    - `mistralai-Mistral-Nemo-Instruct-2407-extensive-BP-abliteration-12B` (reasoning enhancement)
+    - `Dark-Nexus-12B-v2.0` (stylistic & personality infusion)
+
+    **Key Features:**
+    - High-quality, uncensored, and morally unfiltered dialogue.
+    - Strong reasoning capabilities with a dark, gritty, and intense personality.
+    - Designed for mature audiences — avoids censorship, embraces brutality and raw realism.
+    - Ideal for creative writing, roleplay, or narrative exploration in dark fantasy, horror, or gritty sci-fi contexts.
+
+    **Note:** The model is **not** officially released by the original authors. The GGUF quantized versions (e.g., `mradermacher/The_Darkside-16.6B-i1-GGUF`) are community-quantized variants, not the original. For the true base model description, refer to the official Hugging Face repo above.
+
+    **License:** Apache 2.0
+    **Languages:** English, French, German
+    **Tags:** mergekit, merge, not-for-all-audiences, mistral
+
+    👉 *For usage and quantized versions, visit: [mradermacher/The_Darkside-16.6B-i1-GGUF](https://huggingface.co/mradermacher/The_Darkside-16.6B-i1-GGUF)*
+  overrides:
+    parameters:
+      model: The_Darkside-16.6B.i1-Q4_K_S.gguf
+  files:
+    - filename: The_Darkside-16.6B.i1-Q4_K_S.gguf
+      sha256: b951540f3ef9157d897cad11da18877f17e71527701e231e553f4437443e37b0
+      uri: huggingface://mradermacher/The_Darkside-16.6B-i1-GGUF/The_Darkside-16.6B.i1-Q4_K_S.gguf
