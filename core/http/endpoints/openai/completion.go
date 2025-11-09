@@ -2,7 +2,6 @@ package openai
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -47,8 +46,9 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 				Choices: []schema.Choice{
 					{
-						Index: 0,
-						Text:  s,
+						Index:        0,
+						Text:         s,
+						FinishReason: nil,
 					},
 				},
 				Object: "text_completion",
@@ -140,24 +140,49 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 							log.Debug().Msgf("No choices in the response, skipping")
 							continue
 						}
-						var buf bytes.Buffer
-						enc := json.NewEncoder(&buf)
-						enc.Encode(ev)
+						respData, err := json.Marshal(ev)
+						if err != nil {
+							log.Debug().Msgf("Failed to marshal response: %v", err)
+							continue
+						}
 
-						log.Debug().Msgf("Sending chunk: %s", buf.String())
-						fmt.Fprintf(w, "data: %v\n", buf.String())
+						log.Debug().Msgf("Sending chunk: %s", string(respData))
+						fmt.Fprintf(w, "data: %s\n\n", string(respData))
 						w.Flush()
 					case err := <-ended:
 						if err == nil {
 							break LOOP
 						}
 						log.Error().Msgf("Stream ended with error: %v", err)
-						fmt.Fprintf(w, "data: %v\n", "Internal error: "+err.Error())
+
+						stopReason := FinishReasonStop
+						errorResp := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   input.Model,
+							Choices: []schema.Choice{
+								{
+									Index:        0,
+									FinishReason: &stopReason,
+									Text:         "Internal error: " + err.Error(),
+								},
+							},
+							Object: "text_completion",
+						}
+						errorData, marshalErr := json.Marshal(errorResp)
+						if marshalErr != nil {
+							log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+							// Send a simple error message as fallback
+							fmt.Fprintf(w, "data: {\"error\":\"Internal error\"}\n\n")
+						} else {
+							fmt.Fprintf(w, "data: %s\n\n", string(errorData))
+						}
 						w.Flush()
 						break LOOP
 					}
 				}
 
+				stopReason := FinishReasonStop
 				resp := &schema.OpenAIResponse{
 					ID:      id,
 					Created: created,
@@ -165,7 +190,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					Choices: []schema.Choice{
 						{
 							Index:        0,
-							FinishReason: "stop",
+							FinishReason: &stopReason,
 						},
 					},
 					Object: "text_completion",
@@ -197,7 +222,8 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 			r, tokenUsage, err := ComputeChoices(
 				input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
-					*c = append(*c, schema.Choice{Text: s, FinishReason: "stop", Index: k})
+					stopReason := FinishReasonStop
+					*c = append(*c, schema.Choice{Text: s, FinishReason: &stopReason, Index: k})
 				}, nil)
 			if err != nil {
 				return err
