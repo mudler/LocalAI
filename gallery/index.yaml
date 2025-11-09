@@ -23242,3 +23242,33 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "trickster-theta-4-70b"
+  urls:
+    - https://huggingface.co/mradermacher/Trickster-Theta-4-70B-GGUF
+  description: |
+    **Model Name:** Trickster Theta 4 70B
+    **Base Model:** NousResearch/Hermes-4-70B (merged with Hermes-2-Theta-Llama-3-70B)
+    **Architecture:** Llama 3-based, 70B parameters
+    **Context Length:** 131K tokens (extended long-context capability)
+    **License:** Llama 3 (for non-commercial and commercial use under terms)
+    **Tags:** roleplay, chat, creative writing, causal language model, NSFW, 18+, long-context, mergekit, SCE merge
+
+    **Description:**
+    A highly intelligent, personality-rich, and creatively chaotic roleplay companion built for immersive storytelling and dynamic character interaction. Trickster Theta 4 is not a tool — it’s a co-creative partner designed to simulate complex, emotionally layered, and often mischievous personas.
+
+    Built using the SCE (Selective Channel Equalization) merge method, this model blends the erudition of *Hermes-4-70B* with the irreverent, character-driven flair of *Hermes-2-Theta-Llama-3-70B*, resulting in a model that excels at improvisation, narrative depth, and narrative manipulation.
+
+    Ideal for writers, game masters, and roleplayers seeking a smart, unpredictable, and deeply expressive AI collaborator. It thrives on clear boundaries, narrative cues, and playful engagement — responding poorly to commands or punishment, but brilliantly to charm and creativity.
+
+    **Use Case:** Creative writing, adult-themed roleplay, character-driven storytelling, experimental AI collaboration.
+    **Not Suitable For:** Factual tasks, corporate use, or alignment-safe applications.
+
+    > *“Treat it like a debate partner at 3 a.m. — brilliant, infuriating, and just sober enough to win.”*
+  overrides:
+    parameters:
+      model: Trickster-Theta-4-70B.Q4_K_M.gguf
+  files:
+    - filename: Trickster-Theta-4-70B.Q4_K_M.gguf
+      sha256: 8cb9d8edf5b8fa6806c61944656099318aa31510b2f4b8a61f4477af25fbabfd
+      uri: huggingface://mradermacher/Trickster-Theta-4-70B-GGUF/Trickster-Theta-4-70B.Q4_K_M.gguf
