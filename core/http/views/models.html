@@ -359,7 +359,7 @@
                                      class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
                                      loading="lazy">
                             </div>
-                            <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-html="renderMarkdown(selectedModel?.description)"></div>
+                            <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full markdown-content" x-html="renderMarkdown(selectedModel?.description)"></div>
                             <hr>
                             <template x-if="selectedModel?.urls && selectedModel.urls.length > 0">
                                 <div>
@@ -494,6 +494,42 @@ tbody tr:last-child td:first-child {
 
 tbody tr:last-child td:last-child {
     border-bottom-right-radius: 1rem;
+}
+
+/* Markdown content overflow handling */
+.markdown-content {
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    max-width: 100%;
+}
+
+.markdown-content pre {
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.markdown-content code {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.markdown-content pre code {
+    white-space: pre;
+    overflow-x: auto;
+    display: block;
+}
+
+.markdown-content table {
+    max-width: 100%;
+    overflow-x: auto;
+    display: block;
+}
+
+.markdown-content img {
+    max-width: 100%;
+    height: auto;
 }
 </style>
 
@@ -672,6 +708,9 @@ function modelsGallery() {
         renderMarkdown(text) {
             if (!text) return '';
             try {
+                if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+                    return text; // Return plain text if libraries not loaded
+                }
                 const html = marked.parse(text);
                 return DOMPurify.sanitize(html);
             } catch (error) {

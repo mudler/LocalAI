@@ -30,22 +30,63 @@ SOFTWARE.
 // Global variable to store the current AbortController
 let currentAbortController = null;
 let currentReader = null;
+let requestStartTime = null;
+let tokensReceived = 0;
+let tokensPerSecondInterval = null;
+let lastTokensPerSecond = null; // Store the last calculated rate
 
 function toggleLoader(show) {
   const sendButton = document.getElementById('send-button');
   const stopButton = document.getElementById('stop-button');
   const headerLoadingIndicator = document.getElementById('header-loading-indicator');
+  const tokensPerSecondDisplay = document.getElementById('tokens-per-second');
   
   if (show) {
     sendButton.style.display = 'none';
     stopButton.style.display = 'block';
     if (headerLoadingIndicator) headerLoadingIndicator.style.display = 'block';
+    // Reset token tracking
+    requestStartTime = Date.now();
+    tokensReceived = 0;
+    
+    // Start updating tokens/second display
+    if (tokensPerSecondDisplay) {
+      tokensPerSecondDisplay.textContent = '-';
+      updateTokensPerSecond();
+      tokensPerSecondInterval = setInterval(updateTokensPerSecond, 500); // Update every 500ms
+    }
   } else {
     sendButton.style.display = 'block';
     stopButton.style.display = 'none';
     if (headerLoadingIndicator) headerLoadingIndicator.style.display = 'none';
+    // Stop updating but keep the last value visible
+    if (tokensPerSecondInterval) {
+      clearInterval(tokensPerSecondInterval);
+      tokensPerSecondInterval = null;
+    }
+    // Keep the last calculated rate visible
+    if (tokensPerSecondDisplay && lastTokensPerSecond !== null) {
+      tokensPerSecondDisplay.textContent = lastTokensPerSecond;
+    }
     currentAbortController = null;
     currentReader = null;
+    requestStartTime = null;
+    tokensReceived = 0;
+  }
+}
+
+function updateTokensPerSecond() {
+  const tokensPerSecondDisplay = document.getElementById('tokens-per-second');
+  if (!tokensPerSecondDisplay || !requestStartTime) return;
+  
+  const elapsedSeconds = (Date.now() - requestStartTime) / 1000;
+  if (elapsedSeconds > 0 && tokensReceived > 0) {
+    const rate = tokensReceived / elapsedSeconds;
+    const formattedRate = `${rate.toFixed(1)} tokens/s`;
+    tokensPerSecondDisplay.textContent = formattedRate;
+    lastTokensPerSecond = formattedRate; // Store the last calculated rate
+  } else if (elapsedSeconds > 0) {
+    tokensPerSecondDisplay.textContent = '-';
   }
 }
 
@@ -227,6 +268,11 @@ function processAndSendMessage(inputValue) {
   if (input) input.value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
+  
+  // Reset token tracking before starting new request
+  requestStartTime = Date.now();
+  tokensReceived = 0;
+  
   promptGPT(systemPrompt, fullInput);
   
   // Reset file contents and names after sending
@@ -412,6 +458,10 @@ async function promptGPT(systemPrompt, input) {
       const content = data.choices[0]?.text || "";
       
       if (content) {
+        // Count tokens for rate calculation (MCP mode - full content at once)
+        tokensReceived += Math.ceil(content.length / 4);
+        updateTokensPerSecond();
+        
         // Process thinking tags using shared function
         const { regularContent, thinkingContent } = processThinkingTags(content);
         
@@ -461,6 +511,9 @@ async function promptGPT(systemPrompt, input) {
     const addToChat = (token) => {
       const chatStore = Alpine.store("chat");
       chatStore.add("assistant", token);
+      // Count tokens for rate calculation (rough estimate: count characters/4)
+      tokensReceived += Math.ceil(token.length / 4);
+      updateTokensPerSecond();
       // Efficiently scroll into view without triggering multiple reflows
       // const messages = document.getElementById('messages');
       // messages.scrollTop = messages.scrollHeight;
@@ -521,6 +574,9 @@ async function promptGPT(systemPrompt, input) {
                 // Handle content based on thinking state
                 if (isThinking) {
                   thinkingContent += token;
+                  // Count tokens for rate calculation
+                  tokensReceived += Math.ceil(token.length / 4);
+                  updateTokensPerSecond();
                   // Update the last thinking message or create a new one
                   if (lastThinkingMessageIndex === -1) {
                     // Create new thinking message

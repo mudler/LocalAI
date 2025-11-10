@@ -202,7 +202,16 @@ SOFTWARE.
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
 
         <div class="p-4 flex justify-between items-center border-b border-[#101827]">
-          <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
+            <a
+              href="https://localai.io/features/text-generation/"
+              target="_blank"
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors"
+              title="Documentation">
+              <i class="fas fa-book text-sm"></i>
+            </a>
+          </div>
           <button
             @click="sidebarOpen = false"
             class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
@@ -256,33 +265,28 @@ SOFTWARE.
             <div class="flex items-center">
               {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
               <h3 class="text-md font-medium">{{ $model }}</h3>
+              <button 
+                data-twe-ripple-init 
+                data-twe-ripple-color="light" 
+                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors" 
+                data-modal-target="model-info-modal" 
+                data-modal-toggle="model-info-modal"
+                title="Model Information">
+                <i class="fas fa-info-circle text-sm"></i>
+              </button>
+              <button
+                @click="$store.chat.clear()"
+                id="clear"
+                title="Clear chat history"
+                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors">
+                <i class="fa-solid fa-trash-can text-sm"></i>
+              </button>
             </div>
-            <button data-twe-ripple-init data-twe-ripple-color="light" class="w-full text-left flex items-center px-3 py-2 text-xs rounded text-[#E5E7EB] bg-[#101827] hover:bg-[#101827]/80 border border-[#38BDF8]/20 transition-colors" data-modal-target="model-info-modal" data-modal-toggle="model-info-modal">
-              <i class="fas fa-info-circle mr-2 text-[#38BDF8]"></i>
-              Model Information
-            </button>
           </div>
           {{ end }}
           {{ end }}
 
           <div x-data="{ showPromptForm: false }" class="space-y-3">
-              <!-- Actions -->
-              <button
-                @click="$store.chat.clear()"
-                id="clear"
-                title="Clear chat history"
-                class="w-full flex items-center px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#101827] hover:bg-[#101827]/80 border border-[#1E293B] transition-colors"
-              >
-                <i class="fa-solid fa-trash-can mr-2"></i> Clear chat
-              </button>
-
-              <a
-                href="https://localai.io/features/text-generation/"
-                target="_blank"
-                class="w-full flex items-center px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
-              >
-                <i class="fas fa-book mr-2 text-[#38BDF8]"></i> Documentation
-              </a>
               <!-- Token Usage Statistics -->
               <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
                 <div class="flex items-center justify-between mb-2">
@@ -588,6 +592,11 @@ SOFTWARE.
                     <span class="text-[#38BDF8] font-semibold">Total:</span>
                     <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
                   </div>
+                  <!-- Tokens per second display -->
+                  <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
+                    <i class="fas fa-tachometer-alt text-[#38BDF8]"></i>
+                    <span id="tokens-per-second" class="text-[#E5E7EB] font-medium">-</span>
+                  </div>
                 </div>
 
                 <!-- Context Window -->
@@ -730,7 +739,7 @@ SOFTWARE.
             <div class="flex justify-center items-center">
               {{ if $galleryConfig.Icon }}<img class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" src="{{$galleryConfig.Icon}}" loading="lazy"/>{{end}}
             </div>
-            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400">{{ $galleryConfig.Description }}</div>
+            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full">{{ $galleryConfig.Description }}</div>
             <hr>
             <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
             <ul>
@@ -771,57 +780,130 @@ SOFTWARE.
       // Context size is now initialized in the Alpine store initialization above
 
       // Process markdown in model info modal when it opens
-      document.addEventListener('DOMContentLoaded', () => {
+      function initMarkdownProcessing() {
+        // Wait for marked and DOMPurify to be available
+        if (typeof marked === 'undefined' || typeof DOMPurify === 'undefined') {
+          setTimeout(initMarkdownProcessing, 100);
+          return;
+        }
+
         const modalElement = document.getElementById('model-info-modal');
         const descriptionElement = document.getElementById('model-info-description');
         
-        if (modalElement && descriptionElement) {
-          // Process markdown on initial load
-          const processMarkdown = () => {
-            if (descriptionElement && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
-              const originalText = descriptionElement.textContent || descriptionElement.innerText;
-              if (originalText) {
-                try {
-                  const html = marked.parse(originalText);
-                  descriptionElement.innerHTML = DOMPurify.sanitize(html);
-                } catch (error) {
-                  console.error('Error rendering markdown:', error);
-                }
+        if (!modalElement || !descriptionElement) {
+          return;
+        }
+
+        // Store original text in data attribute if not already stored
+        let originalText = descriptionElement.dataset.originalText;
+        if (!originalText) {
+          originalText = descriptionElement.textContent || descriptionElement.innerText;
+          descriptionElement.dataset.originalText = originalText;
+        }
+
+        // Process markdown function
+        const processMarkdown = () => {
+          if (!descriptionElement || !originalText) return;
+          
+          try {
+            // Check if already processed (has HTML tags that look like markdown output)
+            const currentContent = descriptionElement.innerHTML.trim();
+            if (currentContent.startsWith('<') && (currentContent.includes('<p>') || currentContent.includes('<h') || currentContent.includes('<ul>') || currentContent.includes('<ol>'))) {
+              return; // Already processed
+            }
+            
+            // Use stored original text
+            const textToProcess = descriptionElement.dataset.originalText || originalText;
+            if (textToProcess && textToProcess.trim()) {
+              const html = marked.parse(textToProcess);
+              descriptionElement.innerHTML = DOMPurify.sanitize(html);
+            }
+          } catch (error) {
+            console.error('Error rendering markdown:', error);
+          }
+        };
+
+        // Process immediately if modal is already visible
+        if (!modalElement.classList.contains('hidden')) {
+          processMarkdown();
+        }
+
+        // Listen for modal show events - check both aria-hidden and class changes
+        const observer = new MutationObserver((mutations) => {
+          mutations.forEach((mutation) => {
+            if (mutation.type === 'attributes') {
+              const isHidden = modalElement.classList.contains('hidden') || 
+                              modalElement.getAttribute('aria-hidden') === 'true';
+              if (!isHidden) {
+                // Modal is now visible, process markdown
+                setTimeout(processMarkdown, 150);
               }
             }
-          };
-
-          // Process immediately if modal is already visible
-          if (!modalElement.classList.contains('hidden')) {
-            processMarkdown();
-          }
-
-          // Listen for modal show events (Flowbite uses data-modal-show attribute changes)
-          const observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-              if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
-                const isHidden = modalElement.getAttribute('aria-hidden') === 'true';
-                if (!isHidden) {
-                  // Modal is now visible, process markdown
-                  setTimeout(processMarkdown, 100);
-                }
-              }
-            });
           });
+        });
 
-          observer.observe(modalElement, {
-            attributes: true,
-            attributeFilter: ['aria-hidden', 'class']
-          });
+        observer.observe(modalElement, {
+          attributes: true,
+          attributeFilter: ['aria-hidden', 'class'],
+          childList: false,
+          subtree: false
+        });
 
-          // Also listen for click events on modal toggle buttons
-          document.querySelectorAll('[data-modal-toggle="model-info-modal"]').forEach(button => {
-            button.addEventListener('click', () => {
-              setTimeout(processMarkdown, 200);
-            });
+        // Also listen for click events on modal toggle buttons
+        document.querySelectorAll('[data-modal-toggle="model-info-modal"]').forEach(button => {
+          button.addEventListener('click', () => {
+            setTimeout(processMarkdown, 300);
           });
-        }
-      });
+        });
+
+        // Process on initial load if libraries are ready
+        setTimeout(processMarkdown, 200);
+      }
+
+      // Start initialization
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initMarkdownProcessing);
+      } else {
+        initMarkdownProcessing();
+      }
     </script>
+
+    <style>
+    /* Markdown content overflow handling */
+    #model-info-description {
+        word-wrap: break-word;
+        overflow-wrap: anywhere;
+        max-width: 100%;
+    }
+
+    #model-info-description pre {
+        overflow-x: auto;
+        max-width: 100%;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    #model-info-description code {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
+    #model-info-description pre code {
+        white-space: pre;
+        overflow-x: auto;
+        display: block;
+    }
+
+    #model-info-description table {
+        max-width: 100%;
+        overflow-x: auto;
+        display: block;
+    }
+
+    #model-info-description img {
+        max-width: 100%;
+        height: auto;
+    }
+    </style>
   </body>
 </html>
