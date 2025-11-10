@@ -23242,3 +23242,39 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *mistral03
+  name: "austral-24b-grpo-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Austral-24b-GRPO-i1-GGUF
+  description: |
+    ### **Austral 24B Winton**
+    *Trained by Delta-Vector | Mistral-based | 24B Parameter | Roleplay & Creative Writing Specialist*
+
+    **Overview:**
+    Austral 24B Winton is a high-quality, fine-tuned 24-billion-parameter language model designed for exceptional performance in **roleplay, adventure storytelling, and creative writing**. Built upon the Codex-24B foundation and enhanced through multiple stages of fine-tuning—including KTO alignment and Rep_remover cleanup—it delivers coherent, engaging, and stylistically rich narratives while minimizing common hallucinations and "slops" found in similar models.
+
+    **Key Features:**
+    - ✅ **ChatML format** for clean, structured conversations
+    - ✅ Trained on diverse, high-quality datasets including writing-focused and instruction-aligned corpora
+    - ✅ Optimized for **plot progression, character consistency, and immersive storytelling**
+    - ✅ Built using **Axolotl**, with training run on 8x A100 GPUs (≈80 total hours)
+    - ✅ Released in GGUF format for efficient local inference via llama.cpp
+
+    **Best For:**
+    - Roleplaying games, character-driven narratives, and world-building
+    - Creative writers and game designers seeking a reliable, expressive AI assistant
+    - Users who value coherence, creativity, and narrative depth over raw size
+
+    **Model Chain:**
+    Base: *Delta-Vector/MS3.2-Austral-24B-KTO* → Fine-tuned via *Passthrough Merge* → Finalized with KTO & SFT
+
+    **Link:** [View on Hugging Face](https://huggingface.co/Delta-Vector/MS3.2-Austral-Winton)
+
+    > *“A fast, agile hunter in the world of AI storytelling — precise, powerful, and built to inspire.”*
+  overrides:
+    parameters:
+      model: Austral-24b-GRPO.i1-Q4_K_M.gguf
+  files:
+    - filename: Austral-24b-GRPO.i1-Q4_K_M.gguf
+      sha256: 27b8a601cd5b3c1d14df0c457acff22ad8dd87757cb0354f1f9572e373b1f64f
+      uri: huggingface://mradermacher/Austral-24b-GRPO-i1-GGUF/Austral-24b-GRPO.i1-Q4_K_M.gguf
