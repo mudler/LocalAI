@@ -305,7 +305,7 @@
                                      class="rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
                                      loading="lazy">
                             </div>
-                            <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-text="selectedBackend?.description"></p>
+                            <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400" x-html="renderMarkdown(selectedBackend?.description)"></div>
                             <template x-if="selectedBackend?.tags && selectedBackend.tags.length > 0">
                                 <div>
                                     <p class="text-sm mb-3 font-semibold text-gray-900 dark:text-white">Tags</p>
@@ -596,6 +596,17 @@ function backendsGallery() {
                     console.error('Error polling job:', error);
                     // Don't show notification for every polling error, only if backend is stuck
                 }
+            }
+        },
+        
+        renderMarkdown(text) {
+            if (!text) return '';
+            try {
+                const html = marked.parse(text);
+                return DOMPurify.sanitize(html);
+            } catch (error) {
+                console.error('Error rendering markdown:', error);
+                return text;
             }
         },
         

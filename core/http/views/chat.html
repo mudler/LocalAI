@@ -265,25 +265,8 @@ SOFTWARE.
           {{ end }}
           {{ end }}
 
-          <div x-data="{ activeTab: 'actions' }" class="space-y-4">
-            <!-- Tab navigation -->
-            <div class="flex border-b border-[#101827]">
-              <button
-                @click="activeTab = 'actions'"
-                :class="activeTab === 'actions' ? 'border-b-2 border-[#38BDF8] text-[#E5E7EB]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
-                class="py-2 px-4 text-sm font-medium">
-                Actions
-              </button>
-              <button
-                @click="activeTab = 'settings'"
-                :class="activeTab === 'settings' ? 'border-b-2 border-[#38BDF8] text-[#E5E7EB]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
-                class="py-2 px-4 text-sm font-medium">
-                Settings
-              </button>
-            </div>
-
-            <!-- Actions tab -->
-            <div x-show="activeTab === 'actions'" class="space-y-3">
+          <div x-data="{ showPromptForm: false }" class="space-y-3">
+              <!-- Actions -->
               <button
                 @click="$store.chat.clear()"
                 id="clear"
@@ -300,17 +283,6 @@ SOFTWARE.
               >
                 <i class="fas fa-book mr-2 text-[#38BDF8]"></i> Documentation
               </a>
-
-              <a
-                href="browse?term={{.Model}}"
-                class="w-full flex items-center px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
-              >
-                <i class="fas fa-brain mr-2 text-[#38BDF8]"></i> Browse Model
-              </a>
-            </div>
-
-            <!-- Settings tab -->
-            <div x-show="activeTab === 'settings'" x-data="{ showPromptForm: false }" class="space-y-3">
               <!-- Token Usage Statistics -->
               <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
                 <div class="flex items-center justify-between mb-2">
@@ -457,7 +429,6 @@ SOFTWARE.
                   </button>
                 </form>
               </div>
-            </div>
           </div>
         </div>
       </div>
@@ -759,7 +730,7 @@ SOFTWARE.
             <div class="flex justify-center items-center">
               {{ if $galleryConfig.Icon }}<img class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" src="{{$galleryConfig.Icon}}" loading="lazy"/>{{end}}
             </div>
-            <p class="text-base leading-relaxed text-gray-500 dark:text-gray-400">{{ $galleryConfig.Description }}</p>
+            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400">{{ $galleryConfig.Description }}</div>
             <hr>
             <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
             <ul>
@@ -798,6 +769,59 @@ SOFTWARE.
       });
 
       // Context size is now initialized in the Alpine store initialization above
+
+      // Process markdown in model info modal when it opens
+      document.addEventListener('DOMContentLoaded', () => {
+        const modalElement = document.getElementById('model-info-modal');
+        const descriptionElement = document.getElementById('model-info-description');
+        
+        if (modalElement && descriptionElement) {
+          // Process markdown on initial load
+          const processMarkdown = () => {
+            if (descriptionElement && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+              const originalText = descriptionElement.textContent || descriptionElement.innerText;
+              if (originalText) {
+                try {
+                  const html = marked.parse(originalText);
+                  descriptionElement.innerHTML = DOMPurify.sanitize(html);
+                } catch (error) {
+                  console.error('Error rendering markdown:', error);
+                }
+              }
+            }
+          };
+
+          // Process immediately if modal is already visible
+          if (!modalElement.classList.contains('hidden')) {
+            processMarkdown();
+          }
+
+          // Listen for modal show events (Flowbite uses data-modal-show attribute changes)
+          const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+              if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
+                const isHidden = modalElement.getAttribute('aria-hidden') === 'true';
+                if (!isHidden) {
+                  // Modal is now visible, process markdown
+                  setTimeout(processMarkdown, 100);
+                }
+              }
+            });
+          });
+
+          observer.observe(modalElement, {
+            attributes: true,
+            attributeFilter: ['aria-hidden', 'class']
+          });
+
+          // Also listen for click events on modal toggle buttons
+          document.querySelectorAll('[data-modal-toggle="model-info-modal"]').forEach(button => {
+            button.addEventListener('click', () => {
+              setTimeout(processMarkdown, 200);
+            });
+          });
+        }
+      });
     </script>
   </body>
 </html>
