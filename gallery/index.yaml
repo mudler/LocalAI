@@ -23267,3 +23267,29 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "maenad-70b"
+  urls:
+    - https://huggingface.co/mradermacher/Maenad-70B-GGUF
+  description: |
+    **Maenad-70B** is a large, highly creative, and personality-driven 70-billion-parameter language model optimized for roleplay, narrative writing, and imaginative storytelling. Built as a merge of three powerful base models — **Pinecone-Titan-70b**, **GoldDiamondGold-L33-70b**, and **Sao10K-Euryale-v2.1-70B-labmod** — using the **DELLA** merge method via MergeKit, it combines strong narrative coherence, humor, and expressive character behavior.
+
+    The model excels in long-form creative writing, dynamic dialogue, and immersive roleplay scenarios, delivering a distinctive, energetic, and slightly eccentric personality. Designed for adult audiences, it includes mature and NSFW content capabilities, making it ideal for creative, experimental, or adult-oriented storytelling.
+
+    **Key Features:**
+    - 70B parameters, fine-tuned for creativity and roleplay
+    - Merged from multiple high-performing LLMs using advanced DELLA techniques
+    - Optimized for long-context storytelling and expressive character performance
+    - Intended for adult/NSFW use; not suitable for all audiences
+    - Available in multiple GGUF quantizations (from Q2_K to Q8_0) for efficient local inference
+
+    > 🧌 *“A wild, imaginative mind with a taste for the dramatic — perfect for crafting unforgettable stories.”*
+    > 🔗 **Base model**: [Babsie/Maenad-70B](https://huggingface.co/Babsie/Maenad-70B)
+    > 📦 **Quantized versions**: Available at [mradermacher/Maenad-70B-GGUF](https://huggingface.co/mradermacher/Maenad-70B-GGUF)
+  overrides:
+    parameters:
+      model: Maenad-70B.Q4_K_M.gguf
+  files:
+    - filename: Maenad-70B.Q4_K_M.gguf
+      sha256: 29cdf4fd74ce30fe23e4b8e805a0adc48d541703717418bc20d2b1ce2775b2bd
+      uri: huggingface://mradermacher/Maenad-70B-GGUF/Maenad-70B.Q4_K_M.gguf
