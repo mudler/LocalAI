@@ -51,7 +51,7 @@ require (
 	github.com/streamer45/silero-vad-go v0.2.1
 	github.com/stretchr/testify v1.11.1
 	github.com/swaggo/swag v1.16.6
-	github.com/testcontainers/testcontainers-go v0.38.0
+	github.com/testcontainers/testcontainers-go v0.40.0
 	github.com/tmc/langchaingo v0.1.14
 	github.com/valyala/fasthttp v1.68.0
 	go.opentelemetry.io/otel v1.38.0
@@ -133,7 +133,7 @@ require (
 	github.com/prometheus/otlptranslator v0.0.2 // indirect
 	github.com/rymdport/portal v0.4.2 // indirect
 	github.com/savsgio/gotils v0.0.0-20240303185622-093b76447511 // indirect
-	github.com/shirou/gopsutil/v4 v4.25.5 // indirect
+	github.com/shirou/gopsutil/v4 v4.25.6 // indirect
 	github.com/srwiley/oksvg v0.0.0-20221011165216-be6e8873101c // indirect
 	github.com/srwiley/rasterx v0.0.0-20220730225603-2ab79fcdd4ef // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
