@@ -10,6 +10,110 @@
     {{template "views/partials/inprogress" .}}
     
     <div class="container mx-auto px-4 py-8 flex-grow">
+        {{ if eq .P2PToken "" }}
+        <!-- P2P Disabled - Wizard Guide -->
+        <div class="relative bg-[#1E293B]/80 border border-[#8B5CF6]/20 rounded-2xl p-12 shadow-xl backdrop-blur-sm">
+            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-purple-500/5 to-cyan-500/5"></div>
+            <div class="relative text-center max-w-4xl mx-auto">
+                <div class="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 mb-6">
+                    <i class="text-[#8B5CF6] text-3xl fas fa-circle-nodes"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-6">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
+                        P2P Distribution Not Enabled
+                    </span>
+                </h2>
+                <p class="text-xl text-[#94A3B8] mb-8 leading-relaxed">
+                    Enable peer-to-peer distribution to scale your AI workloads across multiple devices. Share instances, shard models, and pool computational resources across your network.
+                </p>
+                
+                <!-- Features Preview -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                    <div class="bg-[#101827] border border-[#38BDF8]/20 rounded-xl p-4">
+                        <div class="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-network-wired text-[#38BDF8] text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Instance Federation</h3>
+                        <p class="text-xs text-[#94A3B8]">Load balance across multiple instances</p>
+                    </div>
+                    <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-xl p-4">
+                        <div class="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-puzzle-piece text-[#8B5CF6] text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Model Sharding</h3>
+                        <p class="text-xs text-[#94A3B8]">Split large models across workers</p>
+                    </div>
+                    <div class="bg-[#101827] border border-green-500/20 rounded-xl p-4">
+                        <div class="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-share-alt text-green-400 text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Resource Sharing</h3>
+                        <p class="text-xs text-[#94A3B8]">Pool resources from multiple devices</p>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-rocket text-[#8B5CF6] mr-2"></i>
+                        How to Enable P2P
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">1</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Start LocalAI with P2P enabled</p>
+                                <code class="block bg-[#1E293B] text-[#38BDF8] p-3 rounded-lg text-sm border border-[#38BDF8]/20">
+                                    local-ai run --p2p
+                                </code>
+                                <p class="text-[#94A3B8] text-sm mt-2">This will automatically generate a network token for you.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">2</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Or use an existing token</p>
+                                <code class="block bg-[#1E293B] text-[#38BDF8] p-3 rounded-lg text-sm border border-[#38BDF8]/20">
+                                    export TOKEN="your-token-here"<br>
+                                    local-ai run --p2p
+                                </code>
+                                <p class="text-[#94A3B8] text-sm mt-2">If you already have a token from another instance, you can reuse it.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">3</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Access the P2P dashboard</p>
+                                <p class="text-[#94A3B8] text-sm">Once enabled, refresh this page to see your network token and start connecting nodes.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="https://localai.io/features/distribute/" target="_blank" 
+                       class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                        <i class="fas fa-book mr-2"></i>
+                        Documentation
+                        <i class="fas fa-external-link-alt ml-2 text-sm opacity-70"></i>
+                    </a>
+                    <a href="https://localai.io/basics/getting_started/" target="_blank" 
+                       class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        Getting Started
+                        <i class="fas fa-external-link-alt ml-2 text-sm opacity-70"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {{ else }}
+        <!-- P2P Enabled - Full Dashboard -->
         <div class="workers mt-8">
             <!-- Hero Section with Network Animation -->
             <div class="animation-container mb-8">
@@ -129,22 +233,6 @@
                     The network token can be used to either share the instance or join a federation or a worker network. Below you will find examples on how to start a new instance or a worker with this token.
                 </p>
             </div>
-        
-            <!-- Warning box if p2p token is empty and p2p is enabled -->
-            {{ if eq .P2PToken "" }}
-            <div class="bg-gradient-to-r from-red-800/70 to-red-700/70 border border-red-600/50 p-6 rounded-xl shadow-lg mb-10 text-left">
-                <div class="flex items-center mb-2">
-                    <i class="fa-solid fa-exclamation-triangle text-red-300 text-2xl mr-3"></i>
-                    <h3 class="text-xl font-bold text-white">Warning: P2P token was not specified</h3>
-                </div>
-                <p class="mb-4 text-red-200">
-                    You have to enable P2P mode by starting LocalAI with <code class="bg-red-900/50 px-2 py-0.5 rounded">--p2p</code>. Please restart the server with <code class="bg-red-900/50 px-2 py-0.5 rounded">--p2p</code> to generate a new token automatically that can be used to discover other nodes. If you already have a token, specify it with <code class="bg-red-900/50 px-2 py-0.5 rounded">export TOKEN=".."</code>
-                    <a href="https://localai.io/features/distribute/" target="_blank" class="text-red-300 hover:text-red-200 underline underline-offset-2">
-                       Check out the documentation for more information.
-                    </a>
-                </p>
-            </div>
-            {{ else }}
 
             <!-- Network Status Overview -->
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
@@ -507,13 +595,15 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
                 </div>
             </div>
             <!-- Llama.cpp Box END -->    
-            {{ end }}   
         </div>
+        {{ end }}   
     </div>
 
     {{template "views/partials/footer" .}}
 </div>
+{{ if ne .P2PToken "" }}
 <script src="static/p2panimation.js"></script>
+{{ end }}
 
 <style>
     .token {
@@ -575,6 +665,7 @@ docker run -ti --net host -e TOKEN="<span class="token">{{.P2PToken}}</span>" --
     }
 </style>
 
+{{ if ne .P2PToken "" }}
 <script>
 function p2pNetwork() {
     return {
@@ -623,6 +714,15 @@ function p2pNetwork() {
     }
 }
 </script>
+{{ else }}
+<script>
+function p2pNetwork() {
+    return {
+        // Empty component when P2P is disabled
+    }
+}
+</script>
+{{ end }}
 
 </body>
 </html>
