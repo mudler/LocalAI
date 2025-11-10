@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"dario.cat/mergo"
@@ -293,13 +294,24 @@ func GetLocalModelConfiguration(basePath string, name string) (*ModelConfig, err
 	return ReadConfigFile[ModelConfig](galleryFile)
 }
 
-func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
-	additionalFiles := []string{}
+func listModelFiles(systemState *system.SystemState, name string) ([]string, error) {
 
 	configFile := filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", name))
 	if err := utils.VerifyPath(configFile, systemState.Model.ModelsPath); err != nil {
-		return fmt.Errorf("failed to verify path %s: %w", configFile, err)
+		return nil, fmt.Errorf("failed to verify path %s: %w", configFile, err)
 	}
+
+	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
+	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
+
+	galleryFile := filepath.Join(systemState.Model.ModelsPath, galleryFileName(name))
+	if err := utils.VerifyPath(galleryFile, systemState.Model.ModelsPath); err != nil {
+		return nil, fmt.Errorf("failed to verify path %s: %w", galleryFile, err)
+	}
+
+	additionalFiles := []string{}
+	allFiles := []string{}
+
 	// Galleryname is the name of the model in this case
 	dat, err := os.ReadFile(configFile)
 	if err == nil {
@@ -307,7 +319,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 
 		err = yaml.Unmarshal(dat, &modelConfig)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if modelConfig.Model != "" {
 			additionalFiles = append(additionalFiles, modelConfig.ModelFileName())
@@ -318,26 +330,15 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		}
 	}
 
-	// os.PathSeparator is not allowed in model names. Replace them with "__" to avoid conflicts with file paths.
-	name = strings.ReplaceAll(name, string(os.PathSeparator), "__")
-
-	galleryFile := filepath.Join(systemState.Model.ModelsPath, galleryFileName(name))
-	if err := utils.VerifyPath(galleryFile, systemState.Model.ModelsPath); err != nil {
-		return fmt.Errorf("failed to verify path %s: %w", galleryFile, err)
-	}
-
-	var filesToRemove []string
-
-	// Delete all the files associated to the model
 	// read the model config
 	galleryconfig, err := ReadConfigFile[ModelConfig](galleryFile)
 	if err == nil && galleryconfig != nil {
 		for _, f := range galleryconfig.Files {
 			fullPath := filepath.Join(systemState.Model.ModelsPath, f.Filename)
 			if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
-				return fmt.Errorf("failed to verify path %s: %w", fullPath, err)
+				return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 			}
-			filesToRemove = append(filesToRemove, fullPath)
+			allFiles = append(allFiles, fullPath)
 		}
 	} else {
 		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
@@ -346,18 +347,68 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	for _, f := range additionalFiles {
 		fullPath := filepath.Join(filepath.Join(systemState.Model.ModelsPath, f))
 		if err := utils.VerifyPath(fullPath, systemState.Model.ModelsPath); err != nil {
-			return fmt.Errorf("failed to verify path %s: %w", fullPath, err)
+			return allFiles, fmt.Errorf("failed to verify path %s: %w", fullPath, err)
 		}
-		filesToRemove = append(filesToRemove, fullPath)
+		allFiles = append(allFiles, fullPath)
 	}
 
-	filesToRemove = append(filesToRemove, galleryFile)
+	allFiles = append(allFiles, galleryFile)
 
 	// skip duplicates
-	filesToRemove = utils.Unique(filesToRemove)
+	allFiles = utils.Unique(allFiles)
+
+	return allFiles, nil
+}
+
+func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
+	configFile := filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", name))
+
+	filesToRemove, err := listModelFiles(systemState, name)
+	if err != nil {
+		return err
+	}
+
+	allOtherFiles := []string{}
+	// Get all files of all other models
+	fi, err := os.ReadDir(systemState.Model.ModelsPath)
+	if err != nil {
+		return err
+	}
+	for _, f := range fi {
+		if f.IsDir() {
+			continue
+		}
+		if strings.HasPrefix(f.Name(), "._gallery_") {
+			continue
+		}
+		if !strings.HasSuffix(f.Name(), ".yaml") || !strings.HasSuffix(f.Name(), ".yml") {
+			continue
+		}
+		if f.Name() == name {
+			continue
+		}
+
+		name := strings.TrimSuffix(f.Name(), ".yaml")
+		name = strings.TrimSuffix(name, ".yml")
+
+		log.Debug().Msgf("Checking file %s", f.Name())
+		files, err := listModelFiles(systemState, name)
+		if err != nil {
+			log.Debug().Err(err).Msgf("failed to list files for model %s", f.Name())
+			continue
+		}
+		allOtherFiles = append(allOtherFiles, files...)
+	}
+
+	log.Debug().Msgf("Files to remove: %+v", filesToRemove)
+	log.Debug().Msgf("All other files: %+v", allOtherFiles)
 
 	// Removing files
 	for _, f := range filesToRemove {
+		if slices.Contains(allOtherFiles, f) {
+			log.Debug().Msgf("Skipping file %s because it is part of another model", f)
+			continue
+		}
 		if e := os.Remove(f); e != nil {
 			log.Error().Err(e).Msgf("failed to remove file %s", f)
 		}
