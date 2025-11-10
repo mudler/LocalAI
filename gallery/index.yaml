@@ -23267,3 +23267,30 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "qwen2.5-7b-instruct"
+  urls:
+    - https://huggingface.co/msyu1020/Qwen2.5-7B-Instruct-Q4_K_M-GGUF
+  description: |
+    **Qwen2.5-7B-Instruct**
+    *by Alibaba Cloud | 7.6B parameters | 131K context length | Multilingual*
+
+    A powerful, instruction-tuned large language model from the Qwen2.5 series, designed for advanced reasoning, coding, math, and long-context understanding. Capable of processing up to 131,072 tokens (with YaRN support for even longer texts) and generating up to 8,192 tokens. Optimized for chat, structured output, and role-playing with strong performance across 29+ languages including Chinese, English, and European languages. Ideal for developers, researchers, and enterprises needing a robust, scalable foundation for complex language tasks.
+
+    **Key Features:**
+    - Long-context support (up to 131K tokens)
+    - Strong instruction following & code/math capabilities
+    - Multilingual (29+ languages)
+    - High-quality chat and structured output generation
+    - Fully compatible with Hugging Face Transformers and vLLM
+
+    **Use Case:** Best suited for chatbots, document summarization, code generation, and complex reasoning tasks requiring long context.
+
+    👉 *Base model: Qwen/Qwen2.5-7B* | 🔗 [Learn more on Hugging Face](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+  overrides:
+    parameters:
+      model: qwen2.5-7b-instruct-q4_k_m.gguf
+  files:
+    - filename: qwen2.5-7b-instruct-q4_k_m.gguf
+      sha256: 246ac71c280bd514575413b01abef9954f9148c011e4a06df643001a0a6b1910
+      uri: huggingface://msyu1020/Qwen2.5-7B-Instruct-Q4_K_M-GGUF/qwen2.5-7b-instruct-q4_k_m.gguf
