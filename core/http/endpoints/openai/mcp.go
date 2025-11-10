@@ -72,11 +72,24 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			fragment = fragment.AddMessage(message.Role, message.StringContent)
 		}
 
-		port := appConfig.APIAddress[strings.LastIndex(appConfig.APIAddress, ":")+1:]
+		// Extract port from APIAddress (format: ":8080" or "127.0.0.1:8080" or "0.0.0.0:8080")
+		port := "8080" // default
+		if appConfig.APIAddress != "" {
+			lastColon := strings.LastIndex(appConfig.APIAddress, ":")
+			if lastColon >= 0 && lastColon+1 < len(appConfig.APIAddress) {
+				port = appConfig.APIAddress[lastColon+1:]
+			} else {
+				log.Warn().Str("APIAddress", appConfig.APIAddress).Msg("[MCP] Could not extract port from APIAddress, using default 8080")
+			}
+		}
+
 		apiKey := ""
-		if appConfig.ApiKeys != nil {
+		if len(appConfig.ApiKeys) > 0 {
 			apiKey = appConfig.ApiKeys[0]
 		}
+
+		baseURL := "http://127.0.0.1:" + port
+		log.Debug().Str("baseURL", baseURL).Str("model", config.Name).Msg("[MCP] Creating OpenAI LLM client for internal API calls")
 
 		ctxWithCancellation, cancel := context.WithCancel(ctx)
 		defer cancel()
@@ -85,7 +98,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that
 		// we satisfy to just call internally ComputeChoices
-		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
+		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, baseURL)
 
 		cogitoOpts := []cogito.Option{
 			cogito.WithStatusCallback(func(s string) {
@@ -127,7 +140,8 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			cogitoOpts...,
 		)
 		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
-			return err
+			log.Error().Err(err).Msgf("[MCP] ExecuteTools failed for model %s", config.Name)
+			return fmt.Errorf("failed to execute tools: %w", err)
 		}
 
 		f, err = defaultLLM.Ask(ctx, f)
