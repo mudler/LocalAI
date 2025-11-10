@@ -12,7 +12,7 @@ require (
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.29
 	github.com/dave-gray101/v2keyauth v0.0.0-20240624150259-c45d584d25e2
-	github.com/ebitengine/purego v0.9.0
+	github.com/ebitengine/purego v0.9.1
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-llama.cpp v0.0.0-20240314183750-6a8041ef6b46
