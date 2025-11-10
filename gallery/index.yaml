@@ -23267,3 +23267,26 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "maenad-70b"
+  urls:
+    - https://huggingface.co/mradermacher/Maenad-70B-GGUF
+  description: |
+    **Maenad-70B** is a high-performance, personality-rich 70-billion-parameter large language model designed for creative writing, roleplay, and narrative-driven interactions. It is a custom merge of three powerful base models—*Entropicengine/Pinecone-Titan-70b*, *KaraKaraWitch/GoldDiamondGold-L33-70b*, and *Babsie/Sao10K-Euryale-v2.1-70B-labmod*—combined using the DELLA (Distributed Linear Ensemble) method with a focus on preserving strong character voice, humor, and improvisational flair.
+
+    The model excels in long-context storytelling and expressive dialogue, making it ideal for immersive roleplay (RP), fictional writing, and dynamic chat experiences. It is optimized for use with GGUF quantization for local inference, with multiple quality/size variants available for different hardware setups.
+
+    > 🔹 **Base Model**: Entropicengine/Pinecone-Titan-70b
+    > 🔹 **Merge Method**: DELLA via MergeKit
+    > 🔹 **Use Case**: Roleplay, creative writing, narrative generation
+    > 🔹 **License**: Llama3 (non-commercial use)
+    > 🔹 **Tags**: `70b`, `roleplay`, `creative-writing`, `long-context`, `causal-lm`, `nsfw`, `18+`
+
+    *Note: The version hosted at `mradermacher/Maenad-70B-GGUF` is a quantized release by a third party; the original, full-precision model is available at `Babsie/Maenad-70B`.*
+  overrides:
+    parameters:
+      model: Maenad-70B.Q4_K_M.gguf
+  files:
+    - filename: Maenad-70B.Q4_K_M.gguf
+      sha256: 29cdf4fd74ce30fe23e4b8e805a0adc48d541703717418bc20d2b1ce2775b2bd
+      uri: huggingface://mradermacher/Maenad-70B-GGUF/Maenad-70B.Q4_K_M.gguf
