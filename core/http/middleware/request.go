@@ -15,6 +15,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/valyala/fasthttp"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
@@ -167,11 +168,12 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
 	// Monitor the Fiber context and cancel our context when it's canceled
 	// This ensures we respect request cancellation without causing panics
-	go func() {
-		<-ctx.Context().Done()
-		// Fiber context was canceled (request completed or client disconnected)
-		cancel()
-	}()
+	go func(fiberCtx *fasthttp.RequestCtx) {
+		if fiberCtx != nil {
+			<-fiberCtx.Done()
+			cancel()
+		}
+	}(ctx.Context())
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 
