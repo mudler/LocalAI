@@ -435,28 +435,9 @@ async function promptGPT(systemPrompt, input) {
   }
 
   if (!response.ok) {
-    // Try to get error details from response body
-    let errorMessage = `Error: POST ${endpoint} ${response.status}`;
-    try {
-      const errorData = await response.json();
-      if (errorData && errorData.error && errorData.error.message) {
-        errorMessage = `Error (${response.status}): ${errorData.error.message}`;
-      }
-    } catch (e) {
-      // If response is not JSON, try to get text
-      try {
-        const errorText = await response.text();
-        if (errorText) {
-          errorMessage = `Error (${response.status}): ${errorText.substring(0, 200)}`;
-        }
-      } catch (e2) {
-        // Ignore - use default error message
-      }
-    }
-    
     Alpine.store("chat").add(
       "assistant",
-      `<span class='error'>${errorMessage}</span>`,
+      `<span class='error'>Error: POST ${endpoint} ${response.status}</span>`,
     );
     toggleLoader(false);
     currentAbortController = null;
