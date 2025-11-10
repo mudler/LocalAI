@@ -454,12 +454,27 @@ async function promptGPT(systemPrompt, input) {
         Alpine.store("chat").updateTokenUsage(data.usage);
       }
       
-      // MCP endpoint returns content in choices[0].text, not choices[0].message.content
-      const content = data.choices[0]?.text || "";
+      // MCP endpoint returns content in choices[0].message.content (chat completion format)
+      // Fallback to choices[0].text for backward compatibility (completion format)
+      const content = data.choices[0]?.message?.content || data.choices[0]?.text || "";
+      
+      if (!content && (!data.choices || data.choices.length === 0)) {
+        Alpine.store("chat").add(
+          "assistant",
+          `<span class='error'>Error: Empty response from MCP endpoint</span>`,
+        );
+        toggleLoader(false);
+        return;
+      }
       
       if (content) {
         // Count tokens for rate calculation (MCP mode - full content at once)
-        tokensReceived += Math.ceil(content.length / 4);
+        // Prefer actual token count from API if available
+        if (data.usage && data.usage.completion_tokens) {
+          tokensReceived = data.usage.completion_tokens;
+        } else {
+          tokensReceived += Math.ceil(content.length / 4);
+        }
         updateTokensPerSecond();
         
         // Process thinking tags using shared function
