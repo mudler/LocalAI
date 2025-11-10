@@ -155,7 +155,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 		}
 
 		// Reload configurations
-		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath, appConfig.ToConfigLoaderOptions()...); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Failed to reload configurations: " + err.Error(),
