@@ -23242,3 +23242,73 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *llama31
+  name: "dolphin-x1-llama-3.1-405b"
+  urls:
+    - https://huggingface.co/mradermacher/Dolphin-X1-Llama-3.1-405B-GGUF
+  description: |
+    ### 🐬 Dolphin X1 405B – Open, Uncensored, and Fully Controllable AI Assistant
+
+    **Model Base**: *allenai/Llama-3.1-Tulu-3-405B*
+    **Repository**: [dphn/Dolphin-X1-Llama-3.1-405B](https://huggingface.co/dphn/Dolphin-X1-Llama-3.1-405B)
+    **License**: Apache 2.0
+
+    ---
+
+    #### 🔍 **Overview**
+    Dolphin X1 405B is a fully uncensored, high-performance large language model designed for real-world, production use. Built on the foundation of *Llama-3.1-Tulu-3-405B*, it was fine-tuned to drastically reduce refusal rates while maintaining top-tier reasoning and general knowledge capabilities.
+
+    Unlike proprietary models, **Dolphin gives full control to the user**:
+    - You define the **system prompt** and alignment.
+    - You own the model, your data, and your versioning.
+    - No hidden changes, no black-box ethics — you’re in charge.
+
+    ---
+
+    #### 🚀 **Key Features**
+    - ✅ **Uncensored & Unfiltered**: Delivers direct, truthful responses without arbitrary restrictions.
+    - ✅ **High Performance**: Achieves **84.57% accuracy on MMLU** and **69.02% on MMLU-Pro**, rivaling leading models.
+    - ✅ **Steerable AI**: Customizable behavior via system prompts (e.g., “You are a ruthless truth-teller” or “You are a helpful tutor”).
+    - ✅ **Production-Ready**: Optimized for use with `vLLM`, `transformers`, and `llama.cpp`.
+    - ✅ **Open & Transparent**: Fully open weights, no data harvesting, no vendor lock-in.
+
+    ---
+
+    #### 🧪 **Benchmark Highlights**
+    | Benchmark     | Accuracy |
+    |---------------|----------|
+    | **MMLU**      | 84.57%   |
+    | **MMLU-Pro**  | 69.02%   |
+    | **GPQA Diamond** | 52.02%  |
+
+    ---
+
+    #### 📌 **Usage**
+    Ideal for developers, researchers, and enterprises building custom AI applications where control, transparency, and performance are critical.
+
+    > **Example Use Case**: Build a personal AI assistant that follows *your* rules — not Meta’s, OpenAI’s, or Anthropic’s.
+
+    ---
+
+    #### 🔗 **Links**
+    - 🌐 [Website](https://dphn.ai)
+    - 🐦 [Twitter](https://x.com/dphnAI)
+    - 💬 [Web Chat](https://chat.dphn.ai)
+    - 📊 [Blog: Training Details](https://blog.dphn.ai/405b/)
+
+    ---
+
+    > 💡 *Dolphin belongs to YOU — it’s your AI, your rules, your responsibility.*
+    > **Open Source. Open Mind. Open Future.**
+
+    ---
+
+    ✅ **Available in GGUF format** via: [mradermacher/Dolphin-X1-Llama-3.1-405B-GGUF](https://huggingface.co/mradermacher/Dolphin-X1-Llama-3.1-405B-GGUF) (quantized for local use)
+    🔍 *For the original, unquantized model, use `dphn/Dolphin-X1-Llama-3.1-405B`*
+  overrides:
+    parameters:
+      model: Dolphin-X1-Llama-3.1-405B.Q4_K_S.gguf.part1of5
+  files:
+    - filename: Dolphin-X1-Llama-3.1-405B.Q4_K_S.gguf.part1of5
+      sha256: 6fdc8bd1d7b56bc1ec826bc4f971ad5bf4c803bb45c60d89da3308b29b7bef41
+      uri: huggingface://mradermacher/Dolphin-X1-Llama-3.1-405B-GGUF/Dolphin-X1-Llama-3.1-405B.Q4_K_S.gguf.part1of5
