@@ -23267,3 +23267,44 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "vst-7b-sft-i1"
+  urls:
+    - https://huggingface.co/mradermacher/VST-7B-SFT-i1-GGUF
+  description: |
+    **Model Name:** VST-7B-SFT
+    **Base Model:** Qwen2.5-VL (7B)
+    **Repository:** [rayruiyang/VST-7B-SFT](https://huggingface.co/rayruiyang/VST-7B-SFT)
+    **License:** Apache 2.0
+
+    ### 📌 Description
+    VST-7B-SFT is a vision-language model fine-tuned with **Visual Spatial Tuning (VST)**, a novel framework designed to enhance spatial reasoning in AI. Built on the Qwen2.5-VL architecture, this model excels at understanding real-world 3D spatial relationships—from object positioning and relative distances to route planning and object manipulation.
+
+    It is trained on a large-scale dataset (VST-P: 4.1M samples) and reinforced through rule-based reasoning (VST-R: 135K samples), enabling state-of-the-art performance on spatial benchmarks like **MMSI-Bench (34.8%)** and **VSIBench (61.2%)**, while preserving strong general language and visual understanding.
+
+    ### ✅ Key Features
+    - **Advanced spatial perception and reasoning**
+    - Supports single images, multi-image scenarios, and videos
+    - Optimized for real-world 3D spatial tasks (e.g., “Is the flag directly under the airplane?”)
+    - Trained with progressive fine-tuning + reinforcement learning
+    - Compatible with Hugging Face Transformers and `qwen-vl-utils`
+
+    ### 📊 Performance Highlights
+    - **VSIBench (Avg.): 61.2%**
+    - **MMSI-Bench: 34.8%** (SOTA for spatial reasoning)
+    - Maintains strong general capabilities across 10+ vision-language benchmarks
+
+    ### 📌 Use Case
+    Ideal for AI agents, robotics, and embodied AI applications requiring spatial awareness, navigation, and physical reasoning.
+
+    > 🔗 **Paper**: [Visual Spatial Tuning (arXiv:2511.05491)](https://arxiv.org/abs/2511.05491)
+    > 🔗 **Code**: [GitHub - VST Project](https://github.com/Yangr116/VST)
+
+    **Note:** The GGUF quantized version at `mradermacher/VST-7B-SFT-i1-GGUF` is a community-quantized derivative. The original, full-precision model is available at `rayruiyang/VST-7B-SFT`.
+  overrides:
+    parameters:
+      model: VST-7B-SFT.i1-Q4_K_M.gguf
+  files:
+    - filename: VST-7B-SFT.i1-Q4_K_M.gguf
+      sha256: 7480832a8eac638cd9ef9e0cb621e279d1f87048a12127a06d67fc8946e4bf2d
+      uri: huggingface://mradermacher/VST-7B-SFT-i1-GGUF/VST-7B-SFT.i1-Q4_K_M.gguf
