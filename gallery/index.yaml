@@ -23267,3 +23267,26 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25
+  name: "gliese-ocr-7b-post2.0-final"
+  urls:
+    - https://huggingface.co/prithivMLmods/Gliese-OCR-7B-Post2.0-final-GGUF
+  description: |
+    **Gliese-OCR-7B-Post2.0-final** is a state-of-the-art vision-language model (VLM) designed for advanced **document intelligence and OCR tasks**. Built on the **Qwen2.5-VL** architecture, it excels in extracting, interpreting, and structuring information from complex documents—such as scanned PDFs, handwritten pages, forms, and analytical reports—with high precision.
+
+    Key strengths:
+    - **Superior OCR & Layout Understanding**: Recognizes text, tables, charts, and diagrams with strong spatial and semantic awareness.
+    - **Multimodal Reasoning**: Performs context-aware analysis across text, images, and layout components for accurate information linking and extraction.
+    - **Document Intelligence**: Supports advanced tasks like equation extraction (LaTeX-formatted), markdown generation, and content summarization.
+    - **Benchmark-Validated**: Delivers top-tier performance on DocVQA, InfographicVQA, MathVista, and RealWorldQA.
+
+    This model is ideal for **Intelligent Document Processing (IDP)**, **automated data entry**, **academic research**, and **enterprise automation** workflows requiring deep visual and textual understanding of documents.
+
+    > 📌 *Note: This is the full precision version. Quantized GGUF versions are available separately for efficient inference on local hardware.*
+  overrides:
+    parameters:
+      model: Gliese-OCR-7B-Post2.0-final.Q4_K_M.gguf
+  files:
+    - filename: Gliese-OCR-7B-Post2.0-final.Q4_K_M.gguf
+      sha256: 4e4c01e6ff507fde19026688c3b000171581b1eedfa26b46ea434d2e4adbcbc9
+      uri: huggingface://prithivMLmods/Gliese-OCR-7B-Post2.0-final-GGUF/Gliese-OCR-7B-Post2.0-final.Q4_K_M.gguf
