@@ -23242,3 +23242,28 @@
     - filename: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
       sha256: 82a77f5681c917df6375bc0b6c28bf2800d1731e659fd9bbde7b5598cf5e9d0a
       uri: huggingface://mradermacher/metatune-gpt20b-R1.1-i1-GGUF/metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "melinoe-30b-a3b-thinking-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF
+  description: |
+    **Melinoe-30B-A3B-Thinking** is a large language model fine-tuned for empathetic, intellectually rich, and personally engaging conversations. Built on the reasoning foundation of **Qwen3-30B-A3B-Thinking-2507**, this model combines deep emotional attunement with sharp analytical thinking. It excels in supportive dialogues, philosophical discussions, and creative roleplay, offering a direct yet playful persona that fosters connection.
+
+    Ideal for mature audiences, Melinoe serves as a companion for introspection, brainstorming, and narrative exploration—while being clearly designed for entertainment and intellectual engagement, not professional advice.
+
+    **Key Features:**
+    - 🧠 Strong reasoning and deep-dive discussion capabilities
+    - ❤️ Proactively empathetic and emotionally responsive
+    - 🎭 Playful, candid, and highly engaging communication style
+    - 📚 Fine-tuned for companionship, creativity, and intellectual exploration
+
+    **Note:** This model is *not* a substitute for expert guidance in medical, legal, or financial matters. Use responsibly and verify critical information.
+
+    > *Base model: Qwen/Qwen3-30B-A3B-Thinking-2507 | License: Apache 2.0*
+  overrides:
+    parameters:
+      model: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+  files:
+    - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+      sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
+      uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
