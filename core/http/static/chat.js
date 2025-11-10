@@ -34,15 +34,16 @@ let currentReader = null;
 function toggleLoader(show) {
   const sendButton = document.getElementById('send-button');
   const stopButton = document.getElementById('stop-button');
+  const headerLoadingIndicator = document.getElementById('header-loading-indicator');
   
   if (show) {
     sendButton.style.display = 'none';
     stopButton.style.display = 'block';
-    document.getElementById("input").disabled = true;
+    if (headerLoadingIndicator) headerLoadingIndicator.style.display = 'block';
   } else {
-    document.getElementById("input").disabled = false;
     sendButton.style.display = 'block';
     stopButton.style.display = 'none';
+    if (headerLoadingIndicator) headerLoadingIndicator.style.display = 'none';
     currentAbortController = null;
     currentReader = null;
   }
@@ -171,9 +172,30 @@ function readInputFile() {
 
 function submitPrompt(event) {
   event.preventDefault();
+  
+  const input = document.getElementById("input");
+  if (!input) return;
 
-  const input = document.getElementById("input").value;
-  let fullInput = input;
+  const inputValue = input.value;
+  if (!inputValue.trim()) return; // Don't send empty messages
+
+  // If already processing, abort the current request and send the new one
+  if (currentAbortController || currentReader) {
+    // Abort current request
+    stopRequest();
+    // Small delay to ensure cleanup completes
+    setTimeout(() => {
+      // Continue with new request
+      processAndSendMessage(inputValue);
+    }, 100);
+    return;
+  }
+  
+  processAndSendMessage(inputValue);
+}
+
+function processAndSendMessage(inputValue) {
+  let fullInput = inputValue;
   
   // If there are file contents, append them to the input for the LLM
   if (fileContents.length > 0) {
@@ -184,7 +206,7 @@ function submitPrompt(event) {
   }
   
   // Show file icons in chat if there are files
-  let displayContent = input;
+  let displayContent = inputValue;
   if (currentFileNames.length > 0) {
     displayContent += "\n\n";
     currentFileNames.forEach(fileName => {
@@ -201,7 +223,8 @@ function submitPrompt(event) {
     history[history.length - 1].content = fullInput;
   }
   
-  document.getElementById("input").value = "";
+  const input = document.getElementById("input");
+  if (input) input.value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
   Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
   promptGPT(systemPrompt, fullInput);
@@ -242,6 +265,12 @@ function readInputAudio() {
 async function promptGPT(systemPrompt, input) {
   const model = document.getElementById("chat-model").value;
   const mcpMode = Alpine.store("chat").mcpMode;
+  
+  // Reset current request usage tracking for new request
+  if (Alpine.store("chat")) {
+    Alpine.store("chat").tokenUsage.currentRequest = null;
+  }
+  
   toggleLoader(true);
 
   messages = Alpine.store("chat").messages();
@@ -373,6 +402,12 @@ async function promptGPT(systemPrompt, input) {
     // Handle MCP non-streaming response
     try {
       const data = await response.json();
+      
+      // Update token usage if present
+      if (data.usage) {
+        Alpine.store("chat").updateTokenUsage(data.usage);
+      }
+      
       // MCP endpoint returns content in choices[0].text, not choices[0].message.content
       const content = data.choices[0]?.text || "";
       
@@ -456,6 +491,12 @@ async function promptGPT(systemPrompt, input) {
           if (line.startsWith("data: ")) {
             try {
               const jsonData = JSON.parse(line.substring(6));
+              
+              // Update token usage if present
+              if (jsonData.usage) {
+                Alpine.store("chat").updateTokenUsage(jsonData.usage);
+              }
+              
               const token = jsonData.choices[0].delta.content;
 
               if (token) {
@@ -568,14 +609,71 @@ marked.setOptions({
   },
 });
 
+// Alpine store is now initialized in chat.html inline script to ensure it's available before Alpine processes the DOM
+// Only initialize if not already initialized (to avoid duplicate initialization)
 document.addEventListener("alpine:init", () => {
-  Alpine.store("chat", {
+  // Check if store already exists (initialized in chat.html)
+  if (!Alpine.store("chat")) {
+    // Fallback initialization (should not be needed if chat.html loads correctly)
+    Alpine.store("chat", {
     history: [],
     languages: [undefined],
     systemPrompt: "",
     mcpMode: false,
+    contextSize: null,
+    tokenUsage: {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+      currentRequest: null
+    },
     clear() {
       this.history.length = 0;
+      this.tokenUsage = {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        currentRequest: null
+      };
+    },
+    updateTokenUsage(usage) {
+      // Usage values in streaming responses are cumulative totals for the current request
+      // We track session totals separately and only update when we see new (higher) values
+      if (usage) {
+        const currentRequest = this.tokenUsage.currentRequest || {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0
+        };
+        
+        // Check if this is a new/updated usage (values increased)
+        const isNewUsage = 
+          (usage.prompt_tokens !== undefined && usage.prompt_tokens > currentRequest.promptTokens) ||
+          (usage.completion_tokens !== undefined && usage.completion_tokens > currentRequest.completionTokens) ||
+          (usage.total_tokens !== undefined && usage.total_tokens > currentRequest.totalTokens);
+        
+        if (isNewUsage) {
+          // Update session totals: subtract old request usage, add new
+          this.tokenUsage.promptTokens = this.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
+          this.tokenUsage.completionTokens = this.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
+          this.tokenUsage.totalTokens = this.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
+          
+          // Store current request usage
+          this.tokenUsage.currentRequest = {
+            promptTokens: usage.prompt_tokens || 0,
+            completionTokens: usage.completion_tokens || 0,
+            totalTokens: usage.total_tokens || 0
+          };
+        }
+      }
+    },
+    getRemainingTokens() {
+      if (!this.contextSize) return null;
+      return Math.max(0, this.contextSize - this.tokenUsage.totalTokens);
+    },
+    getContextUsagePercent() {
+      if (!this.contextSize) return null;
+      return Math.min(100, (this.tokenUsage.totalTokens / this.contextSize) * 100);
     },
     add(role, content, image, audio) {
       const N = this.history.length - 1;
@@ -640,5 +738,6 @@ document.addEventListener("alpine:init", () => {
         audio: message.audio,
       }));
     },
-  });
+    });
+  }
 });

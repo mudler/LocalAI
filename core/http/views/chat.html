@@ -28,12 +28,167 @@ SOFTWARE.
 <!doctype html>
 <html lang="en">
   {{template "views/partials/head" .}}
-  <script defer src="static/chat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
     // Initialize PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   </script>
+  <script>
+    // Initialize Alpine store - must run before Alpine processes DOM
+    // Get context size from template
+    var __chatContextSize = null;
+    {{ if .ContextSize }}
+    __chatContextSize = {{ .ContextSize }};
+    {{ end }}
+
+    // Function to initialize store
+    function __initChatStore() {
+      if (!window.Alpine) return;
+      if (Alpine.store("chat")) {
+        Alpine.store("chat").contextSize = __chatContextSize;
+        return;
+      }
+
+      Alpine.store("chat", {
+        history: [],
+        languages: [undefined],
+        systemPrompt: "",
+        mcpMode: false,
+        contextSize: __chatContextSize,
+        tokenUsage: {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          currentRequest: null
+        },
+        clear() {
+          this.history.length = 0;
+          this.tokenUsage = {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            currentRequest: null
+          };
+        },
+        updateTokenUsage(usage) {
+          // Usage values in streaming responses are cumulative totals for the current request
+          // We track session totals separately and only update when we see new (higher) values
+          if (usage) {
+            const currentRequest = this.tokenUsage.currentRequest || {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0
+            };
+            
+            // Check if this is a new/updated usage (values increased)
+            const isNewUsage = 
+              (usage.prompt_tokens !== undefined && usage.prompt_tokens > currentRequest.promptTokens) ||
+              (usage.completion_tokens !== undefined && usage.completion_tokens > currentRequest.completionTokens) ||
+              (usage.total_tokens !== undefined && usage.total_tokens > currentRequest.totalTokens);
+            
+            if (isNewUsage) {
+              // Update session totals: subtract old request usage, add new
+              this.tokenUsage.promptTokens = this.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
+              this.tokenUsage.completionTokens = this.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
+              this.tokenUsage.totalTokens = this.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
+              
+              // Store current request usage
+              this.tokenUsage.currentRequest = {
+                promptTokens: usage.prompt_tokens || 0,
+                completionTokens: usage.completion_tokens || 0,
+                totalTokens: usage.total_tokens || 0
+              };
+            }
+          }
+        },
+        getRemainingTokens() {
+          if (!this.contextSize) return null;
+          return Math.max(0, this.contextSize - this.tokenUsage.totalTokens);
+        },
+        getContextUsagePercent() {
+          if (!this.contextSize) return null;
+          return Math.min(100, (this.tokenUsage.totalTokens / this.contextSize) * 100);
+        },
+        add(role, content, image, audio) {
+          const N = this.history.length - 1;
+          // For thinking messages, always create a new message
+          if (role === "thinking") {
+            let c = "";
+            const lines = content.split("\n");
+            lines.forEach((line) => {
+              c += DOMPurify.sanitize(marked.parse(line));
+            });
+            this.history.push({ role, content, html: c, image, audio });
+          }
+          // For other messages, merge if same role
+          else if (this.history.length && this.history[N].role === role) {
+            this.history[N].content += content;
+            this.history[N].html = DOMPurify.sanitize(
+              marked.parse(this.history[N].content)
+            );
+            // Merge new images and audio with existing ones
+            if (image && image.length > 0) {
+              this.history[N].image = [...(this.history[N].image || []), ...image];
+            }
+            if (audio && audio.length > 0) {
+              this.history[N].audio = [...(this.history[N].audio || []), ...audio];
+            }
+          } else {
+            let c = "";
+            const lines = content.split("\n");
+            lines.forEach((line) => {
+              c += DOMPurify.sanitize(marked.parse(line));
+            });
+            this.history.push({ 
+              role, 
+              content, 
+              html: c, 
+              image: image || [], 
+              audio: audio || [] 
+            });
+          }
+          document.getElementById('messages').scrollIntoView(false);
+          const parser = new DOMParser();
+          const html = parser.parseFromString(
+            this.history[this.history.length - 1].html,
+            "text/html"
+          );
+          const code = html.querySelectorAll("pre code");
+          if (!code.length) return;
+          code.forEach((el) => {
+            const language = el.className.split("language-")[1];
+            if (this.languages.includes(language)) return;
+            const script = document.createElement("script");
+            script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+            document.head.appendChild(script);
+            this.languages.push(language);
+          });
+        },
+        messages() {
+          return this.history.map((message) => ({
+            role: message.role,
+            content: message.content,
+            image: message.image,
+            audio: message.audio,
+          }));
+        },
+      });
+    }
+
+    // Register listener immediately (before Alpine loads)
+    document.addEventListener("alpine:init", __initChatStore);
+    
+    // Also try immediately in case Alpine is already loaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        if (window.Alpine) __initChatStore();
+      });
+    } else {
+      // DOM already loaded, try immediately
+      if (window.Alpine) __initChatStore();
+    }
+  </script>
+  <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
   <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ sidebarOpen: true }">
@@ -141,21 +296,91 @@ SOFTWARE.
               <a
                 href="https://localai.io/features/text-generation/"
                 target="_blank"
-                class="w-full flex items-center px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
+                class="w-full flex items-center px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
               >
-                <i class="fas fa-book mr-2"></i> Documentation
+                <i class="fas fa-book mr-2 text-[#38BDF8]"></i> Documentation
               </a>
 
               <a
                 href="browse?term={{.Model}}"
-                class="w-full flex items-center px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
+                class="w-full flex items-center px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
               >
-                <i class="fas fa-brain mr-2"></i> Browse Model
+                <i class="fas fa-brain mr-2 text-[#38BDF8]"></i> Browse Model
               </a>
             </div>
 
             <!-- Settings tab -->
             <div x-show="activeTab === 'settings'" x-data="{ showPromptForm: false }" class="space-y-3">
+              <!-- Token Usage Statistics -->
+              <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
+                <div class="flex items-center justify-between mb-2">
+                  <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
+                    <i class="fas fa-chart-line mr-2 text-[#38BDF8]"></i>
+                    Token Usage
+                  </h4>
+                </div>
+                <div class="space-y-1.5 text-xs">
+                  <div class="flex justify-between text-[#94A3B8]">
+                    <span>Prompt:</span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
+                  </div>
+                  <div class="flex justify-between text-[#94A3B8]">
+                    <span>Completion:</span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
+                  </div>
+                  <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1.5">
+                    <span class="font-semibold text-[#38BDF8]">Total:</span>
+                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Context Size Indicator -->
+              <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
+                  <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
+                      <i class="fas fa-database mr-2 text-[#38BDF8]"></i>
+                      Context Window
+                    </h4>
+                  </div>
+                  <div class="space-y-2">
+                    <div class="flex justify-between text-xs text-[#94A3B8] mb-1">
+                      <span>Used / Available</span>
+                      <span class="text-[#E5E7EB] font-medium">
+                        <span x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                        / 
+                        <span x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
+                      </span>
+                    </div>
+                    <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
+                      <div class="h-full rounded-full transition-all duration-300 ease-out"
+                           :class="{
+                             'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
+                             'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
+                             'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
+                           }"
+                           :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
+                      </div>
+                    </div>
+                    <div class="flex justify-between text-xs">
+                      <span class="text-[#94A3B8]">
+                        Remaining: 
+                        <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.getRemainingTokens())"></span>
+                      </span>
+                      <span class="text-[#94A3B8]">
+                        <span x-text="Math.round($store.chat.getContextUsagePercent())"></span>%
+                      </span>
+                    </div>
+                    <div x-show="$store.chat.getContextUsagePercent() >= 80" class="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-300 text-xs">
+                      <i class="fas fa-exclamation-triangle mr-1"></i>
+                      <span x-show="$store.chat.getContextUsagePercent() >= 95">Context window nearly full!</span>
+                      <span x-show="$store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95">Approaching context limit</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
               {{ if $model }}
               {{ $galleryConfig:= index $allGalleryConfigs $model}}
               {{ if $galleryConfig }}
@@ -167,21 +392,21 @@ SOFTWARE.
               {{ end }}
               {{ if and $modelConfig (or (ne $modelConfig.MCP.Servers "") (ne $modelConfig.MCP.Stdio "")) }}
               <!-- MCP Toggle -->
-              <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700">
-                <span><i class="fa-solid fa-plug mr-2"></i> Agentic MCP Mode</span>
+              <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20">
+                <span><i class="fa-solid fa-plug mr-2 text-[#38BDF8]"></i> Agentic MCP Mode</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.mcpMode">
-                  <div class="w-11 h-6 bg-gray-600 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
                 </label>
               </div>
 
               <!-- MCP Mode Notification -->
-              <div x-show="$store.chat.mcpMode" class="p-3 bg-blue-900/20 border border-blue-700/50 rounded text-blue-100 text-xs">
+              <div x-show="$store.chat.mcpMode" class="p-3 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
                 <div class="flex items-start space-x-2">
-                  <i class="fa-solid fa-info-circle text-blue-400 mt-0.5"></i>
+                  <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
                   <div>
-                    <p class="font-medium text-blue-200 mb-1">Non-streaming Mode Active</p>
-                    <p class="text-blue-300">Responses will be processed in full before display. This may take significantly longer (up to 5 minutes), especially on CPU-only systems.</p>
+                    <p class="font-medium text-[#E5E7EB] mb-1">Non-streaming Mode Active</p>
+                    <p class="text-[#94A3B8]">Responses will be processed in full before display. This may take significantly longer (up to 5 minutes), especially on CPU-only systems.</p>
                   </div>
                 </div>
               </div>
@@ -191,9 +416,9 @@ SOFTWARE.
 
               <button
                 @click="showPromptForm = !showPromptForm"
-                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-white bg-gray-700 hover:bg-gray-600 transition-colors"
+                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
               >
-                <span><i class="fa-solid fa-message mr-2"></i> System Prompt</span>
+                <span><i class="fa-solid fa-message mr-2 text-[#38BDF8]"></i> System Prompt</span>
                 <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
               </button>
 
@@ -207,26 +432,26 @@ SOFTWARE.
                     setTimeout(() => {this.showToast = false;}, 2000);
                   }
                 } 
-              }" class="p-3 bg-gray-700 rounded">
+              }" class="p-3 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
                 <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-2">
                   <textarea
                     type="text"
                     id="systemPrompt"
                     name="systemPrompt"
-                    class="bg-gray-800 text-white border border-gray-600 focus:border-blue-500 focus:ring focus:ring-blue-500 focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24"
+                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24 placeholder-[#94A3B8]"
                     placeholder="System prompt"
                     x-model.lazy="$store.chat.systemPrompt"
                   ></textarea>
                   <div
                     x-show="showToast"
                     x-transition
-                    class="mb-2 text-green-500 px-4 py-2 text-sm text-center"
+                    class="mb-2 text-green-400 px-4 py-2 text-sm text-center bg-green-500/10 border border-green-500/30 rounded"
                   >
                     System prompt updated!
                   </div>
                   <button
                     type="submit"
-                    class="px-3 py-2 text-sm rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                    class="px-3 py-2 text-sm rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
                   >
                     Save System Prompt
                   </button>
@@ -243,38 +468,45 @@ SOFTWARE.
         :class="sidebarOpen ? 'ml-64' : 'ml-0'">
 
         <!-- Chat header with toggle button -->
-        <div class="border-b border-gray-700 p-4 flex items-center">
-          <!-- Sidebar toggle button moved to be the first element in the header and with clear styling -->
-          <button
-            @click="sidebarOpen = !sidebarOpen"
-            class="mr-4 text-gray-300 hover:text-white focus:outline-none bg-gray-800 hover:bg-gray-700 p-2 rounded"
-            style="min-width: 36px;"
-            title="Toggle settings">
-            <i class="fa-solid" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
-          </button>
-
+        <div class="border-b border-[#1E293B] p-4 flex items-center justify-between">
           <div class="flex items-center">
-            <i class="fa-solid fa-comments mr-2"></i>
-            {{ if $model }}
-            {{ $galleryConfig:= index $allGalleryConfigs $model}}
-            {{ if $galleryConfig }}
-            {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
-            {{ end }}
-            {{ end }}
-            <h1 class="text-lg font-semibold">
-              Chat {{ if .Model }} with {{.Model}} {{ end }}
-            </h1>
+            <!-- Sidebar toggle button moved to be the first element in the header and with clear styling -->
+            <button
+              @click="sidebarOpen = !sidebarOpen"
+              class="mr-4 text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none bg-[#1E293B] hover:bg-[#1E293B]/80 p-2 rounded transition-colors"
+              style="min-width: 36px;"
+              title="Toggle settings">
+              <i class="fa-solid" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
+            </button>
+
+            <div class="flex items-center">
+              <i class="fa-solid fa-comments mr-2 text-[#38BDF8]"></i>
+              {{ if $model }}
+              {{ $galleryConfig:= index $allGalleryConfigs $model}}
+              {{ if $galleryConfig }}
+              {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
+              {{ end }}
+              {{ end }}
+              <h1 class="text-lg font-semibold text-[#E5E7EB]">
+                Chat {{ if .Model }} with {{.Model}} {{ end }}
+              </h1>
+              <!-- Loading indicator next to model name -->
+              <div id="header-loading-indicator" class="ml-3 text-[#38BDF8]" style="display: none;">
+                <i class="fas fa-spinner fa-spin text-sm"></i>
+              </div>
+            </div>
           </div>
+
         </div>
 
         <!-- Chat messages area -->
         <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
-          <p id="usage" x-show="history.length === 0" class="text-gray-300">
+          <p id="usage" x-show="history.length === 0" class="text-[#94A3B8]">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
-            <ul class="list-disc list-inside">
-              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image"></i> icon.</li>
-              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone"></i> icon.</li>
-              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file"></i> icon.</li>
+            <ul class="list-disc list-inside mt-2 space-y-1">
+              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[#38BDF8]"></i> icon.</li>
+              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone text-[#38BDF8]"></i> icon.</li>
+              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[#38BDF8]"></i> icon.</li>
             </ul>
           </p>
           <div id="messages" class="max-w-3xl mx-auto">
@@ -285,8 +517,8 @@ SOFTWARE.
                 <template x-if="message.role === 'user'">
                   <div class="flex items-center space-x-2">
                     <div class="flex flex-col flex-1 items-end">
-                      <span class="text-xs font-semibold text-gray-400">You</span>
-                      <div class="p-2 flex-1 rounded bg-gray-700 text-white" x-html="message.html"></div>
+                      <span class="text-xs font-semibold text-[#94A3B8] mb-1">You</span>
+                      <div class="p-3 flex-1 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] text-[#E5E7EB] border border-[#38BDF8]/20 shadow-lg" x-html="message.html"></div>
                       <template x-if="message.image && message.image.length > 0">
                         <div class="mt-2 space-y-2">
                           <template x-for="(img, index) in message.image" :key="index">
@@ -310,12 +542,12 @@ SOFTWARE.
                 <template x-if="message.role === 'thinking'">
                   <div class="flex items-center space-x-2 w-full">
                     <div class="flex flex-col flex-1">
-                      <div class="p-2 flex-1 rounded bg-blue-900/50 text-blue-100 border border-blue-700/50">
-                        <div class="flex items-center space-x-2">
-                          <i class="fa-solid fa-brain text-blue-400"></i>
-                          <span class="text-xs font-semibold text-blue-300">Thinking</span>
+                      <div class="p-3 flex-1 rounded-lg bg-[#38BDF8]/10 text-[#94A3B8] border border-[#38BDF8]/30">
+                        <div class="flex items-center space-x-2 mb-2">
+                          <i class="fa-solid fa-brain text-[#38BDF8]"></i>
+                          <span class="text-xs font-semibold text-[#38BDF8]">Thinking</span>
                         </div>
-                        <div class="mt-1" x-html="message.html"></div>
+                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
                       </div>
                     </div>
                   </div>
@@ -323,13 +555,13 @@ SOFTWARE.
                 <template x-if="message.role != 'user' && message.role != 'thinking'">
                   <div class="flex items-center space-x-2">
                     {{ if $galleryConfig }}
-                    {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8">{{end}}
+                    {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[#38BDF8]/20">{{end}}
                     {{ end }}
                     <div class="flex flex-col flex-1">
-                      <span class="text-xs font-semibold text-gray-400">{{if .Model}}{{.Model}}{{else}}Assistant{{end}}</span>
-                      <div class="flex-1 text-white flex items-center space-x-2">
-                        <div x-html="message.html"></div>
-                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-gray-400 hover:text-gray-100">
+                      <span class="text-xs font-semibold text-[#94A3B8] mb-1">{{if .Model}}{{.Model}}{{else}}Assistant{{end}}</span>
+                      <div class="flex-1 text-[#E5E7EB] flex items-center space-x-2">
+                        <div class="p-3 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] border border-[#8B5CF6]/20 shadow-lg" x-html="message.html"></div>
+                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1">
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
@@ -356,7 +588,7 @@ SOFTWARE.
                 {{ else }}
                 <i
                   class="fa-solid h-8 w-8"
-                  :class="message.role === 'user' ? 'fa-user' : 'fa-robot'"
+                  :class="message.role === 'user' ? 'fa-user text-[#38BDF8]' : 'fa-robot text-[#8B5CF6]'"
                 ></i>
                 {{ end }}
               </div>
@@ -366,44 +598,89 @@ SOFTWARE.
 
 
           <!-- Chat Input -->
-          <div class="p-4 border-t border-gray-700" x-data="{ inputValue: '', shiftPressed: false, fileName: '', isLoading: false }">
+          <div class="p-4 border-t border-[#1E293B]" x-data="{ inputValue: '', shiftPressed: false, fileName: '' }">
             <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt" class="max-w-3xl mx-auto">
-              <div class="relative w-full bg-gray-800 rounded-xl shadow-md">
+              <!-- Token Usage and Context Window - Compact above input -->
+              <div class="mb-3 flex items-center justify-between gap-4 text-xs">
+                <!-- Token Usage -->
+                <div class="flex items-center gap-3 text-[#94A3B8]">
+                  <div class="flex items-center gap-1">
+                    <i class="fas fa-chart-line text-[#38BDF8]"></i>
+                    <span>Prompt:</span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span>Completion:</span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
+                  </div>
+                  <div class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
+                    <span class="text-[#38BDF8] font-semibold">Total:</span>
+                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                  </div>
+                </div>
+
+                <!-- Context Window -->
+                <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
+                  <div class="flex items-center gap-2 text-[#94A3B8]">
+                    <i class="fas fa-database text-[#38BDF8]"></i>
+                    <span>
+                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                      / 
+                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
+                    </span>
+                    <div class="w-16 bg-[#101827] rounded-full h-1.5 overflow-hidden border border-[#1E293B]">
+                      <div class="h-full rounded-full transition-all duration-300 ease-out"
+                           :class="{
+                             'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
+                             'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
+                             'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
+                           }"
+                           :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
+                      </div>
+                    </div>
+                    <span class="text-[#94A3B8]" x-text="Math.round($store.chat.getContextUsagePercent()) + '%'"></span>
+                    <span x-show="$store.chat.getContextUsagePercent() >= 80" class="text-yellow-400">
+                      <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                  </div>
+                </template>
+              </div>
+
+              <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl shadow-lg">
                 <textarea
                   id="input"
                   name="input"
                   x-model="inputValue"
                   placeholder="Send a message..."
-                  class="p-4 pr-16 w-full bg-gray-800 text-gray-100 placeholder-gray-400 focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
+                  class="p-3 pr-16 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200 focus:ring-2 focus:ring-[#38BDF8]/50"
                   required
                   @keydown.shift="shiftPressed = true"
                   @keyup.shift="shiftPressed = false"
-                  @keydown.enter="if (!shiftPressed) { submitPrompt($event); }"
-                  rows="3"
-                  style="box-shadow: 0 0 0 1px rgba(75, 85, 99, 0.4) inset;"
+                  @keydown.enter.prevent="if (!shiftPressed) { submitPrompt($event); }"
+                  rows="2"
                 ></textarea>
-                <span x-text="fileName" id="fileName" class="absolute right-16 top-4 text-gray-400 text-sm mr-2"></span>
+                <span x-text="fileName" id="fileName" class="absolute right-16 top-3 text-[#94A3B8] text-xs mr-2"></span>
                 <button
                   type="button"
                   onclick="document.getElementById('input_image').click()"
-                  class="fa-solid fa-image text-gray-400 absolute right-12 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  class="fa-solid fa-image text-[#94A3B8] absolute right-12 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
                   title="Attach images"
                 ></button>
                 <button
                   type="button"
                   onclick="document.getElementById('input_audio').click()"
-                  class="fa-solid fa-microphone text-gray-400 absolute right-20 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  class="fa-solid fa-microphone text-[#94A3B8] absolute right-20 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
                   title="Attach an audio file"
                 ></button>
                 <button
                   type="button"
                   onclick="document.getElementById('input_file').click()"
-                  class="fa-solid fa-file text-gray-400 absolute right-28 top-4 text-lg p-2 hover:text-blue-400 transition-colors duration-200"
+                  class="fa-solid fa-file text-[#94A3B8] absolute right-28 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
                   title="Upload text, markdown or PDF file"
                 ></button>
 
                 <!-- Send button and stop button in the same position -->
-                <div class="absolute right-3 top-4">
+                <div class="absolute right-3 top-3 flex items-center">
                   <!-- Stop button (hidden by default, shown when request is in progress) -->
                   <button
                     id="stop-button"
@@ -420,15 +697,15 @@ SOFTWARE.
                   <button
                     id="send-button"
                     type="submit"
-                    class="text-lg p-2 text-gray-400 hover:text-blue-400 transition-colors duration-200"
-                    title="Send message"
+                    class="text-lg p-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors duration-200"
+                    title="Send message (Enter)"
                   >
                     <i class="fa-solid fa-paper-plane"></i>
                   </button>
                 </div>
               </div>
             </form>
-            <input id="chat-model" type="hidden" value="{{.Model}}">
+            <input id="chat-model" type="hidden" value="{{.Model}}" {{ if .ContextSize }}data-context-size="{{.ContextSize}}"{{ end }}>
             <input
               id="input_image"
               type="file"
@@ -504,59 +781,9 @@ SOFTWARE.
     {{ end }}
     {{ end }}
 
-    <!-- Alpine store initialization -->
+    <!-- Alpine store initialization and utilities -->
     <script>
       document.addEventListener("alpine:init", () => {
-        Alpine.store("chat", {
-          history: [],
-          languages: [undefined],
-          systemPrompt: "",
-          mcpMode: false,
-          clear() {
-            this.history.length = 0;
-          },
-          add(role, content, image, audio) {
-            const N = this.history.length - 1;
-            if (this.history.length && this.history[N].role === role) {
-              this.history[N].content += content;
-              this.history[N].html = DOMPurify.sanitize(
-                marked.parse(this.history[N].content)
-              );
-            } else {
-              let c = "";
-              const lines = content.split("\n");
-              lines.forEach((line) => {
-                c += DOMPurify.sanitize(marked.parse(line));
-              });
-              this.history.push({ role, content, html: c, image, audio });
-            }
-            document.getElementById('messages').scrollIntoView(false);
-            const parser = new DOMParser();
-            const html = parser.parseFromString(
-              this.history[this.history.length - 1].html,
-              "text/html"
-            );
-            const code = html.querySelectorAll("pre code");
-            if (!code.length) return;
-            code.forEach((el) => {
-              const language = el.className.split("language-")[1];
-              if (this.languages.includes(language)) return;
-              const script = document.createElement("script");
-              script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
-              document.head.appendChild(script);
-              this.languages.push(language);
-            });
-          },
-          messages() {
-            return this.history.map((message) => ({
-              role: message.role,
-              content: message.content,
-              image: message.image,
-              audio: message.audio,
-            }));
-          },
-        });
-
         window.copyToClipboard = (content) => {
           const tempElement = document.createElement('div');
           tempElement.innerHTML = content;
@@ -569,6 +796,8 @@ SOFTWARE.
           });
         };
       });
+
+      // Context size is now initialized in the Alpine store initialization above
     </script>
   </body>
 </html>
