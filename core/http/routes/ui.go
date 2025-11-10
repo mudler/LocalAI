@@ -91,11 +91,15 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		title := "LocalAI - Chat"
+		var modelContextSize *int
 
 		for _, b := range modelConfigs {
 			if b.HasUsecases(config.FLAG_CHAT) {
 				modelThatCanBeUsed = b.Name
 				title = "LocalAI - Chat with " + modelThatCanBeUsed
+				if b.LLMConfig.ContextSize != nil {
+					modelContextSize = b.LLMConfig.ContextSize
+				}
 				break
 			}
 		}
@@ -107,6 +111,7 @@ func RegisterUIRoutes(app *fiber.App,
 			"GalleryConfig":       galleryConfigs,
 			"ModelsConfig":        modelConfigs,
 			"Model":               modelThatCanBeUsed,
+			"ContextSize":         modelContextSize,
 			"Version":             internal.PrintableVersion(),
 		}
 
@@ -120,6 +125,8 @@ func RegisterUIRoutes(app *fiber.App,
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		galleryConfigs := map[string]*gallery.ModelConfig{}
+		modelName := c.Params("model")
+		var modelContextSize *int
 
 		for _, m := range modelConfigs {
 			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
@@ -127,15 +134,19 @@ func RegisterUIRoutes(app *fiber.App,
 				continue
 			}
 			galleryConfigs[m.Name] = cfg
+			if m.Name == modelName && m.LLMConfig.ContextSize != nil {
+				modelContextSize = m.LLMConfig.ContextSize
+			}
 		}
 
 		summary := fiber.Map{
-			"Title":               "LocalAI - Chat with " + c.Params("model"),
+			"Title":               "LocalAI - Chat with " + modelName,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"GalleryConfig":       galleryConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               c.Params("model"),
+			"Model":               modelName,
+			"ContextSize":         modelContextSize,
 			"Version":             internal.PrintableVersion(),
 		}
 
