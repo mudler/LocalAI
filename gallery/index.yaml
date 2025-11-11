@@ -23267,3 +23267,24 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "maenad-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Maenad-70B-i1-GGUF
+  description: |
+    **Maenad-70B** is a large language model trained for creative writing, roleplay, and narrative storytelling. It is a high-quality merge of three 70B-parameter models—**Pinecone-Titan-70b**, **GoldDiamondGold-L33-70b**, and **Sao10K-Euryale-v2.1-70B-labmod**—combined using the **DELLA** (Distributed Low-Rank Adaptation) method via MergeKit. This fusion enhances personality, humor, creativity, and narrative coherence, resulting in a dynamic and expressive model ideal for imaginative and adult-oriented content.
+
+    The model is designed for **long-context interactions**, supports **chat and roleplay scenarios**, and is optimized for expressive, engaging dialogue. It is suitable for advanced users seeking rich, creative outputs in storytelling, character interaction, and world-building.
+
+    *Note:* This model is **not** a quantized version. The original base model, **Maenad-70B**, was developed and merged by the community (Babsie) and is available at [Babsie/Maenad-70B](https://huggingface.co/Babsie/Maenad-70B) in full precision. Quantized versions (e.g., GGUF) are provided by third parties like mradermacher and may vary in quality and performance.
+
+    👉 **Use Case**: Creative writing, AI roleplay, narrative generation, character-driven dialogue
+    🔗 **Original Model**: [Babsie/Maenad-70B](https://huggingface.co/Babsie/Maenad-70B)
+    ⚠️ **Content Warning**: Not for all audiences — includes NSFW and 18+ themes.
+  overrides:
+    parameters:
+      model: Maenad-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: Maenad-70B.i1-Q4_K_M.gguf
+      sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
+      uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
