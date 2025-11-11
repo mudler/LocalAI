@@ -13,99 +13,102 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+// @Description GrammarConfig contains configuration for grammar parsing
 type GrammarConfig struct {
 	// ParallelCalls enables the LLM to return multiple function calls in the same response
-	ParallelCalls bool `yaml:"parallel_calls"`
+	ParallelCalls bool `yaml:"parallel_calls,omitempty" json:"parallel_calls,omitempty"`
 
-	DisableParallelNewLines bool `yaml:"disable_parallel_new_lines"`
+	DisableParallelNewLines bool `yaml:"disable_parallel_new_lines,omitempty" json:"disable_parallel_new_lines,omitempty"`
 
 	// MixedMode enables the LLM to return strings and not only JSON objects
 	// This is useful for models to not constraining returning only JSON and also messages back to the user
-	MixedMode bool `yaml:"mixed_mode"`
+	MixedMode bool `yaml:"mixed_mode,omitempty" json:"mixed_mode,omitempty"`
 
 	// NoMixedFreeString disables the mixed mode for free strings
 	// In this way if the LLM selects a free string, it won't be mixed necessarily with JSON objects.
 	// For example, if enabled the LLM or returns a JSON object or a free string, but not a mix of both
 	// If disabled(default): the LLM can return a JSON object surrounded by free strings (e.g. `this is the JSON result: { "bar": "baz" } for your question`). This forces the LLM to return at least a JSON object, but its not going to be strict
-	NoMixedFreeString bool `yaml:"no_mixed_free_string"`
+	NoMixedFreeString bool `yaml:"no_mixed_free_string,omitempty" json:"no_mixed_free_string,omitempty"`
 
 	// NoGrammar disables the grammar parsing and parses the responses directly from the LLM
-	NoGrammar bool `yaml:"disable"`
+	NoGrammar bool `yaml:"disable,omitempty" json:"disable,omitempty"`
 
 	// Prefix is the suffix to append to the grammar when being generated
 	// This is useful when models prepend a tag before returning JSON
-	Prefix string `yaml:"prefix"`
+	Prefix string `yaml:"prefix,omitempty" json:"prefix,omitempty"`
 
 	// ExpectStringsAfterJSON enables mixed string suffix
-	ExpectStringsAfterJSON bool `yaml:"expect_strings_after_json"`
+	ExpectStringsAfterJSON bool `yaml:"expect_strings_after_json,omitempty" json:"expect_strings_after_json,omitempty"`
 
 	// PropOrder selects what order to print properties
 	// for instance name,arguments will make print { "name": "foo", "arguments": { "bar": "baz" } }
 	// instead of { "arguments": { "bar": "baz" }, "name": "foo" }
-	PropOrder string `yaml:"properties_order"`
+	PropOrder string `yaml:"properties_order,omitempty" json:"properties_order,omitempty"`
 
 	// SchemaType can be configured to use a specific schema type to force the grammar
 	// available : json, llama3.1
-	SchemaType string `yaml:"schema_type"`
+	SchemaType string `yaml:"schema_type,omitempty" json:"schema_type,omitempty"`
 
-	GrammarTriggers []GrammarTrigger `yaml:"triggers"`
+	GrammarTriggers []GrammarTrigger `yaml:"triggers,omitempty" json:"triggers,omitempty"`
 }
 
+// @Description GrammarTrigger defines a trigger word for grammar parsing
 type GrammarTrigger struct {
 	// Trigger is the string that triggers the grammar
-	Word string `yaml:"word"`
+	Word string `yaml:"word,omitempty" json:"word,omitempty"`
 }
 
-// FunctionsConfig is the configuration for the tool/function call.
+// @Description FunctionsConfig is the configuration for the tool/function call.
 // It includes setting to map the function name and arguments from the response
 // and, for instance, also if processing the requests with BNF grammars.
 type FunctionsConfig struct {
 	// DisableNoAction disables the "no action" tool
 	// By default we inject a tool that does nothing and is used to return an answer from the LLM
-	DisableNoAction bool `yaml:"disable_no_action"`
+	DisableNoAction bool `yaml:"disable_no_action,omitempty" json:"disable_no_action,omitempty"`
 
 	// Grammar is the configuration for the grammar
-	GrammarConfig GrammarConfig `yaml:"grammar"`
+	GrammarConfig GrammarConfig `yaml:"grammar,omitempty" json:"grammar,omitempty"`
 
 	// NoActionFunctionName is the name of the function that does nothing. It defaults to "answer"
-	NoActionFunctionName string `yaml:"no_action_function_name"`
+	NoActionFunctionName string `yaml:"no_action_function_name,omitempty" json:"no_action_function_name,omitempty"`
 
 	// NoActionDescriptionName is the name of the function that returns the description of the no action function
-	NoActionDescriptionName string `yaml:"no_action_description_name"`
+	NoActionDescriptionName string `yaml:"no_action_description_name,omitempty" json:"no_action_description_name,omitempty"`
 
 	// ResponseRegex is a named regex to extract the function name and arguments from the response
-	ResponseRegex []string `yaml:"response_regex"`
+	ResponseRegex []string `yaml:"response_regex,omitempty" json:"response_regex,omitempty"`
 
 	// JSONRegexMatch is a regex to extract the JSON object from the response
-	JSONRegexMatch []string `yaml:"json_regex_match"`
+	JSONRegexMatch []string `yaml:"json_regex_match,omitempty" json:"json_regex_match,omitempty"`
 
 	// ArgumentRegex is a named regex to extract the arguments from the response. Use ArgumentRegexKey and ArgumentRegexValue to set the names of the named regex for key and value of the arguments.
-	ArgumentRegex []string `yaml:"argument_regex"`
+	ArgumentRegex []string `yaml:"argument_regex,omitempty" json:"argument_regex,omitempty"`
 	// ArgumentRegex named regex names for key and value extractions. default: key and value
-	ArgumentRegexKey   string `yaml:"argument_regex_key_name"`   // default: key
-	ArgumentRegexValue string `yaml:"argument_regex_value_name"` // default: value
+	ArgumentRegexKey   string `yaml:"argument_regex_key_name,omitempty" json:"argument_regex_key_name,omitempty"`   // default: key
+	ArgumentRegexValue string `yaml:"argument_regex_value_name,omitempty" json:"argument_regex_value_name,omitempty"` // default: value
 
 	// ReplaceFunctionResults allow to replace strings in the results before parsing them
-	ReplaceFunctionResults []ReplaceResult `yaml:"replace_function_results"`
+	ReplaceFunctionResults []ReplaceResult `yaml:"replace_function_results,omitempty" json:"replace_function_results,omitempty"`
 
 	// ReplaceLLMResult allow to replace strings in the results before parsing them
-	ReplaceLLMResult []ReplaceResult `yaml:"replace_llm_results"`
+	ReplaceLLMResult []ReplaceResult `yaml:"replace_llm_results,omitempty" json:"replace_llm_results,omitempty"`
 
 	// CaptureLLMResult is a regex to extract a string from the LLM response
 	// that is used as return string when using tools.
 	// This is useful for e.g. if the LLM outputs a reasoning and we want to get the reasoning as a string back
-	CaptureLLMResult []string `yaml:"capture_llm_results"`
+	CaptureLLMResult []string `yaml:"capture_llm_results,omitempty" json:"capture_llm_results,omitempty"`
 
 	// FunctionName enable the LLM to return { "name": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }
 	// instead of { "function": "function_name", "arguments": { "arg1": "value1", "arg2": "value2" } }.
 	// This might be useful for certain models trained with the function name as the first token.
-	FunctionNameKey      string `yaml:"function_name_key"`
-	FunctionArgumentsKey string `yaml:"function_arguments_key"`
+	FunctionNameKey      string `yaml:"function_name_key,omitempty" json:"function_name_key,omitempty"`
+	FunctionArgumentsKey string `yaml:"function_arguments_key,omitempty" json:"function_arguments_key,omitempty"`
 }
 
+// @Description ReplaceResult defines a key-value replacement for function results
 type ReplaceResult struct {
-	Key   string `yaml:"key"`
-	Value string `yaml:"value"`
+	Key   string `yaml:"key,omitempty" json:"key,omitempty"`
+	Value string `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
 type FuncCallResults struct {

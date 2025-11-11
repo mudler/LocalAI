@@ -5,8 +5,9 @@ type LocalAIRequest interface {
 	ModelName(*string) string
 }
 
+// @Description BasicModelRequest contains the basic model request fields
 type BasicModelRequest struct {
-	Model string `json:"model" yaml:"model"`
+	Model string `json:"model,omitempty" yaml:"model,omitempty"`
 	// TODO: Should this also include the following fields from the OpenAI side of the world?
 	// If so, changes should be made to core/http/middleware/request.go to match
 
