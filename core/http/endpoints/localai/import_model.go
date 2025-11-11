@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/gallery/importers"
 	httpUtils "github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
@@ -18,6 +19,15 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+type Importer interface {
+	Match(uri string, request schema.ImportModelRequest) bool
+	Import(uri string, request schema.ImportModelRequest) (gallery.ModelConfig, error)
+}
+
+var defaultImporters = []Importer{
+	&importers.LlamaCPPImporter{},
+}
 
 // ImportModelURIEndpoint handles creating new model configurations from a URI
 func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService) fiber.Handler {
@@ -29,10 +39,17 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			return err
 		}
 
-		// From the input, we are going to extract a default settings for the model, and use the gallery service
-		// TODO: This is now all fake data
-		modelConfig := gallery.ModelConfig{
-			Name: "imported-model-name",
+		var err error
+		var modelConfig gallery.ModelConfig
+
+		for _, importer := range defaultImporters {
+			if importer.Match(input.URI, *input) {
+				modelConfig, err = importer.Import(input.URI, *input)
+				if err != nil {
+					continue
+				}
+				break
+			}
 		}
 
 		uuid, err := uuid.NewUUID()
