@@ -23290,3 +23290,51 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "tankie-dpe-12b-sft-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Tankie-DPE-12b-SFT-i1-GGUF
+  description: |
+    **Model Name:** Tankie-DPE-12b-SFT
+    **Base Model:** PocketDoc/Dans-PersonalityEngine-V1.1.0-12b
+    **Repository:** [WokeAI/Tankie-DPE-12b-SFT](https://huggingface.co/WokeAI/Tankie-DPE-12b-SFT)
+    **License:** Apache 2.0
+
+    ---
+
+    ### 📌 Description
+    Tankie-DPE-12b-SFT is a 12-billion-parameter language model fine-tuned to embody the ideological principles of Marxism-Leninism-Maoism (commonly referred to as "tankie" ideology). It is a post-post-trained variant of the **PocketDoc/Dans-PersonalityEngine-V1.1.0-12b** model, specifically adapted through supervised fine-tuning (SFT) on the **WokeAI/polititune-tankie-warmup** dataset.
+
+    This model serves as a research tool to explore how political ideology and character alignment can be instilled in LLMs, showcasing extreme ideological consistency in its outputs. It is not intended for general use but is valuable for studying alignment, bias, and personality engineering in language models.
+
+    ---
+
+    ### 🔍 Key Details
+    - **Base Model:** PocketDoc/Dans-PersonalityEngine-V1.1.0-12b (a Mistral-based model)
+    - **Fine-Tuned On:** WokeAI/polititune-tankie-warmup (custom political alignment dataset)
+    - **Training Method:** Supervised Fine-Tuning (SFT) using Axolotl
+    - **Target Behavior:** Consistent, ideologically rigid responses aligned with leftist revolutionary politics
+    - **Use Case:** Research into political bias, character training, and alignment in LLMs
+
+    ---
+
+    ### ⚠️ Notes
+    - This model is **not** a general-purpose assistant.
+    - Output reflects strong ideological stance—may be offensive or inappropriate in neutral contexts.
+    - For quantized versions (e.g., GGUF), see: [mradermacher/Tankie-DPE-12b-SFT-i1-GGUF](https://huggingface.co/mradermacher/Tankie-DPE-12b-SFT-i1-GGUF)
+
+    ---
+
+    ### 📌 Ideal For
+    - Researchers studying ideological alignment in LLMs
+    - Practitioners in AI safety and value alignment
+    - Developers exploring character-specific model training
+
+    > 🛑 **Not recommended for production or public-facing applications.**
+  overrides:
+    parameters:
+      model: Tankie-DPE-12b-SFT.i1-Q4_K_M.gguf
+  files:
+    - filename: Tankie-DPE-12b-SFT.i1-Q4_K_M.gguf
+      sha256: 53849ac054b34b9ace28ec0e93da1d9bc85700d6b1b21107bff1ef76c7b09895
+      uri: huggingface://mradermacher/Tankie-DPE-12b-SFT-i1-GGUF/Tankie-DPE-12b-SFT.i1-Q4_K_M.gguf
