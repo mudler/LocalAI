@@ -23290,3 +23290,39 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma
+  name: "mira-v1.12.1-27b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.12.1-27B-i1-GGUF
+  description: |
+    **Model Name:** Mira-v1.12.1-27B
+    **Base Model:** Lambent/Mira-v1.11-Ties-27B
+    **Size:** 27B parameters
+    **License:** Gemma
+    **Repository:** [Lambent/Mira-v1.12.1-27B](https://huggingface.co/Lambent/Mira-v1.12.1-27B)
+
+    **Overview:**
+    Mira-v1.12.1-27B is a large language model developed by Lambent, trained on a diverse mix of high-quality datasets including web-crawled text, code, math reasoning, roleplaying interactions, and instruction-following data (IFEval-like). The model is fine-tuned with a focus on conversational depth, instruction precision, and self-awareness, incorporating experimental prompts to enhance training data awareness.
+
+    **Key Features:**
+    - **Training Context:** 8k token context length
+    - **Training Setup:** Rank 64 LoRA, learning rate 1e-6 with cosine decay
+    - **Data Composition:** Balanced mix of pretraining data, synthetic roleplay, mentoring sessions, and task-specific benchmarks
+    - **Personality:** Described as "extremely excitable," suggesting high expressiveness and engagement in dialogue
+
+    **Notable Characteristics:**
+    - Designed for rich, dynamic interaction with strong reasoning and creative capabilities
+    - Includes experimental training data awareness to improve coherence and meta-cognition
+    - Part of an evolving lineage, building on Mira-v1.11-Ties-27B with refined training and data curation
+
+    **Ideal For:**
+    Creative writing, complex instruction following, roleplay, reasoning tasks, and research into self-aware language modeling.
+
+    **Note:** The GGUF quantized version hosted by `mradermacher` is a derived, compressed variant of this base model, optimized for local inference. Always refer to the original `Lambent/Mira-v1.12.1-27B` repository for the full, unquantized model details.
+  overrides:
+    parameters:
+      model: Mira-v1.12.1-27B.i1-Q4_K_M.gguf
+  files:
+    - filename: Mira-v1.12.1-27B.i1-Q4_K_M.gguf
+      sha256: 215b3ec9ac366d23524db7cf9ff385fe06f5502c6a234631482bb02b20b86bba
+      uri: huggingface://mradermacher/Mira-v1.12.1-27B-i1-GGUF/Mira-v1.12.1-27B.i1-Q4_K_M.gguf
