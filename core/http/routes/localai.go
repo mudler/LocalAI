@@ -18,7 +18,8 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
-	galleryService *services.GalleryService) {
+	galleryService *services.GalleryService,
+	opcache *services.OpCache) {
 
 	router.Get("/swagger/*", swagger.HandlerDefault) // default
 
@@ -58,7 +59,7 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		router.Post("/models/import", localai.ImportModelEndpoint(cl, appConfig))
 
 		// URI model import endpoint
-		router.Post("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService))
+		router.Post("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache))
 
 		// Custom model edit endpoint
 		router.Post("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))

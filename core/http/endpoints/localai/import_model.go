@@ -30,7 +30,7 @@ var defaultImporters = []Importer{
 }
 
 // ImportModelURIEndpoint handles creating new model configurations from a URI
-func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService) fiber.Handler {
+func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 
 		input := new(schema.ImportModelRequest)
@@ -56,13 +56,26 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 		if err != nil {
 			return err
 		}
+
+		// Determine gallery ID for tracking - use model name if available, otherwise use URI
+		galleryID := input.URI
+		if modelConfig.Name != "" {
+			galleryID = modelConfig.Name
+		}
+
+		// Register operation in opcache if available (for UI progress tracking)
+		if opcache != nil {
+			opcache.Set(galleryID, uuid.String())
+		}
+
 		galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req: gallery.GalleryModel{
 				Overrides: map[string]interface{}{},
 			},
-			ID:               uuid.String(),
-			GalleryElement:   &modelConfig,
-			BackendGalleries: appConfig.BackendGalleries,
+			ID:                 uuid.String(),
+			GalleryElementName: galleryID,
+			GalleryElement:     &modelConfig,
+			BackendGalleries:   appConfig.BackendGalleries,
 		}
 
 		return c.JSON(schema.GalleryResponse{

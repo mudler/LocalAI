@@ -200,11 +200,16 @@ func API(application *application.Application) (*fiber.App, error) {
 	requestExtractor := middleware.NewRequestExtractor(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 
 	routes.RegisterElevenLabsRoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
-	routes.RegisterLocalAIRoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
+	
+	// Create opcache for tracking UI operations (used by both UI and LocalAI routes)
+	var opcache *services.OpCache
+	if !application.ApplicationConfig().DisableWebUI {
+		opcache = services.NewOpCache(application.GalleryService())
+	}
+	
+	routes.RegisterLocalAIRoutes(router, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache)
 	routes.RegisterOpenAIRoutes(router, requestExtractor, application)
 	if !application.ApplicationConfig().DisableWebUI {
-		// Create opcache for tracking UI operations
-		opcache := services.NewOpCache(application.GalleryService())
 		routes.RegisterUIAPIRoutes(router, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), opcache)
 		routes.RegisterUIRoutes(router, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService())
 	}
