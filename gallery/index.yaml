@@ -23267,3 +23267,26 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "maenad-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Maenad-70B-i1-GGUF
+  description: |
+    **Maenad-70B** is a large language model designed for creative writing, roleplay (RP/ERP), and narrative generation. Built using the DELLA merge method, it combines three distinct 70B-scale models—**Entropicengine/Pinecone-Titan-70b**, **KaraKaraWitch/GoldDiamondGold-L33-70b**, and **Babsie/Sao10K-Euryale-v2.1-70B-labmod**—into a single, cohesive personality-rich model.
+
+    Key features:
+    - **Highly creative and expressive**: Excels in storytelling, humor, and character-driven dialogue.
+    - **Long-context capable**: Optimized for extended narrative sessions and complex world-building.
+    - **Open-source & customizable**: Based on Llama3 licensing; compatible with tools like mergekit and GGUF for local deployment.
+    - **Community-validated**: Tested in production environments and praised for strong performance and personality retention.
+
+    Ideal for writers, game masters, and AI enthusiasts seeking a bold, imaginative, and dynamic language model. Not suitable for all audiences due to mature content (NSFW, 18+).
+
+    *Base model: Entropicengine/Pinecone-Titan-70b | Merge method: DELLA | License: Llama3*
+  overrides:
+    parameters:
+      model: Maenad-70B.i1-Q4_K_M.gguf
+  files:
+    - filename: Maenad-70B.i1-Q4_K_M.gguf
+      sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
+      uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
