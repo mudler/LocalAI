@@ -376,6 +376,21 @@
                                     </ul>
                                 </div>
                             </template>
+                            <template x-if="selectedModel?.additionalFiles && selectedModel.additionalFiles.length > 0">
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-900 dark:text-white mb-2">Files</p>
+                                    <ul>
+                                        <template x-for="file in selectedModel.additionalFiles" :key="file">
+                                            <li class="mb-0">
+                                                <p class="text-base leading-tight text-gray-500 dark:text-gray-400">
+                                                    <i class="fas fa-file pr-2"></i>
+                                                    <span x-text="file.filename"></span>
+                                                </p>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </template>
                             <template x-if="selectedModel?.tags && selectedModel.tags.length > 0">
                                 <div>
                                     <p class="text-sm mb-3 font-semibold text-gray-900 dark:text-white">Tags</p>
