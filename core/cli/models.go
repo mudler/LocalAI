@@ -1,12 +1,14 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/services"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/startup"
@@ -78,6 +80,12 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
+	galleryService := services.NewGalleryService(&config.ApplicationConfig{}, model.NewModelLoader(systemState, true))
+	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath), systemState)
+	if err != nil {
+		return err
+	}
+
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
 		log.Error().Err(err).Msg("unable to load galleries")
@@ -127,7 +135,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		}
 
 		modelLoader := model.NewModelLoader(systemState, true)
-		err = startup.InstallModels(galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
+		err = startup.InstallModels(galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
 		if err != nil {
 			return err
 		}

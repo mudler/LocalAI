@@ -12,6 +12,8 @@ import (
 	"go.yaml.in/yaml/v2"
 )
 
+var _ Importer = &LlamaCPPImporter{}
+
 type LlamaCPPImporter struct{}
 
 func (i *LlamaCPPImporter) Match(uri string, request schema.ImportModelRequest) bool {

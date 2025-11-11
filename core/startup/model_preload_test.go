@@ -33,7 +33,7 @@ var _ = Describe("Preload test", func() {
 			url := "https://raw.githubusercontent.com/mudler/LocalAI-examples/main/configurations/phi-2.yaml"
 			fileName := fmt.Sprintf("%s.yaml", "phi-2")
 
-			InstallModels([]config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, nil, url)
+			InstallModels(nil, []config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, nil, url)
 
 			resultFile := filepath.Join(tmpdir, fileName)
 
@@ -46,7 +46,7 @@ var _ = Describe("Preload test", func() {
 			url := "huggingface://TheBloke/TinyLlama-1.1B-Chat-v0.3-GGUF/tinyllama-1.1b-chat-v0.3.Q2_K.gguf"
 			fileName := fmt.Sprintf("%s.gguf", "tinyllama-1.1b-chat-v0.3.Q2_K")
 
-			err := InstallModels([]config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, nil, url)
+			err := InstallModels(nil, []config.Gallery{}, []config.Gallery{}, systemState, ml, true, true, nil, url)
 			Expect(err).ToNot(HaveOccurred())
 
 			resultFile := filepath.Join(tmpdir, fileName)

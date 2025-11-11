@@ -20,15 +20,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type Importer interface {
-	Match(uri string, request schema.ImportModelRequest) bool
-	Import(uri string, request schema.ImportModelRequest) (gallery.ModelConfig, error)
-}
-
-var defaultImporters = []Importer{
-	&importers.LlamaCPPImporter{},
-}
-
 // ImportModelURIEndpoint handles creating new model configurations from a URI
 func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) fiber.Handler {
 	return func(c *fiber.Ctx) error {
@@ -42,7 +33,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 		var err error
 		var modelConfig gallery.ModelConfig
 
-		for _, importer := range defaultImporters {
+		for _, importer := range importers.DefaultImporters {
 			if importer.Match(input.URI, *input) {
 				modelConfig, err = importer.Import(input.URI, *input)
 				if err != nil {
