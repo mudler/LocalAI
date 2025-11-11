@@ -11,3 +11,5 @@ func TestHfapi(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "HuggingFace API Suite")
 }
+
+

@@ -8,7 +8,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/go-skynet/LocalAI/.github/gallery-agent/hfapi"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
 
 var _ = Describe("HuggingFace API Client", func() {
