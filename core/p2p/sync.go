@@ -73,7 +73,7 @@ func syncState(ctx context.Context, n *node.Node, app *application.Application) 
 			continue
 		}
 
-		app.GalleryService().ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel]{
+		app.GalleryService().ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uuid.String(),
 			GalleryElementName: model,
 			Galleries:          app.ApplicationConfig().Galleries,

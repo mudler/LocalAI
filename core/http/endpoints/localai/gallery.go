@@ -77,7 +77,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 		if err != nil {
 			return err
 		}
-		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel]{
+		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Req:                input.GalleryModel,
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
@@ -98,7 +98,7 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 	return func(c *fiber.Ctx) error {
 		modelName := c.Params("name")
 
-		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel]{
+		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Delete:             true,
 			GalleryElementName: modelName,
 		}

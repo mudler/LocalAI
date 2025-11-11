@@ -2,15 +2,58 @@ package localai
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	httpUtils "github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/utils"
+
 	"gopkg.in/yaml.v3"
 )
+
+// ImportModelURIEndpoint handles creating new model configurations from a URI
+func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+
+		input := new(schema.ImportModelRequest)
+
+		if err := c.BodyParser(input); err != nil {
+			return err
+		}
+
+		// From the input, we are going to extract a default settings for the model, and use the gallery service
+		// TODO: This is now all fake data
+		modelConfig := gallery.ModelConfig{
+			Name: "imported-model-name",
+		}
+
+		uuid, err := uuid.NewUUID()
+		if err != nil {
+			return err
+		}
+		galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+			Req: gallery.GalleryModel{
+				Overrides: map[string]interface{}{},
+			},
+			ID:               uuid.String(),
+			GalleryElement:   &modelConfig,
+			BackendGalleries: appConfig.BackendGalleries,
+		}
+
+		return c.JSON(schema.GalleryResponse{
+			ID:        uuid.String(),
+			StatusURL: fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), uuid.String()),
+		})
+	}
+}
 
 // ImportModelEndpoint handles creating new model configurations
 func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {

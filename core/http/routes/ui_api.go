@@ -247,7 +247,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 		uid := id.String()
 		opcache.Set(galleryID, uid)
 
-		op := services.GalleryOp[gallery.GalleryModel]{
+		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
 			Galleries:          appConfig.Galleries,
@@ -290,7 +290,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		opcache.Set(galleryID, uid)
 
-		op := services.GalleryOp[gallery.GalleryModel]{
+		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: galleryName,
@@ -525,7 +525,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 		uid := id.String()
 		opcache.Set(backendID, uid)
 
-		op := services.GalleryOp[gallery.GalleryBackend]{
+		op := services.GalleryOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
@@ -567,7 +567,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		opcache.Set(backendID, uid)
 
-		op := services.GalleryOp[gallery.GalleryBackend]{
+		op := services.GalleryOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: backendName,

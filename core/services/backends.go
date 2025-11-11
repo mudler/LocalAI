@@ -8,7 +8,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend], systemState *system.SystemState) error {
+func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, any], systemState *system.SystemState) error {
 	utils.ResetDownloadTimers()
 	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: "processing", Progress: 0})
 

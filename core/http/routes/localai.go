@@ -57,6 +57,9 @@ func RegisterLocalAIRoutes(router *fiber.App,
 		// Custom model import endpoint
 		router.Post("/models/import", localai.ImportModelEndpoint(cl, appConfig))
 
+		// URI model import endpoint
+		router.Post("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService))
+
 		// Custom model edit endpoint
 		router.Post("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
 
