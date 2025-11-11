@@ -23267,3 +23267,29 @@
     - filename: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
       sha256: 7b9e8fe00faf7803e440542be01974c05b0dcb8b75e1f1c25638027bfb75dbf3
       uri: huggingface://mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF/Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
+- !!merge <<: *dreamshaper
+  name: "vividorangemix"
+  urls:
+    - https://huggingface.co/hamzah0asadullah/VividOrangeMix-GGUF
+  description: |
+    **Model Name:** VividOrangeMix-GGUF
+    **Base Model:** WarriorMama777/OrangeMixs
+    **Type:** Text-to-Image Diffusion Model
+    **Quantization:** GGUF (optimized for local inference via stable-diffusion.cpp)
+    **License:** CreativeML Open RAIL-M
+
+    **Description:**
+    VividOrangeMix is a high-quality, text-to-image diffusion model trained on diverse visual datasets, designed to generate vibrant, detailed, and stylized images from textual prompts. Built upon the **OrangeMixs** base model, it enhances visual richness and coherence, with strong performance in both photorealistic and artistic styles. The GGUF quantized versions enable efficient local inference on consumer hardware using tools like `stable-diffusion.cpp`, making it accessible for users with limited GPU resources.
+
+    **Ideal for:** Creative artists, prompt engineers, and developers seeking a fast, high-quality, locally runnable text-to-image model with rich visual output.
+
+    👉 Try it live on [the demo page](http://87.182.229.199:4998/) (may be intermittently available).
+
+    *Note: This repository contains quantized GGUF files derived from the original [WarriorMama777/OrangeMixs](https://huggingface.co/WarriorMama777/OrangeMixs) model. For the full unquantized model and original training details, refer to the base repository.*
+  overrides:
+    parameters:
+      model: Q2_K.gguf
+  files:
+    - filename: Q2_K.gguf
+      sha256: 8913551573b8529188767870bc6f6161247c7d3fc9a0c7df603924712b6e335c
+      uri: huggingface://hamzah0asadullah/VividOrangeMix-GGUF/Q2_K.gguf
