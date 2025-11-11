@@ -4,13 +4,13 @@
 
 <body class="bg-[#101827] text-[#E5E7EB]">
 <div class="flex flex-col min-h-screen" x-data="modelsGallery()">
-   
+
     {{template "views/partials/navbar" .}}
-    
+
     <!-- Notifications -->
     <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
         <template x-for="notification in notifications" :key="notification.id">
-            <div x-show="true" 
+            <div x-show="true"
                  x-transition:enter="transform ease-out duration-300 transition"
                  x-transition:enter-start="translate-x-full opacity-0"
                  x-transition:enter-end="translate-x-0 opacity-100"
@@ -31,7 +31,7 @@
             </div>
         </template>
     </div>
-    
+
     <div class="container mx-auto px-4 py-8 flex-grow">
 
         <!-- Hero Header -->
@@ -41,7 +41,7 @@
                 <div class="absolute inset-0 bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20"></div>
                 <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(56,189,248,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
             </div>
-            
+
             <div class="relative max-w-5xl mx-auto text-center">
                 <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
                     <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
@@ -62,7 +62,7 @@
                         <span class="font-semibold text-purple-300" x-text="repositories.length"></span>
                         <span class="text-gray-300 ml-1">repositories</span>
                     </div>
-                    <a href="https://localai.io/models/" target="_blank" 
+                    <a href="https://localai.io/models/" target="_blank"
                        class="flex items-center bg-blue-600/80 hover:bg-blue-600 text-white px-4 py-2 rounded-full transition-all duration-300 hover:scale-105">
                         <i class="fas fa-info-circle mr-2"></i>
                         <span>Documentation</span>
@@ -71,13 +71,13 @@
                 </div>
             </div>
         </div>
-        
+
         {{template "views/partials/inprogress" .}}
 
         <!-- Search and Filter Section -->
         <div class="relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-2xl p-8 mb-8 shadow-xl border border-gray-700/50 backdrop-blur-sm">
             <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-blue-500/5 to-purple-500/5"></div>
-            
+
             <div class="relative">
                 <!-- Search Input -->
                 <div class="mb-8">
@@ -89,11 +89,11 @@
                         <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
                             <i class="fas fa-search text-gray-400"></i>
                         </div>
-                        <input 
+                        <input
                             x-model="searchTerm"
                             @input.debounce.500ms="fetchModels()"
-                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none" 
-                            type="search" 
+                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50 focus:outline-none"
+                            type="search"
                             placeholder="Search models by name, tag, or description...">
                         <span class="absolute right-4 top-4" x-show="loading">
                             <svg class="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -103,7 +103,7 @@
                         </span>
                     </div>
                 </div>
-                
+
                 <!-- Filter by Type -->
                 <div class="mb-8">
                     <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
@@ -153,7 +153,7 @@
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Filter by Tags -->
                 <div x-show="allTags.length > 0">
                     <h3 class="text-lg font-semibold text-white mb-4 flex items-center">
@@ -210,12 +210,12 @@
                                 <tr class="hover:bg-[#38BDF8]/10 transition-colors duration-200">
                                     <!-- Icon -->
                                     <td class="px-6 py-4">
-                                        <img :src="model.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
+                                        <img :src="model.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'"
                                              class="w-12 h-12 object-cover rounded-lg border border-[#38BDF8]/30"
                                              loading="lazy"
                                              :alt="model.name">
                                     </td>
-                                    
+
                                     <!-- Model Name -->
                                     <td class="px-6 py-4">
                                         <div class="flex flex-col">
@@ -228,12 +228,12 @@
                                             </div>
                                         </div>
                                     </td>
-                                    
+
                                     <!-- Description -->
                                     <td class="px-6 py-4">
                                         <div class="text-sm text-[#94A3B8] max-w-xs truncate" x-text="model.description" :title="model.description"></div>
                                     </td>
-                                    
+
                                     <!-- Repository -->
                                     <td class="px-6 py-4">
                                         <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#38BDF8]/10 text-[#E5E7EB] border border-[#38BDF8]/30">
@@ -241,7 +241,7 @@
                                             <span x-text="model.gallery"></span>
                                         </span>
                                     </td>
-                                    
+
                                     <!-- License -->
                                     <td class="px-6 py-4">
                                         <span x-show="model.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#8B5CF6]/10 text-[#E5E7EB] border border-[#8B5CF6]/30">
@@ -250,7 +250,7 @@
                                         </span>
                                         <span x-show="!model.license" class="text-xs text-[#94A3B8]">-</span>
                                     </td>
-                                    
+
                                     <!-- Status -->
                                     <td class="px-6 py-4">
                                         <!-- Processing State -->
@@ -265,7 +265,7 @@
                                                 <div class="progress-bar-table" :style="'width:' + (jobProgress[model.jobID] || 0) + '%'"></div>
                                             </div>
                                         </div>
-                                        
+
                                         <!-- Installed State -->
                                         <div x-show="!model.processing && model.installed">
                                             <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">
@@ -273,7 +273,7 @@
                                                 Installed
                                             </span>
                                         </div>
-                                        
+
                                         <!-- Not Installed State -->
                                         <div x-show="!model.processing && !model.installed">
                                             <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#1E293B] text-[#94A3B8] border border-[#38BDF8]/30">
@@ -282,42 +282,42 @@
                                             </span>
                                         </div>
                                     </td>
-                                    
+
                                     <!-- Actions -->
                                     <td class="px-6 py-4">
                                         <div class="flex items-center justify-end gap-2">
                                             <!-- Info Button -->
-                                            <button @click="openModal(model)" 
+                                            <button @click="openModal(model)"
                                                     class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#1E293B] hover:bg-[#38BDF8]/20 text-xs font-medium text-[#E5E7EB] transition duration-200 border border-[#38BDF8]/30"
                                                     title="View details">
                                                 <i class="fas fa-info-circle"></i>
                                             </button>
-                                            
+
                                             <!-- Installed State Actions -->
                                             <template x-if="!model.processing && model.installed">
                                                 <div class="flex gap-2">
-                                                    <button @click="reinstallModel(model.id)" 
+                                                    <button @click="reinstallModel(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
                                                             title="Reinstall">
                                                         <i class="fa-solid fa-arrow-rotate-right"></i>
                                                     </button>
-                                                    <button @click="deleteModel(model.id)" 
+                                                    <button @click="deleteModel(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-medium text-white transition duration-200"
                                                             title="Delete">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
                                             </template>
-                                            
+
                                             <!-- Not Installed State Actions -->
                                             <template x-if="!model.processing && !model.installed">
                                                 <div class="flex gap-2">
-                                                    <button @click="getConfig(model.id)" 
+                                                    <button @click="getConfig(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#8B5CF6]/20 hover:bg-[#8B5CF6]/40 text-xs font-medium text-[#E5E7EB] transition duration-200 border border-[#8B5CF6]/30"
                                                             title="Get config">
                                                         <i class="fa-solid fa-file-code"></i>
                                                     </button>
-                                                    <button @click="installModel(model.id)" 
+                                                    <button @click="installModel(model.id)"
                                                             class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
                                                             title="Install">
                                                         <i class="fa-solid fa-download"></i>
@@ -334,7 +334,7 @@
             </div>
 
             <!-- Modal -->
-            <div x-show="selectedModel" 
+            <div x-show="selectedModel"
                  x-transition
                  @click.away="closeModal()"
                  class="fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-full max-h-full bg-gray-900/50"
@@ -344,7 +344,7 @@
                         <!-- Modal Header -->
                         <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
                             <h3 class="text-xl font-semibold text-gray-900 dark:text-white" x-text="selectedModel?.name"></h3>
-                            <button @click="closeModal()" 
+                            <button @click="closeModal()"
                                     class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white">
                                 <svg class="w-3 h-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                                     <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
@@ -355,8 +355,8 @@
                         <!-- Modal Body -->
                         <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
                             <div class="flex justify-center items-center">
-                                <img :src="selectedModel?.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'" 
-                                     class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3" 
+                                <img :src="selectedModel?.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'"
+                                     class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3"
                                      loading="lazy">
                             </div>
                             <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full markdown-content" x-html="renderMarkdown(selectedModel?.description)"></div>
@@ -408,7 +408,7 @@
                         </div>
                         <!-- Modal Footer -->
                         <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-                            <button @click="closeModal()" 
+                            <button @click="closeModal()"
                                     class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
                                 Close
                             </button>
@@ -421,7 +421,7 @@
         <!-- Pagination -->
         <div x-show="totalPages > 1" class="flex justify-center mt-12">
             <div class="flex items-center gap-4 bg-gray-800/60 rounded-2xl p-4 backdrop-blur-sm border border-gray-700/50">
-                <button @click="goToPage(currentPage - 1)" 
+                <button @click="goToPage(currentPage - 1)"
                     :disabled="currentPage <= 1"
                     :class="currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''"
                     class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-indigo-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
@@ -433,7 +433,7 @@
                     <span class="text-gray-400">of</span>
                     <span class="text-white font-bold text-lg mx-2" x-text="totalPages"></span>
                 </div>
-                <button @click="goToPage(currentPage + 1)" 
+                <button @click="goToPage(currentPage + 1)"
                     :disabled="currentPage >= totalPages"
                     :class="currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : ''"
                     class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-indigo-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
@@ -562,24 +562,24 @@ function modelsGallery() {
         selectedModel: null,
         jobProgress: {},
         notifications: [],
-        
+
         init() {
             this.fetchModels();
             // Poll for job progress every 600ms
             setInterval(() => this.pollJobs(), 600);
         },
-        
+
         addNotification(message, type = 'error') {
             const id = Date.now();
             this.notifications.push({ id, message, type });
             // Auto-dismiss after 10 seconds
             setTimeout(() => this.dismissNotification(id), 10000);
         },
-        
+
         dismissNotification(id) {
             this.notifications = this.notifications.filter(n => n.id !== id);
         },
-        
+
         async fetchModels() {
             this.loading = true;
             try {
@@ -590,7 +590,7 @@ function modelsGallery() {
                 });
                 const response = await fetch(`/api/models?${params}`);
                 const data = await response.json();
-                
+
                 this.models = data.models || [];
                 this.allTags = data.allTags || [];
                 this.repositories = data.repositories || [];
@@ -603,20 +603,20 @@ function modelsGallery() {
                 this.loading = false;
             }
         },
-        
+
         filterByTerm(term) {
             this.searchTerm = term;
             this.currentPage = 1;
             this.fetchModels();
         },
-        
+
         goToPage(page) {
             if (page >= 1 && page <= this.totalPages) {
                 this.currentPage = page;
                 this.fetchModels();
             }
         },
-        
+
         async installModel(modelId) {
             try {
                 const response = await fetch(`/api/models/install/${encodeURIComponent(modelId)}`, {
@@ -637,12 +637,12 @@ function modelsGallery() {
                 alert('Failed to start installation');
             }
         },
-        
+
         async deleteModel(modelId) {
             if (!confirm('Are you sure you wish to delete the model?')) {
                 return;
             }
-            
+
             try {
                 const response = await fetch(`/api/models/delete/${encodeURIComponent(modelId)}`, {
                     method: 'POST'
@@ -661,11 +661,11 @@ function modelsGallery() {
                 alert('Failed to start deletion');
             }
         },
-        
+
         async reinstallModel(modelId) {
             this.installModel(modelId);
         },
-        
+
         async getConfig(modelId) {
             try {
                 const response = await fetch(`/api/models/config/${encodeURIComponent(modelId)}`, {
@@ -678,24 +678,24 @@ function modelsGallery() {
                 alert('Failed to get configuration');
             }
         },
-        
+
         async pollJobs() {
             const processingModels = this.models.filter(m => m.processing && m.jobID);
-            
+
             for (const model of processingModels) {
                 try {
                     const response = await fetch(`/api/models/job/${model.jobID}`);
                     const jobData = await response.json();
-                    
+
                     // Handle queued status
                     if (jobData.queued) {
                         this.jobProgress[model.jobID] = 0;
                         // Keep processing state but don't show error
                         continue;
                     }
-                    
+
                     this.jobProgress[model.jobID] = jobData.progress || 0;
-                    
+
                     if (jobData.completed) {
                         model.processing = false;
                         model.installed = !jobData.deletion;
@@ -706,7 +706,7 @@ function modelsGallery() {
                         // Refresh the models list to get updated state
                         this.fetchModels();
                     }
-                    
+
                     if (jobData.error) {
                         model.processing = false;
                         delete this.jobProgress[model.jobID];
@@ -719,7 +719,7 @@ function modelsGallery() {
                 }
             }
         },
-        
+
         renderMarkdown(text) {
             if (!text) return '';
             try {
@@ -733,11 +733,11 @@ function modelsGallery() {
                 return text;
             }
         },
-        
+
         openModal(model) {
             this.selectedModel = model;
         },
-        
+
         closeModal() {
             this.selectedModel = null;
         }
