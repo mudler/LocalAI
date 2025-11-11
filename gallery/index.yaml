@@ -23290,3 +23290,77 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "cosmos-reason1-7b"
+  urls:
+    - https://huggingface.co/unsloth/Cosmos-Reason1-7B-GGUF
+  description: |
+    ### **Cosmos-Reason1-7B**
+    **Model Type:** Multi-modal Vision-Language Model (VLM)
+    **Base Model:** [Qwen2.5-VL-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-VL-7B-Instruct)
+    **Developer:** NVIDIA
+    **License:** [NVIDIA Open Model License](https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license)
+    **Release Date:** May 17, 2025
+
+    ---
+
+    ### **Overview**
+    Cosmos-Reason1-7B is a 7-billion-parameter open vision-language model designed for **physical AI, robotics, and embodied reasoning**. It enables machines to understand and reason about the real world using physics, space, time, and common sense—just like humans.
+
+    Built on the Qwen2.5-VL-7B-Instruct architecture, this model excels at interpreting **video and image inputs alongside text prompts**, making it ideal for complex, real-world decision-making in robotics, autonomous vehicles, and AI agents.
+
+    ---
+
+    ### **Key Features**
+    - ✅ **Physical & Spatial Reasoning**: Understands dynamics of real-world environments using physics and temporal understanding.
+    - ✅ **Chain-of-Thought Reasoning**: Generates detailed, step-by-step logical responses to complex questions.
+    - ✅ **Multi-modal Input**: Accepts both **text and video/image** inputs (e.g., mp4 videos, JPG images).
+    - ✅ **Optimized for Robotics & AVs**: Trained on diverse datasets including RoboVQA, BridgeDataV2, AgiBot, and Autonomous Vehicle (AV) driving data.
+    - ✅ **Commercially Usable**: Fully licensed for commercial deployment with no restrictions on derivative models.
+
+    ---
+
+    ### **Architecture & Specs**
+    - **Vision Encoder**: Vision Transformer (ViT) – 675.76M parameters
+    - **Language Model**: Dense Transformer (LLM) – 7.07B parameters
+    - **Output Projection**: 545M parameters
+    - **Total Parameters**: ~7.7B
+    - **Training Compute**: 3.26 × 10²¹ FLOPS
+    - **Supported Hardware**: NVIDIA Hopper & Blackwell GPUs (optimized for vLLM, BF16 precision)
+
+    ---
+
+    ### **Use Cases**
+    - Robot planning and decision-making
+    - Autonomous vehicle behavior prediction
+    - Video analytics and root-cause analysis
+    - Intelligent data curation for physical AI systems
+
+    ---
+
+    ### **Getting Started**
+    ```python
+    from transformers import AutoProcessor
+    from vllm import LLM, SamplingParams
+
+    llm = LLM(model="nvidia/Cosmos-Reason1-7B")
+    processor = AutoProcessor.from_pretrained("nvidia/Cosmos-Reason1-7B")
+
+    # Example prompt (recommended format for best reasoning):
+    system_prompt = "Answer the question in the following format: </tool_call>\nyour reasoning\n</tool_call>\nc\n<answer>\nyour answer\n</answer>."
+    ```
+
+    > 🔗 **Paper**: [Cosmos-Reason1: Physical AI Common Sense and Embodied Reasoning](https://arxiv.org/abs/2503.15558)
+    > 📚 **Code & Docs**: [GitHub – nvidia-cosmos/cosmos-reason1](https://github.com/nvidia-cosmos/cosmos-reason1)
+    > 📦 **Model on Hugging Face**: [nvidia/Cosmos-Reason1-7B](https://huggingface.co/nvidia/Cosmos-Reason1-7B)
+
+    ---
+
+    **Note**: This is the **original, non-quantized** model. The GGUF version from `unsloth/Cosmos-Reason1-7B-GGUF` is a quantized variant by Unsloth and may have reduced accuracy. For best performance, use the base model above.
+  overrides:
+    parameters:
+      model: Cosmos-Reason1-7B-Q4_K_M.gguf
+  files:
+    - filename: Cosmos-Reason1-7B-Q4_K_M.gguf
+      sha256: a255a989ee7c179dbc5c16bc6a09998e2fb706f35f5020d2b18278654e540f94
+      uri: huggingface://unsloth/Cosmos-Reason1-7B-GGUF/Cosmos-Reason1-7B-Q4_K_M.gguf
