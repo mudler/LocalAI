@@ -23290,3 +23290,20 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "aescoder-4b"
+  urls:
+    - https://huggingface.co/noctrex/AesCoder-4B-GGUF
+  description: |
+    **AesCoder-4B** is a 4-billion-parameter large language model developed by Microsoft Research Asia and Peking University, fine-tuned specifically for generating high-quality, visually appealing code. Built upon the Qwen3-4B-Instruct foundation, it excels in creating modern, responsive, and production-ready web designs, games, 3D visualizations, and UI components.
+
+    The model leverages a novel **agentic reward feedback system** and a large-scale instruction dataset (AesCode-358K) focused on code aesthetics, enabling it to balance both functionality and visual design. It outperforms even GPT-4o on code aesthetic benchmarks and achieves performance comparable to much larger models (480B–685B parameters), making it highly efficient and effective for creative coding tasks.
+
+    Ideal for developers and designers, AesCoder-4B generates complete, self-contained HTML, CSS, and JavaScript code with interactive elements, animations, and responsive layouts—ready to deploy or showcase. It supports advanced use cases such as data visualization, game development, and 3D web experiences, making it a powerful tool for modern web creation.
+
+    > 🔗 **Model Page**: [https://huggingface.co/SamuelBang/AesCoder-4B](https://huggingface.co/SamuelBang/AesCoder-4B)
+    > 📄 **Paper**: [Code Aesthetics with Agentic Reward Feedback (arXiv)](https://arxiv.org/abs/2510.23272)
+    > 🛠️ **Quickstart**: Use with `vLLM` or `transformers` for fast, production-ready inference.
+  overrides:
+    parameters:
+      model: noctrex/AesCoder-4B-GGUF
