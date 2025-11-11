@@ -200,6 +200,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 				"jobID":           jobID,
 				"isDeletion":      isDeletionOp,
 				"trustRemoteCode": trustRemoteCodeExists,
+				"additionalFiles": m.AdditionalFiles,
 			})
 		}
 
