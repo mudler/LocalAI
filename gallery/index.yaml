@@ -23290,3 +23290,50 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "paper-summarizer-qwen3-14b"
+  urls:
+    - https://huggingface.co/mradermacher/Paper-Summarizer-Qwen3-14B-GGUF
+  description: |
+    **Model Name**: Paper-Summarizer-Qwen3-14B
+    **Base Model**: Qwen3-14B
+    **Repository**: [inference-net/Paper-Summarizer-Qwen3-14B](https://huggingface.co/inference-net/Paper-Summarizer-Qwen3-14B)
+    **License**: Apache 2.0
+
+    ---
+
+    ### 📌 Description
+    A fine-tuned, open-source large language model specialized in generating **structured, high-quality summaries of scientific research papers** in standardized JSON format. Built as part of **Project AELLA**, this model is designed to extract key research elements—including methodology, results, claims, and limitations—from full-text papers with high accuracy.
+
+    ### 🔍 Key Features
+    - **Structured Output**: Produces consistent JSON summaries with fields like `executive_summary`, `methodological_details`, `key_results`, and `contradictions_and_limitations`.
+    - **High Accuracy**: Achieves **73.9% accuracy on QA benchmarks**, comparable to GPT-5 (74.6%).
+    - **Scalable & Efficient**: Trained on 110K curated research papers; capable of processing documents up to **131K tokens**.
+    - **Cost-Effective**: 98% lower cost than proprietary alternatives.
+    - **Open & Transparent**: Fully open weights and system prompt; suitable for research, education, and scalable scientific knowledge access.
+
+    ### 💼 Use Cases
+    - Automating paper review and literature synthesis
+    - Enabling fast, structured reading of long scientific documents
+    - Supporting AI-driven research assistants and knowledge graphs
+
+    ### 📦 How to Use
+    - Serve via `vLLM` or compatible inference engines.
+    - Use with the provided `prompt.txt` system prompt for optimal results.
+    - Ideal for integrating into research workflows, academic tools, or public science platforms.
+
+    ### 🌐 Related Projects
+    - [Project AELLA](https://github.com/context-labs/laion-data-explorer)
+    - [Laion Paper Visualization](https://laion.inference.net)
+    - [Alexandria Paper (arXiv)](https://arxiv.org/abs/2502.19413)
+
+    ---
+
+    > ✅ **Ideal for researchers, developers, and educators seeking accurate, automated, and structured summaries of scientific literature.**
+  overrides:
+    parameters:
+      model: Paper-Summarizer-Qwen3-14B.Q4_K_M.gguf
+  files:
+    - filename: Paper-Summarizer-Qwen3-14B.Q4_K_M.gguf
+      sha256: 298a56ad70df678a45de72613e43bf33ba609cae37943824c26d084b2bc583ac
+      uri: huggingface://mradermacher/Paper-Summarizer-Qwen3-14B-GGUF/Paper-Summarizer-Qwen3-14B.Q4_K_M.gguf
