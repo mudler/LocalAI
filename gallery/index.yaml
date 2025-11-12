@@ -23290,3 +23290,24 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "ling-1t-alibaba"
+  urls:
+    - https://huggingface.co/ling1000T/Ling-1T-alibaba-gguf
+  description: |
+    The **Ling-1T** model is a large language model developed by Alibaba, based on the **inclusionAI/Ling-1T** base model. It is a high-performing, open-source LLM designed for local deployment and competitive with top-tier commercial models. This specific repository contains a **quantized GGUF version** of the model, optimized for efficient inference on consumer hardware using tools like llama.cpp. While the quantized variant is suitable for local use in workflows involving LangChain, MCP, or similar frameworks, the original model’s full-precision version offers superior performance and fidelity.
+
+    Key details:
+    - **Base Model**: inclusionAI/Ling-1T (Alibaba)
+    - **Quantization**: GGUF format (e.g., Q4_K_M, Q5_K_M) — optimized for low-resource inference
+    - **Use Case**: Local inference, privacy-sensitive applications, cost-effective LLM deployment
+    - **Strengths**: Strong reasoning, multilingual capabilities, competitive with leading closed models
+
+    > Note: This is a quantized version; for the original, highest-fidelity model, refer to the base model at [inclusionAI/Ling-1T](https://huggingface.co/inclusionAI/Ling-1T).
+  overrides:
+    parameters:
+      model: Ling-1T-q3_k_m.gguf-00001-of-00010.gguf
+  files:
+    - filename: Ling-1T-q3_k_m.gguf-00001-of-00010.gguf
+      sha256: a11f146d427e7e5ce871d6ded7a81fdbbd3698e68d64aac09ac3bcb719c4acd4
+      uri: huggingface://ling1000T/Ling-1T-alibaba-gguf/Ling-1T-q3_k_m.gguf-00001-of-00010.gguf
