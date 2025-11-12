@@ -23114,3 +23114,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "weirddolphinpersonalitymechanism-mistral-24b"
+  urls:
+    - https://huggingface.co/mradermacher/WeirdDolphinPersonalityMechanism-Mistral-24B-GGUF
+  description: |
+    **Model Name:** WeirdDolphinPersonalityMechanism-Mistral-24B
+    **Base Architecture:** Mistral-24B
+    **Type:** Fine-tuned, Merged LLM (via Task Arithmetic)
+    **License:** Apache 2.0
+    **Language:** English
+
+    **Description:**
+    WeirdDolphinPersonalityMechanism-Mistral-24B is a highly specialized, personality-rich large language model created by merging four distinct 24B-scale models using MergeKit's Task Arithmetic method. The model combines the creative, expressive traits of *Dolphin-Mistral-24B-Venice-Edition*, the personality-driven style of *Dans-PersonalityEngine*, the surreal aesthetic of *WeirdCompound-v1.7*, and the experimental structure of *Mechanism_24B*. The final merge weights favor the Dolphin + Personality blend (80%) with a strong infusion of the Weird + Mechanism hybrid (20%).
+
+    This model excels in creative writing, roleplay, and imaginative dialogue, delivering a unique, eccentric, and highly engaging conversational style. It is ideal for users seeking a distinctive, expressive AI companion with a “weird but intelligent” personality.
+
+    **Use Case:** Creative storytelling, AI roleplay, experimental chatbots, artistic writing assistance.
+    **Base Models:**
+    - Dolphin-Mistral-24B-Venice-Edition
+    - Dans-PersonalityEngine-V1.3.0-24b
+    - WeirdCompound-v1.7-24b
+    - Mechanism_24B_V.1
+
+    **Note:** The GGUF version (e.g., `mradermacher/WeirdDolphinPersonalityMechanism-Mistral-24B-GGUF`) is a quantized variant. This description reflects the original, full-precision base model.
+  overrides:
+    parameters:
+      model: WeirdDolphinPersonalityMechanism-Mistral-24B.Q4_K_S.gguf
+  files:
+    - filename: WeirdDolphinPersonalityMechanism-Mistral-24B.Q4_K_S.gguf
+      sha256: 5cb9d34a1c4f2a8253f7baf4646238690523216a6e865d2b0e37e66f685ee666
+      uri: huggingface://mradermacher/WeirdDolphinPersonalityMechanism-Mistral-24B-GGUF/WeirdDolphinPersonalityMechanism-Mistral-24B.Q4_K_S.gguf
