@@ -23290,3 +23290,22 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llava
+  name: "nanonets-ocr2-3b-aio"
+  urls:
+    - https://huggingface.co/prithivMLmods/Nanonets-OCR2-3B-AIO-GGUF
+  description: |
+    The **Nanonets-OCR2-3B-AIO-GGUF** is a quantized version of the **Nanonets-OCR2-3B** model, a state-of-the-art multimodal large language model designed for advanced document understanding and image-to-text conversion. Built on the **Qwen2.5-VL-3B** architecture, it excels at extracting structured content from images and scanned documents, including text, tables (in Markdown/HTML), LaTeX equations, flowcharts (as Mermaid code), signatures, checkboxes, and handwritten elements — all across multiple languages.
+
+    This model supports **visual question answering (VQA)** and generates semantic, context-rich outputs ideal for downstream AI workflows in legal, medical, financial, and technical domains. With a massive **125K-token context window** and ~3 billion parameters, it enables highly accurate digitization of complex, unstructured documents.
+
+    The GGUF format allows efficient local inference via tools like `llama.cpp`. Quantized versions (e.g., Q4_K_M, IQ4_XS) make it accessible on consumer hardware without sacrificing too much accuracy.
+
+    > 🔍 **Note**: This repository contains a quantized version of the original model. The original, full-precision model is available at **[nanonets/Nanonets-OCR2-3B](https://huggingface.co/nanonets/Nanonets-OCR2-3B)** — recommended for training or high-fidelity inference.
+  overrides:
+    parameters:
+      model: Nanonets-OCR2-3B.Q4_K_M.gguf
+  files:
+    - filename: Nanonets-OCR2-3B.Q4_K_M.gguf
+      sha256: d4f5bae51febb85cf39e90da47aae519a48a7c8ed233a8d0a81565ccaaad52b0
+      uri: huggingface://prithivMLmods/Nanonets-OCR2-3B-AIO-GGUF/Nanonets-OCR2-3B.Q4_K_M.gguf
