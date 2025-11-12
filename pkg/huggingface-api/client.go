@@ -51,6 +51,7 @@ type ModelFile struct {
 	Size     int64
 	SHA256   string
 	IsReadme bool
+	URL      string
 }
 
 // ModelDetails represents detailed information about a model
@@ -215,6 +216,7 @@ func (c *Client) GetModelDetails(repoID string) (*ModelDetails, error) {
 	}
 
 	// Process each file
+	baseURL := strings.TrimSuffix(c.baseURL, "/api/models")
 	for _, file := range files {
 		fileName := filepath.Base(file.Path)
 		isReadme := strings.Contains(strings.ToLower(fileName), "readme")
@@ -227,11 +229,16 @@ func (c *Client) GetModelDetails(repoID string) (*ModelDetails, error) {
 			sha256 = file.Oid
 		}
 
+		// Construct the full URL for the file
+		// Use /resolve/main/ for downloading files (handles LFS properly)
+		fileURL := fmt.Sprintf("%s/%s/resolve/main/%s", baseURL, repoID, file.Path)
+
 		modelFile := ModelFile{
 			Path:     file.Path,
 			Size:     file.Size,
 			SHA256:   sha256,
 			IsReadme: isReadme,
+			URL:      fileURL,
 		}
 
 		details.Files = append(details.Files, modelFile)

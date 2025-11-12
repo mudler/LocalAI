@@ -1,4 +1,4 @@
-package hfapi_test
+package importers_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHfapi(t *testing.T) {
+func TestImporters(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HuggingFace API Suite")
+	RunSpecs(t, "Importers test suite")
 }

@@ -3,9 +3,10 @@
 {{template "views/partials/head" .}}
 
 <body class="bg-[#101827] text-[#E5E7EB]">
-<div class="flex flex-col min-h-screen">
+<div class="flex flex-col min-h-screen" x-data="importModel()" x-init="init()">
 
     {{template "views/partials/navbar" .}}
+    {{template "views/partials/inprogress" .}}
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Header -->
@@ -24,19 +25,44 @@
                                 {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
                             </span>
                         </h1>
-                        <p class="text-lg text-gray-300 font-light">Configure your model settings using YAML</p>
+                        <p class="text-lg text-gray-300 font-light" x-text="isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'"></p>
                     </div>
                     <div class="flex gap-3">
-                        <button id="validateBtn" class="group relative inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25">
-                            <i class="fas fa-check mr-2 group-hover:animate-pulse"></i>
-                            <span>Validate</span>
-                            <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </button>
-                        <button id="saveBtn" class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
-                            <i class="fas fa-save mr-2 group-hover:animate-pulse"></i>
-                            <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
-                            <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        </button>
+                        <!-- Mode Toggle (only show when not in edit mode) -->
+                        <template x-if="!isEditMode">
+                            <button @click="toggleMode()" 
+                                    class="group relative inline-flex items-center bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl">
+                                <i class="fas group-hover:animate-pulse" :class="isAdvancedMode ? 'fa-magic mr-2' : 'fa-code mr-2'"></i>
+                                <span x-text="isAdvancedMode ? 'Simple Mode' : 'Advanced Mode'"></span>
+                                <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            </button>
+                        </template>
+                        <!-- Advanced Mode Buttons -->
+                        <template x-if="isAdvancedMode">
+                            <div class="flex gap-3">
+                                <button id="validateBtn" class="group relative inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25">
+                                    <i class="fas fa-check mr-2 group-hover:animate-pulse"></i>
+                                    <span>Validate</span>
+                                    <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </button>
+                                <button id="saveBtn" class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
+                                    <i class="fas fa-save mr-2 group-hover:animate-pulse"></i>
+                                    <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
+                                    <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                </button>
+                            </div>
+                        </template>
+                        <!-- Simple Mode Button -->
+                        <template x-if="!isAdvancedMode && !isEditMode">
+                            <button @click="submitImport()" 
+                                    :disabled="isSubmitting || !importUri.trim()"
+                                    :class="(isSubmitting || !importUri.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
+                                    class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
+                                <i class="fas group-hover:animate-pulse" :class="isSubmitting ? 'fa-spinner fa-spin mr-2' : 'fa-upload mr-2'"></i>
+                                <span x-text="isSubmitting ? 'Importing...' : 'Import Model'"></span>
+                                <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            </button>
+                        </template>
                     </div>
                 </div>
             </div>
@@ -45,8 +71,187 @@
         <!-- Alert Messages -->
         <div id="alertContainer" class="mb-6"></div>
 
-        <!-- YAML Editor Panel -->
-        <div class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm h-[calc(100vh-250px)]">
+        <!-- Simple Import Mode -->
+        <div x-show="!isAdvancedMode && !isEditMode" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm p-8">
+            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-green-500/5 to-emerald-500/5"></div>
+            
+            <div class="relative space-y-6">
+                <h2 class="text-2xl font-semibold text-white flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <i class="fas fa-link text-green-400"></i>
+                    </div>
+                    Import from URI
+                </h2>
+
+                <!-- URI Input -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                        <i class="fas fa-link mr-2"></i>Model URI
+                    </label>
+                    <input 
+                        x-model="importUri"
+                        type="text" 
+                        placeholder="https://example.com/model.gguf or file:///path/to/model.gguf"
+                        class="w-full px-4 py-3 bg-gray-900/90 border border-gray-700/70 rounded-xl text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                        :disabled="isSubmitting">
+                    <p class="mt-2 text-xs text-gray-400">
+                        Enter the URI or path to the model file you want to import
+                    </p>
+                </div>
+
+                <!-- Preferences Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="block text-sm font-medium text-gray-300">
+                            <i class="fas fa-cog mr-2"></i>Preferences (Optional)
+                        </label>
+                    </div>
+                    
+                    <!-- Common Preferences -->
+                    <div class="space-y-4 mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700/50">
+                        <h3 class="text-sm font-semibold text-gray-300 mb-3 flex items-center">
+                            <i class="fas fa-star mr-2 text-yellow-400"></i>Common Preferences
+                        </h3>
+                        
+                        <!-- Backend Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-server mr-2"></i>Backend
+                            </label>
+                            <select 
+                                x-model="commonPreferences.backend"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                                <option value="">Auto-detect (based on URI)</option>
+                                <option value="llama-cpp">llama-cpp</option>
+                                <option value="mlx">mlx</option>
+                                <option value="mlx-vlm">mlx-vlm</option>
+                            </select>
+                            <p class="mt-1 text-xs text-gray-400">
+                                Force a specific backend. Leave empty to auto-detect from URI.
+                            </p>
+                        </div>
+                        
+                        <!-- Model Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-tag mr-2"></i>Model Name
+                            </label>
+                            <input 
+                                x-model="commonPreferences.name"
+                                type="text" 
+                                placeholder="Leave empty to use filename"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Custom name for the model. If empty, the filename will be used.
+                            </p>
+                        </div>
+                        
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-align-left mr-2"></i>Description
+                            </label>
+                            <textarea 
+                                x-model="commonPreferences.description"
+                                rows="3"
+                                placeholder="Leave empty to use default description"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all resize-none"
+                                :disabled="isSubmitting"></textarea>
+                            <p class="mt-1 text-xs text-gray-400">
+                                Custom description for the model. If empty, a default description will be generated.
+                            </p>
+                        </div>
+                        
+                        <!-- Quantizations -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-layer-group mr-2"></i>Quantizations
+                            </label>
+                            <input 
+                                x-model="commonPreferences.quantizations"
+                                type="text" 
+                                placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Preferred quantizations (comma-separated). Examples: q4_k_m, q4_k_s, q3_k_m, q2_k. Leave empty to use default (q4_k_m).
+                            </p>
+                        </div>
+                        
+                        <!-- MMProj Quantizations -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-image mr-2"></i>MMProj Quantizations
+                            </label>
+                            <input 
+                                x-model="commonPreferences.mmproj_quantizations"
+                                type="text" 
+                                placeholder="fp16,fp32 (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Preferred MMProj quantizations (comma-separated). Examples: fp16, fp32. Leave empty to use default (fp16).
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Preferences -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-medium text-gray-300">
+                                <i class="fas fa-sliders-h mr-2"></i>Custom Preferences
+                            </label>
+                            <button @click="addPreference()" 
+                                    :disabled="isSubmitting"
+                                    class="text-sm px-3 py-1.5 rounded-lg bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 transition-all">
+                                <i class="fas fa-plus mr-1"></i>Add Custom
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-3" x-show="preferences.length > 0">
+                            <template x-for="(pref, index) in preferences" :key="index">
+                                <div class="flex gap-3 items-center">
+                                    <input 
+                                        x-model="pref.key"
+                                        type="text" 
+                                        placeholder="Key"
+                                        class="flex-1 px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                        :disabled="isSubmitting">
+                                    <span class="text-gray-400">:</span>
+                                    <input 
+                                        x-model="pref.value"
+                                        type="text" 
+                                        placeholder="Value"
+                                        class="flex-1 px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                        :disabled="isSubmitting">
+                                    <button @click="removePreference(index)" 
+                                            :disabled="isSubmitting"
+                                            class="px-3 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition-all">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-400">
+                            Add custom key-value pairs for advanced configuration
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced YAML Editor Panel -->
+        <div x-show="isAdvancedMode || isEditMode" 
+             x-transition:enter="transition ease-out duration-300"
+             x-transition:enter-start="opacity-0 transform translate-y-4"
+             x-transition:enter-end="opacity-100 transform translate-y-0"
+             class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm h-[calc(100vh-250px)]">
             <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-fuchsia-500/5 to-purple-500/5"></div>
             
             <div class="relative sticky top-0 bg-gray-800/95 border-b border-gray-700/50 p-6 flex items-center justify-between z-10 backdrop-blur-sm">
@@ -144,22 +349,22 @@
 }
 
 /* Enhanced YAML Syntax Highlighting */
-.cm-keyword { color: #8b5cf6 !important; font-weight: 600 !important; } /* Purple for YAML keys */
-.cm-string { color: #10b981 !important; } /* Emerald for strings */
-.cm-number { color: #f59e0b !important; } /* Amber for numbers */
-.cm-comment { color: #6b7280 !important; font-style: italic !important; } /* Gray for comments */
-.cm-property { color: #ec4899 !important; } /* Pink for properties */
-.cm-operator { color: #ef4444 !important; } /* Red for operators */
-.cm-variable { color: #06b6d4 !important; } /* Cyan for variables */
-.cm-tag { color: #8b5cf6 !important; font-weight: 600 !important; } /* Purple for tags */
-.cm-attribute { color: #f59e0b !important; } /* Amber for attributes */
-.cm-def { color: #ec4899 !important; font-weight: 600 !important; } /* Pink for definitions */
-.cm-bracket { color: #d1d5db !important; } /* Light gray for brackets */
-.cm-punctuation { color: #d1d5db !important; } /* Light gray for punctuation */
-.cm-quote { color: #10b981 !important; } /* Emerald for quotes */
-.cm-meta { color: #6b7280 !important; } /* Gray for meta */
-.cm-builtin { color: #f472b6 !important; } /* Pink for builtins */
-.cm-atom { color: #f59e0b !important; } /* Amber for atoms like true/false/null */
+.cm-keyword { color: #8b5cf6 !important; font-weight: 600 !important; }
+.cm-string { color: #10b981 !important; }
+.cm-number { color: #f59e0b !important; }
+.cm-comment { color: #6b7280 !important; font-style: italic !important; }
+.cm-property { color: #ec4899 !important; }
+.cm-operator { color: #ef4444 !important; }
+.cm-variable { color: #06b6d4 !important; }
+.cm-tag { color: #8b5cf6 !important; font-weight: 600 !important; }
+.cm-attribute { color: #f59e0b !important; }
+.cm-def { color: #ec4899 !important; font-weight: 600 !important; }
+.cm-bracket { color: #d1d5db !important; }
+.cm-punctuation { color: #d1d5db !important; }
+.cm-quote { color: #10b981 !important; }
+.cm-meta { color: #6b7280 !important; }
+.cm-builtin { color: #f472b6 !important; }
+.cm-atom { color: #f59e0b !important; }
 
 /* Enhanced scrollbar styling */
 .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
@@ -242,22 +447,221 @@
 </style>
 
 <script>
-class ModelEditor {
-    constructor() {
-        this.modelName = '{{.ModelName}}';
-        this.isEditMode = !!this.modelName;
-        this.yamlEditor = null;
+function importModel() {
+    return {
+        isAdvancedMode: false,
+        isEditMode: {{if .ModelName}}true{{else}}false{{end}},
+        importUri: '',
+        preferences: [],
+        commonPreferences: {
+            backend: '',
+            name: '',
+            description: '',
+            quantizations: '',
+            mmproj_quantizations: ''
+        },
+        isSubmitting: false,
+        currentJobId: null,
+        jobPollInterval: null,
+        yamlEditor: null,
+        modelEditor: null,
         
-        this.init();
-    }
-
-    init() {
-        this.initializeCodeMirror();
-        this.bindEvents();
-    }
-
-    getDefaultConfig() {
-        return `# Model Configuration
+        init() {
+            // If in edit mode, always show advanced mode
+            if (this.isEditMode) {
+                this.isAdvancedMode = true;
+            }
+            
+            // Initialize YAML editor if in advanced mode
+            if (this.isAdvancedMode || this.isEditMode) {
+                this.$nextTick(() => {
+                    this.initializeCodeMirror();
+                    this.bindAdvancedEvents();
+                });
+            }
+        },
+        
+        toggleMode() {
+            this.isAdvancedMode = !this.isAdvancedMode;
+            if (this.isAdvancedMode) {
+                this.$nextTick(() => {
+                    this.initializeCodeMirror();
+                    this.bindAdvancedEvents();
+                });
+            }
+        },
+        
+        addPreference() {
+            this.preferences.push({ key: '', value: '' });
+        },
+        
+        removePreference(index) {
+            this.preferences.splice(index, 1);
+        },
+        
+        async submitImport() {
+            if (!this.importUri.trim()) {
+                this.showAlert('error', 'Please enter a model URI');
+                return;
+            }
+            
+            this.isSubmitting = true;
+            
+            try {
+                // Build preferences object starting with common preferences
+                const prefsObj = {};
+                
+                // Add common preferences (only non-empty values)
+                if (this.commonPreferences.backend && this.commonPreferences.backend.trim()) {
+                    prefsObj.backend = this.commonPreferences.backend.trim();
+                }
+                if (this.commonPreferences.name && this.commonPreferences.name.trim()) {
+                    prefsObj.name = this.commonPreferences.name.trim();
+                }
+                if (this.commonPreferences.description && this.commonPreferences.description.trim()) {
+                    prefsObj.description = this.commonPreferences.description.trim();
+                }
+                if (this.commonPreferences.quantizations && this.commonPreferences.quantizations.trim()) {
+                    prefsObj.quantizations = this.commonPreferences.quantizations.trim();
+                }
+                if (this.commonPreferences.mmproj_quantizations && this.commonPreferences.mmproj_quantizations.trim()) {
+                    prefsObj.mmproj_quantizations = this.commonPreferences.mmproj_quantizations.trim();
+                }
+                
+                // Add custom preferences (can override common ones)
+                this.preferences.forEach(pref => {
+                    if (pref.key && pref.value) {
+                        prefsObj[pref.key.trim()] = pref.value.trim();
+                    }
+                });
+                
+                const requestBody = {
+                    uri: this.importUri.trim(),
+                    preferences: Object.keys(prefsObj).length > 0 ? prefsObj : null
+                };
+                
+                const response = await fetch('/models/import-uri', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({ error: 'Failed to start import' }));
+                    throw new Error(error.error || 'Failed to start import');
+                }
+                
+                const result = await response.json();
+                
+                if (result.uuid) {
+                    this.currentJobId = result.uuid;
+                    this.showAlert('success', 'Import started! Tracking progress...');
+                    this.startJobPolling();
+                } else if (result.ID) {
+                    // Fallback for different response format
+                    this.currentJobId = result.ID;
+                    this.showAlert('success', 'Import started! Tracking progress...');
+                    this.startJobPolling();
+                } else {
+                    throw new Error('No job ID returned from server');
+                }
+            } catch (error) {
+                this.showAlert('error', 'Failed to start import: ' + error.message);
+                this.isSubmitting = false;
+            }
+        },
+        
+        startJobPolling() {
+            if (this.jobPollInterval) {
+                clearInterval(this.jobPollInterval);
+            }
+            
+            this.jobPollInterval = setInterval(async () => {
+                if (!this.currentJobId) {
+                    clearInterval(this.jobPollInterval);
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/models/jobs/${this.currentJobId}`);
+                    if (!response.ok) {
+                        return;
+                    }
+                    
+                    const jobData = await response.json();
+                    
+                    if (jobData.completed) {
+                        clearInterval(this.jobPollInterval);
+                        this.isSubmitting = false;
+                        this.currentJobId = null;
+                        this.showAlert('success', 'Model imported successfully! Refreshing page...');
+                        
+                        // Refresh the page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else if (jobData.error) {
+                        clearInterval(this.jobPollInterval);
+                        this.isSubmitting = false;
+                        this.currentJobId = null;
+                        this.showAlert('error', 'Import failed: ' + jobData.error);
+                    }
+                } catch (error) {
+                    console.error('Error polling job status:', error);
+                }
+            }, 1000);
+        },
+        
+        initializeCodeMirror() {
+            if (this.yamlEditor) {
+                return; // Already initialized
+            }
+            
+            const initialValue = {{if .ConfigYAML}}`{{.ConfigYAML}}`{{else}}this.getDefaultConfig(){{end}};
+            
+            this.yamlEditor = CodeMirror(document.getElementById('yamlCodeMirror'), {
+                mode: 'yaml',
+                theme: 'default',
+                lineNumbers: true,
+                autoRefresh: true,
+                indentUnit: 2,
+                tabSize: 2,
+                indentWithTabs: false,
+                lineWrapping: true,
+                styleActiveLine: true,
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                value: initialValue
+            });
+        },
+        
+        bindAdvancedEvents() {
+            if (!this.yamlEditor) return;
+            
+            // Button events
+            const saveBtn = document.getElementById('saveBtn');
+            const validateBtn = document.getElementById('validateBtn');
+            const formatYamlBtn = document.getElementById('formatYamlBtn');
+            const copyYamlBtn = document.getElementById('copyYamlBtn');
+            
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => this.saveConfig());
+            }
+            if (validateBtn) {
+                validateBtn.addEventListener('click', () => this.validateConfig());
+            }
+            if (formatYamlBtn) {
+                formatYamlBtn.addEventListener('click', () => this.formatYaml());
+            }
+            if (copyYamlBtn) {
+                copyYamlBtn.addEventListener('click', () => this.copyYaml());
+            }
+        },
+        
+        getDefaultConfig() {
+            return `# Model Configuration
 name: my-model
 backend: llama-cpp
 parameters:
@@ -286,186 +690,150 @@ parameters:
 #   - chat
 #   - completion
 `;
-    }
-
-    initializeCodeMirror() {
-        const initialValue = {{if .ConfigYAML}}`{{.ConfigYAML}}`{{else}}this.getDefaultConfig(){{end}};
+        },
         
-        this.yamlEditor = CodeMirror(document.getElementById('yamlCodeMirror'), {
-            mode: 'yaml',
-            theme: 'default',
-            lineNumbers: true,
-            autoRefresh: true,
-            indentUnit: 2,
-            tabSize: 2,
-            indentWithTabs: false,
-            lineWrapping: true,
-            styleActiveLine: true,
-            matchBrackets: true,
-            autoCloseBrackets: true,
-            value: initialValue
-        });
-    }
-
-    bindEvents() {
-        // Button events
-        document.getElementById('saveBtn').addEventListener('click', () => this.saveConfig());
-        document.getElementById('validateBtn').addEventListener('click', () => this.validateConfig());
-        document.getElementById('formatYamlBtn').addEventListener('click', () => this.formatYaml());
-        document.getElementById('copyYamlBtn').addEventListener('click', () => this.copyYaml());
-    }
-
-    validateConfig() {
-        try {
-            const yamlContent = this.yamlEditor.getValue();
-            const config = jsyaml.load(yamlContent);
-            
-            if (!config || typeof config !== 'object') {
-                throw new Error('Invalid YAML structure');
-            }
-            
-            if (!config.name) {
-                throw new Error('Model name is required');
-            }
-            if (!config.backend) {
-                throw new Error('Backend is required');
-            }
-            if (!config.parameters || !config.parameters.model) {
-                throw new Error('Model file/path is required in parameters.model');
-            }
-            
-            this.showAlert('success', 'Configuration is valid!');
-        } catch (error) {
-            this.showAlert('error', 'Validation failed: ' + error.message);
-        }
-    }
-
-    async saveConfig() {
-        try {
-            // Validate before saving
-            const yamlContent = this.yamlEditor.getValue();
-            const config = jsyaml.load(yamlContent);
-            
-            if (!config || typeof config !== 'object') {
-                throw new Error('Invalid YAML structure');
-            }
-            
-            if (!config.name) {
-                throw new Error('Model name is required');
-            }
-            if (!config.backend) {
-                throw new Error('Backend is required');
-            }
-            if (!config.parameters || !config.parameters.model) {
-                throw new Error('Model file/path is required in parameters.model');
-            }
-            
-            const endpoint = this.isEditMode ? `/models/edit/${this.modelName}` : '/models/import';
-            
-            const response = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-yaml',
-                },
-                body: yamlContent
-            });
-
-            const result = await response.json();
-            
-            if (result.success) {
-                this.showAlert('success', result.message || (this.isEditMode ? 'Model updated successfully!' : 'Model created successfully!'));
-                if (!this.isEditMode && config.name) {
-                    setTimeout(() => {
-                        window.location.href = `/models/edit/${config.name}`;
-                    }, 2000);
+        validateConfig() {
+            try {
+                const yamlContent = this.yamlEditor.getValue();
+                const config = jsyaml.load(yamlContent);
+                
+                if (!config || typeof config !== 'object') {
+                    throw new Error('Invalid YAML structure');
                 }
-            } else {
-                this.showAlert('error', result.error || 'Failed to save configuration');
+                
+                if (!config.name) {
+                    throw new Error('Model name is required');
+                }
+                if (!config.backend) {
+                    throw new Error('Backend is required');
+                }
+                if (!config.parameters || !config.parameters.model) {
+                    throw new Error('Model file/path is required in parameters.model');
+                }
+                
+                this.showAlert('success', 'Configuration is valid!');
+            } catch (error) {
+                this.showAlert('error', 'Validation failed: ' + error.message);
             }
-        } catch (error) {
-            this.showAlert('error', 'Failed to save: ' + error.message);
-        }
-    }
+        },
+        
+        async saveConfig() {
+            try {
+                // Validate before saving
+                const yamlContent = this.yamlEditor.getValue();
+                const config = jsyaml.load(yamlContent);
+                
+                if (!config || typeof config !== 'object') {
+                    throw new Error('Invalid YAML structure');
+                }
+                
+                if (!config.name) {
+                    throw new Error('Model name is required');
+                }
+                if (!config.backend) {
+                    throw new Error('Backend is required');
+                }
+                if (!config.parameters || !config.parameters.model) {
+                    throw new Error('Model file/path is required in parameters.model');
+                }
+                
+                const endpoint = this.isEditMode ? `/models/edit/{{.ModelName}}` : '/models/import';
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-yaml',
+                    },
+                    body: yamlContent
+                });
 
-    formatYaml() {
-        try {
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.showAlert('success', result.message || (this.isEditMode ? 'Model updated successfully!' : 'Model created successfully!'));
+                    if (!this.isEditMode && config.name) {
+                        setTimeout(() => {
+                            window.location.href = `/models/edit/${config.name}`;
+                        }, 2000);
+                    }
+                } else {
+                    this.showAlert('error', result.error || 'Failed to save configuration');
+                }
+            } catch (error) {
+                this.showAlert('error', 'Failed to save: ' + error.message);
+            }
+        },
+        
+        formatYaml() {
+            try {
+                const yamlContent = this.yamlEditor.getValue();
+                const parsed = jsyaml.load(yamlContent);
+                const formatted = jsyaml.dump(parsed, {
+                    indent: 2,
+                    lineWidth: 120,
+                    noRefs: true,
+                    sortKeys: false
+                });
+                this.yamlEditor.setValue(formatted);
+                this.showAlert('success', 'YAML formatted successfully');
+            } catch (error) {
+                this.showAlert('error', 'Failed to format YAML: ' + error.message);
+            }
+        },
+        
+        copyYaml() {
             const yamlContent = this.yamlEditor.getValue();
-            const parsed = jsyaml.load(yamlContent);
-            const formatted = jsyaml.dump(parsed, {
-                indent: 2,
-                lineWidth: 120,
-                noRefs: true,
-                sortKeys: false
+            navigator.clipboard.writeText(yamlContent).then(() => {
+                this.showAlert('success', 'YAML copied to clipboard');
+            }).catch(err => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = yamlContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                this.showAlert('success', 'YAML copied to clipboard');
             });
-            this.yamlEditor.setValue(formatted);
-            this.showAlert('success', 'YAML formatted successfully');
-        } catch (error) {
-            this.showAlert('error', 'Failed to format YAML: ' + error.message);
-        }
-    }
-
-    copyYaml() {
-        const yamlContent = this.yamlEditor.getValue();
-        navigator.clipboard.writeText(yamlContent).then(() => {
-            this.showAlert('success', 'YAML copied to clipboard');
-        }).catch(err => {
-            // Fallback for older browsers
-            const textArea = document.createElement('textarea');
-            textArea.value = yamlContent;
-            document.body.appendChild(textArea);
-            textArea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textArea);
-            this.showAlert('success', 'YAML copied to clipboard');
-        });
-    }
-
-    showAlert(type, message) {
-        const container = document.getElementById('alertContainer');
-        const alertClasses = {
-            success: 'alert alert-success',
-            error: 'alert alert-error',
-            warning: 'alert alert-warning',
-            info: 'alert alert-info'
-        };
+        },
         
-        const alertIcons = {
-            success: 'fas fa-check-circle',
-            error: 'fas fa-exclamation-triangle',
-            warning: 'fas fa-exclamation-circle',
-            info: 'fas fa-info-circle'
-        };
-        
-        container.innerHTML = `
-            <div class="${alertClasses[type]}">
-                <div class="flex items-center">
-                    <i class="${alertIcons[type]} mr-3 text-lg"></i>
-                    <span class="flex-1">${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-current hover:opacity-70 transition-opacity">
-                        <i class="fas fa-times"></i>
-                    </button>
+        showAlert(type, message) {
+            const container = document.getElementById('alertContainer');
+            const alertClasses = {
+                success: 'alert alert-success',
+                error: 'alert alert-error',
+                warning: 'alert alert-warning',
+                info: 'alert alert-info'
+            };
+            
+            const alertIcons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-triangle',
+                warning: 'fas fa-exclamation-circle',
+                info: 'fas fa-info-circle'
+            };
+            
+            container.innerHTML = `
+                <div class="${alertClasses[type]}">
+                    <div class="flex items-center">
+                        <i class="${alertIcons[type]} mr-3 text-lg"></i>
+                        <span class="flex-1">${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-current hover:opacity-70 transition-opacity">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
-        `;
-        
-        if (type === 'success' || type === 'info') {
-            setTimeout(() => {
-                const alert = container.querySelector('div');
-                if (alert) alert.remove();
-            }, 5000);
+            `;
+            
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    const alert = container.querySelector('div');
+                    if (alert) alert.remove();
+                }, 5000);
+            }
         }
-    }
-
-    clearAlert() {
-        document.getElementById('alertContainer').innerHTML = '';
     }
 }
-
-// Initialize the editor when the page loads
-let modelEditor;
-document.addEventListener('DOMContentLoaded', () => {
-    modelEditor = new ModelEditor();
-});
 </script>
 
 </body>

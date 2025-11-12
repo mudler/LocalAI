@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"time"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
@@ -156,4 +157,9 @@ type Detection struct {
 	Width     float32 `json:"width"`
 	Height    float32 `json:"height"`
 	ClassName string  `json:"class_name"`
+}
+
+type ImportModelRequest struct {
+	URI         string          `json:"uri"`
+	Preferences json.RawMessage `json:"preferences,omitempty"`
 }

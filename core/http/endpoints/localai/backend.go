@@ -76,7 +76,7 @@ func (mgs *BackendEndpointService) ApplyBackendEndpoint() func(c *fiber.Ctx) err
 		if err != nil {
 			return err
 		}
-		mgs.backendApplier.BackendGalleryChannel <- services.GalleryOp[gallery.GalleryBackend]{
+		mgs.backendApplier.BackendGalleryChannel <- services.GalleryOp[gallery.GalleryBackend, any]{
 			ID:                 uuid.String(),
 			GalleryElementName: input.ID,
 			Galleries:          mgs.galleries,
@@ -95,7 +95,7 @@ func (mgs *BackendEndpointService) DeleteBackendEndpoint() func(c *fiber.Ctx) er
 	return func(c *fiber.Ctx) error {
 		backendName := c.Params("name")
 
-		mgs.backendApplier.BackendGalleryChannel <- services.GalleryOp[gallery.GalleryBackend]{
+		mgs.backendApplier.BackendGalleryChannel <- services.GalleryOp[gallery.GalleryBackend, any]{
 			Delete:             true,
 			GalleryElementName: backendName,
 			Galleries:          mgs.galleries,

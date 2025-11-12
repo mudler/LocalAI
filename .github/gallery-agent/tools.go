@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/go-skynet/LocalAI/.github/gallery-agent/hfapi"
-	"github.com/sashabaranov/go-openai"
-	"github.com/tmc/langchaingo/jsonschema"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	openai "github.com/sashabaranov/go-openai"
+	jsonschema "github.com/sashabaranov/go-openai/jsonschema"
 )
 
 // Get repository README from HF
@@ -13,7 +13,7 @@ type HFReadmeTool struct {
 	client *hfapi.Client
 }
 
-func (s *HFReadmeTool) Run(args map[string]any) (string, error) {
+func (s *HFReadmeTool) Execute(args map[string]any) (string, error) {
 	q, ok := args["repository"].(string)
 	if !ok {
 		return "", fmt.Errorf("no query")

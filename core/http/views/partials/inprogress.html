@@ -120,7 +120,16 @@ function operationsStatus() {
                     throw new Error('Failed to fetch operations');
                 }
                 const data = await response.json();
+                const previousCount = this.operations.length;
                 this.operations = data.operations || [];
+                
+                // If we had operations before and now we don't, refresh the page
+                if (previousCount > 0 && this.operations.length === 0) {
+                    // Small delay to ensure the user sees the completion
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
                 
                 // Auto-collapse if there are many operations
                 if (this.operations.length > 5 && !this.collapsed) {

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-skynet/LocalAI/.github/gallery-agent/hfapi"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
 
 // ProcessedModelFile represents a processed model file with additional metadata

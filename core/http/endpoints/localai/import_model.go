@@ -2,15 +2,71 @@ package localai
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/gallery/importers"
+	httpUtils "github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/utils"
+
 	"gopkg.in/yaml.v3"
 )
+
+// ImportModelURIEndpoint handles creating new model configurations from a URI
+func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+
+		input := new(schema.ImportModelRequest)
+
+		if err := c.BodyParser(input); err != nil {
+			return err
+		}
+
+		modelConfig, err := importers.DiscoverModelConfig(input.URI, input.Preferences)
+		if err != nil {
+			return fmt.Errorf("failed to discover model config: %w", err)
+		}
+
+		uuid, err := uuid.NewUUID()
+		if err != nil {
+			return err
+		}
+
+		// Determine gallery ID for tracking - use model name if available, otherwise use URI
+		galleryID := input.URI
+		if modelConfig.Name != "" {
+			galleryID = modelConfig.Name
+		}
+
+		// Register operation in opcache if available (for UI progress tracking)
+		if opcache != nil {
+			opcache.Set(galleryID, uuid.String())
+		}
+
+		galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+			Req: gallery.GalleryModel{
+				Overrides: map[string]interface{}{},
+			},
+			ID:                 uuid.String(),
+			GalleryElementName: galleryID,
+			GalleryElement:     &modelConfig,
+			BackendGalleries:   appConfig.BackendGalleries,
+		}
+
+		return c.JSON(schema.GalleryResponse{
+			ID:        uuid.String(),
+			StatusURL: fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), uuid.String()),
+		})
+	}
+}
 
 // ImportModelEndpoint handles creating new model configurations
 func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {

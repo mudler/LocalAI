@@ -1,6 +1,7 @@
 package hfapi_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -8,7 +9,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/go-skynet/LocalAI/.github/gallery-agent/hfapi"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
 
 var _ = Describe("HuggingFace API Client", func() {
@@ -270,6 +271,15 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 	})
 
+	Context("when getting file SHA on remote model", func() {
+		It("should get file SHA successfully", func() {
+			sha, err := client.GetFileSHA(
+				"mudler/LocalAI-functioncall-qwen2.5-7b-v0.5-Q4_K_M-GGUF", "localai-functioncall-qwen2.5-7b-v0.5-q4_k_m.gguf")
+			Expect(err).ToNot(HaveOccurred())
+			Expect(sha).To(Equal("4e7b7fe1d54b881f1ef90799219dc6cc285d29db24f559c8998d1addb35713d4"))
+		})
+	})
+
 	Context("when listing files", func() {
 		BeforeEach(func() {
 			mockFilesResponse := `[
@@ -329,23 +339,25 @@ var _ = Describe("HuggingFace API Client", func() {
 
 	Context("when getting file SHA", func() {
 		BeforeEach(func() {
-			mockFileInfoResponse := `{
-				"path": "model-Q4_K_M.gguf",
-				"size": 1000000,
-				"oid": "abc123",
-				"lfs": {
-					"oid": "sha256:def456",
+			mockFilesResponse := `[
+				{
+					"type": "file",
+					"path": "model-Q4_K_M.gguf",
 					"size": 1000000,
-					"pointer": "version https://git-lfs.github.com/spec/v1",
-					"sha256": "def456789"
+					"oid": "abc123",
+					"lfs": {
+						"oid": "def456789",
+						"size": 1000000,
+						"pointerSize": 135
+					}
 				}
-			}`
+			]`
 
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if strings.Contains(r.URL.Path, "/paths-info") {
+				if strings.Contains(r.URL.Path, "/tree/main") {
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(mockFileInfoResponse))
+					w.Write([]byte(mockFilesResponse))
 				} else {
 					w.WriteHeader(http.StatusNotFound)
 				}
@@ -363,18 +375,29 @@ var _ = Describe("HuggingFace API Client", func() {
 
 		It("should handle missing SHA gracefully", func() {
 			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"path": "file.txt", "size": 100}`))
+				if strings.Contains(r.URL.Path, "/tree/main") {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`[
+						{
+							"type": "file",
+							"path": "file.txt",
+							"size": 100,
+							"oid": "file123"
+						}
+					]`))
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
 			}))
 
 			client.SetBaseURL(server.URL)
 
 			sha, err := client.GetFileSHA("test/model", "file.txt")
 
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("no SHA256 found"))
-			Expect(sha).To(Equal(""))
+			Expect(err).ToNot(HaveOccurred())
+			// When there's no LFS, it should return the OID
+			Expect(sha).To(Equal("file123"))
 		})
 	})
 
@@ -439,6 +462,13 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(details.ReadmeFile).ToNot(BeNil())
 			Expect(details.ReadmeFile.Path).To(Equal("README.md"))
 			Expect(details.ReadmeFile.IsReadme).To(BeTrue())
+
+			// Verify URLs are set for all files
+			baseURL := strings.TrimSuffix(server.URL, "/api/models")
+			for _, file := range details.Files {
+				expectedURL := fmt.Sprintf("%s/test/model/resolve/main/%s", baseURL, file.Path)
+				Expect(file.URL).To(Equal(expectedURL))
+			}
 		})
 	})
 

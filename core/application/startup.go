@@ -22,9 +22,15 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.SystemState.Model.ModelsPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
+
+	if err := application.start(); err != nil {
+		return nil, err
+	}
+
 	caps, err := xsysinfo.CPUCapabilities()
 	if err == nil {
 		log.Debug().Msgf("CPU capabilities: %v", caps)
+
 	}
 	gpus, err := xsysinfo.GPUs()
 	if err == nil {
@@ -56,7 +62,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
-	if err := coreStartup.InstallModels(options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
+	if err := coreStartup.InstallModels(application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
 		log.Error().Err(err).Msg("error installing models")
 	}
 
@@ -151,10 +157,6 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Watch the configuration directory
 	startWatcher(options)
-
-	if err := application.start(); err != nil {
-		return nil, err
-	}
 
 	log.Info().Msg("core/startup process completed!")
 	return application, nil

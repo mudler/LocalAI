@@ -39,11 +39,6 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Build gallery agent
-        run: |
-          cd .github/gallery-agent
-          go mod download
-          go build -o gallery-agent .
 
       - name: Run gallery agent
         env:
@@ -56,9 +51,7 @@ jobs:
           MAX_MODELS: ${{ github.event.inputs.max_models || '1' }}
         run: |
           export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
-          cd .github/gallery-agent
-          ./gallery-agent
-          rm -rf gallery-agent
+          go run .github/gallery-agent
 
       - name: Check for changes
         id: check_changes

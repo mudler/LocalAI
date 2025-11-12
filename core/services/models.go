@@ -9,10 +9,11 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/yaml.v2"
 )
 
-func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel], cl *config.ModelConfigLoader, systemState *system.SystemState) error {
+func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, gallery.ModelConfig], cl *config.ModelConfigLoader, systemState *system.SystemState) error {
 	utils.ResetDownloadTimers()
 
 	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: "processing", Progress: 0})
@@ -118,28 +119,32 @@ func ApplyGalleryFromString(systemState *system.SystemState, modelLoader *model.
 
 // processModelOperation handles the installation or deletion of a model
 func processModelOperation(
-	op *GalleryOp[gallery.GalleryModel],
+	op *GalleryOp[gallery.GalleryModel, gallery.ModelConfig],
 	systemState *system.SystemState,
 	modelLoader *model.ModelLoader,
 	enforcePredownloadScans bool,
 	automaticallyInstallBackend bool,
 	progressCallback func(string, string, string, float64),
 ) error {
-	// delete a model
-	if op.Delete {
+	switch {
+	case op.Delete:
 		return gallery.DeleteModelFromSystem(systemState, op.GalleryElementName)
-	}
-
-	// if the request contains a gallery name, we apply the gallery from the gallery list
-	if op.GalleryElementName != "" {
+	case op.GalleryElement != nil:
+		installedModel, err := gallery.InstallModel(
+			systemState, op.GalleryElement.Name,
+			op.GalleryElement,
+			op.Req.Overrides,
+			progressCallback, enforcePredownloadScans)
+		if automaticallyInstallBackend && installedModel.Backend != "" {
+			log.Debug().Msgf("Installing backend %q", installedModel.Backend)
+			if err := gallery.InstallBackendFromGallery(op.BackendGalleries, systemState, modelLoader, installedModel.Backend, progressCallback, false); err != nil {
+				return err
+			}
+		}
+		return err
+	case op.GalleryElementName != "":
 		return gallery.InstallModelFromGallery(op.Galleries, op.BackendGalleries, systemState, modelLoader, op.GalleryElementName, op.Req, progressCallback, enforcePredownloadScans, automaticallyInstallBackend)
-		// } else if op.ConfigURL != "" {
-		// 	err := startup.InstallModels(op.Galleries, modelPath, enforcePredownloadScans, progressCallback, op.ConfigURL)
-		// 	if err != nil {
-		// 		return err
-		// 	}
-		// 	return cl.Preload(modelPath)
-	} else {
+	default:
 		return installModelFromRemoteConfig(systemState, modelLoader, op.Req, progressCallback, enforcePredownloadScans, automaticallyInstallBackend, op.BackendGalleries)
 	}
 }

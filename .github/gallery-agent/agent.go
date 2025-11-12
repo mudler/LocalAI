@@ -7,8 +7,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/go-skynet/LocalAI/.github/gallery-agent/hfapi"
-	"github.com/mudler/cogito"
+	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
+	cogito "github.com/mudler/cogito"
 
 	"github.com/mudler/cogito/structures"
 	"github.com/sashabaranov/go-openai/jsonschema"

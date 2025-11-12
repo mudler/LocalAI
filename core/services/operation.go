@@ -5,12 +5,16 @@ import (
 	"github.com/mudler/LocalAI/pkg/xsync"
 )
 
-type GalleryOp[T any] struct {
+type GalleryOp[T any, E any] struct {
 	ID                 string
 	GalleryElementName string
 	Delete             bool
 
-	Req              T
+	Req T
+
+	// If specified, we install directly the gallery element
+	GalleryElement *E
+
 	Galleries        []config.Gallery
 	BackendGalleries []config.Gallery
 }
