@@ -23114,3 +23114,40 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "text_summarization"
+  urls:
+    - https://huggingface.co/jagan546/text_summarization-Q4_K_M-GGUF
+  description: |
+    **Model Name:** Fine-Tuned T5 Small for Text Summarization
+    **Repository:** [Falconsai/text_summarization](https://huggingface.co/Falconsai/text_summarization)
+    **License:** Apache 2.0
+    **Pipeline Task:** Text Summarization
+
+    **Description:**
+    A fine-tuned version of the T5-small model, specifically optimized for generating concise, coherent, and contextually accurate summaries of input text. Trained on a diverse dataset of documents and human-written summaries, this model excels at condensing long-form content while preserving key information and fluency.
+
+    Built on the robust T5 architecture, it leverages the strengths of the Transformers library to deliver high-quality summarization with minimal configuration. Ideal for applications such as news article summarization, document abstraction, and content condensation.
+
+    **Key Features:**
+    - Lightweight and efficient (T5-small size)
+    - Fine-tuned for summarization with high ROUGE scores (~0.95 F1)
+    - Easy to use via Hugging Face `transformers` pipeline
+    - Open-source and freely available for research and production
+
+    **Usage Example:**
+    ```python
+    from transformers import pipeline
+    summarizer = pipeline("summarization", model="Falconsai/text_summarization")
+    summary = summarizer("Long input text here...", max_length=150, min_length=30, do_sample=False)
+    print(summary)
+    ```
+
+    **Note:** This is the original, non-quantized base model. The GGUF quantized version (e.g., `jagan546/text_summarization-Q4_K_M-GGUF`) is a converted, smaller format variant for local inference using `llama.cpp`, but this card describes the full-precision, original model.
+  overrides:
+    parameters:
+      model: text_summarization-q4_k_m.gguf
+  files:
+    - filename: text_summarization-q4_k_m.gguf
+      sha256: cd03c9bb4ad3a62af41ec2bf7d7e3e0124abd0135a90c82f1e573e5104de75e2
+      uri: huggingface://jagan546/text_summarization-Q4_K_M-GGUF/text_summarization-q4_k_m.gguf
