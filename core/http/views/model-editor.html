@@ -183,6 +183,22 @@
                                 Preferred quantizations (comma-separated). Examples: q4_k_m, q4_k_s, q3_k_m, q2_k. Leave empty to use default (q4_k_m).
                             </p>
                         </div>
+                        
+                        <!-- MMProj Quantizations -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-image mr-2"></i>MMProj Quantizations
+                            </label>
+                            <input 
+                                x-model="commonPreferences.mmproj_quantizations"
+                                type="text" 
+                                placeholder="fp16,fp32 (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Preferred MMProj quantizations (comma-separated). Examples: fp16, fp32. Leave empty to use default (fp16).
+                            </p>
+                        </div>
                     </div>
                     
                     <!-- Custom Preferences -->
@@ -441,7 +457,8 @@ function importModel() {
             backend: '',
             name: '',
             description: '',
-            quantizations: ''
+            quantizations: '',
+            mmproj_quantizations: ''
         },
         isSubmitting: false,
         currentJobId: null,
@@ -506,6 +523,9 @@ function importModel() {
                 }
                 if (this.commonPreferences.quantizations && this.commonPreferences.quantizations.trim()) {
                     prefsObj.quantizations = this.commonPreferences.quantizations.trim();
+                }
+                if (this.commonPreferences.mmproj_quantizations && this.commonPreferences.mmproj_quantizations.trim()) {
+                    prefsObj.mmproj_quantizations = this.commonPreferences.mmproj_quantizations.trim();
                 }
                 
                 // Add custom preferences (can override common ones)
