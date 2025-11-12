@@ -1,6 +1,9 @@
 package downloader
 
-import "hash"
+import (
+	"context"
+	"hash"
+)
 
 type progressWriter struct {
 	fileName       string
@@ -10,11 +13,33 @@ type progressWriter struct {
 	written        int64
 	downloadStatus func(string, string, string, float64)
 	hash           hash.Hash
+	ctx            context.Context
 }
 
 func (pw *progressWriter) Write(p []byte) (n int, err error) {
+	// Check for cancellation before writing
+	if pw.ctx != nil {
+		select {
+		case <-pw.ctx.Done():
+			return 0, pw.ctx.Err()
+		default:
+		}
+	}
+
 	n, err = pw.hash.Write(p)
+	if err != nil {
+		return n, err
+	}
 	pw.written += int64(n)
+
+	// Check for cancellation after writing chunk
+	if pw.ctx != nil {
+		select {
+		case <-pw.ctx.Done():
+			return n, pw.ctx.Err()
+		default:
+		}
+	}
 
 	if pw.total > 0 {
 		percentage := float64(pw.written) / float64(pw.total) * 100

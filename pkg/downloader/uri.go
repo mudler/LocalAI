@@ -1,6 +1,7 @@
 package downloader
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -49,10 +50,10 @@ func loadConfig() string {
 }
 
 func (uri URI) DownloadWithCallback(basePath string, f func(url string, i []byte) error) error {
-	return uri.DownloadWithAuthorizationAndCallback(basePath, "", f)
+	return uri.DownloadWithAuthorizationAndCallback(context.Background(), basePath, "", f)
 }
 
-func (uri URI) DownloadWithAuthorizationAndCallback(basePath string, authorization string, f func(url string, i []byte) error) error {
+func (uri URI) DownloadWithAuthorizationAndCallback(ctx context.Context, basePath string, authorization string, f func(url string, i []byte) error) error {
 	url := uri.ResolveURL()
 
 	if strings.HasPrefix(url, LocalPrefix) {
@@ -83,8 +84,7 @@ func (uri URI) DownloadWithAuthorizationAndCallback(basePath string, authorizati
 	}
 
 	// Send a GET request to the URL
-
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return err
 	}
@@ -264,6 +264,10 @@ func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
 }
 
 func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
+	return uri.DownloadFileWithContext(context.Background(), filePath, sha, fileN, total, downloadStatus)
+}
+
+func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
 	url := uri.ResolveURL()
 	if uri.LooksLikeOCI() {
 
@@ -285,7 +289,7 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 		}
 
 		if url, ok := strings.CutPrefix(url, OllamaPrefix); ok {
-			return oci.OllamaFetchModel(url, filePath, progressStatus)
+			return oci.OllamaFetchModel(ctx, url, filePath, progressStatus)
 		}
 
 		if url, ok := strings.CutPrefix(url, OCIFilePrefix); ok {
@@ -295,7 +299,7 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 				return fmt.Errorf("failed to open tarball: %s", err.Error())
 			}
 
-			return oci.ExtractOCIImage(img, url, filePath, downloadStatus)
+			return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
 		}
 
 		url = strings.TrimPrefix(url, OCIPrefix)
@@ -304,12 +308,19 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 			return fmt.Errorf("failed to get image %q: %v", url, err)
 		}
 
-		return oci.ExtractOCIImage(img, url, filePath, downloadStatus)
+		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
 	}
 
 	// We need to check if url looks like an URL or bail out
 	if !URI(url).LooksLikeHTTPURL() {
 		return fmt.Errorf("url %q does not look like an HTTP URL", url)
+	}
+
+	// Check for cancellation before starting
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
 	}
 
 	// Check if the file already exists
@@ -346,7 +357,7 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 
 	log.Info().Msgf("Downloading %q", url)
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request for %q: %v", filePath, err)
 	}
@@ -375,6 +386,12 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 	// Start the request
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
+		// Check if error is due to context cancellation
+		if errors.Is(err, context.Canceled) {
+			// Clean up partial file on cancellation
+			removePartialFile(tmpFilePath)
+			return err
+		}
 		return fmt.Errorf("failed to download file %q: %v", filePath, err)
 	}
 	defer resp.Body.Close()
@@ -406,10 +423,25 @@ func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStat
 		fileNo:         fileN,
 		totalFiles:     total,
 		downloadStatus: downloadStatus,
+		ctx:            ctx,
 	}
 	_, err = io.Copy(io.MultiWriter(outFile, progress), resp.Body)
 	if err != nil {
+		// Check if error is due to context cancellation
+		if errors.Is(err, context.Canceled) {
+			// Clean up partial file on cancellation
+			removePartialFile(tmpFilePath)
+			return err
+		}
 		return fmt.Errorf("failed to write file %q: %v", filePath, err)
+	}
+
+	// Check for cancellation before finalizing
+	select {
+	case <-ctx.Done():
+		removePartialFile(tmpFilePath)
+		return ctx.Err()
+	default:
 	}
 
 	err = os.Rename(tmpFilePath, filePath)

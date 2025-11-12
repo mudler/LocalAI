@@ -23,6 +23,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	"github.com/mudler/LocalAI/pkg/xio"
 )
 
 // ref: https://github.com/mudler/luet/blob/master/pkg/helpers/docker/docker.go#L117
@@ -97,7 +98,7 @@ func (pw *progressWriter) Write(p []byte) (int, error) {
 }
 
 // ExtractOCIImage will extract a given targetImage into a given targetDestination
-func ExtractOCIImage(img v1.Image, imageRef string, targetDestination string, downloadStatus func(string, string, string, float64)) error {
+func ExtractOCIImage(ctx context.Context, img v1.Image, imageRef string, targetDestination string, downloadStatus func(string, string, string, float64)) error {
 	// Create a temporary tar file
 	tmpTarFile, err := os.CreateTemp("", "localai-oci-*.tar")
 	if err != nil {
@@ -107,13 +108,13 @@ func ExtractOCIImage(img v1.Image, imageRef string, targetDestination string, do
 	defer tmpTarFile.Close()
 
 	// Download the image as tar with progress tracking
-	err = DownloadOCIImageTar(img, imageRef, tmpTarFile.Name(), downloadStatus)
+	err = DownloadOCIImageTar(ctx, img, imageRef, tmpTarFile.Name(), downloadStatus)
 	if err != nil {
 		return fmt.Errorf("failed to download image tar: %v", err)
 	}
 
 	// Extract the tar file to the target destination
-	err = ExtractOCIImageFromTar(tmpTarFile.Name(), imageRef, targetDestination, downloadStatus)
+	err = ExtractOCIImageFromTar(ctx, tmpTarFile.Name(), imageRef, targetDestination, downloadStatus)
 	if err != nil {
 		return fmt.Errorf("failed to extract image tar: %v", err)
 	}
@@ -207,7 +208,7 @@ func GetOCIImageSize(targetImage, targetPlatform string, auth *registrytypes.Aut
 
 // DownloadOCIImageTar downloads the compressed layers of an image and then creates an uncompressed tar
 // This provides accurate size estimation and allows for later extraction
-func DownloadOCIImageTar(img v1.Image, imageRef string, tarFilePath string, downloadStatus func(string, string, string, float64)) error {
+func DownloadOCIImageTar(ctx context.Context, img v1.Image, imageRef string, tarFilePath string, downloadStatus func(string, string, string, float64)) error {
 	// Get layers to calculate total compressed size for estimation
 	layers, err := img.Layers()
 	if err != nil {
@@ -267,7 +268,7 @@ func DownloadOCIImageTar(img v1.Image, imageRef string, tarFilePath string, down
 			return fmt.Errorf("failed to get compressed layer: %v", err)
 		}
 
-		_, err = io.Copy(writer, layerReader)
+		_, err = xio.Copy(ctx, writer, layerReader)
 		file.Close()
 		if err != nil {
 			return fmt.Errorf("failed to download layer %d: %v", i, err)
@@ -298,7 +299,7 @@ func DownloadOCIImageTar(img v1.Image, imageRef string, tarFilePath string, down
 
 	// Extract uncompressed tar from local image
 	extractReader := mutate.Extract(localImg)
-	_, err = io.Copy(tarFile, extractReader)
+	_, err = xio.Copy(ctx, tarFile, extractReader)
 	if err != nil {
 		return fmt.Errorf("failed to extract uncompressed tar: %v", err)
 	}
@@ -307,7 +308,7 @@ func DownloadOCIImageTar(img v1.Image, imageRef string, tarFilePath string, down
 }
 
 // ExtractOCIImageFromTar extracts an image from a previously downloaded tar file
-func ExtractOCIImageFromTar(tarFilePath, imageRef, targetDestination string, downloadStatus func(string, string, string, float64)) error {
+func ExtractOCIImageFromTar(ctx context.Context, tarFilePath, imageRef, targetDestination string, downloadStatus func(string, string, string, float64)) error {
 	// Open the tar file
 	tarFile, err := os.Open(tarFilePath)
 	if err != nil {
@@ -331,7 +332,7 @@ func ExtractOCIImageFromTar(tarFilePath, imageRef, targetDestination string, dow
 	}
 
 	// Extract the tar file
-	_, err = archive.Apply(context.Background(),
+	_, err = archive.Apply(ctx,
 		targetDestination, reader,
 		archive.WithNoSameOwner())
 

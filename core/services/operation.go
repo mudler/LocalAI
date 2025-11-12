@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/xsync"
 )
@@ -17,6 +19,10 @@ type GalleryOp[T any, E any] struct {
 
 	Galleries        []config.Gallery
 	BackendGalleries []config.Gallery
+
+	// Context for cancellation support
+	Context    context.Context
+	CancelFunc context.CancelFunc
 }
 
 type GalleryOpStatus struct {
@@ -29,6 +35,8 @@ type GalleryOpStatus struct {
 	TotalFileSize      string  `json:"file_size"`
 	DownloadedFileSize string  `json:"downloaded_size"`
 	GalleryElementName string  `json:"gallery_element_name"`
+	Cancelled          bool    `json:"cancelled"`   // Cancelled is true if the operation was cancelled
+	Cancellable        bool    `json:"cancellable"` // Cancellable is true if the operation can be cancelled
 }
 
 type OpCache struct {

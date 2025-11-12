@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -72,6 +73,7 @@ type PromptTemplate struct {
 
 // Installs a model from the gallery
 func InstallModelFromGallery(
+	ctx context.Context,
 	modelGalleries, backendGalleries []config.Gallery,
 	systemState *system.SystemState,
 	modelLoader *model.ModelLoader,
@@ -84,7 +86,7 @@ func InstallModelFromGallery(
 
 		if len(model.URL) > 0 {
 			var err error
-			config, err = GetGalleryConfigFromURL[ModelConfig](model.URL, systemState.Model.ModelsPath)
+			config, err = GetGalleryConfigFromURLWithContext[ModelConfig](ctx, model.URL, systemState.Model.ModelsPath)
 			if err != nil {
 				return err
 			}
@@ -125,7 +127,7 @@ func InstallModelFromGallery(
 			return err
 		}
 
-		installedModel, err := InstallModel(systemState, installName, &config, model.Overrides, downloadStatus, enforceScan)
+		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan)
 		if err != nil {
 			return err
 		}
@@ -133,7 +135,7 @@ func InstallModelFromGallery(
 		if automaticallyInstallBackend && installedModel.Backend != "" {
 			log.Debug().Msgf("Installing backend %q", installedModel.Backend)
 
-			if err := InstallBackendFromGallery(backendGalleries, systemState, modelLoader, installedModel.Backend, downloadStatus, false); err != nil {
+			if err := InstallBackendFromGallery(ctx, backendGalleries, systemState, modelLoader, installedModel.Backend, downloadStatus, false); err != nil {
 				return err
 			}
 		}
@@ -154,7 +156,7 @@ func InstallModelFromGallery(
 	return applyModel(model)
 }
 
-func InstallModel(systemState *system.SystemState, nameOverride string, config *ModelConfig, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.ModelConfig, error) {
+func InstallModel(ctx context.Context, systemState *system.SystemState, nameOverride string, config *ModelConfig, configOverrides map[string]interface{}, downloadStatus func(string, string, string, float64), enforceScan bool) (*lconfig.ModelConfig, error) {
 	basePath := systemState.Model.ModelsPath
 	// Create base path if it doesn't exist
 	err := os.MkdirAll(basePath, 0750)
@@ -168,6 +170,13 @@ func InstallModel(systemState *system.SystemState, nameOverride string, config *
 
 	// Download files and verify their SHA
 	for i, file := range config.Files {
+		// Check for cancellation before each file
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
 		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
 
 		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
@@ -185,7 +194,7 @@ func InstallModel(systemState *system.SystemState, nameOverride string, config *
 			}
 		}
 		uri := downloader.URI(file.URI)
-		if err := uri.DownloadFile(filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
+		if err := uri.DownloadFileWithContext(ctx, filePath, file.SHA256, i, len(config.Files), downloadStatus); err != nil {
 			return nil, err
 		}
 	}

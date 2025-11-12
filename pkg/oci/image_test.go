@@ -1,6 +1,7 @@
 package oci_test
 
 import (
+	"context"
 	"os"
 	"runtime"
 
@@ -30,7 +31,7 @@ var _ = Describe("OCI", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer os.RemoveAll(dir)
 
-			err = ExtractOCIImage(img, imageName, dir, nil)
+			err = ExtractOCIImage(context.TODO(), img, imageName, dir, nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

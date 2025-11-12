@@ -17,8 +17,9 @@ type GalleryService struct {
 	ModelGalleryChannel   chan GalleryOp[gallery.GalleryModel, gallery.ModelConfig]
 	BackendGalleryChannel chan GalleryOp[gallery.GalleryBackend, any]
 
-	modelLoader *model.ModelLoader
-	statuses    map[string]*GalleryOpStatus
+	modelLoader   *model.ModelLoader
+	statuses      map[string]*GalleryOpStatus
+	cancellations map[string]context.CancelFunc
 }
 
 func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoader) *GalleryService {
@@ -28,6 +29,7 @@ func NewGalleryService(appConfig *config.ApplicationConfig, ml *model.ModelLoade
 		BackendGalleryChannel: make(chan GalleryOp[gallery.GalleryBackend, any]),
 		modelLoader:           ml,
 		statuses:              make(map[string]*GalleryOpStatus),
+		cancellations:         make(map[string]context.CancelFunc),
 	}
 }
 
@@ -51,6 +53,46 @@ func (g *GalleryService) GetAllStatus() map[string]*GalleryOpStatus {
 	return g.statuses
 }
 
+// CancelOperation cancels an in-progress operation by its ID
+func (g *GalleryService) CancelOperation(id string) error {
+	g.Lock()
+	defer g.Unlock()
+
+	cancelFunc, exists := g.cancellations[id]
+	if !exists {
+		return fmt.Errorf("operation %q not found or already completed", id)
+	}
+
+	// Cancel the operation
+	cancelFunc()
+
+	// Update status to reflect cancellation
+	if status, ok := g.statuses[id]; ok {
+		status.Cancelled = true
+		status.Processed = true
+		status.Message = "cancelled"
+	}
+
+	// Clean up cancellation function
+	delete(g.cancellations, id)
+
+	return nil
+}
+
+// storeCancellation stores a cancellation function for an operation
+func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelFunc) {
+	g.Lock()
+	defer g.Unlock()
+	g.cancellations[id] = cancelFunc
+}
+
+// removeCancellation removes a cancellation function when operation completes
+func (g *GalleryService) removeCancellation(id string) {
+	g.Lock()
+	defer g.Unlock()
+	delete(g.cancellations, id)
+}
+
 func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, systemState *system.SystemState) error {
 	// updates the status with an error
 	var updateError func(id string, e error)
@@ -70,16 +112,32 @@ func (g *GalleryService) Start(c context.Context, cl *config.ModelConfigLoader, 
 			case <-c.Done():
 				return
 			case op := <-g.BackendGalleryChannel:
+				// Create context if not provided
+				if op.Context == nil {
+					op.Context, op.CancelFunc = context.WithCancel(c)
+					g.storeCancellation(op.ID, op.CancelFunc)
+				} else if op.CancelFunc != nil {
+					g.storeCancellation(op.ID, op.CancelFunc)
+				}
 				err := g.backendHandler(&op, systemState)
 				if err != nil {
 					updateError(op.ID, err)
 				}
+				g.removeCancellation(op.ID)
 
 			case op := <-g.ModelGalleryChannel:
+				// Create context if not provided
+				if op.Context == nil {
+					op.Context, op.CancelFunc = context.WithCancel(c)
+					g.storeCancellation(op.ID, op.CancelFunc)
+				} else if op.CancelFunc != nil {
+					g.storeCancellation(op.ID, op.CancelFunc)
+				}
 				err := g.modelHandler(&op, cl, systemState)
 				if err != nil {
 					updateError(op.ID, err)
 				}
+				g.removeCancellation(op.ID)
 			}
 		}
 	}()
