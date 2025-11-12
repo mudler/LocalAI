@@ -590,17 +590,71 @@ public:
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
+                
+                // Find the last user message index to attach images/audio to
+                int last_user_msg_idx = -1;
+                for (int i = request->messages_size() - 1; i >= 0; i--) {
+                    if (request->messages(i).role() == "user") {
+                        last_user_msg_idx = i;
+                        break;
+                    }
+                }
+                
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
                     
+                    bool is_last_user_msg = (i == last_user_msg_idx);
+                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
+                    
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
                     if (!msg.content().empty()) {
-                        msg_json["content"] = msg.content();
-                    } else if (request->images_size() > 0 || request->audios_size() > 0) {
-                        // If no content but has images/audio, create content array
+                        // Try to parse content as JSON to see if it's already an array
+                        json content_val;
+                        try {
+                            content_val = json::parse(msg.content());
+                        } catch (const json::parse_error&) {
+                            // Not JSON, treat as plain string
+                            content_val = msg.content();
+                        }
+                        
+                        // If content is a string and this is the last user message with images/audio, combine them
+                        if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
+                            json content_array = json::array();
+                            // Add text first
+                            content_array.push_back({{"type", "text"}, {"text", content_val.get<std::string>()}});
+                            // Add images
+                            if (request->images_size() > 0) {
+                                for (int j = 0; j < request->images_size(); j++) {
+                                    json image_chunk;
+                                    image_chunk["type"] = "image_url";
+                                    json image_url;
+                                    image_url["url"] = "data:image/jpeg;base64," + request->images(j);
+                                    image_chunk["image_url"] = image_url;
+                                    content_array.push_back(image_chunk);
+                                }
+                            }
+                            // Add audios
+                            if (request->audios_size() > 0) {
+                                for (int j = 0; j < request->audios_size(); j++) {
+                                    json audio_chunk;
+                                    audio_chunk["type"] = "input_audio";
+                                    json input_audio;
+                                    input_audio["data"] = request->audios(j);
+                                    input_audio["format"] = "wav"; // default, could be made configurable
+                                    audio_chunk["input_audio"] = input_audio;
+                                    content_array.push_back(audio_chunk);
+                                }
+                            }
+                            msg_json["content"] = content_array;
+                        } else {
+                            // Use content as-is (already array or not last user message)
+                            msg_json["content"] = content_val;
+                        }
+                    } else if (is_last_user_msg && has_images_or_audio) {
+                        // If no content but this is the last user message with images/audio, create content array
                         json content_array = json::array();
                         if (request->images_size() > 0) {
                             for (int j = 0; j < request->images_size(); j++) {
@@ -718,6 +772,9 @@ public:
                 // Create parser options with current chat_templates to ensure tmpls is not null
                 oaicompat_parser_options parser_opt = ctx_server.oai_parser_opt;
                 parser_opt.tmpls = ctx_server.chat_templates.get(); // Ensure tmpls is set to current chat_templates
+                // Update allow_image and allow_audio based on current mctx state
+                parser_opt.allow_image = ctx_server.mctx ? mtmd_support_vision(ctx_server.mctx) : false;
+                parser_opt.allow_audio = ctx_server.mctx ? mtmd_support_audio(ctx_server.mctx) : false;
                 json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
                 
                 // Extract the prompt from parsed data
@@ -758,7 +815,7 @@ public:
 
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
-            //if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
+            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
                 const auto &images_data = data.find("image_data");
                 if (images_data != data.end() && images_data->is_array())
                 {
@@ -778,7 +835,7 @@ public:
                         files.push_back(decoded_data);
                     }
                 }
-           // }
+            }
 
             const bool has_mtmd = ctx_server.mctx != nullptr;
 
@@ -917,17 +974,71 @@ public:
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
+                
+                // Find the last user message index to attach images/audio to
+                int last_user_msg_idx = -1;
+                for (int i = request->messages_size() - 1; i >= 0; i--) {
+                    if (request->messages(i).role() == "user") {
+                        last_user_msg_idx = i;
+                        break;
+                    }
+                }
+                
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
                     
+                    bool is_last_user_msg = (i == last_user_msg_idx);
+                    bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
+                    
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
                     if (!msg.content().empty()) {
-                        msg_json["content"] = msg.content();
-                    } else if (request->images_size() > 0 || request->audios_size() > 0) {
-                        // If no content but has images/audio, create content array
+                        // Try to parse content as JSON to see if it's already an array
+                        json content_val;
+                        try {
+                            content_val = json::parse(msg.content());
+                        } catch (const json::parse_error&) {
+                            // Not JSON, treat as plain string
+                            content_val = msg.content();
+                        }
+                        
+                        // If content is a string and this is the last user message with images/audio, combine them
+                        if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
+                            json content_array = json::array();
+                            // Add text first
+                            content_array.push_back({{"type", "text"}, {"text", content_val.get<std::string>()}});
+                            // Add images
+                            if (request->images_size() > 0) {
+                                for (int j = 0; j < request->images_size(); j++) {
+                                    json image_chunk;
+                                    image_chunk["type"] = "image_url";
+                                    json image_url;
+                                    image_url["url"] = "data:image/jpeg;base64," + request->images(j);
+                                    image_chunk["image_url"] = image_url;
+                                    content_array.push_back(image_chunk);
+                                }
+                            }
+                            // Add audios
+                            if (request->audios_size() > 0) {
+                                for (int j = 0; j < request->audios_size(); j++) {
+                                    json audio_chunk;
+                                    audio_chunk["type"] = "input_audio";
+                                    json input_audio;
+                                    input_audio["data"] = request->audios(j);
+                                    input_audio["format"] = "wav"; // default, could be made configurable
+                                    audio_chunk["input_audio"] = input_audio;
+                                    content_array.push_back(audio_chunk);
+                                }
+                            }
+                            msg_json["content"] = content_array;
+                        } else {
+                            // Use content as-is (already array or not last user message)
+                            msg_json["content"] = content_val;
+                        }
+                    } else if (is_last_user_msg && has_images_or_audio) {
+                        // If no content but this is the last user message with images/audio, create content array
                         json content_array = json::array();
                         if (request->images_size() > 0) {
                             for (int j = 0; j < request->images_size(); j++) {
@@ -1048,6 +1159,9 @@ public:
                 // Create parser options with current chat_templates to ensure tmpls is not null
                 oaicompat_parser_options parser_opt = ctx_server.oai_parser_opt;
                 parser_opt.tmpls = ctx_server.chat_templates.get(); // Ensure tmpls is set to current chat_templates
+                // Update allow_image and allow_audio based on current mctx state
+                parser_opt.allow_image = ctx_server.mctx ? mtmd_support_vision(ctx_server.mctx) : false;
+                parser_opt.allow_audio = ctx_server.mctx ? mtmd_support_audio(ctx_server.mctx) : false;
                 json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
                 
                 // Extract the prompt from parsed data
@@ -1088,7 +1202,7 @@ public:
 
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
-           // if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
+            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
                 const auto &images_data = data.find("image_data");
                 if (images_data != data.end() && images_data->is_array())
                 {
@@ -1110,7 +1224,7 @@ public:
                         files.push_back(decoded_data);
                     }
                 }
-           // }
+            }
 
             // process files
             const bool has_mtmd = ctx_server.mctx != nullptr;
