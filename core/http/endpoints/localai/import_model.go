@@ -30,17 +30,9 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			return err
 		}
 
-		var err error
-		var modelConfig gallery.ModelConfig
-
-		for _, importer := range importers.DefaultImporters {
-			if importer.Match(input.URI, *input) {
-				modelConfig, err = importer.Import(input.URI, *input)
-				if err != nil {
-					continue
-				}
-				break
-			}
+		modelConfig, err := importers.DiscoverModelConfig(input.URI, input.Preferences)
+		if err != nil {
+			return fmt.Errorf("failed to discover model config: %w", err)
 		}
 
 		uuid, err := uuid.NewUUID()

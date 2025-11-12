@@ -15,8 +15,8 @@ var _ Importer = &MLXImporter{}
 
 type MLXImporter struct{}
 
-func (i *MLXImporter) Match(uri string, request schema.ImportModelRequest) bool {
-	preferences, err := request.Preferences.MarshalJSON()
+func (i *MLXImporter) Match(details Details) bool {
+	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
 		return false
 	}
@@ -32,15 +32,15 @@ func (i *MLXImporter) Match(uri string, request schema.ImportModelRequest) bool 
 	}
 
 	// All https://huggingface.co/mlx-community/*
-	if strings.Contains(uri, "mlx-community/") {
+	if strings.Contains(details.URI, "mlx-community/") {
 		return true
 	}
 
 	return false
 }
 
-func (i *MLXImporter) Import(uri string, request schema.ImportModelRequest) (gallery.ModelConfig, error) {
-	preferences, err := request.Preferences.MarshalJSON()
+func (i *MLXImporter) Import(details Details) (gallery.ModelConfig, error) {
+	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
 		return gallery.ModelConfig{}, err
 	}
@@ -52,12 +52,12 @@ func (i *MLXImporter) Import(uri string, request schema.ImportModelRequest) (gal
 
 	name, ok := preferencesMap["name"].(string)
 	if !ok {
-		name = filepath.Base(uri)
+		name = filepath.Base(details.URI)
 	}
 
 	description, ok := preferencesMap["description"].(string)
 	if !ok {
-		description = "Imported from " + uri
+		description = "Imported from " + details.URI
 	}
 
 	backend := "mlx"
@@ -73,7 +73,7 @@ func (i *MLXImporter) Import(uri string, request schema.ImportModelRequest) (gal
 		Backend:             backend,
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
-				Model: uri,
+				Model: details.URI,
 			},
 		},
 		TemplateConfig: config.TemplateConfig{

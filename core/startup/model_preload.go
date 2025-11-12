@@ -1,6 +1,7 @@
 package startup
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -13,7 +14,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
-	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -165,22 +165,17 @@ func InstallModels(galleryService *services.GalleryService, galleries, backendGa
 						continue
 					}
 
-					// TODO: start autoimporter
-					var err error
-					var modelConfig gallery.ModelConfig
-					for _, importer := range importers.DefaultImporters {
-						if importer.Match(url, schema.ImportModelRequest{}) {
-							modelConfig, err = importer.Import(url, schema.ImportModelRequest{})
-							if err != nil {
-								continue
-							}
-							break
-						}
+					// TODO: we should just use the discoverModelConfig here and default to this.
+					modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
+					if discoverErr != nil {
+						err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", err))
+						continue
 					}
 
-					uuid, err := uuid.NewUUID()
-					if err != nil {
-						return err
+					uuid, uuidErr := uuid.NewUUID()
+					if uuidErr != nil {
+						err = errors.Join(uuidErr, fmt.Errorf("failed to generate UUID: %w", uuidErr))
+						continue
 					}
 
 					galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{

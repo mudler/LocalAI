@@ -16,8 +16,8 @@ var _ Importer = &LlamaCPPImporter{}
 
 type LlamaCPPImporter struct{}
 
-func (i *LlamaCPPImporter) Match(uri string, request schema.ImportModelRequest) bool {
-	preferences, err := request.Preferences.MarshalJSON()
+func (i *LlamaCPPImporter) Match(details Details) bool {
+	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
 		return false
 	}
@@ -31,11 +31,11 @@ func (i *LlamaCPPImporter) Match(uri string, request schema.ImportModelRequest) 
 		return true
 	}
 
-	return strings.HasSuffix(uri, ".gguf")
+	return strings.HasSuffix(details.URI, ".gguf")
 }
 
-func (i *LlamaCPPImporter) Import(uri string, request schema.ImportModelRequest) (gallery.ModelConfig, error) {
-	preferences, err := request.Preferences.MarshalJSON()
+func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) {
+	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
 		return gallery.ModelConfig{}, err
 	}
@@ -47,12 +47,12 @@ func (i *LlamaCPPImporter) Import(uri string, request schema.ImportModelRequest)
 
 	name, ok := preferencesMap["name"].(string)
 	if !ok {
-		name = filepath.Base(uri)
+		name = filepath.Base(details.URI)
 	}
 
 	description, ok := preferencesMap["description"].(string)
 	if !ok {
-		description = "Imported from " + uri
+		description = "Imported from " + details.URI
 	}
 
 	modelConfig := config.ModelConfig{
@@ -62,7 +62,7 @@ func (i *LlamaCPPImporter) Import(uri string, request schema.ImportModelRequest)
 		Backend:             "llama-cpp",
 		PredictionOptions: schema.PredictionOptions{
 			BasicModelRequest: schema.BasicModelRequest{
-				Model: filepath.Base(uri),
+				Model: filepath.Base(details.URI),
 			},
 		},
 		TemplateConfig: config.TemplateConfig{
@@ -86,8 +86,8 @@ func (i *LlamaCPPImporter) Import(uri string, request schema.ImportModelRequest)
 		ConfigFile:  string(data),
 		Files: []gallery.File{
 			{
-				URI:      uri,
-				Filename: filepath.Base(uri),
+				URI:      details.URI,
+				Filename: filepath.Base(details.URI),
 			},
 		},
 	}, nil
