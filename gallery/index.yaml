@@ -23114,3 +23114,28 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "mathsmith-qwen3-8b-longcot"
+  urls:
+    - https://huggingface.co/mradermacher/MathSmith-Qwen3-8B-LongCoT-GGUF
+  description: |
+    **MathSmith-Qwen3-8B-LongCoT**
+    *Fine-tuned for advanced mathematical reasoning on synthetic, extremely hard problems.*
+
+    This model is a specialized fine-tuned version of **Qwen3-8B**, optimized for complex mathematical reasoning through a reinforcement-driven process. It was trained on the **MathSmith-HC** dataset, which consists of synthetic, highly challenging math problems generated using a reinforced policy. The model excels at **Long Chain-of-Thought (LongCoT)** reasoning, producing detailed, step-by-step solutions that reflect deep logical reasoning.
+
+    - **Base Model**: Qwen3-8B
+    - **Training Objective**: LongCoT reasoning on extremely hard synthetic math problems
+    - **Key Use Case**: Solving advanced mathematical problems requiring multi-step reasoning
+    - **Dataset**: MathSmith-HC-Problems + LongCoT solution generation data
+    - **Repository**: [Jasaxion/MathSmith-Qwen3-8B-LongCoT](https://huggingface.co/Jasaxion/MathSmith-Qwen3-8B-LongCoT)
+    - **Paper**: [MathSmith: Towards Extremely Hard Mathematical Reasoning](https://arxiv.org/abs/2508.05592)
+
+    > *Note: The GGUF version hosted by `mradermacher` is a quantized variant. The original, full-precision model is the one fine-tuned by Jasaxion and available at the link above.*
+  overrides:
+    parameters:
+      model: MathSmith-Qwen3-8B-LongCoT.Q4_K_M.gguf
+  files:
+    - filename: MathSmith-Qwen3-8B-LongCoT.Q4_K_M.gguf
+      sha256: f1410971557c1daf1b968b21bbcbd0f04dc52ff0042a1ffe7fbc3327fa9f505f
+      uri: huggingface://mradermacher/MathSmith-Qwen3-8B-LongCoT-GGUF/MathSmith-Qwen3-8B-LongCoT.Q4_K_M.gguf
