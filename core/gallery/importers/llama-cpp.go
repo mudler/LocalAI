@@ -129,7 +129,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			if strings.Contains(strings.ToLower(file.Path), "mmproj") {
 				lastMMProjFile = gallery.File{
 					URI:      file.URL,
-					Filename: filepath.Base(file.Path),
+					Filename: filepath.Join("mmproj", filepath.Base(file.Path)),
 					SHA256:   file.SHA256,
 				}
 				if slices.ContainsFunc(mmprojQuantsList, func(quant string) bool {
@@ -143,11 +143,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 
 		if !foundPreferedQuant && lastMMProjFile.URI != "" {
 			cfg.Files = append(cfg.Files, lastMMProjFile)
-			modelConfig.PredictionOptions = schema.PredictionOptions{
-				BasicModelRequest: schema.BasicModelRequest{
-					Model: lastMMProjFile.Filename,
-				},
-			}
+			modelConfig.MMProj = lastMMProjFile.Filename
 		}
 
 		// Find first mmproj file
