@@ -23114,3 +23114,27 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama3
+  name: "hypaa-john1604-en-2025"
+  urls:
+    - https://huggingface.co/John1604/HYPAA-John1604-en-2025-gguf
+  description: |
+    The **HYPAA-John1604-en-2025-gguf** model is a quantized version of the base model **John1604/John1604-AML3-HYPAA-English**, fine-tuned to specialize in **HIPAA (Health Insurance Portability and Accountability Act)** law and related compliance topics. It is optimized for efficient inference using the GGUF format, making it compatible with local LLM runtimes like **Ollama** and **LM Studio**.
+
+    This model provides accurate, detailed responses on HIPAA regulations, including the Privacy Rule, Security Rule, PHI (Protected Health Information) vs. PII (Personally Identifiable Information), data handling requirements, and enforcement guidelines. Designed for both educational and practical use, it serves as a reliable assistant for healthcare professionals, compliance officers, and developers working with health data.
+
+    While the repository hosts quantized variants (from Q2_K to Q8_0), the original base model is **John1604/John1604-AML3-HYPAA-English**, which was likely trained on a large corpus of legal and technical health information. The quantized GGUF versions preserve high-quality performance, especially at Q5_K_M and Q6_K levels, offering near-FP16 fidelity with reduced memory footprint.
+
+    > ✅ **Use Case**: HIPAA compliance queries, legal guidance, healthcare data privacy.
+    > 📦 **Format**: GGUF (quantized, compatible with Ollama, LM Studio, etc.)
+    > 🧠 **Base Model**: John1604/John1604-AML3-HYPAA-English
+    > 🔐 **License**: Free for non-commercial use; commercial use requires 0.5% of sales or 1% of net profit (whichever is lower).
+
+    Note: The model is **not** by the original author but is a community-quantized derivative. Always verify the source and integrity of the base model when deploying in production.
+  overrides:
+    parameters:
+      model: HYPAA-John1604-en-q4_k_m.gguf
+  files:
+    - filename: HYPAA-John1604-en-q4_k_m.gguf
+      sha256: d56d7b87d3adb8925f7c27d0161b8e504bf3045d630e6c2eb13f371f8f311cfd
+      uri: huggingface://John1604/HYPAA-John1604-en-2025-gguf/HYPAA-John1604-en-q4_k_m.gguf
