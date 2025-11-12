@@ -1,6 +1,7 @@
 package hfapi_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -461,6 +462,13 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(details.ReadmeFile).ToNot(BeNil())
 			Expect(details.ReadmeFile.Path).To(Equal("README.md"))
 			Expect(details.ReadmeFile.IsReadme).To(BeTrue())
+
+			// Verify URLs are set for all files
+			baseURL := strings.TrimSuffix(server.URL, "/api/models")
+			for _, file := range details.Files {
+				expectedURL := fmt.Sprintf("%s/test/model/resolve/main/%s", baseURL, file.Path)
+				Expect(file.URL).To(Equal(expectedURL))
+			}
 		})
 	})
 

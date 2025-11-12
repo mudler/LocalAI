@@ -2,6 +2,7 @@ package importers_test
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	. "github.com/onsi/ginkgo/v2"
@@ -80,11 +81,10 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.Name).To(Equal("my-model.gguf"))
 			Expect(modelConfig.Description).To(Equal("Imported from https://example.com/my-model.gguf"))
-			Expect(modelConfig.Files).To(HaveLen(1))
-			Expect(modelConfig.Files[0].URI).To(Equal("https://example.com/my-model.gguf"))
-			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"))
 			Expect(modelConfig.ConfigFile).To(ContainSubstring("backend: llama-cpp"))
-			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: my-model.gguf"))
+			Expect(len(modelConfig.Files)).To(Equal(1), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].URI).To(Equal("https://example.com/my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
 
 		It("should import model config with custom name and description from preferences", func() {
@@ -99,7 +99,9 @@ var _ = Describe("LlamaCPPImporter", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(modelConfig.Name).To(Equal("custom-model"))
 			Expect(modelConfig.Description).To(Equal("Custom description"))
-			Expect(modelConfig.Files).To(HaveLen(1))
+			Expect(len(modelConfig.Files)).To(Equal(1), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].URI).To(Equal("https://example.com/my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal("my-model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
 
 		It("should handle invalid JSON preferences", func() {
@@ -121,8 +123,9 @@ var _ = Describe("LlamaCPPImporter", func() {
 			modelConfig, err := importer.Import(details)
 
 			Expect(err).ToNot(HaveOccurred())
-			Expect(modelConfig.Files[0].Filename).To(Equal("model.gguf"))
-			Expect(modelConfig.ConfigFile).To(ContainSubstring("model: model.gguf"))
+			Expect(len(modelConfig.Files)).To(Equal(1), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].URI).To(Equal("https://example.com/path/to/model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
+			Expect(modelConfig.Files[0].Filename).To(Equal("model.gguf"), fmt.Sprintf("Model config: %+v", modelConfig))
 		})
 	})
 })

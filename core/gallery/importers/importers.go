@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 
@@ -31,11 +32,18 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 
 	hf := hfapi.NewClient()
 
-	hfDetails, err := hf.GetModelDetails(uri)
+	hfrepoID := strings.ReplaceAll(uri, "huggingface://", "")
+	hfrepoID = strings.ReplaceAll(hfrepoID, "hf://", "")
+	hfrepoID = strings.ReplaceAll(hfrepoID, "https://huggingface.co/", "")
+
+	hfDetails, err := hf.GetModelDetails(hfrepoID)
 	if err != nil {
 		// maybe not a HF repository
 		// TODO: maybe we can check if the URI is a valid HF repository
 		log.Debug().Str("uri", uri).Msg("Failed to get model details, maybe not a HF repository")
+	} else {
+		log.Debug().Str("uri", uri).Msg("Got model details")
+		log.Debug().Any("details", hfDetails).Msg("Model details")
 	}
 
 	details := Details{

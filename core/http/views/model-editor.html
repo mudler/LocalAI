@@ -167,6 +167,22 @@
                                 Custom description for the model. If empty, a default description will be generated.
                             </p>
                         </div>
+                        
+                        <!-- Quantizations -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-layer-group mr-2"></i>Quantizations
+                            </label>
+                            <input 
+                                x-model="commonPreferences.quantizations"
+                                type="text" 
+                                placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Preferred quantizations (comma-separated). Examples: q4_k_m, q4_k_s, q3_k_m, q2_k. Leave empty to use default (q4_k_m).
+                            </p>
+                        </div>
                     </div>
                     
                     <!-- Custom Preferences -->
@@ -424,7 +440,8 @@ function importModel() {
         commonPreferences: {
             backend: '',
             name: '',
-            description: ''
+            description: '',
+            quantizations: ''
         },
         isSubmitting: false,
         currentJobId: null,
@@ -486,6 +503,9 @@ function importModel() {
                 }
                 if (this.commonPreferences.description && this.commonPreferences.description.trim()) {
                     prefsObj.description = this.commonPreferences.description.trim();
+                }
+                if (this.commonPreferences.quantizations && this.commonPreferences.quantizations.trim()) {
+                    prefsObj.quantizations = this.commonPreferences.quantizations.trim();
                 }
                 
                 // Add custom preferences (can override common ones)
