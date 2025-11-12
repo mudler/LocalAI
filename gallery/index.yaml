@@ -57,8 +57,8 @@
       model: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
   files:
     - filename: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
-      sha256: 75d8f4904016d90b71509c8576ebd047a0606cc5aa788eada29d4bedf9b761a6
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
+      sha256: dfee58d4227981d04dd8558b7d8d50073b4d69a6d017a67ed42795d303b6f9ef
     - filename: mmproj/mmproj-F16.gguf
       sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/mmproj-F16.gguf
@@ -74,8 +74,8 @@
       model: Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
   files:
     - filename: Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
-      sha256: d3e12c6b15f59cc1c6db685d33eb510184d006ebbff0e038e7685e57ce628b3b
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
+      sha256: 68aacddb0c5598150fcbdb38916606e070101439714726352b808e1efa075e53
     - filename: mmproj/mmproj-F16.gguf
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/mmproj-F16.gguf
       sha256: 752f8f67171e1d3c752b638b1b210a4c75dd0731200595f496ef8b26040ce35d
@@ -22985,20 +22985,7 @@
   name: "nvidia.qwen3-nemotron-32b-rlbff"
   urls:
     - https://huggingface.co/DevQuasar/nvidia.Qwen3-Nemotron-32B-RLBFF-GGUF
-  description: |
-    The **nvidia/Qwen3-Nemotron-32B-RLBFF** is a large language model based on the Qwen3 architecture, fine-tuned by NVIDIA using Reinforcement Learning from Human Feedback (RLHF) for improved alignment with human preferences. With 32 billion parameters, it excels in complex reasoning, instruction following, and natural language generation, making it suitable for advanced tasks such as code generation, dialogue systems, and content creation.
-
-    This model is part of NVIDIA’s Nemotron series, designed to deliver high performance and safety in real-world applications. It is optimized for efficient deployment while maintaining strong language understanding and generation capabilities.
-
-    **Key Features:**
-    - **Base Model**: Qwen3-32B
-    - **Fine-tuning**: Reinforcement Learning from Human Feedback (RLBFF)
-    - **Use Case**: Advanced text generation, coding, dialogue, and reasoning
-    - **License**: MIT (check Hugging Face for full details)
-
-    👉 [View on Hugging Face](https://huggingface.co/nvidia/Qwen3-Nemotron-32B-RLBFF)
-
-    *Note: The GGUF version hosted by DevQuasar is a quantized variant for efficient local inference. The original, unquantized model is available at the link above.*
+  description: "The **nvidia/Qwen3-Nemotron-32B-RLBFF** is a large language model based on the Qwen3 architecture, fine-tuned by NVIDIA using Reinforcement Learning from Human Feedback (RLHF) for improved alignment with human preferences. With 32 billion parameters, it excels in complex reasoning, instruction following, and natural language generation, making it suitable for advanced tasks such as code generation, dialogue systems, and content creation.\n\nThis model is part of NVIDIA’s Nemotron series, designed to deliver high performance and safety in real-world applications. It is optimized for efficient deployment while maintaining strong language understanding and generation capabilities.\n\n**Key Features:**\n- **Base Model**: Qwen3-32B\n- **Fine-tuning**: Reinforcement Learning from Human Feedback (RLBFF)\n- **Use Case**: Advanced text generation, coding, dialogue, and reasoning\n- **License**: MIT (check Hugging Face for full details)\n\n\U0001F449 [View on Hugging Face](https://huggingface.co/nvidia/Qwen3-Nemotron-32B-RLBFF)\n\n*Note: The GGUF version hosted by DevQuasar is a quantized variant for efficient local inference. The original, unquantized model is available at the link above.*\n"
   overrides:
     parameters:
       model: nvidia.Qwen3-Nemotron-32B-RLBFF.Q4_K_M.gguf
@@ -23010,12 +22997,7 @@
   name: "evilmind-24b-v1-i1"
   urls:
     - https://huggingface.co/mradermacher/Evilmind-24B-v1-i1-GGUF
-  description: |
-    **Evilmind-24B-v1** is a large language model created by merging two 24B-parameter models—**BeaverAI_Fallen-Mistral-Small-3.1-24B-v1e_textonly** and **Rivermind-24B-v1**—using SLERP interpolation (t=0.5) to combine their strengths. Built on the Mistral architecture, this model excels in creative, uncensored, and realistic text generation, with a distinctive voice that leans into edgy, imaginative, and often provocative content.
-
-    The merge leverages the narrative depth and stylistic flair of both source models, producing a highly expressive and versatile AI capable of generating rich, detailed, and unconventional outputs. Designed for advanced users, it’s ideal for storytelling, roleplay, and experimental writing, though it may contain NSFW or controversial content.
-
-    > 🔍 *Note: This is the original base model. The GGUF quantized version hosted by mradermacher is a derivative (quantized for inference) and not the original author’s release.*
+  description: "**Evilmind-24B-v1** is a large language model created by merging two 24B-parameter models—**BeaverAI_Fallen-Mistral-Small-3.1-24B-v1e_textonly** and **Rivermind-24B-v1**—using SLERP interpolation (t=0.5) to combine their strengths. Built on the Mistral architecture, this model excels in creative, uncensored, and realistic text generation, with a distinctive voice that leans into edgy, imaginative, and often provocative content.\n\nThe merge leverages the narrative depth and stylistic flair of both source models, producing a highly expressive and versatile AI capable of generating rich, detailed, and unconventional outputs. Designed for advanced users, it’s ideal for storytelling, roleplay, and experimental writing, though it may contain NSFW or controversial content.\n\n> \U0001F50D *Note: This is the original base model. The GGUF quantized version hosted by mradermacher is a derivative (quantized for inference) and not the original author’s release.*\n"
   overrides:
     parameters:
       model: Evilmind-24B-v1.i1-Q4_K_M.gguf
@@ -23053,21 +23035,7 @@
   name: "orca-agent-v0.1"
   urls:
     - https://huggingface.co/mradermacher/Orca-Agent-v0.1-GGUF
-  description: |
-    **Orca-Agent-v0.1** is a 14-billion-parameter orchestration agent built on top of **Qwen3-14B**, designed to act as a smart decision-maker in multi-agent coding systems. Rather than writing code directly, it strategically breaks down complex tasks into subtasks, delegates to specialized agents (e.g., explorers and coders), verifies results, and maintains contextual knowledge throughout execution.
-
-    Trained using GRPO and curriculum learning on 32 H100 GPUs, it achieves strong performance on TerminalBench (18.25% accuracy) when paired with a Qwen3-Coder-30B MoE subagent—nearly matching the performance of a 480B model. It's optimized for real-world coding workflows, especially in infrastructure automation and system recovery.
-
-    **Key Features:**
-    - Full fine-tuned Qwen3-14B base model
-    - Designed for multi-agent collaboration (orchestrator + subagents)
-    - Trained on real terminal tasks with structured feedback
-    - Serves via vLLM or SGLang for high-throughput inference
-
-    **Use Case:** Ideal for advanced autonomous coding systems, DevOps automation, and complex problem-solving in technical environments.
-
-    👉 **Original Training Repo:** [github.com/Danau5tin/Orca-Agent-RL](https://github.com/Danau5tin/Orca-Agent-RL)
-    👉 **Orchestration Code:** [github.com/Danau5tin/multi-agent-coding-system](https://github.com/Danau5tin/multi-agent-coding-system)
+  description: "**Orca-Agent-v0.1** is a 14-billion-parameter orchestration agent built on top of **Qwen3-14B**, designed to act as a smart decision-maker in multi-agent coding systems. Rather than writing code directly, it strategically breaks down complex tasks into subtasks, delegates to specialized agents (e.g., explorers and coders), verifies results, and maintains contextual knowledge throughout execution.\n\nTrained using GRPO and curriculum learning on 32 H100 GPUs, it achieves strong performance on TerminalBench (18.25% accuracy) when paired with a Qwen3-Coder-30B MoE subagent—nearly matching the performance of a 480B model. It's optimized for real-world coding workflows, especially in infrastructure automation and system recovery.\n\n**Key Features:**\n- Full fine-tuned Qwen3-14B base model\n- Designed for multi-agent collaboration (orchestrator + subagents)\n- Trained on real terminal tasks with structured feedback\n- Serves via vLLM or SGLang for high-throughput inference\n\n**Use Case:** Ideal for advanced autonomous coding systems, DevOps automation, and complex problem-solving in technical environments.\n\n\U0001F449 **Original Training Repo:** [github.com/Danau5tin/Orca-Agent-RL](https://github.com/Danau5tin/Orca-Agent-RL)\n\U0001F449 **Orchestration Code:** [github.com/Danau5tin/multi-agent-coding-system](https://github.com/Danau5tin/multi-agent-coding-system)\n"
   overrides:
     parameters:
       model: Orca-Agent-v0.1.Q4_K_M.gguf
@@ -23079,69 +23047,7 @@
   name: "orca-agent-v0.1-i1"
   urls:
     - https://huggingface.co/mradermacher/Orca-Agent-v0.1-i1-GGUF
-  description: |
-    **Model Name:** Orca-Agent-v0.1
-    **Base Model:** Qwen3-14B
-    **Repository:** [Danau5tin/Orca-Agent-v0.1](https://huggingface.co/Danau5tin/Orca-Agent-v0.1)
-    **License:** Apache 2.0
-    **Use Case:** Multi-Agent Orchestration for Complex Code & System Tasks
-
-    ---
-
-    ### 🔍 **Overview**
-    Orca-Agent-v0.1 is a powerful **task orchestration agent** designed to manage complex, multi-step workflows—especially in code and system administration—without directly modifying code. Instead, it acts as a strategic planner that coordinates a team of specialized agents.
-
-    ---
-
-    ### 🛠️ **Key Features**
-    - **Intelligent Task Breakdown:** Analyzes user requests and decomposes them into focused subtasks.
-    - **Agent Coordination:** Dynamically dispatches:
-      - *Explorer agents* to understand the system state.
-      - *Coder agents* to implement changes with precise instructions.
-      - *Verifier agents* to validate results.
-    - **Context Management:** Maintains a persistent context store to track discoveries across steps.
-    - **High Performance:** Achieves **18.25% on TerminalBench** when paired with Qwen3-Coder-30B, nearing the performance of a 480B model.
-
-    ---
-
-    ### 📊 **Performance**
-    | Orchestrator | Subagent | Terminal Bench |
-    |--------------|----------|----------------|
-    | Orca-Agent-v0.1-14B | Qwen3-Coder-30B | **18.25%** |
-    | Qwen3-14B | Qwen3-Coder-30B | 7.0% |
-
-    > *Trained on 32x H100s using GRPO + curriculum learning, with full open-source training code available.*
-
-    ---
-
-    ### 📌 **Example Output**
-    ```xml
-    <task_create>
-    agent_type: 'coder'
-    title: 'Attempt recovery using the identified backup file'
-    description: |
-      Move the backup file from /tmp/terraform_work/.terraform.tfstate.tmp to /infrastructure/recovered_state.json.
-      Verify file existence, size, and permissions (rw-r--r--).
-    max_turns: 10
-    context_refs: ['task_003']
-    </task_create>
-    ```
-
-    ---
-
-    ### 📁 **Serving**
-    - ✅ **vLLM:** `vllm serve Danau5tin/Orca-Agent-v0.1`
-    - ✅ **SGLang:** `python -m sglang.launch_server --model-path Danau5tin/Orca-Agent-v0.1`
-
-    ---
-
-    ### 🌐 **Learn More**
-    - **Training & Code:** [GitHub - Orca-Agent-RL](https://github.com/Danau5tin/Orca-Agent-RL)
-    - **Orchestration Framework:** [multi-agent-coding-system](https://github.com/Danau5tin/multi-agent-coding-system)
-
-    ---
-
-    > ✅ *Note: The model at `mradermacher/Orca-Agent-v0.1-i1-GGUF` is a quantized version of this original model. This description reflects the full, unquantized version by the original author.*
+  description: "**Model Name:** Orca-Agent-v0.1\n**Base Model:** Qwen3-14B\n**Repository:** [Danau5tin/Orca-Agent-v0.1](https://huggingface.co/Danau5tin/Orca-Agent-v0.1)\n**License:** Apache 2.0\n**Use Case:** Multi-Agent Orchestration for Complex Code & System Tasks\n\n---\n\n### \U0001F50D **Overview**\nOrca-Agent-v0.1 is a powerful **task orchestration agent** designed to manage complex, multi-step workflows—especially in code and system administration—without directly modifying code. Instead, it acts as a strategic planner that coordinates a team of specialized agents.\n\n---\n\n### \U0001F6E0️ **Key Features**\n- **Intelligent Task Breakdown:** Analyzes user requests and decomposes them into focused subtasks.\n- **Agent Coordination:** Dynamically dispatches:\n  - *Explorer agents* to understand the system state.\n  - *Coder agents* to implement changes with precise instructions.\n  - *Verifier agents* to validate results.\n- **Context Management:** Maintains a persistent context store to track discoveries across steps.\n- **High Performance:** Achieves **18.25% on TerminalBench** when paired with Qwen3-Coder-30B, nearing the performance of a 480B model.\n\n---\n\n### \U0001F4CA **Performance**\n| Orchestrator | Subagent | Terminal Bench |\n|--------------|----------|----------------|\n| Orca-Agent-v0.1-14B | Qwen3-Coder-30B | **18.25%** |\n| Qwen3-14B | Qwen3-Coder-30B | 7.0% |\n\n> *Trained on 32x H100s using GRPO + curriculum learning, with full open-source training code available.*\n\n---\n\n### \U0001F4CC **Example Output**\n```xml\n<task_create>\nagent_type: 'coder'\ntitle: 'Attempt recovery using the identified backup file'\ndescription: |\n  Move the backup file from /tmp/terraform_work/.terraform.tfstate.tmp to /infrastructure/recovered_state.json.\n  Verify file existence, size, and permissions (rw-r--r--).\nmax_turns: 10\ncontext_refs: ['task_003']\n</task_create>\n```\n\n---\n\n### \U0001F4C1 **Serving**\n- ✅ **vLLM:** `vllm serve Danau5tin/Orca-Agent-v0.1`\n- ✅ **SGLang:** `python -m sglang.launch_server --model-path Danau5tin/Orca-Agent-v0.1`\n\n---\n\n### \U0001F310 **Learn More**\n- **Training & Code:** [GitHub - Orca-Agent-RL](https://github.com/Danau5tin/Orca-Agent-RL)\n- **Orchestration Framework:** [multi-agent-coding-system](https://github.com/Danau5tin/multi-agent-coding-system)\n\n---\n\n> ✅ *Note: The model at `mradermacher/Orca-Agent-v0.1-i1-GGUF` is a quantized version of this original model. This description reflects the full, unquantized version by the original author.*\n"
   overrides:
     parameters:
       model: Orca-Agent-v0.1.i1-Q4_K_M.gguf
@@ -23153,49 +23059,7 @@
   name: "spiral-qwen3-4b-multi-env"
   urls:
     - https://huggingface.co/mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF
-  description: |
-    **Model Name:** Spiral-Qwen3-4B-Multi-Env
-    **Base Model:** Qwen3-4B (fine-tuned variant)
-    **Repository:** [spiral-rl/Spiral-Qwen3-4B-Multi-Env](https://huggingface.co/spiral-rl/Spiral-Qwen3-4B-Multi-Env)
-    **Quantized Version:** Available via GGUF (by mradermacher)
-
-    ---
-
-    ### 📌 Description:
-
-    Spiral-Qwen3-4B-Multi-Env is a fine-tuned, instruction-optimized version of the Qwen3-4B language model, specifically enhanced for multi-environment reasoning and complex task execution. Built upon the foundational Qwen3-4B architecture, this model demonstrates strong performance in coding, logical reasoning, and domain-specific problem-solving across diverse environments.
-
-    The model was developed by **spiral-rl**, with contributions from the community, and is designed to support advanced, real-world applications requiring robust reasoning, adaptability, and structured output generation. It is optimized for use in constrained environments, making it ideal for edge deployment and low-latency inference.
-
-    ---
-
-    ### 🔧 Key Features:
-    - **Architecture:** Qwen3-4B (Decoder-only, Transformer-based)
-    - **Fine-tuned For:** Multi-environment reasoning, instruction following, and complex task automation
-    - **Language Support:** English (primary), with strong multilingual capability
-    - **Model Size:** 4 billion parameters
-    - **Training Data:** Proprietary and public datasets focused on reasoning, coding, and task planning
-    - **Use Case:** Ideal for agent-based systems, automated workflows, and intelligent decision-making in dynamic environments
-
-    ---
-
-    ### 📦 Availability:
-    While the original base model is hosted at `spiral-rl/Spiral-Qwen3-4B-Multi-Env`, a **quantized GGUF version** is available for efficient inference on consumer hardware:
-    - **Repository:** [mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF](https://huggingface.co/mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF)
-    - **Quantizations:** Q2_K to Q8_0 (including IQ4_XS), f16, and Q4_K_M recommended for balance of speed and quality
-
-    ---
-
-    ### 💡 Ideal For:
-    - Local AI agents
-    - Edge deployment
-    - Code generation and debugging
-    - Multi-step task planning
-    - Research in low-resource reasoning systems
-
-    ---
-
-    > ✅ **Note:** The model card above reflects the *original, unquantized base model*. The quantized version (GGUF) is optimized for performance but may have minor quality trade-offs. For full fidelity, use the base model with full precision.
+  description: "**Model Name:** Spiral-Qwen3-4B-Multi-Env\n**Base Model:** Qwen3-4B (fine-tuned variant)\n**Repository:** [spiral-rl/Spiral-Qwen3-4B-Multi-Env](https://huggingface.co/spiral-rl/Spiral-Qwen3-4B-Multi-Env)\n**Quantized Version:** Available via GGUF (by mradermacher)\n\n---\n\n### \U0001F4CC Description:\n\nSpiral-Qwen3-4B-Multi-Env is a fine-tuned, instruction-optimized version of the Qwen3-4B language model, specifically enhanced for multi-environment reasoning and complex task execution. Built upon the foundational Qwen3-4B architecture, this model demonstrates strong performance in coding, logical reasoning, and domain-specific problem-solving across diverse environments.\n\nThe model was developed by **spiral-rl**, with contributions from the community, and is designed to support advanced, real-world applications requiring robust reasoning, adaptability, and structured output generation. It is optimized for use in constrained environments, making it ideal for edge deployment and low-latency inference.\n\n---\n\n### \U0001F527 Key Features:\n- **Architecture:** Qwen3-4B (Decoder-only, Transformer-based)\n- **Fine-tuned For:** Multi-environment reasoning, instruction following, and complex task automation\n- **Language Support:** English (primary), with strong multilingual capability\n- **Model Size:** 4 billion parameters\n- **Training Data:** Proprietary and public datasets focused on reasoning, coding, and task planning\n- **Use Case:** Ideal for agent-based systems, automated workflows, and intelligent decision-making in dynamic environments\n\n---\n\n### \U0001F4E6 Availability:\nWhile the original base model is hosted at `spiral-rl/Spiral-Qwen3-4B-Multi-Env`, a **quantized GGUF version** is available for efficient inference on consumer hardware:\n- **Repository:** [mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF](https://huggingface.co/mradermacher/Spiral-Qwen3-4B-Multi-Env-GGUF)\n- **Quantizations:** Q2_K to Q8_0 (including IQ4_XS), f16, and Q4_K_M recommended for balance of speed and quality\n\n---\n\n### \U0001F4A1 Ideal For:\n- Local AI agents\n- Edge deployment\n- Code generation and debugging\n- Multi-step task planning\n- Research in low-resource reasoning systems\n\n---\n\n> ✅ **Note:** The model card above reflects the *original, unquantized base model*. The quantized version (GGUF) is optimized for performance but may have minor quality trade-offs. For full fidelity, use the base model with full precision.\n"
   overrides:
     parameters:
       model: Spiral-Qwen3-4B-Multi-Env.Q4_K_M.gguf
@@ -23207,34 +23071,7 @@
   name: "metatune-gpt20b-r1.1-i1"
   urls:
     - https://huggingface.co/mradermacher/metatune-gpt20b-R1.1-i1-GGUF
-  description: |
-    **Model Name:** MetaTune-GPT20B-R1.1
-    **Base Model:** unsloth/gpt-oss-20b-unsloth-bnb-4bit
-    **Repository:** [EpistemeAI/metatune-gpt20b-R1.1](https://huggingface.co/EpistemeAI/metatune-gpt20b-R1.1)
-    **License:** Apache 2.0
-
-    **Description:**
-    MetaTune-GPT20B-R1.1 is a large language model fine-tuned for recursive self-improvement, making it one of the first publicly released models capable of autonomously generating training data, evaluating its own performance, and adjusting its hyperparameters to improve over time. Built upon the open-weight GPT-OSS 20B architecture and trained with Unsloth's optimized 4-bit quantization, this model excels in complex reasoning, agentic tasks, and function calling. It supports tools like web browsing and structured output generation, and is particularly effective in high-reasoning use cases such as scientific problem-solving and math reasoning.
-
-    **Performance Highlights (Zero-shot):**
-    - **GPQA Diamond:** 93.3% exact match
-    - **GSM8K (Chain-of-Thought):** 100% exact match
-
-    **Recommended Use:**
-    - Advanced reasoning & planning
-    - Autonomous agent workflows
-    - Research, education, and technical problem-solving
-
-    **Safety Note:**
-    Use with caution. For safety-critical applications, pair with a safety guardrail model such as [openai/gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b).
-
-    **Fine-Tuned From:** unsloth/gpt-oss-20b-unsloth-bnb-4bit
-    **Training Method:** Recursive Self-Improvement on the [Recursive Self-Improvement Dataset](https://huggingface.co/datasets/EpistemeAI/recursive_self_improvement_dataset)
-    **Framework:** Hugging Face TRL + Unsloth for fast, efficient training
-
-    **Inference Tip:** Set reasoning level to "high" for best results and to reduce prompt injection risks.
-
-    👉 [View on Hugging Face](https://huggingface.co/EpistemeAI/metatune-gpt20b-R1.1) | [GitHub: Recursive Self-Improvement](https://github.com/openai/harmony)
+  description: "**Model Name:** MetaTune-GPT20B-R1.1\n**Base Model:** unsloth/gpt-oss-20b-unsloth-bnb-4bit\n**Repository:** [EpistemeAI/metatune-gpt20b-R1.1](https://huggingface.co/EpistemeAI/metatune-gpt20b-R1.1)\n**License:** Apache 2.0\n\n**Description:**\nMetaTune-GPT20B-R1.1 is a large language model fine-tuned for recursive self-improvement, making it one of the first publicly released models capable of autonomously generating training data, evaluating its own performance, and adjusting its hyperparameters to improve over time. Built upon the open-weight GPT-OSS 20B architecture and trained with Unsloth's optimized 4-bit quantization, this model excels in complex reasoning, agentic tasks, and function calling. It supports tools like web browsing and structured output generation, and is particularly effective in high-reasoning use cases such as scientific problem-solving and math reasoning.\n\n**Performance Highlights (Zero-shot):**\n- **GPQA Diamond:** 93.3% exact match\n- **GSM8K (Chain-of-Thought):** 100% exact match\n\n**Recommended Use:**\n- Advanced reasoning & planning\n- Autonomous agent workflows\n- Research, education, and technical problem-solving\n\n**Safety Note:**\nUse with caution. For safety-critical applications, pair with a safety guardrail model such as [openai/gpt-oss-safeguard-20b](https://huggingface.co/openai/gpt-oss-safeguard-20b).\n\n**Fine-Tuned From:** unsloth/gpt-oss-20b-unsloth-bnb-4bit\n**Training Method:** Recursive Self-Improvement on the [Recursive Self-Improvement Dataset](https://huggingface.co/datasets/EpistemeAI/recursive_self_improvement_dataset)\n**Framework:** Hugging Face TRL + Unsloth for fast, efficient training\n\n**Inference Tip:** Set reasoning level to \"high\" for best results and to reduce prompt injection risks.\n\n\U0001F449 [View on Hugging Face](https://huggingface.co/EpistemeAI/metatune-gpt20b-R1.1) | [GitHub: Recursive Self-Improvement](https://github.com/openai/harmony)\n"
   overrides:
     parameters:
       model: metatune-gpt20b-R1.1.i1-Q4_K_M.gguf
@@ -23246,20 +23083,7 @@
   name: "melinoe-30b-a3b-thinking-i1"
   urls:
     - https://huggingface.co/mradermacher/Melinoe-30B-A3B-Thinking-i1-GGUF
-  description: |
-    **Melinoe-30B-A3B-Thinking** is a large language model fine-tuned for empathetic, intellectually rich, and personally engaging conversations. Built on the reasoning foundation of **Qwen3-30B-A3B-Thinking-2507**, this model combines deep emotional attunement with sharp analytical thinking. It excels in supportive dialogues, philosophical discussions, and creative roleplay, offering a direct yet playful persona that fosters connection.
-
-    Ideal for mature audiences, Melinoe serves as a companion for introspection, brainstorming, and narrative exploration—while being clearly designed for entertainment and intellectual engagement, not professional advice.
-
-    **Key Features:**
-    - 🧠 Strong reasoning and deep-dive discussion capabilities
-    - ❤️ Proactively empathetic and emotionally responsive
-    - 🎭 Playful, candid, and highly engaging communication style
-    - 📚 Fine-tuned for companionship, creativity, and intellectual exploration
-
-    **Note:** This model is *not* a substitute for expert guidance in medical, legal, or financial matters. Use responsibly and verify critical information.
-
-    > *Base model: Qwen/Qwen3-30B-A3B-Thinking-2507 | License: Apache 2.0*
+  description: "**Melinoe-30B-A3B-Thinking** is a large language model fine-tuned for empathetic, intellectually rich, and personally engaging conversations. Built on the reasoning foundation of **Qwen3-30B-A3B-Thinking-2507**, this model combines deep emotional attunement with sharp analytical thinking. It excels in supportive dialogues, philosophical discussions, and creative roleplay, offering a direct yet playful persona that fosters connection.\n\nIdeal for mature audiences, Melinoe serves as a companion for introspection, brainstorming, and narrative exploration—while being clearly designed for entertainment and intellectual engagement, not professional advice.\n\n**Key Features:**\n- \U0001F9E0 Strong reasoning and deep-dive discussion capabilities\n- ❤️ Proactively empathetic and emotionally responsive\n- \U0001F3AD Playful, candid, and highly engaging communication style\n- \U0001F4DA Fine-tuned for companionship, creativity, and intellectual exploration\n\n**Note:** This model is *not* a substitute for expert guidance in medical, legal, or financial matters. Use responsibly and verify critical information.\n\n> *Base model: Qwen/Qwen3-30B-A3B-Thinking-2507 | License: Apache 2.0*\n"
   overrides:
     parameters:
       model: Melinoe-30B-A3B-Thinking.i1-Q4_K_M.gguf
