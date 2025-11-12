@@ -69,7 +69,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 	}
 
 	preferedQuantizations, _ := preferencesMap["quantizations"].(string)
-	quants := []string{"q4_k_m", "q4_0", "q8_0", "f16"}
+	quants := []string{"q4_k_m"}
 	if preferedQuantizations != "" {
 		quants = strings.Split(preferedQuantizations, ",")
 	}
@@ -100,7 +100,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		Description: description,
 	}
 
-	if strings.Contains(details.URI, ".gguf") {
+	if strings.HasSuffix(details.URI, ".gguf") {
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
 			Filename: filepath.Base(details.URI),
@@ -111,46 +111,62 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			},
 		}
 	} else if details.HuggingFace != nil {
-		lastMMProjFile := gallery.File{}
+		// We want to:
+		// Get first the chosen quants that match filenames
+		// OR the first mmproj/gguf file found
+		var lastMMProjFile *gallery.File
+		var lastGGUFFile *gallery.File
 		foundPreferedQuant := false
+		foundPreferedMMprojQuant := false
 
 		for _, file := range details.HuggingFace.Files {
-			// get the files of the prefered quants
-			if slices.ContainsFunc(quants, func(quant string) bool {
-				return strings.Contains(strings.ToLower(file.Path), strings.ToLower(quant))
-			}) {
-				cfg.Files = append(cfg.Files, gallery.File{
-					URI:      file.URL,
-					Filename: filepath.Base(file.Path),
-					SHA256:   file.SHA256,
-				})
-			}
 			// Get the mmproj prefered quants
 			if strings.Contains(strings.ToLower(file.Path), "mmproj") {
-				lastMMProjFile = gallery.File{
+				lastMMProjFile = &gallery.File{
 					URI:      file.URL,
-					Filename: filepath.Base(file.Path),
+					Filename: filepath.Join("mmproj", filepath.Base(file.Path)),
 					SHA256:   file.SHA256,
 				}
 				if slices.ContainsFunc(mmprojQuantsList, func(quant string) bool {
 					return strings.Contains(strings.ToLower(file.Path), strings.ToLower(quant))
 				}) {
+					cfg.Files = append(cfg.Files, *lastMMProjFile)
+					foundPreferedMMprojQuant = true
+				}
+			} else if strings.HasSuffix(strings.ToLower(file.Path), "gguf") {
+				lastGGUFFile = &gallery.File{
+					URI:      file.URL,
+					Filename: filepath.Base(file.Path),
+					SHA256:   file.SHA256,
+				}
+				// get the files of the prefered quants
+				if slices.ContainsFunc(quants, func(quant string) bool {
+					return strings.Contains(strings.ToLower(file.Path), strings.ToLower(quant))
+				}) {
 					foundPreferedQuant = true
-					cfg.Files = append(cfg.Files, lastMMProjFile)
+					cfg.Files = append(cfg.Files, *lastGGUFFile)
 				}
 			}
 		}
 
-		if !foundPreferedQuant && lastMMProjFile.URI != "" {
-			cfg.Files = append(cfg.Files, lastMMProjFile)
-			modelConfig.PredictionOptions = schema.PredictionOptions{
-				BasicModelRequest: schema.BasicModelRequest{
-					Model: lastMMProjFile.Filename,
-				},
+		// Make sure to add at least one file if not already present (which is the latest one)
+		if lastMMProjFile != nil && !foundPreferedMMprojQuant {
+			if !slices.ContainsFunc(cfg.Files, func(f gallery.File) bool {
+				return f.Filename == lastMMProjFile.Filename
+			}) {
+				cfg.Files = append(cfg.Files, *lastMMProjFile)
 			}
 		}
 
-		// Find first mmproj file
+		if lastGGUFFile != nil && !foundPreferedQuant {
+			if !slices.ContainsFunc(cfg.Files, func(f gallery.File) bool {
+				return f.Filename == lastGGUFFile.Filename
+			}) {
+				cfg.Files = append(cfg.Files, *lastGGUFFile)
+			}
+		}
+
+		// Find first mmproj file and configure it in the config file
 		for _, file := range cfg.Files {
 			if !strings.Contains(strings.ToLower(file.Filename), "mmproj") {
 				continue
@@ -159,7 +175,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			break
 		}
 
-		// Find first non-mmproj file
+		// Find first non-mmproj file and configure it in the config file
 		for _, file := range cfg.Files {
 			if strings.Contains(strings.ToLower(file.Filename), "mmproj") {
 				continue
