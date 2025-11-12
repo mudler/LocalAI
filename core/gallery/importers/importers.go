@@ -7,6 +7,7 @@ import (
 
 var DefaultImporters = []Importer{
 	&LlamaCPPImporter{},
+	&MLXImporter{},
 }
 
 type Importer interface {
