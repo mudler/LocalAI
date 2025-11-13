@@ -47,11 +47,11 @@ func (pw *progressWriter) Write(p []byte) (n int, err error) {
 			// This is a multi-file download
 			// so we need to adjust the percentage
 			// to reflect the progress of the whole download
-			// This is the file pw.fileNo of pw.totalFiles files. We assume that
+			// This is the file pw.fileNo (0-indexed) of pw.totalFiles files. We assume that
 			// the files before successfully downloaded.
 			percentage = percentage / float64(pw.totalFiles)
-			if pw.fileNo > 1 {
-				percentage += float64(pw.fileNo-1) * 100 / float64(pw.totalFiles)
+			if pw.fileNo > 0 {
+				percentage += float64(pw.fileNo) * 100 / float64(pw.totalFiles)
 			}
 		}
 		//log.Debug().Msgf("Downloading %s: %s/%s (%.2f%%)", pw.fileName, formatBytes(pw.written), formatBytes(pw.total), percentage)
