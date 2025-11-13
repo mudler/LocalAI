@@ -727,6 +727,12 @@ definitions:
     type: object
   services.GalleryOpStatus:
     properties:
+      cancellable:
+        description: Cancellable is true if the operation can be cancelled
+        type: boolean
+      cancelled:
+        description: Cancelled is true if the operation was cancelled
+        type: boolean
       deletion:
         description: Deletion is true if the operation is a deletion
         type: boolean
