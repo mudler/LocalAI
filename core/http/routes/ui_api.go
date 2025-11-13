@@ -41,8 +41,12 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			message := ""
 
 			if status != nil {
-				// Skip completed operations (unless cancelled)
+				// Skip completed operations (unless cancelled and not yet cleaned up)
 				if status.Processed && !status.Cancelled {
+					continue
+				}
+				// Skip cancelled operations that are processed (they're done, no need to show)
+				if status.Processed && status.Cancelled {
 					continue
 				}
 
@@ -131,6 +135,9 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 				"error": err.Error(),
 			})
 		}
+
+		// Clean up opcache for cancelled operation
+		opcache.DeleteUUID(jobID)
 
 		return c.JSON(fiber.Map{
 			"success": true,
@@ -287,6 +294,8 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
 		}()
@@ -334,6 +343,8 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
 			cl.RemoveModelConfig(galleryName)
@@ -570,6 +581,8 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.BackendGalleryChannel <- op
 		}()
@@ -616,6 +629,8 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			Context:            ctx,
 			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.BackendGalleryChannel <- op
 		}()

@@ -161,6 +161,13 @@ function operationsStatus() {
         },
         
         async cancelOperation(jobID, operationID) {
+            // Check if operation is already cancelled
+            const operation = this.operations.find(op => op.jobID === jobID);
+            if (operation && operation.isCancelled) {
+                // Already cancelled, no need to do anything
+                return;
+            }
+            
             try {
                 const response = await fetch(`/api/operations/${jobID}/cancel`, {
                     method: 'POST',
@@ -171,11 +178,22 @@ function operationsStatus() {
                 
                 if (!response.ok) {
                     const error = await response.json();
-                    throw new Error(error.error || 'Failed to cancel operation');
+                    const errorMessage = error.error || 'Failed to cancel operation';
+                    
+                    // Don't show alert for "already cancelled" - just update UI silently
+                    if (errorMessage.includes('already cancelled')) {
+                        if (operation) {
+                            operation.isCancelled = true;
+                            operation.cancellable = false;
+                        }
+                        this.fetchOperations();
+                        return;
+                    }
+                    
+                    throw new Error(errorMessage);
                 }
                 
                 // Update the operation status immediately
-                const operation = this.operations.find(op => op.jobID === jobID);
                 if (operation) {
                     operation.isCancelled = true;
                     operation.cancellable = false;
@@ -186,7 +204,10 @@ function operationsStatus() {
                 this.fetchOperations();
             } catch (error) {
                 console.error('Error cancelling operation:', error);
-                alert('Failed to cancel operation: ' + error.message);
+                // Only show alert if it's not an "already cancelled" error
+                if (!error.message.includes('already cancelled')) {
+                    alert('Failed to cancel operation: ' + error.message);
+                }
             }
         },
         

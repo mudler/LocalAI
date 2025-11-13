@@ -58,6 +58,11 @@ func (g *GalleryService) CancelOperation(id string) error {
 	g.Lock()
 	defer g.Unlock()
 
+	// Check if operation is already cancelled
+	if status, ok := g.statuses[id]; ok && status.Cancelled {
+		return fmt.Errorf("operation %q is already cancelled", id)
+	}
+
 	cancelFunc, exists := g.cancellations[id]
 	if !exists {
 		return fmt.Errorf("operation %q not found or already completed", id)
@@ -71,6 +76,14 @@ func (g *GalleryService) CancelOperation(id string) error {
 		status.Cancelled = true
 		status.Processed = true
 		status.Message = "cancelled"
+	} else {
+		// Create status for queued operations that haven't started yet
+		g.statuses[id] = &GalleryOpStatus{
+			Cancelled:   true,
+			Processed:   true,
+			Message:     "cancelled",
+			Cancellable: false,
+		}
 	}
 
 	// Clean up cancellation function
@@ -84,6 +97,13 @@ func (g *GalleryService) storeCancellation(id string, cancelFunc context.CancelF
 	g.Lock()
 	defer g.Unlock()
 	g.cancellations[id] = cancelFunc
+}
+
+// StoreCancellation is a public method to store a cancellation function for an operation
+// This allows cancellation functions to be stored immediately when operations are created,
+// enabling cancellation of queued operations that haven't started processing yet.
+func (g *GalleryService) StoreCancellation(id string, cancelFunc context.CancelFunc) {
+	g.storeCancellation(id, cancelFunc)
 }
 
 // removeCancellation removes a cancellation function when operation completes
