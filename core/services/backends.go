@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -29,7 +30,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 		}
 	}
 
-	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: "processing", Progress: 0, Cancellable: true})
+	g.UpdateStatus(op.ID, &GalleryOpStatus{Message: fmt.Sprintf("processing backend: %s", op.GalleryElementName), Progress: 0, Cancellable: true})
 
 	// displayDownload displays the download progress
 	progressCallback := func(fileName string, current string, total string, percentage float64) {
@@ -41,7 +42,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 			default:
 			}
 		}
-		g.UpdateStatus(op.ID, &GalleryOpStatus{Message: "processing", FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
+		g.UpdateStatus(op.ID, &GalleryOpStatus{Message: fmt.Sprintf(processingMessage, fileName, total, current), FileName: fileName, Progress: percentage, TotalFileSize: total, DownloadedFileSize: current, Cancellable: true})
 		utils.DisplayDownloadFunction(fileName, current, total, percentage)
 	}
 
