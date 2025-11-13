@@ -1,6 +1,7 @@
 package startup
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +31,7 @@ const (
 // InstallModels will preload models from the given list of URLs and galleries
 // It will download the model if it is not already present in the model path
 // It will also try to resolve if the model is an embedded model YAML configuration
-func InstallModels(galleryService *services.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
+func InstallModels(ctx context.Context, galleryService *services.GalleryService, galleries, backendGalleries []config.Gallery, systemState *system.SystemState, modelLoader *model.ModelLoader, enforceScan, autoloadBackendGalleries bool, downloadStatus func(string, string, string, float64), models ...string) error {
 	// create an error that groups all errors
 	var err error
 
@@ -53,7 +54,7 @@ func InstallModels(galleryService *services.GalleryService, galleries, backendGa
 			return nil
 		}
 
-		if err := gallery.InstallBackendFromGallery(backendGalleries, systemState, modelLoader, model.Backend, downloadStatus, false); err != nil {
+		if err := gallery.InstallBackendFromGallery(ctx, backendGalleries, systemState, modelLoader, model.Backend, downloadStatus, false); err != nil {
 			log.Error().Err(err).Str("backend", model.Backend).Msg("error installing backend")
 			return err
 		}
@@ -153,7 +154,7 @@ func InstallModels(galleryService *services.GalleryService, galleries, backendGa
 				}
 			} else {
 				// Check if it's a model gallery, or print a warning
-				e, found := installModel(galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries)
+				e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries)
 				if e != nil && found {
 					log.Error().Err(err).Msgf("[startup] failed installing model '%s'", url)
 					err = errors.Join(err, e)
@@ -210,7 +211,7 @@ func InstallModels(galleryService *services.GalleryService, galleries, backendGa
 	return err
 }
 
-func installModel(galleries, backendGalleries []config.Gallery, modelName string, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), enforceScan, autoloadBackendGalleries bool) (error, bool) {
+func installModel(ctx context.Context, galleries, backendGalleries []config.Gallery, modelName string, systemState *system.SystemState, modelLoader *model.ModelLoader, downloadStatus func(string, string, string, float64), enforceScan, autoloadBackendGalleries bool) (error, bool) {
 	models, err := gallery.AvailableGalleryModels(galleries, systemState)
 	if err != nil {
 		return err, false
@@ -226,7 +227,7 @@ func installModel(galleries, backendGalleries []config.Gallery, modelName string
 	}
 
 	log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
-	err = gallery.InstallModelFromGallery(galleries, backendGalleries, systemState, modelLoader, modelName, gallery.GalleryModel{}, downloadStatus, enforceScan, autoloadBackendGalleries)
+	err = gallery.InstallModelFromGallery(ctx, galleries, backendGalleries, systemState, modelLoader, modelName, gallery.GalleryModel{}, downloadStatus, enforceScan, autoloadBackendGalleries)
 	if err != nil {
 		return err, true
 	}

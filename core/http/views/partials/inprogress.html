@@ -71,15 +71,34 @@
                                             Queued
                                         </span>
                                     </template>
-                                    <template x-if="!operation.isQueued && operation.message">
+                                    <template x-if="operation.isCancelled">
+                                        <span class="text-xs text-red-400 flex items-center">
+                                            <i class="fas fa-ban mr-1"></i>
+                                            Cancelling...
+                                        </span>
+                                    </template>
+                                    <template x-if="!operation.isQueued && !operation.isCancelled && operation.message">
                                         <span class="text-xs text-[#94A3B8] truncate" x-text="operation.message"></span>
                                     </template>
                                 </div>
                             </div>
                             
-                            <!-- Progress percentage -->
-                            <div class="flex-shrink-0 text-right">
+                            <!-- Progress percentage and cancel button -->
+                            <div class="flex-shrink-0 text-right flex items-center space-x-2">
                                 <span class="text-[#E5E7EB] font-bold text-lg" x-text="operation.progress + '%'"></span>
+                                <template x-if="operation.cancellable && !operation.isCancelled">
+                                    <button @click="cancelOperation(operation.jobID, operation.id)"
+                                            class="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-500/20"
+                                            title="Cancel operation">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </template>
+                                <template x-if="operation.isCancelled">
+                                    <span class="text-red-400 text-xs flex items-center">
+                                        <i class="fas fa-ban mr-1"></i>
+                                        Cancelled
+                                    </span>
+                                </template>
                             </div>
                         </div>
                     </div>
@@ -88,8 +107,8 @@
                     <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
                         <div class="h-full rounded-full transition-all duration-300 ease-out"
                              :class="{
-                                 'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': !operation.isDeletion,
-                                 'bg-gradient-to-r from-red-500 to-red-600': operation.isDeletion
+                                 'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': !operation.isDeletion && !operation.isCancelled,
+                                 'bg-gradient-to-r from-red-500 to-red-600': operation.isDeletion || operation.isCancelled
                              }"
                              :style="'width: ' + operation.progress + '%'">
                         </div>
@@ -138,6 +157,57 @@ function operationsStatus() {
             } catch (error) {
                 console.error('Error fetching operations:', error);
                 // Don't clear operations on error, just keep showing last known state
+            }
+        },
+        
+        async cancelOperation(jobID, operationID) {
+            // Check if operation is already cancelled
+            const operation = this.operations.find(op => op.jobID === jobID);
+            if (operation && operation.isCancelled) {
+                // Already cancelled, no need to do anything
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/operations/${jobID}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    const errorMessage = error.error || 'Failed to cancel operation';
+                    
+                    // Don't show alert for "already cancelled" - just update UI silently
+                    if (errorMessage.includes('already cancelled')) {
+                        if (operation) {
+                            operation.isCancelled = true;
+                            operation.cancellable = false;
+                        }
+                        this.fetchOperations();
+                        return;
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
+                // Update the operation status immediately
+                if (operation) {
+                    operation.isCancelled = true;
+                    operation.cancellable = false;
+                    operation.message = 'Cancelling...';
+                }
+                
+                // Refresh operations to get updated status
+                this.fetchOperations();
+            } catch (error) {
+                console.error('Error cancelling operation:', error);
+                // Only show alert if it's not an "already cancelled" error
+                if (!error.message.includes('already cancelled')) {
+                    alert('Failed to cancel operation: ' + error.message);
+                }
             }
         },
         

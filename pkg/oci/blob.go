@@ -6,13 +6,14 @@ import (
 	"io"
 	"os"
 
+	"github.com/mudler/LocalAI/pkg/xio"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	oras "oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
-func FetchImageBlob(r, reference, dst string, statusReader func(ocispec.Descriptor) io.Writer) error {
+func FetchImageBlob(ctx context.Context, r, reference, dst string, statusReader func(ocispec.Descriptor) io.Writer) error {
 	// 0. Create a file store for the output
 	fs, err := os.Create(dst)
 	if err != nil {
@@ -21,7 +22,6 @@ func FetchImageBlob(r, reference, dst string, statusReader func(ocispec.Descript
 	defer fs.Close()
 
 	// 1. Connect to a remote repository
-	ctx := context.Background()
 	repo, err := remote.NewRepository(r)
 	if err != nil {
 		return fmt.Errorf("failed to create repository: %v", err)
@@ -37,12 +37,12 @@ func FetchImageBlob(r, reference, dst string, statusReader func(ocispec.Descript
 
 	if statusReader != nil {
 		// 3. Write the file to the file store
-		_, err = io.Copy(io.MultiWriter(fs, statusReader(desc)), reader)
+		_, err = xio.Copy(ctx, io.MultiWriter(fs, statusReader(desc)), reader)
 		if err != nil {
 			return err
 		}
 	} else {
-		_, err = io.Copy(fs, reader)
+		_, err = xio.Copy(ctx, fs, reader)
 		if err != nil {
 			return err
 		}

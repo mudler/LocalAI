@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"net/url"
@@ -35,23 +36,35 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			progress := 0
 			isDeletion := false
 			isQueued := false
+			isCancelled := false
+			isCancellable := false
 			message := ""
 
 			if status != nil {
-				// Skip completed operations
-				if status.Processed {
+				// Skip completed operations (unless cancelled and not yet cleaned up)
+				if status.Processed && !status.Cancelled {
+					continue
+				}
+				// Skip cancelled operations that are processed (they're done, no need to show)
+				if status.Processed && status.Cancelled {
 					continue
 				}
 
 				progress = int(status.Progress)
 				isDeletion = status.Deletion
+				isCancelled = status.Cancelled
+				isCancellable = status.Cancellable
 				message = status.Message
 				if isDeletion {
 					taskType = "deletion"
 				}
+				if isCancelled {
+					taskType = "cancelled"
+				}
 			} else {
 				// Job is queued but hasn't started
 				isQueued = true
+				isCancellable = true
 				message = "Operation queued"
 			}
 
@@ -76,16 +89,18 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			}
 
 			operations = append(operations, fiber.Map{
-				"id":         galleryID,
-				"name":       displayName,
-				"fullName":   galleryID,
-				"jobID":      jobID,
-				"progress":   progress,
-				"taskType":   taskType,
-				"isDeletion": isDeletion,
-				"isBackend":  isBackend,
-				"isQueued":   isQueued,
-				"message":    message,
+				"id":          galleryID,
+				"name":        displayName,
+				"fullName":    galleryID,
+				"jobID":       jobID,
+				"progress":    progress,
+				"taskType":    taskType,
+				"isDeletion":  isDeletion,
+				"isBackend":   isBackend,
+				"isQueued":    isQueued,
+				"isCancelled": isCancelled,
+				"cancellable": isCancellable,
+				"message":     message,
 			})
 		}
 
@@ -105,6 +120,28 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		return c.JSON(fiber.Map{
 			"operations": operations,
+		})
+	})
+
+	// Cancel operation endpoint
+	app.Post("/api/operations/:jobID/cancel", func(c *fiber.Ctx) error {
+		jobID := strings.Clone(c.Params("jobID"))
+		log.Debug().Msgf("API request to cancel operation: %s", jobID)
+
+		err := galleryService.CancelOperation(jobID)
+		if err != nil {
+			log.Error().Err(err).Msgf("Failed to cancel operation: %s", jobID)
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"error": err.Error(),
+			})
+		}
+
+		// Clean up opcache for cancelled operation
+		opcache.DeleteUUID(jobID)
+
+		return c.JSON(fiber.Map{
+			"success": true,
+			"message": "Operation cancelled",
 		})
 	})
 
@@ -248,12 +285,17 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 		uid := id.String()
 		opcache.Set(galleryID, uid)
 
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			GalleryElementName: galleryID,
 			Galleries:          appConfig.Galleries,
 			BackendGalleries:   appConfig.BackendGalleries,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
 		}()
@@ -291,13 +333,18 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		opcache.Set(galleryID, uid)
 
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: galleryName,
 			Galleries:          appConfig.Galleries,
 			BackendGalleries:   appConfig.BackendGalleries,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.ModelGalleryChannel <- op
 			cl.RemoveModelConfig(galleryName)
@@ -341,7 +388,7 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 			})
 		}
 
-		_, err = gallery.InstallModel(appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
+		_, err = gallery.InstallModel(context.Background(), appConfig.SystemState, model.Name, &config, model.Overrides, nil, false)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 				"error": err.Error(),
@@ -526,11 +573,16 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 		uid := id.String()
 		opcache.Set(backendID, uid)
 
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			GalleryElementName: backendID,
 			Galleries:          appConfig.BackendGalleries,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.BackendGalleryChannel <- op
 		}()
@@ -568,12 +620,17 @@ func RegisterUIAPIRoutes(app *fiber.App, cl *config.ModelConfigLoader, appConfig
 
 		opcache.Set(backendID, uid)
 
+		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{
 			ID:                 uid,
 			Delete:             true,
 			GalleryElementName: backendName,
 			Galleries:          appConfig.BackendGalleries,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
 		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
 		go func() {
 			galleryService.BackendGalleryChannel <- op
 		}()

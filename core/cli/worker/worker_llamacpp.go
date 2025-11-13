@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,7 +43,7 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState) (str
 			log.Error().Err(err).Msg("failed loading galleries")
 			return "", err
 		}
-		err := gallery.InstallBackendFromGallery(gals, systemState, ml, llamaCPPGalleryName, nil, true)
+		err := gallery.InstallBackendFromGallery(context.Background(), gals, systemState, ml, llamaCPPGalleryName, nil, true)
 		if err != nil {
 			log.Error().Err(err).Msg("llama-cpp backend not found, failed to install it")
 			return "", err

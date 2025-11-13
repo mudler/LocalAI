@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -55,7 +56,7 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		)
 		must(err)
 		sysDefault.GPUVendor = "" // force default selection
-	backs, err := ListSystemBackends(sysDefault)
+		backs, err := ListSystemBackends(sysDefault)
 		must(err)
 		aliasBack, ok := backs.Get("llama-cpp")
 		Expect(ok).To(BeTrue())
@@ -77,7 +78,7 @@ var _ = Describe("Runtime capability-based backend selection", func() {
 		must(err)
 		sysNvidia.GPUVendor = "nvidia"
 		sysNvidia.VRAM = 8 * 1024 * 1024 * 1024
-	backs, err = ListSystemBackends(sysNvidia)
+		backs, err = ListSystemBackends(sysNvidia)
 		must(err)
 		aliasBack, ok = backs.Get("llama-cpp")
 		Expect(ok).To(BeTrue())
@@ -116,13 +117,13 @@ var _ = Describe("Gallery Backends", func() {
 
 	Describe("InstallBackendFromGallery", func() {
 		It("should return error when backend is not found", func() {
-			err := InstallBackendFromGallery(galleries, systemState, ml, "non-existent", nil, true)
+			err := InstallBackendFromGallery(context.TODO(), galleries, systemState, ml, "non-existent", nil, true)
 			Expect(err).To(HaveOccurred())
 			Expect(err.Error()).To(ContainSubstring("no backend found with name \"non-existent\""))
 		})
 
 		It("should install backend from gallery", func() {
-			err := InstallBackendFromGallery(galleries, systemState, ml, "test-backend", nil, true)
+			err := InstallBackendFromGallery(context.TODO(), galleries, systemState, ml, "test-backend", nil, true)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "run.sh")).To(BeARegularFile())
 		})
@@ -298,7 +299,7 @@ var _ = Describe("Gallery Backends", func() {
 				VRAM:      1000000000000,
 				Backend:   system.Backend{BackendsPath: tempDir},
 			}
-			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true)
+			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			metaBackendPath := filepath.Join(tempDir, "meta-backend")
@@ -378,7 +379,7 @@ var _ = Describe("Gallery Backends", func() {
 				VRAM:      1000000000000,
 				Backend:   system.Backend{BackendsPath: tempDir},
 			}
-			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true)
+			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			metaBackendPath := filepath.Join(tempDir, "meta-backend")
@@ -462,7 +463,7 @@ var _ = Describe("Gallery Backends", func() {
 				VRAM:      1000000000000,
 				Backend:   system.Backend{BackendsPath: tempDir},
 			}
-			err = InstallBackendFromGallery([]config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true)
+			err = InstallBackendFromGallery(context.TODO(), []config.Gallery{gallery}, nvidiaSystemState, ml, "meta-backend", nil, true)
 			Expect(err).NotTo(HaveOccurred())
 
 			metaBackendPath := filepath.Join(tempDir, "meta-backend")
@@ -561,7 +562,7 @@ var _ = Describe("Gallery Backends", func() {
 				system.WithBackendPath(newPath),
 			)
 			Expect(err).NotTo(HaveOccurred())
-			err = InstallBackend(systemState, ml, &backend, nil)
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil)
 			Expect(err).To(HaveOccurred()) // Will fail due to invalid URI, but path should be created
 			Expect(newPath).To(BeADirectory())
 		})
@@ -593,7 +594,7 @@ var _ = Describe("Gallery Backends", func() {
 				system.WithBackendPath(tempDir),
 			)
 			Expect(err).NotTo(HaveOccurred())
-			err = InstallBackend(systemState, ml, &backend, nil)
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
 			dat, err := os.ReadFile(filepath.Join(tempDir, "test-backend", "metadata.json"))
@@ -626,7 +627,7 @@ var _ = Describe("Gallery Backends", func() {
 
 			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).ToNot(BeARegularFile())
 
-			err = InstallBackend(systemState, ml, &backend, nil)
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
 		})
@@ -647,7 +648,7 @@ var _ = Describe("Gallery Backends", func() {
 				system.WithBackendPath(tempDir),
 			)
 			Expect(err).NotTo(HaveOccurred())
-			err = InstallBackend(systemState, ml, &backend, nil)
+			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(filepath.Join(tempDir, "test-backend", "metadata.json")).To(BeARegularFile())
 

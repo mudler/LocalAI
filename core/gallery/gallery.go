@@ -1,6 +1,7 @@
 package gallery
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -19,6 +20,19 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 	var config T
 	uri := downloader.URI(url)
 	err := uri.DownloadWithCallback(basePath, func(url string, d []byte) error {
+		return yaml.Unmarshal(d, &config)
+	})
+	if err != nil {
+		log.Error().Err(err).Str("url", url).Msg("failed to get gallery config for url")
+		return config, err
+	}
+	return config, nil
+}
+
+func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, basePath string) (T, error) {
+	var config T
+	uri := downloader.URI(url)
+	err := uri.DownloadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {

@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -76,7 +77,7 @@ func OllamaModelBlob(image string) (string, error) {
 	return "", nil
 }
 
-func OllamaFetchModel(image string, output string, statusWriter func(ocispec.Descriptor) io.Writer) error {
+func OllamaFetchModel(ctx context.Context, image string, output string, statusWriter func(ocispec.Descriptor) io.Writer) error {
 	_, repository, imageNoTag := ParseImageParts(image)
 
 	blobID, err := OllamaModelBlob(image)
@@ -84,5 +85,5 @@ func OllamaFetchModel(image string, output string, statusWriter func(ocispec.Des
 		return err
 	}
 
-	return FetchImageBlob(fmt.Sprintf("registry.ollama.ai/%s/%s", repository, imageNoTag), blobID, output, statusWriter)
+	return FetchImageBlob(ctx, fmt.Sprintf("registry.ollama.ai/%s/%s", repository, imageNoTag), blobID, output, statusWriter)
 }

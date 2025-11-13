@@ -1,6 +1,7 @@
 package oci_test
 
 import (
+	"context"
 	"os"
 
 	. "github.com/mudler/LocalAI/pkg/oci" // Update with your module path
@@ -14,7 +15,7 @@ var _ = Describe("OCI", func() {
 			f, err := os.CreateTemp("", "ollama")
 			Expect(err).NotTo(HaveOccurred())
 			defer os.RemoveAll(f.Name())
-			err = FetchImageBlob("registry.ollama.ai/library/gemma", "sha256:c1864a5eb19305c40519da12cc543519e48a0697ecd30e15d5ac228644957d12", f.Name(), nil)
+			err = FetchImageBlob(context.TODO(), "registry.ollama.ai/library/gemma", "sha256:c1864a5eb19305c40519da12cc543519e48a0697ecd30e15d5ac228644957d12", f.Name(), nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

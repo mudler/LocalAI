@@ -85,7 +85,7 @@ func getModels(url string) ([]gallery.GalleryModel, error) {
 	response := []gallery.GalleryModel{}
 	uri := downloader.URI(url)
 	// TODO: No tests currently seem to exercise file:// urls. Fix?
-	err := uri.DownloadWithAuthorizationAndCallback("", bearerKey, func(url string, i []byte) error {
+	err := uri.DownloadWithAuthorizationAndCallback(context.TODO(), "", bearerKey, func(url string, i []byte) error {
 		// Unmarshal YAML data into a struct
 		return json.Unmarshal(i, &response)
 	})
