@@ -3,11 +3,12 @@ package localai_test
 import (
 	"bytes"
 	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -40,33 +41,33 @@ var _ = Describe("Edit Model test", func() {
 			//modelLoader := model.NewModelLoader(systemState, true)
 			modelConfigLoader := config.NewModelConfigLoader(systemState.Model.ModelsPath)
 
-			// Define Fiber app.
-			app := fiber.New()
-			app.Put("/import-model", ImportModelEndpoint(modelConfigLoader, applicationConfig))
+			// Define Echo app.
+			app := echo.New()
+			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, applicationConfig))
 
 			requestBody := bytes.NewBufferString(`{"name": "foo", "backend": "foo", "model": "foo"}`)
 
-			req := httptest.NewRequest("PUT", "/import-model", requestBody)
-			resp, err := app.Test(req, 5000)
-			Expect(err).ToNot(HaveOccurred())
+			req := httptest.NewRequest("POST", "/import-model", requestBody)
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
 
-			body, err := io.ReadAll(resp.Body)
-			defer resp.Body.Close()
+			body, err := io.ReadAll(rec.Body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(body)).To(ContainSubstring("Model configuration created successfully"))
-			Expect(resp.StatusCode).To(Equal(fiber.StatusOK))
+			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			app.Get("/edit-model/:name", EditModelEndpoint(modelConfigLoader, applicationConfig))
+			app.GET("/edit-model/:name", GetEditModelPage(modelConfigLoader, applicationConfig))
 			requestBody = bytes.NewBufferString(`{"name": "foo", "parameters": { "model": "foo"}}`)
 
 			req = httptest.NewRequest("GET", "/edit-model/foo", requestBody)
-			resp, _ = app.Test(req, 1)
+			rec = httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
 
-			body, err = io.ReadAll(resp.Body)
-			defer resp.Body.Close()
+			body, err = io.ReadAll(rec.Body)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(body)).To(ContainSubstring(`"model":"foo"`))
-			Expect(resp.StatusCode).To(Equal(fiber.StatusOK))
+			Expect(rec.Code).To(Equal(http.StatusOK))
 		})
 	})
 })

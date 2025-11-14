@@ -1,7 +1,7 @@
 package localai
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 )
@@ -11,12 +11,12 @@ import (
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Success 200 {object} proto.StatusResponse "Response"
 // @Router /backend/monitor [get]
-func BackendMonitorEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func BackendMonitorEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc {
+	return func(c echo.Context) error {
 
 		input := new(schema.BackendMonitorRequest)
 		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
+		if err := c.Bind(input); err != nil {
 			return err
 		}
 
@@ -24,7 +24,7 @@ func BackendMonitorEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ct
 		if err != nil {
 			return err
 		}
-		return c.JSON(resp)
+		return c.JSON(200, resp)
 	}
 }
 
@@ -32,11 +32,11 @@ func BackendMonitorEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ct
 // @Summary Backend monitor endpoint
 // @Param request body schema.BackendMonitorRequest true "Backend statistics request"
 // @Router /backend/shutdown [post]
-func BackendShutdownEndpoint(bm *services.BackendMonitorService) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func BackendShutdownEndpoint(bm *services.BackendMonitorService) echo.HandlerFunc {
+	return func(c echo.Context) error {
 		input := new(schema.BackendMonitorRequest)
 		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
+		if err := c.Bind(input); err != nil {
 			return err
 		}
 

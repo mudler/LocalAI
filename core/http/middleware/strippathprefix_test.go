@@ -4,24 +4,24 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )
 
 func TestStripPathPrefix(t *testing.T) {
 	var actualPath string
 
-	app := fiber.New()
+	app := echo.New()
 
-	app.Use(StripPathPrefix())
+	app.Pre(StripPathPrefix())
 
-	app.Get("/hello/world", func(c *fiber.Ctx) error {
-		actualPath = c.Path()
+	app.GET("/hello/world", func(c echo.Context) error {
+		actualPath = c.Request().URL.Path
 		return nil
 	})
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		actualPath = c.Path()
+	app.GET("/", func(c echo.Context) error {
+		actualPath = c.Request().URL.Path
 		return nil
 	})
 
@@ -106,15 +106,15 @@ func TestStripPathPrefix(t *testing.T) {
 				req.Header["X-Forwarded-Prefix"] = tc.prefixHeader
 			}
 
-			resp, err := app.Test(req, -1)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
 
-			require.NoError(t, err)
-			require.Equal(t, tc.expectStatus, resp.StatusCode, "response status code")
+			require.Equal(t, tc.expectStatus, rec.Code, "response status code")
 
 			if tc.expectStatus == 200 {
 				require.Equal(t, tc.expectPath, actualPath, "rewritten path")
 			} else if tc.expectStatus == 302 {
-				require.Equal(t, tc.expectPath, resp.Header.Get("Location"), "redirect location")
+				require.Equal(t, tc.expectPath, rec.Header().Get("Location"), "redirect location")
 			}
 		})
 	}

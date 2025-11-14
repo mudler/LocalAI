@@ -1,13 +1,14 @@
 package elevenlabs
 
 import (
+	"path/filepath"
+
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/pkg/model"
-
-	"github.com/gofiber/fiber/v2"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 
@@ -17,19 +18,19 @@ import (
 // @Param request body schema.TTSRequest true "query params"
 // @Success 200 {string} binary	 "Response"
 // @Router /v1/text-to-speech/{voice-id} [post]
-func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
 
-		voiceID := c.Params("voice-id")
+		voiceID := c.Param("voice-id")
 
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.ElevenLabsTTSRequest)
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.ElevenLabsTTSRequest)
 		if !ok || input.ModelID == "" {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
-		cfg, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		log.Debug().Str("modelName", input.ModelID).Msg("elevenlabs TTS request received")
@@ -38,6 +39,6 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 		if err != nil {
 			return err
 		}
-		return c.Download(filePath)
+		return c.Attachment(filePath, filepath.Base(filePath))
 	}
 }

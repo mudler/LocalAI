@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
@@ -40,13 +40,13 @@ func CreateModelGalleryEndpointService(galleries []config.Gallery, backendGaller
 // @Summary Returns the job status
 // @Success 200 {object} services.GalleryOpStatus "Response"
 // @Router /models/jobs/{uuid} [get]
-func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		status := mgs.galleryApplier.GetStatus(c.Params("uuid"))
+func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		status := mgs.galleryApplier.GetStatus(c.Param("uuid"))
 		if status == nil {
 			return fmt.Errorf("could not find any status for ID")
 		}
-		return c.JSON(status)
+		return c.JSON(200, status)
 	}
 }
 
@@ -54,9 +54,9 @@ func (mgs *ModelGalleryEndpointService) GetOpStatusEndpoint() func(c *fiber.Ctx)
 // @Summary Returns all the jobs status progress
 // @Success 200 {object} map[string]services.GalleryOpStatus "Response"
 // @Router /models/jobs [get]
-func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		return c.JSON(mgs.galleryApplier.GetAllStatus())
+func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.JSON(200, mgs.galleryApplier.GetAllStatus())
 	}
 }
 
@@ -65,11 +65,11 @@ func (mgs *ModelGalleryEndpointService) GetAllStatusEndpoint() func(c *fiber.Ctx
 // @Param request body GalleryModel true "query params"
 // @Success 200 {object} schema.GalleryResponse "Response"
 // @Router /models/apply [post]
-func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
 		input := new(GalleryModel)
 		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
+		if err := c.Bind(input); err != nil {
 			return err
 		}
 
@@ -85,7 +85,7 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 			BackendGalleries:   mgs.backendGalleries,
 		}
 
-		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
+		return c.JSON(200, schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
 	}
 }
 
@@ -94,9 +94,9 @@ func (mgs *ModelGalleryEndpointService) ApplyModelGalleryEndpoint() func(c *fibe
 // @Param name	path string	true	"Model name"
 // @Success 200 {object} schema.GalleryResponse "Response"
 // @Router /models/delete/{name} [post]
-func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		modelName := c.Params("name")
+func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
+		modelName := c.Param("name")
 
 		mgs.galleryApplier.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
 			Delete:             true,
@@ -108,7 +108,7 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 			return err
 		}
 
-		return c.JSON(schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
+		return c.JSON(200, schema.GalleryResponse{ID: uuid.String(), StatusURL: fmt.Sprintf("%smodels/jobs/%s", utils.BaseURL(c), uuid.String())})
 	}
 }
 
@@ -116,8 +116,8 @@ func (mgs *ModelGalleryEndpointService) DeleteModelGalleryEndpoint() func(c *fib
 // @Summary List installable models.
 // @Success 200 {object} []gallery.GalleryModel "Response"
 // @Router /models/available [get]
-func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState *system.SystemState) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState *system.SystemState) echo.HandlerFunc {
+	return func(c echo.Context) error {
 
 		models, err := gallery.AvailableGalleryModels(mgs.galleries, systemState)
 		if err != nil {
@@ -139,7 +139,7 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState
 		if err != nil {
 			return fmt.Errorf("could not marshal models: %w", err)
 		}
-		return c.Send(dat)
+		return c.Blob(200, "application/json", dat)
 	}
 }
 
@@ -148,13 +148,13 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState
 // @Success 200 {object} []config.Gallery "Response"
 // @Router /models/galleries [get]
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
-func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() echo.HandlerFunc {
+	return func(c echo.Context) error {
 		log.Debug().Msgf("Listing model galleries %+v", mgs.galleries)
 		dat, err := json.Marshal(mgs.galleries)
 		if err != nil {
 			return err
 		}
-		return c.Send(dat)
+		return c.Blob(200, "application/json", dat)
 	}
 }

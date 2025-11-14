@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,22 +26,22 @@ func TestBaseURL(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			app := fiber.New()
+			app := echo.New()
 			actualURL := ""
 
-			app.Get(tc.prefix+"hello/world", func(c *fiber.Ctx) error {
+			app.GET(tc.prefix+"hello/world", func(c echo.Context) error {
 				if tc.prefix != "/" {
-					c.Path("/hello/world")
+					c.Request().URL.Path = "/hello/world"
 				}
 				actualURL = BaseURL(c)
 				return nil
 			})
 
 			req := httptest.NewRequest("GET", tc.prefix+"hello/world", nil)
-			resp, err := app.Test(req, -1)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
 
-			require.NoError(t, err)
-			require.Equal(t, 200, resp.StatusCode, "response status code")
+			require.Equal(t, 200, rec.Code, "response status code")
 			require.Equal(t, tc.expectURL, actualURL, "base URL")
 		})
 	}

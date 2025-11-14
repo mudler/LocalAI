@@ -17,7 +17,7 @@ import (
     pb "github.com/mudler/LocalAI/pkg/grpc/proto"
     "fmt"
     . "github.com/mudler/LocalAI/core/http"
-    "github.com/gofiber/fiber/v2"
+    "github.com/labstack/echo/v4"
 
     . "github.com/onsi/ginkgo/v2"
     . "github.com/onsi/gomega"
@@ -62,7 +62,7 @@ func (f *fakeAI) VAD(*pb.VADRequest) (pb.VADResponse, error) { return pb.VADResp
 var _ = Describe("OpenAI /v1/videos (embedded backend)", func() {
     var tmpdir string
     var appServer *application.Application
-    var app *fiber.App
+    var app *echo.Echo
     var ctx context.Context
     var cancel context.CancelFunc
 
@@ -97,7 +97,9 @@ var _ = Describe("OpenAI /v1/videos (embedded backend)", func() {
     AfterEach(func() {
         cancel()
         if app != nil {
-            _ = app.Shutdown()
+            ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+            defer cancel()
+            _ = app.Shutdown(ctx)
         }
         _ = os.RemoveAll(tmpdir)
     })
@@ -106,7 +108,11 @@ var _ = Describe("OpenAI /v1/videos (embedded backend)", func() {
 		var err error
 		app, err = API(appServer)
 		Expect(err).ToNot(HaveOccurred())
-		go app.Listen("127.0.0.1:9091")
+		go func() {
+			if err := app.Start("127.0.0.1:9091"); err != nil && err != http.ErrServerClosed {
+				// Log error if needed
+			}
+		}()
 
         // wait for server
         client := &http.Client{Timeout: 5 * time.Second}

@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
@@ -8,11 +9,9 @@ import (
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
-
-	"github.com/gofiber/fiber/v2"
 )
 
-func RegisterUIRoutes(app *fiber.App,
+func RegisterUIRoutes(app *echo.Echo,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
@@ -21,11 +20,11 @@ func RegisterUIRoutes(app *fiber.App,
 	// keeps the state of ops that are started from the UI
 	var processingOps = services.NewOpCache(galleryService)
 
-	app.Get("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
+	app.GET("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
 	// P2P
-	app.Get("/p2p", func(c *fiber.Ctx) error {
-		summary := fiber.Map{
+	app.GET("/p2p/", func(c echo.Context) error {
+		summary := map[string]interface{}{
 			"Title":   "LocalAI - P2P dashboard",
 			"BaseURL": utils.BaseURL(c),
 			"Version": internal.PrintableVersion(),
@@ -37,7 +36,7 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		// Render index
-		return c.Render("views/p2p", summary)
+		return c.Render(200, "views/p2p", summary)
 	})
 
 	// Note: P2P UI fragment routes (/p2p/ui/*) were removed
@@ -50,15 +49,15 @@ func RegisterUIRoutes(app *fiber.App,
 		registerBackendGalleryRoutes(app, appConfig, galleryService, processingOps)
 	}
 
-	app.Get("/talk/", func(c *fiber.Ctx) error {
+	app.GET("/talk/", func(c echo.Context) error {
 		modelConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
 		if len(modelConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(utils.BaseURL(c))
+			return c.Redirect(302, utils.BaseURL(c))
 		}
 
-		summary := fiber.Map{
+		summary := map[string]interface{}{
 			"Title":        "LocalAI - Talk",
 			"BaseURL":      utils.BaseURL(c),
 			"ModelsConfig": modelConfigs,
@@ -68,16 +67,16 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		// Render index
-		return c.Render("views/talk", summary)
+		return c.Render(200, "views/talk", summary)
 	})
 
-	app.Get("/chat/", func(c *fiber.Ctx) error {
+	app.GET("/chat/", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(utils.BaseURL(c))
+			return c.Redirect(302, utils.BaseURL(c))
 		}
 		modelThatCanBeUsed := ""
 		galleryConfigs := map[string]*gallery.ModelConfig{}
@@ -104,7 +103,7 @@ func RegisterUIRoutes(app *fiber.App,
 			}
 		}
 
-		summary := fiber.Map{
+		summary := map[string]interface{}{
 			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsWithoutConfig": modelsWithoutConfig,
@@ -116,16 +115,16 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		// Render index
-		return c.Render("views/chat", summary)
+		return c.Render(200, "views/chat", summary)
 	})
 
 	// Show the Chat page
-	app.Get("/chat/:model", func(c *fiber.Ctx) error {
+	app.GET("/chat/:model", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		galleryConfigs := map[string]*gallery.ModelConfig{}
-		modelName := c.Params("model")
+		modelName := c.Param("model")
 		var modelContextSize *int
 
 		for _, m := range modelConfigs {
@@ -139,7 +138,7 @@ func RegisterUIRoutes(app *fiber.App,
 			}
 		}
 
-		summary := fiber.Map{
+		summary := map[string]interface{}{
 			"Title":               "LocalAI - Chat with " + modelName,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
@@ -151,33 +150,33 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		// Render index
-		return c.Render("views/chat", summary)
+		return c.Render(200, "views/chat", summary)
 	})
 
-	app.Get("/text2image/:model", func(c *fiber.Ctx) error {
+	app.GET("/text2image/:model", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		summary := fiber.Map{
-			"Title":               "LocalAI - Generate images with " + c.Params("model"),
+		summary := map[string]interface{}{
+			"Title":               "LocalAI - Generate images with " + c.Param("model"),
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               c.Params("model"),
+			"Model":               c.Param("model"),
 			"Version":             internal.PrintableVersion(),
 		}
 
 		// Render index
-		return c.Render("views/text2image", summary)
+		return c.Render(200, "views/text2image", summary)
 	})
 
-	app.Get("/text2image/", func(c *fiber.Ctx) error {
+	app.GET("/text2image/", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(utils.BaseURL(c))
+			return c.Redirect(302, utils.BaseURL(c))
 		}
 
 		modelThatCanBeUsed := ""
@@ -191,7 +190,7 @@ func RegisterUIRoutes(app *fiber.App,
 			}
 		}
 
-		summary := fiber.Map{
+		summary := map[string]interface{}{
 			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
@@ -201,33 +200,33 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		// Render index
-		return c.Render("views/text2image", summary)
+		return c.Render(200, "views/text2image", summary)
 	})
 
-	app.Get("/tts/:model", func(c *fiber.Ctx) error {
+	app.GET("/tts/:model", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
-		summary := fiber.Map{
-			"Title":               "LocalAI - Generate images with " + c.Params("model"),
+		summary := map[string]interface{}{
+			"Title":               "LocalAI - Generate images with " + c.Param("model"),
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               c.Params("model"),
+			"Model":               c.Param("model"),
 			"Version":             internal.PrintableVersion(),
 		}
 
 		// Render index
-		return c.Render("views/tts", summary)
+		return c.Render(200, "views/tts", summary)
 	})
 
-	app.Get("/tts/", func(c *fiber.Ctx) error {
+	app.GET("/tts/", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
 		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(utils.BaseURL(c))
+			return c.Redirect(302, utils.BaseURL(c))
 		}
 
 		modelThatCanBeUsed := ""
@@ -240,7 +239,7 @@ func RegisterUIRoutes(app *fiber.App,
 				break
 			}
 		}
-		summary := fiber.Map{
+		summary := map[string]interface{}{
 			"Title":               title,
 			"BaseURL":             utils.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
@@ -250,6 +249,6 @@ func RegisterUIRoutes(app *fiber.App,
 		}
 
 		// Render index
-		return c.Render("views/tts", summary)
+		return c.Render(200, "views/tts", summary)
 	})
 }

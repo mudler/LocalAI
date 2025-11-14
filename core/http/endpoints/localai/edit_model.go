@@ -2,9 +2,11 @@ package localai
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	httpUtils "github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/internal"
@@ -14,15 +16,15 @@ import (
 )
 
 // GetEditModelPage renders the edit model page with current configuration
-func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		modelName := c.Params("name")
+func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		modelName := c.Param("name")
 		if modelName == "" {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Model name is required",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		modelConfig, exists := cl.GetModelConfig(modelName)
@@ -31,7 +33,7 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 				Success: false,
 				Error:   "Model configuration not found",
 			}
-			return c.Status(404).JSON(response)
+			return c.JSON(http.StatusNotFound, response)
 		}
 
 		modelConfigFile := modelConfig.GetModelConfigFile()
@@ -40,7 +42,7 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 				Success: false,
 				Error:   "Model configuration file not found",
 			}
-			return c.Status(404).JSON(response)
+			return c.JSON(http.StatusNotFound, response)
 		}
 		configData, err := os.ReadFile(modelConfigFile)
 		if err != nil {
@@ -48,7 +50,7 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 				Success: false,
 				Error:   "Failed to read configuration file: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Render the edit page with the current configuration
@@ -69,20 +71,20 @@ func GetEditModelPage(cl *config.ModelConfigLoader, appConfig *config.Applicatio
 			Version:    internal.PrintableVersion(),
 		}
 
-		return c.Render("views/model-editor", templateData)
+		return c.Render(http.StatusOK, "views/model-editor", templateData)
 	}
 }
 
 // EditModelEndpoint handles updating existing model configurations
-func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {
-	return func(c *fiber.Ctx) error {
-		modelName := c.Params("name")
+func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		modelName := c.Param("name")
 		if modelName == "" {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Model name is required",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		modelConfig, exists := cl.GetModelConfig(modelName)
@@ -91,17 +93,24 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Existing model configuration not found",
 			}
-			return c.Status(404).JSON(response)
+			return c.JSON(http.StatusNotFound, response)
 		}
 
 		// Get the raw body
-		body := c.Body()
+		body, err := io.ReadAll(c.Request().Body)
+		if err != nil {
+			response := ModelResponse{
+				Success: false,
+				Error:   "Failed to read request body: " + err.Error(),
+			}
+			return c.JSON(http.StatusBadRequest, response)
+		}
 		if len(body) == 0 {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Request body is empty",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Check content to see if it's a valid model config
@@ -113,7 +122,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Failed to parse YAML: " + err.Error(),
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Validate required fields
@@ -122,7 +131,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Name is required",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Validate the configuration
@@ -132,7 +141,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Error:   "Validation failed",
 				Details: []string{"Configuration validation failed. Please check your YAML syntax and required fields."},
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Load the existing configuration
@@ -142,7 +151,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Model configuration not trusted: " + err.Error(),
 			}
-			return c.Status(404).JSON(response)
+			return c.JSON(http.StatusNotFound, response)
 		}
 
 		// Write new content to file
@@ -151,7 +160,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Failed to write configuration file: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Reload configurations
@@ -160,7 +169,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Failed to reload configurations: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Preload the model
@@ -169,7 +178,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 				Success: false,
 				Error:   "Failed to preload model: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Return success response
@@ -179,20 +188,20 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 			Filename: configPath,
 			Config:   req,
 		}
-		return c.JSON(response)
+		return c.JSON(200, response)
 	}
 }
 
 // ReloadModelsEndpoint handles reloading model configurations from disk
-func ReloadModelsEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func ReloadModelsEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
 		// Reload configurations
 		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Failed to reload configurations: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Preload the models
@@ -201,7 +210,7 @@ func ReloadModelsEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 				Success: false,
 				Error:   "Failed to preload models: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Return success response
@@ -209,6 +218,6 @@ func ReloadModelsEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applic
 			Success: true,
 			Message: "Model configurations reloaded successfully",
 		}
-		return c.Status(fiber.StatusOK).JSON(response)
+		return c.JSON(http.StatusOK, response)
 	}
 }

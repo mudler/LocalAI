@@ -3,12 +3,14 @@ package localai
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
@@ -21,12 +23,12 @@ import (
 )
 
 // ImportModelURIEndpoint handles creating new model configurations from a URI
-func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) echo.HandlerFunc {
+	return func(c echo.Context) error {
 
 		input := new(schema.ImportModelRequest)
 
-		if err := c.BodyParser(input); err != nil {
+		if err := c.Bind(input); err != nil {
 			return err
 		}
 
@@ -61,7 +63,7 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 			BackendGalleries:   appConfig.BackendGalleries,
 		}
 
-		return c.JSON(schema.GalleryResponse{
+		return c.JSON(200, schema.GalleryResponse{
 			ID:        uuid.String(),
 			StatusURL: fmt.Sprintf("%smodels/jobs/%s", httpUtils.BaseURL(c), uuid.String()),
 		})
@@ -69,22 +71,28 @@ func ImportModelURIEndpoint(cl *config.ModelConfigLoader, appConfig *config.Appl
 }
 
 // ImportModelEndpoint handles creating new model configurations
-func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) fiber.Handler {
-	return func(c *fiber.Ctx) error {
+func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
 		// Get the raw body
-		body := c.Body()
+		body, err := io.ReadAll(c.Request().Body)
+		if err != nil {
+			response := ModelResponse{
+				Success: false,
+				Error:   "Failed to read request body: " + err.Error(),
+			}
+			return c.JSON(http.StatusBadRequest, response)
+		}
 		if len(body) == 0 {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Request body is empty",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Check content type to determine how to parse
-		contentType := string(c.Context().Request.Header.ContentType())
+		contentType := c.Request().Header.Get("Content-Type")
 		var modelConfig config.ModelConfig
-		var err error
 
 		if strings.Contains(contentType, "application/json") {
 			// Parse JSON
@@ -93,7 +101,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 					Success: false,
 					Error:   "Failed to parse JSON: " + err.Error(),
 				}
-				return c.Status(400).JSON(response)
+				return c.JSON(http.StatusBadRequest, response)
 			}
 		} else if strings.Contains(contentType, "application/x-yaml") || strings.Contains(contentType, "text/yaml") {
 			// Parse YAML
@@ -102,18 +110,18 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 					Success: false,
 					Error:   "Failed to parse YAML: " + err.Error(),
 				}
-				return c.Status(400).JSON(response)
+				return c.JSON(http.StatusBadRequest, response)
 			}
 		} else {
 			// Try to auto-detect format
-			if strings.TrimSpace(string(body))[0] == '{' {
+			if len(body) > 0 && strings.TrimSpace(string(body))[0] == '{' {
 				// Looks like JSON
 				if err := json.Unmarshal(body, &modelConfig); err != nil {
 					response := ModelResponse{
 						Success: false,
 						Error:   "Failed to parse JSON: " + err.Error(),
 					}
-					return c.Status(400).JSON(response)
+					return c.JSON(http.StatusBadRequest, response)
 				}
 			} else {
 				// Assume YAML
@@ -122,7 +130,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 						Success: false,
 						Error:   "Failed to parse YAML: " + err.Error(),
 					}
-					return c.Status(400).JSON(response)
+					return c.JSON(http.StatusBadRequest, response)
 				}
 			}
 		}
@@ -133,7 +141,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Name is required",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Set defaults
@@ -145,7 +153,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Invalid configuration",
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Create the configuration file
@@ -155,7 +163,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Model path not trusted: " + err.Error(),
 			}
-			return c.Status(400).JSON(response)
+			return c.JSON(http.StatusBadRequest, response)
 		}
 
 		// Marshal to YAML for storage
@@ -165,7 +173,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Failed to marshal configuration: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Write the file
@@ -174,7 +182,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Failed to write configuration file: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 		// Reload configurations
 		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath); err != nil {
@@ -182,7 +190,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Failed to reload configurations: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 
 		// Preload the model
@@ -191,7 +199,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 				Success: false,
 				Error:   "Failed to preload model: " + err.Error(),
 			}
-			return c.Status(500).JSON(response)
+			return c.JSON(http.StatusInternalServerError, response)
 		}
 		// Return success response
 		response := ModelResponse{
@@ -199,6 +207,6 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			Message:  "Model configuration created successfully",
 			Filename: filepath.Base(configPath),
 		}
-		return c.JSON(response)
+		return c.JSON(200, response)
 	}
 }

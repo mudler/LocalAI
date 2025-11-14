@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
@@ -15,9 +17,6 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/valyala/fasthttp"
-
-	"github.com/gofiber/fiber/v2"
 	"github.com/rs/zerolog/log"
 )
 
@@ -45,21 +44,22 @@ const CONTEXT_LOCALS_KEY_LOCALAI_REQUEST = "LOCALAI_REQUEST"
 const CONTEXT_LOCALS_KEY_MODEL_CONFIG = "MODEL_CONFIG"
 
 // TODO: Refactor to not return error if unchanged
-func (re *RequestExtractor) setModelNameFromRequest(ctx *fiber.Ctx) {
-	model, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
+	model, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 	if ok && model != "" {
 		return
 	}
-	model = ctx.Params("model")
+	model = c.Param("model")
 
-	if (model == "") && ctx.Query("model") != "" {
-		model = ctx.Query("model")
+	if model == "" {
+		model = c.QueryParam("model")
 	}
 
 	if model == "" {
 		// Set model from bearer token, if available
-		bearer := strings.TrimLeft(ctx.Get("authorization"), "Bear ") // "Bearer " => "Bear" to please go-staticcheck. It looks dumb but we might as well take free performance on something called for nearly every request.
-		if bearer != "" {
+		auth := c.Request().Header.Get("Authorization")
+		bearer := strings.TrimPrefix(auth, "Bearer ")
+		if bearer != "" && bearer != auth {
 			exists, err := services.CheckIfModelExists(re.modelConfigLoader, re.modelLoader, bearer, services.ALWAYS_INCLUDE)
 			if err == nil && exists {
 				model = bearer
@@ -67,113 +67,125 @@ func (re *RequestExtractor) setModelNameFromRequest(ctx *fiber.Ctx) {
 		}
 	}
 
-	ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME, model)
+	c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, model)
 }
 
-func (re *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModelName string) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		re.setModelNameFromRequest(ctx)
-		localModelName, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
-		if !ok || localModelName == "" {
-			ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME, defaultModelName)
-			log.Debug().Str("defaultModelName", defaultModelName).Msg("context local model name not found, setting to default")
+func (re *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModelName string) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			re.setModelNameFromRequest(c)
+			localModelName, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+			if !ok || localModelName == "" {
+				c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, defaultModelName)
+				log.Debug().Str("defaultModelName", defaultModelName).Msg("context local model name not found, setting to default")
+			}
+			return next(c)
 		}
-		return ctx.Next()
 	}
 }
 
-func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn config.ModelConfigFilterFn) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		re.setModelNameFromRequest(ctx)
-		localModelName := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
-		if localModelName != "" { // Don't overwrite existing values
-			return ctx.Next()
-		}
+func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn config.ModelConfigFilterFn) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			re.setModelNameFromRequest(c)
+			localModelName := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+			if localModelName != "" { // Don't overwrite existing values
+				return next(c)
+			}
 
-		modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
-		if err != nil {
-			log.Error().Err(err).Msg("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()")
-			return ctx.Next()
-		}
+			modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
+			if err != nil {
+				log.Error().Err(err).Msg("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()")
+				return next(c)
+			}
 
-		if len(modelNames) == 0 {
-			log.Warn().Msg("SetDefaultModelNameToFirstAvailable used with no matching models installed")
-			// This is non-fatal - making it so was breaking the case of direct installation of raw models
-			// return errors.New("this endpoint requires at least one model to be installed")
-			return ctx.Next()
-		}
+			if len(modelNames) == 0 {
+				log.Warn().Msg("SetDefaultModelNameToFirstAvailable used with no matching models installed")
+				// This is non-fatal - making it so was breaking the case of direct installation of raw models
+				// return errors.New("this endpoint requires at least one model to be installed")
+				return next(c)
+			}
 
-		ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME, modelNames[0])
-		log.Debug().Str("first model name", modelNames[0]).Msg("context local model name not found, setting to the first model")
-		return ctx.Next()
+			c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, modelNames[0])
+			log.Debug().Str("first model name", modelNames[0]).Msg("context local model name not found, setting to the first model")
+			return next(c)
+		}
 	}
 }
 
 // TODO: If context and cancel above belong on all methods, move that part of above into here!
 // Otherwise, it's in its own method below for now
-func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		input := initializer()
-		if input == nil {
-			return fmt.Errorf("unable to initialize body")
-		}
-		if err := ctx.BodyParser(input); err != nil {
-			return fmt.Errorf("failed parsing request body: %w", err)
-		}
-
-		// If this request doesn't have an associated model name, fetch it from earlier in the middleware chain
-		if input.ModelName(nil) == "" {
-			localModelName, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
-			if ok && localModelName != "" {
-				log.Debug().Str("context localModelName", localModelName).Msg("overriding empty model name in request body with value found earlier in middleware chain")
-				input.ModelName(&localModelName)
+func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIRequest) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			input := initializer()
+			if input == nil {
+				return echo.NewHTTPError(http.StatusBadRequest, "unable to initialize body")
 			}
+			if err := c.Bind(input); err != nil {
+				return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("failed parsing request body: %v", err))
+			}
+
+			// If this request doesn't have an associated model name, fetch it from earlier in the middleware chain
+			if input.ModelName(nil) == "" {
+				localModelName, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+				if ok && localModelName != "" {
+					log.Debug().Str("context localModelName", localModelName).Msg("overriding empty model name in request body with value found earlier in middleware chain")
+					input.ModelName(&localModelName)
+				}
+			}
+
+			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
+
+			if err != nil {
+				log.Err(err)
+				log.Warn().Msgf("Model Configuration File not found for %q", input.ModelName(nil))
+			} else if cfg.Model == "" && input.ModelName(nil) != "" {
+				log.Debug().Str("input.ModelName", input.ModelName(nil)).Msg("config does not include model, using input")
+				cfg.Model = input.ModelName(nil)
+			}
+
+			c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
+			c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
+
+			return next(c)
 		}
-
-		cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
-
-		if err != nil {
-			log.Err(err)
-			log.Warn().Msgf("Model Configuration File not found for %q", input.ModelName(nil))
-		} else if cfg.Model == "" && input.ModelName(nil) != "" {
-			log.Debug().Str("input.ModelName", input.ModelName(nil)).Msg("config does not include model, using input")
-			cfg.Model = input.ModelName(nil)
-		}
-
-		ctx.Locals(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
-		ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
-
-		return ctx.Next()
 	}
 }
 
-func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
-	input, ok := ctx.Locals(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
+	input, ok := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 	if !ok || input.Model == "" {
-		return fiber.ErrBadRequest
+		return echo.ErrBadRequest
 	}
 
-	cfg, ok := ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+	cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 	if !ok || cfg == nil {
-		return fiber.ErrBadRequest
+		return echo.ErrBadRequest
 	}
 
 	// Extract or generate the correlation ID
-	correlationID := ctx.Get("X-Correlation-ID", uuid.New().String())
-	ctx.Set("X-Correlation-ID", correlationID)
+	correlationID := c.Request().Header.Get("X-Correlation-ID")
+	if correlationID == "" {
+		correlationID = uuid.New().String()
+	}
+	c.Response().Header().Set("X-Correlation-ID", correlationID)
 
-	//c1, cancel := context.WithCancel(re.applicationConfig.Context)
-	// Use the application context as parent to ensure cancellation on app shutdown
-	// We'll monitor the Fiber context separately and cancel our context when the request is canceled
+	// Use the request context directly - Echo properly supports context cancellation!
+	// No need for workarounds like handleConnectionCancellation
+	reqCtx := c.Request().Context()
 	c1, cancel := context.WithCancel(re.applicationConfig.Context)
-	// Monitor the Fiber context and cancel our context when it's canceled
-	// This ensures we respect request cancellation without causing panics
-	go func(fiberCtx *fasthttp.RequestCtx) {
-		if fiberCtx != nil {
-			<-fiberCtx.Done()
+
+	// Cancel when request context is cancelled (client disconnects)
+	go func() {
+		select {
+		case <-reqCtx.Done():
 			cancel()
+		case <-c1.Done():
+			// Already cancelled
 		}
-	}(ctx.Context())
+	}()
+
 	// Add the correlation ID to the new context
 	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
 
@@ -190,10 +202,10 @@ func (re *RequestExtractor) SetOpenAIRequest(ctx *fiber.Ctx) error {
 		cfg.Model = input.Model
 	}
 
-	ctx.Locals(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
-	ctx.Locals(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
+	c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
+	c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
 
-	return ctx.Next()
+	return nil
 }
 
 func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenAIRequest) error {
