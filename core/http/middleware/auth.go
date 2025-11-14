@@ -9,7 +9,6 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 )
 
@@ -115,7 +114,7 @@ func getApiKeyErrorHandler(applicationConfig *config.ApplicationConfig) func(err
 			}
 
 			return c.Render(http.StatusUnauthorized, "views/login", map[string]interface{}{
-				"BaseURL": utils.BaseURL(c),
+				"BaseURL": BaseURL(c),
 			})
 		}
 		if applicationConfig.OpaqueErrors {

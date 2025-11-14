@@ -6,7 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -45,7 +45,7 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		summary := map[string]interface{}{
 			"Title":             "LocalAI API - " + internal.PrintableVersion(),
 			"Version":           internal.PrintableVersion(),
-			"BaseURL":           utils.BaseURL(c),
+			"BaseURL":           middleware.BaseURL(c),
 			"Models":            modelsWithoutConfig,
 			"ModelsConfig":      modelConfigs,
 			"GalleryConfig":     galleryConfigs,
@@ -58,7 +58,9 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 
 		contentType := c.Request().Header.Get("Content-Type")
 		accept := c.Request().Header.Get("Accept")
-		if strings.Contains(contentType, "application/json") || !strings.Contains(accept, "text/html") {
+		// Default to HTML if Accept header is empty (browser behavior)
+		// Only return JSON if explicitly requested or Content-Type is application/json
+		if strings.Contains(contentType, "application/json") || (accept != "" && !strings.Contains(accept, "text/html")) {
 			// The client expects a JSON response
 			return c.JSON(200, summary)
 		} else {

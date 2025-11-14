@@ -5,7 +5,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
-	"github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -26,7 +26,7 @@ func RegisterUIRoutes(app *echo.Echo,
 	app.GET("/p2p/", func(c echo.Context) error {
 		summary := map[string]interface{}{
 			"Title":   "LocalAI - P2P dashboard",
-			"BaseURL": utils.BaseURL(c),
+			"BaseURL": middleware.BaseURL(c),
 			"Version": internal.PrintableVersion(),
 			//"Nodes":          p2p.GetAvailableNodes(""),
 			//"FederatedNodes": p2p.GetAvailableNodes(p2p.FederatedID),
@@ -54,12 +54,12 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		if len(modelConfigs) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, utils.BaseURL(c))
+			return c.Redirect(302, middleware.BaseURL(c))
 		}
 
 		summary := map[string]interface{}{
 			"Title":        "LocalAI - Talk",
-			"BaseURL":      utils.BaseURL(c),
+			"BaseURL":      middleware.BaseURL(c),
 			"ModelsConfig": modelConfigs,
 			"Model":        modelConfigs[0],
 
@@ -76,7 +76,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, utils.BaseURL(c))
+			return c.Redirect(302, middleware.BaseURL(c))
 		}
 		modelThatCanBeUsed := ""
 		galleryConfigs := map[string]*gallery.ModelConfig{}
@@ -105,7 +105,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		summary := map[string]interface{}{
 			"Title":               title,
-			"BaseURL":             utils.BaseURL(c),
+			"BaseURL":             middleware.BaseURL(c),
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"GalleryConfig":       galleryConfigs,
 			"ModelsConfig":        modelConfigs,
@@ -140,7 +140,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		summary := map[string]interface{}{
 			"Title":               "LocalAI - Chat with " + modelName,
-			"BaseURL":             utils.BaseURL(c),
+			"BaseURL":             middleware.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"GalleryConfig":       galleryConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
@@ -159,7 +159,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		summary := map[string]interface{}{
 			"Title":               "LocalAI - Generate images with " + c.Param("model"),
-			"BaseURL":             utils.BaseURL(c),
+			"BaseURL":             middleware.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Param("model"),
@@ -176,7 +176,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, utils.BaseURL(c))
+			return c.Redirect(302, middleware.BaseURL(c))
 		}
 
 		modelThatCanBeUsed := ""
@@ -192,7 +192,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		summary := map[string]interface{}{
 			"Title":               title,
-			"BaseURL":             utils.BaseURL(c),
+			"BaseURL":             middleware.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               modelThatCanBeUsed,
@@ -209,7 +209,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		summary := map[string]interface{}{
 			"Title":               "LocalAI - Generate images with " + c.Param("model"),
-			"BaseURL":             utils.BaseURL(c),
+			"BaseURL":             middleware.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               c.Param("model"),
@@ -226,7 +226,7 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
 			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, utils.BaseURL(c))
+			return c.Redirect(302, middleware.BaseURL(c))
 		}
 
 		modelThatCanBeUsed := ""
@@ -241,7 +241,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		}
 		summary := map[string]interface{}{
 			"Title":               title,
-			"BaseURL":             utils.BaseURL(c),
+			"BaseURL":             middleware.BaseURL(c),
 			"ModelsConfig":        modelConfigs,
 			"ModelsWithoutConfig": modelsWithoutConfig,
 			"Model":               modelThatCanBeUsed,

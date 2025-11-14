@@ -2,6 +2,7 @@ package localai_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
+
+// testRenderer is a simple renderer for tests that returns JSON
+type testRenderer struct{}
+
+func (t *testRenderer) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	// For tests, just return the data as JSON
+	return json.NewEncoder(w).Encode(data)
+}
 
 var _ = Describe("Edit Model test", func() {
 
@@ -41,9 +50,12 @@ var _ = Describe("Edit Model test", func() {
 			//modelLoader := model.NewModelLoader(systemState, true)
 			modelConfigLoader := config.NewModelConfigLoader(systemState.Model.ModelsPath)
 
-			// Define Echo app.
+			// Define Echo app and register all routes upfront
 			app := echo.New()
+			// Set up a simple renderer for the test
+			app.Renderer = &testRenderer{}
 			app.POST("/import-model", ImportModelEndpoint(modelConfigLoader, applicationConfig))
+			app.GET("/edit-model/:name", GetEditModelPage(modelConfigLoader, applicationConfig))
 
 			requestBody := bytes.NewBufferString(`{"name": "foo", "backend": "foo", "model": "foo"}`)
 
@@ -57,16 +69,15 @@ var _ = Describe("Edit Model test", func() {
 			Expect(string(body)).To(ContainSubstring("Model configuration created successfully"))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 
-			app.GET("/edit-model/:name", GetEditModelPage(modelConfigLoader, applicationConfig))
-			requestBody = bytes.NewBufferString(`{"name": "foo", "parameters": { "model": "foo"}}`)
-
-			req = httptest.NewRequest("GET", "/edit-model/foo", requestBody)
+			req = httptest.NewRequest("GET", "/edit-model/foo", nil)
 			rec = httptest.NewRecorder()
 			app.ServeHTTP(rec, req)
 
 			body, err = io.ReadAll(rec.Body)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(string(body)).To(ContainSubstring(`"model":"foo"`))
+			// The response contains the model configuration with backend field
+			Expect(string(body)).To(ContainSubstring(`"backend":"foo"`))
+			Expect(string(body)).To(ContainSubstring(`"name":"foo"`))
 			Expect(rec.Code).To(Equal(http.StatusOK))
 		})
 	})

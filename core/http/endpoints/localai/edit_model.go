@@ -8,7 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	httpUtils "github.com/mudler/LocalAI/core/http/utils"
+	httpUtils "github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/utils"
 

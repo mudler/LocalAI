@@ -8,7 +8,7 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/explorer"
-	"github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/internal"
 )
 
@@ -17,7 +17,7 @@ func Dashboard() echo.HandlerFunc {
 		summary := map[string]interface{}{
 			"Title":   "LocalAI API - " + internal.PrintableVersion(),
 			"Version": internal.PrintableVersion(),
-			"BaseURL": utils.BaseURL(c),
+			"BaseURL": middleware.BaseURL(c),
 		}
 
 		contentType := c.Request().Header.Get("Content-Type")

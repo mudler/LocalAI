@@ -7,17 +7,17 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -189,7 +189,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 					return err
 				}
 
-				baseURL := utils.BaseURL(c)
+				baseURL := middleware.BaseURL(c)
 
 				// Use the first input image as src if available, otherwise use the original src
 				inputSrc := src
@@ -216,7 +216,10 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 					item.B64JSON = base64.StdEncoding.EncodeToString(data)
 				} else {
 					base := filepath.Base(output)
-					item.URL = baseURL + "/generated-images/" + base
+					item.URL, err = url.JoinPath(baseURL, "generated-images", base)
+					if err != nil {
+						return err
+					}
 				}
 
 				result = append(result, *item)

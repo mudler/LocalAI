@@ -3,7 +3,7 @@ package routes
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/http/utils"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 )
@@ -13,7 +13,7 @@ func registerBackendGalleryRoutes(app *echo.Echo, appConfig *config.ApplicationC
 	app.GET("/browse/backends", func(c echo.Context) error {
 		summary := map[string]interface{}{
 			"Title":        "LocalAI - Backends",
-			"BaseURL":      utils.BaseURL(c),
+			"BaseURL":      middleware.BaseURL(c),
 			"Version":      internal.PrintableVersion(),
 			"Repositories": appConfig.BackendGalleries,
 		}

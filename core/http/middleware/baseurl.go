@@ -1,4 +1,4 @@
-package utils
+package middleware
 
 import (
 	"strings"
@@ -14,6 +14,25 @@ func BaseURL(c echo.Context) string {
 	path := c.Path()
 	origPath := c.Request().URL.Path
 
+	// Check if StripPathPrefix middleware stored the original path
+	if storedPath, ok := c.Get("_original_path").(string); ok && storedPath != "" {
+		origPath = storedPath
+	}
+
+	// Check X-Forwarded-Proto for scheme
+	scheme := "http"
+	if c.Request().Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	} else if c.Request().TLS != nil {
+		scheme = "https"
+	}
+
+	// Check X-Forwarded-Host for host
+	host := c.Request().Host
+	if forwardedHost := c.Request().Header.Get("X-Forwarded-Host"); forwardedHost != "" {
+		host = forwardedHost
+	}
+
 	if path != origPath && strings.HasSuffix(origPath, path) && len(path) > 0 {
 		prefixLen := len(origPath) - len(path)
 		if prefixLen > 0 && prefixLen <= len(origPath) {
@@ -21,20 +40,9 @@ func BaseURL(c echo.Context) string {
 			if !strings.HasSuffix(pathPrefix, "/") {
 				pathPrefix += "/"
 			}
-
-			scheme := "http"
-			if c.Request().TLS != nil {
-				scheme = "https"
-			}
-			host := c.Request().Host
 			return scheme + "://" + host + pathPrefix
 		}
 	}
 
-	scheme := "http"
-	if c.Request().TLS != nil {
-		scheme = "https"
-	}
-	host := c.Request().Host
 	return scheme + "://" + host + "/"
 }

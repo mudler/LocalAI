@@ -24,9 +24,22 @@ func StripPathPrefix() echo.MiddlewareFunc {
 
 					if strings.HasPrefix(originalPath, normalizedPrefix) {
 						// Update the request path by stripping the normalized prefix
-						c.Request().URL.Path = originalPath[len(normalizedPrefix):]
-						if c.Request().URL.Path == "" {
-							c.Request().URL.Path = "/"
+						newPath := originalPath[len(normalizedPrefix):]
+						if newPath == "" {
+							newPath = "/"
+						}
+						// Ensure path starts with / for proper routing
+						if !strings.HasPrefix(newPath, "/") {
+							newPath = "/" + newPath
+						}
+						// Update the URL path - Echo's router uses URL.Path for routing
+						c.Request().URL.Path = newPath
+						c.Request().URL.RawPath = ""
+						// Update RequestURI to match the new path (needed for proper routing)
+						if c.Request().URL.RawQuery != "" {
+							c.Request().RequestURI = newPath + "?" + c.Request().URL.RawQuery
+						} else {
+							c.Request().RequestURI = newPath
 						}
 						// Store original path for BaseURL utility
 						c.Set("_original_path", originalPath)

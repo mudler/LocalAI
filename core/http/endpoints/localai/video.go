@@ -7,16 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
@@ -165,7 +165,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			return err
 		}
 
-		baseURL := utils.BaseURL(c)
+		baseURL := middleware.BaseURL(c)
 
 		fn, err := backend.VideoGeneration(
 			height,
@@ -202,7 +202,10 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			item.B64JSON = base64.StdEncoding.EncodeToString(data)
 		} else {
 			base := filepath.Base(output)
-			item.URL = baseURL + "/generated-videos/" + base
+			item.URL, err = url.JoinPath(baseURL, "generated-videos", base)
+			if err != nil {
+				return err
+			}
 		}
 
 		id := uuid.New().String()

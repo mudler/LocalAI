@@ -5,7 +5,6 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	httpUtils "github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
@@ -29,7 +28,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		router.GET("/import-model", func(c echo.Context) error {
 			return c.Render(200, "views/model-editor", map[string]interface{}{
 				"Title":   "LocalAI - Import Model",
-				"BaseURL": httpUtils.BaseURL(c),
+				"BaseURL": middleware.BaseURL(c),
 				"Version": internal.PrintableVersion(),
 			})
 		})
