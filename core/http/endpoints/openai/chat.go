@@ -591,7 +591,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			// NOTE: this is a workaround as fasthttp
 			// context cancellation does not fire in non-streaming requests
-			handleConnectionCancellation(c, input.Cancel, input.Context)
+			// handleConnectionCancellation(c, input.Cancel, input.Context)
 
 			result, tokenUsage, err := ComputeChoices(
 				input,
