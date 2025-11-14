@@ -1,24 +1,22 @@
 package openai
 
 import (
-	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
-	"github.com/valyala/fasthttp"
 )
 
 // CompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
@@ -26,7 +24,7 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/completions [post]
-func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	process := func(id string, s string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
 		tokenCallback := func(s string, tokenUsage backend.TokenUsage) bool {
 			created := int(time.Now().Unix())
@@ -64,22 +62,25 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 		return err
 	}
 
-	return func(c *fiber.Ctx) error {
+	return func(c echo.Context) error {
 
 		created := int(time.Now().Unix())
 
 		// Handle Correlation
-		id := c.Get("X-Correlation-ID", uuid.New().String())
-		extraUsage := c.Get("Extra-Usage", "") != ""
+		id := c.Request().Header.Get("X-Correlation-ID")
+		if id == "" {
+			id = uuid.New().String()
+		}
+		extraUsage := c.Request().Header.Get("Extra-Usage") != ""
 
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
-		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || config == nil {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		if config.ResponseFormatMap != nil {
@@ -97,15 +98,10 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 		if input.Stream {
 			log.Debug().Msgf("Stream request received")
-			c.Context().SetContentType("text/event-stream")
-			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			//c.Set("Content-Type", "text/event-stream")
-			c.Set("Cache-Control", "no-cache")
-			c.Set("Connection", "keep-alive")
-			c.Set("Transfer-Encoding", "chunked")
-		}
+			c.Response().Header().Set("Content-Type", "text/event-stream")
+			c.Response().Header().Set("Cache-Control", "no-cache")
+			c.Response().Header().Set("Connection", "keep-alive")
 
-		if input.Stream {
 			if len(config.PromptStrings) > 1 {
 				return errors.New("cannot handle more than 1 `PromptStrings` when Streaming")
 			}
@@ -130,78 +126,78 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				ended <- process(id, predInput, input, config, ml, responses, extraUsage)
 			}()
 
-			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
+		LOOP:
+			for {
+				select {
+				case ev := <-responses:
+					if len(ev.Choices) == 0 {
+						log.Debug().Msgf("No choices in the response, skipping")
+						continue
+					}
+					respData, err := json.Marshal(ev)
+					if err != nil {
+						log.Debug().Msgf("Failed to marshal response: %v", err)
+						continue
+					}
 
-			LOOP:
-				for {
-					select {
-					case ev := <-responses:
-						if len(ev.Choices) == 0 {
-							log.Debug().Msgf("No choices in the response, skipping")
-							continue
-						}
-						respData, err := json.Marshal(ev)
-						if err != nil {
-							log.Debug().Msgf("Failed to marshal response: %v", err)
-							continue
-						}
-
-						log.Debug().Msgf("Sending chunk: %s", string(respData))
-						fmt.Fprintf(w, "data: %s\n\n", string(respData))
-						w.Flush()
-					case err := <-ended:
-						if err == nil {
-							break LOOP
-						}
-						log.Error().Msgf("Stream ended with error: %v", err)
-
-						stopReason := FinishReasonStop
-						errorResp := schema.OpenAIResponse{
-							ID:      id,
-							Created: created,
-							Model:   input.Model,
-							Choices: []schema.Choice{
-								{
-									Index:        0,
-									FinishReason: &stopReason,
-									Text:         "Internal error: " + err.Error(),
-								},
-							},
-							Object: "text_completion",
-						}
-						errorData, marshalErr := json.Marshal(errorResp)
-						if marshalErr != nil {
-							log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
-							// Send a simple error message as fallback
-							fmt.Fprintf(w, "data: {\"error\":\"Internal error\"}\n\n")
-						} else {
-							fmt.Fprintf(w, "data: %s\n\n", string(errorData))
-						}
-						w.Flush()
+					log.Debug().Msgf("Sending chunk: %s", string(respData))
+					_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
+					if err != nil {
+						return err
+					}
+					c.Response().Flush()
+				case err := <-ended:
+					if err == nil {
 						break LOOP
 					}
-				}
+					log.Error().Msgf("Stream ended with error: %v", err)
 
-				stopReason := FinishReasonStop
-				resp := &schema.OpenAIResponse{
-					ID:      id,
-					Created: created,
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []schema.Choice{
-						{
-							Index:        0,
-							FinishReason: &stopReason,
+					stopReason := FinishReasonStop
+					errorResp := schema.OpenAIResponse{
+						ID:      id,
+						Created: created,
+						Model:   input.Model,
+						Choices: []schema.Choice{
+							{
+								Index:        0,
+								FinishReason: &stopReason,
+								Text:         "Internal error: " + err.Error(),
+							},
 						},
-					},
-					Object: "text_completion",
+						Object: "text_completion",
+					}
+					errorData, marshalErr := json.Marshal(errorResp)
+					if marshalErr != nil {
+						log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+						// Send a simple error message as fallback
+						fmt.Fprintf(c.Response().Writer, "data: {\"error\":\"Internal error\"}\n\n")
+					} else {
+						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(errorData))
+					}
+					c.Response().Flush()
+					return nil
 				}
-				respData, _ := json.Marshal(resp)
+			}
 
-				w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
-				w.WriteString("data: [DONE]\n\n")
-				w.Flush()
-			}))
-			return <-ended
+			stopReason := FinishReasonStop
+			resp := &schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{
+					{
+						Index:        0,
+						FinishReason: &stopReason,
+					},
+				},
+				Object: "text_completion",
+			}
+			respData, _ := json.Marshal(resp)
+
+			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+			c.Response().Flush()
+			return nil
 		}
 
 		var result []schema.Choice
@@ -257,6 +253,6 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 		log.Debug().Msgf("Response: %s", jsonResult)
 
 		// Return the prediction in the response body
-		return c.JSON(resp)
+		return c.JSON(200, resp)
 	}
 }

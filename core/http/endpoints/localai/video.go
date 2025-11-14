@@ -7,19 +7,20 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
 
-	"github.com/gofiber/fiber/v2"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
@@ -64,18 +65,18 @@ func downloadFile(url string) (string, error) {
 // @Param request body schema.VideoRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /video [post]
-func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.VideoRequest)
+func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.VideoRequest)
 		if !ok || input.Model == "" {
 			log.Error().Msg("Video Endpoint - Invalid Input")
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
-		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || config == nil {
 			log.Error().Msg("Video Endpoint - Invalid Config")
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		src := ""
@@ -164,7 +165,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			return err
 		}
 
-		baseURL := c.BaseURL()
+		baseURL := middleware.BaseURL(c)
 
 		fn, err := backend.VideoGeneration(
 			height,
@@ -201,7 +202,10 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			item.B64JSON = base64.StdEncoding.EncodeToString(data)
 		} else {
 			base := filepath.Base(output)
-			item.URL = baseURL + "/generated-videos/" + base
+			item.URL, err = url.JoinPath(baseURL, "generated-videos", base)
+			if err != nil {
+				return err
+			}
 		}
 
 		id := uuid.New().String()
@@ -216,6 +220,6 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		log.Debug().Msgf("Response: %s", jsonResult)
 
 		// Return the prediction in the response body
-		return c.JSON(resp)
+		return c.JSON(200, resp)
 	}
 }

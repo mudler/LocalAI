@@ -1,19 +1,18 @@
 package routes
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/swagger"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
-	httpUtils "github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
+	echoswagger "github.com/swaggo/echo-swagger"
 )
 
-func RegisterLocalAIRoutes(router *fiber.App,
+func RegisterLocalAIRoutes(router *echo.Echo,
 	requestExtractor *middleware.RequestExtractor,
 	cl *config.ModelConfigLoader,
 	ml *model.ModelLoader,
@@ -21,111 +20,117 @@ func RegisterLocalAIRoutes(router *fiber.App,
 	galleryService *services.GalleryService,
 	opcache *services.OpCache) {
 
-	router.Get("/swagger/*", swagger.HandlerDefault) // default
+	router.GET("/swagger/*", echoswagger.WrapHandler) // default
 
 	// LocalAI API endpoints
 	if !appConfig.DisableGalleryEndpoint {
 		// Import model page
-		router.Get("/import-model", func(c *fiber.Ctx) error {
-			return c.Render("views/model-editor", fiber.Map{
+		router.GET("/import-model", func(c echo.Context) error {
+			return c.Render(200, "views/model-editor", map[string]interface{}{
 				"Title":   "LocalAI - Import Model",
-				"BaseURL": httpUtils.BaseURL(c),
+				"BaseURL": middleware.BaseURL(c),
 				"Version": internal.PrintableVersion(),
 			})
 		})
 
 		// Edit model page
-		router.Get("/models/edit/:name", localai.GetEditModelPage(cl, appConfig))
+		router.GET("/models/edit/:name", localai.GetEditModelPage(cl, appConfig))
 		modelGalleryEndpointService := localai.CreateModelGalleryEndpointService(appConfig.Galleries, appConfig.BackendGalleries, appConfig.SystemState, galleryService)
-		router.Post("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
-		router.Post("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
+		router.POST("/models/apply", modelGalleryEndpointService.ApplyModelGalleryEndpoint())
+		router.POST("/models/delete/:name", modelGalleryEndpointService.DeleteModelGalleryEndpoint())
 
-		router.Get("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint(appConfig.SystemState))
-		router.Get("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint())
-		router.Get("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint())
-		router.Get("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
+		router.GET("/models/available", modelGalleryEndpointService.ListModelFromGalleryEndpoint(appConfig.SystemState))
+		router.GET("/models/galleries", modelGalleryEndpointService.ListModelGalleriesEndpoint())
+		router.GET("/models/jobs/:uuid", modelGalleryEndpointService.GetOpStatusEndpoint())
+		router.GET("/models/jobs", modelGalleryEndpointService.GetAllStatusEndpoint())
 
 		backendGalleryEndpointService := localai.CreateBackendEndpointService(
 			appConfig.BackendGalleries,
 			appConfig.SystemState,
 			galleryService)
-		router.Post("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint())
-		router.Post("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint())
-		router.Get("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState))
-		router.Get("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState))
-		router.Get("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint())
-		router.Get("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
+		router.POST("/backends/apply", backendGalleryEndpointService.ApplyBackendEndpoint())
+		router.POST("/backends/delete/:name", backendGalleryEndpointService.DeleteBackendEndpoint())
+		router.GET("/backends", backendGalleryEndpointService.ListBackendsEndpoint(appConfig.SystemState))
+		router.GET("/backends/available", backendGalleryEndpointService.ListAvailableBackendsEndpoint(appConfig.SystemState))
+		router.GET("/backends/galleries", backendGalleryEndpointService.ListBackendGalleriesEndpoint())
+		router.GET("/backends/jobs/:uuid", backendGalleryEndpointService.GetOpStatusEndpoint())
 		// Custom model import endpoint
-		router.Post("/models/import", localai.ImportModelEndpoint(cl, appConfig))
+		router.POST("/models/import", localai.ImportModelEndpoint(cl, appConfig))
 
 		// URI model import endpoint
-		router.Post("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache))
+		router.POST("/models/import-uri", localai.ImportModelURIEndpoint(cl, appConfig, galleryService, opcache))
 
 		// Custom model edit endpoint
-		router.Post("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
+		router.POST("/models/edit/:name", localai.EditModelEndpoint(cl, appConfig))
 
 		// Reload models endpoint
-		router.Post("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig))
+		router.POST("/models/reload", localai.ReloadModelsEndpoint(cl, appConfig))
 	}
 
-	router.Post("/v1/detection",
+	detectionHandler := localai.DetectionEndpoint(cl, ml, appConfig)
+	router.POST("/v1/detection",
+		detectionHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_DETECTION)),
-		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetectionRequest) }),
-		localai.DetectionEndpoint(cl, ml, appConfig))
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.DetectionRequest) }))
 
-	router.Post("/tts",
+	ttsHandler := localai.TTSEndpoint(cl, ml, appConfig)
+	router.POST("/tts",
+		ttsHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TTS)),
-		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }),
-		localai.TTSEndpoint(cl, ml, appConfig))
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TTSRequest) }))
 
-	vadChain := []fiber.Handler{
+	vadHandler := localai.VADEndpoint(cl, ml, appConfig)
+	router.POST("/vad",
+		vadHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
-		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }),
-		localai.VADEndpoint(cl, ml, appConfig),
-	}
-	router.Post("/vad", vadChain...)
-	router.Post("/v1/vad", vadChain...)
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
+	router.POST("/v1/vad",
+		vadHandler,
+		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VAD)),
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VADRequest) }))
 
 	// Stores
-	router.Post("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
-	router.Post("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
-	router.Post("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
-	router.Post("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
+	router.POST("/stores/set", localai.StoresSetEndpoint(ml, appConfig))
+	router.POST("/stores/delete", localai.StoresDeleteEndpoint(ml, appConfig))
+	router.POST("/stores/get", localai.StoresGetEndpoint(ml, appConfig))
+	router.POST("/stores/find", localai.StoresFindEndpoint(ml, appConfig))
 
 	if !appConfig.DisableMetrics {
-		router.Get("/metrics", localai.LocalAIMetricsEndpoint())
+		router.GET("/metrics", localai.LocalAIMetricsEndpoint())
 	}
 
-	router.Post("/video",
+	videoHandler := localai.VideoEndpoint(cl, ml, appConfig)
+	router.POST("/video",
+		videoHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_VIDEO)),
-		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }),
-		localai.VideoEndpoint(cl, ml, appConfig))
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.VideoRequest) }))
 
 	// Backend Statistics Module
 	// TODO: Should these use standard middlewares? Refactor later, they are extremely simple.
 	backendMonitorService := services.NewBackendMonitorService(ml, cl, appConfig) // Split out for now
-	router.Get("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
-	router.Post("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
+	router.GET("/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
+	router.POST("/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
 	// The v1/* urls are exactly the same as above - makes local e2e testing easier if they are registered.
-	router.Get("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
-	router.Post("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
+	router.GET("/v1/backend/monitor", localai.BackendMonitorEndpoint(backendMonitorService))
+	router.POST("/v1/backend/shutdown", localai.BackendShutdownEndpoint(backendMonitorService))
 
 	// p2p
-	router.Get("/api/p2p", localai.ShowP2PNodes(appConfig))
-	router.Get("/api/p2p/token", localai.ShowP2PToken(appConfig))
+	router.GET("/api/p2p", localai.ShowP2PNodes(appConfig))
+	router.GET("/api/p2p/token", localai.ShowP2PToken(appConfig))
 
-	router.Get("/version", func(c *fiber.Ctx) error {
-		return c.JSON(struct {
+	router.GET("/version", func(c echo.Context) error {
+		return c.JSON(200, struct {
 			Version string `json:"version"`
 		}{Version: internal.PrintableVersion()})
 	})
 
-	router.Get("/system", localai.SystemInformations(ml, appConfig))
+	router.GET("/system", localai.SystemInformations(ml, appConfig))
 
 	// misc
-	router.Post("/v1/tokenize",
+	tokenizeHandler := localai.TokenizeEndpoint(cl, ml, appConfig)
+	router.POST("/v1/tokenize",
+		tokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
-		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }),
-		localai.TokenizeEndpoint(cl, ml, appConfig))
+		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
 
 }

@@ -2,120 +2,133 @@ package middleware
 
 import (
 	"net/http/httptest"
-	"testing"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/stretchr/testify/require"
+	"github.com/labstack/echo/v4"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-func TestStripPathPrefix(t *testing.T) {
+var _ = Describe("StripPathPrefix", func() {
+	var app *echo.Echo
 	var actualPath string
+	var appInitialized bool
 
-	app := fiber.New()
+	BeforeEach(func() {
+		actualPath = ""
+		if !appInitialized {
+			app = echo.New()
+			app.Pre(StripPathPrefix())
 
-	app.Use(StripPathPrefix())
+			app.GET("/hello/world", func(c echo.Context) error {
+				actualPath = c.Request().URL.Path
+				return nil
+			})
 
-	app.Get("/hello/world", func(c *fiber.Ctx) error {
-		actualPath = c.Path()
-		return nil
+			app.GET("/", func(c echo.Context) error {
+				actualPath = c.Request().URL.Path
+				return nil
+			})
+			appInitialized = true
+		}
 	})
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		actualPath = c.Path()
-		return nil
-	})
+	Context("without prefix", func() {
+		It("should not modify path when no header is present", func() {
+			req := httptest.NewRequest("GET", "/hello/world", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
 
-	for _, tc := range []struct {
-		name         string
-		path         string
-		prefixHeader []string
-		expectStatus int
-		expectPath   string
-	}{
-		{
-			name:         "without prefix and header",
-			path:         "/hello/world",
-			expectStatus: 200,
-			expectPath:   "/hello/world",
-		},
-		{
-			name:         "without prefix and headers on root path",
-			path:         "/",
-			expectStatus: 200,
-			expectPath:   "/",
-		},
-		{
-			name:         "without prefix but header",
-			path:         "/hello/world",
-			prefixHeader: []string{"/otherprefix/"},
-			expectStatus: 200,
-			expectPath:   "/hello/world",
-		},
-		{
-			name:         "with prefix but non-matching header",
-			path:         "/prefix/hello/world",
-			prefixHeader: []string{"/otherprefix/"},
-			expectStatus: 404,
-		},
-		{
-			name:         "with prefix and matching header",
-			path:         "/myprefix/hello/world",
-			prefixHeader: []string{"/myprefix/"},
-			expectStatus: 200,
-			expectPath:   "/hello/world",
-		},
-		{
-			name:         "with prefix and 1st header matching",
-			path:         "/myprefix/hello/world",
-			prefixHeader: []string{"/myprefix/", "/otherprefix/"},
-			expectStatus: 200,
-			expectPath:   "/hello/world",
-		},
-		{
-			name:         "with prefix and 2nd header matching",
-			path:         "/myprefix/hello/world",
-			prefixHeader: []string{"/otherprefix/", "/myprefix/"},
-			expectStatus: 200,
-			expectPath:   "/hello/world",
-		},
-		{
-			name:         "with prefix and header not ending with slash",
-			path:         "/myprefix/hello/world",
-			prefixHeader: []string{"/myprefix"},
-			expectStatus: 200,
-			expectPath:   "/hello/world",
-		},
-		{
-			name:         "with prefix and non-matching header not ending with slash",
-			path:         "/myprefix-suffix/hello/world",
-			prefixHeader: []string{"/myprefix"},
-			expectStatus: 404,
-		},
-		{
-			name:         "redirect when prefix does not end with a slash",
-			path:         "/myprefix",
-			prefixHeader: []string{"/myprefix"},
-			expectStatus: 302,
-			expectPath:   "/myprefix/",
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			actualPath = ""
-			req := httptest.NewRequest("GET", tc.path, nil)
-			if tc.prefixHeader != nil {
-				req.Header["X-Forwarded-Prefix"] = tc.prefixHeader
-			}
-
-			resp, err := app.Test(req, -1)
-
-			require.NoError(t, err)
-			require.Equal(t, tc.expectStatus, resp.StatusCode, "response status code")
-
-			if tc.expectStatus == 200 {
-				require.Equal(t, tc.expectPath, actualPath, "rewritten path")
-			} else if tc.expectStatus == 302 {
-				require.Equal(t, tc.expectPath, resp.Header.Get("Location"), "redirect location")
-			}
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
 		})
-	}
-}
+
+		It("should not modify root path when no header is present", func() {
+			req := httptest.NewRequest("GET", "/", nil)
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/"), "rewritten path")
+		})
+
+		It("should not modify path when header does not match", func() {
+			req := httptest.NewRequest("GET", "/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/otherprefix/"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
+		})
+	})
+
+	Context("with prefix", func() {
+		It("should return 404 when prefix does not match header", func() {
+			req := httptest.NewRequest("GET", "/prefix/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/otherprefix/"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(404), "response status code")
+		})
+
+		It("should strip matching prefix from path", func() {
+			req := httptest.NewRequest("GET", "/myprefix/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/myprefix/"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
+		})
+
+		It("should strip prefix when it matches the first header value", func() {
+			req := httptest.NewRequest("GET", "/myprefix/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/myprefix/", "/otherprefix/"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
+		})
+
+		It("should strip prefix when it matches the second header value", func() {
+			req := httptest.NewRequest("GET", "/myprefix/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/otherprefix/", "/myprefix/"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
+		})
+
+		It("should strip prefix when header does not end with slash", func() {
+			req := httptest.NewRequest("GET", "/myprefix/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/myprefix"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(200), "response status code")
+			Expect(actualPath).To(Equal("/hello/world"), "rewritten path")
+		})
+
+		It("should return 404 when prefix does not match header without trailing slash", func() {
+			req := httptest.NewRequest("GET", "/myprefix-suffix/hello/world", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/myprefix"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(404), "response status code")
+		})
+
+		It("should redirect when prefix does not end with a slash", func() {
+			req := httptest.NewRequest("GET", "/myprefix", nil)
+			req.Header["X-Forwarded-Prefix"] = []string{"/myprefix"}
+			rec := httptest.NewRecorder()
+			app.ServeHTTP(rec, req)
+
+			Expect(rec.Code).To(Equal(302), "response status code")
+			Expect(rec.Header().Get("Location")).To(Equal("/myprefix/"), "redirect location")
+		})
+	})
+})

@@ -48,10 +48,12 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 	appHTTP := http.Explorer(db)
 
 	signals.RegisterGracefulTerminationHandler(func() {
-		if err := appHTTP.Shutdown(); err != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if err := appHTTP.Shutdown(ctx); err != nil {
 			log.Error().Err(err).Msg("error during shutdown")
 		}
 	})
 
-	return appHTTP.Listen(e.Address)
+	return appHTTP.Start(e.Address)
 }

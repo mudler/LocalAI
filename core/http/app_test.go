@@ -10,13 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	. "github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/core/schema"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -25,6 +26,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	openaigo "github.com/otiai10/openaigo"
+	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
@@ -266,7 +268,7 @@ const bertEmbeddingsURL = `https://gist.githubusercontent.com/mudler/0a080b166b8
 
 var _ = Describe("API test", func() {
 
-	var app *fiber.App
+	var app *echo.Echo
 	var client *openai.Client
 	var client2 *openaigo.Client
 	var c context.Context
@@ -339,7 +341,11 @@ var _ = Describe("API test", func() {
 			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
-			go app.Listen("127.0.0.1:9090")
+			go func() {
+				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+					log.Error().Err(err).Msg("server error")
+				}
+			}()
 
 			defaultConfig := openai.DefaultConfig(apiKey)
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
@@ -358,7 +364,9 @@ var _ = Describe("API test", func() {
 		AfterEach(func(sc SpecContext) {
 			cancel()
 			if app != nil {
-				err := app.Shutdown()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				err := app.Shutdown(ctx)
 				Expect(err).ToNot(HaveOccurred())
 			}
 			err := os.RemoveAll(tmpdir)
@@ -547,7 +555,11 @@ var _ = Describe("API test", func() {
 			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
-			go app.Listen("127.0.0.1:9090")
+			go func() {
+				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+					log.Error().Err(err).Msg("server error")
+				}
+			}()
 
 			defaultConfig := openai.DefaultConfig("")
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
@@ -566,7 +578,9 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			if app != nil {
-				err := app.Shutdown()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				err := app.Shutdown(ctx)
 				Expect(err).ToNot(HaveOccurred())
 			}
 			err := os.RemoveAll(tmpdir)
@@ -755,7 +769,11 @@ var _ = Describe("API test", func() {
 			Expect(err).ToNot(HaveOccurred())
 			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
-			go app.Listen("127.0.0.1:9090")
+			go func() {
+				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+					log.Error().Err(err).Msg("server error")
+				}
+			}()
 
 			defaultConfig := openai.DefaultConfig("")
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
@@ -773,7 +791,9 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			if app != nil {
-				err := app.Shutdown()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				err := app.Shutdown(ctx)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})
@@ -1006,7 +1026,11 @@ var _ = Describe("API test", func() {
 			app, err = API(application)
 			Expect(err).ToNot(HaveOccurred())
 
-			go app.Listen("127.0.0.1:9090")
+			go func() {
+				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
+					log.Error().Err(err).Msg("server error")
+				}
+			}()
 
 			defaultConfig := openai.DefaultConfig("")
 			defaultConfig.BaseURL = "http://127.0.0.1:9090/v1"
@@ -1022,7 +1046,9 @@ var _ = Describe("API test", func() {
 		AfterEach(func() {
 			cancel()
 			if app != nil {
-				err := app.Shutdown()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				err := app.Shutdown(ctx)
 				Expect(err).ToNot(HaveOccurred())
 			}
 		})

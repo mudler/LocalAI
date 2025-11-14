@@ -232,5 +232,5 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		}
 	})
 
-	return appHTTP.Listen(r.Address)
+	return appHTTP.Start(r.Address)
 }

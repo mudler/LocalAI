@@ -1,7 +1,7 @@
 package localai
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -16,17 +16,17 @@ import (
 // @Param request body schema.DetectionRequest true "query params"
 // @Success 200 {object} schema.DetectionResponse "Response"
 // @Router /v1/detection [post]
-func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
 
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.DetectionRequest)
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.DetectionRequest)
 		if !ok || input.Model == "" {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
-		cfg, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		log.Debug().Str("image", input.Image).Str("modelFile", "modelFile").Str("backend", cfg.Backend).Msg("Detection")
@@ -54,6 +54,6 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			}
 		}
 
-		return c.JSON(response)
+		return c.JSON(200, response)
 	}
 }

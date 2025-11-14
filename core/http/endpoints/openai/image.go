@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,13 +15,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 
 	"github.com/mudler/LocalAI/core/backend"
 
-	"github.com/gofiber/fiber/v2"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
@@ -65,18 +66,18 @@ func downloadFile(url string) (string, error) {
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/images/generations [post]
-func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
 			log.Error().Msg("Image Endpoint - Invalid Input")
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
-		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || config == nil {
 			log.Error().Msg("Image Endpoint - Invalid Config")
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		// Process input images (for img2img/inpainting)
@@ -188,7 +189,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 					return err
 				}
 
-				baseURL := c.BaseURL()
+				baseURL := middleware.BaseURL(c)
 
 				// Use the first input image as src if available, otherwise use the original src
 				inputSrc := src
@@ -215,7 +216,10 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 					item.B64JSON = base64.StdEncoding.EncodeToString(data)
 				} else {
 					base := filepath.Base(output)
-					item.URL = baseURL + "/generated-images/" + base
+					item.URL, err = url.JoinPath(baseURL, "generated-images", base)
+					if err != nil {
+						return err
+					}
 				}
 
 				result = append(result, *item)
@@ -234,7 +238,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		log.Debug().Msgf("Response: %s", jsonResult)
 
 		// Return the prediction in the response body
-		return c.JSON(resp)
+		return c.JSON(200, resp)
 	}
 }
 

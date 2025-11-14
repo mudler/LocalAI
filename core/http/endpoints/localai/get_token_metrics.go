@@ -1,7 +1,7 @@
 package localai
 
 import (
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -21,17 +21,17 @@ import (
 //	@Success	200		{string}	binary				"generated audio/wav file"
 //	@Router		/v1/tokenMetrics [get]
 //	@Router		/tokenMetrics [get]
-func TokenMetricsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
+func TokenMetricsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
 
 		input := new(schema.TokenMetricsRequest)
 
 		// Get input data from the request body
-		if err := c.BodyParser(input); err != nil {
+		if err := c.Bind(input); err != nil {
 			return err
 		}
 
-		modelFile, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
+		modelFile, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 		if !ok || modelFile != "" {
 			modelFile = input.Model
 			log.Warn().Msgf("Model not found in context: %s", input.Model)
@@ -52,6 +52,6 @@ func TokenMetricsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, a
 		if err != nil {
 			return err
 		}
-		return c.JSON(response)
+		return c.JSON(200, response)
 	}
 }

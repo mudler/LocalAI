@@ -1,15 +1,12 @@
 package openai
 
 import (
-	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -20,68 +17,14 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/rs/zerolog/log"
-	"github.com/valyala/fasthttp"
 )
-
-// NOTE: this is a bad WORKAROUND! We should find a better way to handle this.
-// Fasthttp doesn't support context cancellation from the caller
-// for non-streaming requests, so we need to monitor the connection directly.
-// Monitor connection for client disconnection during non-streaming requests
-// We access the connection directly via c.Context().Conn() to monitor it
-// during ComputeChoices execution, not after the response is sent
-// see: https://github.com/mudler/LocalAI/pull/7187#issuecomment-3506720906
-func handleConnectionCancellation(c *fiber.Ctx, cancelFunc func(), requestCtx context.Context) {
-	var conn net.Conn = c.Context().Conn()
-	if conn == nil {
-		return
-	}
-
-	go func() {
-		defer func() {
-			// Clear read deadline when goroutine exits
-			conn.SetReadDeadline(time.Time{})
-		}()
-
-		buf := make([]byte, 1)
-		// Use a short read deadline to periodically check if connection is closed
-		// Without a deadline, Read() would block indefinitely waiting for data
-		// that will never come (client is waiting for response, not sending more data)
-		ticker := time.NewTicker(100 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-requestCtx.Done():
-				// Request completed or was cancelled - exit goroutine
-				return
-			case <-ticker.C:
-				// Set a short deadline - if connection is closed, read will fail immediately
-				// If connection is open but no data, it will timeout and we check again
-				conn.SetReadDeadline(time.Now().Add(50 * time.Millisecond))
-				_, err := conn.Read(buf)
-				if err != nil {
-					// Check if it's a timeout (connection still open, just no data)
-					if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
-						// Timeout is expected - connection is still open, just no data to read
-						// Continue the loop to check again
-						continue
-					}
-					// Connection closed or other error - cancel the context to stop gRPC call
-					log.Debug().Msgf("Calling cancellation function")
-					cancelFunc()
-					return
-				}
-			}
-		}
-	}()
-}
 
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
 // @Summary Generate a chat completions for a given prompt and model.
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /v1/chat/completions [post]
-func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, startupOptions *config.ApplicationConfig) echo.HandlerFunc {
 	var id, textContentToReturn string
 	var created int
 
@@ -235,21 +178,21 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		return err
 	}
 
-	return func(c *fiber.Ctx) error {
+	return func(c echo.Context) error {
 		textContentToReturn = ""
 		id = uuid.New().String()
 		created = int(time.Now().Unix())
 
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input.Model == "" {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
-		extraUsage := c.Get("Extra-Usage", "") != ""
+		extraUsage := c.Request().Header.Get("Extra-Usage") != ""
 
-		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || config == nil {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		log.Debug().Msgf("Chat endpoint configuration read: %+v", config)
@@ -392,13 +335,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		case toStream:
 
 			log.Debug().Msgf("Stream request received")
-			c.Context().SetContentType("text/event-stream")
-			//c.Response().Header.SetContentType(fiber.MIMETextHTMLCharsetUTF8)
-			//	c.Set("Content-Type", "text/event-stream")
-			c.Set("Cache-Control", "no-cache")
-			c.Set("Connection", "keep-alive")
-			c.Set("Transfer-Encoding", "chunked")
-			c.Set("X-Correlation-ID", id)
+			c.Response().Header().Set("Content-Type", "text/event-stream")
+			c.Response().Header().Set("Cache-Control", "no-cache")
+			c.Response().Header().Set("Connection", "keep-alive")
+			c.Response().Header().Set("X-Correlation-ID", id)
 
 			responses := make(chan schema.OpenAIResponse)
 			ended := make(chan error, 1)
@@ -411,103 +351,101 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				}
 			}()
 
-			c.Context().SetBodyStreamWriter(fasthttp.StreamWriter(func(w *bufio.Writer) {
-				usage := &schema.OpenAIUsage{}
-				toolsCalled := false
+			usage := &schema.OpenAIUsage{}
+			toolsCalled := false
 
-			LOOP:
-				for {
-					select {
-					case <-input.Context.Done():
-						// Context was cancelled (client disconnected or request cancelled)
-						log.Debug().Msgf("Request context cancelled, stopping stream")
-						input.Cancel()
-						break LOOP
-					case ev := <-responses:
-						if len(ev.Choices) == 0 {
-							log.Debug().Msgf("No choices in the response, skipping")
-							continue
-						}
-						usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
-						if len(ev.Choices[0].Delta.ToolCalls) > 0 {
-							toolsCalled = true
-						}
-						respData, err := json.Marshal(ev)
-						if err != nil {
-							log.Debug().Msgf("Failed to marshal response: %v", err)
-							input.Cancel()
-							continue
-						}
-						log.Debug().Msgf("Sending chunk: %s", string(respData))
-						_, err = fmt.Fprintf(w, "data: %s\n\n", string(respData))
-						if err != nil {
-							log.Debug().Msgf("Sending chunk failed: %v", err)
-							input.Cancel()
-						}
-						w.Flush()
-					case err := <-ended:
-						if err == nil {
-							break LOOP
-						}
-						log.Error().Msgf("Stream ended with error: %v", err)
-
-						stopReason := FinishReasonStop
-						resp := &schema.OpenAIResponse{
-							ID:      id,
-							Created: created,
-							Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-							Choices: []schema.Choice{
-								{
-									FinishReason: &stopReason,
-									Index:        0,
-									Delta:        &schema.Message{Content: "Internal error: " + err.Error()},
-								}},
-							Object: "chat.completion.chunk",
-							Usage:  *usage,
-						}
-						respData, marshalErr := json.Marshal(resp)
-						if marshalErr != nil {
-							log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
-							// Send a simple error message as fallback
-							w.WriteString("data: {\"error\":\"Internal error\"}\n\n")
-						} else {
-							w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
-						}
-						w.WriteString("data: [DONE]\n\n")
-						w.Flush()
-
-						return
+		LOOP:
+			for {
+				select {
+				case <-input.Context.Done():
+					// Context was cancelled (client disconnected or request cancelled)
+					log.Debug().Msgf("Request context cancelled, stopping stream")
+					input.Cancel()
+					break LOOP
+				case ev := <-responses:
+					if len(ev.Choices) == 0 {
+						log.Debug().Msgf("No choices in the response, skipping")
+						continue
 					}
+					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
+					if len(ev.Choices[0].Delta.ToolCalls) > 0 {
+						toolsCalled = true
+					}
+					respData, err := json.Marshal(ev)
+					if err != nil {
+						log.Debug().Msgf("Failed to marshal response: %v", err)
+						input.Cancel()
+						continue
+					}
+					log.Debug().Msgf("Sending chunk: %s", string(respData))
+					_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
+					if err != nil {
+						log.Debug().Msgf("Sending chunk failed: %v", err)
+						input.Cancel()
+						return err
+					}
+					c.Response().Flush()
+				case err := <-ended:
+					if err == nil {
+						break LOOP
+					}
+					log.Error().Msgf("Stream ended with error: %v", err)
+
+					stopReason := FinishReasonStop
+					resp := &schema.OpenAIResponse{
+						ID:      id,
+						Created: created,
+						Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+						Choices: []schema.Choice{
+							{
+								FinishReason: &stopReason,
+								Index:        0,
+								Delta:        &schema.Message{Content: "Internal error: " + err.Error()},
+							}},
+						Object: "chat.completion.chunk",
+						Usage:  *usage,
+					}
+					respData, marshalErr := json.Marshal(resp)
+					if marshalErr != nil {
+						log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+						// Send a simple error message as fallback
+						fmt.Fprintf(c.Response().Writer, "data: {\"error\":\"Internal error\"}\n\n")
+					} else {
+						fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+					}
+					fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+					c.Response().Flush()
+
+					return nil
 				}
+			}
 
-				finishReason := FinishReasonStop
-				if toolsCalled && len(input.Tools) > 0 {
-					finishReason = FinishReasonToolCalls
-				} else if toolsCalled {
-					finishReason = FinishReasonFunctionCall
-				}
+			finishReason := FinishReasonStop
+			if toolsCalled && len(input.Tools) > 0 {
+				finishReason = FinishReasonToolCalls
+			} else if toolsCalled {
+				finishReason = FinishReasonFunctionCall
+			}
 
-				resp := &schema.OpenAIResponse{
-					ID:      id,
-					Created: created,
-					Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-					Choices: []schema.Choice{
-						{
-							FinishReason: &finishReason,
-							Index:        0,
-							Delta:        &schema.Message{},
-						}},
-					Object: "chat.completion.chunk",
-					Usage:  *usage,
-				}
-				respData, _ := json.Marshal(resp)
+			resp := &schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{
+					{
+						FinishReason: &finishReason,
+						Index:        0,
+						Delta:        &schema.Message{},
+					}},
+				Object: "chat.completion.chunk",
+				Usage:  *usage,
+			}
+			respData, _ := json.Marshal(resp)
 
-				w.WriteString(fmt.Sprintf("data: %s\n\n", respData))
-				w.WriteString("data: [DONE]\n\n")
-				w.Flush()
-				log.Debug().Msgf("Stream ended")
-			}))
-
+			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
+			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+			c.Response().Flush()
+			log.Debug().Msgf("Stream ended")
 			return nil
 
 		// no streaming mode
@@ -589,9 +527,8 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			}
 
-			// NOTE: this is a workaround as fasthttp
-			// context cancellation does not fire in non-streaming requests
-			// handleConnectionCancellation(c, input.Cancel, input.Context)
+			// Echo properly supports context cancellation via c.Request().Context()
+			// No workaround needed!
 
 			result, tokenUsage, err := ComputeChoices(
 				input,
@@ -628,7 +565,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			log.Debug().Msgf("Response: %s", respData)
 
 			// Return the prediction in the response body
-			return c.JSON(resp)
+			return c.JSON(200, resp)
 		}
 	}
 }

@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/http/middleware"
 
-	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
@@ -26,24 +26,27 @@ import (
 // @Param request body schema.OpenAIRequest true "query params"
 // @Success 200 {object} schema.OpenAIResponse "Response"
 // @Router /mcp/v1/completions [post]
-func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
+func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	// We do not support streaming mode (Yet?)
-	return func(c *fiber.Ctx) error {
+	return func(c echo.Context) error {
 		created := int(time.Now().Unix())
 
-		ctx := c.Context()
+		ctx := c.Request().Context()
 
 		// Handle Correlation
-		id := c.Get("X-Correlation-ID", uuid.New().String())
-
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
-		if !ok || input.Model == "" {
-			return fiber.ErrBadRequest
+		id := c.Request().Header.Get("X-Correlation-ID")
+		if id == "" {
+			id = uuid.New().String()
 		}
 
-		config, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+		if !ok || input.Model == "" {
+			return echo.ErrBadRequest
+		}
+
+		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || config == nil {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 
 		if config.MCP.Servers == "" && config.MCP.Stdio == "" {
@@ -80,7 +83,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 
 		ctxWithCancellation, cancel := context.WithCancel(ctx)
 		defer cancel()
-		//handleConnectionCancellation(c, cancel, ctxWithCancellation)
+
 		// TODO: instead of connecting to the API, we should just wire this internally
 		// and act like completion.go.
 		// We can do this as cogito expects an interface and we can create one that
@@ -147,6 +150,6 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		log.Debug().Msgf("Response: %s", jsonResult)
 
 		// Return the prediction in the response body
-		return c.JSON(resp)
+		return c.JSON(200, resp)
 	}
 }

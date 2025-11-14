@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -14,20 +14,24 @@ import (
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
-func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) func(c *fiber.Ctx) error {
-	return func(c *fiber.Ctx) error {
-		input, ok := c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
+func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenAIRequest)
 		if !ok || input == nil {
-			return fiber.ErrBadRequest
+			return echo.ErrBadRequest
 		}
 		var raw map[string]interface{}
-		if body := c.Body(); len(body) > 0 {
+		body := make([]byte, 0)
+		if c.Request().Body != nil {
+			c.Request().Body.Read(body)
+		}
+		if len(body) > 0 {
 			_ = json.Unmarshal(body, &raw)
 		}
 		// Build VideoRequest using shared mapper
 		vr := MapOpenAIToVideo(input, raw)
-		// Place VideoRequest into locals so localai.VideoEndpoint can consume it
-		c.Locals(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, vr)
+		// Place VideoRequest into context so localai.VideoEndpoint can consume it
+		c.Set(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, vr)
 		// Delegate to existing localai handler
 		return localai.VideoEndpoint(cl, ml, appConfig)(c)
 	}

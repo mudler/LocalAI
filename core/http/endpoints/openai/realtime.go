@@ -10,9 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"net/http"
+
 	"github.com/go-audio/audio"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/websocket/v2"
+	"github.com/gorilla/websocket"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
@@ -167,32 +169,50 @@ type Model interface {
 	PredictStream(ctx context.Context, in *proto.PredictOptions, f func(*proto.Reply), opts ...grpc.CallOption) error
 }
 
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true // Allow all origins
+	},
+}
+
 // TODO: Implement ephemeral keys to allow these endpoints to be used
-func RealtimeSessions(application *application.Application) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		return ctx.SendStatus(501)
+func RealtimeSessions(application *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.NoContent(501)
 	}
 }
 
-func RealtimeTranscriptionSession(application *application.Application) fiber.Handler {
-	return func(ctx *fiber.Ctx) error {
-		return ctx.SendStatus(501)
+func RealtimeTranscriptionSession(application *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		return c.NoContent(501)
 	}
 }
 
-func Realtime(application *application.Application) fiber.Handler {
-	return websocket.New(registerRealtime(application))
+func Realtime(application *application.Application) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ws, err := upgrader.Upgrade(c.Response(), c.Request(), nil)
+		if err != nil {
+			return err
+		}
+		defer ws.Close()
+
+		// Extract query parameters from Echo context before passing to websocket handler
+		model := c.QueryParam("model")
+		if model == "" {
+			model = "gpt-4o"
+		}
+		intent := c.QueryParam("intent")
+
+		registerRealtime(application, model, intent)(ws)
+		return nil
+	}
 }
 
-func registerRealtime(application *application.Application) func(c *websocket.Conn) {
+func registerRealtime(application *application.Application, model, intent string) func(c *websocket.Conn) {
 	return func(c *websocket.Conn) {
 
 		evaluator := application.TemplatesEvaluator()
 		log.Debug().Msgf("WebSocket connection established with '%s'", c.RemoteAddr().String())
-
-		model := c.Query("model", "gpt-4o")
-
-		intent := c.Query("intent")
 		if intent != "transcription" {
 			sendNotImplemented(c, "Only transcription mode is supported which requires the intent=transcription parameter")
 		}

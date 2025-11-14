@@ -1,13 +1,15 @@
 package routes
 
-import "github.com/gofiber/fiber/v2"
+import (
+	"github.com/labstack/echo/v4"
+)
 
-func HealthRoutes(app *fiber.App) {
+func HealthRoutes(app *echo.Echo) {
 	// Service health checks
-	ok := func(c *fiber.Ctx) error {
-		return c.SendStatus(200)
+	ok := func(c echo.Context) error {
+		return c.NoContent(200)
 	}
 
-	app.Get("/healthz", ok)
-	app.Get("/readyz", ok)
+	app.GET("/healthz", ok)
+	app.GET("/readyz", ok)
 }
