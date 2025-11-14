@@ -621,6 +621,11 @@ public:
                             content_val = msg.content();
                         }
                         
+                        // If content is an object (e.g., from tool call failures), convert to string
+                        if (content_val.is_object()) {
+                            content_val = content_val.dump();
+                        }
+                        
                         // If content is a string and this is the last user message with images/audio, combine them
                         if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
                             json content_array = json::array();
@@ -1044,6 +1049,11 @@ public:
                         } catch (const json::parse_error&) {
                             // Not JSON, treat as plain string
                             content_val = msg.content();
+                        }
+                        
+                        // If content is an object (e.g., from tool call failures), convert to string
+                        if (content_val.is_object()) {
+                            content_val = content_val.dump();
                         }
                         
                         // If content is a string and this is the last user message with images/audio, combine them
