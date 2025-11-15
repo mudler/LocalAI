@@ -379,16 +379,14 @@ async function promptGPT(systemPrompt, input) {
   document.getElementById("fileName").innerHTML = "";
 
   // Choose endpoint based on MCP mode
-  const endpoint = mcpMode ? "mcp/v1/chat/completions" : "v1/chat/completions";
+  const endpoint = mcpMode ? "v1/mcp/chat/completions" : "v1/chat/completions";
   const requestBody = {
     model: model,
     messages: messages,
   };
   
-  // Only add stream parameter for regular chat (MCP doesn't support streaming)
-  if (!mcpMode) {
-    requestBody.stream = true;
-  }
+  // Add stream parameter for both regular chat and MCP (MCP now supports SSE streaming)
+  requestBody.stream = true;
   
   let response;
   try {
@@ -444,64 +442,153 @@ async function promptGPT(systemPrompt, input) {
     return;
   }
 
+  // Handle streaming response (both regular and MCP mode now use SSE)
   if (mcpMode) {
-    // Handle MCP non-streaming response
+    // Handle MCP SSE streaming with new event types
+    const reader = response.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
+
+    if (!reader) {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Error: Failed to decode MCP API response</span>`,
+      );
+      toggleLoader(false);
+      return;
+    }
+
+    // Store reader globally so stop button can cancel it
+    currentReader = reader;
+
+    let buffer = "";
+    let assistantContent = "";
+    let lastAssistantMessageIndex = -1;
+
     try {
-      const data = await response.json();
-      
-      // Update token usage if present
-      if (data.usage) {
-        Alpine.store("chat").updateTokenUsage(data.usage);
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += value;
+
+        let lines = buffer.split("\n");
+        buffer = lines.pop(); // Retain any incomplete line in the buffer
+
+        lines.forEach((line) => {
+          if (line.length === 0 || line.startsWith(":")) return;
+          if (line === "data: [DONE]") {
+            return;
+          }
+
+          if (line.startsWith("data: ")) {
+            try {
+              const eventData = JSON.parse(line.substring(6));
+              
+              // Handle different event types
+              switch (eventData.type) {
+                case "reasoning":
+                  if (eventData.content) {
+                    Alpine.store("chat").add("reasoning", eventData.content);
+                  }
+                  break;
+                
+                case "tool_call":
+                  if (eventData.name) {
+                    const toolCallContent = `**Tool:** ${eventData.name}\n\n` +
+                      (eventData.reasoning ? `**Reasoning:** ${eventData.reasoning}\n\n` : '') +
+                      `**Arguments:**\n\`\`\`json\n${JSON.stringify(eventData.arguments, null, 2)}\n\`\`\``;
+                    Alpine.store("chat").add("tool_call", toolCallContent);
+                  }
+                  break;
+                
+                case "tool_result":
+                  if (eventData.name) {
+                    const toolResultContent = `**Tool:** ${eventData.name}\n\n` +
+                      `**Result:**\n\`\`\`\n${eventData.result}\n\`\`\``;
+                    Alpine.store("chat").add("tool_result", toolResultContent);
+                  }
+                  break;
+                
+                case "status":
+                  // Status messages can be logged but not necessarily displayed
+                  console.log("[MCP Status]", eventData.message);
+                  break;
+                
+                case "assistant":
+                  if (eventData.content) {
+                    assistantContent += eventData.content;
+                    // Count tokens for rate calculation
+                    tokensReceived += Math.ceil(eventData.content.length / 4);
+                    updateTokensPerSecond();
+                    
+                    // Process thinking tags in assistant content
+                    const { regularContent, thinkingContent } = processThinkingTags(assistantContent);
+                    
+                    // Update or create assistant message
+                    if (lastAssistantMessageIndex === -1) {
+                      Alpine.store("chat").add("assistant", regularContent || assistantContent);
+                      lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
+                    } else {
+                      const chatStore = Alpine.store("chat");
+                      const lastMessage = chatStore.history[lastAssistantMessageIndex];
+                      if (lastMessage && lastMessage.role === "assistant") {
+                        lastMessage.content = regularContent || assistantContent;
+                        lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+                      }
+                    }
+                    
+                    // Add thinking content if present
+                    if (thinkingContent) {
+                      Alpine.store("chat").add("thinking", thinkingContent);
+                    }
+                  }
+                  break;
+                
+                case "error":
+                  Alpine.store("chat").add(
+                    "assistant",
+                    `<span class='error'>MCP Error: ${eventData.message}</span>`,
+                  );
+                  break;
+              }
+            } catch (error) {
+              console.error("Failed to parse MCP event:", line, error);
+            }
+          }
+        });
       }
-      
-      // MCP endpoint returns content in choices[0].message.content (chat completion format)
-      // Fallback to choices[0].text for backward compatibility (completion format)
-      const content = data.choices[0]?.message?.content || data.choices[0]?.text || "";
-      
-      if (!content && (!data.choices || data.choices.length === 0)) {
-        Alpine.store("chat").add(
-          "assistant",
-          `<span class='error'>Error: Empty response from MCP endpoint</span>`,
-        );
-        toggleLoader(false);
-        return;
-      }
-      
-      if (content) {
-        // Count tokens for rate calculation (MCP mode - full content at once)
-        // Prefer actual token count from API if available
-        if (data.usage && data.usage.completion_tokens) {
-          tokensReceived = data.usage.completion_tokens;
-        } else {
-          tokensReceived += Math.ceil(content.length / 4);
+
+      // Final assistant content flush if any data remains
+      if (assistantContent.trim() && lastAssistantMessageIndex !== -1) {
+        const { regularContent, thinkingContent } = processThinkingTags(assistantContent);
+        const chatStore = Alpine.store("chat");
+        const lastMessage = chatStore.history[lastAssistantMessageIndex];
+        if (lastMessage && lastMessage.role === "assistant") {
+          lastMessage.content = regularContent || assistantContent;
+          lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
         }
-        updateTokensPerSecond();
-        
-        // Process thinking tags using shared function
-        const { regularContent, thinkingContent } = processThinkingTags(content);
-        
-        // Add thinking content if present
         if (thinkingContent) {
           Alpine.store("chat").add("thinking", thinkingContent);
         }
-        
-        // Add regular content if present
-        if (regularContent) {
-          Alpine.store("chat").add("assistant", regularContent);
-        }
       }
-      
-      // Highlight all code blocks
+
+      // Highlight all code blocks once at the end
       hljs.highlightAll();
     } catch (error) {
       // Don't show error if request was aborted by user
-      if (error.name !== 'AbortError' || currentAbortController) {
+      if (error.name !== 'AbortError' || !currentAbortController) {
         Alpine.store("chat").add(
           "assistant",
-          `<span class='error'>Error: Failed to parse MCP response</span>`,
+          `<span class='error'>Error: Failed to process MCP stream</span>`,
         );
       }
     } finally {
+      // Perform any cleanup if necessary
+      if (reader) {
+        reader.releaseLock();
+      }
+      currentReader = null;
       currentAbortController = null;
     }
   } else {

@@ -205,7 +205,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 		opcache = services.NewOpCache(application.GalleryService())
 	}
 
-	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache)
+	routes.RegisterLocalAIRoutes(e, requestExtractor, application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig(), application.GalleryService(), opcache, application.TemplatesEvaluator())
 	routes.RegisterOpenAIRoutes(e, requestExtractor, application)
 	if !application.ApplicationConfig().DisableWebUI {
 		routes.RegisterUIAPIRoutes(e, application.ModelConfigLoader(), application.ApplicationConfig(), application.GalleryService(), opcache)

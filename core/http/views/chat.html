@@ -111,8 +111,8 @@ SOFTWARE.
         },
         add(role, content, image, audio) {
           const N = this.history.length - 1;
-          // For thinking messages, always create a new message
-          if (role === "thinking") {
+          // For thinking, reasoning, tool_call, and tool_result messages, always create a new message
+          if (role === "thinking" || role === "reasoning" || role === "tool_call" || role === "tool_result") {
             let c = "";
             const lines = content.split("\n");
             lines.forEach((line) => {
@@ -527,7 +527,46 @@ SOFTWARE.
                     </div>
                   </div>
                 </template>
-                <template x-if="message.role != 'user' && message.role != 'thinking'">
+                <template x-if="message.role === 'reasoning'">
+                  <div class="flex items-center space-x-2 w-full">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-3 flex-1 rounded-lg bg-[#38BDF8]/10 text-[#94A3B8] border border-[#38BDF8]/30">
+                        <div class="flex items-center space-x-2 mb-2">
+                          <i class="fa-solid fa-lightbulb text-[#38BDF8]"></i>
+                          <span class="text-xs font-semibold text-[#38BDF8]">Reasoning</span>
+                        </div>
+                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="message.role === 'tool_call'">
+                  <div class="flex items-center space-x-2 w-full">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-3 flex-1 rounded-lg bg-[#8B5CF6]/10 text-[#94A3B8] border border-[#8B5CF6]/30">
+                        <div class="flex items-center space-x-2 mb-2">
+                          <i class="fa-solid fa-wrench text-[#8B5CF6]"></i>
+                          <span class="text-xs font-semibold text-[#8B5CF6]">Tool Call</span>
+                        </div>
+                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="message.role === 'tool_result'">
+                  <div class="flex items-center space-x-2 w-full">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-3 flex-1 rounded-lg bg-[#10B981]/10 text-[#94A3B8] border border-[#10B981]/30">
+                        <div class="flex items-center space-x-2 mb-2">
+                          <i class="fa-solid fa-check-circle text-[#10B981]"></i>
+                          <span class="text-xs font-semibold text-[#10B981]">Tool Result</span>
+                        </div>
+                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="message.role != 'user' && message.role != 'thinking' && message.role != 'reasoning' && message.role != 'tool_call' && message.role != 'tool_result'">
                   <div class="flex items-center space-x-2">
                     {{ if $galleryConfig }}
                     {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[#38BDF8]/20">{{end}}

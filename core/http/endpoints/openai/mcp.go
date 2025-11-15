@@ -95,6 +95,13 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
 			cogito.WithContext(ctxWithCancellation),
+			cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
+				log.Debug().Msgf("[model agent] [model: %s] Tool call: %s, reasoning: %s, arguments: %+v", t.Name, t.Reasoning, t.Arguments)
+				return true
+			}),
+			cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+				log.Debug().Msgf("[model agent] [model: %s] Tool call result: %s, tool arguments: %+v", t.Name, t.Result, t.ToolArguments)
+			}),
 			cogito.WithMCPs(sessions...),
 			cogito.WithIterations(3),  // default to 3 iterations
 			cogito.WithMaxAttempts(3), // default to 3 attempts
