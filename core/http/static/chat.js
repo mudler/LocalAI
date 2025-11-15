@@ -463,7 +463,11 @@ async function promptGPT(systemPrompt, input) {
 
     let buffer = "";
     let assistantContent = "";
+    let assistantContentBuffer = [];
+    let thinkingContent = "";
+    let isThinking = false;
     let lastAssistantMessageIndex = -1;
+    let lastThinkingMessageIndex = -1;
 
     try {
       while (true) {
@@ -518,29 +522,63 @@ async function promptGPT(systemPrompt, input) {
                 case "assistant":
                   if (eventData.content) {
                     assistantContent += eventData.content;
+                    const contentChunk = eventData.content;
+                    
                     // Count tokens for rate calculation
-                    tokensReceived += Math.ceil(eventData.content.length / 4);
+                    tokensReceived += Math.ceil(contentChunk.length / 4);
                     updateTokensPerSecond();
                     
-                    // Process thinking tags in assistant content
-                    const { regularContent, thinkingContent } = processThinkingTags(assistantContent);
+                    // Check for thinking tags in the chunk (incremental detection)
+                    if (contentChunk.includes("<thinking>") || contentChunk.includes("<think>")) {
+                      isThinking = true;
+                      thinkingContent = "";
+                      lastThinkingMessageIndex = -1;
+                    }
                     
-                    // Update or create assistant message
-                    if (lastAssistantMessageIndex === -1) {
-                      Alpine.store("chat").add("assistant", regularContent || assistantContent);
-                      lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
-                    } else {
-                      const chatStore = Alpine.store("chat");
-                      const lastMessage = chatStore.history[lastAssistantMessageIndex];
-                      if (lastMessage && lastMessage.role === "assistant") {
-                        lastMessage.content = regularContent || assistantContent;
-                        lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+                    if (contentChunk.includes("</thinking>") || contentChunk.includes("</think>")) {
+                      isThinking = false;
+                      // When closing tag is detected, process the accumulated thinking content
+                      if (thinkingContent.trim()) {
+                        // Extract just the thinking part from the accumulated content
+                        const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
+                        if (thinkingMatch && thinkingMatch[1]) {
+                          const extractedThinking = thinkingMatch[1];
+                          if (lastThinkingMessageIndex === -1) {
+                            Alpine.store("chat").add("thinking", extractedThinking);
+                            lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                          } else {
+                            const chatStore = Alpine.store("chat");
+                            const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                            if (lastMessage && lastMessage.role === "thinking") {
+                              lastMessage.content = extractedThinking;
+                              lastMessage.html = DOMPurify.sanitize(marked.parse(extractedThinking));
+                            }
+                          }
+                        }
+                        thinkingContent = "";
                       }
                     }
                     
-                    // Add thinking content if present
-                    if (thinkingContent) {
-                      Alpine.store("chat").add("thinking", thinkingContent);
+                    // Handle content based on thinking state
+                    if (isThinking) {
+                      thinkingContent += contentChunk;
+                      // Update the last thinking message or create a new one (incremental)
+                      if (lastThinkingMessageIndex === -1) {
+                        // Create new thinking message
+                        Alpine.store("chat").add("thinking", thinkingContent);
+                        lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                      } else {
+                        // Update existing thinking message
+                        const chatStore = Alpine.store("chat");
+                        const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                        if (lastMessage && lastMessage.role === "thinking") {
+                          lastMessage.content = thinkingContent;
+                          lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                        }
+                      }
+                    } else {
+                      // Regular assistant content - buffer it for batch processing
+                      assistantContentBuffer.push(contentChunk);
                     }
                   }
                   break;
@@ -557,19 +595,101 @@ async function promptGPT(systemPrompt, input) {
             }
           }
         });
+        
+        // Efficiently update assistant message in batch
+        if (assistantContentBuffer.length > 0) {
+          const regularContent = assistantContentBuffer.join("");
+          
+          // Process any thinking tags that might be in the accumulated content
+          // This handles cases where tags are split across chunks
+          const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
+          
+          // Update or create assistant message with processed regular content
+          if (lastAssistantMessageIndex === -1) {
+            if (processedRegular && processedRegular.trim()) {
+              Alpine.store("chat").add("assistant", processedRegular);
+              lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
+            }
+          } else {
+            const chatStore = Alpine.store("chat");
+            const lastMessage = chatStore.history[lastAssistantMessageIndex];
+            if (lastMessage && lastMessage.role === "assistant") {
+              lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
+              lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+            }
+          }
+          
+          // Add any extracted thinking content from the processed buffer
+          if (processedThinking && processedThinking.trim()) {
+            Alpine.store("chat").add("thinking", processedThinking);
+          }
+          
+          assistantContentBuffer = [];
+        }
       }
 
       // Final assistant content flush if any data remains
-      if (assistantContent.trim() && lastAssistantMessageIndex !== -1) {
-        const { regularContent, thinkingContent } = processThinkingTags(assistantContent);
+      if (assistantContentBuffer.length > 0) {
+        const regularContent = assistantContentBuffer.join("");
+        // Process any remaining thinking tags that might be in the buffer
+        const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
+        
         const chatStore = Alpine.store("chat");
-        const lastMessage = chatStore.history[lastAssistantMessageIndex];
-        if (lastMessage && lastMessage.role === "assistant") {
-          lastMessage.content = regularContent || assistantContent;
-          lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+        if (lastAssistantMessageIndex !== -1) {
+          const lastMessage = chatStore.history[lastAssistantMessageIndex];
+          if (lastMessage && lastMessage.role === "assistant") {
+            lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
+            lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+          }
+        } else if (processedRegular && processedRegular.trim()) {
+          Alpine.store("chat").add("assistant", processedRegular);
+          lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
         }
-        if (thinkingContent) {
+        
+        // Add any extracted thinking content from the buffer
+        if (processedThinking && processedThinking.trim()) {
+          Alpine.store("chat").add("thinking", processedThinking);
+        }
+      }
+      
+      // Final thinking content flush if any data remains (from incremental detection)
+      if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+        // Extract thinking content if tags are present
+        const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
+        if (thinkingMatch && thinkingMatch[1]) {
+          Alpine.store("chat").add("thinking", thinkingMatch[1]);
+        } else {
           Alpine.store("chat").add("thinking", thinkingContent);
+        }
+      }
+      
+      // Final pass: process the entire assistantContent to catch any missed thinking tags
+      // This ensures we don't miss tags that were split across chunks
+      if (assistantContent.trim()) {
+        const { regularContent: finalRegular, thinkingContent: finalThinking } = processThinkingTags(assistantContent);
+        
+        // Update assistant message with final processed content (without thinking tags)
+        if (finalRegular && finalRegular.trim()) {
+          if (lastAssistantMessageIndex !== -1) {
+            const chatStore = Alpine.store("chat");
+            const lastMessage = chatStore.history[lastAssistantMessageIndex];
+            if (lastMessage && lastMessage.role === "assistant") {
+              lastMessage.content = finalRegular;
+              lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+            }
+          } else {
+            Alpine.store("chat").add("assistant", finalRegular);
+          }
+        }
+        
+        // Add any extracted thinking content (only if not already added)
+        if (finalThinking && finalThinking.trim()) {
+          const hasThinking = Alpine.store("chat").history.some(msg => 
+            msg.role === "thinking" && msg.content.trim() === finalThinking.trim()
+          );
+          if (!hasThinking) {
+            Alpine.store("chat").add("thinking", finalThinking);
+          }
         }
       }
 
@@ -899,3 +1019,4 @@ document.addEventListener("alpine:init", () => {
     });
   }
 });
+
