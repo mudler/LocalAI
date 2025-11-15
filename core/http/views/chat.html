@@ -114,11 +114,29 @@ SOFTWARE.
           // For thinking, reasoning, tool_call, and tool_result messages, always create a new message
           if (role === "thinking" || role === "reasoning" || role === "tool_call" || role === "tool_result") {
             let c = "";
-            const lines = content.split("\n");
-            lines.forEach((line) => {
-              c += DOMPurify.sanitize(marked.parse(line));
-            });
-            this.history.push({ role, content, html: c, image, audio });
+            if (role === "tool_call" || role === "tool_result") {
+              // For tool calls and results, try to parse as JSON and format nicely
+              try {
+                const parsed = typeof content === 'string' ? JSON.parse(content) : content;
+                // Format JSON with proper indentation
+                const formatted = JSON.stringify(parsed, null, 2);
+                c = DOMPurify.sanitize('<pre><code class="language-json">' + formatted + '</code></pre>');
+              } catch (e) {
+                // If not JSON, treat as markdown
+                const lines = content.split("\n");
+                lines.forEach((line) => {
+                  c += DOMPurify.sanitize(marked.parse(line));
+                });
+              }
+            } else {
+              // For thinking and reasoning, format as markdown
+              const lines = content.split("\n");
+              lines.forEach((line) => {
+                c += DOMPurify.sanitize(marked.parse(line));
+              });
+            }
+            // All these message types are collapsible by default
+            this.history.push({ role, content, html: c, image, audio, expanded: false });
           }
           // For other messages, merge if same role
           else if (this.history.length && this.history[N].role === role) {
@@ -147,7 +165,13 @@ SOFTWARE.
               audio: audio || [] 
             });
           }
-          document.getElementById('messages').scrollIntoView(false);
+          // Scroll to bottom consistently for all messages
+          setTimeout(() => {
+            const messagesContainer = document.getElementById('messages');
+            if (messagesContainer) {
+              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+          }, 0);
           const parser = new DOMParser();
           const html = parser.parseFromString(
             this.history[this.history.length - 1].html,
@@ -484,9 +508,104 @@ SOFTWARE.
               <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[#38BDF8]"></i> icon.</li>
             </ul>
           </p>
-          <div id="messages" class="max-w-3xl mx-auto">
-            <template x-for="message in history">
-              <div :class="message.role === 'user' ? 'flex items-start space-x-2 my-2 justify-end' : 'flex items-start space-x-2 my-2'">
+          <div id="messages" class="max-w-3xl mx-auto space-y-2">
+            <template x-for="(message, index) in history" :key="index">
+              <div>
+                <!-- Reasoning/Thinking messages appear first (before assistant) - collapsible in MCP mode -->
+                <template x-if="message.role === 'reasoning' || message.role === 'thinking'">
+                  <div class="flex items-start space-x-2 mb-1">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-2 flex-1 rounded-lg bg-[#38BDF8]/10 text-[#94A3B8] border border-[#38BDF8]/30">
+                        <button 
+                          @click="message.expanded = !message.expanded"
+                          class="w-full flex items-center justify-between text-left hover:bg-[#38BDF8]/20 rounded p-2 transition-colors"
+                        >
+                          <div class="flex items-center space-x-2">
+                            <i :class="message.role === 'thinking' ? 'fa-solid fa-brain' : 'fa-solid fa-lightbulb'" class="text-[#38BDF8]"></i>
+                            <span class="text-xs font-semibold text-[#38BDF8]" x-text="message.role === 'thinking' ? 'Thinking' : 'Reasoning'"></span>
+                            <span class="text-xs text-[#94A3B8]" x-show="message.content && message.content.length > 0" x-text="'(' + Math.ceil(message.content.length / 100) + ' lines)'"></span>
+                          </div>
+                          <i 
+                            class="fa-solid text-[#38BDF8] transition-transform text-xs"
+                            :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+                          ></i>
+                        </button>
+                        <div 
+                          x-show="message.expanded"
+                          x-transition
+                          class="mt-2 pt-2 border-t border-[#38BDF8]/20"
+                        >
+                          <div class="text-[#E5E7EB] text-sm max-h-96 overflow-auto" x-html="message.html"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                
+                <!-- Tool calls (collapsible) -->
+                <template x-if="message.role === 'tool_call'">
+                  <div class="flex items-start space-x-2 mb-1">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-2 flex-1 rounded-lg bg-[#8B5CF6]/10 text-[#94A3B8] border border-[#8B5CF6]/30">
+                        <button 
+                          @click="message.expanded = !message.expanded"
+                          class="w-full flex items-center justify-between text-left hover:bg-[#8B5CF6]/20 rounded p-2 transition-colors"
+                        >
+                          <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-wrench text-[#8B5CF6]"></i>
+                            <span class="text-xs font-semibold text-[#8B5CF6]">Tool Call</span>
+                            <span class="text-xs text-[#94A3B8]" x-text="getToolName(message.content)"></span>
+                          </div>
+                          <i 
+                            class="fa-solid text-[#8B5CF6] transition-transform text-xs"
+                            :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+                          ></i>
+                        </button>
+                        <div 
+                          x-show="message.expanded"
+                          x-transition
+                          class="mt-2 pt-2 border-t border-[#8B5CF6]/20"
+                        >
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto" x-html="message.html"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                
+                <!-- Tool results (collapsible) -->
+                <template x-if="message.role === 'tool_result'">
+                  <div class="flex items-start space-x-2 mb-1">
+                    <div class="flex flex-col flex-1">
+                      <div class="p-2 flex-1 rounded-lg bg-[#10B981]/10 text-[#94A3B8] border border-[#10B981]/30">
+                        <button 
+                          @click="message.expanded = !message.expanded"
+                          class="w-full flex items-center justify-between text-left hover:bg-[#10B981]/20 rounded p-2 transition-colors"
+                        >
+                          <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-check-circle text-[#10B981]"></i>
+                            <span class="text-xs font-semibold text-[#10B981]">Tool Result</span>
+                            <span class="text-xs text-[#94A3B8]" x-text="getToolName(message.content) || 'Success'"></span>
+                          </div>
+                          <i 
+                            class="fa-solid text-[#10B981] transition-transform text-xs"
+                            :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
+                          ></i>
+                        </button>
+                        <div 
+                          x-show="message.expanded"
+                          x-transition
+                          class="mt-2 pt-2 border-t border-[#10B981]/20"
+                        >
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto" x-html="formatToolResult(message.content)"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                
+                <!-- User and Assistant messages -->
+                <div :class="message.role === 'user' ? 'flex items-start space-x-2 justify-end' : 'flex items-start space-x-2'">
                 {{ if .Model }}
                 {{ $galleryConfig:= index $allGalleryConfigs .Model}}
                 <template x-if="message.role === 'user'">
@@ -511,58 +630,6 @@ SOFTWARE.
                           </template>
                         </div>
                       </template>
-                    </div>
-                  </div>
-                </template>
-                <template x-if="message.role === 'thinking'">
-                  <div class="flex items-center space-x-2 w-full">
-                    <div class="flex flex-col flex-1">
-                      <div class="p-3 flex-1 rounded-lg bg-[#38BDF8]/10 text-[#94A3B8] border border-[#38BDF8]/30">
-                        <div class="flex items-center space-x-2 mb-2">
-                          <i class="fa-solid fa-brain text-[#38BDF8]"></i>
-                          <span class="text-xs font-semibold text-[#38BDF8]">Thinking</span>
-                        </div>
-                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <template x-if="message.role === 'reasoning'">
-                  <div class="flex items-center space-x-2 w-full">
-                    <div class="flex flex-col flex-1">
-                      <div class="p-3 flex-1 rounded-lg bg-[#38BDF8]/10 text-[#94A3B8] border border-[#38BDF8]/30">
-                        <div class="flex items-center space-x-2 mb-2">
-                          <i class="fa-solid fa-lightbulb text-[#38BDF8]"></i>
-                          <span class="text-xs font-semibold text-[#38BDF8]">Reasoning</span>
-                        </div>
-                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <template x-if="message.role === 'tool_call'">
-                  <div class="flex items-center space-x-2 w-full">
-                    <div class="flex flex-col flex-1">
-                      <div class="p-3 flex-1 rounded-lg bg-[#8B5CF6]/10 text-[#94A3B8] border border-[#8B5CF6]/30">
-                        <div class="flex items-center space-x-2 mb-2">
-                          <i class="fa-solid fa-wrench text-[#8B5CF6]"></i>
-                          <span class="text-xs font-semibold text-[#8B5CF6]">Tool Call</span>
-                        </div>
-                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
-                      </div>
-                    </div>
-                  </div>
-                </template>
-                <template x-if="message.role === 'tool_result'">
-                  <div class="flex items-center space-x-2 w-full">
-                    <div class="flex flex-col flex-1">
-                      <div class="p-3 flex-1 rounded-lg bg-[#10B981]/10 text-[#94A3B8] border border-[#10B981]/30">
-                        <div class="flex items-center space-x-2 mb-2">
-                          <i class="fa-solid fa-check-circle text-[#10B981]"></i>
-                          <span class="text-xs font-semibold text-[#10B981]">Tool Result</span>
-                        </div>
-                        <div class="mt-1 text-[#E5E7EB]" x-html="message.html"></div>
-                      </div>
                     </div>
                   </div>
                 </template>
@@ -605,6 +672,7 @@ SOFTWARE.
                   :class="message.role === 'user' ? 'fa-user text-[#38BDF8]' : 'fa-robot text-[#8B5CF6]'"
                 ></i>
                 {{ end }}
+                </div>
               </div>
             </template>
           </div>
@@ -813,6 +881,83 @@ SOFTWARE.
           }).catch(err => {
             console.error('Failed to copy: ', err);
           });
+        };
+
+        // Format tool result for better display
+        window.formatToolResult = (content) => {
+          if (!content) return '';
+          try {
+            // Try to parse as JSON
+            const parsed = JSON.parse(content);
+            
+            // If it has a 'result' field, try to parse that too
+            if (parsed.result && typeof parsed.result === 'string') {
+              try {
+                const resultParsed = JSON.parse(parsed.result);
+                parsed.result = resultParsed;
+              } catch (e) {
+                // Keep as string if not JSON
+              }
+            }
+            
+            // Format the JSON nicely
+            const formatted = JSON.stringify(parsed, null, 2);
+            return DOMPurify.sanitize('<pre class="bg-[#101827] p-3 rounded border border-[#10B981]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
+          } catch (e) {
+            // If not JSON, try to format as markdown or plain text
+            try {
+              // Check if it's a markdown code block
+              if (content.includes('```')) {
+                return DOMPurify.sanitize(marked.parse(content));
+              }
+              // Otherwise, try to parse as JSON one more time with error handling
+              const lines = content.split('\n');
+              let jsonStart = -1;
+              let jsonEnd = -1;
+              for (let i = 0; i < lines.length; i++) {
+                if (lines[i].trim().startsWith('{') || lines[i].trim().startsWith('[')) {
+                  jsonStart = i;
+                  break;
+                }
+              }
+              if (jsonStart >= 0) {
+                for (let i = lines.length - 1; i >= jsonStart; i--) {
+                  if (lines[i].trim().endsWith('}') || lines[i].trim().endsWith(']')) {
+                    jsonEnd = i;
+                    break;
+                  }
+                }
+                if (jsonEnd >= jsonStart) {
+                  const jsonStr = lines.slice(jsonStart, jsonEnd + 1).join('\n');
+                  try {
+                    const parsed = JSON.parse(jsonStr);
+                    const formatted = JSON.stringify(parsed, null, 2);
+                    return DOMPurify.sanitize('<pre class="bg-[#101827] p-3 rounded border border-[#10B981]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
+                  } catch (e2) {
+                    // Fall through to markdown
+                  }
+                }
+              }
+              // Fall back to markdown
+              return DOMPurify.sanitize(marked.parse(content));
+            } catch (e2) {
+              // Last resort: plain text
+              return DOMPurify.sanitize('<pre class="bg-[#101827] p-3 rounded border border-[#10B981]/20 overflow-x-auto text-xs">' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>');
+            }
+          }
+        };
+
+        // Get tool name from content
+        window.getToolName = (content) => {
+          if (!content || typeof content !== 'string') return '';
+          try {
+            const parsed = JSON.parse(content);
+            return parsed.name || '';
+          } catch (e) {
+            // Try to extract name from string
+            const nameMatch = content.match(/"name"\s*:\s*"([^"]+)"/);
+            return nameMatch ? nameMatch[1] : '';
+          }
         };
       });
 

@@ -493,24 +493,45 @@ async function promptGPT(systemPrompt, input) {
               switch (eventData.type) {
                 case "reasoning":
                   if (eventData.content) {
-                    Alpine.store("chat").add("reasoning", eventData.content);
+                    const chatStore = Alpine.store("chat");
+                    // Insert reasoning before assistant message if it exists
+                    if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                      chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                        role: "reasoning",
+                        content: eventData.content,
+                        html: DOMPurify.sanitize(marked.parse(eventData.content)),
+                        image: [],
+                        audio: [],
+                        expanded: false
+                      });
+                      lastAssistantMessageIndex++; // Adjust index since we inserted
+                    } else {
+                      // No assistant message yet, just add normally
+                      chatStore.add("reasoning", eventData.content);
+                    }
                   }
                   break;
                 
                 case "tool_call":
                   if (eventData.name) {
-                    const toolCallContent = `**Tool:** ${eventData.name}\n\n` +
-                      (eventData.reasoning ? `**Reasoning:** ${eventData.reasoning}\n\n` : '') +
-                      `**Arguments:**\n\`\`\`json\n${JSON.stringify(eventData.arguments, null, 2)}\n\`\`\``;
-                    Alpine.store("chat").add("tool_call", toolCallContent);
+                    // Store as JSON for better formatting
+                    const toolCallData = {
+                      name: eventData.name,
+                      arguments: eventData.arguments || {},
+                      reasoning: eventData.reasoning || ""
+                    };
+                    Alpine.store("chat").add("tool_call", JSON.stringify(toolCallData, null, 2));
                   }
                   break;
                 
                 case "tool_result":
                   if (eventData.name) {
-                    const toolResultContent = `**Tool:** ${eventData.name}\n\n` +
-                      `**Result:**\n\`\`\`\n${eventData.result}\n\`\`\``;
-                    Alpine.store("chat").add("tool_result", toolResultContent);
+                    // Store as JSON for better formatting
+                    const toolResultData = {
+                      name: eventData.name,
+                      result: eventData.result || ""
+                    };
+                    Alpine.store("chat").add("tool_result", JSON.stringify(toolResultData, null, 2));
                   }
                   break;
                 
@@ -543,11 +564,28 @@ async function promptGPT(systemPrompt, input) {
                         const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
                         if (thinkingMatch && thinkingMatch[1]) {
                           const extractedThinking = thinkingMatch[1];
+                          const chatStore = Alpine.store("chat");
                           if (lastThinkingMessageIndex === -1) {
-                            Alpine.store("chat").add("thinking", extractedThinking);
-                            lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                            // Insert thinking before the last assistant message if it exists
+                            if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                              // Insert before assistant message
+                              chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                                role: "thinking",
+                                content: extractedThinking,
+                                html: DOMPurify.sanitize(marked.parse(extractedThinking)),
+                                image: [],
+                                audio: [],
+                                expanded: false
+                              });
+                              lastThinkingMessageIndex = lastAssistantMessageIndex;
+                              lastAssistantMessageIndex++; // Adjust index since we inserted
+                            } else {
+                              // No assistant message yet, just add normally
+                              chatStore.add("thinking", extractedThinking);
+                              lastThinkingMessageIndex = chatStore.history.length - 1;
+                            }
                           } else {
-                            const chatStore = Alpine.store("chat");
+                            // Update existing thinking message
                             const lastMessage = chatStore.history[lastThinkingMessageIndex];
                             if (lastMessage && lastMessage.role === "thinking") {
                               lastMessage.content = extractedThinking;
@@ -562,14 +600,29 @@ async function promptGPT(systemPrompt, input) {
                     // Handle content based on thinking state
                     if (isThinking) {
                       thinkingContent += contentChunk;
+                      const chatStore = Alpine.store("chat");
                       // Update the last thinking message or create a new one (incremental)
                       if (lastThinkingMessageIndex === -1) {
-                        // Create new thinking message
-                        Alpine.store("chat").add("thinking", thinkingContent);
-                        lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                        // Insert thinking before the last assistant message if it exists
+                        if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                          // Insert before assistant message
+                          chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                            role: "thinking",
+                            content: thinkingContent,
+                            html: DOMPurify.sanitize(marked.parse(thinkingContent)),
+                            image: [],
+                            audio: [],
+                            expanded: false
+                          });
+                          lastThinkingMessageIndex = lastAssistantMessageIndex;
+                          lastAssistantMessageIndex++; // Adjust index since we inserted
+                        } else {
+                          // No assistant message yet, just add normally
+                          chatStore.add("thinking", thinkingContent);
+                          lastThinkingMessageIndex = chatStore.history.length - 1;
+                        }
                       } else {
                         // Update existing thinking message
-                        const chatStore = Alpine.store("chat");
                         const lastMessage = chatStore.history[lastThinkingMessageIndex];
                         if (lastMessage && lastMessage.role === "thinking") {
                           lastMessage.content = thinkingContent;
@@ -619,9 +672,24 @@ async function promptGPT(systemPrompt, input) {
             }
           }
           
-          // Add any extracted thinking content from the processed buffer
+          // Add any extracted thinking content from the processed buffer BEFORE assistant message
           if (processedThinking && processedThinking.trim()) {
-            Alpine.store("chat").add("thinking", processedThinking);
+            const chatStore = Alpine.store("chat");
+            // Insert thinking before assistant message if it exists
+            if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+              chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                role: "thinking",
+                content: processedThinking,
+                html: DOMPurify.sanitize(marked.parse(processedThinking)),
+                image: [],
+                audio: [],
+                expanded: false
+              });
+              lastAssistantMessageIndex++; // Adjust index since we inserted
+            } else {
+              // No assistant message yet, just add normally
+              chatStore.add("thinking", processedThinking);
+            }
           }
           
           assistantContentBuffer = [];
@@ -635,6 +703,27 @@ async function promptGPT(systemPrompt, input) {
         const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
         
         const chatStore = Alpine.store("chat");
+        
+        // First, add any extracted thinking content BEFORE assistant message
+        if (processedThinking && processedThinking.trim()) {
+          // Insert thinking before assistant message if it exists
+          if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+            chatStore.history.splice(lastAssistantMessageIndex, 0, {
+              role: "thinking",
+              content: processedThinking,
+              html: DOMPurify.sanitize(marked.parse(processedThinking)),
+              image: [],
+              audio: [],
+              expanded: false
+            });
+            lastAssistantMessageIndex++; // Adjust index since we inserted
+          } else {
+            // No assistant message yet, just add normally
+            chatStore.add("thinking", processedThinking);
+          }
+        }
+        
+        // Then update or create assistant message
         if (lastAssistantMessageIndex !== -1) {
           const lastMessage = chatStore.history[lastAssistantMessageIndex];
           if (lastMessage && lastMessage.role === "assistant") {
@@ -642,13 +731,8 @@ async function promptGPT(systemPrompt, input) {
             lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
           }
         } else if (processedRegular && processedRegular.trim()) {
-          Alpine.store("chat").add("assistant", processedRegular);
-          lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
-        }
-        
-        // Add any extracted thinking content from the buffer
-        if (processedThinking && processedThinking.trim()) {
-          Alpine.store("chat").add("thinking", processedThinking);
+          chatStore.add("assistant", processedRegular);
+          lastAssistantMessageIndex = chatStore.history.length - 1;
         }
       }
       
@@ -657,7 +741,21 @@ async function promptGPT(systemPrompt, input) {
         // Extract thinking content if tags are present
         const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
         if (thinkingMatch && thinkingMatch[1]) {
-          Alpine.store("chat").add("thinking", thinkingMatch[1]);
+          const chatStore = Alpine.store("chat");
+          // Insert thinking before assistant message if it exists
+          if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+            chatStore.history.splice(lastAssistantMessageIndex, 0, {
+              role: "thinking",
+              content: thinkingMatch[1],
+              html: DOMPurify.sanitize(marked.parse(thinkingMatch[1])),
+              image: [],
+              audio: [],
+              expanded: false
+            });
+          } else {
+            // No assistant message yet, just add normally
+            chatStore.add("thinking", thinkingMatch[1]);
+          }
         } else {
           Alpine.store("chat").add("thinking", thinkingContent);
         }
@@ -861,8 +959,14 @@ async function promptGPT(systemPrompt, input) {
   // Remove class "loader" from the element with "loader" id
   toggleLoader(false);
 
-  // scroll to the bottom of the chat
-  document.getElementById('messages').scrollIntoView(false)
+  // scroll to the bottom of the chat consistently
+  setTimeout(() => {
+    const messagesContainer = document.getElementById('messages');
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+  }, 100);
+  
   // set focus to the input
   document.getElementById("input").focus();
 }
