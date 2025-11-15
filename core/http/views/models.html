@@ -210,10 +210,14 @@
                                 <tr class="hover:bg-[#38BDF8]/10 transition-colors duration-200">
                                     <!-- Icon -->
                                     <td class="px-6 py-4">
-                                        <img :src="model.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'"
-                                             class="w-12 h-12 object-cover rounded-lg border border-[#38BDF8]/30"
-                                             loading="lazy"
-                                             :alt="model.name">
+                                        <div class="w-12 h-12 rounded-lg border border-[#38BDF8]/30 flex items-center justify-center bg-[#101827]">
+                                            <img x-show="model.icon"
+                                                 :src="model.icon"
+                                                 class="w-full h-full object-cover rounded-lg"
+                                                 loading="lazy"
+                                                 :alt="model.name">
+                                            <i x-show="!model.icon" class="fas fa-brain text-xl text-[#38BDF8]"></i>
+                                        </div>
                                     </td>
 
                                     <!-- Model Name -->
@@ -355,9 +359,13 @@
                         <!-- Modal Body -->
                         <div class="p-4 md:p-5 space-y-4 overflow-y-auto flex-1 min-h-0">
                             <div class="flex justify-center items-center">
-                                <img :src="selectedModel?.icon || 'https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg'"
-                                     class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3"
-                                     loading="lazy">
+                                <div class="w-48 h-48 rounded-lg border border-gray-300 dark:border-gray-600 flex items-center justify-center bg-gray-100 dark:bg-gray-800 mt-3">
+                                    <img x-show="selectedModel?.icon"
+                                         :src="selectedModel?.icon"
+                                         class="rounded-lg max-h-48 max-w-96 object-cover"
+                                         loading="lazy">
+                                    <i x-show="!selectedModel?.icon" class="fas fa-brain text-6xl text-gray-400 dark:text-gray-500"></i>
+                                </div>
                             </div>
                             <div class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full markdown-content" x-html="renderMarkdown(selectedModel?.description)"></div>
                             <hr>

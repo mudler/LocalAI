@@ -109,7 +109,10 @@
 
                     {{ if ne (len .Models) 0 }}
                     <div class="mt-12 pt-8 border-t border-[#38BDF8]/20">
-                        <h3 class="text-2xl font-bold text-[#E5E7EB] mb-6">Detected Model Files</h3>
+                        <h3 class="text-2xl font-bold text-[#E5E7EB] mb-6 flex items-center">
+                            <i class="fas fa-file-alt mr-2 text-[#38BDF8]"></i>
+                            Detected Model Files
+                        </h3>
                         <p class="text-[#94A3B8] mb-6">These models were found but don't have configuration files yet</p>
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {{ range .Models }}
@@ -134,7 +137,8 @@
             {{ $modelsN = add $modelsN (len .Models)}}
             <div class="mb-8 flex flex-col md:flex-row md:items-center md:justify-between">
                 <div class="mb-4 md:mb-0">
-                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
+                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2 flex items-center">
+                        <i class="fas fa-brain mr-3 text-[#38BDF8]"></i>
                         Installed Models
                     </h2>
                     <p class="text-[#94A3B8]">
@@ -146,7 +150,6 @@
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {{$galleryConfig:=.GalleryConfig}}
                 {{ $loadedModels := .LoadedModels }}
-                {{$noicon:="https://upload.wikimedia.org/wikipedia/commons/6/65/No-Image-Placeholder.svg"}}
                 
                 {{ range .ModelsConfig }}
                 {{ $backendCfg := . }}
@@ -156,14 +159,14 @@
                     <div class="relative p-6 border-b border-[#101827]">
                         <div class="flex items-start space-x-4">
                             <div class="relative w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#101827] flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                                <img {{ if and $cfg $cfg.Icon }}
-                                    src="{{$cfg.Icon}}"
-                                    {{ else }}
-                                    src="{{$noicon}}"
-                                    {{ end }}
+                                {{ if and $cfg $cfg.Icon }}
+                                <img src="{{$cfg.Icon}}"
                                     class="w-full h-full object-contain"
                                     alt="{{.Name}} icon"
                                 >
+                                {{ else }}
+                                <i class="fas fa-brain text-2xl text-[#38BDF8]"></i>
+                                {{ end }}
                                 {{ if index $loadedModels .Name }}
                                 <div class="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full border-2 border-[#1E293B] animate-pulse"></div>
                                 {{ end }}
@@ -293,7 +296,8 @@
         <!-- Backends Section -->
         <div class="mt-12">
             <div class="mb-8">
-                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2 flex items-center">
+                    <i class="fas fa-cogs mr-3 text-[#8B5CF6]"></i>
                     Installed Backends
                 </h2>
                 <p class="text-[#94A3B8]">
