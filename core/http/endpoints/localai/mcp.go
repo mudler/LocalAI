@@ -61,6 +61,7 @@ type MCPErrorEvent struct {
 func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator *templates.Evaluator, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		ctx := c.Request().Context()
+		created := int(time.Now().Unix())
 
 		// Handle Correlation
 		id := c.Request().Header.Get("X-Correlation-ID")
@@ -98,6 +99,85 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			return fmt.Errorf("no working MCP servers found")
 		}
 
+		// Build fragment from messages
+		fragment := cogito.NewEmptyFragment()
+		for _, message := range input.Messages {
+			fragment = fragment.AddMessage(message.Role, message.StringContent)
+		}
+
+		port := appConfig.APIAddress[strings.LastIndex(appConfig.APIAddress, ":")+1:]
+		apiKey := ""
+		if len(appConfig.ApiKeys) > 0 {
+			apiKey = appConfig.ApiKeys[0]
+		}
+
+		ctxWithCancellation, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		// TODO: instead of connecting to the API, we should just wire this internally
+		// and act like completion.go.
+		// We can do this as cogito expects an interface and we can create one that
+		// we satisfy to just call internally ComputeChoices
+		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
+
+		// Build cogito options using the consolidated method
+		cogitoOpts := config.BuildCogitoOptions()
+		cogitoOpts = append(
+			cogitoOpts,
+			cogito.WithContext(ctxWithCancellation),
+			cogito.WithMCPs(sessions...),
+		)
+		// Check if streaming is requested
+		toStream := input.Stream
+
+		if !toStream {
+			// Non-streaming mode: execute synchronously and return JSON response
+			cogitoOpts = append(
+				cogitoOpts,
+				cogito.WithStatusCallback(func(s string) {
+					log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
+				}),
+				cogito.WithReasoningCallback(func(s string) {
+					log.Debug().Msgf("[model agent] [model: %s] Reasoning: %s", config.Name, s)
+				}),
+				cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
+					log.Debug().Str("model", config.Name).Str("tool", t.Name).Str("reasoning", t.Reasoning).Interface("arguments", t.Arguments).Msg("[model agent] Tool call")
+					return true
+				}),
+				cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+					log.Debug().Str("model", config.Name).Str("tool", t.Name).Str("result", t.Result).Interface("tool_arguments", t.ToolArguments).Msg("[model agent] Tool call result")
+				}),
+			)
+
+			f, err := cogito.ExecuteTools(
+				defaultLLM, fragment,
+				cogitoOpts...,
+			)
+			if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
+				return err
+			}
+
+			f, err = defaultLLM.Ask(ctxWithCancellation, f)
+			if err != nil {
+				return err
+			}
+
+			resp := &schema.OpenAIResponse{
+				ID:      id,
+				Created: created,
+				Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
+				Choices: []schema.Choice{{Message: &schema.Message{Role: "assistant", Content: &f.LastMessage().Content}}},
+				Object:  "chat.completion",
+			}
+
+			jsonResult, _ := json.Marshal(resp)
+			log.Debug().Msgf("Response: %s", jsonResult)
+
+			// Return the prediction in the response body
+			return c.JSON(200, resp)
+		}
+
+		// Streaming mode: use SSE
 		// Set up SSE headers
 		c.Response().Header().Set("Content-Type", "text/event-stream")
 		c.Response().Header().Set("Cache-Control", "no-cache")
@@ -107,27 +187,6 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		// Create channel for streaming events
 		events := make(chan interface{})
 		ended := make(chan error, 1)
-
-		ctxWithCancellation, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		// Build fragment from messages
-		fragment := cogito.NewEmptyFragment()
-		for _, message := range input.Messages {
-			fragment = fragment.AddMessage(message.Role, message.StringContent)
-		}
-
-		port := appConfig.APIAddress[strings.LastIndex(appConfig.APIAddress, ":")+1:]
-		apiKey := ""
-		if appConfig.ApiKeys != nil && len(appConfig.ApiKeys) > 0 {
-			apiKey = appConfig.ApiKeys[0]
-		}
-
-		// TODO: instead of connecting to the API, we should just wire this internally
-		// and act like completion.go.
-		// We can do this as cogito expects an interface and we can create one that
-		// we satisfy to just call internally ComputeChoices
-		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
 
 		// Set up callbacks for streaming
 		statusCallback := func(s string) {
@@ -162,16 +221,12 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			}
 		}
 
-		// Build cogito options using the consolidated method
-		cogitoOpts := config.BuildCogitoOptions()
-
 		cogitoOpts = append(cogitoOpts,
 			cogito.WithStatusCallback(statusCallback),
 			cogito.WithReasoningCallback(reasoningCallback),
 			cogito.WithToolCallBack(toolCallCallback),
 			cogito.WithToolCallResultCallback(toolCallResultCallback),
-			cogito.WithContext(ctxWithCancellation),
-			cogito.WithMCPs(sessions...))
+		)
 
 		// Execute tools in a goroutine
 		go func() {
@@ -191,7 +246,7 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			}
 
 			// Get final response
-			f, err = defaultLLM.Ask(ctx, f)
+			f, err = defaultLLM.Ask(ctxWithCancellation, f)
 			if err != nil {
 				events <- MCPErrorEvent{
 					Type:    "error",
