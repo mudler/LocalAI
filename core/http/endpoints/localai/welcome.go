@@ -64,8 +64,13 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 			// The client expects a JSON response
 			return c.JSON(200, summary)
 		} else {
-			// Render index
-			return c.Render(200, "views/index", summary)
+			// Check if this is the manage route
+			templateName := "views/index"
+			if strings.HasSuffix(c.Request().URL.Path, "/manage") || c.Request().URL.Path == "/manage" {
+				templateName = "views/manage"
+			}
+			// Render appropriate template
+			return c.Render(200, templateName, summary)
 		}
 	}
 }

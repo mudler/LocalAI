@@ -9,9 +9,9 @@
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Error Section -->
-        <div class="bg-[#1E293B] border border-red-500/20 rounded-2xl shadow-2xl shadow-red-500/10 p-8 mb-10">
+        <div class="bg-[#1E293B] border border-red-500/20 rounded-xl p-8 mb-10">
             <div class="max-w-4xl mx-auto text-center">
-                <div class="mb-6 text-6xl text-red-400 animate-pulse">
+                <div class="mb-6 text-6xl text-red-400">
                     <i class="fas fa-exclamation-circle"></i>
                 </div>
                 <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
@@ -22,23 +22,21 @@
                 <p class="text-xl text-[#94A3B8] mb-6">{{if .ErrorMessage}}{{.ErrorMessage}}{{else}}An unexpected error occurred{{end}}</p>
                 <div class="flex flex-wrap justify-center gap-4">
                     <a href="./" 
-                       class="group flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
+                       class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition-colors">
                         <i class="fas fa-home mr-2"></i>
                         <span>Return Home</span>
-                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
                     <a href="browse" 
-                       class="group flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                       class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-3 px-6 rounded-lg transition-colors">
                         <i class="fas fa-images mr-2"></i>
                         <span>Browse Gallery</span>
-                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
                 </div>
             </div>
         </div>
 
         <!-- Additional Information -->
-        <div class="bg-[#1E293B]/80 border border-[#1E293B] rounded-xl p-8 shadow-lg backdrop-blur-sm">
+        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-8">
             <div class="text-center max-w-3xl mx-auto">
                 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
                     <i class="text-yellow-400 text-2xl fa-solid fa-triangle-exclamation"></i>
