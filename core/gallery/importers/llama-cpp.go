@@ -80,10 +80,13 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		mmprojQuantsList = strings.Split(mmprojQuants, ",")
 	}
 
+	embeddings, _ := preferencesMap["embeddings"].(string)
+
 	modelConfig := config.ModelConfig{
 		Name:                name,
 		Description:         description,
 		KnownUsecaseStrings: []string{"chat"},
+		Options:             []string{"use_jinja:true"},
 		Backend:             "llama-cpp",
 		TemplateConfig: config.TemplateConfig{
 			UseTokenizerTemplate: true,
@@ -93,6 +96,11 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 				NoGrammar: true,
 			},
 		},
+	}
+
+	if embeddings != "" && strings.ToLower(embeddings) == "true" || strings.ToLower(embeddings) == "yes" {
+		trueV := true
+		modelConfig.Embeddings = &trueV
 	}
 
 	cfg := gallery.ModelConfig{

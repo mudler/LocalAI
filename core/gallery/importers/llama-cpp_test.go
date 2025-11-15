@@ -5,20 +5,21 @@ import (
 	"fmt"
 
 	"github.com/mudler/LocalAI/core/gallery/importers"
+	. "github.com/mudler/LocalAI/core/gallery/importers"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("LlamaCPPImporter", func() {
-	var importer *importers.LlamaCPPImporter
+	var importer *LlamaCPPImporter
 
 	BeforeEach(func() {
-		importer = &importers.LlamaCPPImporter{}
+		importer = &LlamaCPPImporter{}
 	})
 
 	Context("Match", func() {
 		It("should match when URI ends with .gguf", func() {
-			details := importers.Details{
+			details := Details{
 				URI: "https://example.com/model.gguf",
 			}
 
@@ -28,7 +29,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 
 		It("should match when backend preference is llama-cpp", func() {
 			preferences := json.RawMessage(`{"backend": "llama-cpp"}`)
-			details := importers.Details{
+			details := Details{
 				URI:         "https://example.com/model",
 				Preferences: preferences,
 			}
@@ -38,7 +39,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 		})
 
 		It("should not match when URI does not end with .gguf and no backend preference", func() {
-			details := importers.Details{
+			details := Details{
 				URI: "https://example.com/model.bin",
 			}
 
@@ -48,7 +49,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 
 		It("should not match when backend preference is different", func() {
 			preferences := json.RawMessage(`{"backend": "mlx"}`)
-			details := importers.Details{
+			details := Details{
 				URI:         "https://example.com/model",
 				Preferences: preferences,
 			}
@@ -59,7 +60,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 
 		It("should return false when JSON preferences are invalid", func() {
 			preferences := json.RawMessage(`invalid json`)
-			details := importers.Details{
+			details := Details{
 				URI:         "https://example.com/model.gguf",
 				Preferences: preferences,
 			}
@@ -72,7 +73,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 
 	Context("Import", func() {
 		It("should import model config with default name and description", func() {
-			details := importers.Details{
+			details := Details{
 				URI: "https://example.com/my-model.gguf",
 			}
 
@@ -89,7 +90,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 
 		It("should import model config with custom name and description from preferences", func() {
 			preferences := json.RawMessage(`{"name": "custom-model", "description": "Custom description"}`)
-			details := importers.Details{
+			details := Details{
 				URI:         "https://example.com/my-model.gguf",
 				Preferences: preferences,
 			}
@@ -106,7 +107,7 @@ var _ = Describe("LlamaCPPImporter", func() {
 
 		It("should handle invalid JSON preferences", func() {
 			preferences := json.RawMessage(`invalid json`)
-			details := importers.Details{
+			details := Details{
 				URI:         "https://example.com/my-model.gguf",
 				Preferences: preferences,
 			}

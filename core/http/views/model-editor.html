@@ -130,6 +130,8 @@
                                 <option value="llama-cpp">llama-cpp</option>
                                 <option value="mlx">mlx</option>
                                 <option value="mlx-vlm">mlx-vlm</option>
+                                <option value="transformers">transformers</option>
+                                <option value="vllm">vllm</option>
                             </select>
                             <p class="mt-1 text-xs text-gray-400">
                                 Force a specific backend. Leave empty to auto-detect from URI.
@@ -197,6 +199,39 @@
                                 :disabled="isSubmitting">
                             <p class="mt-1 text-xs text-gray-400">
                                 Preferred MMProj quantizations (comma-separated). Examples: fp16, fp32. Leave empty to use default (fp16).
+                            </p>
+                        </div>
+                        
+                        <!-- Embeddings -->
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input 
+                                    x-model="commonPreferences.embeddings"
+                                    type="checkbox" 
+                                    class="w-5 h-5 rounded bg-gray-900/90 border-gray-700/70 text-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all cursor-pointer"
+                                    :disabled="isSubmitting">
+                                <span class="ml-3 text-sm font-medium text-gray-300">
+                                    <i class="fas fa-vector-square mr-2"></i>Embeddings
+                                </span>
+                            </label>
+                            <p class="mt-1 ml-8 text-xs text-gray-400">
+                                Enable embeddings support for this model.
+                            </p>
+                        </div>
+                        
+                        <!-- Model Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-tag mr-2"></i>Model Type
+                            </label>
+                            <input 
+                                x-model="commonPreferences.type"
+                                type="text" 
+                                placeholder="AutoModelForCausalLM (for transformers backend)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba, MusicgenForConditionalGeneration. Leave empty to use default (AutoModelForCausalLM).
                             </p>
                         </div>
                     </div>
@@ -458,7 +493,9 @@ function importModel() {
             name: '',
             description: '',
             quantizations: '',
-            mmproj_quantizations: ''
+            mmproj_quantizations: '',
+            embeddings: false,
+            type: ''
         },
         isSubmitting: false,
         currentJobId: null,
@@ -526,6 +563,12 @@ function importModel() {
                 }
                 if (this.commonPreferences.mmproj_quantizations && this.commonPreferences.mmproj_quantizations.trim()) {
                     prefsObj.mmproj_quantizations = this.commonPreferences.mmproj_quantizations.trim();
+                }
+                if (this.commonPreferences.embeddings) {
+                    prefsObj.embeddings = 'true';
+                }
+                if (this.commonPreferences.type && this.commonPreferences.type.trim()) {
+                    prefsObj.type = this.commonPreferences.type.trim();
                 }
                 
                 // Add custom preferences (can override common ones)
