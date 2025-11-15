@@ -267,7 +267,15 @@ function processAndSendMessage(inputValue) {
   const input = document.getElementById("input");
   if (input) input.value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
-  Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
+  Alpine.nextTick(() => {
+    const chatContainer = document.getElementById('chat');
+    if (chatContainer) {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  });
   
   // Reset token tracking before starting new request
   requestStartTime = Date.now();
@@ -468,6 +476,8 @@ async function promptGPT(systemPrompt, input) {
     let isThinking = false;
     let lastAssistantMessageIndex = -1;
     let lastThinkingMessageIndex = -1;
+    let lastThinkingScrollTime = 0;
+    const THINKING_SCROLL_THROTTLE = 200; // Throttle scrolling to every 200ms
 
     try {
       while (true) {
@@ -502,9 +512,19 @@ async function promptGPT(systemPrompt, input) {
                         html: DOMPurify.sanitize(marked.parse(eventData.content)),
                         image: [],
                         audio: [],
-                        expanded: false
+                        expanded: false // Reasoning is always collapsed
                       });
                       lastAssistantMessageIndex++; // Adjust index since we inserted
+                      // Scroll smoothly after adding reasoning
+                      setTimeout(() => {
+                        const chatContainer = document.getElementById('chat');
+                        if (chatContainer) {
+                          chatContainer.scrollTo({
+                            top: chatContainer.scrollHeight,
+                            behavior: 'smooth'
+                          });
+                        }
+                      }, 100);
                     } else {
                       // No assistant message yet, just add normally
                       chatStore.add("reasoning", eventData.content);
@@ -521,6 +541,16 @@ async function promptGPT(systemPrompt, input) {
                       reasoning: eventData.reasoning || ""
                     };
                     Alpine.store("chat").add("tool_call", JSON.stringify(toolCallData, null, 2));
+                    // Scroll smoothly after adding tool call
+                    setTimeout(() => {
+                      const chatContainer = document.getElementById('chat');
+                      if (chatContainer) {
+                        chatContainer.scrollTo({
+                          top: chatContainer.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }, 100);
                   }
                   break;
                 
@@ -532,6 +562,16 @@ async function promptGPT(systemPrompt, input) {
                       result: eventData.result || ""
                     };
                     Alpine.store("chat").add("tool_result", JSON.stringify(toolResultData, null, 2));
+                    // Scroll smoothly after adding tool result
+                    setTimeout(() => {
+                      const chatContainer = document.getElementById('chat');
+                      if (chatContainer) {
+                        chatContainer.scrollTo({
+                          top: chatContainer.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }, 100);
                   }
                   break;
                 
@@ -565,6 +605,8 @@ async function promptGPT(systemPrompt, input) {
                         if (thinkingMatch && thinkingMatch[1]) {
                           const extractedThinking = thinkingMatch[1];
                           const chatStore = Alpine.store("chat");
+                          const isMCPMode = chatStore.mcpMode || false;
+                          const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
                           if (lastThinkingMessageIndex === -1) {
                             // Insert thinking before the last assistant message if it exists
                             if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
@@ -575,7 +617,7 @@ async function promptGPT(systemPrompt, input) {
                                 html: DOMPurify.sanitize(marked.parse(extractedThinking)),
                                 image: [],
                                 audio: [],
-                                expanded: false
+                                expanded: shouldExpand
                               });
                               lastThinkingMessageIndex = lastAssistantMessageIndex;
                               lastAssistantMessageIndex++; // Adjust index since we inserted
@@ -592,6 +634,18 @@ async function promptGPT(systemPrompt, input) {
                               lastMessage.html = DOMPurify.sanitize(marked.parse(extractedThinking));
                             }
                           }
+                          // Scroll when thinking is finalized in non-MCP mode
+                          if (!isMCPMode) {
+                            setTimeout(() => {
+                              const chatContainer = document.getElementById('chat');
+                              if (chatContainer) {
+                                chatContainer.scrollTo({
+                                  top: chatContainer.scrollHeight,
+                                  behavior: 'smooth'
+                                });
+                              }
+                            }, 50);
+                          }
                         }
                         thinkingContent = "";
                       }
@@ -601,6 +655,8 @@ async function promptGPT(systemPrompt, input) {
                     if (isThinking) {
                       thinkingContent += contentChunk;
                       const chatStore = Alpine.store("chat");
+                      const isMCPMode = chatStore.mcpMode || false;
+                      const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
                       // Update the last thinking message or create a new one (incremental)
                       if (lastThinkingMessageIndex === -1) {
                         // Insert thinking before the last assistant message if it exists
@@ -612,7 +668,7 @@ async function promptGPT(systemPrompt, input) {
                             html: DOMPurify.sanitize(marked.parse(thinkingContent)),
                             image: [],
                             audio: [],
-                            expanded: false
+                            expanded: shouldExpand
                           });
                           lastThinkingMessageIndex = lastAssistantMessageIndex;
                           lastAssistantMessageIndex++; // Adjust index since we inserted
@@ -627,6 +683,22 @@ async function promptGPT(systemPrompt, input) {
                         if (lastMessage && lastMessage.role === "thinking") {
                           lastMessage.content = thinkingContent;
                           lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                        }
+                      }
+                      // Scroll when thinking is updated in non-MCP mode (throttled)
+                      if (!isMCPMode) {
+                        const now = Date.now();
+                        if (now - lastThinkingScrollTime > THINKING_SCROLL_THROTTLE) {
+                          lastThinkingScrollTime = now;
+                          setTimeout(() => {
+                            const chatContainer = document.getElementById('chat');
+                            if (chatContainer) {
+                              chatContainer.scrollTo({
+                                top: chatContainer.scrollHeight,
+                                behavior: 'smooth'
+                              });
+                            }
+                          }, 100);
                         }
                       }
                     } else {
@@ -675,6 +747,8 @@ async function promptGPT(systemPrompt, input) {
           // Add any extracted thinking content from the processed buffer BEFORE assistant message
           if (processedThinking && processedThinking.trim()) {
             const chatStore = Alpine.store("chat");
+            const isMCPMode = chatStore.mcpMode || false;
+            const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
             // Insert thinking before assistant message if it exists
             if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
               chatStore.history.splice(lastAssistantMessageIndex, 0, {
@@ -683,7 +757,7 @@ async function promptGPT(systemPrompt, input) {
                 html: DOMPurify.sanitize(marked.parse(processedThinking)),
                 image: [],
                 audio: [],
-                expanded: false
+                expanded: shouldExpand
               });
               lastAssistantMessageIndex++; // Adjust index since we inserted
             } else {
@@ -706,6 +780,8 @@ async function promptGPT(systemPrompt, input) {
         
         // First, add any extracted thinking content BEFORE assistant message
         if (processedThinking && processedThinking.trim()) {
+          const isMCPMode = chatStore.mcpMode || false;
+          const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
           // Insert thinking before assistant message if it exists
           if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
             chatStore.history.splice(lastAssistantMessageIndex, 0, {
@@ -714,7 +790,7 @@ async function promptGPT(systemPrompt, input) {
               html: DOMPurify.sanitize(marked.parse(processedThinking)),
               image: [],
               audio: [],
-              expanded: false
+              expanded: shouldExpand
             });
             lastAssistantMessageIndex++; // Adjust index since we inserted
           } else {
@@ -742,6 +818,8 @@ async function promptGPT(systemPrompt, input) {
         const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
         if (thinkingMatch && thinkingMatch[1]) {
           const chatStore = Alpine.store("chat");
+          const isMCPMode = chatStore.mcpMode || false;
+          const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
           // Insert thinking before assistant message if it exists
           if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
             chatStore.history.splice(lastAssistantMessageIndex, 0, {
@@ -750,7 +828,7 @@ async function promptGPT(systemPrompt, input) {
               html: DOMPurify.sanitize(marked.parse(thinkingMatch[1])),
               image: [],
               audio: [],
-              expanded: false
+              expanded: shouldExpand
             });
           } else {
             // No assistant message yet, just add normally
@@ -844,6 +922,8 @@ async function promptGPT(systemPrompt, input) {
     let thinkingContent = "";
     let isThinking = false;
     let lastThinkingMessageIndex = -1;
+    let lastThinkingScrollTime = 0;
+    const THINKING_SCROLL_THROTTLE = 200; // Throttle scrolling to every 200ms
 
     try {
       while (true) {
@@ -911,6 +991,20 @@ async function promptGPT(systemPrompt, input) {
                       lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
                     }
                   }
+                  // Scroll when thinking is updated (throttled)
+                  const now = Date.now();
+                  if (now - lastThinkingScrollTime > THINKING_SCROLL_THROTTLE) {
+                    lastThinkingScrollTime = now;
+                    setTimeout(() => {
+                      const chatContainer = document.getElementById('chat');
+                      if (chatContainer) {
+                        chatContainer.scrollTo({
+                          top: chatContainer.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }, 100);
+                  }
                 } else {
                   contentBuffer.push(token);
                 }
@@ -925,6 +1019,16 @@ async function promptGPT(systemPrompt, input) {
         if (contentBuffer.length > 0) {
           addToChat(contentBuffer.join(""));
           contentBuffer = [];
+          // Scroll when assistant content is updated (this will also show thinking messages above)
+          setTimeout(() => {
+            const chatContainer = document.getElementById('chat');
+            if (chatContainer) {
+              chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
+          }, 50);
         }
       }
 
@@ -961,9 +1065,12 @@ async function promptGPT(systemPrompt, input) {
 
   // scroll to the bottom of the chat consistently
   setTimeout(() => {
-    const messagesContainer = document.getElementById('messages');
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const chatContainer = document.getElementById('chat');
+    if (chatContainer) {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
     }
   }, 100);
   
@@ -1095,7 +1202,13 @@ document.addEventListener("alpine:init", () => {
           audio: audio || [] 
         });
       }
-      document.getElementById('messages').scrollIntoView(false);
+      const chatContainer = document.getElementById('chat');
+      if (chatContainer) {
+        chatContainer.scrollTo({
+          top: chatContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
       const parser = new DOMParser();
       const html = parser.parseFromString(
         this.history[this.history.length - 1].html,

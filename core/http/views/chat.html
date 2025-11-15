@@ -135,8 +135,12 @@ SOFTWARE.
                 c += DOMPurify.sanitize(marked.parse(line));
               });
             }
-            // All these message types are collapsible by default
-            this.history.push({ role, content, html: c, image, audio, expanded: false });
+            // Set expanded state: thinking is expanded by default in non-MCP mode, collapsed in MCP mode
+            // Reasoning, tool_call, and tool_result are always collapsed by default
+            const isMCPMode = this.mcpMode || false;
+            const shouldExpand = (role === "thinking" && !isMCPMode) || false;
+            this.history.push({ role, content, html: c, image, audio, expanded: shouldExpand });
+            
           }
           // For other messages, merge if same role
           else if (this.history.length && this.history[N].role === role) {
@@ -165,13 +169,16 @@ SOFTWARE.
               audio: audio || [] 
             });
           }
-          // Scroll to bottom consistently for all messages
+          // Scroll to bottom consistently for all messages (use #chat as it's the scrollable container)
           setTimeout(() => {
-            const messagesContainer = document.getElementById('messages');
-            if (messagesContainer) {
-              messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            const chatContainer = document.getElementById('chat');
+            if (chatContainer) {
+              chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+              });
             }
-          }, 0);
+          }, 100);
           const parser = new DOMParser();
           const html = parser.parseFromString(
             this.history[this.history.length - 1].html,
@@ -184,9 +191,33 @@ SOFTWARE.
             if (this.languages.includes(language)) return;
             const script = document.createElement("script");
             script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+            script.onload = () => {
+              // Re-highlight after language script loads
+              if (window.hljs) {
+                const container = document.getElementById('messages');
+                if (container) {
+                  container.querySelectorAll('pre code.language-json').forEach(block => {
+                    window.hljs.highlightElement(block);
+                  });
+                }
+              }
+            };
             document.head.appendChild(script);
             this.languages.push(language);
           });
+          // Highlight code blocks immediately if hljs is available
+          if (window.hljs) {
+            setTimeout(() => {
+              const container = document.getElementById('messages');
+              if (container) {
+                container.querySelectorAll('pre code.language-json').forEach(block => {
+                  if (!block.classList.contains('hljs')) {
+                    window.hljs.highlightElement(block);
+                  }
+                });
+              }
+            }, 100);
+          }
         },
         messages() {
           return this.history.map((message) => ({
@@ -566,7 +597,9 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#8B5CF6]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto" x-html="message.html"></div>
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto overflow-x-auto tool-call-content" 
+                               x-html="message.html"
+                               x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
                       </div>
                     </div>
@@ -597,7 +630,9 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#10B981]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto" x-html="formatToolResult(message.content)"></div>
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto overflow-x-auto tool-result-content" 
+                               x-html="formatToolResult(message.content)"
+                               x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
                       </div>
                     </div>
@@ -1087,6 +1122,76 @@ SOFTWARE.
     #model-info-description img {
         max-width: 100%;
         height: auto;
+    }
+
+    /* Prevent JSON overflow in tool calls and results */
+    .tool-call-content pre,
+    .tool-result-content pre {
+        overflow-x: auto;
+        overflow-y: auto;
+        max-width: 100%;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+        background: #101827 !important;
+        border: 1px solid #1E293B;
+        border-radius: 6px;
+        padding: 12px;
+        margin: 0;
+    }
+
+    .tool-call-content code,
+    .tool-result-content code {
+        word-wrap: break-word;
+        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        background: transparent !important;
+        color: #E5E7EB;
+        font-family: 'ui-monospace', 'Monaco', 'Consolas', monospace;
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    /* Dark theme syntax highlighting for JSON */
+    .tool-call-content .hljs,
+    .tool-result-content .hljs {
+        background: #101827 !important;
+        color: #E5E7EB !important;
+    }
+
+    .tool-call-content .hljs-keyword,
+    .tool-result-content .hljs-keyword {
+        color: #8B5CF6 !important;
+        font-weight: 600;
+    }
+
+    .tool-call-content .hljs-string,
+    .tool-result-content .hljs-string {
+        color: #10B981 !important;
+    }
+
+    .tool-call-content .hljs-number,
+    .tool-result-content .hljs-number {
+        color: #38BDF8 !important;
+    }
+
+    .tool-call-content .hljs-literal,
+    .tool-result-content .hljs-literal {
+        color: #F59E0B !important;
+    }
+
+    .tool-call-content .hljs-punctuation,
+    .tool-result-content .hljs-punctuation {
+        color: #94A3B8 !important;
+    }
+
+    .tool-call-content .hljs-property,
+    .tool-result-content .hljs-property {
+        color: #38BDF8 !important;
+    }
+
+    .tool-call-content .hljs-attr,
+    .tool-result-content .hljs-attr {
+        color: #8B5CF6 !important;
     }
     </style>
   </body>
