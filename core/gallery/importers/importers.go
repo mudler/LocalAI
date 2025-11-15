@@ -10,9 +10,11 @@ import (
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 )
 
-var DefaultImporters = []Importer{
+var defaultImporters = []Importer{
 	&LlamaCPPImporter{},
 	&MLXImporter{},
+	&VLLMImporter{},
+	&TransformersImporter{},
 }
 
 type Details struct {
@@ -52,7 +54,7 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		Preferences: preferences,
 	}
 
-	for _, importer := range DefaultImporters {
+	for _, importer := range defaultImporters {
 		if importer.Match(details) {
 			modelConfig, err = importer.Import(details)
 			if err != nil {
