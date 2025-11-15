@@ -163,14 +163,15 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		}
 
 		// Build cogito options using the consolidated method
-		cogitoOpts := config.BuildCogitoOptions(
-			ctxWithCancellation,
-			sessions,
-			statusCallback,
-			reasoningCallback,
-			toolCallCallback,
-			toolCallResultCallback,
-		)
+		cogitoOpts := config.BuildCogitoOptions()
+
+		cogitoOpts = append(cogitoOpts,
+			cogito.WithStatusCallback(statusCallback),
+			cogito.WithReasoningCallback(reasoningCallback),
+			cogito.WithToolCallBack(toolCallCallback),
+			cogito.WithToolCallResultCallback(toolCallResultCallback),
+			cogito.WithContext(ctxWithCancellation),
+			cogito.WithMCPs(sessions...))
 
 		// Execute tools in a goroutine
 		go func() {
@@ -265,4 +266,3 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		return nil
 	}
 }
-

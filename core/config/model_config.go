@@ -1,13 +1,11 @@
 package config
 
 import (
-	"context"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 
-	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
@@ -674,37 +672,11 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecases) bool {
 
 // BuildCogitoOptions generates cogito options from the model configuration
 // It accepts a context, MCP sessions, and optional callback functions for status, reasoning, tool calls, and tool results
-func (c *ModelConfig) BuildCogitoOptions(
-	ctx context.Context,
-	sessions []*mcp.ClientSession,
-	statusCallback func(string),
-	reasoningCallback func(string),
-	toolCallCallback func(*cogito.ToolChoice) bool,
-	toolCallResultCallback func(cogito.ToolStatus),
-) []cogito.Option {
+func (c *ModelConfig) BuildCogitoOptions() []cogito.Option {
 	cogitoOpts := []cogito.Option{
-		cogito.WithContext(ctx),
-		cogito.WithMCPs(sessions...),
 		cogito.WithIterations(3),  // default to 3 iterations
 		cogito.WithMaxAttempts(3), // default to 3 attempts
 		cogito.WithForceReasoning(),
-	}
-
-	// Add optional callbacks if provided
-	if statusCallback != nil {
-		cogitoOpts = append(cogitoOpts, cogito.WithStatusCallback(statusCallback))
-	}
-
-	if reasoningCallback != nil {
-		cogitoOpts = append(cogitoOpts, cogito.WithReasoningCallback(reasoningCallback))
-	}
-
-	if toolCallCallback != nil {
-		cogitoOpts = append(cogitoOpts, cogito.WithToolCallBack(toolCallCallback))
-	}
-
-	if toolCallResultCallback != nil {
-		cogitoOpts = append(cogitoOpts, cogito.WithToolCallResultCallback(toolCallResultCallback))
 	}
 
 	// Apply agent configuration options
