@@ -28,10 +28,10 @@ SOFTWARE.
 <!doctype html>
 <html lang="en">
   {{template "views/partials/head" .}}
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="static/assets/pdf.min.js"></script>
   <script>
     // Initialize PDF.js worker
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'static/assets/pdf.worker.min.js';
   </script>
   <script>
     // Initialize Alpine store - must run before Alpine processes DOM
