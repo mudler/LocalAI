@@ -20,14 +20,102 @@
                 <p class="text-lg text-[#94A3B8]">How can I help you today?</p>
             </div>
 
-            <!-- Start Chatting Button -->
+            <!-- Chat Input Form -->
             {{ if ne (len .ModelsConfig) 0 }}
-            <div class="text-center mb-8">
-                <a href="/chat/" 
-                   class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] text-lg font-semibold py-4 px-8 rounded-lg transition-colors">
-                    <i class="fas fa-comment-alt mr-3"></i>
-                    <span>Start Chatting</span>
-                </a>
+            <div class="mb-8" x-data="{ selectedModel: '', inputValue: '', shiftPressed: false, fileName: '', imageFiles: [], audioFiles: [], textFiles: [] }">
+                <!-- Model Selector -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-[#94A3B8] mb-2">Select Model</label>
+                    <select
+                        x-model="selectedModel"
+                        class="w-full bg-[#1E293B] text-[#E5E7EB] border border-[#38BDF8]/20 focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-lg p-3 appearance-none"
+                        required
+                    >
+                        <option value="" disabled class="text-[#94A3B8]">Select a model to chat with...</option>
+                        {{ range .ModelsConfig }}
+                        {{ $cfg := . }}
+                        {{ range .KnownUsecaseStrings }}
+                            {{ if eq . "FLAG_CHAT" }}
+                            <option value="{{$cfg.Name}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                            {{ end }}
+                        {{ end }}
+                        {{ end }}
+                    </select>
+                </div>
+
+                <!-- Input Bar -->
+                <form @submit.prevent="startChat($event)" class="relative w-full">
+                    <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl">
+                        <textarea
+                            x-model="inputValue"
+                            placeholder="Send a message..."
+                            class="p-4 pr-32 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors focus:ring-2 focus:ring-[#38BDF8]/50"
+                            required
+                            @keydown.shift="shiftPressed = true"
+                            @keyup.shift="shiftPressed = false"
+                            @keydown.enter.prevent="if (!shiftPressed && selectedModel && inputValue.trim()) { startChat($event); }"
+                            rows="2"
+                        ></textarea>
+                        <span x-show="fileName" x-text="fileName" class="absolute right-28 top-4 text-[#94A3B8] text-xs"></span>
+                        
+                        <!-- Attachment Buttons -->
+                        <button
+                            type="button"
+                            @click="document.getElementById('index_input_image').click()"
+                            class="fa-solid fa-image text-[#94A3B8] absolute right-20 top-4 text-base p-1.5 hover:text-[#38BDF8] transition-colors"
+                            title="Attach images"
+                        ></button>
+                        <button
+                            type="button"
+                            @click="document.getElementById('index_input_audio').click()"
+                            class="fa-solid fa-microphone text-[#94A3B8] absolute right-28 top-4 text-base p-1.5 hover:text-[#38BDF8] transition-colors"
+                            title="Attach an audio file"
+                        ></button>
+                        <button
+                            type="button"
+                            @click="document.getElementById('index_input_file').click()"
+                            class="fa-solid fa-file text-[#94A3B8] absolute right-36 top-4 text-base p-1.5 hover:text-[#38BDF8] transition-colors"
+                            title="Upload text, markdown or PDF file"
+                        ></button>
+
+                        <!-- Send Button -->
+                        <button
+                            type="submit"
+                            :disabled="!selectedModel || !inputValue.trim()"
+                            :class="!selectedModel || !inputValue.trim() ? 'opacity-50 cursor-not-allowed' : ''"
+                            class="text-lg p-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors absolute right-3 top-4"
+                            title="Send message (Enter)"
+                        >
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Hidden File Inputs -->
+                <input
+                    id="index_input_image"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    style="display: none;"
+                    @change="imageFiles = Array.from($event.target.files); fileName = imageFiles.length > 0 ? imageFiles.length + ' image(s) selected' : ''"
+                />
+                <input
+                    id="index_input_audio"
+                    type="file"
+                    multiple
+                    accept="audio/*"
+                    style="display: none;"
+                    @change="audioFiles = Array.from($event.target.files); fileName = audioFiles.length > 0 ? audioFiles.length + ' audio file(s) selected' : ''"
+                />
+                <input
+                    id="index_input_file"
+                    type="file"
+                    multiple
+                    accept=".txt,.md,.pdf"
+                    style="display: none;"
+                    @change="textFiles = Array.from($event.target.files); fileName = textFiles.length > 0 ? textFiles.length + ' file(s) selected' : ''"
+                />
             </div>
             {{ end }}
 
@@ -80,6 +168,98 @@
 
     {{template "views/partials/footer" .}}
 </div>
+
+<script>
+// Handle form submission - redirect to chat with message
+function startChat(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Get form data directly from form elements (Alpine x-model binds to value)
+    const form = event ? event.target.closest('form') : document.querySelector('form');
+    if (!form) return;
+    
+    const select = form.closest('[x-data]').querySelector('select');
+    const textarea = form.querySelector('textarea');
+    
+    const selectedModel = select ? select.value : '';
+    const message = textarea ? textarea.value : '';
+    
+    if (!selectedModel || !message.trim()) {
+        return;
+    }
+
+    // Store message and files in localStorage for chat page to pick up
+    const chatData = {
+        message: message,
+        imageFiles: [],
+        audioFiles: [],
+        textFiles: []
+    };
+
+    // Convert files to base64 for storage
+    const imageInput = document.getElementById('index_input_image');
+    const audioInput = document.getElementById('index_input_audio');
+    const fileInput = document.getElementById('index_input_file');
+
+    const filePromises = [
+        ...Array.from(imageInput.files || []).map(file => 
+            new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve({ name: file.name, data: e.target.result, type: file.type });
+                reader.readAsDataURL(file);
+            })
+        ),
+        ...Array.from(audioInput.files || []).map(file => 
+            new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve({ name: file.name, data: e.target.result, type: file.type });
+                reader.readAsDataURL(file);
+            })
+        ),
+        ...Array.from(fileInput.files || []).map(file => 
+            new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve({ name: file.name, data: e.target.result, type: file.type });
+                reader.readAsText(file);
+            })
+        )
+    ];
+
+    if (filePromises.length > 0) {
+        Promise.all(filePromises).then(files => {
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    chatData.imageFiles.push(file);
+                } else if (file.type.startsWith('audio/')) {
+                    chatData.audioFiles.push(file);
+                } else {
+                    chatData.textFiles.push(file);
+                }
+            });
+
+            // Store in localStorage
+            localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData));
+            
+            // Redirect to chat page
+            window.location.href = `/chat/${selectedModel}`;
+        }).catch(err => {
+            console.error('Error processing files:', err);
+            // Still redirect even if file processing fails
+            localStorage.setItem('localai_index_chat_data', JSON.stringify({ message: message, imageFiles: [], audioFiles: [], textFiles: [] }));
+            window.location.href = `/chat/${selectedModel}`;
+        });
+    } else {
+        // No files, just store message and redirect
+        localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData));
+        window.location.href = `/chat/${selectedModel}`;
+    }
+}
+
+// Make startChat available globally
+window.startChat = startChat;
+</script>
 
 </body>
 </html>

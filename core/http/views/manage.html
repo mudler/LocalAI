@@ -376,6 +376,7 @@
                         </div>
                         {{ end }}
                         
+                        {{ if false }}
                         {{ if and .Metadata .Metadata.GalleryURL }}
                         <div class="flex items-start">
                             <i class="fas fa-globe text-[#94A3B8] mr-2 mt-0.5"></i>
@@ -390,12 +391,13 @@
                         {{ end }}
                         
                         <div class="flex items-start">
-                            <i class="fas fa-folder text-[#94A3B8] mr-2 mt-0.5"></i>
-                            <div class="flex-1">
+                            <i class="fas fa-folder text-[#94A3B8] mr-2 mt-0.5 flex-shrink-0"></i>
+                            <div class="flex-1 min-w-0">
                                 <span class="text-[#94A3B8]">Path:</span>
-                                <span class="text-[#E5E7EB] ml-1 text-xs font-mono truncate block">{{.RunFile}}</span>
+                                <span class="text-[#E5E7EB] ml-1 text-xs font-mono truncate inline-block max-w-full" title="{{.RunFile}}">{{.RunFile}}</span>
                             </div>
                         </div>
+                        {{ end }}
                     </div>
                     
                     <!-- Action Buttons -->
