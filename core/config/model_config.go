@@ -9,6 +9,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/mudler/cogito"
 	"gopkg.in/yaml.v3"
 )
 
@@ -667,4 +668,41 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecases) bool {
 	}
 
 	return true
+}
+
+// BuildCogitoOptions generates cogito options from the model configuration
+// It accepts a context, MCP sessions, and optional callback functions for status, reasoning, tool calls, and tool results
+func (c *ModelConfig) BuildCogitoOptions() []cogito.Option {
+	cogitoOpts := []cogito.Option{
+		cogito.WithIterations(3),  // default to 3 iterations
+		cogito.WithMaxAttempts(3), // default to 3 attempts
+		cogito.WithForceReasoning(),
+	}
+
+	// Apply agent configuration options
+	if c.Agent.EnableReasoning {
+		cogitoOpts = append(cogitoOpts, cogito.EnableToolReasoner)
+	}
+
+	if c.Agent.EnablePlanning {
+		cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlan)
+	}
+
+	if c.Agent.EnableMCPPrompts {
+		cogitoOpts = append(cogitoOpts, cogito.EnableMCPPrompts)
+	}
+
+	if c.Agent.EnablePlanReEvaluator {
+		cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlanReEvaluator)
+	}
+
+	if c.Agent.MaxIterations != 0 {
+		cogitoOpts = append(cogitoOpts, cogito.WithIterations(c.Agent.MaxIterations))
+	}
+
+	if c.Agent.MaxAttempts != 0 {
+		cogitoOpts = append(cogitoOpts, cogito.WithMaxAttempts(c.Agent.MaxAttempts))
+	}
+
+	return cogitoOpts
 }

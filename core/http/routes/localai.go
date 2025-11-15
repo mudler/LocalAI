@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/model"
 	echoswagger "github.com/swaggo/echo-swagger"
@@ -18,7 +19,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	ml *model.ModelLoader,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService,
-	opcache *services.OpCache) {
+	opcache *services.OpCache,
+	evaluator *templates.Evaluator) {
 
 	router.GET("/swagger/*", echoswagger.WrapHandler) // default
 
@@ -132,5 +134,24 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		tokenizeHandler,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
+
+	// MCP Stream endpoint
+	if evaluator != nil {
+		mcpStreamHandler := localai.MCPStreamEndpoint(cl, ml, evaluator, appConfig)
+		mcpStreamMiddleware := []echo.MiddlewareFunc{
+			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
+			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
+			func(next echo.HandlerFunc) echo.HandlerFunc {
+				return func(c echo.Context) error {
+					if err := requestExtractor.SetOpenAIRequest(c); err != nil {
+						return err
+					}
+					return next(c)
+				}
+			},
+		}
+		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+	}
 
 }

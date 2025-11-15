@@ -267,7 +267,15 @@ function processAndSendMessage(inputValue) {
   const input = document.getElementById("input");
   if (input) input.value = "";
   const systemPrompt = localStorage.getItem("system_prompt");
-  Alpine.nextTick(() => { document.getElementById('messages').scrollIntoView(false); });
+  Alpine.nextTick(() => {
+    const chatContainer = document.getElementById('chat');
+    if (chatContainer) {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  });
   
   // Reset token tracking before starting new request
   requestStartTime = Date.now();
@@ -379,16 +387,14 @@ async function promptGPT(systemPrompt, input) {
   document.getElementById("fileName").innerHTML = "";
 
   // Choose endpoint based on MCP mode
-  const endpoint = mcpMode ? "mcp/v1/chat/completions" : "v1/chat/completions";
+  const endpoint = mcpMode ? "v1/mcp/chat/completions" : "v1/chat/completions";
   const requestBody = {
     model: model,
     messages: messages,
   };
   
-  // Only add stream parameter for regular chat (MCP doesn't support streaming)
-  if (!mcpMode) {
-    requestBody.stream = true;
-  }
+  // Add stream parameter for both regular chat and MCP (MCP now supports SSE streaming)
+  requestBody.stream = true;
   
   let response;
   try {
@@ -444,64 +450,441 @@ async function promptGPT(systemPrompt, input) {
     return;
   }
 
+  // Handle streaming response (both regular and MCP mode now use SSE)
   if (mcpMode) {
-    // Handle MCP non-streaming response
+    // Handle MCP SSE streaming with new event types
+    const reader = response.body
+      ?.pipeThrough(new TextDecoderStream())
+      .getReader();
+
+    if (!reader) {
+      Alpine.store("chat").add(
+        "assistant",
+        `<span class='error'>Error: Failed to decode MCP API response</span>`,
+      );
+      toggleLoader(false);
+      return;
+    }
+
+    // Store reader globally so stop button can cancel it
+    currentReader = reader;
+
+    let buffer = "";
+    let assistantContent = "";
+    let assistantContentBuffer = [];
+    let thinkingContent = "";
+    let isThinking = false;
+    let lastAssistantMessageIndex = -1;
+    let lastThinkingMessageIndex = -1;
+    let lastThinkingScrollTime = 0;
+    const THINKING_SCROLL_THROTTLE = 200; // Throttle scrolling to every 200ms
+
     try {
-      const data = await response.json();
-      
-      // Update token usage if present
-      if (data.usage) {
-        Alpine.store("chat").updateTokenUsage(data.usage);
-      }
-      
-      // MCP endpoint returns content in choices[0].message.content (chat completion format)
-      // Fallback to choices[0].text for backward compatibility (completion format)
-      const content = data.choices[0]?.message?.content || data.choices[0]?.text || "";
-      
-      if (!content && (!data.choices || data.choices.length === 0)) {
-        Alpine.store("chat").add(
-          "assistant",
-          `<span class='error'>Error: Empty response from MCP endpoint</span>`,
-        );
-        toggleLoader(false);
-        return;
-      }
-      
-      if (content) {
-        // Count tokens for rate calculation (MCP mode - full content at once)
-        // Prefer actual token count from API if available
-        if (data.usage && data.usage.completion_tokens) {
-          tokensReceived = data.usage.completion_tokens;
-        } else {
-          tokensReceived += Math.ceil(content.length / 4);
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += value;
+
+        let lines = buffer.split("\n");
+        buffer = lines.pop(); // Retain any incomplete line in the buffer
+
+        lines.forEach((line) => {
+          if (line.length === 0 || line.startsWith(":")) return;
+          if (line === "data: [DONE]") {
+            return;
+          }
+
+          if (line.startsWith("data: ")) {
+            try {
+              const eventData = JSON.parse(line.substring(6));
+              
+              // Handle different event types
+              switch (eventData.type) {
+                case "reasoning":
+                  if (eventData.content) {
+                    const chatStore = Alpine.store("chat");
+                    // Insert reasoning before assistant message if it exists
+                    if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                      chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                        role: "reasoning",
+                        content: eventData.content,
+                        html: DOMPurify.sanitize(marked.parse(eventData.content)),
+                        image: [],
+                        audio: [],
+                        expanded: false // Reasoning is always collapsed
+                      });
+                      lastAssistantMessageIndex++; // Adjust index since we inserted
+                      // Scroll smoothly after adding reasoning
+                      setTimeout(() => {
+                        const chatContainer = document.getElementById('chat');
+                        if (chatContainer) {
+                          chatContainer.scrollTo({
+                            top: chatContainer.scrollHeight,
+                            behavior: 'smooth'
+                          });
+                        }
+                      }, 100);
+                    } else {
+                      // No assistant message yet, just add normally
+                      chatStore.add("reasoning", eventData.content);
+                    }
+                  }
+                  break;
+                
+                case "tool_call":
+                  if (eventData.name) {
+                    // Store as JSON for better formatting
+                    const toolCallData = {
+                      name: eventData.name,
+                      arguments: eventData.arguments || {},
+                      reasoning: eventData.reasoning || ""
+                    };
+                    Alpine.store("chat").add("tool_call", JSON.stringify(toolCallData, null, 2));
+                    // Scroll smoothly after adding tool call
+                    setTimeout(() => {
+                      const chatContainer = document.getElementById('chat');
+                      if (chatContainer) {
+                        chatContainer.scrollTo({
+                          top: chatContainer.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }, 100);
+                  }
+                  break;
+                
+                case "tool_result":
+                  if (eventData.name) {
+                    // Store as JSON for better formatting
+                    const toolResultData = {
+                      name: eventData.name,
+                      result: eventData.result || ""
+                    };
+                    Alpine.store("chat").add("tool_result", JSON.stringify(toolResultData, null, 2));
+                    // Scroll smoothly after adding tool result
+                    setTimeout(() => {
+                      const chatContainer = document.getElementById('chat');
+                      if (chatContainer) {
+                        chatContainer.scrollTo({
+                          top: chatContainer.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }, 100);
+                  }
+                  break;
+                
+                case "status":
+                  // Status messages can be logged but not necessarily displayed
+                  console.log("[MCP Status]", eventData.message);
+                  break;
+                
+                case "assistant":
+                  if (eventData.content) {
+                    assistantContent += eventData.content;
+                    const contentChunk = eventData.content;
+                    
+                    // Count tokens for rate calculation
+                    tokensReceived += Math.ceil(contentChunk.length / 4);
+                    updateTokensPerSecond();
+                    
+                    // Check for thinking tags in the chunk (incremental detection)
+                    if (contentChunk.includes("<thinking>") || contentChunk.includes("<think>")) {
+                      isThinking = true;
+                      thinkingContent = "";
+                      lastThinkingMessageIndex = -1;
+                    }
+                    
+                    if (contentChunk.includes("</thinking>") || contentChunk.includes("</think>")) {
+                      isThinking = false;
+                      // When closing tag is detected, process the accumulated thinking content
+                      if (thinkingContent.trim()) {
+                        // Extract just the thinking part from the accumulated content
+                        const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
+                        if (thinkingMatch && thinkingMatch[1]) {
+                          const extractedThinking = thinkingMatch[1];
+                          const chatStore = Alpine.store("chat");
+                          const isMCPMode = chatStore.mcpMode || false;
+                          const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+                          if (lastThinkingMessageIndex === -1) {
+                            // Insert thinking before the last assistant message if it exists
+                            if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                              // Insert before assistant message
+                              chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                                role: "thinking",
+                                content: extractedThinking,
+                                html: DOMPurify.sanitize(marked.parse(extractedThinking)),
+                                image: [],
+                                audio: [],
+                                expanded: shouldExpand
+                              });
+                              lastThinkingMessageIndex = lastAssistantMessageIndex;
+                              lastAssistantMessageIndex++; // Adjust index since we inserted
+                            } else {
+                              // No assistant message yet, just add normally
+                              chatStore.add("thinking", extractedThinking);
+                              lastThinkingMessageIndex = chatStore.history.length - 1;
+                            }
+                          } else {
+                            // Update existing thinking message
+                            const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                            if (lastMessage && lastMessage.role === "thinking") {
+                              lastMessage.content = extractedThinking;
+                              lastMessage.html = DOMPurify.sanitize(marked.parse(extractedThinking));
+                            }
+                          }
+                          // Scroll when thinking is finalized in non-MCP mode
+                          if (!isMCPMode) {
+                            setTimeout(() => {
+                              const chatContainer = document.getElementById('chat');
+                              if (chatContainer) {
+                                chatContainer.scrollTo({
+                                  top: chatContainer.scrollHeight,
+                                  behavior: 'smooth'
+                                });
+                              }
+                            }, 50);
+                          }
+                        }
+                        thinkingContent = "";
+                      }
+                    }
+                    
+                    // Handle content based on thinking state
+                    if (isThinking) {
+                      thinkingContent += contentChunk;
+                      const chatStore = Alpine.store("chat");
+                      const isMCPMode = chatStore.mcpMode || false;
+                      const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+                      // Update the last thinking message or create a new one (incremental)
+                      if (lastThinkingMessageIndex === -1) {
+                        // Insert thinking before the last assistant message if it exists
+                        if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                          // Insert before assistant message
+                          chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                            role: "thinking",
+                            content: thinkingContent,
+                            html: DOMPurify.sanitize(marked.parse(thinkingContent)),
+                            image: [],
+                            audio: [],
+                            expanded: shouldExpand
+                          });
+                          lastThinkingMessageIndex = lastAssistantMessageIndex;
+                          lastAssistantMessageIndex++; // Adjust index since we inserted
+                        } else {
+                          // No assistant message yet, just add normally
+                          chatStore.add("thinking", thinkingContent);
+                          lastThinkingMessageIndex = chatStore.history.length - 1;
+                        }
+                      } else {
+                        // Update existing thinking message
+                        const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                        if (lastMessage && lastMessage.role === "thinking") {
+                          lastMessage.content = thinkingContent;
+                          lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                        }
+                      }
+                      // Scroll when thinking is updated in non-MCP mode (throttled)
+                      if (!isMCPMode) {
+                        const now = Date.now();
+                        if (now - lastThinkingScrollTime > THINKING_SCROLL_THROTTLE) {
+                          lastThinkingScrollTime = now;
+                          setTimeout(() => {
+                            const chatContainer = document.getElementById('chat');
+                            if (chatContainer) {
+                              chatContainer.scrollTo({
+                                top: chatContainer.scrollHeight,
+                                behavior: 'smooth'
+                              });
+                            }
+                          }, 100);
+                        }
+                      }
+                    } else {
+                      // Regular assistant content - buffer it for batch processing
+                      assistantContentBuffer.push(contentChunk);
+                    }
+                  }
+                  break;
+                
+                case "error":
+                  Alpine.store("chat").add(
+                    "assistant",
+                    `<span class='error'>MCP Error: ${eventData.message}</span>`,
+                  );
+                  break;
+              }
+            } catch (error) {
+              console.error("Failed to parse MCP event:", line, error);
+            }
+          }
+        });
+        
+        // Efficiently update assistant message in batch
+        if (assistantContentBuffer.length > 0) {
+          const regularContent = assistantContentBuffer.join("");
+          
+          // Process any thinking tags that might be in the accumulated content
+          // This handles cases where tags are split across chunks
+          const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
+          
+          // Update or create assistant message with processed regular content
+          if (lastAssistantMessageIndex === -1) {
+            if (processedRegular && processedRegular.trim()) {
+              Alpine.store("chat").add("assistant", processedRegular);
+              lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
+            }
+          } else {
+            const chatStore = Alpine.store("chat");
+            const lastMessage = chatStore.history[lastAssistantMessageIndex];
+            if (lastMessage && lastMessage.role === "assistant") {
+              lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
+              lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+            }
+          }
+          
+          // Add any extracted thinking content from the processed buffer BEFORE assistant message
+          if (processedThinking && processedThinking.trim()) {
+            const chatStore = Alpine.store("chat");
+            const isMCPMode = chatStore.mcpMode || false;
+            const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+            // Insert thinking before assistant message if it exists
+            if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+              chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                role: "thinking",
+                content: processedThinking,
+                html: DOMPurify.sanitize(marked.parse(processedThinking)),
+                image: [],
+                audio: [],
+                expanded: shouldExpand
+              });
+              lastAssistantMessageIndex++; // Adjust index since we inserted
+            } else {
+              // No assistant message yet, just add normally
+              chatStore.add("thinking", processedThinking);
+            }
+          }
+          
+          assistantContentBuffer = [];
         }
-        updateTokensPerSecond();
+      }
+
+      // Final assistant content flush if any data remains
+      if (assistantContentBuffer.length > 0) {
+        const regularContent = assistantContentBuffer.join("");
+        // Process any remaining thinking tags that might be in the buffer
+        const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
         
-        // Process thinking tags using shared function
-        const { regularContent, thinkingContent } = processThinkingTags(content);
+        const chatStore = Alpine.store("chat");
         
-        // Add thinking content if present
-        if (thinkingContent) {
+        // First, add any extracted thinking content BEFORE assistant message
+        if (processedThinking && processedThinking.trim()) {
+          const isMCPMode = chatStore.mcpMode || false;
+          const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+          // Insert thinking before assistant message if it exists
+          if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+            chatStore.history.splice(lastAssistantMessageIndex, 0, {
+              role: "thinking",
+              content: processedThinking,
+              html: DOMPurify.sanitize(marked.parse(processedThinking)),
+              image: [],
+              audio: [],
+              expanded: shouldExpand
+            });
+            lastAssistantMessageIndex++; // Adjust index since we inserted
+          } else {
+            // No assistant message yet, just add normally
+            chatStore.add("thinking", processedThinking);
+          }
+        }
+        
+        // Then update or create assistant message
+        if (lastAssistantMessageIndex !== -1) {
+          const lastMessage = chatStore.history[lastAssistantMessageIndex];
+          if (lastMessage && lastMessage.role === "assistant") {
+            lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
+            lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+          }
+        } else if (processedRegular && processedRegular.trim()) {
+          chatStore.add("assistant", processedRegular);
+          lastAssistantMessageIndex = chatStore.history.length - 1;
+        }
+      }
+      
+      // Final thinking content flush if any data remains (from incremental detection)
+      if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+        // Extract thinking content if tags are present
+        const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
+        if (thinkingMatch && thinkingMatch[1]) {
+          const chatStore = Alpine.store("chat");
+          const isMCPMode = chatStore.mcpMode || false;
+          const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+          // Insert thinking before assistant message if it exists
+          if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+            chatStore.history.splice(lastAssistantMessageIndex, 0, {
+              role: "thinking",
+              content: thinkingMatch[1],
+              html: DOMPurify.sanitize(marked.parse(thinkingMatch[1])),
+              image: [],
+              audio: [],
+              expanded: shouldExpand
+            });
+          } else {
+            // No assistant message yet, just add normally
+            chatStore.add("thinking", thinkingMatch[1]);
+          }
+        } else {
           Alpine.store("chat").add("thinking", thinkingContent);
         }
-        
-        // Add regular content if present
-        if (regularContent) {
-          Alpine.store("chat").add("assistant", regularContent);
-        }
       }
       
-      // Highlight all code blocks
+      // Final pass: process the entire assistantContent to catch any missed thinking tags
+      // This ensures we don't miss tags that were split across chunks
+      if (assistantContent.trim()) {
+        const { regularContent: finalRegular, thinkingContent: finalThinking } = processThinkingTags(assistantContent);
+        
+        // Update assistant message with final processed content (without thinking tags)
+        if (finalRegular && finalRegular.trim()) {
+          if (lastAssistantMessageIndex !== -1) {
+            const chatStore = Alpine.store("chat");
+            const lastMessage = chatStore.history[lastAssistantMessageIndex];
+            if (lastMessage && lastMessage.role === "assistant") {
+              lastMessage.content = finalRegular;
+              lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
+            }
+          } else {
+            Alpine.store("chat").add("assistant", finalRegular);
+          }
+        }
+        
+        // Add any extracted thinking content (only if not already added)
+        if (finalThinking && finalThinking.trim()) {
+          const hasThinking = Alpine.store("chat").history.some(msg => 
+            msg.role === "thinking" && msg.content.trim() === finalThinking.trim()
+          );
+          if (!hasThinking) {
+            Alpine.store("chat").add("thinking", finalThinking);
+          }
+        }
+      }
+
+      // Highlight all code blocks once at the end
       hljs.highlightAll();
     } catch (error) {
       // Don't show error if request was aborted by user
-      if (error.name !== 'AbortError' || currentAbortController) {
+      if (error.name !== 'AbortError' || !currentAbortController) {
         Alpine.store("chat").add(
           "assistant",
-          `<span class='error'>Error: Failed to parse MCP response</span>`,
+          `<span class='error'>Error: Failed to process MCP stream</span>`,
         );
       }
     } finally {
+      // Perform any cleanup if necessary
+      if (reader) {
+        reader.releaseLock();
+      }
+      currentReader = null;
       currentAbortController = null;
     }
   } else {
@@ -539,6 +922,8 @@ async function promptGPT(systemPrompt, input) {
     let thinkingContent = "";
     let isThinking = false;
     let lastThinkingMessageIndex = -1;
+    let lastThinkingScrollTime = 0;
+    const THINKING_SCROLL_THROTTLE = 200; // Throttle scrolling to every 200ms
 
     try {
       while (true) {
@@ -606,6 +991,20 @@ async function promptGPT(systemPrompt, input) {
                       lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
                     }
                   }
+                  // Scroll when thinking is updated (throttled)
+                  const now = Date.now();
+                  if (now - lastThinkingScrollTime > THINKING_SCROLL_THROTTLE) {
+                    lastThinkingScrollTime = now;
+                    setTimeout(() => {
+                      const chatContainer = document.getElementById('chat');
+                      if (chatContainer) {
+                        chatContainer.scrollTo({
+                          top: chatContainer.scrollHeight,
+                          behavior: 'smooth'
+                        });
+                      }
+                    }, 100);
+                  }
                 } else {
                   contentBuffer.push(token);
                 }
@@ -620,6 +1019,16 @@ async function promptGPT(systemPrompt, input) {
         if (contentBuffer.length > 0) {
           addToChat(contentBuffer.join(""));
           contentBuffer = [];
+          // Scroll when assistant content is updated (this will also show thinking messages above)
+          setTimeout(() => {
+            const chatContainer = document.getElementById('chat');
+            if (chatContainer) {
+              chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+              });
+            }
+          }, 50);
         }
       }
 
@@ -654,8 +1063,17 @@ async function promptGPT(systemPrompt, input) {
   // Remove class "loader" from the element with "loader" id
   toggleLoader(false);
 
-  // scroll to the bottom of the chat
-  document.getElementById('messages').scrollIntoView(false)
+  // scroll to the bottom of the chat consistently
+  setTimeout(() => {
+    const chatContainer = document.getElementById('chat');
+    if (chatContainer) {
+      chatContainer.scrollTo({
+        top: chatContainer.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, 100);
+  
   // set focus to the input
   document.getElementById("input").focus();
 }
@@ -784,7 +1202,13 @@ document.addEventListener("alpine:init", () => {
           audio: audio || [] 
         });
       }
-      document.getElementById('messages').scrollIntoView(false);
+      const chatContainer = document.getElementById('chat');
+      if (chatContainer) {
+        chatContainer.scrollTo({
+          top: chatContainer.scrollHeight,
+          behavior: 'smooth'
+        });
+      }
       const parser = new DOMParser();
       const html = parser.parseFromString(
         this.history[this.history.length - 1].html,
@@ -812,3 +1236,4 @@ document.addEventListener("alpine:init", () => {
     });
   }
 });
+

@@ -90,40 +90,27 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		// we satisfy to just call internally ComputeChoices
 		defaultLLM := cogito.NewOpenAILLM(config.Name, apiKey, "http://127.0.0.1:"+port)
 
-		cogitoOpts := []cogito.Option{
+		// Build cogito options using the consolidated method
+		cogitoOpts := config.BuildCogitoOptions()
+
+		cogitoOpts = append(
+			cogitoOpts,
+			cogito.WithContext(ctxWithCancellation),
+			cogito.WithMCPs(sessions...),
 			cogito.WithStatusCallback(func(s string) {
 				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
 			}),
-			cogito.WithContext(ctxWithCancellation),
-			cogito.WithMCPs(sessions...),
-			cogito.WithIterations(3),  // default to 3 iterations
-			cogito.WithMaxAttempts(3), // default to 3 attempts
-			cogito.WithForceReasoning(),
-		}
-
-		if config.Agent.EnableReasoning {
-			cogitoOpts = append(cogitoOpts, cogito.EnableToolReasoner)
-		}
-
-		if config.Agent.EnablePlanning {
-			cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlan)
-		}
-
-		if config.Agent.EnableMCPPrompts {
-			cogitoOpts = append(cogitoOpts, cogito.EnableMCPPrompts)
-		}
-
-		if config.Agent.EnablePlanReEvaluator {
-			cogitoOpts = append(cogitoOpts, cogito.EnableAutoPlanReEvaluator)
-		}
-
-		if config.Agent.MaxIterations != 0 {
-			cogitoOpts = append(cogitoOpts, cogito.WithIterations(config.Agent.MaxIterations))
-		}
-
-		if config.Agent.MaxAttempts != 0 {
-			cogitoOpts = append(cogitoOpts, cogito.WithMaxAttempts(config.Agent.MaxAttempts))
-		}
+			cogito.WithReasoningCallback(func(s string) {
+				log.Debug().Msgf("[model agent] [model: %s] Reasoning: %s", config.Name, s)
+			}),
+			cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
+				log.Debug().Msgf("[model agent] [model: %s] Tool call: %s, reasoning: %s, arguments: %+v", t.Name, t.Reasoning, t.Arguments)
+				return true
+			}),
+			cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+				log.Debug().Msgf("[model agent] [model: %s] Tool call result: %s, tool arguments: %+v", t.Name, t.Result, t.ToolArguments)
+			}),
+		)
 
 		f, err := cogito.ExecuteTools(
 			defaultLLM, fragment,
