@@ -1149,6 +1149,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Creates an image given a prompt.
+  /v1/mcp/chat/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Stream MCP chat completions with reasoning, tool calls, and results
   /v1/models:
     get:
       responses:
