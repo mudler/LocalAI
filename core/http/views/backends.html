@@ -11,21 +11,21 @@
     <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
         <template x-for="notification in notifications" :key="notification.id">
             <div x-show="true" 
-                 x-transition:enter="transform ease-out duration-300 transition"
-                 x-transition:enter-start="translate-x-full opacity-0"
-                 x-transition:enter-end="translate-x-0 opacity-100"
-                 x-transition:leave="transform ease-in duration-200 transition"
-                 x-transition:leave-start="translate-x-0 opacity-100"
-                 x-transition:leave-end="translate-x-full opacity-0"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
                  :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
-                 class="rounded-lg shadow-xl p-4 text-white flex items-start space-x-3">
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
                 <div class="flex-shrink-0">
                     <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
                 </div>
                 <div class="flex-1 min-w-0">
                     <p class="text-sm font-medium break-words" x-text="notification.message"></p>
                 </div>
-                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:text-gray-200">
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -35,14 +35,8 @@
     <div class="container mx-auto px-4 py-8 flex-grow">
 
         <!-- Hero Header -->
-        <div class="relative bg-[#1E293B] border border-[#8B5CF6]/20 rounded-3xl shadow-2xl shadow-[#8B5CF6]/10 p-8 mb-12 overflow-hidden">
-            <!-- Background Pattern -->
-            <div class="absolute inset-0 opacity-10">
-                <div class="absolute inset-0 bg-gradient-to-r from-[#8B5CF6]/20 to-[#38BDF8]/20"></div>
-                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(139,92,246,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
-            </div>
-            
-            <div class="relative max-w-5xl mx-auto text-center">
+        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-12">
+            <div class="max-w-5xl mx-auto text-center">
                 <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
                     <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] via-[#38BDF8] to-[#8B5CF6]">
                         Backend Management
@@ -52,13 +46,13 @@
                     Discover and install AI backends to power your models
                 </p>
                 <div class="flex flex-wrap justify-center items-center gap-6 text-sm md:text-base">
-                    <div class="flex items-center bg-white/10 rounded-full px-4 py-2">
-                        <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2 animate-pulse"></div>
+                    <div class="flex items-center bg-[#101827] rounded-lg px-4 py-2">
+                        <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2"></div>
                         <span class="font-semibold text-emerald-300" x-text="availableBackends"></span>
-                        <span class="text-gray-300 ml-1">backends available</span>
+                        <span class="text-[#94A3B8] ml-1">backends available</span>
                     </div>
                     <a href="https://localai.io/backends/" target="_blank" 
-                       class="flex items-center bg-cyan-600/80 hover:bg-cyan-600 text-white px-4 py-2 rounded-full transition-all duration-300 hover:scale-105">
+                       class="inline-flex items-center bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
                         <i class="fas fa-info-circle mr-2"></i>
                         <span>Documentation</span>
                         <i class="fas fa-external-link-alt ml-2 text-xs"></i>
@@ -70,28 +64,26 @@
         {{template "views/partials/inprogress" .}}
 
         <!-- Search and Filter Section -->
-        <div class="relative bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-2xl p-8 mb-8 shadow-xl border border-gray-700/50 backdrop-blur-sm">
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-500/5 to-cyan-500/5"></div>
-            
-            <div class="relative">
+        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-8">
+            <div>
                 <!-- Search Input -->
                 <div class="mb-8">
-                    <h3 class="text-xl font-semibold text-white mb-4 flex items-center">
-                        <i class="fas fa-search mr-3 text-emerald-400"></i>
+                    <h3 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-search mr-3 text-[#8B5CF6]"></i>
                         Find Backend Components
                     </h3>
                     <div class="relative">
                         <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
-                            <i class="fas fa-search text-gray-400"></i>
+                            <i class="fas fa-search text-[#94A3B8]"></i>
                         </div>
                         <input 
                             x-model="searchTerm"
                             @input.debounce.500ms="fetchBackends()"
-                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-gray-300 bg-gray-900/90 border border-gray-700/70 rounded-xl transition-all duration-300 focus:text-gray-200 focus:bg-gray-900 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/50 focus:outline-none" 
+                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-[#E5E7EB] bg-[#101827] border border-[#1E293B] rounded-lg transition-colors focus:text-[#E5E7EB] focus:bg-[#101827] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 focus:outline-none" 
                             type="search" 
                             placeholder="Search backends by name, description or type...">
                         <span class="absolute right-4 top-4" x-show="loading">
-                            <svg class="animate-spin h-6 w-6 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg class="animate-spin h-6 w-6 text-[#8B5CF6]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
@@ -107,28 +99,28 @@
                     </h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                         <button @click="filterByTerm('llm')"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-indigo-600/80 to-indigo-700/80 hover:from-indigo-600 hover:to-indigo-700 text-indigo-100 border border-indigo-500/30 hover:border-indigo-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-indigo-500/25">
-                            <i class="fas fa-brain mr-2 group-hover:animate-pulse"></i>
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 transition-colors">
+                            <i class="fas fa-brain mr-2"></i>
                             <span>LLM</span>
                         </button>
                         <button @click="filterByTerm('diffusion')"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-purple-700/80 hover:from-purple-600 hover:to-purple-700 text-purple-100 border border-purple-500/30 hover:border-purple-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-purple-500/25">
-                            <i class="fas fa-image mr-2 group-hover:animate-pulse"></i>
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-colors">
+                            <i class="fas fa-image mr-2"></i>
                             <span>Diffusion</span>
                         </button>
                         <button @click="filterByTerm('tts')"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-blue-600/80 to-blue-700/80 hover:from-blue-600 hover:to-blue-700 text-blue-100 border border-blue-500/30 hover:border-blue-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-blue-500/25">
-                            <i class="fas fa-microphone mr-2 group-hover:animate-pulse"></i>
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/30 transition-colors">
+                            <i class="fas fa-microphone mr-2"></i>
                             <span>TTS</span>
                         </button>
                         <button @click="filterByTerm('whisper')"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-green-600/80 to-green-700/80 hover:from-green-600 hover:to-green-700 text-green-100 border border-green-500/30 hover:border-green-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-green-500/25">
-                            <i class="fas fa-headphones mr-2 group-hover:animate-pulse"></i>
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 transition-colors">
+                            <i class="fas fa-headphones mr-2"></i>
                             <span>Whisper</span>
                         </button>
                         <button @click="filterByTerm('object-detection')"
-                            class="group flex items-center justify-center rounded-xl px-4 py-3 text-sm font-semibold bg-gradient-to-r from-red-600/80 to-red-700/80 hover:from-red-600 hover:to-red-700 text-red-100 border border-red-500/30 hover:border-red-400/50 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25">
-                            <i class="fas fa-eye mr-2 group-hover:animate-pulse"></i>
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition-colors">
+                            <i class="fas fa-eye mr-2"></i>
                             <span>Vision</span>
                         </button>
                     </div>
@@ -361,8 +353,8 @@
                 <button @click="goToPage(currentPage - 1)" 
                     :disabled="currentPage <= 1"
                     :class="currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : ''"
-                    class="group flex items-center justify-center h-12 w-12 bg-gray-700/80 hover:bg-emerald-600 text-gray-300 hover:text-white rounded-xl shadow-lg transition-all duration-300 ease-in-out transform hover:scale-110">
-                    <i class="fas fa-chevron-left group-hover:animate-pulse"></i>
+                    class="flex items-center justify-center h-12 w-12 bg-[#1E293B] hover:bg-emerald-600 text-[#94A3B8] hover:text-white rounded-lg transition-colors">
+                    <i class="fas fa-chevron-left"></i>
                 </button>
                 <div class="text-gray-300 text-sm font-medium px-4">
                     <span class="text-gray-400">Page</span>

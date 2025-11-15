@@ -9,7 +9,7 @@
 
       <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Section -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-2xl shadow-2xl shadow-[#38BDF8]/10 p-8 mb-10">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-10">
           <div class="max-w-4xl mx-auto text-center">
             <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
               <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
@@ -22,12 +22,12 @@
 
         <!-- Talk Interface -->
         <div class="max-w-3xl mx-auto">
-          <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl overflow-hidden transition-all duration-300 shadow-lg">
+          <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl overflow-hidden">
             <!-- Talk Interface Body -->
             <div class="p-6">
               <!-- Recording Status -->
               <div id="recording" class="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4 flex items-center space-x-3" style="display: none;">
-                <i class="fa-solid fa-microphone text-2xl text-red-400 animate-pulse"></i>
+                <i class="fa-solid fa-microphone text-2xl text-red-400"></i>
                 <span class="text-red-300 font-medium">Recording... press "Stop recording" to stop</span>
               </div>
               
@@ -97,14 +97,13 @@
               <!-- Buttons -->
               <div class="flex items-center justify-between mt-8">
                 <button id="recordButton" 
-                  class="group flex items-center bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]">
+                  class="inline-flex items-center bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
                   <i class="fas fa-microphone mr-2"></i>
                   <span>Talk</span>
-                  <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                 </button>
                 
                 <a id="resetButton" 
-                  class="flex items-center text-[#38BDF8] hover:text-[#8B5CF6] transition duration-200" 
+                  class="flex items-center text-[#38BDF8] hover:text-[#8B5CF6] transition-colors" 
                   href="#">
                   <i class="fas fa-rotate-right mr-2"></i>
                   <span>Reset conversation</span>

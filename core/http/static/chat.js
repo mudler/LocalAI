@@ -1237,3 +1237,55 @@ document.addEventListener("alpine:init", () => {
   }
 });
 
+// Check for message from index page on load
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait for Alpine to be ready
+  setTimeout(() => {
+    const chatData = localStorage.getItem('localai_index_chat_data');
+    if (chatData) {
+      try {
+        const data = JSON.parse(chatData);
+        const input = document.getElementById('input');
+        
+        if (input && data.message) {
+          // Set the message in the input
+          input.value = data.message;
+          
+          // Process files if any
+          if (data.imageFiles && data.imageFiles.length > 0) {
+            data.imageFiles.forEach(file => {
+              images.push(file.data);
+            });
+          }
+          
+          if (data.audioFiles && data.audioFiles.length > 0) {
+            data.audioFiles.forEach(file => {
+              audios.push(file.data);
+            });
+          }
+          
+          if (data.textFiles && data.textFiles.length > 0) {
+            data.textFiles.forEach(file => {
+              fileContents.push({ name: file.name, content: file.data });
+              currentFileNames.push(file.name);
+            });
+          }
+          
+          // Clear localStorage
+          localStorage.removeItem('localai_index_chat_data');
+          
+          // Auto-submit after a short delay to ensure everything is ready
+          setTimeout(() => {
+            if (input.value.trim()) {
+              processAndSendMessage(input.value);
+            }
+          }, 500);
+        }
+      } catch (error) {
+        console.error('Error processing chat data from index:', error);
+        localStorage.removeItem('localai_index_chat_data');
+      }
+    }
+  }, 300);
+});
+

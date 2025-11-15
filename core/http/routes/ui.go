@@ -21,6 +21,7 @@ func RegisterUIRoutes(app *echo.Echo,
 	var processingOps = services.NewOpCache(galleryService)
 
 	app.GET("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
+	app.GET("/manage", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
 	// P2P
 	app.GET("/p2p/", func(c echo.Context) error {

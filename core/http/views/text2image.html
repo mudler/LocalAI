@@ -10,7 +10,7 @@
     <div class="container mx-auto px-4 py-8 flex-grow" x-data="{ component: 'menu' }">
     
         <!-- Hero Section -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-2xl shadow-2xl shadow-[#38BDF8]/10 p-8 mb-6">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-6">
             <div class="max-w-4xl mx-auto text-center">
                 <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
                     <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
@@ -20,23 +20,21 @@
                 <p class="text-xl text-[#94A3B8] mb-6">Create stunning images from text descriptions</p>
                 <div class="flex flex-wrap justify-center gap-4">
                     <a href="https://localai.io/features/image-generation/" target="_blank" 
-                       class="group flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)]">
+                       class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-2 px-6 rounded-lg transition-colors">
                         <i class="fas fa-book-reader mr-2"></i>
                         <span>Documentation</span>
-                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
                     <a href="browse" 
-                       class="group flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-2 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(139,92,246,0.4)]">
+                       class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
                         <i class="fas fa-images mr-2"></i>
                         <span>Gallery</span>
-                        <i class="fas fa-arrow-right opacity-0 group-hover:opacity-100 group-hover:translate-x-2 ml-2 transition-all duration-300"></i>
                     </a>
                 </div>
             </div>
         </div>
       
         <!-- Model Selection - Positioned between hero and generation form -->
-        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-5 mb-6 shadow-lg">
+        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-5 mb-6">
             <div class="flex items-center">
                 <div class="text-lg font-medium text-[#38BDF8] mr-4">
                     <i class="fas fa-palette mr-2"></i>Select Model:
@@ -65,7 +63,7 @@
         </div>
             
         <!-- Image Generation Form -->
-        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-6 shadow-lg backdrop-blur-sm">
+        <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl p-6">
             <h2 class="text-2xl font-bold text-[#E5E7EB] mb-6">Generate an Image</h2>
             
             <div class="relative">
@@ -110,7 +108,7 @@
                     <div class="mt-6">
                         <button
                             type="submit"
-                            class="w-full bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hover:shadow-[0_0_20px_rgba(56,189,248,0.4)] focus:outline-none focus:ring-2 focus:ring-[#38BDF8] focus:ring-opacity-50"
+                            class="w-full bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-[#38BDF8] focus:ring-opacity-50"
                         >
                             <i class="fas fa-magic mr-2"></i>Generate Image
                         </button>
