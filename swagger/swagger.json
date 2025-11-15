@@ -627,6 +627,30 @@
                 }
             }
         },
+        "/v1/mcp/chat/completions": {
+            "post": {
+                "summary": "Stream MCP chat completions with reasoning, tool calls, and results",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/models": {
             "get": {
                 "summary": "List and describe the various models available in the API.",
