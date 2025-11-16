@@ -35,7 +35,7 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
@@ -85,6 +85,13 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		}
 		if topLogprobs != nil {
 			opts.TopLogprobs = int32(*topLogprobs)
+		}
+		if len(logitBias) > 0 {
+			// Serialize logit_bias map to JSON string for proto
+			logitBiasJSON, err := json.Marshal(logitBias)
+			if err == nil {
+				opts.LogitBias = string(logitBiasJSON)
+			}
 		}
 
 		tokenUsage := TokenUsage{}

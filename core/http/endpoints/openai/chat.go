@@ -653,7 +653,14 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 		}
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON, logprobs, topLogprobs)
+	// Extract logit_bias from request
+	// According to OpenAI API: logit_bias is a map of token IDs (as strings) to bias values (-100 to 100)
+	var logitBias map[string]float64
+	if len(input.LogitBias) > 0 {
+		logitBias = input.LogitBias
+	}
+
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

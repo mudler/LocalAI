@@ -118,8 +118,9 @@ type PredictionOptions struct {
 	// OpenAI API logprobs parameters
 	// logprobs: boolean - if true, returns log probabilities of each output token
 	// top_logprobs: integer 0-20 - number of most likely tokens to return at each token position
-	Logprobs    LogprobsValue `json:"logprobs,omitempty" yaml:"logprobs,omitempty"`         // Whether to return log probabilities (true/false)
-	TopLogprobs *int          `json:"top_logprobs,omitempty" yaml:"top_logprobs,omitempty"` // Number of top logprobs per token (0-20)
+	Logprobs    LogprobsValue      `json:"logprobs,omitempty" yaml:"logprobs,omitempty"`         // Whether to return log probabilities (true/false)
+	TopLogprobs *int               `json:"top_logprobs,omitempty" yaml:"top_logprobs,omitempty"` // Number of top logprobs per token (0-20)
+	LogitBias   map[string]float64 `json:"logit_bias,omitempty" yaml:"logit_bias,omitempty"`     // Map of token IDs to bias values (-100 to 100)
 
 	NegativePrompt      string  `json:"negative_prompt,omitempty" yaml:"negative_prompt,omitempty"`
 	RopeFreqBase        float32 `json:"rope_freq_base,omitempty" yaml:"rope_freq_base,omitempty"`

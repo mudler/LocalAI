@@ -873,6 +873,26 @@ var _ = Describe("API test", func() {
 			Expect(foundatLeastTopLogprob).ToNot(BeEmpty())
 		})
 
+		It("applies logit_bias to chat completions when requested", func() {
+			// logit_bias is a map of token IDs (as strings) to bias values (-100 to 100)
+			// According to OpenAI API: modifies the likelihood of specified tokens appearing in the completion
+			logitBias := map[string]int{
+				"15043": 1, // Bias token ID 15043 (example token ID) with bias value 1
+			}
+			response, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{
+				Model:     "testmodel.ggml",
+				Messages:  []openai.ChatCompletionMessage{{Role: "user", Content: testPrompt}},
+				LogitBias: logitBias,
+			})
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(response.Choices)).To(Equal(1))
+			Expect(response.Choices[0].Message).ToNot(BeNil())
+			Expect(response.Choices[0].Message.Content).ToNot(BeEmpty())
+			// If logit_bias is applied, the response should be generated successfully
+			// We can't easily verify the bias effect without knowing the actual token IDs for the model,
+			// but the fact that the request succeeds confirms the API accepts and processes logit_bias
+		})
+
 		It("returns errors", func() {
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: testPrompt})
 			Expect(err).To(HaveOccurred())

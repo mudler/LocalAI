@@ -73,9 +73,16 @@ func ComputeChoices(
 		}
 	}
 
+	// Extract logit_bias from request
+	// According to OpenAI API: logit_bias is a map of token IDs (as strings) to bias values (-100 to 100)
+	var logitBias map[string]float64
+	if len(req.LogitBias) > 0 {
+		logitBias = req.LogitBias
+	}
+
 	// get the model function to call for the result
 	predFunc, err := backend.ModelInference(
-		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs)
+		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias)
 	if err != nil {
 		return result, backend.TokenUsage{}, err
 	}

@@ -181,6 +181,19 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
         SRV_INF("Using top_logprobs: %d\n", predict->toplogprobs());
     }
     
+    // Extract logit_bias from proto and add to JSON data
+    if (!predict->logitbias().empty()) {
+        try {
+            // Parse logit_bias JSON string from proto
+            json logit_bias_json = json::parse(predict->logitbias());
+            // Add to data - llama.cpp server expects it as an object (map)
+            data["logit_bias"] = logit_bias_json;
+            SRV_INF("Using logit_bias: %s\n", predict->logitbias().c_str());
+        } catch (const json::parse_error& e) {
+            SRV_ERR("Failed to parse logit_bias JSON from proto: %s\n", e.what());
+        }
+    }
+    
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
 
