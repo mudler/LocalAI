@@ -220,7 +220,7 @@
                 <a href="/manage" 
                    class="inline-flex items-center text-sm text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2 rounded-lg hover:bg-[#1E293B] transition-colors">
                     <i class="fas fa-cog mr-2"></i>
-                    Manage Models
+                    System
                 </a>
                 <a href="/import-model" class="inline-flex items-center text-sm text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2 rounded-lg hover:bg-[#1E293B] transition-colors">
                     <i class="fas fa-upload mr-2"></i>
@@ -236,6 +236,43 @@
                     <i class="fas fa-book mr-2"></i>
                     Documentation
                 </a>
+            </div>
+
+            <!-- Model Status Summary - Subtle -->
+            {{ $loadedModels := .LoadedModels }}
+            <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[#94A3B8]" 
+                 x-data="{ stoppingAll: false, stopAllModels() { window.stopAllModels(this); }, stopModel(name) { window.stopModel(name); }, getLoadedCount() { return document.querySelectorAll('[data-loaded-model]').length; } }"
+                 x-show="getLoadedCount() > 0"
+                 style="display: none;">
+                <span class="flex items-center gap-1.5">
+                    <i class="fas fa-circle text-green-500 text-[10px]"></i>
+                    <span x-text="`${getLoadedCount()} model(s) loaded`"></span>
+                </span>
+                <span class="text-[#38BDF8]/40">•</span>
+                {{ range .ModelsConfig }}
+                    {{ if index $loadedModels .Name }}
+                    <span class="inline-flex items-center gap-1 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors" data-loaded-model>
+                        <span class="truncate max-w-[100px]">{{.Name}}</span>
+                        <button
+                            @click="stopModel('{{.Name}}')"
+                            class="text-red-400/60 hover:text-red-400 transition-colors ml-0.5"
+                            title="Stop {{.Name}}"
+                        >
+                            <i class="fas fa-times text-[10px]"></i>
+                        </button>
+                    </span>
+                    {{ end }}
+                {{ end }}
+                <span class="text-[#38BDF8]/40">•</span>
+                <button
+                    @click="stopAllModels()"
+                    :disabled="stoppingAll"
+                    :class="stoppingAll ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="text-red-400/60 hover:text-red-400 transition-colors text-xs"
+                    title="Stop all loaded models"
+                >
+                    <span x-text="stoppingAll ? 'Stopping...' : 'Stop all'"></span>
+                </button>
             </div>
             {{ end }}
         </div>
@@ -334,6 +371,84 @@ function startChat(event) {
 
 // Make startChat available globally
 window.startChat = startChat;
+
+// Stop individual model
+async function stopModel(modelName) {
+    if (!confirm(`Are you sure you want to stop "${modelName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/backend/shutdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        if (response.ok) {
+            // Reload page after short delay to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            alert('Failed to stop model');
+        }
+    } catch (error) {
+        console.error('Error stopping model:', error);
+        alert('Failed to stop model');
+    }
+}
+
+// Stop all loaded models
+async function stopAllModels(component) {
+    const loadedModelNamesStr = '{{ $loadedModels := .LoadedModels }}{{ range .ModelsConfig }}{{ if index $loadedModels .Name }}{{.Name}},{{ end }}{{ end }}';
+    const loadedModelNames = loadedModelNamesStr.split(',').filter(name => name.length > 0);
+    
+    if (loadedModelNames.length === 0) {
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to stop all ${loadedModelNames.length} loaded model(s)?`)) {
+        return;
+    }
+    
+    // Set loading state
+    if (component) {
+        component.stoppingAll = true;
+    }
+    
+    try {
+        // Stop all models in parallel
+        const stopPromises = loadedModelNames.map(modelName =>
+            fetch('/backend/shutdown', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ model: modelName })
+            })
+        );
+        
+        await Promise.all(stopPromises);
+        
+        // Reload page after short delay to reflect changes
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    } catch (error) {
+        console.error('Error stopping models:', error);
+        alert('Failed to stop some models');
+        if (component) {
+            component.stoppingAll = false;
+        }
+    }
+}
+
+// Make functions available globally for Alpine.js
+window.stopModel = stopModel;
+window.stopAllModels = stopAllModels;
 </script>
 
 </body>
