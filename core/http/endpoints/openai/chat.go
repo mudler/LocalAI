@@ -635,7 +635,32 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 		}
 	}
 
-	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON)
+	// Extract logprobs from request
+	// According to OpenAI API: logprobs is boolean, top_logprobs (0-20) controls how many top tokens per position
+	var logprobs *int
+	var topLogprobs *int
+	if input.Logprobs.IsEnabled() {
+		// If logprobs is enabled, use top_logprobs if provided, otherwise default to 1
+		if input.TopLogprobs != nil {
+			topLogprobs = input.TopLogprobs
+			// For backend compatibility, set logprobs to the top_logprobs value
+			logprobs = input.TopLogprobs
+		} else {
+			// Default to 1 if logprobs is true but top_logprobs not specified
+			val := 1
+			logprobs = &val
+			topLogprobs = &val
+		}
+	}
+
+	// Extract logit_bias from request
+	// According to OpenAI API: logit_bias is a map of token IDs (as strings) to bias values (-100 to 100)
+	var logitBias map[string]float64
+	if len(input.LogitBias) > 0 {
+		logitBias = input.LogitBias
+	}
+
+	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias)
 	if err != nil {
 		log.Error().Err(err).Msg("model inference failed")
 		return "", err

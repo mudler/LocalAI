@@ -1,12 +1,12 @@
 <!-- Global Operations Status Bar -->
 <div x-data="operationsStatus()" x-init="init()" x-show="operations.length > 0" 
-     x-transition:enter="transition ease-out duration-300"
-     x-transition:enter-start="opacity-0 transform -translate-y-4"
-     x-transition:enter-end="opacity-100 transform translate-y-0"
-     x-transition:leave="transition ease-in duration-200"
-     x-transition:leave-start="opacity-100 transform translate-y-0"
-     x-transition:leave-end="opacity-0 transform -translate-y-4"
-     class="sticky top-0 left-0 right-0 z-40 bg-[#1E293B]/95 backdrop-blur-sm shadow-2xl border-b border-[#38BDF8]/50">
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="sticky top-0 left-0 right-0 z-40 bg-[#1E293B]/95 backdrop-blur-sm border-b border-[#38BDF8]/50">
     
     <div class="container mx-auto px-4 py-3">
         <div class="flex items-center justify-between mb-2">
@@ -37,7 +37,7 @@
              x-transition:leave-end="opacity-0 max-h-0"
              class="space-y-2 overflow-y-auto max-h-96">
             <template x-for="operation in operations" :key="operation.id">
-                <div class="bg-[#101827]/80 rounded-lg p-3 border border-[#1E293B] hover:border-[#38BDF8]/50 transition-all hover:shadow-[0_0_12px_rgba(56,189,248,0.15)]">
+                <div class="bg-[#101827]/80 rounded-lg p-3 border border-[#1E293B] hover:border-[#38BDF8]/50 transition-colors">
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center space-x-3 flex-1 min-w-0">
                             <!-- Icon based on type -->
@@ -54,11 +54,11 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center space-x-2">
                                     <span class="text-[#E5E7EB] font-medium text-sm truncate" x-text="operation.name"></span>
-                                    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded-full border"
+                                    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded border"
                                           :class="{
-                                              'bg-[#38BDF8]/20 text-[#38BDF8] border-[#38BDF8]/30': !operation.isDeletion && !operation.isBackend,
-                                              'bg-[#8B5CF6]/20 text-[#8B5CF6] border-[#8B5CF6]/30': !operation.isDeletion && operation.isBackend,
-                                              'bg-red-500/20 text-red-300 border-red-500/30': operation.isDeletion
+                                              'bg-[#38BDF8]/10 text-[#38BDF8]': !operation.isDeletion && !operation.isBackend,
+                                              'bg-[#8B5CF6]/10 text-[#8B5CF6]': !operation.isDeletion && operation.isBackend,
+                                              'bg-red-500/10 text-red-300': operation.isDeletion
                                           }"
                                           x-text="operation.isBackend ? 'Backend' : 'Model'"></span>
                                 </div>
@@ -105,10 +105,10 @@
                     
                     <!-- Progress bar -->
                     <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
-                        <div class="h-full rounded-full transition-all duration-300 ease-out"
+                        <div class="h-full rounded-full transition-all duration-300"
                              :class="{
-                                 'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': !operation.isDeletion && !operation.isCancelled,
-                                 'bg-gradient-to-r from-red-500 to-red-600': operation.isDeletion || operation.isCancelled
+                                 'bg-[#38BDF8]': !operation.isDeletion && !operation.isCancelled,
+                                 'bg-red-500': operation.isDeletion || operation.isCancelled
                              }"
                              :style="'width: ' + operation.progress + '%'">
                         </div>
