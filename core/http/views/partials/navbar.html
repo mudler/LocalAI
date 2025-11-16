@@ -18,66 +18,111 @@
             </div>
             
             <!-- Navigation links -->
-            <div class="hidden lg:flex lg:items-center lg:justify-end lg:space-x-1">
-                <a href="./" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fas fa-home text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Home
+            <div class="hidden lg:flex lg:items-center lg:justify-end lg:space-x-1" x-data="{ manageOpen: false }">
+                <a href="./" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                    <i class="fas fa-home text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Home
                 </a>
-                <a href="browse/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fas fa-brain text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Models
+                <a href="chat/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                    <i class="fa-solid fa-comments text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Chat
                 </a>
-                <a href="browse/backends" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fas fa-server text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Backends
+                <a href="text2image/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                    <i class="fas fa-image text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Images
                 </a>
-                <a href="chat/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fa-solid fa-comments text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Chat
+                <a href="tts/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                    <i class="fa-solid fa-music text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>TTS
                 </a>
-                <a href="text2image/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fas fa-image text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Generate images
+                <a href="talk/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                    <i class="fa-solid fa-phone text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Talk
                 </a>
-                <a href="tts/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fa-solid fa-music text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>TTS
-                </a>
-                <a href="talk/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fa-solid fa-phone text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Talk
-                </a>
-                <a href="p2p/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>Swarm
-                </a>
-                <a href="swagger/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] hover:shadow-[0_0_12px_rgba(56,189,248,0.15)] flex items-center group">
-                    <i class="fas fa-code text-[#38BDF8] mr-2 group-hover:scale-110 transition-transform"></i>API
-                </a>
+                
+                <!-- System Dropdown -->
+                <div class="relative" @click.away="manageOpen = false">
+                    <button @click="manageOpen = !manageOpen" 
+                            class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                        <i class="fas fa-cog text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>System
+                        <i class="fas fa-chevron-down ml-1 text-xs transition-transform" :class="manageOpen ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="manageOpen" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 scale-100"
+                         x-transition:leave-end="opacity-0 scale-95"
+                         class="absolute top-full right-0 mt-1 w-48 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg shadow-lg z-50 py-1">
+                        <a href="browse/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-brain text-[#38BDF8] mr-2 text-xs"></i>Models
+                        </a>
+                        <a href="browse/backends" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-server text-[#38BDF8] mr-2 text-xs"></i>Backends
+                        </a>
+                        <a href="p2p/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-2 text-xs"></i>Swarm
+                        </a>
+                        <a href="/manage" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-cog text-[#38BDF8] mr-2 text-xs"></i>Management
+                        </a>
+                        <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-code text-[#38BDF8] mr-2 text-xs"></i>API
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
         
         <!-- Collapsible menu for small screens -->
-        <div class="hidden lg:hidden" id="mobile-menu">
+        <div class="hidden lg:hidden" id="mobile-menu" x-data="{ manageOpen: false }">
             <div class="pt-3 pb-2 space-y-1 border-t border-[#1E293B] mt-2">
-                <a href="./" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-home text-[#38BDF8] mr-3 w-5 text-center"></i>Home
+                <a href="./" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-home text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Home
                 </a>
-                <a href="browse/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-brain text-[#38BDF8] mr-3 w-5 text-center"></i>Models
+                
+                <!-- System with submenu -->
+                <div>
+                    <button @click="manageOpen = !manageOpen" 
+                            class="w-full text-left text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center justify-between text-sm">
+                        <div class="flex items-center">
+                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>System
+                        </div>
+                        <i class="fas fa-chevron-down text-xs transition-transform" :class="manageOpen ? 'rotate-180' : ''"></i>
+                    </button>
+                    <div x-show="manageOpen" 
+                         x-transition:enter="transition ease-out duration-200"
+                         x-transition:enter-start="opacity-0 max-h-0"
+                         x-transition:enter-end="opacity-100 max-h-96"
+                         x-transition:leave="transition ease-in duration-150"
+                         x-transition:leave-start="opacity-100 max-h-96"
+                         x-transition:leave-end="opacity-0 max-h-0"
+                         class="overflow-hidden">
+                        <a href="browse/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-brain text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Models
+                        </a>
+                        <a href="browse/backends" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-server text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Backends
+                        </a>
+                        <a href="p2p/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Swarm
+                        </a>
+                        <a href="/manage" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Management
+                        </a>
+                        <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-code text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>API
+                        </a>
+                    </div>
+                </div>
+                
+                <a href="chat/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fa-solid fa-comments text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Chat
                 </a>
-                <a href="browse/backends" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-server text-[#38BDF8] mr-3 w-5 text-center"></i>Backends
+                <a href="text2image/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-image text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Images
                 </a>
-                <a href="chat/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fa-solid fa-comments text-[#38BDF8] mr-3 w-5 text-center"></i>Chat
+                <a href="tts/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fa-solid fa-music text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>TTS
                 </a>
-                <a href="text2image/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-image text-[#38BDF8] mr-3 w-5 text-center"></i>Generate images
-                </a>
-                <a href="tts/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fa-solid fa-music text-[#38BDF8] mr-3 w-5 text-center"></i>TTS
-                </a>
-                <a href="talk/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fa-solid fa-phone text-[#38BDF8] mr-3 w-5 text-center"></i>Talk
-                </a>
-                <a href="p2p/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-3 w-5 text-center"></i>Swarm
-                </a>
-                <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
-                    <i class="fas fa-code text-[#38BDF8] mr-3 w-5 text-center"></i>API
+                <a href="talk/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fa-solid fa-phone text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Talk
                 </a>
             </div>
         </div>
