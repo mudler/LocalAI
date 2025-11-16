@@ -259,6 +259,8 @@ definitions:
         type: string
       index:
         type: integer
+      logprobs:
+        $ref: '#/definitions/schema.Logprobs'
       message:
         $ref: '#/definitions/schema.Message'
       text:
@@ -381,6 +383,36 @@ definitions:
       total_tokens:
         type: integer
     type: object
+  schema.LogprobContent:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      id:
+        type: integer
+      logprob:
+        type: number
+      token:
+        type: string
+      top_logprobs:
+        items:
+          $ref: '#/definitions/schema.LogprobContent'
+        type: array
+    type: object
+  schema.Logprobs:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/schema.LogprobContent'
+        type: array
+    type: object
+  schema.LogprobsValue:
+    properties:
+      enabled:
+        description: true if logprobs should be returned
+        type: boolean
+    type: object
   schema.Message:
     properties:
       content:
@@ -484,6 +516,19 @@ definitions:
       language:
         description: Also part of the OpenAI official spec
         type: string
+      logit_bias:
+        additionalProperties:
+          format: float64
+          type: number
+        description: Map of token IDs to bias values (-100 to 100)
+        type: object
+      logprobs:
+        allOf:
+        - $ref: '#/definitions/schema.LogprobsValue'
+        description: |-
+          OpenAI API logprobs parameters
+          logprobs: boolean - if true, returns log probabilities of each output token
+          top_logprobs: integer 0-20 - number of most likely tokens to return at each token position
       max_tokens:
         type: integer
       messages:
@@ -558,6 +603,9 @@ definitions:
           $ref: '#/definitions/functions.Tool'
         type: array
       top_k:
+        type: integer
+      top_logprobs:
+        description: Number of top logprobs per token (0-20)
         type: integer
       top_p:
         description: Common options between all the API calls, part of the OpenAI
