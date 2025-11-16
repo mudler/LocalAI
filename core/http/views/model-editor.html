@@ -10,45 +10,36 @@
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Header -->
-        <div class="relative bg-[#1E293B] border border-[#8B5CF6]/20 rounded-3xl shadow-2xl shadow-[#8B5CF6]/10 p-8 mb-8 overflow-hidden">
-            <!-- Background Pattern -->
-            <div class="absolute inset-0 opacity-10">
-                <div class="absolute inset-0 bg-gradient-to-r from-[#8B5CF6]/20 to-[#38BDF8]/20"></div>
-                <div class="absolute top-0 left-0 w-full h-full" style="background-image: radial-gradient(circle at 1px 1px, rgba(139,92,246,0.15) 1px, transparent 0); background-size: 20px 20px;"></div>
-            </div>
-            
-            <div class="relative max-w-5xl mx-auto">
+        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-8">
+            <div class="max-w-5xl mx-auto">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between">
                     <div class="mb-4 md:mb-0">
-                        <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">
+                        <h1 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
                             <span class="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400">
                                 {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
                             </span>
                         </h1>
-                        <p class="text-lg text-gray-300 font-light" x-text="isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'"></p>
+                        <p class="text-lg text-[#94A3B8] font-light" x-text="isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'"></p>
                     </div>
                     <div class="flex gap-3">
                         <!-- Mode Toggle (only show when not in edit mode) -->
                         <template x-if="!isEditMode">
                             <button @click="toggleMode()" 
-                                    class="group relative inline-flex items-center bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl">
-                                <i class="fas group-hover:animate-pulse" :class="isAdvancedMode ? 'fa-magic mr-2' : 'fa-code mr-2'"></i>
+                                    class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-lg font-semibold transition-colors">
+                                <i class="fas" :class="isAdvancedMode ? 'fa-magic mr-2' : 'fa-code mr-2'"></i>
                                 <span x-text="isAdvancedMode ? 'Simple Mode' : 'Advanced Mode'"></span>
-                                <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             </button>
                         </template>
                         <!-- Advanced Mode Buttons -->
                         <template x-if="isAdvancedMode">
                             <div class="flex gap-3">
-                                <button id="validateBtn" class="group relative inline-flex items-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-blue-500/25">
-                                    <i class="fas fa-check mr-2 group-hover:animate-pulse"></i>
+                                <button id="validateBtn" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                                    <i class="fas fa-check mr-2"></i>
                                     <span>Validate</span>
-                                    <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 </button>
-                                <button id="saveBtn" class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
-                                    <i class="fas fa-save mr-2 group-hover:animate-pulse"></i>
+                                <button id="saveBtn" class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                                    <i class="fas fa-save mr-2"></i>
                                     <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
-                                    <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                 </button>
                             </div>
                         </template>
@@ -57,10 +48,9 @@
                             <button @click="submitImport()" 
                                     :disabled="isSubmitting || !importUri.trim()"
                                     :class="(isSubmitting || !importUri.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
-                                    class="group relative inline-flex items-center bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-300 ease-in-out transform hover:scale-105 hover:shadow-xl hover:shadow-green-500/25">
-                                <i class="fas group-hover:animate-pulse" :class="isSubmitting ? 'fa-spinner fa-spin mr-2' : 'fa-upload mr-2'"></i>
+                                    class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                                <i class="fas" :class="isSubmitting ? 'fa-spinner fa-spin mr-2' : 'fa-upload mr-2'"></i>
                                 <span x-text="isSubmitting ? 'Importing...' : 'Import Model'"></span>
-                                <div class="absolute inset-0 rounded-xl bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
                             </button>
                         </template>
                     </div>
@@ -73,15 +63,13 @@
 
         <!-- Simple Import Mode -->
         <div x-show="!isAdvancedMode && !isEditMode" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform translate-y-4"
-             x-transition:enter-end="opacity-100 transform translate-y-0"
-             class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm p-8">
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-green-500/5 to-emerald-500/5"></div>
-            
-            <div class="relative space-y-6">
-                <h2 class="text-2xl font-semibold text-white flex items-center gap-3 mb-6">
-                    <div class="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8">
+            <div class="space-y-6">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
                         <i class="fas fa-link text-green-400"></i>
                     </div>
                     Import from URI
@@ -89,16 +77,16 @@
 
                 <!-- URI Input -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-300 mb-2">
+                    <label class="block text-sm font-medium text-[#94A3B8] mb-2">
                         <i class="fas fa-link mr-2"></i>Model URI
                     </label>
                     <input 
                         x-model="importUri"
                         type="text" 
                         placeholder="https://example.com/model.gguf or file:///path/to/model.gguf"
-                        class="w-full px-4 py-3 bg-gray-900/90 border border-gray-700/70 rounded-xl text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                        class="w-full px-4 py-3 bg-[#101827] border border-[#1E293B] rounded-lg text-[#E5E7EB] focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-colors"
                         :disabled="isSubmitting">
-                    <p class="mt-2 text-xs text-gray-400">
+                    <p class="mt-2 text-xs text-[#94A3B8]">
                         Enter the URI or path to the model file you want to import
                     </p>
                 </div>
@@ -283,25 +271,23 @@
 
         <!-- Advanced YAML Editor Panel -->
         <div x-show="isAdvancedMode || isEditMode" 
-             x-transition:enter="transition ease-out duration-300"
-             x-transition:enter-start="opacity-0 transform translate-y-4"
-             x-transition:enter-end="opacity-100 transform translate-y-0"
-             class="relative bg-gradient-to-br from-gray-800/90 to-gray-900/90 border border-gray-700/50 rounded-2xl overflow-hidden shadow-xl backdrop-blur-sm h-[calc(100vh-250px)]">
-            <div class="absolute inset-0 rounded-2xl bg-gradient-to-br from-fuchsia-500/5 to-purple-500/5"></div>
-            
-            <div class="relative sticky top-0 bg-gray-800/95 border-b border-gray-700/50 p-6 flex items-center justify-between z-10 backdrop-blur-sm">
-                <h2 class="text-xl font-semibold text-white flex items-center gap-3">
-                    <div class="w-8 h-8 rounded-lg bg-fuchsia-500/20 flex items-center justify-center">
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl overflow-hidden h-[calc(100vh-250px)]">
+            <div class="sticky top-0 bg-[#1E293B] border-b border-[#101827] p-6 flex items-center justify-between z-10">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-fuchsia-500/10 flex items-center justify-center">
                         <i class="fas fa-code text-fuchsia-400"></i>
                     </div>
                     YAML Configuration Editor
                 </h2>
                 <div class="flex items-center gap-3">
-                    <button id="formatYamlBtn" class="group text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200">
-                        <i class="fas fa-indent mr-1.5 group-hover:animate-pulse"></i> Format
+                    <button id="formatYamlBtn" class="text-[#94A3B8] hover:text-[#E5E7EB] text-sm px-3 py-1.5 rounded-lg hover:bg-[#101827] transition-colors">
+                        <i class="fas fa-indent mr-1.5"></i> Format
                     </button>
-                    <button id="copyYamlBtn" class="group text-gray-400 hover:text-gray-200 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-700/50 transition-all duration-200">
-                        <i class="fas fa-copy mr-1.5 group-hover:animate-bounce"></i> Copy
+                    <button id="copyYamlBtn" class="text-[#94A3B8] hover:text-[#E5E7EB] text-sm px-3 py-1.5 rounded-lg hover:bg-[#101827] transition-colors">
+                        <i class="fas fa-copy mr-1.5"></i> Copy
                     </button>
                 </div>
             </div>
@@ -447,11 +433,9 @@
 
 @keyframes slideInFromTop {
     from {
-        transform: translateY(-20px);
         opacity: 0;
     }
     to {
-        transform: translateY(0);
         opacity: 1;
     }
 }
