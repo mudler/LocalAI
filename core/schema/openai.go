@@ -54,6 +54,19 @@ type Choice struct {
 	Message      *Message `json:"message,omitempty"`
 	Delta        *Message `json:"delta,omitempty"`
 	Text         string   `json:"text,omitempty"`
+	Logprobs     *Logprobs `json:"logprobs,omitempty"`
+}
+
+type Logprobs struct {
+	Content []LogprobContent `json:"content,omitempty"`
+}
+
+type LogprobContent struct {
+	ID          int32            `json:"id"`
+	Token       string           `json:"token"`
+	Bytes       []int            `json:"bytes,omitempty"`
+	Logprob     float64          `json:"logprob"`
+	TopLogprobs []LogprobContent `json:"top_logprobs,omitempty"`
 }
 
 type Content struct {

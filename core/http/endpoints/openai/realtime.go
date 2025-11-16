@@ -1087,7 +1087,7 @@ func processTextResponse(config *config.ModelConfig, session *Session, prompt st
 	// For example, the model might return a special token or JSON indicating a function call
 
 	/*
-		predFunc, err := backend.ModelInference(context.Background(), prompt, input.Messages, images, videos, audios, ml, *config, o, nil)
+		predFunc, err := backend.ModelInference(context.Background(), prompt, input.Messages, images, videos, audios, ml, *config, o, nil, "", "", nil, nil, nil)
 
 		result, tokenUsage, err := ComputeChoices(input, prompt, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
 			if !shouldUseFn {

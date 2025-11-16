@@ -212,7 +212,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		}
 	}
 
-	return &pb.PredictOptions{
+	pbOpts := &pb.PredictOptions{
 		Temperature:         float32(*c.Temperature),
 		TopP:                float32(*c.TopP),
 		NDraft:              c.NDraft,
@@ -249,4 +249,6 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		TailFreeSamplingZ:   float32(*c.TFZ),
 		TypicalP:            float32(*c.TypicalP),
 	}
+	// Logprobs and TopLogprobs are set by the caller if provided
+	return pbOpts
 }
