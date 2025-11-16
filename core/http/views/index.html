@@ -119,7 +119,130 @@
             </div>
 
             <!-- Chat Input Form -->
-            <div class="mb-8" x-data="{ selectedModel: '', inputValue: '', shiftPressed: false, fileName: '', imageFiles: [], audioFiles: [], textFiles: [] }">
+            <div class="mb-8" x-data="{
+                selectedModel: '', 
+                inputValue: '', 
+                shiftPressed: false, 
+                fileName: '', 
+                imageFiles: [], 
+                audioFiles: [], 
+                textFiles: [],
+                currentPlaceholder: 'Send a message...',
+                placeholderIndex: 0,
+                charIndex: 0,
+                isTyping: false,
+                typingTimeout: null,
+                displayTimeout: null,
+                placeholderMessages: [
+                    'What is Nuclear fusion?',
+                    'How does a combustion engine work?',
+                    'Explain quantum computing',
+                    'What causes climate change?',
+                    'How do neural networks learn?',
+                    'What is the theory of relativity?',
+                    'How does photosynthesis work?',
+                    'Explain the water cycle',
+                    'What is machine learning?',
+                    'How do black holes form?',
+                    'What is DNA and how does it work?',
+                    'Explain the greenhouse effect',
+                    'How does the immune system work?',
+                    'What is artificial intelligence?',
+                    'How do solar panels generate electricity?',
+                    'Explain the process of evolution',
+                    'What is the difference between weather and climate?',
+                    'How does the human brain process information?',
+                    'What is the structure of an atom?',
+                    'How do vaccines work?',
+                    'Explain the concept of entropy',
+                    'What is the speed of light?',
+                    'How does gravity work?',
+                    'What is the difference between mass and weight?'
+                ],
+                init() {
+                    window.currentPlaceholderText = this.currentPlaceholder;
+                    this.startTypingAnimation();
+                    // Select first model by default
+                    this.$nextTick(() => {
+                        const select = this.$el.querySelector('select');
+                        if (select && select.options.length > 1) {
+                            // Skip the first option (disabled placeholder) and select the first real option
+                            const firstModelOption = select.options[1];
+                            if (firstModelOption && firstModelOption.value) {
+                                this.selectedModel = firstModelOption.value;
+                            }
+                        }
+                    });
+                },
+                startTypingAnimation() {
+                    if (this.isTyping) return;
+                    this.typeNextPlaceholder();
+                },
+                typeNextPlaceholder() {
+                    if (this.isTyping) return;
+                    this.isTyping = true;
+                    this.charIndex = 0;
+                    const message = this.placeholderMessages[this.placeholderIndex];
+                    this.currentPlaceholder = '';
+                    window.currentPlaceholderText = '';
+                    
+                    const typeChar = () => {
+                        if (this.charIndex < message.length) {
+                            this.currentPlaceholder = message.substring(0, this.charIndex + 1);
+                            window.currentPlaceholderText = this.currentPlaceholder;
+                            this.charIndex++;
+                            this.typingTimeout = setTimeout(typeChar, 30);
+                        } else {
+                            // Finished typing, wait 2 seconds then move to next
+                            this.isTyping = false;
+                            window.currentPlaceholderText = this.currentPlaceholder;
+                            this.displayTimeout = setTimeout(() => {
+                                this.placeholderIndex = (this.placeholderIndex + 1) % this.placeholderMessages.length;
+                                this.typeNextPlaceholder();
+                            }, 2000);
+                        }
+                    };
+                    
+                    typeChar();
+                },
+                pauseTyping() {
+                    if (this.typingTimeout) {
+                        clearTimeout(this.typingTimeout);
+                        this.typingTimeout = null;
+                    }
+                    if (this.displayTimeout) {
+                        clearTimeout(this.displayTimeout);
+                        this.displayTimeout = null;
+                    }
+                    this.isTyping = false;
+                },
+                resumeTyping() {
+                    if (!this.inputValue.trim() && !this.isTyping) {
+                        this.startTypingAnimation();
+                    }
+                },
+                handleFocus() {
+                    // Complete the current placeholder instantly if typing
+                    if (this.isTyping && this.placeholderIndex < this.placeholderMessages.length) {
+                        const fullMessage = this.placeholderMessages[this.placeholderIndex];
+                        this.currentPlaceholder = fullMessage;
+                        window.currentPlaceholderText = fullMessage;
+                    }
+                    this.pauseTyping();
+                },
+                handleBlur() {
+                    if (!this.inputValue.trim()) {
+                        this.resumeTyping();
+                    }
+                },
+                handleInput() {
+                    if (this.inputValue.trim()) {
+                        this.pauseTyping();
+                    } else {
+                        this.resumeTyping();
+                    }
+                }
+            }">
                 <!-- Model Selector -->
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-[#94A3B8] mb-2">Select Model</label>
@@ -142,45 +265,48 @@
 
                 <!-- Input Bar -->
                 <form @submit.prevent="startChat($event)" class="relative w-full">
-                    <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl">
+                    <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl focus-within:ring-2 focus-within:ring-[#38BDF8]/50 focus-within:border-[#38BDF8] transition-all duration-200">
                         <textarea
                             x-model="inputValue"
-                            placeholder="Send a message..."
-                            class="p-4 pr-32 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors focus:ring-2 focus:ring-[#38BDF8]/50"
+                            :placeholder="currentPlaceholder"
+                            class="p-3 pr-16 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
                             required
                             @keydown.shift="shiftPressed = true"
                             @keyup.shift="shiftPressed = false"
-                            @keydown.enter.prevent="if (!shiftPressed && selectedModel && inputValue.trim()) { startChat($event); }"
+                            @keydown.enter.prevent="if (!shiftPressed && selectedModel && (inputValue.trim() || currentPlaceholder.trim())) { startChat($event); }"
+                            @focus="handleFocus()"
+                            @blur="handleBlur()"
+                            @input="handleInput()"
                             rows="2"
                         ></textarea>
-                        <span x-show="fileName" x-text="fileName" class="absolute right-28 top-4 text-[#94A3B8] text-xs"></span>
+                        <span x-show="fileName" x-text="fileName" class="absolute right-16 top-3 text-[#94A3B8] text-xs mr-2"></span>
                         
                         <!-- Attachment Buttons -->
                         <button
                             type="button"
                             @click="document.getElementById('index_input_image').click()"
-                            class="fa-solid fa-image text-[#94A3B8] absolute right-20 top-4 text-base p-1.5 hover:text-[#38BDF8] transition-colors"
+                            class="fa-solid fa-image text-[#94A3B8] absolute right-12 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
                             title="Attach images"
                         ></button>
                         <button
                             type="button"
                             @click="document.getElementById('index_input_audio').click()"
-                            class="fa-solid fa-microphone text-[#94A3B8] absolute right-28 top-4 text-base p-1.5 hover:text-[#38BDF8] transition-colors"
+                            class="fa-solid fa-microphone text-[#94A3B8] absolute right-20 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
                             title="Attach an audio file"
                         ></button>
                         <button
                             type="button"
                             @click="document.getElementById('index_input_file').click()"
-                            class="fa-solid fa-file text-[#94A3B8] absolute right-36 top-4 text-base p-1.5 hover:text-[#38BDF8] transition-colors"
+                            class="fa-solid fa-file text-[#94A3B8] absolute right-28 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
                             title="Upload text, markdown or PDF file"
                         ></button>
 
                         <!-- Send Button -->
                         <button
                             type="submit"
-                            :disabled="!selectedModel || !inputValue.trim()"
-                            :class="!selectedModel || !inputValue.trim() ? 'opacity-50 cursor-not-allowed' : ''"
-                            class="text-lg p-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors absolute right-3 top-4"
+                            :disabled="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim())"
+                            :class="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
+                            class="text-lg p-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors duration-200 absolute right-3 top-3"
                             title="Send message (Enter)"
                         >
                             <i class="fa-solid fa-paper-plane"></i>
@@ -292,11 +418,17 @@ function startChat(event) {
     const form = event ? event.target.closest('form') : document.querySelector('form');
     if (!form) return;
     
-    const select = form.closest('[x-data]').querySelector('select');
+    const alpineComponent = form.closest('[x-data]');
+    const select = alpineComponent ? alpineComponent.querySelector('select') : null;
     const textarea = form.querySelector('textarea');
     
     const selectedModel = select ? select.value : '';
-    const message = textarea ? textarea.value : '';
+    let message = textarea ? textarea.value : '';
+    
+    // If message is empty, use the current placeholder text
+    if (!message.trim() && window.currentPlaceholderText) {
+        message = window.currentPlaceholderText;
+    }
     
     if (!selectedModel || !message.trim()) {
         return;
