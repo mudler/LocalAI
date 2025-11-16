@@ -5,7 +5,7 @@ type JINARerankRequest struct {
 	BasicModelRequest
 	Query     string   `json:"query"`
 	Documents []string `json:"documents"`
-	TopN      int      `json:"top_n"`
+	TopN      *int     `json:"top_n,omitempty"`
 	Backend   string   `json:"backend"`
 }
 

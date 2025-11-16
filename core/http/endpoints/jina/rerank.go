@@ -32,10 +32,22 @@ func JINARerankEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		log.Debug().Str("model", input.Model).Msg("JINA Rerank Request received")
-
+		var requestTopN int32
+		docs := int32(len(input.Documents))
+		if input.TopN == nil { // omit top_n to get all
+			requestTopN = docs
+		} else {
+			requestTopN = int32(*input.TopN)
+			if requestTopN < 1 {
+				return c.JSON(http.StatusUnprocessableEntity, "top_n - should be greater than or equal to 1")
+			}
+			if requestTopN > docs { // make it more obvious for backends
+				requestTopN = docs
+			}
+		}
 		request := &proto.RerankRequest{
 			Query:     input.Query,
-			TopN:      int32(input.TopN),
+			TopN:      requestTopN,
 			Documents: input.Documents,
 		}
 
