@@ -55,9 +55,27 @@ func ComputeChoices(
 		}
 	}
 
+	// Extract logprobs from request
+	// According to OpenAI API: logprobs is boolean, top_logprobs (0-20) controls how many top tokens per position
+	var logprobs *int
+	var topLogprobs *int
+	if req.Logprobs.IsEnabled() {
+		// If logprobs is enabled, use top_logprobs if provided, otherwise default to 1
+		if req.TopLogprobs != nil {
+			topLogprobs = req.TopLogprobs
+			// For backend compatibility, set logprobs to the top_logprobs value
+			logprobs = req.TopLogprobs
+		} else {
+			// Default to 1 if logprobs is true but top_logprobs not specified
+			val := 1
+			logprobs = &val
+			topLogprobs = &val
+		}
+	}
+
 	// get the model function to call for the result
 	predFunc, err := backend.ModelInference(
-		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON)
+		req.Context, predInput, req.Messages, images, videos, audios, loader, config, bcl, o, tokenCallback, toolsJSON, toolChoiceJSON, logprobs, topLogprobs)
 	if err != nil {
 		return result, backend.TokenUsage{}, err
 	}
@@ -77,6 +95,11 @@ func ComputeChoices(
 
 		finetunedResponse := backend.Finetune(*config, predInput, prediction.Response)
 		cb(finetunedResponse, &result)
+
+		// Add logprobs to the last choice if present
+		if prediction.Logprobs != nil && len(result) > 0 {
+			result[len(result)-1].Logprobs = prediction.Logprobs
+		}
 
 		//result = append(result, Choice{Text: prediction})
 

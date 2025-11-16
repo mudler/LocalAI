@@ -816,6 +816,63 @@ var _ = Describe("API test", func() {
 			Expect(resp.Choices[0].Message.Content).ToNot(BeEmpty())
 		})
 
+		It("returns logprobs in chat completions when requested", func() {
+			topLogprobsVal := 3
+			response, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{
+				Model:       "testmodel.ggml",
+				LogProbs:    true,
+				TopLogProbs: topLogprobsVal,
+				Messages:    []openai.ChatCompletionMessage{{Role: "user", Content: testPrompt}}})
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(len(response.Choices)).To(Equal(1))
+			Expect(response.Choices[0].Message).ToNot(BeNil())
+			Expect(response.Choices[0].Message.Content).ToNot(BeEmpty())
+
+			// Verify logprobs are present and have correct structure
+			Expect(response.Choices[0].LogProbs).ToNot(BeNil())
+			Expect(response.Choices[0].LogProbs.Content).ToNot(BeEmpty())
+
+			Expect(len(response.Choices[0].LogProbs.Content)).To(BeNumerically(">", 1))
+
+			foundatLeastToken := ""
+			foundAtLeastBytes := []byte{}
+			foundAtLeastTopLogprobBytes := []byte{}
+			foundatLeastTopLogprob := ""
+			// Verify logprobs content structure matches OpenAI format
+			for _, logprobContent := range response.Choices[0].LogProbs.Content {
+				// Bytes can be empty for certain tokens (special tokens, etc.), so we don't require it
+				if len(logprobContent.Bytes) > 0 {
+					foundAtLeastBytes = logprobContent.Bytes
+				}
+				if len(logprobContent.Token) > 0 {
+					foundatLeastToken = logprobContent.Token
+				}
+				Expect(logprobContent.LogProb).To(BeNumerically("<=", 0)) // Logprobs are always <= 0
+				Expect(len(logprobContent.TopLogProbs)).To(BeNumerically(">", 1))
+
+				// If top_logprobs is requested, verify top_logprobs array respects the limit
+				if len(logprobContent.TopLogProbs) > 0 {
+					// Should respect top_logprobs limit (3 in this test)
+					Expect(len(logprobContent.TopLogProbs)).To(BeNumerically("<=", topLogprobsVal))
+					for _, topLogprob := range logprobContent.TopLogProbs {
+						if len(topLogprob.Bytes) > 0 {
+							foundAtLeastTopLogprobBytes = topLogprob.Bytes
+						}
+						if len(topLogprob.Token) > 0 {
+							foundatLeastTopLogprob = topLogprob.Token
+						}
+						Expect(topLogprob.LogProb).To(BeNumerically("<=", 0))
+					}
+				}
+			}
+
+			Expect(foundAtLeastBytes).ToNot(BeEmpty())
+			Expect(foundAtLeastTopLogprobBytes).ToNot(BeEmpty())
+			Expect(foundatLeastToken).ToNot(BeEmpty())
+			Expect(foundatLeastTopLogprob).ToNot(BeEmpty())
+		})
+
 		It("returns errors", func() {
 			_, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "foomodel", Prompt: testPrompt})
 			Expect(err).To(HaveOccurred())

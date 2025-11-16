@@ -2,6 +2,7 @@ package backend
 
 import (
 	"context"
+	"encoding/json"
 	"regexp"
 	"slices"
 	"strings"
@@ -24,6 +25,7 @@ type LLMResponse struct {
 	Response    string // should this be []byte?
 	Usage       TokenUsage
 	AudioOutput string
+	Logprobs    *schema.Logprobs // Logprobs from the backend response
 }
 
 type TokenUsage struct {
@@ -33,7 +35,7 @@ type TokenUsage struct {
 	TimingTokenGeneration  float64
 }
 
-func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string) (func() (LLMResponse, error), error) {
+func ModelInference(ctx context.Context, s string, messages schema.Messages, images, videos, audios []string, loader *model.ModelLoader, c *config.ModelConfig, cl *config.ModelConfigLoader, o *config.ApplicationConfig, tokenCallback func(string, TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int) (func() (LLMResponse, error), error) {
 	modelFile := c.Model
 
 	// Check if the modelFile exists, if it doesn't try to load it from the gallery
@@ -78,6 +80,12 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 		opts.Audios = audios
 		opts.Tools = tools
 		opts.ToolChoice = toolChoice
+		if logprobs != nil {
+			opts.Logprobs = int32(*logprobs)
+		}
+		if topLogprobs != nil {
+			opts.TopLogprobs = int32(*topLogprobs)
+		}
 
 		tokenUsage := TokenUsage{}
 
@@ -109,6 +117,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			}
 
 			ss := ""
+			var logprobs *schema.Logprobs
 
 			var partialRune []byte
 			err := inferenceModel.PredictStream(ctx, opts, func(reply *proto.Reply) {
@@ -119,6 +128,14 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				tokenUsage.Completion = int(reply.Tokens)
 				tokenUsage.TimingTokenGeneration = reply.TimingTokenGeneration
 				tokenUsage.TimingPromptProcessing = reply.TimingPromptProcessing
+
+				// Parse logprobs from reply if present (collect from last chunk that has them)
+				if len(reply.Logprobs) > 0 {
+					var parsedLogprobs schema.Logprobs
+					if err := json.Unmarshal(reply.Logprobs, &parsedLogprobs); err == nil {
+						logprobs = &parsedLogprobs
+					}
+				}
 
 				// Process complete runes and accumulate them
 				var completeRunes []byte
@@ -145,6 +162,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			return LLMResponse{
 				Response: ss,
 				Usage:    tokenUsage,
+				Logprobs: logprobs,
 			}, err
 		} else {
 			// TODO: Is the chicken bit the only way to get here? is that acceptable?
@@ -167,9 +185,19 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 				response = c.TemplateConfig.ReplyPrefix + response
 			}
 
+			// Parse logprobs from reply if present
+			var logprobs *schema.Logprobs
+			if len(reply.Logprobs) > 0 {
+				var parsedLogprobs schema.Logprobs
+				if err := json.Unmarshal(reply.Logprobs, &parsedLogprobs); err == nil {
+					logprobs = &parsedLogprobs
+				}
+			}
+
 			return LLMResponse{
 				Response: response,
 				Usage:    tokenUsage,
+				Logprobs: logprobs,
 			}, err
 		}
 	}
