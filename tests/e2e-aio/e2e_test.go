@@ -286,45 +286,64 @@ var _ = Describe("E2E test", func() {
 		Context("reranker", func() {
 			It("correctly", func() {
 				modelName := "jina-reranker-v1-base-en"
-
-				req := schema.JINARerankRequest{
-					BasicModelRequest: schema.BasicModelRequest{
-						Model: modelName,
-					},
-					Query: "Organic skincare products for sensitive skin",
-					Documents: []string{
-						"Eco-friendly kitchenware for modern homes",
-						"Biodegradable cleaning supplies for eco-conscious consumers",
-						"Organic cotton baby clothes for sensitive skin",
-						"Natural organic skincare range for sensitive skin",
-						"Tech gadgets for smart homes: 2024 edition",
-						"Sustainable gardening tools and compost solutions",
-						"Sensitive skin-friendly facial cleansers and toners",
-						"Organic food wraps and storage solutions",
-						"All-natural pet food for dogs with allergies",
-						"Yoga mats made from recycled materials",
-					},
-					TopN: 3,
+				const query = "Organic skincare products for sensitive skin"
+				var documents = []string{
+					"Eco-friendly kitchenware for modern homes",
+					"Biodegradable cleaning supplies for eco-conscious consumers",
+					"Organic cotton baby clothes for sensitive skin",
+					"Natural organic skincare range for sensitive skin",
+					"Tech gadgets for smart homes: 2024 edition",
+					"Sustainable gardening tools and compost solutions",
+					"Sensitive skin-friendly facial cleansers and toners",
+					"Organic food wraps and storage solutions",
+					"All-natural pet food for dogs with allergies",
+					"Yoga mats made from recycled materials",
+				}
+				// Exceed len or requested results
+				randomValue := int(GinkgoRandomSeed()) % (len(documents) + 1)
+				requestResults := randomValue + 1 // at least 1 results
+				// Cap expectResults by the length of documents
+				expectResults := min(requestResults, len(documents))
+				var maybeSkipTopN = &requestResults
+				if requestResults >= len(documents) && int(GinkgoRandomSeed())%2 == 0 {
+					maybeSkipTopN = nil
 				}
 
-				serialized, err := json.Marshal(req)
-				Expect(err).To(BeNil())
-				Expect(serialized).ToNot(BeNil())
-
-				rerankerEndpoint := apiEndpoint + "/rerank"
-				resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
-				Expect(err).To(BeNil())
-				Expect(resp).ToNot(BeNil())
-				body, err := io.ReadAll(resp.Body)
-				Expect(err).ToNot(HaveOccurred())
+				resp, body := requestRerank(modelName, query, documents, maybeSkipTopN, apiEndpoint)
 				Expect(resp.StatusCode).To(Equal(200), fmt.Sprintf("body: %s, response: %+v", body, resp))
 
 				deserializedResponse := schema.JINARerankResponse{}
-				err = json.Unmarshal(body, &deserializedResponse)
+				err := json.Unmarshal(body, &deserializedResponse)
 				Expect(err).To(BeNil())
 				Expect(deserializedResponse).ToNot(BeZero())
 				Expect(deserializedResponse.Model).To(Equal(modelName))
-				Expect(len(deserializedResponse.Results)).To(BeNumerically(">", 0))
+				//Expect(len(deserializedResponse.Results)).To(BeNumerically(">", 0))
+				Expect(len(deserializedResponse.Results)).To(Equal(expectResults))
+				// Assert that relevance scores are in decreasing order
+				for i := 1; i < len(deserializedResponse.Results); i++ {
+					Expect(deserializedResponse.Results[i].RelevanceScore).To(
+						BeNumerically("<=", deserializedResponse.Results[i-1].RelevanceScore),
+						fmt.Sprintf("Result at index %d should have lower relevance score than previous result.", i),
+					)
+				}
+				// Assert that each result's index points to the correct document
+				for i, result := range deserializedResponse.Results {
+					Expect(result.Index).To(
+						And(
+							BeNumerically(">=", 0),
+							BeNumerically("<", len(documents)),
+						),
+						fmt.Sprintf("Result at position %d has index %d which should be within bounds [0, %d)", i, result.Index, len(documents)),
+					)
+					Expect(result.Document.Text).To(
+						Equal(documents[result.Index]),
+						fmt.Sprintf("Result at position %d (index %d) should have document text '%s', but got '%s'",
+							i, result.Index, documents[result.Index], result.Document.Text),
+					)
+				}
+				zeroOrNeg := int(GinkgoRandomSeed())%2 - 1 // Results in either -1 or 0
+				resp, body = requestRerank(modelName, query, documents, &zeroOrNeg, apiEndpoint)
+				Expect(resp.StatusCode).To(Equal(422), fmt.Sprintf("body: %s, response: %+v", body, resp))
 			})
 		})
 	})
@@ -349,4 +368,27 @@ func downloadHttpFile(url string) (string, error) {
 	}
 
 	return tmpfile.Name(), nil
+}
+
+func requestRerank(modelName, query string, documents []string, topN *int, apiEndpoint string) (*http.Response, []byte) {
+	req := schema.JINARerankRequest{
+		BasicModelRequest: schema.BasicModelRequest{
+			Model: modelName,
+		},
+		Query:     query,
+		Documents: documents,
+		TopN:      topN,
+	}
+
+	serialized, err := json.Marshal(req)
+	Expect(err).To(BeNil())
+	Expect(serialized).ToNot(BeNil())
+	rerankerEndpoint := apiEndpoint + "/rerank"
+	resp, err := http.Post(rerankerEndpoint, "application/json", bytes.NewReader(serialized))
+	Expect(err).To(BeNil())
+	Expect(resp).ToNot(BeNil())
+	body, err := io.ReadAll(resp.Body)
+	Expect(err).ToNot(HaveOccurred())
+
+	return resp, body
 }
