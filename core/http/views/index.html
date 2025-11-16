@@ -265,11 +265,11 @@
 
                 <!-- Input Bar -->
                 <form @submit.prevent="startChat($event)" class="relative w-full">
-                    <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl">
+                    <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl focus-within:ring-2 focus-within:ring-[#38BDF8]/50 focus-within:border-[#38BDF8] transition-all duration-200">
                         <textarea
                             x-model="inputValue"
                             :placeholder="currentPlaceholder"
-                            class="p-3 pr-16 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200 focus:ring-2 focus:ring-[#38BDF8]/50"
+                            class="p-3 pr-16 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
                             required
                             @keydown.shift="shiftPressed = true"
                             @keyup.shift="shiftPressed = false"
