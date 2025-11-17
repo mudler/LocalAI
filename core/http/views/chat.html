@@ -178,6 +178,12 @@ SOFTWARE.
                 behavior: 'smooth'
               });
             }
+            // Also scroll thinking box if it's a thinking/reasoning message
+            if (role === "thinking" || role === "reasoning") {
+              if (typeof window.scrollThinkingBoxToBottom === 'function') {
+                window.scrollThinkingBoxToBottom();
+              }
+            }
           }, 100);
           const parser = new DOMParser();
           const html = parser.parseFromString(
@@ -566,7 +572,12 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#38BDF8]/20"
                         >
-                          <div class="text-[#E5E7EB] text-sm max-h-96 overflow-auto" x-html="message.html"></div>
+                          <div 
+                            class="text-[#E5E7EB] text-sm max-h-96 overflow-auto" 
+                            x-html="message.html"
+                            data-thinking-box
+                            x-effect="if (message.expanded && message.html) { setTimeout(() => { if ($el.scrollHeight > $el.clientHeight) { $el.scrollTo({ top: $el.scrollHeight, behavior: 'smooth' }); } }, 50); }"
+                          ></div>
                         </div>
                       </div>
                     </div>

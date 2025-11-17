@@ -34,12 +34,15 @@
                 <a href="talk/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
                     <i class="fa-solid fa-phone text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Talk
                 </a>
+                <a href="swagger/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
+                    <i class="fas fa-code text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>API
+                </a>
                 
                 <!-- System Dropdown -->
                 <div class="relative" @click.away="manageOpen = false">
                     <button @click="manageOpen = !manageOpen" 
                             class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                        <i class="fas fa-cog text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>System
+                        <i class="fas fa-cog text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Settings
                         <i class="fas fa-chevron-down ml-1 text-xs transition-transform" :class="manageOpen ? 'rotate-180' : ''"></i>
                     </button>
                     <div x-show="manageOpen" 
@@ -60,10 +63,7 @@
                             <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-2 text-xs"></i>Swarm
                         </a>
                         <a href="/manage" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
-                            <i class="fas fa-cog text-[#38BDF8] mr-2 text-xs"></i>Management
-                        </a>
-                        <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
-                            <i class="fas fa-code text-[#38BDF8] mr-2 text-xs"></i>API
+                            <i class="fas fa-cog text-[#38BDF8] mr-2 text-xs"></i>System
                         </a>
                     </div>
                 </div>
@@ -82,7 +82,7 @@
                     <button @click="manageOpen = !manageOpen" 
                             class="w-full text-left text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center justify-between text-sm">
                         <div class="flex items-center">
-                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>System
+                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Settings
                         </div>
                         <i class="fas fa-chevron-down text-xs transition-transform" :class="manageOpen ? 'rotate-180' : ''"></i>
                     </button>
@@ -104,10 +104,7 @@
                             <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Swarm
                         </a>
                         <a href="/manage" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Management
-                        </a>
-                        <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                            <i class="fas fa-code text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>API
+                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>System
                         </a>
                     </div>
                 </div>
@@ -123,6 +120,9 @@
                 </a>
                 <a href="talk/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
                     <i class="fa-solid fa-phone text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Talk
+                </a>
+                <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-code text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>API
                 </a>
             </div>
         </div>

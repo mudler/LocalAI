@@ -90,6 +90,23 @@ function updateTokensPerSecond() {
   }
 }
 
+function scrollThinkingBoxToBottom() {
+  // Find all thinking/reasoning message containers that are expanded
+  const thinkingBoxes = document.querySelectorAll('[data-thinking-box]');
+  thinkingBoxes.forEach(box => {
+    // Only scroll if the box is visible (expanded) and has overflow
+    if (box.offsetParent !== null && box.scrollHeight > box.clientHeight) {
+      box.scrollTo({
+        top: box.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  });
+}
+
+// Make function available globally
+window.scrollThinkingBoxToBottom = scrollThinkingBoxToBottom;
+
 function stopRequest() {
   if (currentAbortController) {
     currentAbortController.abort();
@@ -996,6 +1013,7 @@ async function promptGPT(systemPrompt, input) {
                   if (now - lastThinkingScrollTime > THINKING_SCROLL_THROTTLE) {
                     lastThinkingScrollTime = now;
                     setTimeout(() => {
+                      // Scroll main chat container
                       const chatContainer = document.getElementById('chat');
                       if (chatContainer) {
                         chatContainer.scrollTo({
@@ -1003,6 +1021,8 @@ async function promptGPT(systemPrompt, input) {
                           behavior: 'smooth'
                         });
                       }
+                      // Scroll thinking box to bottom if it's expanded and scrollable
+                      scrollThinkingBoxToBottom();
                     }, 100);
                   }
                 } else {
@@ -1166,8 +1186,8 @@ document.addEventListener("alpine:init", () => {
     },
     add(role, content, image, audio) {
       const N = this.history.length - 1;
-      // For thinking messages, always create a new message
-      if (role === "thinking") {
+      // For thinking and reasoning messages, always create a new message
+      if (role === "thinking" || role === "reasoning") {
         let c = "";
         const lines = content.split("\n");
         lines.forEach((line) => {
@@ -1208,6 +1228,14 @@ document.addEventListener("alpine:init", () => {
           top: chatContainer.scrollHeight,
           behavior: 'smooth'
         });
+      }
+      // Also scroll thinking box if it's a thinking/reasoning message
+      if (role === "thinking" || role === "reasoning") {
+        setTimeout(() => {
+          if (typeof window.scrollThinkingBoxToBottom === 'function') {
+            window.scrollThinkingBoxToBottom();
+          }
+        }, 100);
       }
       const parser = new DOMParser();
       const html = parser.parseFromString(
