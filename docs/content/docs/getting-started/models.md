@@ -7,6 +7,7 @@ icon = "rocket_launch"
 
 To install models with LocalAI, you can:
 
+- **Import via WebUI** (Recommended for beginners): Use the WebUI's model import interface to import models from URIs with a user-friendly interface. Supports both simple mode (with preferences) and advanced mode (YAML editor). See the [Setting Up Models tutorial]({{% relref "docs/tutorials/setting-up-models" %}}) for details.
 - Browse the Model Gallery from the Web Interface and install models with a couple of clicks. For more details, refer to the [Gallery Documentation]({{% relref "docs/features/model-gallery" %}}).
 - Specify a model from the LocalAI gallery during startup, e.g., `local-ai run <model_gallery_name>`.
 - Use a URI to specify a model file (e.g., `huggingface://...`, `oci://`, or `ollama://`) when starting LocalAI, e.g., `local-ai run huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf`.
@@ -31,9 +32,29 @@ local-ai models install hermes-2-theta-llama-3-8b
 
 Note: The galleries available in LocalAI can be customized to point to a different URL or a local directory. For more information on how to setup your own gallery, see the [Gallery Documentation]({{% relref "docs/features/model-gallery" %}}).
 
-## Run Models via URI
+## Import Models via WebUI
 
-To run models via URI, specify a URI to a model file or a configuration file when starting LocalAI. Valid syntax includes:
+The easiest way to import models is through the WebUI's import interface:
+
+1. Open the LocalAI WebUI at `http://localhost:8080`
+2. Navigate to the "Models" tab
+3. Click "Import Model" or "New Model"
+4. Choose your import method:
+   - **Simple Mode**: Enter a model URI and configure preferences (backend, name, description, quantizations, etc.)
+   - **Advanced Mode**: Edit YAML configuration directly with syntax highlighting and validation
+
+The WebUI import supports all URI types:
+- `huggingface://repository_id/model_file`
+- `oci://container_image:tag`
+- `ollama://model_id:tag`
+- `file://path/to/model`
+- `https://...` (for configuration files)
+
+For detailed instructions, see the [Setting Up Models tutorial]({{% relref "docs/tutorials/setting-up-models" %}}).
+
+## Run Models via URI (CLI)
+
+To run models via URI from the command line, specify a URI to a model file or a configuration file when starting LocalAI. Valid syntax includes:
 
 - `file://path/to/model`
 - `huggingface://repository_id/model_file` (e.g., `huggingface://TheBloke/phi-2-GGUF/phi-2.Q8_0.gguf`)
@@ -172,7 +193,7 @@ curl http://localhost:8080/v1/completions -H "Content-Type: application/json" -d
 {{% alert icon="💡" %}}
 **Other Docker Images**:
 
-For other Docker images, please refer to the table in [Getting Started](https://localai.io/basics/getting_started/#container-images).
+For other Docker images, please refer to the table in [Container Images]({{% relref "docs/getting-started/container-images" %}}).
 {{% /alert %}}
 
 Note: If you are on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).

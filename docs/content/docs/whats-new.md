@@ -1,16 +1,60 @@
 +++
 disableToc = false
-title = "News"
+title = "What's New"
 weight = 7
 url = '/basics/news/'
 icon = "newspaper"
 +++
 
-Release notes have been now moved completely over Github releases. 
+Release notes have been moved to GitHub releases for the most up-to-date information.
 
-You can see the release notes [here](https://github.com/mudler/LocalAI/releases).
+You can see all release notes [here](https://github.com/mudler/LocalAI/releases).
 
-# Older release notes
+## Recent Highlights
+
+### 2025
+
+**July 2025**: All backends migrated outside of the main binary. LocalAI is now more lightweight, small, and automatically downloads the required backend to run the model. [Read the release notes](https://github.com/mudler/LocalAI/releases/tag/v3.2.0)
+
+**June 2025**: [Backend management](https://github.com/mudler/LocalAI/pull/5607) has been added. Attention: extras images are going to be deprecated from the next release! Read [the backend management PR](https://github.com/mudler/LocalAI/pull/5607).
+
+**May 2025**: [Audio input](https://github.com/mudler/LocalAI/pull/5466) and [Reranking](https://github.com/mudler/LocalAI/pull/5396) in llama.cpp backend, [Realtime API](https://github.com/mudler/LocalAI/pull/5392), Support to Gemma, SmollVLM, and more multimodal models (available in the gallery).
+
+**May 2025**: Important: image name changes [See release](https://github.com/mudler/LocalAI/releases/tag/v2.29.0)
+
+**April 2025**: Rebrand, WebUI enhancements
+
+**April 2025**: [LocalAGI](https://github.com/mudler/LocalAGI) and [LocalRecall](https://github.com/mudler/LocalRecall) join the LocalAI family stack.
+
+**April 2025**: WebUI overhaul, AIO images updates
+
+**February 2025**: Backend cleanup, Breaking changes, new backends (kokoro, OutelTTS, faster-whisper), Nvidia L4T images
+
+**January 2025**: LocalAI model release: https://huggingface.co/mudler/LocalAI-functioncall-phi-4-v0.3, SANA support in diffusers: https://github.com/mudler/LocalAI/pull/4603
+
+### 2024
+
+**December 2024**: stablediffusion.cpp backend (ggml) added ( https://github.com/mudler/LocalAI/pull/4289 )
+
+**November 2024**: Bark.cpp backend added ( https://github.com/mudler/LocalAI/pull/4287 )
+
+**November 2024**: Voice activity detection models (**VAD**) added to the API: https://github.com/mudler/LocalAI/pull/4204
+
+**October 2024**: Examples moved to [LocalAI-examples](https://github.com/mudler/LocalAI-examples)
+
+**August 2024**: 🆕 FLUX-1, [P2P Explorer](https://explorer.localai.io)
+
+**July 2024**: 🔥🔥 🆕 P2P Dashboard, LocalAI Federated mode and AI Swarms: https://github.com/mudler/LocalAI/pull/2723. P2P Global community pools: https://github.com/mudler/LocalAI/issues/3113
+
+**May 2024**: 🔥🔥 Decentralized P2P llama.cpp:  https://github.com/mudler/LocalAI/pull/2343 (peer2peer llama.cpp!) 👉 Docs  https://localai.io/features/distribute/
+
+**May 2024**: 🔥🔥 Distributed inferencing: https://github.com/mudler/LocalAI/pull/2324
+
+**April 2024**: Reranker API: https://github.com/mudler/LocalAI/pull/2121
+
+---
+
+## Archive: Older Release Notes (2023 and earlier)
 
 ## 04-12-2023: __v2.0.0__
 
@@ -58,7 +102,7 @@ Thanks to @jespino now the local-ai binary has more subcommands allowing to mana
 
 This is an exciting LocalAI release! Besides bug-fixes and enhancements this release brings the new backend to a whole new level by extending support to vllm and vall-e-x for audio generation!
 
-Check out the documentation for vllm [here](https://localai.io/model-compatibility/vllm/) and Vall-E-X [here](https://localai.io/model-compatibility/vall-e-x/)
+Check out the documentation for vllm [here]({{% relref "docs/reference/compatibility-table" %}}) and Vall-E-X [here]({{% relref "docs/reference/compatibility-table" %}})
 
 [Release notes](https://github.com/mudler/LocalAI/releases/tag/v1.30.0)
 

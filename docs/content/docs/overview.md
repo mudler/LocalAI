@@ -70,7 +70,7 @@ You can use Docker for a quick start:
 docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
 ```
 
-For more detailed installation options and configurations, see our [Getting Started guide](/basics/getting_started/).
+For more detailed installation options and configurations, see our [Getting Started guide]({{% relref "docs/getting-started/quickstart" %}}).
 
 ## One-liner
 
@@ -104,9 +104,9 @@ LocalAI is a community-driven project. You can:
 
 Ready to dive in? Here are some recommended next steps:
 
-1. [Install LocalAI](/basics/getting_started/)
+1. [Install LocalAI]({{% relref "docs/getting-started/quickstart" %}})
 2. [Explore available models](https://models.localai.io)
-3. [Model compatibility](/model-compatibility/)
+3. [Model compatibility]({{% relref "docs/reference/compatibility-table" %}})
 4. [Try out examples](https://github.com/mudler/LocalAI-examples)
 5. [Join the community](https://discord.gg/uJAeKSAGDy)
 6. [Check the LocalAI Github repository](https://github.com/mudler/LocalAI)
