@@ -388,7 +388,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 
 	var source io.ReadCloser
 	var contentLength int64
-	if strings.HasPrefix(string(uri), LocalPrefix) {
+	if _, e := os.Stat(uri.ResolveURL()); strings.HasPrefix(string(uri), LocalPrefix) || e == nil {
 		file, err := os.Open(uri.ResolveURL())
 		if err != nil {
 			return fmt.Errorf("failed to open file %q: %v", uri.ResolveURL(), err)
