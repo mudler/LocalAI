@@ -62,6 +62,7 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		localURI = strings.TrimPrefix(uri, downloader.LocalPrefix)
 	}
 
+	// if a file exists or it's an url that ends with .yaml or .yml, read the config file directly
 	if _, e := os.Stat(localURI); hasYAMLExtension(localURI) && (e == nil || downloader.URI(localURI).LooksLikeURL()) {
 		var modelYAML []byte
 		if downloader.URI(localURI).LooksLikeURL() {
