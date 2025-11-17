@@ -51,6 +51,11 @@
                         <span class="font-semibold text-indigo-300" x-text="availableModels"></span>
                         <span class="text-[#94A3B8] ml-1">models available</span>
                     </div>
+                    <a href="/manage" class="flex items-center bg-[#101827] hover:bg-[#1E293B] rounded-lg px-4 py-2 transition-colors border border-[#38BDF8]/30 hover:border-[#38BDF8]/50">
+                        <div class="w-2 h-2 bg-emerald-400 rounded-full mr-2"></div>
+                        <span class="font-semibold text-emerald-300" x-text="installedModels"></span>
+                        <span class="text-[#94A3B8] ml-1">installed</span>
+                    </a>
                     <div class="flex items-center bg-[#101827] rounded-lg px-4 py-2">
                         <div class="w-2 h-2 bg-purple-400 rounded-full mr-2"></div>
                         <span class="font-semibold text-purple-300" x-text="repositories.length"></span>
@@ -559,6 +564,7 @@ function modelsGallery() {
         currentPage: 1,
         totalPages: 1,
         availableModels: 0,
+        installedModels: 0,
         selectedModel: null,
         jobProgress: {},
         notifications: [],
@@ -597,6 +603,7 @@ function modelsGallery() {
                 this.currentPage = data.currentPage || 1;
                 this.totalPages = data.totalPages || 1;
                 this.availableModels = data.availableModels || 0;
+                this.installedModels = data.installedModels || 0;
             } catch (error) {
                 console.error('Error fetching models:', error);
             } finally {

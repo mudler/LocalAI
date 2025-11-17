@@ -16,11 +16,12 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
+	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/rs/zerolog/log"
 )
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
-func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
+func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
 
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
@@ -257,17 +258,23 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, appConfig
 			nextPage = totalPages
 		}
 
+		// Calculate installed models count (models with configs + models without configs)
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
+
 		return c.JSON(200, map[string]interface{}{
-			"models":           modelsJSON,
-			"repositories":     appConfig.Galleries,
-			"allTags":          tags,
-			"processingModels": processingModelsData,
-			"taskTypes":        taskTypes,
-			"availableModels":  totalModels,
-			"currentPage":      pageNum,
-			"totalPages":       totalPages,
-			"prevPage":         prevPage,
-			"nextPage":         nextPage,
+			"models":            modelsJSON,
+			"repositories":      appConfig.Galleries,
+			"allTags":           tags,
+			"processingModels":  processingModelsData,
+			"taskTypes":         taskTypes,
+			"availableModels":   totalModels,
+			"installedModels":   installedModelsCount,
+			"currentPage":       pageNum,
+			"totalPages":        totalPages,
+			"prevPage":          prevPage,
+			"nextPage":          nextPage,
 		})
 	})
 
@@ -551,6 +558,13 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, appConfig
 			nextPage = totalPages
 		}
 
+		// Calculate installed backends count
+		installedBackends, err := gallery.ListSystemBackends(appConfig.SystemState)
+		installedBackendsCount := 0
+		if err == nil {
+			installedBackendsCount = len(installedBackends)
+		}
+
 		return c.JSON(200, map[string]interface{}{
 			"backends":           backendsJSON,
 			"repositories":       appConfig.BackendGalleries,
@@ -558,6 +572,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, appConfig
 			"processingBackends": processingBackendsData,
 			"taskTypes":          taskTypes,
 			"availableBackends":  totalBackends,
+			"installedBackends":  installedBackendsCount,
 			"currentPage":        pageNum,
 			"totalPages":         totalPages,
 			"prevPage":           prevPage,
