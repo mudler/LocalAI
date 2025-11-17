@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,7 +15,6 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/gallery/importers"
 	"github.com/mudler/LocalAI/core/services"
-	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -65,148 +63,85 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 	for _, url := range models {
 		// As a best effort, try to resolve the model from the remote library
 		// if it's not resolved we try with the other method below
+		if _, e := os.Stat(url); e == nil {
+			log.Debug().Msgf("[startup] resolved local model: %s", url)
+			// copy to modelPath
+			md5Name := utils.MD5(url)
 
-		uri := downloader.URI(url)
-
-		switch {
-		case uri.LooksLikeOCI():
-			log.Debug().Msgf("[startup] resolved OCI model to download: %s", url)
-
-			// convert OCI image name to a file name.
-			ociName := strings.TrimPrefix(url, downloader.OCIPrefix)
-			ociName = strings.TrimPrefix(ociName, downloader.OllamaPrefix)
-			ociName = strings.ReplaceAll(ociName, "/", "__")
-			ociName = strings.ReplaceAll(ociName, ":", "__")
-
-			// check if file exists
-			if _, e := os.Stat(filepath.Join(systemState.Model.ModelsPath, ociName)); errors.Is(e, os.ErrNotExist) {
-				modelDefinitionFilePath := filepath.Join(systemState.Model.ModelsPath, ociName)
-				e := uri.DownloadFile(modelDefinitionFilePath, "", 0, 0, func(fileName, current, total string, percent float64) {
-					utils.DisplayDownloadFunction(fileName, current, total, percent)
-				})
-				if e != nil {
-					log.Error().Err(e).Str("url", url).Str("filepath", modelDefinitionFilePath).Msg("error downloading model")
-					err = errors.Join(err, e)
-				}
-			}
-
-			log.Info().Msgf("[startup] installed model from OCI repository: %s", ociName)
-		case uri.LooksLikeURL():
-			log.Debug().Msgf("[startup] downloading %s", url)
-
-			// Extract filename from URL
-			fileName, e := uri.FilenameFromUrl()
+			modelYAML, e := os.ReadFile(url)
 			if e != nil {
-				log.Warn().Err(e).Str("url", url).Msg("error extracting filename from URL")
+				log.Error().Err(e).Str("filepath", url).Msg("error reading model definition")
 				err = errors.Join(err, e)
 				continue
 			}
 
-			modelPath := filepath.Join(systemState.Model.ModelsPath, fileName)
-
-			if e := utils.VerifyPath(fileName, modelPath); e != nil {
-				log.Error().Err(e).Str("filepath", modelPath).Msg("error verifying path")
+			modelDefinitionFilePath := filepath.Join(systemState.Model.ModelsPath, md5Name) + YAML_EXTENSION
+			if e := os.WriteFile(modelDefinitionFilePath, modelYAML, 0600); e != nil {
+				log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error loading model: %s")
 				err = errors.Join(err, e)
-				continue
-			}
-
-			// check if file exists
-			if _, e := os.Stat(modelPath); errors.Is(e, os.ErrNotExist) {
-				e := uri.DownloadFile(modelPath, "", 0, 0, func(fileName, current, total string, percent float64) {
-					utils.DisplayDownloadFunction(fileName, current, total, percent)
-				})
-				if e != nil {
-					log.Error().Err(e).Str("url", url).Str("filepath", modelPath).Msg("error downloading model")
-					err = errors.Join(err, e)
-				}
 			}
 
 			// Check if we have the backend installed
-			if autoloadBackendGalleries && path.Ext(modelPath) == YAML_EXTENSION {
-				if err := installBackend(modelPath); err != nil {
-					log.Error().Err(err).Str("filepath", modelPath).Msg("error installing backend")
+			if autoloadBackendGalleries && path.Ext(modelDefinitionFilePath) == YAML_EXTENSION {
+				if err := installBackend(modelDefinitionFilePath); err != nil {
+					log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error installing backend")
 				}
 			}
-		default:
-			if _, e := os.Stat(url); e == nil {
-				log.Debug().Msgf("[startup] resolved local model: %s", url)
-				// copy to modelPath
-				md5Name := utils.MD5(url)
+		} else {
+			// Check if it's a model gallery, or print a warning
+			e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries)
+			if e != nil && found {
+				log.Error().Err(err).Msgf("[startup] failed installing model '%s'", url)
+				err = errors.Join(err, e)
+			} else if !found {
+				log.Warn().Msgf("[startup] failed resolving model '%s'", url)
 
-				modelYAML, e := os.ReadFile(url)
-				if e != nil {
-					log.Error().Err(e).Str("filepath", url).Msg("error reading model definition")
-					err = errors.Join(err, e)
+				if galleryService == nil {
+					err = errors.Join(err, fmt.Errorf("cannot start autoimporter, not sure how to handle this uri"))
 					continue
 				}
 
-				modelDefinitionFilePath := filepath.Join(systemState.Model.ModelsPath, md5Name) + YAML_EXTENSION
-				if e := os.WriteFile(modelDefinitionFilePath, modelYAML, 0600); e != nil {
-					log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error loading model: %s")
-					err = errors.Join(err, e)
+				// TODO: we should just use the discoverModelConfig here and default to this.
+				modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
+				if discoverErr != nil {
+					err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", err))
+					continue
 				}
 
-				// Check if we have the backend installed
-				if autoloadBackendGalleries && path.Ext(modelDefinitionFilePath) == YAML_EXTENSION {
-					if err := installBackend(modelDefinitionFilePath); err != nil {
-						log.Error().Err(err).Str("filepath", modelDefinitionFilePath).Msg("error installing backend")
-					}
+				uuid, uuidErr := uuid.NewUUID()
+				if uuidErr != nil {
+					err = errors.Join(uuidErr, fmt.Errorf("failed to generate UUID: %w", uuidErr))
+					continue
 				}
-			} else {
-				// Check if it's a model gallery, or print a warning
-				e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries)
-				if e != nil && found {
-					log.Error().Err(err).Msgf("[startup] failed installing model '%s'", url)
-					err = errors.Join(err, e)
-				} else if !found {
-					log.Warn().Msgf("[startup] failed resolving model '%s'", url)
 
-					if galleryService == nil {
-						err = errors.Join(err, fmt.Errorf("cannot start autoimporter, not sure how to handle this uri"))
-						continue
-					}
-
-					// TODO: we should just use the discoverModelConfig here and default to this.
-					modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
-					if discoverErr != nil {
-						err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", err))
-						continue
-					}
-
-					uuid, uuidErr := uuid.NewUUID()
-					if uuidErr != nil {
-						err = errors.Join(uuidErr, fmt.Errorf("failed to generate UUID: %w", uuidErr))
-						continue
-					}
-
-					galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
-						Req: gallery.GalleryModel{
-							Overrides: map[string]interface{}{},
-						},
-						ID:                 uuid.String(),
-						GalleryElementName: modelConfig.Name,
-						GalleryElement:     &modelConfig,
-						BackendGalleries:   backendGalleries,
-					}
-
-					var status *services.GalleryOpStatus
-					// wait for op to finish
-					for {
-						status = galleryService.GetStatus(uuid.String())
-						if status != nil && status.Processed {
-							break
-						}
-						time.Sleep(1 * time.Second)
-					}
-
-					if status.Error != nil {
-						return status.Error
-					}
-
-					log.Info().Msgf("[startup] imported model '%s' from '%s'", modelConfig.Name, url)
+				galleryService.ModelGalleryChannel <- services.GalleryOp[gallery.GalleryModel, gallery.ModelConfig]{
+					Req: gallery.GalleryModel{
+						Overrides: map[string]interface{}{},
+					},
+					ID:                 uuid.String(),
+					GalleryElementName: modelConfig.Name,
+					GalleryElement:     &modelConfig,
+					BackendGalleries:   backendGalleries,
 				}
+
+				var status *services.GalleryOpStatus
+				// wait for op to finish
+				for {
+					status = galleryService.GetStatus(uuid.String())
+					if status != nil && status.Processed {
+						break
+					}
+					time.Sleep(1 * time.Second)
+				}
+
+				if status.Error != nil {
+					return status.Error
+				}
+
+				log.Info().Msgf("[startup] imported model '%s' from '%s'", modelConfig.Name, url)
 			}
 		}
+
 	}
 	return err
 }
