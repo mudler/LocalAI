@@ -513,6 +513,72 @@ var _ = Describe("API test", func() {
 			})
 
 		})
+
+		Context("Importing models from URI", func() {
+			var testYamlFile string
+
+			BeforeEach(func() {
+				// Create a test YAML config file
+				yamlContent := `name: test-import-model
+backend: llama-cpp
+description: Test model imported from file URI
+parameters:
+  model: /path/to/model.gguf
+  temperature: 0.7
+`
+				testYamlFile = filepath.Join(tmpdir, "test-import.yaml")
+				err := os.WriteFile(testYamlFile, []byte(yamlContent), 0644)
+				Expect(err).ToNot(HaveOccurred())
+			})
+
+			It("should import model from file:// URI pointing to local YAML config", func() {
+				importReq := schema.ImportModelRequest{
+					URI:         "file://" + testYamlFile,
+					Preferences: json.RawMessage(`{}`),
+				}
+
+				var response schema.GalleryResponse
+				err := postRequestResponseJSON("http://127.0.0.1:9090/models/import-uri", &importReq, &response)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(response.ID).ToNot(BeEmpty())
+
+				uuid := response.ID
+				resp := map[string]interface{}{}
+				Eventually(func() bool {
+					response := getModelStatus("http://127.0.0.1:9090/models/jobs/" + uuid)
+					resp = response
+					return response["processed"].(bool)
+				}, "360s", "10s").Should(Equal(true))
+
+				// Check that the model was imported successfully
+				Expect(resp["message"]).ToNot(ContainSubstring("error"))
+				Expect(resp["error"]).To(BeNil())
+
+				// Verify the model config file was created
+				dat, err := os.ReadFile(filepath.Join(modelDir, "test-import-model.yaml"))
+				Expect(err).ToNot(HaveOccurred())
+
+				content := map[string]interface{}{}
+				err = yaml.Unmarshal(dat, &content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(content["name"]).To(Equal("test-import-model"))
+				Expect(content["backend"]).To(Equal("llama-cpp"))
+			})
+
+			It("should return error when file:// URI points to non-existent file", func() {
+				nonExistentFile := filepath.Join(tmpdir, "nonexistent.yaml")
+				importReq := schema.ImportModelRequest{
+					URI:         "file://" + nonExistentFile,
+					Preferences: json.RawMessage(`{}`),
+				}
+
+				var response schema.GalleryResponse
+				err := postRequestResponseJSON("http://127.0.0.1:9090/models/import-uri", &importReq, &response)
+				// The endpoint should return an error immediately
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("failed to discover model config"))
+			})
+		})
 	})
 
 	Context("Model gallery", func() {

@@ -35,16 +35,16 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 			log.Error().Err(err).Msgf("[startup] failed installing model '%s'", url)
 			err = errors.Join(err, e)
 		} else if !found {
-			log.Warn().Msgf("[startup] failed resolving model '%s'", url)
+			log.Debug().Msgf("[startup] model not found in the gallery '%s'", url)
 
 			if galleryService == nil {
-				err = errors.Join(err, fmt.Errorf("cannot start autoimporter, not sure how to handle this uri"))
-				continue
+				return fmt.Errorf("cannot start autoimporter, not sure how to handle this uri")
 			}
 
 			// TODO: we should just use the discoverModelConfig here and default to this.
 			modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
 			if discoverErr != nil {
+				log.Error().Err(discoverErr).Msgf("[startup] failed to discover model config '%s'", url)
 				err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", err))
 				continue
 			}
@@ -76,6 +76,7 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 			}
 
 			if status.Error != nil {
+				log.Error().Err(status.Error).Msgf("[startup] failed to import model '%s' from '%s'", modelConfig.Name, url)
 				return status.Error
 			}
 

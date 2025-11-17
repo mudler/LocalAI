@@ -141,7 +141,7 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 
 	// Get models from galleries
 	for _, gallery := range galleries {
-		galleryModels, err := getGalleryElements[*GalleryModel](gallery, systemState.Model.ModelsPath, func(model *GalleryModel) bool {
+		galleryModels, err := getGalleryElements(gallery, systemState.Model.ModelsPath, func(model *GalleryModel) bool {
 			if _, err := os.Stat(filepath.Join(systemState.Model.ModelsPath, fmt.Sprintf("%s.yaml", model.GetName()))); err == nil {
 				return true
 			}
@@ -213,7 +213,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		if yamlErr, ok := err.(*yaml.TypeError); ok {
 			log.Debug().Msgf("YAML errors: %s\n\nwreckage of models: %+v", strings.Join(yamlErr.Errors, "\n"), models)
 		}
-		return models, err
+		return models, fmt.Errorf("failed to read gallery elements: %w", err)
 	}
 
 	// Add gallery to models

@@ -57,10 +57,9 @@ func (uri URI) ReadWithCallback(basePath string, f func(url string, i []byte) er
 func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath string, authorization string, f func(url string, i []byte) error) error {
 	url := uri.ResolveURL()
 
-	if strings.HasPrefix(url, LocalPrefix) {
-		rawURL := strings.TrimPrefix(url, LocalPrefix)
+	if strings.HasPrefix(string(uri), LocalPrefix) {
 		// checks if the file is symbolic, and resolve if so - otherwise, this function returns the path unmodified.
-		resolvedFile, err := filepath.EvalSymlinks(rawURL)
+		resolvedFile, err := filepath.EvalSymlinks(url)
 		if err != nil {
 			return err
 		}
