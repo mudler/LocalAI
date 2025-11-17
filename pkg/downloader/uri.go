@@ -314,11 +314,6 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
 	}
 
-	// We need to check if url looks like an URL or bail out
-	if !URI(url).LooksLikeHTTPURL() {
-		return fmt.Errorf("url %q does not look like an HTTP URL", url)
-	}
-
 	// Check for cancellation before starting
 	select {
 	case <-ctx.Done():
@@ -353,12 +348,12 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			log.Debug().Msgf("File %q already exists. Skipping download", filePath)
 			return nil
 		}
-	} else if !os.IsNotExist(err) {
+	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
 		// Error occurred while checking file existence
-		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
+		return fmt.Errorf("file %s does not exist (%v) and %s does not look like an HTTP URL", filePath, err, url)
 	}
 
-	log.Info().Msgf("Downloading %q", url)
+	log.Info().Msgf("Downloading %s", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -368,7 +363,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// save partial download to dedicated file
 	tmpFilePath := filePath + ".partial"
 	tmpFileInfo, err := os.Stat(tmpFilePath)
-	if err == nil {
+	if err == nil && uri.LooksLikeHTTPURL() {
 		support, err := uri.checkSeverSupportsRangeHeader()
 		if err != nil {
 			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
