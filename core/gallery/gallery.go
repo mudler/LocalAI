@@ -19,7 +19,7 @@ import (
 func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 	var config T
 	uri := downloader.URI(url)
-	err := uri.DownloadWithCallback(basePath, func(url string, d []byte) error {
+	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -32,7 +32,7 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, basePath string) (T, error) {
 	var config T
 	uri := downloader.URI(url)
-	err := uri.DownloadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
+	err := uri.ReadWithAuthorizationAndCallback(ctx, basePath, "", func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
@@ -182,7 +182,7 @@ func AvailableBackends(galleries []config.Gallery, systemState *system.SystemSta
 func findGalleryURLFromReferenceURL(url string, basePath string) (string, error) {
 	var refFile string
 	uri := downloader.URI(url)
-	err := uri.DownloadWithCallback(basePath, func(url string, d []byte) error {
+	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
 		refFile = string(d)
 		if len(refFile) == 0 {
 			return fmt.Errorf("invalid reference file at url %s: %s", url, d)
@@ -206,7 +206,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 	}
 	uri := downloader.URI(gallery.URL)
 
-	err := uri.DownloadWithCallback(basePath, func(url string, d []byte) error {
+	err := uri.ReadWithCallback(basePath, func(url string, d []byte) error {
 		return yaml.Unmarshal(d, &models)
 	})
 	if err != nil {

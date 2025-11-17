@@ -19,6 +19,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/xio"
 	"github.com/rs/zerolog/log"
 )
 
@@ -49,11 +50,11 @@ func loadConfig() string {
 	return HF_ENDPOINT
 }
 
-func (uri URI) DownloadWithCallback(basePath string, f func(url string, i []byte) error) error {
-	return uri.DownloadWithAuthorizationAndCallback(context.Background(), basePath, "", f)
+func (uri URI) ReadWithCallback(basePath string, f func(url string, i []byte) error) error {
+	return uri.ReadWithAuthorizationAndCallback(context.Background(), basePath, "", f)
 }
 
-func (uri URI) DownloadWithAuthorizationAndCallback(ctx context.Context, basePath string, authorization string, f func(url string, i []byte) error) error {
+func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath string, authorization string, f func(url string, i []byte) error) error {
 	url := uri.ResolveURL()
 
 	if strings.HasPrefix(url, LocalPrefix) {
@@ -175,6 +176,8 @@ func (s URI) LooksLikeOCIFile() bool {
 
 func (s URI) ResolveURL() string {
 	switch {
+	case strings.HasPrefix(string(s), LocalPrefix):
+		return strings.TrimPrefix(string(s), LocalPrefix)
 	case strings.HasPrefix(string(s), GithubURI2):
 		repository := strings.Replace(string(s), GithubURI2, "", 1)
 
@@ -383,22 +386,40 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
 	}
 
-	// Start the request
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		// Check if error is due to context cancellation
-		if errors.Is(err, context.Canceled) {
-			// Clean up partial file on cancellation
-			removePartialFile(tmpFilePath)
-			return err
+	var source io.ReadCloser
+	var contentLength int64
+	if strings.HasPrefix(string(uri), LocalPrefix) {
+		file, err := os.Open(uri.ResolveURL())
+		if err != nil {
+			return fmt.Errorf("failed to open file %q: %v", uri.ResolveURL(), err)
 		}
-		return fmt.Errorf("failed to download file %q: %v", filePath, err)
-	}
-	defer resp.Body.Close()
+		l, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to get file size %q: %v", uri.ResolveURL(), err)
+		}
+		source = file
+		contentLength = l.Size()
+	} else {
+		// Start the request
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			// Check if error is due to context cancellation
+			if errors.Is(err, context.Canceled) {
+				// Clean up partial file on cancellation
+				removePartialFile(tmpFilePath)
+				return err
+			}
+			return fmt.Errorf("failed to download file %q: %v", filePath, err)
+		}
+		//defer resp.Body.Close()
 
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+		}
+		source = resp.Body
+		contentLength = resp.ContentLength
 	}
+	defer source.Close()
 
 	// Create parent directory
 	err = os.MkdirAll(filepath.Dir(filePath), 0750)
@@ -418,14 +439,15 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	}
 	progress := &progressWriter{
 		fileName:       tmpFilePath,
-		total:          resp.ContentLength,
+		total:          contentLength,
 		hash:           hash,
 		fileNo:         fileN,
 		totalFiles:     total,
 		downloadStatus: downloadStatus,
 		ctx:            ctx,
 	}
-	_, err = io.Copy(io.MultiWriter(outFile, progress), resp.Body)
+
+	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
 	if err != nil {
 		// Check if error is due to context cancellation
 		if errors.Is(err, context.Canceled) {
