@@ -1230,6 +1230,9 @@ const docTemplate = `{
                 "index": {
                     "type": "integer"
                 },
+                "logprobs": {
+                    "$ref": "#/definitions/schema.Logprobs"
+                },
                 "message": {
                     "$ref": "#/definitions/schema.Message"
                 },
@@ -1419,6 +1422,52 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.LogprobContent": {
+            "type": "object",
+            "properties": {
+                "bytes": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "logprob": {
+                    "type": "number"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "top_logprobs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.LogprobContent"
+                    }
+                }
+            }
+        },
+        "schema.Logprobs": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.LogprobContent"
+                    }
+                }
+            }
+        },
+        "schema.LogprobsValue": {
+            "type": "object",
+            "properties": {
+                "enabled": {
+                    "description": "true if logprobs should be returned",
+                    "type": "boolean"
+                }
+            }
+        },
         "schema.Message": {
             "type": "object",
             "properties": {
@@ -1573,6 +1622,22 @@ const docTemplate = `{
                     "description": "Also part of the OpenAI official spec",
                     "type": "string"
                 },
+                "logit_bias": {
+                    "description": "Map of token IDs to bias values (-100 to 100)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "number",
+                        "format": "float64"
+                    }
+                },
+                "logprobs": {
+                    "description": "OpenAI API logprobs parameters\nlogprobs: boolean - if true, returns log probabilities of each output token\ntop_logprobs: integer 0-20 - number of most likely tokens to return at each token position",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/schema.LogprobsValue"
+                        }
+                    ]
+                },
                 "max_tokens": {
                     "type": "integer"
                 },
@@ -1678,6 +1743,10 @@ const docTemplate = `{
                     }
                 },
                 "top_k": {
+                    "type": "integer"
+                },
+                "top_logprobs": {
+                    "description": "Number of top logprobs per token (0-20)",
                     "type": "integer"
                 },
                 "top_p": {
