@@ -8,7 +8,7 @@ require (
 	dario.cat/mergo v1.0.2
 	fyne.io/fyne/v2 v2.7.1
 	github.com/Masterminds/sprig/v3 v3.3.0
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.13.0
 	github.com/charmbracelet/glamour v0.10.0
 	github.com/containerd/containerd v1.7.29
 	github.com/ebitengine/purego v0.9.1
