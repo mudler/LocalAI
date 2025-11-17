@@ -51,6 +51,11 @@
                         <span class="font-semibold text-emerald-300" x-text="availableBackends"></span>
                         <span class="text-[#94A3B8] ml-1">backends available</span>
                     </div>
+                    <a href="/manage" class="flex items-center bg-[#101827] hover:bg-[#1E293B] rounded-lg px-4 py-2 transition-colors border border-[#8B5CF6]/30 hover:border-[#8B5CF6]/50">
+                        <div class="w-2 h-2 bg-cyan-400 rounded-full mr-2"></div>
+                        <span class="font-semibold text-cyan-300" x-text="installedBackends"></span>
+                        <span class="text-[#94A3B8] ml-1">installed</span>
+                    </a>
                     <a href="https://localai.io/backends/" target="_blank" 
                        class="inline-flex items-center bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
                         <i class="fas fa-info-circle mr-2"></i>
@@ -488,6 +493,7 @@ function backendsGallery() {
         currentPage: 1,
         totalPages: 1,
         availableBackends: 0,
+        installedBackends: 0,
         selectedBackend: null,
         jobProgress: {},
         notifications: [],
@@ -526,6 +532,7 @@ function backendsGallery() {
                 this.currentPage = data.currentPage || 1;
                 this.totalPages = data.totalPages || 1;
                 this.availableBackends = data.availableBackends || 0;
+                this.installedBackends = data.installedBackends || 0;
             } catch (error) {
                 console.error('Error fetching backends:', error);
             } finally {

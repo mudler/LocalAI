@@ -177,6 +177,9 @@ var images = [];
 var audios = [];
 var fileContents = [];
 var currentFileNames = [];
+// Track file names to data URLs for proper removal
+var imageFileMap = new Map(); // fileName -> dataURL
+var audioFileMap = new Map(); // fileName -> dataURL
 
 async function extractTextFromPDF(pdfData) {
   try {
@@ -197,35 +200,119 @@ async function extractTextFromPDF(pdfData) {
   }
 }
 
+// Global function to handle file selection and update Alpine.js state
+window.handleFileSelection = function(event, fileType) {
+  if (!event.target.files || !event.target.files.length) return;
+  
+  // Get the Alpine.js component - find the parent div with x-data containing attachedFiles
+  let inputContainer = event.target.closest('[x-data*="attachedFiles"]');
+  if (!inputContainer && window.Alpine) {
+    // Fallback: find any element with attachedFiles in x-data
+    inputContainer = document.querySelector('[x-data*="attachedFiles"]');
+  }
+  if (!inputContainer || !window.Alpine) return;
+  
+  const alpineData = Alpine.$data(inputContainer);
+  if (!alpineData || !alpineData.attachedFiles) return;
+  
+  Array.from(event.target.files).forEach(file => {
+    // Check if file already exists
+    const exists = alpineData.attachedFiles.some(f => f.name === file.name && f.type === fileType);
+    if (!exists) {
+      alpineData.attachedFiles.push({ name: file.name, type: fileType });
+      
+      // Process the file based on type
+      if (fileType === 'image') {
+        readInputImageFile(file);
+      } else if (fileType === 'audio') {
+        readInputAudioFile(file);
+      } else if (fileType === 'file') {
+        readInputFileFile(file);
+      }
+    }
+  });
+};
+
+// Global function to remove file from input
+window.removeFileFromInput = function(fileType, fileName) {
+  // Remove from arrays
+  if (fileType === 'image') {
+    // Remove from images array using the mapping
+    const dataURL = imageFileMap.get(fileName);
+    if (dataURL) {
+      const imageIndex = images.indexOf(dataURL);
+      if (imageIndex !== -1) {
+        images.splice(imageIndex, 1);
+      }
+      imageFileMap.delete(fileName);
+    }
+  } else if (fileType === 'audio') {
+    // Remove from audios array using the mapping
+    const dataURL = audioFileMap.get(fileName);
+    if (dataURL) {
+      const audioIndex = audios.indexOf(dataURL);
+      if (audioIndex !== -1) {
+        audios.splice(audioIndex, 1);
+      }
+      audioFileMap.delete(fileName);
+    }
+  } else if (fileType === 'file') {
+    // Remove from fileContents and currentFileNames
+    const fileIndex = currentFileNames.indexOf(fileName);
+    if (fileIndex !== -1) {
+      currentFileNames.splice(fileIndex, 1);
+      fileContents.splice(fileIndex, 1);
+    }
+  }
+  
+  // Also remove from the actual input element
+  const inputId = fileType === 'image' ? 'input_image' : 
+                  fileType === 'audio' ? 'input_audio' : 'input_file';
+  const input = document.getElementById(inputId);
+  if (input && input.files) {
+    const dt = new DataTransfer();
+    Array.from(input.files).forEach(file => {
+      if (file.name !== fileName) {
+        dt.items.add(file);
+      }
+    });
+    input.files = dt.files;
+  }
+};
+
 function readInputFile() {
   if (!this.files || !this.files.length) return;
 
   Array.from(this.files).forEach(file => {
-    const FR = new FileReader();
-    currentFileNames.push(file.name);
-    const fileExtension = file.name.split('.').pop().toLowerCase();
-    
-    FR.addEventListener("load", async function(evt) {
-      if (fileExtension === 'pdf') {
-        try {
-          const content = await extractTextFromPDF(evt.target.result);
-          fileContents.push({ name: file.name, content: content });
-        } catch (error) {
-          console.error('Error processing PDF:', error);
-          fileContents.push({ name: file.name, content: "Error processing PDF file" });
-        }
-      } else {
-        // For text and markdown files
-        fileContents.push({ name: file.name, content: evt.target.result });
-      }
-    });
+    readInputFileFile(file);
+  });
+}
 
+function readInputFileFile(file) {
+  const FR = new FileReader();
+  currentFileNames.push(file.name);
+  const fileExtension = file.name.split('.').pop().toLowerCase();
+  
+  FR.addEventListener("load", async function(evt) {
     if (fileExtension === 'pdf') {
-      FR.readAsArrayBuffer(file);
+      try {
+        const content = await extractTextFromPDF(evt.target.result);
+        fileContents.push({ name: file.name, content: content });
+      } catch (error) {
+        console.error('Error processing PDF:', error);
+        fileContents.push({ name: file.name, content: "Error processing PDF file" });
+      }
     } else {
-      FR.readAsText(file);
+      // For text and markdown files
+      fileContents.push({ name: file.name, content: evt.target.result });
     }
   });
+
+  if (fileExtension === 'pdf') {
+    FR.readAsArrayBuffer(file);
+  } else {
+    FR.readAsText(file);
+  }
 }
 
 function submitPrompt(event) {
@@ -303,34 +390,64 @@ function processAndSendMessage(inputValue) {
   // Reset file contents and names after sending
   fileContents = [];
   currentFileNames = [];
+  images = [];
+  audios = [];
+  imageFileMap.clear();
+  audioFileMap.clear();
+  
+  // Clear Alpine.js attachedFiles array
+  const inputContainer = document.querySelector('[x-data*="attachedFiles"]');
+  if (inputContainer && window.Alpine) {
+    const alpineData = Alpine.$data(inputContainer);
+    if (alpineData && alpineData.attachedFiles) {
+      alpineData.attachedFiles = [];
+    }
+  }
+  
+  // Clear file inputs
+  document.getElementById("input_image").value = null;
+  document.getElementById("input_audio").value = null;
+  document.getElementById("input_file").value = null;
 }
 
 function readInputImage() {
   if (!this.files || !this.files.length) return;
 
   Array.from(this.files).forEach(file => {
-    const FR = new FileReader();
-
-    FR.addEventListener("load", function(evt) {
-      images.push(evt.target.result);
-    });
-
-    FR.readAsDataURL(file);
+    readInputImageFile(file);
   });
+}
+
+function readInputImageFile(file) {
+  const FR = new FileReader();
+
+  FR.addEventListener("load", function(evt) {
+    const dataURL = evt.target.result;
+    images.push(dataURL);
+    imageFileMap.set(file.name, dataURL);
+  });
+
+  FR.readAsDataURL(file);
 }
 
 function readInputAudio() {
   if (!this.files || !this.files.length) return;
 
   Array.from(this.files).forEach(file => {
-    const FR = new FileReader();
-
-    FR.addEventListener("load", function(evt) {
-      audios.push(evt.target.result);
-    });
-
-    FR.readAsDataURL(file);
+    readInputAudioFile(file);
   });
+}
+
+function readInputAudioFile(file) {
+  const FR = new FileReader();
+
+  FR.addEventListener("load", function(evt) {
+    const dataURL = evt.target.result;
+    audios.push(dataURL);
+    audioFileMap.set(file.name, dataURL);
+  });
+
+  FR.readAsDataURL(file);
 }
 
 async function promptGPT(systemPrompt, input) {
@@ -395,13 +512,8 @@ async function promptGPT(systemPrompt, input) {
     }
   });
 
-  // reset the form and the files
-  images = [];
-  audios = [];
-  document.getElementById("input_image").value = null;
-  document.getElementById("input_audio").value = null;
-  document.getElementById("input_file").value = null;
-  document.getElementById("fileName").innerHTML = "";
+  // reset the form and the files (already done in processAndSendMessage)
+  // images, audios, and file inputs are cleared after sending
 
   // Choose endpoint based on MCP mode
   const endpoint = mcpMode ? "v1/mcp/chat/completions" : "v1/chat/completions";

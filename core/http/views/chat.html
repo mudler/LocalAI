@@ -726,8 +726,26 @@ SOFTWARE.
 
 
           <!-- Chat Input -->
-          <div class="p-4 border-t border-[#1E293B]" x-data="{ inputValue: '', shiftPressed: false, fileName: '' }">
+          <div class="p-4 border-t border-[#1E293B]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
             <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt" class="max-w-3xl mx-auto">
+              <!-- Attachment Tags - Show above input when files are attached -->
+              <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
+                <template x-for="(file, index) in attachedFiles" :key="index">
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[#38BDF8]/20 border border-[#38BDF8]/40 text-[#E5E7EB]">
+                    <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[#38BDF8]"></i>
+                    <span x-text="file.name" class="max-w-[200px] truncate"></span>
+                    <button 
+                      type="button"
+                      @click="attachedFiles.splice(index, 1); removeFileFromInput(file.type, file.name)"
+                      class="ml-1 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors"
+                      title="Remove attachment"
+                    >
+                      <i class="fa-solid fa-times text-xs"></i>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
               <!-- Token Usage and Context Window - Compact above input -->
               <div class="mb-3 flex items-center justify-between gap-4 text-xs">
                 <!-- Token Usage -->
@@ -792,7 +810,6 @@ SOFTWARE.
                   @keydown.enter.prevent="if (!shiftPressed) { submitPrompt($event); }"
                   rows="2"
                 ></textarea>
-                <span x-text="fileName" id="fileName" class="absolute right-16 top-3 text-[#94A3B8] text-xs mr-2"></span>
                 <button
                   type="button"
                   onclick="document.getElementById('input_image').click()"
@@ -845,7 +862,7 @@ SOFTWARE.
               multiple
               accept="image/*"
               style="display: none;"
-              @change="fileName = $event.target.files.length + ' image(s) selected'"
+              @change="handleFileSelection($event, 'image')"
             />
             <input
               id="input_audio"
@@ -853,7 +870,7 @@ SOFTWARE.
               multiple
               accept="audio/*"
               style="display: none;"
-              @change="fileName = $event.target.files.length + ' audio file(s) selected'"
+              @change="handleFileSelection($event, 'audio')"
             />
             <input
               id="input_file"
@@ -861,7 +878,7 @@ SOFTWARE.
               multiple
               accept=".txt,.md,.pdf"
               style="display: none;"
-              @change="fileName = $event.target.files.length + ' file(s) selected'"
+              @change="handleFileSelection($event, 'file')"
             />
           </div>
           </form>
