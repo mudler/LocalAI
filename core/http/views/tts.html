@@ -34,15 +34,14 @@
                 <div class="border-b border-[#1E293B] p-5">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <!-- Model Selection -->
-                        <div class="flex items-center">
+                        <div class="flex items-center" x-data="{ link : '{{ if .Model }}tts/{{.Model}}{{ end }}' }">
                             <label for="model-select" class="mr-3 text-[#94A3B8] font-medium">
                                 <i class="fas fa-microphone-lines text-[#8B5CF6] mr-2"></i>Model:
                             </label>
-                            <select 
+                            <select
                                 id="model-select"
-                                x-data="{ link : '' }" 
-                                x-model="link" 
-                                x-init="$watch('link', value => window.location = link)" 
+                                x-model="link"
+                                @change="window.location = link"
                                 class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 rounded-lg shadow-sm p-2.5 appearance-none"
                             >	
                                 <option value="" disabled class="text-[#94A3B8]">Select a model</option>
