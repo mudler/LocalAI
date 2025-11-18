@@ -50,7 +50,7 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 	if err != nil {
 		// maybe not a HF repository
 		// TODO: maybe we can check if the URI is a valid HF repository
-		log.Debug().Str("uri", uri).Msg("Failed to get model details, maybe not a HF repository")
+		log.Debug().Str("uri", uri).Str("hfrepoID", hfrepoID).Msg("Failed to get model details, maybe not a HF repository")
 	} else {
 		log.Debug().Str("uri", uri).Msg("Got model details")
 		log.Debug().Any("details", hfDetails).Msg("Model details")
@@ -110,5 +110,5 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 			break
 		}
 	}
-	return modelConfig, err
+	return modelConfig, nil
 }
