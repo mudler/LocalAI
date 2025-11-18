@@ -135,7 +135,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 		}
 
 		// Validate the configuration
-		if !req.Validate() {
+		if valid, _ := req.Validate(); !valid {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Validation failed",

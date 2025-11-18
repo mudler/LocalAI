@@ -28,7 +28,9 @@ known_usecases:
 			config, err := readModelConfigFromFile(tmp.Name())
 			Expect(err).To(BeNil())
 			Expect(config).ToNot(BeNil())
-			Expect(config.Validate()).To(BeFalse())
+			valid, err := config.Validate()
+			Expect(err).To(HaveOccurred())
+			Expect(valid).To(BeFalse())
 			Expect(config.KnownUsecases).ToNot(BeNil())
 		})
 		It("Test Validate", func() {
@@ -46,7 +48,9 @@ parameters:
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
 			Expect(config.Name).To(Equal("bar-baz"))
-			Expect(config.Validate()).To(BeTrue())
+			valid, err := config.Validate()
+			Expect(err).To(BeNil())
+			Expect(valid).To(BeTrue())
 
 			// download https://raw.githubusercontent.com/mudler/LocalAI/v2.25.0/embedded/models/hermes-2-pro-mistral.yaml
 			httpClient := http.Client{}
@@ -63,7 +67,9 @@ parameters:
 			Expect(config).ToNot(BeNil())
 			// two configs in config.yaml
 			Expect(config.Name).To(Equal("hermes-2-pro-mistral"))
-			Expect(config.Validate()).To(BeTrue())
+			valid, err = config.Validate()
+			Expect(err).To(BeNil())
+			Expect(valid).To(BeTrue())
 		})
 	})
 	It("Properly handles backend usecase matching", func() {

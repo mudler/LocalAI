@@ -148,7 +148,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 		modelConfig.SetDefaults()
 
 		// Validate the configuration
-		if !modelConfig.Validate() {
+		if valid, _ := modelConfig.Validate(); !valid {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Invalid configuration",

@@ -259,8 +259,8 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
 		}
 
-		if !modelConfig.Validate() {
-			return nil, fmt.Errorf("failed to validate updated config YAML")
+		if valid, err := modelConfig.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
 
 		err = os.WriteFile(configFilePath, updatedConfigYAML, 0600)

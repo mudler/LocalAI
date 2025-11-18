@@ -169,7 +169,7 @@ func (bcl *ModelConfigLoader) LoadMultipleModelConfigsSingleFile(file string, op
 	}
 
 	for _, cc := range c {
-		if cc.Validate() {
+		if valid, _ := cc.Validate(); valid {
 			bcl.configs[cc.Name] = *cc
 		}
 	}
@@ -184,7 +184,7 @@ func (bcl *ModelConfigLoader) ReadModelConfig(file string, opts ...ConfigLoaderO
 		return fmt.Errorf("ReadModelConfig cannot read config file %q: %w", file, err)
 	}
 
-	if c.Validate() {
+	if valid, _ := c.Validate(); valid {
 		bcl.configs[c.Name] = *c
 	} else {
 		return fmt.Errorf("config is not valid")
@@ -362,7 +362,7 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 			log.Error().Err(err).Str("File Name", file.Name()).Msgf("LoadModelConfigsFromPath cannot read config file")
 			continue
 		}
-		if c.Validate() {
+		if valid, _ := c.Validate(); valid {
 			bcl.configs[c.Name] = *c
 		} else {
 			log.Error().Err(err).Str("Name", c.Name).Msgf("config is not valid")

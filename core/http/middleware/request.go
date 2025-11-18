@@ -475,7 +475,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		}
 	}
 
-	if config.Validate() {
+	if valid, _ := config.Validate(); valid {
 		return nil
 	}
 	return fmt.Errorf("unable to validate configuration after merging")
