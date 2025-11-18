@@ -323,6 +323,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// Check if the file already exists
 	_, err := os.Stat(filePath)
 	if err == nil {
+		log.Debug().Str("filePath", filePath).Msg("[downloader] File already exists")
 		// File exists, check SHA
 		if sha != "" {
 			// Verify SHA
