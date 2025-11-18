@@ -279,10 +279,22 @@
         <!-- Backends Section -->
         <div class="mt-8">
             <div class="mb-6">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-1 flex items-center">
-                    <i class="fas fa-cogs mr-2 text-[#8B5CF6] text-sm"></i>
-                    Installed Backends
-                </h2>
+                <div class="flex items-center justify-between mb-1">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] flex items-center">
+                        <i class="fas fa-cogs mr-2 text-[#8B5CF6] text-sm"></i>
+                        Installed Backends
+                    </h2>
+                    {{ if gt (len .InstalledBackends) 0 }}
+                    <button
+                        @click="reinstallAllBackends()"
+                        :disabled="reinstallingAll"
+                        class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/80 disabled:opacity-50 disabled:cursor-not-allowed text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+                        title="Reinstall all backends">
+                        <i class="fas fa-arrow-rotate-right mr-1.5 text-[10px]" :class="reinstallingAll ? 'fa-spin' : ''"></i>
+                        <span x-text="reinstallingAll ? 'Reinstalling...' : 'Reinstall All'"></span>
+                    </button>
+                    {{ end }}
+                </div>
                 <p class="text-sm text-[#94A3B8] mb-4">
                     <span class="text-[#8B5CF6] font-medium">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
                 </p>
@@ -324,7 +336,7 @@
                     </thead>
                     <tbody>
                         {{ range .InstalledBackends }}
-                        <tr class="hover:bg-[#1E293B]/50 border-b border-[#1E293B] transition-colors">
+                        <tr class="hover:bg-[#1E293B]/50 border-b border-[#1E293B] transition-colors" data-backend-name="{{.Name}}" data-is-system="{{.IsSystem}}">
                             <!-- Name Column -->
                             <td class="p-2">
                                 <div class="flex items-center gap-2">
@@ -379,6 +391,13 @@
                                 <div class="flex items-center justify-end gap-1">
                                     {{ if not .IsSystem }}
                                     <button
+                                        @click="reinstallBackend('{{.Name}}')"
+                                        :disabled="reinstallingBackends['{{.Name}}']"
+                                        class="text-[#38BDF8]/60 hover:text-[#38BDF8] hover:bg-[#38BDF8]/10 disabled:opacity-50 disabled:cursor-not-allowed rounded p-1 transition-colors"
+                                        title="Reinstall {{.Name}}">
+                                        <i class="fas fa-arrow-rotate-right text-xs" :class="reinstallingBackends['{{.Name}}'] ? 'fa-spin' : ''"></i>
+                                    </button>
+                                    <button
                                         @click="deleteBackend('{{.Name}}')"
                                         class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
                                         title="Delete {{.Name}}">
@@ -406,9 +425,13 @@
 function indexDashboard() {
     return {
         notifications: [],
+        reinstallingBackends: {},
+        reinstallingAll: false,
+        backendJobs: {},
         
         init() {
-            // Initialize component
+            // Poll for job progress every 600ms
+            setInterval(() => this.pollJobs(), 600);
         },
         
         addNotification(message, type = 'success') {
@@ -420,6 +443,137 @@ function indexDashboard() {
         
         dismissNotification(id) {
             this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        async reinstallBackend(backendName) {
+            if (this.reinstallingBackends[backendName]) {
+                return; // Already reinstalling
+            }
+            
+            try {
+                this.reinstallingBackends[backendName] = true;
+                const response = await fetch(`/api/backends/install/${encodeURIComponent(backendName)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.jobID) {
+                    this.backendJobs[backendName] = data.jobID;
+                    this.addNotification(`Reinstalling backend "${backendName}"...`, 'success');
+                } else {
+                    this.reinstallingBackends[backendName] = false;
+                    this.addNotification(`Failed to start reinstall: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error reinstalling backend:', error);
+                this.reinstallingBackends[backendName] = false;
+                this.addNotification(`Failed to reinstall backend: ${error.message}`, 'error');
+            }
+        },
+        
+        async reinstallAllBackends() {
+            if (this.reinstallingAll) {
+                return; // Already reinstalling
+            }
+            
+            if (!confirm('Are you sure you want to reinstall all backends? This may take some time.')) {
+                return;
+            }
+            
+            this.reinstallingAll = true;
+            
+            // Get all non-system backends from the page using data attributes
+            const backendRows = document.querySelectorAll('tr[data-backend-name]');
+            const backendsToReinstall = [];
+            
+            backendRows.forEach(row => {
+                const backendName = row.getAttribute('data-backend-name');
+                const isSystem = row.getAttribute('data-is-system') === 'true';
+                if (backendName && !isSystem && !this.reinstallingBackends[backendName]) {
+                    backendsToReinstall.push(backendName);
+                }
+            });
+            
+            if (backendsToReinstall.length === 0) {
+                this.reinstallingAll = false;
+                this.addNotification('No backends available to reinstall', 'error');
+                return;
+            }
+            
+            this.addNotification(`Starting reinstall of ${backendsToReinstall.length} backend(s)...`, 'success');
+            
+            // Reinstall all backends sequentially to avoid overwhelming the system
+            for (const backendName of backendsToReinstall) {
+                await this.reinstallBackend(backendName);
+                // Small delay between installations
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Don't set reinstallingAll to false here - let pollJobs handle it when all jobs complete
+            // This allows the UI to show the batch operation is in progress
+        },
+        
+        async pollJobs() {
+            for (const [backendName, jobID] of Object.entries(this.backendJobs)) {
+                try {
+                    const response = await fetch(`/api/backends/job/${jobID}`);
+                    const jobData = await response.json();
+                    
+                    if (jobData.completed) {
+                        delete this.backendJobs[backendName];
+                        this.reinstallingBackends[backendName] = false;
+                        this.addNotification(`Backend "${backendName}" reinstalled successfully!`, 'success');
+                        
+                        // Only reload if not in batch mode and no other jobs are running
+                        if (!this.reinstallingAll && Object.keys(this.backendJobs).length === 0) {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        }
+                    }
+                    
+                    if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
+                        delete this.backendJobs[backendName];
+                        this.reinstallingBackends[backendName] = false;
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.error && typeof jobData.error === 'object') {
+                            const errorKeys = Object.keys(jobData.error);
+                            if (errorKeys.length > 0) {
+                                errorMessage = jobData.error.message || jobData.error.error || jobData.error.Error || JSON.stringify(jobData.error);
+                            } else {
+                                errorMessage = jobData.message || 'Unknown error';
+                            }
+                        } else if (jobData.message) {
+                            errorMessage = jobData.message;
+                        }
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.addNotification(`Error reinstalling backend "${backendName}": ${errorMessage}`, 'error');
+                        
+                        // If batch mode and all jobs are done (completed or errored), reload
+                        if (this.reinstallingAll && Object.keys(this.backendJobs).length === 0) {
+                            this.reinstallingAll = false;
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling job:', error);
+                }
+            }
+            
+            // If batch mode completed and no jobs left, reload
+            if (this.reinstallingAll && Object.keys(this.backendJobs).length === 0) {
+                this.reinstallingAll = false;
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
         },
         
         async deleteBackend(backendName) {
