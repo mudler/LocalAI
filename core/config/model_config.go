@@ -534,7 +534,8 @@ const (
 
 func GetAllModelConfigUsecases() map[string]ModelConfigUsecases {
 	return map[string]ModelConfigUsecases{
-		"FLAG_ANY":              FLAG_ANY,
+		// Note: FLAG_ANY is intentionally excluded from this map
+		// because it's 0 and would always match in HasUsecases checks
 		"FLAG_CHAT":             FLAG_CHAT,
 		"FLAG_COMPLETION":       FLAG_COMPLETION,
 		"FLAG_EDIT":             FLAG_EDIT,
@@ -636,7 +637,7 @@ func (c *ModelConfig) GuessUsecases(u ModelConfigUsecases) bool {
 		}
 	}
 	if (u & FLAG_TTS) == FLAG_TTS {
-		ttsBackends := []string{"bark-cpp", "piper", "transformers-musicgen"}
+		ttsBackends := []string{"bark-cpp", "piper", "transformers-musicgen", "kokoro"}
 		if !slices.Contains(ttsBackends, c.Backend) {
 			return false
 		}
