@@ -5,6 +5,7 @@ toc = true
 description = "What is LocalAI?"
 tags = ["Beginners"]
 categories = [""]
+url = "/docs/overview"
 author = "Ettore Di Giacinto"
 icon = "info"
 +++
@@ -50,34 +51,17 @@ LocalAI is more than just a single tool - it's a complete ecosystem:
 
 ## Getting Started
 
+LocalAI can be installed in several ways. **Docker is the recommended installation method** for most users as it provides the easiest setup and works across all platforms.
 
-### macOS Download
+### Recommended: Docker Installation
 
-You can use the DMG application for Mac:
-
-<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
-  <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
-</a>
-
-> Note: the DMGs are not signed by Apple shows as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
-
-## Docker
-
-You can use Docker for a quick start:
+The quickest way to get started with LocalAI is using Docker:
 
 ```bash
-docker run -p 8080:8080 --name local-ai -ti localai/localai:latest-aio-cpu
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
-For more detailed installation options and configurations, see our [Getting Started guide](/basics/getting_started/).
-
-## One-liner
-
-The fastest way to get started is with our one-line installer (Linux):
-
-```bash
-curl https://localai.io/install.sh | sh
-```
+For complete installation instructions including Docker, macOS, Linux, Kubernetes, and building from source, see the [Installation guide](/installation/).
 
 ## Key Features
 
@@ -103,7 +87,7 @@ LocalAI is a community-driven project. You can:
 
 Ready to dive in? Here are some recommended next steps:
 
-1. [Install LocalAI](/basics/getting_started/)
+1. **[Install LocalAI](/installation/)** - Start with [Docker installation](/installation/docker/) (recommended) or choose another method
 2. [Explore available models](https://models.localai.io)
 3. [Model compatibility](/model-compatibility/)
 4. [Try out examples](https://github.com/mudler/LocalAI-examples)

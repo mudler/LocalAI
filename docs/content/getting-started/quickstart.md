@@ -18,86 +18,19 @@ If you are exposing LocalAI remotely, make sure you protect the API endpoints ad
 
 ## Quickstart
 
-### Using the Bash Installer
+Before you begin, you'll need to install LocalAI. **Docker is the recommended installation method** for most users.
 
-```bash
-curl https://localai.io/install.sh | sh
-```
+### Installation
 
-The bash installer, if docker is not detected, will install automatically as a systemd service.
+Choose the installation method that best suits your needs:
 
-See [Installer]({{% relref "advanced/installer" %}}) for all the supported options
+- **[Docker Installation](/installation/docker/)** (Recommended) - Works on all platforms, easiest setup
+- **[macOS Installation](/installation/macos/)** - Download the DMG application
+- **[Linux Installation](/installation/linux/)** - Use the one-liner script or binaries
+- **[Kubernetes Installation](/installation/kubernetes/)** - Deploy on Kubernetes clusters
+- **[Build from Source](/installation/build/)** - Build LocalAI from source code
 
-### macOS Download
-
-For MacOS a DMG is available:
-
-<a href="https://github.com/mudler/LocalAI/releases/latest/download/LocalAI.dmg">
-  <img src="https://img.shields.io/badge/Download-macOS-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download LocalAI for macOS"/>
-</a>
-
-> Note: the DMGs are not signed by Apple and shows quarantined after install. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
-
-### Run with docker
-
-{{% notice tip %}}
-**Docker Run vs Docker Start**
-
-- `docker run` creates and starts a new container. If a container with the same name already exists, this command will fail.
-- `docker start` starts an existing container that was previously created with `docker run`.
-
-If you've already run LocalAI before and want to start it again, use: `docker start -i local-ai`
- {{% /notice %}}
-
-The following commands will automatically start with a web interface and a Rest API on port `8080`.
-
-#### CPU only image:
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
-```
-
-#### NVIDIA GPU Images:
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
-
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
-
-docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/localai:latest-nvidia-l4t-arm64
-```
-
-#### AMD GPU Images (ROCm):
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
-```
-
-#### Intel GPU Images (oneAPI):
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-intel
-```
-
-#### Vulkan GPU Images:
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
-```
-
-#### AIO Images (pre-downloaded models):
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
-
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
-
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
-```
+For detailed installation instructions, see the [Installation guide](/installation/).
 
 ### Downloading models on start
 
@@ -116,47 +49,6 @@ local-ai run oci://localai/phi-2:latest
  {{% /notice %}}
 
 For a full list of options, you can run LocalAI with `--help` or refer to the [Installer Options]({{% relref "advanced/installer" %}}) documentation.
-
-Binaries can also be [manually downloaded]({{% relref "reference/binaries" %}}).
-
-## Using Homebrew on MacOS
-
-{{% notice tip %}}
-The Homebrew formula currently doesn't have the same options than the bash script
- {{% /notice %}}
-
-You can install Homebrew's [LocalAI](https://formulae.brew.sh/formula/localai) with the following command:
-
-```
-brew install localai
-```
-
-
-## Using Container Images or Kubernetes
-
-LocalAI is available as a container image compatible with various container engines such as Docker, Podman, and Kubernetes. Container images are published on [quay.io](https://quay.io/repository/go-skynet/local-ai?tab=tags&tag=latest) and [Docker Hub](https://hub.docker.com/r/localai/localai).
-
-For detailed instructions, see [Using container images]({{% relref "getting-started/container-images" %}}). For Kubernetes deployment, see [Run with Kubernetes]({{% relref "getting-started/kubernetes" %}}).
-
-## Running LocalAI with All-in-One (AIO) Images
-
-> _Already have a model file? Skip to [Run models manually]({{% relref "getting-started/models" %}})_.
-
-LocalAI's All-in-One (AIO) images are pre-configured with a set of models and backends to fully leverage almost all the features of LocalAI. If pre-configured models are not required, you can use the standard [images]({{% relref "getting-started/container-images" %}}).
-
-These images are available for both CPU and GPU environments. AIO images are designed for ease of use and require no additional configuration.
-
-It is recommended to use AIO images if you prefer not to configure the models manually or via the web interface. For running specific models, refer to the [manual method]({{% relref "getting-started/models" %}}).
-
-The AIO images come pre-configured with the following features:
-- Text to Speech (TTS)
-- Speech to Text
-- Function calling
-- Large Language Models (LLM) for text generation
-- Image generation
-- Embedding server
-
-For instructions on using AIO images, see [Using container images]({{% relref "getting-started/container-images#all-in-one-images" %}}).
 
 ## Using LocalAI and the full stack with LocalAGI
 
