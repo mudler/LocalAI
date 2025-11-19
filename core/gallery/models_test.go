@@ -182,5 +182,98 @@ var _ = Describe("Model test", func() {
 			_, err = InstallModel(systemState, "../../../foo", c, map[string]interface{}{}, func(string, string, string, float64) {}, true)
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("does not delete shared model files when one config is deleted", func() {
+			tempdir, err := os.MkdirTemp("", "test")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tempdir)
+
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create a shared model file
+			sharedModelFile := filepath.Join(tempdir, "shared_model.bin")
+			err = os.WriteFile(sharedModelFile, []byte("fake model content"), 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create first model configuration
+			config1 := `name: model1
+model: shared_model.bin`
+			err = os.WriteFile(filepath.Join(tempdir, "model1.yaml"), []byte(config1), 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create first model's gallery file
+			galleryConfig1 := ModelConfig{
+				Name: "model1",
+				Files: []File{
+					{Filename: "shared_model.bin"},
+				},
+			}
+			galleryData1, err := yaml.Marshal(galleryConfig1)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tempdir, "._gallery_model1.yaml"), galleryData1, 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create second model configuration sharing the same model file
+			config2 := `name: model2
+model: shared_model.bin`
+			err = os.WriteFile(filepath.Join(tempdir, "model2.yaml"), []byte(config2), 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Create second model's gallery file
+			galleryConfig2 := ModelConfig{
+				Name: "model2",
+				Files: []File{
+					{Filename: "shared_model.bin"},
+				},
+			}
+			galleryData2, err := yaml.Marshal(galleryConfig2)
+			Expect(err).ToNot(HaveOccurred())
+			err = os.WriteFile(filepath.Join(tempdir, "._gallery_model2.yaml"), galleryData2, 0600)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify both configurations exist
+			_, err = os.Stat(filepath.Join(tempdir, "model1.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			_, err = os.Stat(filepath.Join(tempdir, "model2.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the shared model file exists
+			_, err = os.Stat(sharedModelFile)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Delete the first model
+			err = DeleteModelFromSystem(systemState, "model1")
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the first configuration is deleted
+			_, err = os.Stat(filepath.Join(tempdir, "model1.yaml"))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
+
+			// Verify the shared model file still exists (not deleted because model2 still uses it)
+			_, err = os.Stat(sharedModelFile)
+			Expect(err).ToNot(HaveOccurred(), "shared model file should not be deleted when used by other configs")
+
+			// Verify the second configuration still exists
+			_, err = os.Stat(filepath.Join(tempdir, "model2.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+
+			// Now delete the second model
+			err = DeleteModelFromSystem(systemState, "model2")
+			Expect(err).ToNot(HaveOccurred())
+
+			// Verify the second configuration is deleted
+			_, err = os.Stat(filepath.Join(tempdir, "model2.yaml"))
+			Expect(err).To(HaveOccurred())
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
+
+			// Verify the shared model file is now deleted (no more references)
+			_, err = os.Stat(sharedModelFile)
+			Expect(err).To(HaveOccurred(), "shared model file should be deleted when no configs reference it")
+			Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
+		})
 	})
 })
