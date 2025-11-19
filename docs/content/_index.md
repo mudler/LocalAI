@@ -9,7 +9,7 @@ type = "home"
 **No cloud, no limits, no compromise.**
 
 {{% notice tip %}}
-**⭐ 33.3k+ stars on GitHub!**
+**[⭐ Star us on GitHub](https://github.com/mudler/LocalAI)** - 33.3k+ stars and growing!
 
 **Drop-in replacement for OpenAI API** - modular suite of tools that work seamlessly together or independently. 
 

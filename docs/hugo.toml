@@ -61,6 +61,12 @@ enableEmoji = true
 
 # Menu shortcuts
 [[languages.en.menu.shortcuts]]
+  name = '<i class="fas fa-fw fa-star"></i> Star us on GitHub'
+  identifier = 'star-github'
+  url = 'https://github.com/mudler/LocalAI'
+  weight = 5
+
+[[languages.en.menu.shortcuts]]
   name = '<i class="fab fa-fw fa-github"></i> GitHub'
   identifier = 'github'
   url = 'https://github.com/mudler/LocalAI'
