@@ -40,7 +40,7 @@ hero:
   ctaButton:
     icon: rocket_launch
     btnText: "Get Started"
-    url: "/basics/getting_started/"
+    url: "/installation/"
   cta2Button:
     icon: code
     btnText: "View on GitHub"
