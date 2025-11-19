@@ -20,6 +20,7 @@ var defaultImporters = []Importer{
 	&MLXImporter{},
 	&VLLMImporter{},
 	&TransformersImporter{},
+	&DiffuserImporter{},
 }
 
 type Details struct {
