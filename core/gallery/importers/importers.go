@@ -2,6 +2,7 @@ package importers
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"strings"
 
@@ -101,14 +102,19 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 		Preferences: preferences,
 	}
 
+	importerMatched := false
 	for _, importer := range defaultImporters {
 		if importer.Match(details) {
+			importerMatched = true
 			modelConfig, err = importer.Import(details)
 			if err != nil {
 				continue
 			}
 			break
 		}
+	}
+	if !importerMatched {
+		return gallery.ModelConfig{}, fmt.Errorf("no importer matched for %s", uri)
 	}
 	return modelConfig, nil
 }
