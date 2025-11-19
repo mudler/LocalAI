@@ -46,7 +46,7 @@ enableEmoji = true
   disableLanguageSwitchingButton = true
   
   # Theme variant - dark/blue style
-  themeVariant = [ 'neon', 'auto' ]
+  themeVariant = [ 'zen-dark' , 'neon', 'auto' ]
   
   # ordersectionsby = 'weight'
 
