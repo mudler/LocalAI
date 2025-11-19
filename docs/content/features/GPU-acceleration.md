@@ -12,7 +12,7 @@ Section under construction
 This section contains instruction on how to use LocalAI with GPU acceleration.
 
 {{% notice icon="⚡" context="warning" %}}
-For acceleration for AMD or Metal HW is still in development, for additional details see the [build]({{%relref "getting-started/build#Acceleration" %}})
+For acceleration for AMD or Metal HW is still in development, for additional details see the [build]({{%relref "installation/build#Acceleration" %}})
  {{% /notice %}}
 
 ## Automatic Backend Detection

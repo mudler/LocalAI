@@ -18,19 +18,17 @@ If you are exposing LocalAI remotely, make sure you protect the API endpoints ad
 
 ## Quickstart
 
-Before you begin, you'll need to install LocalAI. **Docker is the recommended installation method** for most users.
+This guide assumes you have already [installed LocalAI](/installation/). If you haven't installed it yet, see the [Installation guide](/installation/) first.
 
-### Installation
+### Starting LocalAI
 
-Choose the installation method that best suits your needs:
+Once installed, start LocalAI. For Docker installations:
 
-- **[Docker Installation](/installation/docker/)** (Recommended) - Works on all platforms, easiest setup
-- **[macOS Installation](/installation/macos/)** - Download the DMG application
-- **[Linux Installation](/installation/linux/)** - Use the one-liner script or binaries
-- **[Kubernetes Installation](/installation/kubernetes/)** - Deploy on Kubernetes clusters
-- **[Build from Source](/installation/build/)** - Build LocalAI from source code
+```bash
+docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
+```
 
-For detailed installation instructions, see the [Installation guide](/installation/).
+The API will be available at `http://localhost:8080`.
 
 ### Downloading models on start
 
@@ -48,7 +46,7 @@ local-ai run oci://localai/phi-2:latest
 **Automatic Backend Detection**: When you install models from the gallery or YAML files, LocalAI automatically detects your system's GPU capabilities (NVIDIA, AMD, Intel) and downloads the appropriate backend. For advanced configuration options, see [GPU Acceleration]({{% relref "features/gpu-acceleration#automatic-backend-detection" %}}).
  {{% /notice %}}
 
-For a full list of options, you can run LocalAI with `--help` or refer to the [Installer Options]({{% relref "advanced/installer" %}}) documentation.
+For a full list of options, you can run LocalAI with `--help` or refer to the [Linux Installation guide]({{% relref "installation/linux" %}}) for installer configuration options.
 
 ## Using LocalAI and the full stack with LocalAGI
 
@@ -101,9 +99,9 @@ There is much more to explore with LocalAI! You can run any model from Hugging F
 
 Explore additional resources and community contributions:
 
-- [Installer Options]({{% relref "advanced/installer" %}})
+- [Linux Installation Options]({{% relref "installation/linux" %}})
 - [Run from Container images]({{% relref "getting-started/container-images" %}})
 - [Examples to try from the CLI]({{% relref "getting-started/try-it-out" %}})
-- [Build LocalAI and the container image]({{% relref "getting-started/build" %}})
+- [Build LocalAI from source]({{% relref "installation/build" %}})
 - [Run models manually]({{% relref "getting-started/models" %}})
 - [Examples](https://github.com/mudler/LocalAI/tree/master/examples#examples)

@@ -64,8 +64,8 @@ Follow these steps to manually run models using LocalAI:
 3. **Run LocalAI**:
    Choose one of the following methods to run LocalAI:
 
-{{< tabs tabTotal="5" >}}
-{{% tab tabName="Docker" %}}
+{{< tabs >}}
+{{% tab title="Docker" %}}
 
 ```bash
 mkdir models
@@ -109,12 +109,12 @@ curl http://localhost:8080/v1/chat/completions -H "Content-Type: application/jso
 ```
 
 {{% notice note %}}
-- If running on Apple Silicon (ARM), it is **not** recommended to run on Docker due to emulation. Follow the [build instructions]({{% relref "getting-started/build" %}}) to use Metal acceleration for full GPU support.
+- If running on Apple Silicon (ARM), it is **not** recommended to run on Docker due to emulation. Follow the [build instructions]({{% relref "installation/build" %}}) to use Metal acceleration for full GPU support.
 - If you are running on Apple x86_64, you can use Docker without additional gain from building it from source.
  {{% /notice %}}
 
 {{% /tab %}}
-{{% tab tabName="Docker Compose" %}}
+{{% tab title="Docker Compose" %}}
 
 ```bash
 git clone https://github.com/go-skynet/LocalAI
@@ -145,12 +145,12 @@ For other Docker images, please refer to the table in [Getting Started](https://
 Note: If you are on Windows, ensure the project is on the Linux filesystem to avoid slow model loading. For more information, see the [Microsoft Docs](https://learn.microsoft.com/en-us/windows/wsl/filesystems).
 
 {{% /tab %}}
-{{% tab tabName="Kubernetes" %}}
+{{% tab title="Kubernetes" %}}
 
-For Kubernetes deployment, see the [Kubernetes section]({{% relref "getting-started/kubernetes" %}}).
+For Kubernetes deployment, see the [Kubernetes installation guide]({{% relref "installation/kubernetes" %}}).
 
 {{% /tab %}}
-{{% tab tabName="From Binary" %}}
+{{% tab title="From Binary" %}}
 
 LocalAI binary releases are available on [GitHub](https://github.com/go-skynet/LocalAI/releases).
 
@@ -167,9 +167,9 @@ Press "Allow Anyway."
  {{% /notice %}}
 
 {{% /tab %}}
-{{% tab tabName="From Source" %}}
+{{% tab title="From Source" %}}
 
-For instructions on building LocalAI from source, see the [Build Section]({{% relref "getting-started/build" %}}).
+For instructions on building LocalAI from source, see the [Build from Source guide]({{% relref "installation/build" %}}).
 
 {{% /tab %}}
 {{< /tabs >}}

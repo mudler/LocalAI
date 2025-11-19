@@ -7,15 +7,18 @@ icon = "rocket_launch"
 type = "chapter"
 +++
 
-Welcome to LocalAI! This section will help you get up and running with LocalAI.
+Welcome to LocalAI! This section covers everything you need to know **after installation** to start using LocalAI effectively.
 
-## First Steps
+{{% notice tip %}}
+**Haven't installed LocalAI yet?**
 
-Before you can start using LocalAI, you'll need to install it. **Docker is the recommended installation method** for most users.
+See the [Installation guide](/installation/) to install LocalAI first. **Docker is the recommended installation method** for most users.
+{{% /notice %}}
 
-- **[Install LocalAI](/installation/)** - Choose your installation method (Docker recommended)
-- **[Quickstart Guide](quickstart/)** - Get started quickly after installation
-- **[Install and Run Models](models/)** - Learn how to work with AI models
+## What's in This Section
+
+- **[Quickstart Guide](quickstart/)** - Get started quickly with your first API calls and model downloads
+- **[Install and Run Models](models/)** - Learn how to install, configure, and run AI models
+- **[Customize Models](customize-model/)** - Customize model configurations and prompt templates
+- **[Container Images Reference](container-images/)** - Complete reference for available Docker images
 - **[Try It Out](try-it-out/)** - Explore examples and use cases
-
-For detailed installation instructions, see the [Installation guide](/installation/).

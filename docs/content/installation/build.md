@@ -27,8 +27,8 @@ In order to build LocalAI locally, you need the following requirements:
 
 To install the dependencies follow the instructions below:
 
-{{< tabs tabTotal="3"  >}}
-{{% tab tabName="Apple" %}}
+{{< tabs >}}
+{{% tab title="Apple" %}}
 
 Install `xcode` from the App Store
 
@@ -37,7 +37,7 @@ brew install go protobuf protoc-gen-go protoc-gen-go-grpc wget
 ```
 
 {{% /tab %}}
-{{% tab tabName="Debian" %}}
+{{% tab title="Debian" %}}
 
 ```bash
 apt install golang make protobuf-compiler-grpc
@@ -52,7 +52,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f1
 ```
 
 {{% /tab %}}
-{{% tab tabName="From source" %}}
+{{% tab title="From source" %}}
 
 ```bash
 make build

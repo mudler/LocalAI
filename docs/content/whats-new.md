@@ -271,7 +271,7 @@ The former, ggml-based backend has been renamed to `falcon-ggml`.
 
 ### Default pre-compiled binaries
 
-From this release the default behavior of images has changed. Compilation is not triggered on start automatically, to recompile `local-ai` from scratch on start and switch back to the old behavior, you can set `REBUILD=true` in the environment variables. Rebuilding can be necessary if your CPU and/or architecture is old and the pre-compiled binaries are not compatible with your platform. See the [build section]({{%relref "getting-started/build" %}}) for more information.
+From this release the default behavior of images has changed. Compilation is not triggered on start automatically, to recompile `local-ai` from scratch on start and switch back to the old behavior, you can set `REBUILD=true` in the environment variables. Rebuilding can be necessary if your CPU and/or architecture is old and the pre-compiled binaries are not compatible with your platform. See the [build section]({{%relref "installation/build" %}}) for more information.
 
 [Full release changelog](https://github.com/go-skynet/LocalAI/releases/tag/v1.21.0)
 
@@ -352,7 +352,7 @@ We now support a vast variety of models, while being backward compatible with pr
 ### New features
 
 - ✨ Added support for `falcon`-based model families (7b)  ( [mudler](https://github.com/mudler) )
-- ✨ Experimental support for Metal Apple Silicon GPU - ( [mudler](https://github.com/mudler) and thanks to [Soleblaze](https://github.com/Soleblaze) for testing! ). See the [build section]({{%relref "getting-started/build#Acceleration" %}}).
+- ✨ Experimental support for Metal Apple Silicon GPU - ( [mudler](https://github.com/mudler) and thanks to [Soleblaze](https://github.com/Soleblaze) for testing! ). See the [build section]({{%relref "installation/build#Acceleration" %}}).
 - ✨ Support for token stream in the `/v1/completions` endpoint ( [samm81](https://github.com/samm81) )
 - ✨ Added huggingface backend ( [Evilfreelancer](https://github.com/EvilFreelancer) )
 - 📷 Stablediffusion now can output `2048x2048` images size with `esrgan`! ( [mudler](https://github.com/mudler) )

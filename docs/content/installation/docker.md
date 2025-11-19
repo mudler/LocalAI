@@ -30,7 +30,7 @@ docker run -p 8080:8080 --name local-ai -ti localai/localai:latest
 ```
 
 This will:
-- Start LocalAI with pre-configured models
+- Start LocalAI (you'll need to install models separately)
 - Make the API available at `http://localhost:8080`
 
 {{% notice tip %}}
@@ -45,38 +45,6 @@ If you've already run LocalAI before and want to start it again, use: `docker st
 ## Image Types
 
 LocalAI provides several image types to suit different needs:
-
-### All-in-One (AIO) Images
-
-**Recommended for beginners** - These images come pre-configured with models and backends, ready to use immediately.
-
-#### CPU Image
-
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
-```
-
-#### GPU Images
-
-**NVIDIA CUDA 12:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-```
-
-**NVIDIA CUDA 11:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
-```
-
-**AMD GPU (ROCm):**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
-```
-
-**Intel GPU:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
-```
 
 ### Standard Images
 
@@ -118,6 +86,38 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 **NVIDIA Jetson (L4T ARM64):**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/localai:latest-nvidia-l4t-arm64
+```
+
+### All-in-One (AIO) Images
+
+**Recommended for beginners** - These images come pre-configured with models and backends, ready to use immediately.
+
+#### CPU Image
+
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+```
+
+#### GPU Images
+
+**NVIDIA CUDA 12:**
+```bash
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
+```
+
+**NVIDIA CUDA 11:**
+```bash
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
+```
+
+**AMD GPU (ROCm):**
+```bash
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
+```
+
+**Intel GPU:**
+```bash
+docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
 ```
 
 ## Using Docker Compose
