@@ -419,8 +419,7 @@ SOFTWARE.
               </template>
 
               {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
+              <!-- Check for MCP configuration independently of gallery config -->
               {{ $modelConfig := "" }}
               {{ range .ModelsConfig }}
                 {{ if eq .Name $model }}
@@ -447,7 +446,6 @@ SOFTWARE.
                   </div>
                 </div>
               </div>
-              {{ end }}
               {{ end }}
               {{ end }}
 
