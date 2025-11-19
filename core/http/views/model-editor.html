@@ -299,6 +299,7 @@
                                 <option value="mlx-vlm">mlx-vlm</option>
                                 <option value="transformers">transformers</option>
                                 <option value="vllm">vllm</option>
+                                <option value="diffusers">diffusers</option>
                             </select>
                             <p class="mt-1 text-xs text-gray-400">
                                 Force a specific backend. Leave empty to auto-detect from URI.
@@ -399,6 +400,71 @@
                                 :disabled="isSubmitting">
                             <p class="mt-1 text-xs text-gray-400">
                                 Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba, MusicgenForConditionalGeneration. Leave empty to use default (AutoModelForCausalLM).
+                            </p>
+                        </div>
+                        
+                        <!-- Pipeline Type (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-stream mr-2"></i>Pipeline Type
+                            </label>
+                            <input 
+                                x-model="commonPreferences.pipeline_type"
+                                type="text" 
+                                placeholder="StableDiffusionPipeline (for diffusers backend)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Pipeline type for diffusers backend. Examples: StableDiffusionPipeline, StableDiffusion3Pipeline, FluxPipeline. Leave empty to use default (StableDiffusionPipeline).
+                            </p>
+                        </div>
+                        
+                        <!-- Scheduler Type (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-clock mr-2"></i>Scheduler Type
+                            </label>
+                            <input 
+                                x-model="commonPreferences.scheduler_type"
+                                type="text" 
+                                placeholder="k_dpmpp_2m (optional)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim. Leave empty to use model default.
+                            </p>
+                        </div>
+                        
+                        <!-- Enable Parameters (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-cogs mr-2"></i>Enable Parameters
+                            </label>
+                            <input 
+                                x-model="commonPreferences.enable_parameters"
+                                type="text" 
+                                placeholder="negative_prompt,num_inference_steps (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Enabled parameters for diffusers backend (comma-separated). Leave empty to use default (negative_prompt,num_inference_steps).
+                            </p>
+                        </div>
+                        
+                        <!-- CUDA (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="flex items-center cursor-pointer">
+                                <input 
+                                    x-model="commonPreferences.cuda"
+                                    type="checkbox" 
+                                    class="w-5 h-5 rounded bg-gray-900/90 border-gray-700/70 text-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all cursor-pointer"
+                                    :disabled="isSubmitting">
+                                <span class="ml-3 text-sm font-medium text-gray-300">
+                                    <i class="fas fa-microchip mr-2"></i>CUDA
+                                </span>
+                            </label>
+                            <p class="mt-1 ml-8 text-xs text-gray-400">
+                                Enable CUDA support for GPU acceleration with diffusers backend.
                             </p>
                         </div>
                     </div>
@@ -658,7 +724,11 @@ function importModel() {
             quantizations: '',
             mmproj_quantizations: '',
             embeddings: false,
-            type: ''
+            type: '',
+            pipeline_type: '',
+            scheduler_type: '',
+            enable_parameters: '',
+            cuda: false
         },
         isSubmitting: false,
         currentJobId: null,
@@ -732,6 +802,18 @@ function importModel() {
                 }
                 if (this.commonPreferences.type && this.commonPreferences.type.trim()) {
                     prefsObj.type = this.commonPreferences.type.trim();
+                }
+                if (this.commonPreferences.pipeline_type && this.commonPreferences.pipeline_type.trim()) {
+                    prefsObj.pipeline_type = this.commonPreferences.pipeline_type.trim();
+                }
+                if (this.commonPreferences.scheduler_type && this.commonPreferences.scheduler_type.trim()) {
+                    prefsObj.scheduler_type = this.commonPreferences.scheduler_type.trim();
+                }
+                if (this.commonPreferences.enable_parameters && this.commonPreferences.enable_parameters.trim()) {
+                    prefsObj.enable_parameters = this.commonPreferences.enable_parameters.trim();
+                }
+                if (this.commonPreferences.cuda) {
+                    prefsObj.cuda = true;
                 }
                 
                 // Add custom preferences (can override common ones)
