@@ -85,7 +85,7 @@ func (g *GalleryService) modelHandler(op *GalleryOp[gallery.GalleryModel, galler
 	}
 
 	// Reload models
-	err = cl.LoadModelConfigsFromPath(systemState.Model.ModelsPath)
+	err = cl.LoadModelConfigsFromPath(systemState.Model.ModelsPath, g.appConfig.ToConfigLoaderOptions()...)
 	if err != nil {
 		return err
 	}

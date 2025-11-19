@@ -185,7 +185,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 			return c.JSON(http.StatusInternalServerError, response)
 		}
 		// Reload configurations
-		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath, appConfig.ToConfigLoaderOptions()...); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Failed to reload configurations: " + err.Error(),
