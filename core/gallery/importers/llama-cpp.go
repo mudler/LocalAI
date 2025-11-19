@@ -70,9 +70,11 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		return gallery.ModelConfig{}, err
 	}
 	preferencesMap := make(map[string]any)
-	err = json.Unmarshal(preferences, &preferencesMap)
-	if err != nil {
-		return gallery.ModelConfig{}, err
+	if len(preferences) > 0 {
+		err = json.Unmarshal(preferences, &preferencesMap)
+		if err != nil {
+			return gallery.ModelConfig{}, err
+		}
 	}
 
 	name, ok := preferencesMap["name"].(string)
