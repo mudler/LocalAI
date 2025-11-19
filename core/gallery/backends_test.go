@@ -563,8 +563,8 @@ var _ = Describe("Gallery Backends", func() {
 			)
 			Expect(err).NotTo(HaveOccurred())
 			err = InstallBackend(context.TODO(), systemState, ml, &backend, nil)
-			Expect(err).To(HaveOccurred()) // Will fail due to invalid URI, but path should be created
 			Expect(newPath).To(BeADirectory())
+			Expect(err).To(HaveOccurred()) // Will fail due to invalid URI, but path should be created
 		})
 
 		It("should overwrite existing backend", func() {

@@ -714,11 +714,33 @@ function modelsGallery() {
                         this.fetchModels();
                     }
 
-                    if (jobData.error) {
+                    if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
                         model.processing = false;
                         delete this.jobProgress[model.jobID];
                         const action = model.isDeletion ? 'deleting' : 'installing';
-                        this.addNotification(`Error ${action} model "${model.name}": ${jobData.error}`, 'error');
+                        // Extract error message - handle both string and object errors
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.error && typeof jobData.error === 'object') {
+                            // Check if error object has any properties
+                            const errorKeys = Object.keys(jobData.error);
+                            if (errorKeys.length > 0) {
+                                // Try common error object properties
+                                errorMessage = jobData.error.message || jobData.error.error || jobData.error.Error || JSON.stringify(jobData.error);
+                            } else {
+                                // Empty object {}, fall back to message field
+                                errorMessage = jobData.message || 'Unknown error';
+                            }
+                        } else if (jobData.message) {
+                            // Use message field if error is not present or is empty
+                            errorMessage = jobData.message;
+                        }
+                        // Remove "error: " prefix if present
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.addNotification(`Error ${action} model "${model.name}": ${errorMessage}`, 'error');
                     }
                 } catch (error) {
                     console.error('Error polling job:', error);

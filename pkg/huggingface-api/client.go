@@ -185,7 +185,7 @@ func (c *Client) ListFiles(repoID string) ([]FileInfo, error) {
 func (c *Client) GetFileSHA(repoID, fileName string) (string, error) {
 	files, err := c.ListFiles(repoID)
 	if err != nil {
-		return "", fmt.Errorf("failed to list files: %w", err)
+		return "", fmt.Errorf("failed to list files while getting SHA: %w", err)
 	}
 
 	for _, file := range files {

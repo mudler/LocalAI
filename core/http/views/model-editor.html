@@ -77,18 +77,197 @@
 
                 <!-- URI Input -->
                 <div>
-                    <label class="block text-sm font-medium text-[#94A3B8] mb-2">
-                        <i class="fas fa-link mr-2"></i>Model URI
-                    </label>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-[#94A3B8]">
+                            <i class="fas fa-link mr-2"></i>Model URI
+                        </label>
+                        <div class="flex gap-2">
+                            <a href="https://huggingface.co/models?search=gguf&sort=trending" 
+                               target="_blank"
+                               class="text-xs px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5">
+                                <i class="fab fa-huggingface"></i>
+                                <span>Search GGUF Models on Hugging Face</span>
+                                <i class="fas fa-external-link-alt text-xs"></i>
+                            </a>
+                            <a href="https://huggingface.co/models?sort=trending" 
+                               target="_blank"
+                               class="text-xs px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5">
+                                <i class="fab fa-huggingface"></i>
+                                <span>Browse All Models on Hugging Face</span>
+                                <i class="fas fa-external-link-alt text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
                     <input 
                         x-model="importUri"
                         type="text" 
-                        placeholder="https://example.com/model.gguf or file:///path/to/model.gguf"
+                        placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
                         class="w-full px-4 py-3 bg-[#101827] border border-[#1E293B] rounded-lg text-[#E5E7EB] focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-colors"
                         :disabled="isSubmitting">
                     <p class="mt-2 text-xs text-[#94A3B8]">
                         Enter the URI or path to the model file you want to import
                     </p>
+                    
+                    <!-- URI Format Guide -->
+                    <div class="mt-4" x-data="{ showGuide: false }">
+                        <button @click="showGuide = !showGuide" 
+                                class="flex items-center gap-2 text-sm text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                            <i class="fas" :class="showGuide ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                            <i class="fas fa-info-circle"></i>
+                            <span>Supported URI Formats</span>
+                        </button>
+                        
+                        <div x-show="showGuide" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             class="mt-3 p-4 bg-[#101827] border border-[#1E293B] rounded-lg space-y-4">
+                            
+                            <!-- HuggingFace -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fab fa-huggingface text-purple-400"></i>
+                                    HuggingFace
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">huggingface://</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[#6B7280] mt-0.5">Standard HuggingFace format</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">hf://</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[#6B7280] mt-0.5">Short HuggingFace format</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">https://huggingface.co/</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[#6B7280] mt-0.5">Full HuggingFace URL</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- HTTP/HTTPS -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-globe text-blue-400"></i>
+                                    HTTP/HTTPS URLs
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">https://</code><span class="text-[#94A3B8]">example.com/model.gguf</span>
+                                            <p class="text-[#6B7280] mt-0.5">Direct download from any HTTPS URL</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Local Files -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-file text-yellow-400"></i>
+                                    Local Files
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">file://</code><span class="text-[#94A3B8]">/path/to/model.gguf</span>
+                                            <p class="text-[#6B7280] mt-0.5">Local file path (absolute)</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#94A3B8]">/path/to/model.yaml</code>
+                                            <p class="text-[#6B7280] mt-0.5">Direct local YAML config file</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- OCI -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-box text-cyan-400"></i>
+                                    OCI Registry
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">oci://</code><span class="text-[#94A3B8]">registry.example.com/model:tag</span>
+                                            <p class="text-[#6B7280] mt-0.5">OCI container registry</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">ocifile://</code><span class="text-[#94A3B8]">/path/to/image.tar</span>
+                                            <p class="text-[#6B7280] mt-0.5">Local OCI tarball file</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Ollama -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-cube text-indigo-400"></i>
+                                    Ollama
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">ollama://</code><span class="text-[#94A3B8]">llama2:7b</span>
+                                            <p class="text-[#6B7280] mt-0.5">Ollama model format</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- YAML Config Files -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-code text-pink-400"></i>
+                                    YAML Configuration Files
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#94A3B8]">https://example.com/model.yaml</code>
+                                            <p class="text-[#6B7280] mt-0.5">Remote YAML config file</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#94A3B8]">file:///path/to/config.yaml</code>
+                                            <p class="text-[#6B7280] mt-0.5">Local YAML config file</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="pt-2 mt-3 border-t border-[#1E293B]">
+                                <p class="text-xs text-[#6B7280] italic">
+                                    <i class="fas fa-lightbulb mr-1.5 text-yellow-400"></i>
+                                    Tip: For HuggingFace models, you can use any of the three formats. The system will automatically detect and download the appropriate model files.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Preferences Section -->
@@ -629,11 +808,33 @@ function importModel() {
                         setTimeout(() => {
                             window.location.reload();
                         }, 2000);
-                    } else if (jobData.error) {
+                    } else if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
                         clearInterval(this.jobPollInterval);
                         this.isSubmitting = false;
                         this.currentJobId = null;
-                        this.showAlert('error', 'Import failed: ' + jobData.error);
+                        // Extract error message - handle both string and object errors
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.error && typeof jobData.error === 'object') {
+                            // Check if error object has any properties
+                            const errorKeys = Object.keys(jobData.error);
+                            if (errorKeys.length > 0) {
+                                // Try common error object properties
+                                errorMessage = jobData.error.message || jobData.error.error || jobData.error.Error || JSON.stringify(jobData.error);
+                            } else {
+                                // Empty object {}, fall back to message field
+                                errorMessage = jobData.message || 'Unknown error';
+                            }
+                        } else if (jobData.message) {
+                            // Use message field if error is not present or is empty
+                            errorMessage = jobData.message;
+                        }
+                        // Remove "error: " prefix if present
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.showAlert('error', 'Import failed: ' + errorMessage);
                     }
                 } catch (error) {
                     console.error('Error polling job status:', error);

@@ -164,7 +164,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed copying: %w", err)
 		}
 	} else {
-		uri := downloader.URI(config.URI)
+		log.Debug().Str("uri", config.URI).Str("backendPath", backendPath).Msg("Downloading backend")
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
 			success := false
 			// Try to download from mirrors
@@ -177,14 +177,25 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				}
 				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					success = true
+					log.Debug().Str("uri", config.URI).Str("backendPath", backendPath).Msg("Downloaded backend")
 					break
 				}
 			}
 
 			if !success {
+				log.Error().Str("uri", config.URI).Str("backendPath", backendPath).Err(err).Msg("Failed to download backend")
 				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 			}
+		} else {
+			log.Debug().Str("uri", config.URI).Str("backendPath", backendPath).Msg("Downloaded backend")
 		}
+	}
+
+	// sanity check - check if runfile is present
+	runFile := filepath.Join(backendPath, runFile)
+	if _, err := os.Stat(runFile); os.IsNotExist(err) {
+		log.Error().Str("runFile", runFile).Msg("Run file not found")
+		return fmt.Errorf("not a valid backend: run file not found %q", runFile)
 	}
 
 	// Create metadata for the backend

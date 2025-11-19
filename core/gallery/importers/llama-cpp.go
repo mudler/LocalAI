@@ -9,7 +9,9 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
+	"github.com/rs/zerolog/log"
 	"go.yaml.in/yaml/v2"
 )
 
@@ -20,19 +22,31 @@ type LlamaCPPImporter struct{}
 func (i *LlamaCPPImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
+		log.Error().Err(err).Msg("failed to marshal preferences")
 		return false
 	}
+
 	preferencesMap := make(map[string]any)
-	err = json.Unmarshal(preferences, &preferencesMap)
-	if err != nil {
-		return false
+
+	if len(preferences) > 0 {
+		err = json.Unmarshal(preferences, &preferencesMap)
+		if err != nil {
+			log.Error().Err(err).Msg("failed to unmarshal preferences")
+			return false
+		}
 	}
+
+	uri := downloader.URI(details.URI)
 
 	if preferencesMap["backend"] == "llama-cpp" {
 		return true
 	}
 
 	if strings.HasSuffix(details.URI, ".gguf") {
+		return true
+	}
+
+	if uri.LooksLikeOCI() {
 		return true
 	}
 
@@ -48,14 +62,19 @@ func (i *LlamaCPPImporter) Match(details Details) bool {
 }
 
 func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) {
+
+	log.Debug().Str("uri", details.URI).Msg("llama.cpp importer matched")
+
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
 		return gallery.ModelConfig{}, err
 	}
 	preferencesMap := make(map[string]any)
-	err = json.Unmarshal(preferences, &preferencesMap)
-	if err != nil {
-		return gallery.ModelConfig{}, err
+	if len(preferences) > 0 {
+		err = json.Unmarshal(preferences, &preferencesMap)
+		if err != nil {
+			return gallery.ModelConfig{}, err
+		}
 	}
 
 	name, ok := preferencesMap["name"].(string)
@@ -108,7 +127,40 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 		Description: description,
 	}
 
-	if strings.HasSuffix(details.URI, ".gguf") {
+	uri := downloader.URI(details.URI)
+
+	switch {
+	case uri.LooksLikeOCI():
+		ociName := strings.TrimPrefix(string(uri), downloader.OCIPrefix)
+		ociName = strings.TrimPrefix(ociName, downloader.OllamaPrefix)
+		ociName = strings.ReplaceAll(ociName, "/", "__")
+		ociName = strings.ReplaceAll(ociName, ":", "__")
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      details.URI,
+			Filename: ociName,
+		})
+		modelConfig.PredictionOptions = schema.PredictionOptions{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: ociName,
+			},
+		}
+	case uri.LooksLikeURL() && strings.HasSuffix(details.URI, ".gguf"):
+		// Extract filename from URL
+		fileName, e := uri.FilenameFromUrl()
+		if e != nil {
+			return gallery.ModelConfig{}, e
+		}
+
+		cfg.Files = append(cfg.Files, gallery.File{
+			URI:      details.URI,
+			Filename: fileName,
+		})
+		modelConfig.PredictionOptions = schema.PredictionOptions{
+			BasicModelRequest: schema.BasicModelRequest{
+				Model: fileName,
+			},
+		}
+	case strings.HasSuffix(details.URI, ".gguf"):
 		cfg.Files = append(cfg.Files, gallery.File{
 			URI:      details.URI,
 			Filename: filepath.Base(details.URI),
@@ -118,7 +170,7 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 				Model: filepath.Base(details.URI),
 			},
 		}
-	} else if details.HuggingFace != nil {
+	case details.HuggingFace != nil:
 		// We want to:
 		// Get first the chosen quants that match filenames
 		// OR the first mmproj/gguf file found
@@ -195,7 +247,6 @@ func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) 
 			}
 			break
 		}
-
 	}
 
 	data, err := yaml.Marshal(modelConfig)

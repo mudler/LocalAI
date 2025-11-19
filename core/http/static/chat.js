@@ -1213,9 +1213,6 @@ async function promptGPT(systemPrompt, input) {
 document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
 document.getElementById("prompt").addEventListener("submit", submitPrompt);
 document.getElementById("input").focus();
-document.getElementById("input_image").addEventListener("change", readInputImage);
-document.getElementById("input_audio").addEventListener("change", readInputAudio);
-document.getElementById("input_file").addEventListener("change", readInputFile);
 
 storesystemPrompt = localStorage.getItem("system_prompt");
 if (storesystemPrompt) {

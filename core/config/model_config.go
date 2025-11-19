@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"slices"
@@ -475,7 +476,7 @@ func (cfg *ModelConfig) SetDefaults(opts ...ConfigLoaderOption) {
 	cfg.syncKnownUsecasesFromString()
 }
 
-func (c *ModelConfig) Validate() bool {
+func (c *ModelConfig) Validate() (bool, error) {
 	downloadedFileNames := []string{}
 	for _, f := range c.DownloadFiles {
 		downloadedFileNames = append(downloadedFileNames, f.Filename)
@@ -489,17 +490,20 @@ func (c *ModelConfig) Validate() bool {
 		}
 		if strings.HasPrefix(n, string(os.PathSeparator)) ||
 			strings.Contains(n, "..") {
-			return false
+			return false, fmt.Errorf("invalid file path: %s", n)
 		}
 	}
 
 	if c.Backend != "" {
 		// a regex that checks that is a string name with no special characters, except '-' and '_'
 		re := regexp.MustCompile(`^[a-zA-Z0-9-_]+$`)
-		return re.MatchString(c.Backend)
+		if !re.MatchString(c.Backend) {
+			return false, fmt.Errorf("invalid backend name: %s", c.Backend)
+		}
+		return true, nil
 	}
 
-	return true
+	return true, nil
 }
 
 func (c *ModelConfig) HasTemplate() bool {

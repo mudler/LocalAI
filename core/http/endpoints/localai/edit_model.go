@@ -135,7 +135,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 		}
 
 		// Validate the configuration
-		if !req.Validate() {
+		if valid, _ := req.Validate(); !valid {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Validation failed",
@@ -196,7 +196,7 @@ func EditModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applicati
 func ReloadModelsEndpoint(cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		// Reload configurations
-		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath); err != nil {
+		if err := cl.LoadModelConfigsFromPath(appConfig.SystemState.Model.ModelsPath, appConfig.ToConfigLoaderOptions()...); err != nil {
 			response := ModelResponse{
 				Success: false,
 				Error:   "Failed to reload configurations: " + err.Error(),

@@ -127,6 +127,7 @@
                 imageFiles: [], 
                 audioFiles: [], 
                 textFiles: [],
+                attachedFiles: [],
                 currentPlaceholder: 'Send a message...',
                 placeholderIndex: 0,
                 charIndex: 0,
@@ -241,6 +242,30 @@
                     } else {
                         this.resumeTyping();
                     }
+                },
+                handleFileSelection(files, fileType) {
+                    Array.from(files).forEach(file => {
+                        // Check if file already exists
+                        const exists = this.attachedFiles.some(f => f.name === file.name && f.type === fileType);
+                        if (!exists) {
+                            this.attachedFiles.push({ name: file.name, type: fileType });
+                        }
+                    });
+                },
+                removeAttachedFile(fileType, fileName) {
+                    // Remove from attachedFiles array
+                    const index = this.attachedFiles.findIndex(f => f.name === fileName && f.type === fileType);
+                    if (index !== -1) {
+                        this.attachedFiles.splice(index, 1);
+                    }
+                    // Remove from corresponding file array
+                    if (fileType === 'image') {
+                        this.imageFiles = this.imageFiles.filter(f => f.name !== fileName);
+                    } else if (fileType === 'audio') {
+                        this.audioFiles = this.audioFiles.filter(f => f.name !== fileName);
+                    } else if (fileType === 'file') {
+                        this.textFiles = this.textFiles.filter(f => f.name !== fileName);
+                    }
                 }
             }">
                 <!-- Model Selector -->
@@ -265,6 +290,24 @@
 
                 <!-- Input Bar -->
                 <form @submit.prevent="startChat($event)" class="relative w-full">
+                    <!-- Attachment Tags - Show above input when files are attached -->
+                    <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
+                        <template x-for="(file, index) in attachedFiles" :key="index">
+                            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[#38BDF8]/20 border border-[#38BDF8]/40 text-[#E5E7EB]">
+                                <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[#38BDF8]"></i>
+                                <span x-text="file.name" class="max-w-[200px] truncate"></span>
+                                <button 
+                                    type="button"
+                                    @click="attachedFiles.splice(index, 1); removeAttachedFile(file.type, file.name)"
+                                    class="ml-1 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors"
+                                    title="Remove attachment"
+                                >
+                                    <i class="fa-solid fa-times text-xs"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+
                     <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl focus-within:ring-2 focus-within:ring-[#38BDF8]/50 focus-within:border-[#38BDF8] transition-all duration-200">
                         <textarea
                             x-model="inputValue"
@@ -279,7 +322,6 @@
                             @input="handleInput()"
                             rows="2"
                         ></textarea>
-                        <span x-show="fileName" x-text="fileName" class="absolute right-16 top-3 text-[#94A3B8] text-xs mr-2"></span>
                         
                         <!-- Attachment Buttons -->
                         <button
@@ -321,7 +363,7 @@
                     multiple
                     accept="image/*"
                     style="display: none;"
-                    @change="imageFiles = Array.from($event.target.files); fileName = imageFiles.length > 0 ? imageFiles.length + ' image(s) selected' : ''"
+                    @change="imageFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'image')"
                 />
                 <input
                     id="index_input_audio"
@@ -329,7 +371,7 @@
                     multiple
                     accept="audio/*"
                     style="display: none;"
-                    @change="audioFiles = Array.from($event.target.files); fileName = audioFiles.length > 0 ? audioFiles.length + ' audio file(s) selected' : ''"
+                    @change="audioFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'audio')"
                 />
                 <input
                     id="index_input_file"
@@ -337,7 +379,7 @@
                     multiple
                     accept=".txt,.md,.pdf"
                     style="display: none;"
-                    @change="textFiles = Array.from($event.target.files); fileName = textFiles.length > 0 ? textFiles.length + ' file(s) selected' : ''"
+                    @change="textFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'file')"
                 />
             </div>
 

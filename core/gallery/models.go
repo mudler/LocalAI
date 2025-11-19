@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"dario.cat/mergo"
-	"github.com/mudler/LocalAI/core/config"
 	lconfig "github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -17,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/utils"
 
 	"github.com/rs/zerolog/log"
-	"gopkg.in/yaml.v2"
+	"gopkg.in/yaml.v3"
 )
 
 /*
@@ -74,7 +73,7 @@ type PromptTemplate struct {
 // Installs a model from the gallery
 func InstallModelFromGallery(
 	ctx context.Context,
-	modelGalleries, backendGalleries []config.Gallery,
+	modelGalleries, backendGalleries []lconfig.Gallery,
 	systemState *system.SystemState,
 	modelLoader *model.ModelLoader,
 	name string, req GalleryModel, downloadStatus func(string, string, string, float64), enforceScan, automaticallyInstallBackend bool) error {
@@ -260,8 +259,8 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to unmarshal updated config YAML: %v", err)
 		}
 
-		if !modelConfig.Validate() {
-			return nil, fmt.Errorf("failed to validate updated config YAML")
+		if valid, err := modelConfig.Validate(); !valid {
+			return nil, fmt.Errorf("failed to validate updated config YAML: %v", err)
 		}
 
 		err = os.WriteFile(configFilePath, updatedConfigYAML, 0600)
@@ -304,7 +303,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 	// Galleryname is the name of the model in this case
 	dat, err := os.ReadFile(configFile)
 	if err == nil {
-		modelConfig := &config.ModelConfig{}
+		modelConfig := &lconfig.ModelConfig{}
 
 		err = yaml.Unmarshal(dat, &modelConfig)
 		if err != nil {
@@ -369,7 +368,7 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 
 // This is ***NEVER*** going to be perfect or finished.
 // This is a BEST EFFORT function to surface known-vulnerable models to users.
-func SafetyScanGalleryModels(galleries []config.Gallery, systemState *system.SystemState) error {
+func SafetyScanGalleryModels(galleries []lconfig.Gallery, systemState *system.SystemState) error {
 	galleryModels, err := AvailableGalleryModels(galleries, systemState)
 	if err != nil {
 		return err

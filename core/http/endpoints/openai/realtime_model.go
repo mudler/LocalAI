@@ -112,7 +112,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfgVAD.Validate() {
+	if valid, _ := cfgVAD.Validate(); !valid {
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -128,7 +128,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfgSST.Validate() {
+	if valid, _ := cfgSST.Validate(); !valid {
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -155,7 +155,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfgVAD.Validate() {
+	if valid, _ := cfgVAD.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -172,7 +172,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfgSST.Validate() {
+	if valid, _ := cfgSST.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -191,7 +191,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 			return nil, fmt.Errorf("failed to load backend config: %w", err)
 		}
 
-		if !cfgAnyToAny.Validate() {
+		if valid, _ := cfgAnyToAny.Validate(); !valid {
 			return nil, fmt.Errorf("failed to validate config: %w", err)
 		}
 
@@ -218,7 +218,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfgLLM.Validate() {
+	if valid, _ := cfgLLM.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
@@ -228,7 +228,7 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to load backend config: %w", err)
 	}
 
-	if !cfgTTS.Validate() {
+	if valid, _ := cfgTTS.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
