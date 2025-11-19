@@ -2,7 +2,6 @@
 +++
 disableToc = false
 title = "🖼️ Model gallery"
-
 weight = 18
 url = '/models'
 +++

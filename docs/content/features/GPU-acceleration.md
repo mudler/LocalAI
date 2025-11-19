@@ -123,7 +123,7 @@ llama_init_from_file: kv self size  =  512.00 MB
 
 There are a limited number of tested configurations for ROCm systems however most newer deditated GPU consumer grade devices seem to be supported under the current ROCm6 implementation.
 
-Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatibility and package versions for dependencies across all variations of OS must be tested independently if desired, please refer to the [build]({{%relref "getting-started/build#Acceleration" %}}) documentation.
+Due to the nature of ROCm it is best to run all implementations in containers as this limits the number of packages required for installation on host system, compatibility and package versions for dependencies across all variations of OS must be tested independently if desired, please refer to the [build]({{%relref "installation/build#Acceleration" %}}) documentation.
 
 ### Requirements
 

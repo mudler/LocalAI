@@ -2,7 +2,6 @@
 +++
 disableToc = false
 title = "💾 Stores"
-
 weight = 18
 url = '/stores'
 +++

@@ -188,4 +188,4 @@ Additional object detection models and backends will be added to this category i
 - [🎨 Image generation]({{%relref "features/image-generation" %}}): Generate images with AI
 - [📖 Text generation]({{%relref "features/text-generation" %}}): Generate text with language models
 - [🔍 GPT Vision]({{%relref "features/gpt-vision" %}}): Analyze images with language models
-- [🚀 GPU acceleration]({{%relref "features/GPU-acceleration" %}}): Optimize performance with GPU acceleration 
+- [🚀 GPU acceleration]({{%relref "features/GPU-acceleration" %}}): Optimize performance with GPU acceleration

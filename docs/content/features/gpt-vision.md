@@ -35,4 +35,3 @@ Grammars and function tools can be used as well in conjunction with vision APIs:
 All-in-One images have already shipped the llava model as `gpt-4-vision-preview`, so no setup is needed in this case. 
 
 To setup the LLaVa models, follow the full example in the [configuration examples](https://github.com/mudler/LocalAI-examples/blob/main/configurations/llava/llava.yaml).
-

@@ -152,5 +152,3 @@ LOCALAI_P2P_LOGLEVEL=debug LOCALAI_P2P_LIB_LOGLEVEL=debug LOCALAI_P2P_ENABLE_LIM
 - Only a single model is supported currently.
 - Ensure the server detects new workers before starting inference. Currently, additional workers cannot be added once inference has begun.
 - For more details on the implementation, refer to [LocalAI pull request #2343](https://github.com/mudler/LocalAI/pull/2343)
-
-
