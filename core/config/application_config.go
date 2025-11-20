@@ -33,6 +33,7 @@ type ApplicationConfig struct {
 	ApiKeys                       []string
 	P2PToken                      string
 	P2PNetworkID                  string
+	Federated                     bool
 
 	DisableWebUI                       bool
 	EnforcePredownloadScans            bool
@@ -65,6 +66,10 @@ type ApplicationConfig struct {
 	MachineTag string
 
 	APIAddress string
+
+	TunnelCallback func(tunnels []string)
+
+	DisableRuntimeSettings bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -73,7 +78,6 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
 		Context:       context.Background(),
 		UploadLimitMB: 15,
-		ContextSize:   512,
 		Debug:         true,
 	}
 	for _, oo := range o {
@@ -152,6 +156,10 @@ var DisableWebUI = func(o *ApplicationConfig) {
 	o.DisableWebUI = true
 }
 
+var DisableRuntimeSettings = func(o *ApplicationConfig) {
+	o.DisableRuntimeSettings = true
+}
+
 func SetWatchDogBusyTimeout(t time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.WatchDogBusyTimeout = t
@@ -178,6 +186,10 @@ var EnableGalleriesAutoload = func(o *ApplicationConfig) {
 
 var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
+}
+
+var EnableFederated = func(o *ApplicationConfig) {
+	o.Federated = true
 }
 
 func WithExternalBackend(name string, uri string) AppOption {
@@ -270,6 +282,12 @@ func WithThreads(threads int) AppOption {
 func WithContextSize(ctxSize int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ContextSize = ctxSize
+	}
+}
+
+func WithTunnelCallback(callback func(tunnels []string)) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TunnelCallback = callback
 	}
 }
 

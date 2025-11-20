@@ -12,8 +12,10 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -21,7 +23,7 @@ import (
 )
 
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
-func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
+func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application) {
 
 	// Operations API - Get all current operations (models + backends)
 	app.GET("/api/operations", func(c echo.Context) error {
@@ -264,17 +266,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
 		return c.JSON(200, map[string]interface{}{
-			"models":            modelsJSON,
-			"repositories":      appConfig.Galleries,
-			"allTags":           tags,
-			"processingModels":  processingModelsData,
-			"taskTypes":         taskTypes,
-			"availableModels":   totalModels,
-			"installedModels":   installedModelsCount,
-			"currentPage":       pageNum,
-			"totalPages":        totalPages,
-			"prevPage":          prevPage,
-			"nextPage":          nextPage,
+			"models":           modelsJSON,
+			"repositories":     appConfig.Galleries,
+			"allTags":          tags,
+			"processingModels": processingModelsData,
+			"taskTypes":        taskTypes,
+			"availableModels":  totalModels,
+			"installedModels":  installedModelsCount,
+			"currentPage":      pageNum,
+			"totalPages":       totalPages,
+			"prevPage":         prevPage,
+			"nextPage":         nextPage,
 		})
 	})
 
@@ -802,4 +804,10 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			},
 		})
 	})
+
+	if !appConfig.DisableRuntimeSettings {
+		// Settings API
+		app.GET("/api/settings", localai.GetSettingsEndpoint(applicationInstance))
+		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance))
+	}
 }

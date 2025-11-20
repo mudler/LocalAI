@@ -33,11 +33,17 @@ Navigate the WebUI interface in the "Models" section from the navbar at the top.
 
 ## Add other galleries
 
-You can add other galleries by setting the `GALLERIES` environment variable. The `GALLERIES` environment variable is a list of JSON objects, where each object has a `name` and a `url` field. The `name` field is the name of the gallery, and the `url` field is the URL of the gallery's index file, for example:
+You can add other galleries by:
+
+1. **Using the Web UI**: Navigate to the [Runtime Settings]({{%relref "features/runtime-settings#gallery-settings" %}}) page and configure galleries through the interface.
+
+2. **Using Environment Variables**: Set the `GALLERIES` environment variable. The `GALLERIES` environment variable is a list of JSON objects, where each object has a `name` and a `url` field. The `name` field is the name of the gallery, and the `url` field is the URL of the gallery's index file, for example:
 
 ```json
 GALLERIES=[{"name":"<GALLERY_NAME>", "url":"<GALLERY_URL"}]
 ```
+
+3. **Using Configuration Files**: Add galleries to `runtime_settings.json` in the `LOCALAI_CONFIG_DIR` directory.
 
 The models in the gallery will be automatically indexed and available for installation.
 

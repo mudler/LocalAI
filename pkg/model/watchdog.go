@@ -51,6 +51,7 @@ func NewWatchDog(pm ProcessManager, timeoutBusy, timeoutIdle time.Duration, busy
 func (wd *WatchDog) Shutdown() {
 	wd.Lock()
 	defer wd.Unlock()
+	log.Info().Msg("[WatchDog] Shutting down watchdog")
 	wd.stop <- true
 }
 

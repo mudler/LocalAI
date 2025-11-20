@@ -1,6 +1,9 @@
 package application
 
 import (
+	"context"
+	"sync"
+
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/core/templates"
@@ -11,8 +14,14 @@ type Application struct {
 	backendLoader      *config.ModelConfigLoader
 	modelLoader        *model.ModelLoader
 	applicationConfig  *config.ApplicationConfig
+	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
 	templatesEvaluator *templates.Evaluator
 	galleryService     *services.GalleryService
+	watchdogMutex      sync.Mutex
+	watchdogStop       chan bool
+	p2pMutex           sync.Mutex
+	p2pCtx             context.Context
+	p2pCancel          context.CancelFunc
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {
@@ -42,6 +51,11 @@ func (a *Application) TemplatesEvaluator() *templates.Evaluator {
 
 func (a *Application) GalleryService() *services.GalleryService {
 	return a.galleryService
+}
+
+// StartupConfig returns the original startup configuration (from env vars, before file loading)
+func (a *Application) StartupConfig() *config.ApplicationConfig {
+	return a.startupConfig
 }
 
 func (a *Application) start() error {

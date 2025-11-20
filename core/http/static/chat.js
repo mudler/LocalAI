@@ -1382,6 +1382,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (chatData) {
       try {
         const data = JSON.parse(chatData);
+        
+        // Set MCP mode if provided
+        if (data.mcpMode === true && Alpine.store("chat")) {
+          Alpine.store("chat").mcpMode = true;
+        }
+        
         const input = document.getElementById('input');
         
         if (input && data.message) {
@@ -1417,6 +1423,9 @@ document.addEventListener('DOMContentLoaded', function() {
               processAndSendMessage(input.value);
             }
           }, 500);
+        } else {
+          // No message, but might have mcpMode - clear localStorage
+          localStorage.removeItem('localai_index_chat_data');
         }
       } catch (error) {
         console.error('Error processing chat data from index:', error);

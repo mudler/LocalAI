@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
+	"net"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -105,7 +105,10 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			fragment = fragment.AddMessage(message.Role, message.StringContent)
 		}
 
-		port := appConfig.APIAddress[strings.LastIndex(appConfig.APIAddress, ":")+1:]
+		_, port, err := net.SplitHostPort(appConfig.APIAddress)
+		if err != nil {
+			return err
+		}
 		apiKey := ""
 		if len(appConfig.ApiKeys) > 0 {
 			apiKey = appConfig.ApiKeys[0]
