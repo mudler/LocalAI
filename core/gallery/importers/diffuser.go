@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/schema"
-	"go.yaml.in/yaml/v2"
+	"gopkg.in/yaml.v3"
 )
 
 var _ Importer = &DiffuserImporter{}
