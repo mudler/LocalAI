@@ -8,7 +8,7 @@ url: '/installation/docker/'
 {{% notice tip %}}
 **Recommended Installation Method**
 
-Docker is the recommended way to install LocalAI as it works across all platforms (Linux, macOS, Windows) and provides the easiest setup experience.
+Docker is the recommended way to install LocalAI and provides the easiest setup experience.
 {{% /notice %}}
 
 LocalAI provides Docker images that work with Docker, Podman, and other container engines. These images are available on [Docker Hub](https://hub.docker.com/r/localai/localai) and [Quay.io](https://quay.io/repository/go-skynet/local-ai).
