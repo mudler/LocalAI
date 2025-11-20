@@ -43,17 +43,18 @@ func WelcomeEndpoint(appConfig *config.ApplicationConfig,
 		processingModels, taskTypes := opcache.GetStatus()
 
 		summary := map[string]interface{}{
-			"Title":             "LocalAI API - " + internal.PrintableVersion(),
-			"Version":           internal.PrintableVersion(),
-			"BaseURL":           middleware.BaseURL(c),
-			"Models":            modelsWithoutConfig,
-			"ModelsConfig":      modelConfigs,
-			"GalleryConfig":     galleryConfigs,
-			"ApplicationConfig": appConfig,
-			"ProcessingModels":  processingModels,
-			"TaskTypes":         taskTypes,
-			"LoadedModels":      loadedModelsMap,
-			"InstalledBackends": installedBackends,
+			"Title":                  "LocalAI API - " + internal.PrintableVersion(),
+			"Version":                internal.PrintableVersion(),
+			"BaseURL":                middleware.BaseURL(c),
+			"Models":                 modelsWithoutConfig,
+			"ModelsConfig":           modelConfigs,
+			"GalleryConfig":          galleryConfigs,
+			"ApplicationConfig":      appConfig,
+			"ProcessingModels":       processingModels,
+			"TaskTypes":              taskTypes,
+			"LoadedModels":           loadedModelsMap,
+			"InstalledBackends":      installedBackends,
+			"DisableRuntimeSettings": appConfig.DisableRuntimeSettings,
 		}
 
 		contentType := c.Request().Header.Get("Content-Type")

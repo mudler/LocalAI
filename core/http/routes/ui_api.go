@@ -266,17 +266,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		installedModelsCount := len(modelConfigs) + len(modelsWithoutConfig)
 
 		return c.JSON(200, map[string]interface{}{
-			"models":            modelsJSON,
-			"repositories":      appConfig.Galleries,
-			"allTags":           tags,
-			"processingModels":  processingModelsData,
-			"taskTypes":         taskTypes,
-			"availableModels":   totalModels,
-			"installedModels":   installedModelsCount,
-			"currentPage":       pageNum,
-			"totalPages":        totalPages,
-			"prevPage":          prevPage,
-			"nextPage":          nextPage,
+			"models":           modelsJSON,
+			"repositories":     appConfig.Galleries,
+			"allTags":          tags,
+			"processingModels": processingModelsData,
+			"taskTypes":        taskTypes,
+			"availableModels":  totalModels,
+			"installedModels":  installedModelsCount,
+			"currentPage":      pageNum,
+			"totalPages":       totalPages,
+			"prevPage":         prevPage,
+			"nextPage":         nextPage,
 		})
 	})
 
@@ -805,7 +805,9 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	})
 
-	// Settings API
-	app.GET("/api/settings", localai.GetSettingsEndpoint(applicationInstance))
-	app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance))
+	if !appConfig.DisableRuntimeSettings {
+		// Settings API
+		app.GET("/api/settings", localai.GetSettingsEndpoint(applicationInstance))
+		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance))
+	}
 }

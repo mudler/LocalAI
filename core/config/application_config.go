@@ -68,6 +68,8 @@ type ApplicationConfig struct {
 	APIAddress string
 
 	TunnelCallback func(tunnels []string)
+
+	DisableRuntimeSettings bool
 }
 
 type AppOption func(*ApplicationConfig)
@@ -153,6 +155,10 @@ var EnableWatchDogBusyCheck = func(o *ApplicationConfig) {
 
 var DisableWebUI = func(o *ApplicationConfig) {
 	o.DisableWebUI = true
+}
+
+var DisableRuntimeSettings = func(o *ApplicationConfig) {
+	o.DisableRuntimeSettings = true
 }
 
 func SetWatchDogBusyTimeout(t time.Duration) AppOption {
