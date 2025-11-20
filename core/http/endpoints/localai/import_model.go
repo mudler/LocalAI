@@ -145,7 +145,7 @@ func ImportModelEndpoint(cl *config.ModelConfigLoader, appConfig *config.Applica
 		}
 
 		// Set defaults
-		modelConfig.SetDefaults()
+		modelConfig.SetDefaults(appConfig.ToConfigLoaderOptions()...)
 
 		// Validate the configuration
 		if valid, _ := modelConfig.Validate(); !valid {

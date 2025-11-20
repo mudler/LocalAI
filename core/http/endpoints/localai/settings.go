@@ -115,7 +115,6 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		settings.WatchdogIdleTimeout = &idleTimeout
 		settings.WatchdogBusyTimeout = &busyTimeout
-
 		return c.JSON(http.StatusOK, settings)
 	}
 }

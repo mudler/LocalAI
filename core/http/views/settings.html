@@ -442,7 +442,7 @@ function settingsDashboard() {
             single_backend: false,
             parallel_backend_requests: false,
             threads: 0,
-            context_size: 512,
+            context_size: 0,
             f16: false,
             debug: false,
             cors: false,
@@ -479,7 +479,7 @@ function settingsDashboard() {
                         single_backend: data.single_backend,
                         parallel_backend_requests: data.parallel_backend_requests,
                         threads: data.threads || 0,
-                        context_size: data.context_size || 512,
+                        context_size: data.context_size || 0,
                         f16: data.f16 || false,
                         debug: data.debug || false,
                         cors: data.cors || false,
@@ -545,7 +545,7 @@ function settingsDashboard() {
                     payload.threads = parseInt(this.settings.threads) || 0;
                 }
                 if (this.settings.context_size !== undefined) {
-                    payload.context_size = parseInt(this.settings.context_size) || 512;
+                    payload.context_size = parseInt(this.settings.context_size) || 0;
                 }
                 if (this.settings.f16 !== undefined) {
                     payload.f16 = this.settings.f16;

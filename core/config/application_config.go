@@ -78,7 +78,6 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
 		Context:       context.Background(),
 		UploadLimitMB: 15,
-		ContextSize:   512,
 		Debug:         true,
 	}
 	for _, oo := range o {
