@@ -3,6 +3,12 @@ set -e
 
 EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
 
+# Avoid to overcommit the CPU during build
+# https://github.com/vllm-project/vllm/issues/20079
+# https://docs.vllm.ai/en/v0.8.3/serving/env_vars.html
+# https://docs.redhat.com/it/documentation/red_hat_ai_inference_server/3.0/html/vllm_server_arguments/environment_variables-server-arguments
+export NUM_JOBS=2
+
 backend_dir=$(dirname $0)
 
 if [ -d $backend_dir/common ]; then
