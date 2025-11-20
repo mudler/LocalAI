@@ -1,7 +1,7 @@
 +++
 disableToc = false
 title = "Quickstart"
-weight = 3
+weight = 1
 url = '/basics/getting_started/'
 icon = "rocket_launch"
 +++
