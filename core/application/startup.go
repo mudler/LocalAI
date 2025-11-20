@@ -21,7 +21,12 @@ import (
 
 func New(opts ...config.AppOption) (*Application, error) {
 	options := config.NewApplicationConfig(opts...)
+
+	// Store a copy of the startup config (from env vars, before file loading)
+	// This is used to determine if settings came from env vars vs file
+	startupConfigCopy := *options
 	application := newApplication(options)
+	application.startupConfig = &startupConfigCopy
 
 	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.SystemState.Model.ModelsPath)
 	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
@@ -115,6 +120,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	// Load runtime settings from file if DynamicConfigsDir is set
 	// This applies file settings with env var precedence (env vars take priority)
+	// Note: startupConfigCopy was already created above, so it has the original env var values
 	if options.DynamicConfigsDir != "" {
 		loadRuntimeSettingsFromFile(options)
 	}

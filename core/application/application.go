@@ -15,6 +15,7 @@ type Application struct {
 	backendLoader      *config.ModelConfigLoader
 	modelLoader        *model.ModelLoader
 	applicationConfig  *config.ApplicationConfig
+	startupConfig      *config.ApplicationConfig // Stores original config from env vars (before file loading)
 	templatesEvaluator *templates.Evaluator
 	galleryService     *services.GalleryService
 	watchdogMutex      sync.Mutex
@@ -48,6 +49,11 @@ func (a *Application) TemplatesEvaluator() *templates.Evaluator {
 
 func (a *Application) GalleryService() *services.GalleryService {
 	return a.galleryService
+}
+
+// StartupConfig returns the original startup configuration (from env vars, before file loading)
+func (a *Application) StartupConfig() *config.ApplicationConfig {
+	return a.startupConfig
 }
 
 // RestartWatchdog restarts the watchdog with current ApplicationConfig settings

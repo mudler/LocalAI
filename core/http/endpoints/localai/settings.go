@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/labstack/echo/v4"
@@ -24,7 +23,7 @@ type RuntimeSettings struct {
 	WatchdogEnabled         *bool   `json:"watchdog_enabled,omitempty"`
 	WatchdogIdleEnabled     *bool   `json:"watchdog_idle_enabled,omitempty"`
 	WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
-	WatchdogIdleTimeout    *string `json:"watchdog_idle_timeout,omitempty"`
+	WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
 	WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
 	SingleBackend           *bool   `json:"single_backend,omitempty"`
 	ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
@@ -34,108 +33,67 @@ type CurrentSettings struct {
 	WatchdogEnabled         bool   `json:"watchdog_enabled"`
 	WatchdogIdleEnabled     bool   `json:"watchdog_idle_enabled"`
 	WatchdogBusyEnabled     bool   `json:"watchdog_busy_enabled"`
-	WatchdogIdleTimeout    string `json:"watchdog_idle_timeout"`
+	WatchdogIdleTimeout     string `json:"watchdog_idle_timeout"`
 	WatchdogBusyTimeout     string `json:"watchdog_busy_timeout"`
 	SingleBackend           bool   `json:"single_backend"`
 	ParallelBackendRequests bool   `json:"parallel_backend_requests"`
 	Source                  string `json:"source"` // "env", "file", or "default"
 }
 
-// getEnvVarWithPrecedence checks multiple env var names and returns the first one found
-func getEnvVarWithPrecedence(names ...string) string {
-	for _, name := range names {
-		if val := os.Getenv(name); val != "" {
-			return val
-		}
-	}
-	return ""
-}
-
-// getBoolEnvVar returns true if env var is set to "true", "1", "yes", or "on"
-func getBoolEnvVar(names ...string) (bool, bool) {
-	val := getEnvVarWithPrecedence(names...)
-	if val == "" {
-		return false, false
-	}
-	val = strings.ToLower(val)
-	return val == "true" || val == "1" || val == "yes" || val == "on", true
-}
-
 // GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
 func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		appConfig := app.ApplicationConfig()
-		
-		// Check env vars first
-		envWatchdogIdle, envWatchdogIdleSet := getBoolEnvVar("LOCALAI_WATCHDOG_IDLE", "WATCHDOG_IDLE")
-		envWatchdogBusy, envWatchdogBusySet := getBoolEnvVar("LOCALAI_WATCHDOG_BUSY", "WATCHDOG_BUSY")
-		envWatchdogIdleTimeout := getEnvVarWithPrecedence("LOCALAI_WATCHDOG_IDLE_TIMEOUT", "WATCHDOG_IDLE_TIMEOUT")
-		envWatchdogBusyTimeout := getEnvVarWithPrecedence("LOCALAI_WATCHDOG_BUSY_TIMEOUT", "WATCHDOG_BUSY_TIMEOUT")
-		envSingleBackend, envSingleBackendSet := getBoolEnvVar("LOCALAI_SINGLE_ACTIVE_BACKEND", "SINGLE_ACTIVE_BACKEND")
-		envParallelRequests, envParallelRequestsSet := getBoolEnvVar("LOCALAI_PARALLEL_REQUESTS", "PARALLEL_REQUESTS")
+		startupConfig := app.StartupConfig()
+
+		if startupConfig == nil {
+			// Fallback if startup config not available
+			startupConfig = appConfig
+		}
 
 		settings := CurrentSettings{}
 
-		// Determine source and values
-		if envWatchdogIdleSet || envWatchdogBusySet {
-			settings.WatchdogIdleEnabled = envWatchdogIdle
-			settings.WatchdogBusyEnabled = envWatchdogBusy
-			settings.WatchdogEnabled = envWatchdogIdle || envWatchdogBusy
-			settings.Source = "env"
+		// Determine if values came from env vars by comparing with startup config
+		// If current values match startup values, they came from env vars (or defaults)
+		// If current values differ from startup, file changed them (so not from env var)
+		envWatchdogIdle := appConfig.WatchDogIdle == startupConfig.WatchDogIdle
+		envWatchdogBusy := appConfig.WatchDogBusy == startupConfig.WatchDogBusy
+		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupConfig.WatchDogIdleTimeout
+		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupConfig.WatchDogBusyTimeout
+		envSingleBackend := appConfig.SingleBackend == startupConfig.SingleBackend
+		envParallelRequests := appConfig.ParallelBackendRequests == startupConfig.ParallelBackendRequests
+
+		// Determine source: if any setting matches startup config, it's from env (or default)
+		// If any setting differs from startup, it's from file
+		settings.WatchdogIdleEnabled = appConfig.WatchDogIdle
+		settings.WatchdogBusyEnabled = appConfig.WatchDogBusy
+		settings.WatchdogEnabled = appConfig.WatchDog
+		settings.SingleBackend = appConfig.SingleBackend
+		settings.ParallelBackendRequests = appConfig.ParallelBackendRequests
+
+		if appConfig.WatchDogIdleTimeout > 0 {
+			settings.WatchdogIdleTimeout = appConfig.WatchDogIdleTimeout.String()
 		} else {
-			settings.WatchdogIdleEnabled = appConfig.WatchDogIdle
-			settings.WatchdogBusyEnabled = appConfig.WatchDogBusy
-			settings.WatchdogEnabled = appConfig.WatchDog
+			settings.WatchdogIdleTimeout = "15m" // default
+		}
+
+		if appConfig.WatchDogBusyTimeout > 0 {
+			settings.WatchdogBusyTimeout = appConfig.WatchDogBusyTimeout.String()
+		} else {
+			settings.WatchdogBusyTimeout = "5m" // default
+		}
+
+		// Determine overall source: if all settings match startup, it's "env" or "default"
+		// If any setting differs, it's "file"
+		if envWatchdogIdle && envWatchdogBusy && envWatchdogIdleTimeout && envWatchdogBusyTimeout && envSingleBackend && envParallelRequests {
+			// All match startup - check if they're at defaults
+			if !appConfig.WatchDog && !appConfig.SingleBackend && !appConfig.ParallelBackendRequests && appConfig.WatchDogIdleTimeout == 0 && appConfig.WatchDogBusyTimeout == 0 {
+				settings.Source = "default"
+			} else {
+				settings.Source = "env"
+			}
+		} else {
 			settings.Source = "file"
-		}
-
-		if envWatchdogIdleTimeout != "" {
-			settings.WatchdogIdleTimeout = envWatchdogIdleTimeout
-			if settings.Source == "file" {
-				settings.Source = "env"
-			}
-		} else {
-			if appConfig.WatchDogIdleTimeout > 0 {
-				settings.WatchdogIdleTimeout = appConfig.WatchDogIdleTimeout.String()
-			} else {
-				settings.WatchdogIdleTimeout = "15m" // default
-			}
-		}
-
-		if envWatchdogBusyTimeout != "" {
-			settings.WatchdogBusyTimeout = envWatchdogBusyTimeout
-			if settings.Source == "file" {
-				settings.Source = "env"
-			}
-		} else {
-			if appConfig.WatchDogBusyTimeout > 0 {
-				settings.WatchdogBusyTimeout = appConfig.WatchDogBusyTimeout.String()
-			} else {
-				settings.WatchdogBusyTimeout = "5m" // default
-			}
-		}
-
-		if envSingleBackendSet {
-			settings.SingleBackend = envSingleBackend
-			if settings.Source == "file" {
-				settings.Source = "env"
-			}
-		} else {
-			settings.SingleBackend = appConfig.SingleBackend
-		}
-
-		if envParallelRequestsSet {
-			settings.ParallelBackendRequests = envParallelRequests
-			if settings.Source == "file" {
-				settings.Source = "env"
-			}
-		} else {
-			settings.ParallelBackendRequests = appConfig.ParallelBackendRequests
-		}
-
-		// If no env vars set and no file values, use defaults
-		if settings.Source == "file" && !appConfig.WatchDog && !appConfig.SingleBackend && !appConfig.ParallelBackendRequests {
-			settings.Source = "default"
 		}
 
 		return c.JSON(http.StatusOK, settings)
@@ -146,16 +104,24 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		appConfig := app.ApplicationConfig()
+		startupConfig := app.StartupConfig()
 
-		// Check if env vars are set - if so, reject the update
-		envWatchdogIdleSet := getEnvVarWithPrecedence("LOCALAI_WATCHDOG_IDLE", "WATCHDOG_IDLE") != ""
-		envWatchdogBusySet := getEnvVarWithPrecedence("LOCALAI_WATCHDOG_BUSY", "WATCHDOG_BUSY") != ""
-		envWatchdogIdleTimeoutSet := getEnvVarWithPrecedence("LOCALAI_WATCHDOG_IDLE_TIMEOUT", "WATCHDOG_IDLE_TIMEOUT") != ""
-		envWatchdogBusyTimeoutSet := getEnvVarWithPrecedence("LOCALAI_WATCHDOG_BUSY_TIMEOUT", "WATCHDOG_BUSY_TIMEOUT") != ""
-		envSingleBackendSet := getEnvVarWithPrecedence("LOCALAI_SINGLE_ACTIVE_BACKEND", "SINGLE_ACTIVE_BACKEND") != ""
-		envParallelRequestsSet := getEnvVarWithPrecedence("LOCALAI_PARALLEL_REQUESTS", "PARALLEL_REQUESTS") != ""
+		if startupConfig == nil {
+			// Fallback if startup config not available
+			startupConfig = appConfig
+		}
 
-		if envWatchdogIdleSet || envWatchdogBusySet || envWatchdogIdleTimeoutSet || envWatchdogBusyTimeoutSet || envSingleBackendSet || envParallelRequestsSet {
+		// Check if env vars are set by comparing with startup config
+		// If current values match startup values, they came from env vars (or defaults)
+		// If current values differ from startup, file changed them (so not from env var)
+		envWatchdogIdle := appConfig.WatchDogIdle == startupConfig.WatchDogIdle
+		envWatchdogBusy := appConfig.WatchDogBusy == startupConfig.WatchDogBusy
+		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupConfig.WatchDogIdleTimeout
+		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupConfig.WatchDogBusyTimeout
+		envSingleBackend := appConfig.SingleBackend == startupConfig.SingleBackend
+		envParallelRequests := appConfig.ParallelBackendRequests == startupConfig.ParallelBackendRequests
+
+		if envWatchdogIdle || envWatchdogBusy || envWatchdogIdleTimeout || envWatchdogBusyTimeout || envSingleBackend || envParallelRequests {
 			return c.JSON(http.StatusBadRequest, SettingsResponse{
 				Success: false,
 				Error:   "Cannot update settings: environment variables are set and take precedence. Please unset environment variables first.",
@@ -276,4 +242,3 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		})
 	}
 }
-
