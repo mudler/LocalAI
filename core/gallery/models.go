@@ -381,10 +381,10 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		if strings.HasPrefix(f.Name(), "._gallery_") {
 			continue
 		}
-		if !strings.HasSuffix(f.Name(), ".yaml") || !strings.HasSuffix(f.Name(), ".yml") {
+		if !strings.HasSuffix(f.Name(), ".yaml") && !strings.HasSuffix(f.Name(), ".yml") {
 			continue
 		}
-		if f.Name() == name {
+		if f.Name() == fmt.Sprintf("%s.yaml", name) || f.Name() == fmt.Sprintf("%s.yml", name) {
 			continue
 		}
 
