@@ -32,6 +32,7 @@ LocalAI provides a comprehensive set of features for running AI models locally. 
 - **[Stores](stores/)** - Vector similarity search for embeddings
 - **[Model Gallery](model-gallery/)** - Browse and install pre-configured models
 - **[Backends](backends/)** - Learn about available backends and how to manage them
+- **[Runtime Settings](runtime-settings/)** - Configure application settings via web UI without restarting
 
 ## Getting Started
 

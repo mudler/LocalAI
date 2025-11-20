@@ -48,12 +48,15 @@ curl http://localhost:8080/v1/chat/completions -d '{"model": "model-b", ...}'
 
 For more flexible memory management, LocalAI provides watchdog mechanisms that automatically unload models based on their activity state. This allows multiple models to be loaded simultaneously, but automatically frees memory when models become inactive or stuck.
 
+> **Note:** Watchdog settings can be configured via the [Runtime Settings]({{%relref "features/runtime-settings#watchdog-settings" %}}) web interface, which allows you to adjust settings without restarting the application.
+
 ### Idle Watchdog
 
 The idle watchdog monitors models that haven't been used for a specified period and automatically unloads them to free VRAM.
 
 #### Configuration
 
+Via environment variables or CLI:
 ```bash
 LOCALAI_WATCHDOG_IDLE=true ./local-ai
 
@@ -62,12 +65,15 @@ LOCALAI_WATCHDOG_IDLE=true LOCALAI_WATCHDOG_IDLE_TIMEOUT=10m ./local-ai
 ./local-ai --enable-watchdog-idle --watchdog-idle-timeout=10m
 ```
 
+Via web UI: Navigate to Settings → Watchdog Settings and enable "Watchdog Idle Enabled" with your desired timeout.
+
 ### Busy Watchdog
 
 The busy watchdog monitors models that have been processing requests for an unusually long time and terminates them if they exceed a threshold. This is useful for detecting and recovering from stuck or hung backends.
 
 #### Configuration
 
+Via environment variables or CLI:
 ```bash
 LOCALAI_WATCHDOG_BUSY=true ./local-ai
 
@@ -75,6 +81,8 @@ LOCALAI_WATCHDOG_BUSY=true LOCALAI_WATCHDOG_BUSY_TIMEOUT=10m ./local-ai
 
 ./local-ai --enable-watchdog-busy --watchdog-busy-timeout=10m
 ```
+
+Via web UI: Navigate to Settings → Watchdog Settings and enable "Watchdog Busy Enabled" with your desired timeout.
 
 ### Combined Configuration
 
