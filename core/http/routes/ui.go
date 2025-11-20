@@ -22,6 +22,15 @@ func RegisterUIRoutes(app *echo.Echo,
 
 	app.GET("/", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 	app.GET("/manage", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
+	
+	// Settings page
+	app.GET("/settings", func(c echo.Context) error {
+		summary := map[string]interface{}{
+			"Title":   "LocalAI - Settings",
+			"BaseURL": middleware.BaseURL(c),
+		}
+		return c.Render(200, "views/settings", summary)
+	})
 
 	// P2P
 	app.GET("/p2p/", func(c echo.Context) error {

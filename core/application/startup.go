@@ -1,8 +1,11 @@
 package application
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"time"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -110,6 +113,12 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}
 
+	// Load runtime settings from file if DynamicConfigsDir is set
+	// This applies file settings with env var precedence (env vars take priority)
+	if options.DynamicConfigsDir != "" {
+		loadRuntimeSettingsFromFile(options)
+	}
+
 	// turn off any process that was started by GRPC if the context is canceled
 	go func() {
 		<-options.Context.Done()
@@ -120,21 +129,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 		}
 	}()
 
-	if options.WatchDog {
-		wd := model.NewWatchDog(
-			application.ModelLoader(),
-			options.WatchDogBusyTimeout,
-			options.WatchDogIdleTimeout,
-			options.WatchDogBusy,
-			options.WatchDogIdle)
-		application.ModelLoader().SetWatchDog(wd)
-		go wd.Run()
-		go func() {
-			<-options.Context.Done()
-			log.Debug().Msgf("Context canceled, shutting down")
-			wd.Shutdown()
-		}()
-	}
+	// Initialize watchdog with current settings (after loading from file)
+	initializeWatchdog(application, options)
 
 	if options.LoadToMemory != nil && !options.SingleBackend {
 		for _, m := range options.LoadToMemory {
@@ -184,5 +180,133 @@ func startWatcher(options *config.ApplicationConfig) {
 	configHandler := newConfigFileHandler(options)
 	if err := configHandler.Watch(); err != nil {
 		log.Error().Err(err).Msg("failed creating watcher")
+	}
+}
+
+// loadRuntimeSettingsFromFile loads settings from runtime_settings.json with env var precedence
+// This function is called at startup, before env vars are applied via AppOptions.
+// Since env vars are applied via AppOptions in run.go, we need to check if they're set.
+// We do this by checking if the current options values differ from defaults, which would
+// indicate they were set from env vars. However, a simpler approach is to just apply
+// file settings here, and let the AppOptions (which are applied after this) override them.
+// But actually, this is called AFTER AppOptions are applied in New(), so we need to check env vars.
+// The cleanest solution: Store original values before applying file, or check if values match
+// what would be set from env vars. For now, we'll apply file settings and they'll be
+// overridden by AppOptions if env vars were set (but AppOptions are already applied).
+// Actually, this function is called in New() before AppOptions are fully processed for watchdog.
+// Let's check the call order: New() -> loadRuntimeSettingsFromFile() -> initializeWatchdog()
+// But AppOptions are applied in NewApplicationConfig() which is called first.
+// So at this point, options already has values from env vars. We should compare against
+// defaults to see if env vars were set. But we don't have defaults stored.
+// Simplest: Just apply file settings. If env vars were set, they're already in options.
+// The file watcher handler will handle runtime changes properly by comparing with startupAppConfig.
+func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
+	settingsFile := filepath.Join(options.DynamicConfigsDir, "runtime_settings.json")
+	fileContent, err := os.ReadFile(settingsFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			log.Debug().Msg("runtime_settings.json not found, using defaults")
+			return
+		}
+		log.Warn().Err(err).Msg("failed to read runtime_settings.json")
+		return
+	}
+
+	var settings struct {
+		WatchdogEnabled         *bool   `json:"watchdog_enabled,omitempty"`
+		WatchdogIdleEnabled     *bool   `json:"watchdog_idle_enabled,omitempty"`
+		WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
+		WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
+		WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
+		SingleBackend           *bool   `json:"single_backend,omitempty"`
+		ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
+	}
+
+	if err := json.Unmarshal(fileContent, &settings); err != nil {
+		log.Warn().Err(err).Msg("failed to parse runtime_settings.json")
+		return
+	}
+
+	// At this point, options already has values from env vars (via AppOptions in run.go).
+	// To avoid env var duplication, we determine if env vars were set by checking if
+	// current values differ from defaults. Defaults are: false for bools, 0 for durations.
+	// If current value is at default, it likely wasn't set from env var, so we can apply file.
+	// If current value is non-default, it was likely set from env var, so we preserve it.
+	// Note: This means env vars explicitly setting to false/0 won't be distinguishable from defaults,
+	// but that's an acceptable limitation to avoid env var duplication.
+
+	if settings.WatchdogIdleEnabled != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.WatchDogIdle {
+			options.WatchDogIdle = *settings.WatchdogIdleEnabled
+			if options.WatchDogIdle {
+				options.WatchDog = true
+			}
+		}
+	}
+	if settings.WatchdogBusyEnabled != nil {
+		if !options.WatchDogBusy {
+			options.WatchDogBusy = *settings.WatchdogBusyEnabled
+			if options.WatchDogBusy {
+				options.WatchDog = true
+			}
+		}
+	}
+	if settings.WatchdogIdleTimeout != nil {
+		// Only apply if current value is default (0), suggesting it wasn't set from env var
+		if options.WatchDogIdleTimeout == 0 {
+			dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout)
+			if err == nil {
+				options.WatchDogIdleTimeout = dur
+			} else {
+				log.Warn().Err(err).Str("timeout", *settings.WatchdogIdleTimeout).Msg("invalid watchdog idle timeout in runtime_settings.json")
+			}
+		}
+	}
+	if settings.WatchdogBusyTimeout != nil {
+		if options.WatchDogBusyTimeout == 0 {
+			dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout)
+			if err == nil {
+				options.WatchDogBusyTimeout = dur
+			} else {
+				log.Warn().Err(err).Str("timeout", *settings.WatchdogBusyTimeout).Msg("invalid watchdog busy timeout in runtime_settings.json")
+			}
+		}
+	}
+	if settings.SingleBackend != nil {
+		if !options.SingleBackend {
+			options.SingleBackend = *settings.SingleBackend
+		}
+	}
+	if settings.ParallelBackendRequests != nil {
+		if !options.ParallelBackendRequests {
+			options.ParallelBackendRequests = *settings.ParallelBackendRequests
+		}
+	}
+	if !options.WatchDogIdle && !options.WatchDogBusy {
+		if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
+			options.WatchDog = true
+		}
+	}
+
+	log.Debug().Msg("Runtime settings loaded from runtime_settings.json")
+}
+
+// initializeWatchdog initializes the watchdog with current ApplicationConfig settings
+func initializeWatchdog(application *Application, options *config.ApplicationConfig) {
+	if options.WatchDog {
+		wd := model.NewWatchDog(
+			application.ModelLoader(),
+			options.WatchDogBusyTimeout,
+			options.WatchDogIdleTimeout,
+			options.WatchDogBusy,
+			options.WatchDogIdle)
+		application.ModelLoader().SetWatchDog(wd)
+		go wd.Run()
+		go func() {
+			<-options.Context.Done()
+			log.Debug().Msgf("Context canceled, shutting down")
+			wd.Shutdown()
+		}()
 	}
 }

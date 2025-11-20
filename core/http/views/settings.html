@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="settingsDashboard()">
+
+    {{template "views/partials/navbar" .}}
+
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <div class="container mx-auto px-4 py-6 flex-grow max-w-4xl">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+                <h1 class="text-2xl font-semibold text-[#E5E7EB]">
+                    Application Settings
+                </h1>
+                <a href="/manage" 
+                   class="inline-flex items-center text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                    <i class="fas fa-arrow-left mr-2 text-sm"></i>
+                    <span class="text-sm">Back to Manage</span>
+                </a>
+            </div>
+            <p class="text-sm text-[#94A3B8]">Configure watchdog and backend request settings</p>
+        </div>
+
+        <!-- Settings Form -->
+        <form @submit.prevent="saveSettings()" class="space-y-6">
+            <!-- Watchdog Settings Section -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-shield-alt mr-2 text-[#38BDF8] text-sm"></i>
+                    Watchdog Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure automatic monitoring and management of backend processes
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Enable Watchdog -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Enable Watchdog</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Enable automatic monitoring of backend processes</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.watchdog_enabled" 
+                                   @change="updateWatchdogEnabled()"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Enable Idle Check -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Enable Idle Check</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Automatically stop backends that are idle for too long</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.watchdog_idle_enabled" 
+                                   :disabled="!settings.watchdog_enabled"
+                                   class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Idle Timeout -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Idle Timeout</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Time before an idle backend is stopped (e.g., 15m, 1h)</p>
+                        <input type="text" x-model="settings.watchdog_idle_timeout" 
+                               :disabled="!settings.watchdog_idle_enabled"
+                               placeholder="15m"
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#38BDF8]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#38BDF8]/50"
+                               :class="!settings.watchdog_idle_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- Enable Busy Check -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Enable Busy Check</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Automatically stop backends that are busy for too long (stuck processes)</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.watchdog_busy_enabled" 
+                                   :disabled="!settings.watchdog_enabled"
+                                   class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Busy Timeout -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Busy Timeout</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Time before a busy backend is stopped (e.g., 5m, 30m)</p>
+                        <input type="text" x-model="settings.watchdog_busy_timeout" 
+                               :disabled="!settings.watchdog_busy_enabled"
+                               placeholder="5m"
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#38BDF8]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#38BDF8]/50"
+                               :class="!settings.watchdog_busy_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backend Request Settings Section -->
+            <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-cogs mr-2 text-[#8B5CF6] text-sm"></i>
+                    Backend Request Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure how backends handle multiple requests
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Single Backend Mode -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Single Backend Mode</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Allow only one backend to be active at a time</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.single_backend" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#8B5CF6]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8B5CF6]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Parallel Backend Requests -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Parallel Backend Requests</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Enable backends to handle multiple requests in parallel (if supported)</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.parallel_backend_requests" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#8B5CF6]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8B5CF6]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source Info -->
+            <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4" x-show="sourceInfo">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-yellow-400 mr-2 mt-0.5"></i>
+                    <div class="flex-1">
+                        <p class="text-sm text-yellow-300 font-medium mb-1">Configuration Source</p>
+                        <p class="text-xs text-yellow-200" x-text="'Settings are currently loaded from: ' + sourceInfo"></p>
+                        <p class="text-xs text-yellow-200 mt-1" x-show="sourceInfo === 'env'">
+                            Environment variables take precedence. To modify settings via the UI, unset the relevant environment variables first.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="flex justify-end">
+                <button type="submit" 
+                        :disabled="saving"
+                        class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-lg font-medium transition-colors">
+                    <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
+                    <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+function settingsDashboard() {
+    return {
+        notifications: [],
+        settings: {
+            watchdog_enabled: false,
+            watchdog_idle_enabled: false,
+            watchdog_busy_enabled: false,
+            watchdog_idle_timeout: '15m',
+            watchdog_busy_timeout: '5m',
+            single_backend: false,
+            parallel_backend_requests: false
+        },
+        sourceInfo: '',
+        saving: false,
+        
+        init() {
+            this.loadSettings();
+        },
+        
+        async loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+                
+                if (response.ok) {
+                    this.settings = {
+                        watchdog_enabled: data.watchdog_enabled,
+                        watchdog_idle_enabled: data.watchdog_idle_enabled,
+                        watchdog_busy_enabled: data.watchdog_busy_enabled,
+                        watchdog_idle_timeout: data.watchdog_idle_timeout || '15m',
+                        watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
+                        single_backend: data.single_backend,
+                        parallel_backend_requests: data.parallel_backend_requests
+                    };
+                    this.sourceInfo = data.source || 'default';
+                } else {
+                    this.addNotification('Failed to load settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                this.addNotification('Failed to load settings: ' + error.message, 'error');
+            }
+        },
+        
+        updateWatchdogEnabled() {
+            if (!this.settings.watchdog_enabled) {
+                this.settings.watchdog_idle_enabled = false;
+                this.settings.watchdog_busy_enabled = false;
+            }
+        },
+        
+        async saveSettings() {
+            if (this.saving) return;
+            
+            this.saving = true;
+            
+            try {
+                const payload = {};
+                
+                // Only include changed values
+                if (this.settings.watchdog_enabled !== undefined) {
+                    payload.watchdog_enabled = this.settings.watchdog_enabled;
+                }
+                if (this.settings.watchdog_idle_enabled !== undefined) {
+                    payload.watchdog_idle_enabled = this.settings.watchdog_idle_enabled;
+                }
+                if (this.settings.watchdog_busy_enabled !== undefined) {
+                    payload.watchdog_busy_enabled = this.settings.watchdog_busy_enabled;
+                }
+                if (this.settings.watchdog_idle_timeout) {
+                    payload.watchdog_idle_timeout = this.settings.watchdog_idle_timeout;
+                }
+                if (this.settings.watchdog_busy_timeout) {
+                    payload.watchdog_busy_timeout = this.settings.watchdog_busy_timeout;
+                }
+                if (this.settings.single_backend !== undefined) {
+                    payload.single_backend = this.settings.single_backend;
+                }
+                if (this.settings.parallel_backend_requests !== undefined) {
+                    payload.parallel_backend_requests = this.settings.parallel_backend_requests;
+                }
+                
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    this.addNotification('Settings saved successfully!', 'success');
+                    // Reload settings to get updated source info
+                    setTimeout(() => this.loadSettings(), 1000);
+                } else {
+                    this.addNotification('Failed to save settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                this.addNotification('Failed to save settings: ' + error.message, 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+        
+        addNotification(message, type = 'success') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            setTimeout(() => this.dismissNotification(id), 5000);
+        },
+        
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        }
+    }
+}
+</script>
+
+</body>
+</html>
+

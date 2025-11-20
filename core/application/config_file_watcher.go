@@ -39,6 +39,10 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 	if err != nil {
 		log.Error().Err(err).Str("file", "external_backends.json").Msg("unable to register config file handler")
 	}
+	err = c.Register("runtime_settings.json", readRuntimeSettingsJson(*appConfig), true)
+	if err != nil {
+		log.Error().Err(err).Str("file", "runtime_settings.json").Msg("unable to register config file handler")
+	}
 	return c
 }
 
@@ -174,6 +178,88 @@ func readExternalBackendsJson(startupAppConfig config.ApplicationConfig) fileHan
 			appConfig.ExternalGRPCBackends = startupAppConfig.ExternalGRPCBackends
 		}
 		log.Debug().Msg("external backends loaded from external_backends.json")
+		return nil
+	}
+	return handler
+}
+
+type runtimeSettings struct {
+	WatchdogEnabled         *bool   `json:"watchdog_enabled,omitempty"`
+	WatchdogIdleEnabled     *bool   `json:"watchdog_idle_enabled,omitempty"`
+	WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
+	WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
+	WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
+	SingleBackend           *bool   `json:"single_backend,omitempty"`
+	ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
+}
+
+func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHandler {
+	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
+		log.Debug().Msg("processing runtime_settings.json")
+
+		// Determine if settings came from env vars by comparing with startup config
+		// startupAppConfig contains the original values set from env vars at startup.
+		// If current values match startup values and are non-default, they came from env vars.
+		// We apply file settings only if current values match startup defaults (false/0),
+		// which suggests they weren't set from env vars.
+		envWatchdogIdle := appConfig.WatchDogIdle == startupAppConfig.WatchDogIdle && startupAppConfig.WatchDogIdle
+		envWatchdogBusy := appConfig.WatchDogBusy == startupAppConfig.WatchDogBusy && startupAppConfig.WatchDogBusy
+		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout && startupAppConfig.WatchDogIdleTimeout > 0
+		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout && startupAppConfig.WatchDogBusyTimeout > 0
+		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend && startupAppConfig.SingleBackend
+		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests && startupAppConfig.ParallelBackendRequests
+
+		if len(fileContent) > 0 {
+			var settings runtimeSettings
+			err := json.Unmarshal(fileContent, &settings)
+			if err != nil {
+				return err
+			}
+
+			// Apply file settings only if they don't match startup non-default values (i.e., not from env vars)
+			if settings.WatchdogIdleEnabled != nil && !envWatchdogIdle {
+				appConfig.WatchDogIdle = *settings.WatchdogIdleEnabled
+				if appConfig.WatchDogIdle {
+					appConfig.WatchDog = true
+				}
+			}
+			if settings.WatchdogBusyEnabled != nil && !envWatchdogBusy {
+				appConfig.WatchDogBusy = *settings.WatchdogBusyEnabled
+				if appConfig.WatchDogBusy {
+					appConfig.WatchDog = true
+				}
+			}
+			if settings.WatchdogIdleTimeout != nil && !envWatchdogIdleTimeout {
+				dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout)
+				if err == nil {
+					appConfig.WatchDogIdleTimeout = dur
+				} else {
+					log.Warn().Err(err).Str("timeout", *settings.WatchdogIdleTimeout).Msg("invalid watchdog idle timeout in runtime_settings.json")
+				}
+			}
+			if settings.WatchdogBusyTimeout != nil && !envWatchdogBusyTimeout {
+				dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout)
+				if err == nil {
+					appConfig.WatchDogBusyTimeout = dur
+				} else {
+					log.Warn().Err(err).Str("timeout", *settings.WatchdogBusyTimeout).Msg("invalid watchdog busy timeout in runtime_settings.json")
+				}
+			}
+			if settings.SingleBackend != nil && !envSingleBackend {
+				appConfig.SingleBackend = *settings.SingleBackend
+			}
+			if settings.ParallelBackendRequests != nil && !envParallelRequests {
+				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
+			}
+
+			// If watchdog is enabled via file but not via env, ensure WatchDog flag is set
+			if !envWatchdogIdle && !envWatchdogBusy {
+				if settings.WatchdogEnabled != nil && *settings.WatchdogEnabled {
+					appConfig.WatchDog = true
+				}
+			}
+		}
+		log.Debug().Msg("runtime settings loaded from runtime_settings.json")
 		return nil
 	}
 	return handler

@@ -44,6 +44,10 @@ func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
 	ml.wd = wd
 }
 
+func (ml *ModelLoader) GetWatchDog() *WatchDog {
+	return ml.wd
+}
+
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
 	return utils.ExistsInPath(ml.ModelPath, s)
 }

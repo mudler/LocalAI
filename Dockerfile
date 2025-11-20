@@ -332,6 +332,6 @@ RUN mkdir -p /models /backends
 HEALTHCHECK --interval=1m --timeout=10m --retries=10 \
   CMD curl -f ${HEALTHCHECK_ENDPOINT} || exit 1
 
-VOLUME /models /backends
+VOLUME /models /backends /configuration
 EXPOSE 8080
 ENTRYPOINT [ "/entrypoint.sh" ]
