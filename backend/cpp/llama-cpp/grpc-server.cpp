@@ -137,15 +137,43 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     }
     
     // Extract tools and tool_choice from proto and add to data JSON
+    SRV_INF("[TOOLS DEBUG] parse_options: Checking for tools in proto, tools().empty()=%d, tools().size()=%zu\n", 
+            predict->tools().empty() ? 1 : 0, predict->tools().size());
     if (!predict->tools().empty()) {
+        SRV_INF("[TOOLS DEBUG] parse_options: Tools string from proto (first 500 chars): %s\n", 
+                predict->tools().substr(0, std::min<size_t>(500, predict->tools().size())).c_str());
         try {
             // Parse tools JSON string and add to data
             json tools_json = json::parse(predict->tools());
             data["tools"] = tools_json;
             SRV_INF("Extracted tools from proto: %s\n", predict->tools().c_str());
+            // Debug: Log tools count and names
+            if (tools_json.is_array()) {
+                SRV_INF("[TOOLS DEBUG] parse_options: Successfully parsed %zu tools from Go layer\n", tools_json.size());
+                for (size_t i = 0; i < tools_json.size(); i++) {
+                    if (tools_json[i].contains("function") && tools_json[i]["function"].contains("name")) {
+                        SRV_INF("[TOOLS DEBUG] parse_options: Tool %zu: %s\n", i, tools_json[i]["function"]["name"].get<std::string>().c_str());
+                    } else if (tools_json[i].contains("name")) {
+                        SRV_INF("[TOOLS DEBUG] parse_options: Tool %zu: %s\n", i, tools_json[i]["name"].get<std::string>().c_str());
+                    }
+                }
+            } else {
+                SRV_WRN("[TOOLS DEBUG] parse_options: Parsed tools JSON is not an array: %s\n", tools_json.dump().c_str());
+            }
         } catch (const json::parse_error& e) {
             SRV_WRN("Failed to parse tools JSON from proto: %s\n", e.what());
+            SRV_WRN("[TOOLS DEBUG] parse_options: Tools string that failed to parse: %s\n", predict->tools().c_str());
         }
+    } else {
+        SRV_INF("%s", "[TOOLS DEBUG] parse_options: No tools received from Go layer (predict->tools() is empty)\n");
+    }
+    
+    // Debug: Verify tools are in data after extraction
+    if (data.contains("tools")) {
+        SRV_INF("[TOOLS DEBUG] parse_options: Tools successfully added to data, count: %zu\n", 
+                data["tools"].is_array() ? data["tools"].size() : 0);
+    } else {
+        SRV_INF("%s", "[TOOLS DEBUG] parse_options: WARNING - Tools NOT in data after extraction!\n");
     }
     if (!predict->toolchoice().empty()) {
         try {
@@ -155,9 +183,11 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             // Store it as-is (string or object) so we can convert object to "required" later when adding to body_json
             if (tool_choice_json.is_string()) {
                 data["tool_choice"] = tool_choice_json.get<std::string>();
+                SRV_DBG("[TOOLS DEBUG] Received tool_choice from Go layer: %s\n", tool_choice_json.get<std::string>().c_str());
             } else {
                 // Store object as-is so we can detect it later and convert to "required"
                 data["tool_choice"] = tool_choice_json;
+                SRV_DBG("[TOOLS DEBUG] Received tool_choice object from Go layer: %s\n", tool_choice_json.dump().c_str());
             }
             SRV_INF("Extracted tool_choice from proto: %s\n", predict->toolchoice().c_str());
         } catch (const json::parse_error& e) {
@@ -666,6 +696,10 @@ public:
                         json content_val;
                         try {
                             content_val = json::parse(msg.content());
+                            // Handle null values - convert to empty string to avoid template errors
+                            if (content_val.is_null()) {
+                                content_val = "";
+                            }
                         } catch (const json::parse_error&) {
                             // Not JSON, treat as plain string
                             content_val = msg.content();
@@ -707,7 +741,12 @@ public:
                             msg_json["content"] = content_array;
                         } else {
                             // Use content as-is (already array or not last user message)
-                            msg_json["content"] = content_val;
+                            // Ensure null values are converted to empty string
+                            if (content_val.is_null()) {
+                                msg_json["content"] = "";
+                            } else {
+                                msg_json["content"] = content_val;
+                            }
                         }
                     } else if (is_last_user_msg && has_images_or_audio) {
                         // If no content but this is the last user message with images/audio, create content array
@@ -734,6 +773,57 @@ public:
                             }
                         }
                         msg_json["content"] = content_array;
+                    } else if (msg.role() == "tool") {
+                        // Tool role messages must have content field set, even if empty
+                        // Jinja templates expect content to be a string, not null or object
+                        SRV_INF("[CONTENT DEBUG] PredictStream: Message %d is tool role, content_empty=%d\n", i, msg.content().empty() ? 1 : 0);
+                        if (msg.content().empty()) {
+                            msg_json["content"] = "";
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): empty content, set to empty string\n", i);
+                        } else {
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): content exists: %s\n", 
+                                    i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
+                            // Content exists, parse and ensure it's a string
+                            json content_val;
+                            try {
+                                content_val = json::parse(msg.content());
+                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): parsed JSON, type=%s\n", 
+                                        i, content_val.is_null() ? "null" : 
+                                           content_val.is_object() ? "object" :
+                                           content_val.is_string() ? "string" :
+                                           content_val.is_array() ? "array" : "other");
+                                // Handle null values - Jinja templates expect content to be a string, not null
+                                if (content_val.is_null()) {
+                                    msg_json["content"] = "";
+                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): null content, converted to empty string\n", i);
+                                } else if (content_val.is_object()) {
+                                    // If content is an object (e.g., from tool call failures/errors), convert to string
+                                    msg_json["content"] = content_val.dump();
+                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): object content, converted to string: %s\n", 
+                                            i, content_val.dump().substr(0, std::min<size_t>(200, content_val.dump().size())).c_str());
+                                } else if (content_val.is_string()) {
+                                    msg_json["content"] = content_val.get<std::string>();
+                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): string content, using as-is\n", i);
+                                } else {
+                                    // For arrays or other types, convert to string
+                                    msg_json["content"] = content_val.dump();
+                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): %s content, converted to string\n", 
+                                            i, content_val.is_array() ? "array" : "other type");
+                                }
+                            } catch (const json::parse_error&) {
+                                // Not JSON, treat as plain string
+                                msg_json["content"] = msg.content();
+                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): not JSON, using as string\n", i);
+                            }
+                        }
+                    } else {
+                        // Ensure all messages have content set (fallback for any unhandled cases)
+                        // Jinja templates expect content to be present, default to empty string if not set
+                        if (!msg_json.contains("content")) {
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (role=%s): no content field, adding empty string\n", 
+                                    i, msg.role().c_str());
+                            msg_json["content"] = "";
+                        }
                     }
                     
                     // Add optional fields for OpenAI-compatible message format
@@ -751,13 +841,95 @@ public:
                         try {
                             json tool_calls = json::parse(msg.tool_calls());
                             msg_json["tool_calls"] = tool_calls;
+                            SRV_INF("[TOOL CALLS DEBUG] PredictStream: Message %d has tool_calls: %s\n", i, tool_calls.dump().c_str());
+                            // IMPORTANT: If message has tool_calls but content is empty or not set,
+                            // set content to space " " instead of empty string "", because llama.cpp's
+                            // common_chat_msgs_to_json_oaicompat converts empty strings to null (line 312),
+                            // which causes template errors when accessing message.content[:tool_start_length]
+                            if (!msg_json.contains("content") || (msg_json.contains("content") && msg_json["content"].is_string() && msg_json["content"].get<std::string>().empty())) {
+                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d has tool_calls but empty content, setting to space\n", i);
+                                msg_json["content"] = " ";
+                            }
+                            // Log each tool call with name and arguments
+                            if (tool_calls.is_array()) {
+                                for (size_t tc_idx = 0; tc_idx < tool_calls.size(); tc_idx++) {
+                                    const auto& tc = tool_calls[tc_idx];
+                                    std::string tool_name = "unknown";
+                                    std::string tool_args = "{}";
+                                    if (tc.contains("function")) {
+                                        const auto& func = tc["function"];
+                                        if (func.contains("name")) {
+                                            tool_name = func["name"].get<std::string>();
+                                        }
+                                        if (func.contains("arguments")) {
+                                            tool_args = func["arguments"].is_string() ? 
+                                                func["arguments"].get<std::string>() : 
+                                                func["arguments"].dump();
+                                        }
+                                    } else if (tc.contains("name")) {
+                                        tool_name = tc["name"].get<std::string>();
+                                        if (tc.contains("arguments")) {
+                                            tool_args = tc["arguments"].is_string() ? 
+                                                tc["arguments"].get<std::string>() : 
+                                                tc["arguments"].dump();
+                                        }
+                                    }
+                                    SRV_INF("[TOOL CALLS DEBUG] PredictStream: Message %d, tool_call %zu: name=%s, arguments=%s\n", 
+                                            i, tc_idx, tool_name.c_str(), tool_args.c_str());
+                                }
+                            }
                         } catch (const json::parse_error& e) {
                             SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
                         }
                     }
                     
+                    // Debug: Log final content state before adding to array
+                    if (msg_json.contains("content")) {
+                        if (msg_json["content"].is_null()) {
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content is NULL - THIS WILL CAUSE ERROR!\n", i);
+                        } else {
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content type=%s, has_value=%d\n", 
+                                    i, msg_json["content"].is_string() ? "string" :
+                                       msg_json["content"].is_array() ? "array" :
+                                       msg_json["content"].is_object() ? "object" : "other",
+                                    msg_json["content"].is_null() ? 0 : 1);
+                        }
+                    } else {
+                        SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: NO CONTENT FIELD - THIS WILL CAUSE ERROR!\n", i);
+                    }
+                    
                     messages_json.push_back(msg_json);
                 }
+
+                // Final safety check: Ensure no message has null content (Jinja templates require strings)
+                SRV_INF("[CONTENT DEBUG] PredictStream: Running final safety check on %zu messages\n", messages_json.size());
+                for (size_t idx = 0; idx < messages_json.size(); idx++) {
+                    auto& msg = messages_json[idx];
+                    if (msg.contains("content") && msg["content"].is_null()) {
+                        SRV_INF("[CONTENT DEBUG] PredictStream: Safety check found message %zu with NULL content, converting to empty string\n", idx);
+                        msg["content"] = "";
+                    } else if (!msg.contains("content")) {
+                        SRV_INF("[CONTENT DEBUG] PredictStream: Safety check found message %zu without content field, adding empty string\n", idx);
+                        msg["content"] = "";
+                    } else {
+                        SRV_INF("[CONTENT DEBUG] PredictStream: Safety check message %zu: content OK, type=%s\n", 
+                                idx, msg["content"].is_string() ? "string" :
+                                    msg["content"].is_array() ? "array" :
+                                    msg["content"].is_object() ? "object" : "other");
+                    }
+                }
+
+                // Debug: Count tool messages
+                int tool_msg_count = 0;
+                for (const auto& msg : messages_json) {
+                    if (msg.contains("role") && msg["role"] == "tool") {
+                        tool_msg_count++;
+                    }
+                }
+                SRV_DBG("[TOOLS DEBUG] PredictStream: Built %d tool messages out of %zu total messages\n", tool_msg_count, messages_json.size());
+
+                // Debug: Print full conversation (messages)
+                SRV_DBG("[CONVERSATION DEBUG] PredictStream: Full messages array:\n%s\n", messages_json.dump(2).c_str());
 
                 body_json["messages"] = messages_json;
                 body_json["stream"] = true; // PredictStream is always streaming
@@ -769,6 +941,16 @@ public:
                     data["grammar"].is_string() && 
                     !data["grammar"].get<std::string>().empty();
                 
+                SRV_INF("[TOOLS DEBUG] PredictStream: has_grammar_from_go=%d, data.contains(\"tools\")=%d, data.contains(\"grammar\")=%d\n",
+                        has_grammar_from_go ? 1 : 0,
+                        data.contains("tools") ? 1 : 0,
+                        data.contains("grammar") ? 1 : 0);
+                if (data.contains("grammar")) {
+                    SRV_INF("[TOOLS DEBUG] PredictStream: grammar type=%s, empty=%d\n",
+                            data["grammar"].is_string() ? "string" : "other",
+                            data["grammar"].is_string() && data["grammar"].get<std::string>().empty() ? 1 : 0);
+                }
+                
                 // Copy other relevant fields from data that oaicompat_chat_params_parse expects
                 // Tools and tool_choice are only passed when NoGrammar is true (grammar not provided)
                 // When grammar is provided from Go layer, we use it instead of template-generated grammar
@@ -778,8 +960,36 @@ public:
                         body_json["tools"] = data["tools"];
                         std::string tools_str = data["tools"].dump();
                         SRV_INF("Using tools from data (NoGrammar=true): %s\n", tools_str.c_str());
+                        // Debug: Log tools count and details before template processing
+                        if (data["tools"].is_array()) {
+                            SRV_INF("[TOOLS DEBUG] PredictStream: Passing %zu tools to oaicompat_chat_params_parse\n", data["tools"].size());
+                            for (size_t t_idx = 0; t_idx < data["tools"].size(); t_idx++) {
+                                const auto& tool = data["tools"][t_idx];
+                                std::string tool_name = "unknown";
+                                std::string tool_desc = "";
+                                if (tool.contains("function")) {
+                                    const auto& func = tool["function"];
+                                    if (func.contains("name")) {
+                                        tool_name = func["name"].get<std::string>();
+                                    }
+                                    if (func.contains("description")) {
+                                        tool_desc = func["description"].is_string() ? 
+                                            func["description"].get<std::string>() : "";
+                                    }
+                                } else if (tool.contains("name")) {
+                                    tool_name = tool["name"].get<std::string>();
+                                    if (tool.contains("description")) {
+                                        tool_desc = tool["description"].is_string() ? 
+                                            tool["description"].get<std::string>() : "";
+                                    }
+                                }
+                                SRV_INF("[TOOLS DEBUG] PredictStream: Tool %zu: name=%s, description=%s\n", 
+                                        t_idx, tool_name.c_str(), tool_desc.substr(0, 100).c_str());
+                            }
+                        }
                     } else {
                         SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
+                        SRV_DBG("[TOOLS DEBUG] PredictStream: No tools in data, tool_choice=%s\n", data.contains("tool_choice") ? data["tool_choice"].dump().c_str() : "not set");
                     }
                     if (data.contains("tool_choice")) {
                         // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
@@ -821,6 +1031,17 @@ public:
                 if (data.contains("chat_template_kwargs")) {
                     body_json["chat_template_kwargs"] = data["chat_template_kwargs"];
                 }
+                // Pass parallel_tool_calls if present (used by oaicompat_chat_params_parse)
+                if (data.contains("parallel_tool_calls")) {
+                    body_json["parallel_tool_calls"] = data["parallel_tool_calls"];
+                }
+                // Pass add_generation_prompt if present (used by oaicompat_chat_params_parse)
+                if (data.contains("add_generation_prompt")) {
+                    body_json["add_generation_prompt"] = data["add_generation_prompt"];
+                }
+
+                // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
+                SRV_DBG("[CONVERSATION DEBUG] PredictStream: Full body_json before oaicompat_chat_params_parse:\n%s\n", body_json.dump(2).c_str());
 
                 // Use the same approach as server.cpp: call oaicompat_chat_params_parse
                 // This handles all template application, grammar merging, etc. automatically
@@ -831,7 +1052,55 @@ public:
                 // Update allow_image and allow_audio based on current mctx state
                 parser_opt.allow_image = ctx_server.mctx ? mtmd_support_vision(ctx_server.mctx) : false;
                 parser_opt.allow_audio = ctx_server.mctx ? mtmd_support_audio(ctx_server.mctx) : false;
+                
+                // Debug: Log tools before template processing
+                if (body_json.contains("tools")) {
+                    SRV_DBG("[TOOLS DEBUG] PredictStream: Before oaicompat_chat_params_parse - tools count: %zu\n", 
+                            body_json["tools"].is_array() ? body_json["tools"].size() : 0);
+                }
+                
+                // Debug: Verify messages content before template processing
+                // Also ensure ALL messages have content set to string (not null) - templates expect strings
+                if (body_json.contains("messages") && body_json["messages"].is_array()) {
+                    SRV_INF("[CONTENT DEBUG] PredictStream: Before oaicompat_chat_params_parse - checking %zu messages\n", body_json["messages"].size());
+                    for (size_t idx = 0; idx < body_json["messages"].size(); idx++) {
+                        auto& msg = body_json["messages"][idx];
+                        std::string role_str = msg.contains("role") ? msg["role"].get<std::string>() : "unknown";
+                        if (msg.contains("content")) {
+                            if (msg["content"].is_null()) {
+                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) has NULL content - FIXING!\n", idx, role_str.c_str());
+                                msg["content"] = ""; // Fix null content
+                            } else if (!msg["content"].is_string() && !msg["content"].is_array()) {
+                                // If content is object or other non-string type, convert to string for templates
+                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) content is not string/array, converting\n", idx, role_str.c_str());
+                                if (msg["content"].is_object()) {
+                                    msg["content"] = msg["content"].dump();
+                                } else {
+                                    msg["content"] = "";
+                                }
+                            } else {
+                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n", 
+                                        idx, role_str.c_str(),
+                                        msg["content"].is_string() ? "string" :
+                                        msg["content"].is_array() ? "array" :
+                                        msg["content"].is_object() ? "object" : "other");
+                            }
+                        } else {
+                            SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) MISSING content field - ADDING!\n", idx, role_str.c_str());
+                            msg["content"] = ""; // Add missing content
+                        }
+                    }
+                }
+                
                 json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
+                
+                // Debug: Log tools after template processing
+                if (parsed_data.contains("tools")) {
+                    SRV_DBG("[TOOLS DEBUG] PredictStream: After oaicompat_chat_params_parse - tools count: %zu\n",
+                            parsed_data["tools"].is_array() ? parsed_data["tools"].size() : 0);
+                } else {
+                    SRV_DBG("%s", "[TOOLS DEBUG] PredictStream: After oaicompat_chat_params_parse - no tools in parsed_data\n");
+                }
                 
                 // Extract the prompt from parsed data
                 prompt_str = parsed_data.at("prompt").get<std::string>();
@@ -843,8 +1112,9 @@ public:
                     preserved_grammar = data["grammar"];
                 }
                 
-                // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, etc.)
+                // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, parse_tool_calls, etc.)
                 // This ensures all template-generated fields are included
+                // parse_tool_calls is set by oaicompat_chat_params_parse when tools are present
                 for (const auto& item : parsed_data.items()) {
                     if (item.key() != "prompt") { // Don't overwrite prompt_str, we already extracted it
                         // If grammar was provided from Go layer, preserve it instead of template-generated grammar
@@ -854,6 +1124,11 @@ public:
                             data[item.key()] = item.value();
                         }
                     }
+                }
+                
+                // Debug: Log parse_tool_calls if present (set by oaicompat_chat_params_parse when tools are present)
+                if (data.contains("parse_tool_calls")) {
+                    SRV_DBG("[TOOLS DEBUG] PredictStream: parse_tool_calls=%s\n", data["parse_tool_calls"].get<bool>() ? "true" : "false");
                 }
             } else {
                 // Use prompt directly from data
@@ -1109,10 +1384,18 @@ public:
                     }
                 }
                 
+                SRV_INF("[CONTENT DEBUG] Predict: Processing %d messages\n", request->messages_size());
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
+                    
+                    SRV_INF("[CONTENT DEBUG] Predict: Message %d: role=%s, content_empty=%d, content_length=%zu\n", 
+                            i, msg.role().c_str(), msg.content().empty() ? 1 : 0, msg.content().size());
+                    if (!msg.content().empty()) {
+                        SRV_INF("[CONTENT DEBUG] Predict: Message %d content (first 200 chars): %s\n", 
+                                i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
+                    }
                     
                     bool is_last_user_msg = (i == last_user_msg_idx);
                     bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
@@ -1124,6 +1407,11 @@ public:
                         json content_val;
                         try {
                             content_val = json::parse(msg.content());
+                            // Handle null values - convert to empty string to avoid template errors
+                            if (content_val.is_null()) {
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d parsed JSON is null, converting to empty string\n", i);
+                                content_val = "";
+                            }
                         } catch (const json::parse_error&) {
                             // Not JSON, treat as plain string
                             content_val = msg.content();
@@ -1131,6 +1419,7 @@ public:
                         
                         // If content is an object (e.g., from tool call failures), convert to string
                         if (content_val.is_object()) {
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d content is object, converting to string\n", i);
                             content_val = content_val.dump();
                         }
                         
@@ -1165,7 +1454,17 @@ public:
                             msg_json["content"] = content_array;
                         } else {
                             // Use content as-is (already array or not last user message)
-                            msg_json["content"] = content_val;
+                            // Ensure null values are converted to empty string
+                            if (content_val.is_null()) {
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d content_val was null, setting to empty string\n", i);
+                                msg_json["content"] = "";
+                            } else {
+                                msg_json["content"] = content_val;
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d content set, type=%s\n", 
+                                        i, content_val.is_string() ? "string" : 
+                                           content_val.is_array() ? "array" : 
+                                           content_val.is_object() ? "object" : "other");
+                            }
                         }
                     } else if (is_last_user_msg && has_images_or_audio) {
                         // If no content but this is the last user message with images/audio, create content array
@@ -1192,9 +1491,65 @@ public:
                             }
                         }
                         msg_json["content"] = content_array;
+                        SRV_INF("[CONTENT DEBUG] Predict: Message %d created content array with media\n", i);
                     } else if (!msg.tool_calls().empty()) {
-                        // Tool call messages may have null content
-                        msg_json["content"] = json();
+                        // Tool call messages may have null content, but templates expect string
+                        // IMPORTANT: Set to space " " instead of empty string "", because llama.cpp's
+                        // common_chat_msgs_to_json_oaicompat converts empty strings to null (line 312),
+                        // which causes template errors when accessing message.content[:tool_start_length]
+                        SRV_INF("[CONTENT DEBUG] Predict: Message %d has tool_calls, setting content to space (not empty string)\n", i);
+                        msg_json["content"] = " ";
+                    } else if (msg.role() == "tool") {
+                        // Tool role messages must have content field set, even if empty
+                        // Jinja templates expect content to be a string, not null or object
+                        SRV_INF("[CONTENT DEBUG] Predict: Message %d is tool role, content_empty=%d\n", i, msg.content().empty() ? 1 : 0);
+                        if (msg.content().empty()) {
+                            msg_json["content"] = "";
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): empty content, set to empty string\n", i);
+                        } else {
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): content exists: %s\n", 
+                                    i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
+                            // Content exists, parse and ensure it's a string
+                            json content_val;
+                            try {
+                                content_val = json::parse(msg.content());
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): parsed JSON, type=%s\n", 
+                                        i, content_val.is_null() ? "null" : 
+                                           content_val.is_object() ? "object" :
+                                           content_val.is_string() ? "string" :
+                                           content_val.is_array() ? "array" : "other");
+                                // Handle null values - Jinja templates expect content to be a string, not null
+                                if (content_val.is_null()) {
+                                    msg_json["content"] = "";
+                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): null content, converted to empty string\n", i);
+                                } else if (content_val.is_object()) {
+                                    // If content is an object (e.g., from tool call failures/errors), convert to string
+                                    msg_json["content"] = content_val.dump();
+                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): object content, converted to string: %s\n", 
+                                            i, content_val.dump().substr(0, std::min<size_t>(200, content_val.dump().size())).c_str());
+                                } else if (content_val.is_string()) {
+                                    msg_json["content"] = content_val.get<std::string>();
+                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): string content, using as-is\n", i);
+                                } else {
+                                    // For arrays or other types, convert to string
+                                    msg_json["content"] = content_val.dump();
+                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): %s content, converted to string\n", 
+                                            i, content_val.is_array() ? "array" : "other type");
+                                }
+                            } catch (const json::parse_error&) {
+                                // Not JSON, treat as plain string
+                                msg_json["content"] = msg.content();
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): not JSON, using as string\n", i);
+                            }
+                        }
+                    } else {
+                        // Ensure all messages have content set (fallback for any unhandled cases)
+                        // Jinja templates expect content to be present, default to empty string if not set
+                        if (!msg_json.contains("content")) {
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (role=%s): no content field, adding empty string\n", 
+                                    i, msg.role().c_str());
+                            msg_json["content"] = "";
+                        }
                     }
                     
                     // Add optional fields for OpenAI-compatible message format
@@ -1212,13 +1567,97 @@ public:
                         try {
                             json tool_calls = json::parse(msg.tool_calls());
                             msg_json["tool_calls"] = tool_calls;
+                            SRV_INF("[TOOL CALLS DEBUG] Predict: Message %d has tool_calls: %s\n", i, tool_calls.dump().c_str());
+                            // IMPORTANT: If message has tool_calls but content is empty or not set,
+                            // set content to space " " instead of empty string "", because llama.cpp's
+                            // common_chat_msgs_to_json_oaicompat converts empty strings to null (line 312),
+                            // which causes template errors when accessing message.content[:tool_start_length]
+                            if (!msg_json.contains("content") || (msg_json.contains("content") && msg_json["content"].is_string() && msg_json["content"].get<std::string>().empty())) {
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d has tool_calls but empty content, setting to space\n", i);
+                                msg_json["content"] = " ";
+                            }
+                            // Log each tool call with name and arguments
+                            if (tool_calls.is_array()) {
+                                for (size_t tc_idx = 0; tc_idx < tool_calls.size(); tc_idx++) {
+                                    const auto& tc = tool_calls[tc_idx];
+                                    std::string tool_name = "unknown";
+                                    std::string tool_args = "{}";
+                                    if (tc.contains("function")) {
+                                        const auto& func = tc["function"];
+                                        if (func.contains("name")) {
+                                            tool_name = func["name"].get<std::string>();
+                                        }
+                                        if (func.contains("arguments")) {
+                                            tool_args = func["arguments"].is_string() ? 
+                                                func["arguments"].get<std::string>() : 
+                                                func["arguments"].dump();
+                                        }
+                                    } else if (tc.contains("name")) {
+                                        tool_name = tc["name"].get<std::string>();
+                                        if (tc.contains("arguments")) {
+                                            tool_args = tc["arguments"].is_string() ? 
+                                                tc["arguments"].get<std::string>() : 
+                                                tc["arguments"].dump();
+                                        }
+                                    }
+                                    SRV_INF("[TOOL CALLS DEBUG] Predict: Message %d, tool_call %zu: name=%s, arguments=%s\n", 
+                                            i, tc_idx, tool_name.c_str(), tool_args.c_str());
+                                }
+                            }
                         } catch (const json::parse_error& e) {
                             SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
                         }
                     }
                     
+                    // Debug: Log final content state before adding to array
+                    if (msg_json.contains("content")) {
+                        if (msg_json["content"].is_null()) {
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content is NULL - THIS WILL CAUSE ERROR!\n", i);
+                        } else {
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content type=%s, has_value=%d\n", 
+                                    i, msg_json["content"].is_string() ? "string" :
+                                       msg_json["content"].is_array() ? "array" :
+                                       msg_json["content"].is_object() ? "object" : "other",
+                                    msg_json["content"].is_null() ? 0 : 1);
+                        }
+                    } else {
+                        SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: NO CONTENT FIELD - THIS WILL CAUSE ERROR!\n", i);
+                    }
+                    
                     messages_json.push_back(msg_json);
                 }
+
+                // Final safety check: Ensure no message has null content (Jinja templates require strings)
+                SRV_INF("[CONTENT DEBUG] Predict: Running final safety check on %zu messages\n", messages_json.size());
+                for (size_t idx = 0; idx < messages_json.size(); idx++) {
+                    auto& msg = messages_json[idx];
+                    std::string role_str = msg.contains("role") ? msg["role"].get<std::string>() : "unknown";
+                    if (msg.contains("content") && msg["content"].is_null()) {
+                        SRV_INF("[CONTENT DEBUG] Predict: Safety check found message %zu (role=%s) with NULL content, converting to empty string\n", idx, role_str.c_str());
+                        msg["content"] = "";
+                    } else if (!msg.contains("content")) {
+                        SRV_INF("[CONTENT DEBUG] Predict: Safety check found message %zu (role=%s) without content field, adding empty string\n", idx, role_str.c_str());
+                        msg["content"] = "";
+                    } else {
+                        SRV_INF("[CONTENT DEBUG] Predict: Safety check message %zu (role=%s): content OK, type=%s\n", 
+                                idx, role_str.c_str(),
+                                msg["content"].is_string() ? "string" :
+                                msg["content"].is_array() ? "array" :
+                                msg["content"].is_object() ? "object" : "other");
+                    }
+                }
+
+                // Debug: Count tool messages
+                int tool_msg_count = 0;
+                for (const auto& msg : messages_json) {
+                    if (msg.contains("role") && msg["role"] == "tool") {
+                        tool_msg_count++;
+                    }
+                }
+                SRV_DBG("[TOOLS DEBUG] Predict: Built %d tool messages out of %zu total messages\n", tool_msg_count, messages_json.size());
+
+                // Debug: Print full conversation (messages)
+                SRV_DBG("[CONVERSATION DEBUG] Predict: Full messages array:\n%s\n", messages_json.dump(2).c_str());
 
                 body_json["messages"] = messages_json;
                 body_json["stream"] = false;
@@ -1230,6 +1669,16 @@ public:
                     data["grammar"].is_string() && 
                     !data["grammar"].get<std::string>().empty();
                 
+                SRV_INF("[TOOLS DEBUG] Predict: has_grammar_from_go=%d, data.contains(\"tools\")=%d, data.contains(\"grammar\")=%d\n",
+                        has_grammar_from_go ? 1 : 0,
+                        data.contains("tools") ? 1 : 0,
+                        data.contains("grammar") ? 1 : 0);
+                if (data.contains("grammar")) {
+                    SRV_INF("[TOOLS DEBUG] Predict: grammar type=%s, empty=%d\n",
+                            data["grammar"].is_string() ? "string" : "other",
+                            data["grammar"].is_string() && data["grammar"].get<std::string>().empty() ? 1 : 0);
+                }
+                
                 // Copy other relevant fields from data that oaicompat_chat_params_parse expects
                 // Tools and tool_choice are only passed when NoGrammar is true (grammar not provided)
                 // When grammar is provided from Go layer, we use it instead of template-generated grammar
@@ -1239,8 +1688,36 @@ public:
                         body_json["tools"] = data["tools"];
                         std::string tools_str = data["tools"].dump();
                         SRV_INF("Using tools from data (NoGrammar=true): %s\n", tools_str.c_str());
+                        // Debug: Log tools count and details before template processing
+                        if (data["tools"].is_array()) {
+                            SRV_INF("[TOOLS DEBUG] Predict: Passing %zu tools to oaicompat_chat_params_parse\n", data["tools"].size());
+                            for (size_t t_idx = 0; t_idx < data["tools"].size(); t_idx++) {
+                                const auto& tool = data["tools"][t_idx];
+                                std::string tool_name = "unknown";
+                                std::string tool_desc = "";
+                                if (tool.contains("function")) {
+                                    const auto& func = tool["function"];
+                                    if (func.contains("name")) {
+                                        tool_name = func["name"].get<std::string>();
+                                    }
+                                    if (func.contains("description")) {
+                                        tool_desc = func["description"].is_string() ? 
+                                            func["description"].get<std::string>() : "";
+                                    }
+                                } else if (tool.contains("name")) {
+                                    tool_name = tool["name"].get<std::string>();
+                                    if (tool.contains("description")) {
+                                        tool_desc = tool["description"].is_string() ? 
+                                            tool["description"].get<std::string>() : "";
+                                    }
+                                }
+                                SRV_INF("[TOOLS DEBUG] Predict: Tool %zu: name=%s, description=%s\n", 
+                                        t_idx, tool_name.c_str(), tool_desc.substr(0, 100).c_str());
+                            }
+                        }
                     } else {
                         SRV_WRN("%s", "No tools found in data - tool calls will not work without tools field\n");
+                        SRV_DBG("[TOOLS DEBUG] Predict: No tools in data, tool_choice=%s\n", data.contains("tool_choice") ? data["tool_choice"].dump().c_str() : "not set");
                     }
                     if (data.contains("tool_choice")) {
                         // tool_choice can be a string or object, but oaicompat_chat_params_parse expects a string
@@ -1282,6 +1759,17 @@ public:
                 if (data.contains("chat_template_kwargs")) {
                     body_json["chat_template_kwargs"] = data["chat_template_kwargs"];
                 }
+                // Pass parallel_tool_calls if present (used by oaicompat_chat_params_parse)
+                if (data.contains("parallel_tool_calls")) {
+                    body_json["parallel_tool_calls"] = data["parallel_tool_calls"];
+                }
+                // Pass add_generation_prompt if present (used by oaicompat_chat_params_parse)
+                if (data.contains("add_generation_prompt")) {
+                    body_json["add_generation_prompt"] = data["add_generation_prompt"];
+                }
+
+                // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
+                SRV_DBG("[CONVERSATION DEBUG] Predict: Full body_json before oaicompat_chat_params_parse:\n%s\n", body_json.dump(2).c_str());
 
                 // Use the same approach as server.cpp: call oaicompat_chat_params_parse
                 // This handles all template application, grammar merging, etc. automatically
@@ -1292,7 +1780,55 @@ public:
                 // Update allow_image and allow_audio based on current mctx state
                 parser_opt.allow_image = ctx_server.mctx ? mtmd_support_vision(ctx_server.mctx) : false;
                 parser_opt.allow_audio = ctx_server.mctx ? mtmd_support_audio(ctx_server.mctx) : false;
+                
+                // Debug: Log tools before template processing
+                if (body_json.contains("tools")) {
+                    SRV_DBG("[TOOLS DEBUG] Predict: Before oaicompat_chat_params_parse - tools count: %zu\n", 
+                            body_json["tools"].is_array() ? body_json["tools"].size() : 0);
+                }
+                
+                // Debug: Verify messages content before template processing
+                // Also ensure ALL messages have content set to string (not null) - templates expect strings
+                if (body_json.contains("messages") && body_json["messages"].is_array()) {
+                    SRV_INF("[CONTENT DEBUG] Predict: Before oaicompat_chat_params_parse - checking %zu messages\n", body_json["messages"].size());
+                    for (size_t idx = 0; idx < body_json["messages"].size(); idx++) {
+                        auto& msg = body_json["messages"][idx];
+                        std::string role_str = msg.contains("role") ? msg["role"].get<std::string>() : "unknown";
+                        if (msg.contains("content")) {
+                            if (msg["content"].is_null()) {
+                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) has NULL content - FIXING!\n", idx, role_str.c_str());
+                                msg["content"] = ""; // Fix null content
+                            } else if (!msg["content"].is_string() && !msg["content"].is_array()) {
+                                // If content is object or other non-string type, convert to string for templates
+                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) content is not string/array, converting\n", idx, role_str.c_str());
+                                if (msg["content"].is_object()) {
+                                    msg["content"] = msg["content"].dump();
+                                } else {
+                                    msg["content"] = "";
+                                }
+                            } else {
+                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n", 
+                                        idx, role_str.c_str(),
+                                        msg["content"].is_string() ? "string" :
+                                        msg["content"].is_array() ? "array" :
+                                        msg["content"].is_object() ? "object" : "other");
+                            }
+                        } else {
+                            SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) MISSING content field - ADDING!\n", idx, role_str.c_str());
+                            msg["content"] = ""; // Add missing content
+                        }
+                    }
+                }
+                
                 json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
+                
+                // Debug: Log tools after template processing
+                if (parsed_data.contains("tools")) {
+                    SRV_DBG("[TOOLS DEBUG] Predict: After oaicompat_chat_params_parse - tools count: %zu\n",
+                            parsed_data["tools"].is_array() ? parsed_data["tools"].size() : 0);
+                } else {
+                    SRV_DBG("%s", "[TOOLS DEBUG] Predict: After oaicompat_chat_params_parse - no tools in parsed_data\n");
+                }
                 
                 // Extract the prompt from parsed data
                 prompt_str = parsed_data.at("prompt").get<std::string>();
@@ -1304,8 +1840,9 @@ public:
                     preserved_grammar = data["grammar"];
                 }
                 
-                // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, etc.)
+                // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, parse_tool_calls, etc.)
                 // This ensures all template-generated fields are included
+                // parse_tool_calls is set by oaicompat_chat_params_parse when tools are present
                 for (const auto& item : parsed_data.items()) {
                     if (item.key() != "prompt") { // Don't overwrite prompt_str, we already extracted it
                         // If grammar was provided from Go layer, preserve it instead of template-generated grammar
@@ -1315,6 +1852,11 @@ public:
                             data[item.key()] = item.value();
                         }
                     }
+                }
+                
+                // Debug: Log parse_tool_calls if present (set by oaicompat_chat_params_parse when tools are present)
+                if (data.contains("parse_tool_calls")) {
+                    SRV_DBG("[TOOLS DEBUG] Predict: parse_tool_calls=%s\n", data["parse_tool_calls"].get<bool>() ? "true" : "false");
                 }
             } else {
                 // Use prompt directly from data
