@@ -317,6 +317,30 @@
                 </div>
             </div>
 
+            <!-- API Keys Settings Section -->
+            <div class="bg-[#1E293B] border border-[#EF4444]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-key mr-2 text-[#EF4444] text-sm"></i>
+                    API Keys
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Manage API keys for authentication. Keys from environment variables are always included.
+                </p>
+
+                <div class="space-y-4">
+                    <!-- API Keys List -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">API Keys</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">List of API keys (one per line or comma-separated)</p>
+                        <textarea x-model="settings.api_keys_text" 
+                                  rows="4"
+                                  placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba"
+                                  class="w-full px-3 py-2 bg-[#101827] border border-[#EF4444]/20 rounded text-sm text-[#E5E7EB] font-mono focus:outline-none focus:ring-2 focus:ring-[#EF4444]/50"></textarea>
+                        <p class="text-xs text-[#94A3B8] mt-1">Note: API keys are sensitive. Handle with care.</p>
+                    </div>
+                </div>
+            </div>
+
             <!-- Gallery Settings Section -->
             <div class="bg-[#1E293B] border border-[#6366F1]/20 rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
@@ -430,7 +454,8 @@ function settingsDashboard() {
             autoload_galleries: false,
             autoload_backend_galleries: false,
             galleries_json: '[]',
-            backend_galleries_json: '[]'
+            backend_galleries_json: '[]',
+            api_keys_text: ''
         },
         sourceInfo: '',
         saving: false,
@@ -466,7 +491,8 @@ function settingsDashboard() {
                         autoload_galleries: data.autoload_galleries || false,
                         autoload_backend_galleries: data.autoload_backend_galleries || false,
                         galleries_json: JSON.stringify(data.galleries || [], null, 2),
-                        backend_galleries_json: JSON.stringify(data.backend_galleries || [], null, 2)
+                        backend_galleries_json: JSON.stringify(data.backend_galleries || [], null, 2),
+                        api_keys_text: (data.api_keys || []).join('\n')
                     };
                     this.sourceInfo = data.source || 'default';
                 } else {
@@ -550,6 +576,19 @@ function settingsDashboard() {
                 }
                 if (this.settings.autoload_backend_galleries !== undefined) {
                     payload.autoload_backend_galleries = this.settings.autoload_backend_galleries;
+                }
+                // Parse API keys from text (split by newline or comma, trim whitespace, filter empty)
+                if (this.settings.api_keys_text !== undefined) {
+                    const keys = this.settings.api_keys_text
+                        .split(/[\n,]/)
+                        .map(k => k.trim())
+                        .filter(k => k.length > 0);
+                    if (keys.length > 0) {
+                        payload.api_keys = keys;
+                    } else {
+                        // If empty, send empty array to clear keys
+                        payload.api_keys = [];
+                    }
                 }
                 // Parse galleries JSON
                 if (this.settings.galleries_json) {

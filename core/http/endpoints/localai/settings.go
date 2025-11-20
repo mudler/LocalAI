@@ -43,6 +43,7 @@ type RuntimeSettings struct {
 	BackendGalleries         *[]config.Gallery `json:"backend_galleries,omitempty"`
 	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
 	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
+	ApiKeys                  *[]string         `json:"api_keys"` // No omitempty - we need to save empty arrays to clear keys
 }
 
 // GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
@@ -78,6 +79,7 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		backendGalleries := appConfig.BackendGalleries
 		autoloadGalleries := appConfig.AutoloadGalleries
 		autoloadBackendGalleries := appConfig.AutoloadBackendGalleries
+		apiKeys := appConfig.ApiKeys
 
 		settings.WatchdogIdleEnabled = &watchdogIdle
 		settings.WatchdogBusyEnabled = &watchdogBusy
@@ -98,6 +100,7 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		settings.BackendGalleries = &backendGalleries
 		settings.AutoloadGalleries = &autoloadGalleries
 		settings.AutoloadBackendGalleries = &autoloadBackendGalleries
+		settings.ApiKeys = &apiKeys
 
 		var idleTimeout, busyTimeout string
 		if appConfig.WatchDogIdleTimeout > 0 {
@@ -265,6 +268,18 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		}
 		if settings.AutoloadBackendGalleries != nil {
 			appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+		}
+		if settings.ApiKeys != nil {
+			// API keys from env vars (startup) should be kept, runtime settings keys are added
+			// Combine startup keys (env vars) with runtime settings keys
+			envKeys := startupConfig.ApiKeys
+			runtimeKeys := *settings.ApiKeys
+			// Merge: env keys first (they take precedence), then runtime keys
+			appConfig.ApiKeys = append(envKeys, runtimeKeys...)
+
+			// Note: We only save to runtime_settings.json (not api_keys.json) to avoid duplication
+			// The runtime_settings.json is the unified config file. If api_keys.json exists,
+			// it will be loaded first, but runtime_settings.json takes precedence and deduplicates.
 		}
 
 		// Restart watchdog if settings changed

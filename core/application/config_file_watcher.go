@@ -205,6 +205,7 @@ type runtimeSettings struct {
 	BackendGalleries         *[]config.Gallery `json:"backend_galleries,omitempty"`
 	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
 	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
+	ApiKeys                  *[]string         `json:"api_keys,omitempty"`
 }
 
 func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHandler {
@@ -317,6 +318,15 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.AutoloadBackendGalleries != nil && !envAutoloadBackendGalleries {
 				appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+			}
+			if settings.ApiKeys != nil {
+				// API keys from env vars (startup) should be kept, runtime settings keys replace all runtime keys
+				// If runtime_settings.json specifies ApiKeys (even if empty), it replaces all runtime keys
+				// Start with env keys, then add runtime_settings.json keys (which may be empty to clear them)
+				envKeys := startupAppConfig.ApiKeys
+				runtimeKeys := *settings.ApiKeys
+				// Replace all runtime keys with what's in runtime_settings.json
+				appConfig.ApiKeys = append(envKeys, runtimeKeys...)
 			}
 
 			// If watchdog is enabled via file but not via env, ensure WatchDog flag is set
