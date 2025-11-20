@@ -44,8 +44,25 @@ SOFTWARE.
     // Function to initialize store
     function __initChatStore() {
       if (!window.Alpine) return;
+      
+      // Check for MCP mode from localStorage (set by index page)
+      // Note: We don't clear localStorage here - chat.js will handle that after reading all data
+      let initialMcpMode = false;
+      try {
+        const chatData = localStorage.getItem('localai_index_chat_data');
+        if (chatData) {
+          const parsed = JSON.parse(chatData);
+          if (parsed.mcpMode === true) {
+            initialMcpMode = true;
+          }
+        }
+      } catch (e) {
+        console.error('Error reading MCP mode from localStorage:', e);
+      }
+      
       if (Alpine.store("chat")) {
         Alpine.store("chat").contextSize = __chatContextSize;
+        Alpine.store("chat").mcpMode = initialMcpMode;
         return;
       }
 
@@ -53,7 +70,7 @@ SOFTWARE.
         history: [],
         languages: [undefined],
         systemPrompt: "",
-        mcpMode: false,
+        mcpMode: initialMcpMode,
         contextSize: __chatContextSize,
         tokenUsage: {
           promptTokens: 0,

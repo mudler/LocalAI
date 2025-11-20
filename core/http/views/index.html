@@ -128,6 +128,9 @@
                 audioFiles: [], 
                 textFiles: [],
                 attachedFiles: [],
+                mcpMode: false,
+                mcpAvailable: false,
+                mcpModels: {},
                 currentPlaceholder: 'Send a message...',
                 placeholderIndex: 0,
                 charIndex: 0,
@@ -163,6 +166,8 @@
                 init() {
                     window.currentPlaceholderText = this.currentPlaceholder;
                     this.startTypingAnimation();
+                    // Build MCP models map from data attributes
+                    this.buildMCPModelsMap();
                     // Select first model by default
                     this.$nextTick(() => {
                         const select = this.$el.querySelector('select');
@@ -171,9 +176,43 @@
                             const firstModelOption = select.options[1];
                             if (firstModelOption && firstModelOption.value) {
                                 this.selectedModel = firstModelOption.value;
+                                this.checkMCPAvailability();
                             }
                         }
                     });
+                    // Watch for changes to selectedModel to update MCP availability
+                    this.$watch('selectedModel', () => {
+                        this.checkMCPAvailability();
+                    });
+                },
+                buildMCPModelsMap() {
+                    const select = this.$el.querySelector('select');
+                    if (!select) return;
+                    this.mcpModels = {};
+                    for (let i = 0; i < select.options.length; i++) {
+                        const option = select.options[i];
+                        if (option.value) {
+                            const hasMcpAttr = option.getAttribute('data-has-mcp');
+                            this.mcpModels[option.value] = hasMcpAttr === 'true';
+                        }
+                    }
+                    // Debug: uncomment to see the MCP models map
+                    // console.log('MCP Models Map:', this.mcpModels);
+                },
+                checkMCPAvailability() {
+                    if (!this.selectedModel) {
+                        this.mcpAvailable = false;
+                        this.mcpMode = false;
+                        return;
+                    }
+                    // Check MCP availability from the map
+                    const hasMCP = this.mcpModels[this.selectedModel] === true;
+                    this.mcpAvailable = hasMCP;
+                    // Debug: uncomment to see what's happening
+                    // console.log('MCP Check:', { model: this.selectedModel, hasMCP, mcpAvailable: this.mcpAvailable, map: this.mcpModels });
+                    if (!hasMCP) {
+                        this.mcpMode = false;
+                    }
                 },
                 startTypingAnimation() {
                     if (this.isTyping) return;
@@ -268,24 +307,50 @@
                     }
                 }
             }">
-                <!-- Model Selector -->
+                <!-- Model Selector with MCP Toggle -->
                 <div class="mb-4">
                     <label class="block text-sm font-medium text-[#94A3B8] mb-2">Select Model</label>
-                    <select
-                        x-model="selectedModel"
-                        class="w-full bg-[#1E293B] text-[#E5E7EB] border border-[#38BDF8]/20 focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-lg p-3 appearance-none"
-                        required
-                    >
-                        <option value="" disabled class="text-[#94A3B8]">Select a model to chat with...</option>
-                        {{ range .ModelsConfig }}
-                        {{ $cfg := . }}
-                        {{ range .KnownUsecaseStrings }}
-                            {{ if eq . "FLAG_CHAT" }}
-                            <option value="{{$cfg.Name}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                    <div class="flex items-center gap-3">
+                        <select
+                            x-model="selectedModel"
+                            @change="$nextTick(() => checkMCPAvailability())"
+                            class="flex-1 bg-[#1E293B] text-[#E5E7EB] border border-[#38BDF8]/20 focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-lg p-3 appearance-none"
+                            required
+                        >
+                            <option value="" disabled class="text-[#94A3B8]">Select a model to chat with...</option>
+                            {{ range .ModelsConfig }}
+                            {{ $cfg := . }}
+                            {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                            {{ range .KnownUsecaseStrings }}
+                                {{ if eq . "FLAG_CHAT" }}
+                                <option value="{{$cfg.Name}}" data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                                {{ end }}
                             {{ end }}
-                        {{ end }}
-                        {{ end }}
-                    </select>
+                            {{ end }}
+                        </select>
+                        
+                        <!-- Compact MCP Toggle - Show only if MCP is available for selected model -->
+                        <div 
+                            x-show="mcpAvailable"
+                            class="flex items-center gap-2 px-3 py-2 text-xs rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20 whitespace-nowrap">
+                            <i class="fa-solid fa-plug text-[#38BDF8] text-sm"></i>
+                            <span class="text-[#94A3B8]">MCP</span>
+                            <label class="relative inline-flex items-center cursor-pointer ml-1">
+                                <input type="checkbox" id="index_mcp_toggle" class="sr-only peer" x-model="mcpMode">
+                                <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- MCP Mode Notification - Compact tooltip style -->
+                    <div 
+                        x-show="mcpMode && mcpAvailable"
+                        class="mt-2 p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
+                        <div class="flex items-start space-x-2">
+                            <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5 text-xs"></i>
+                            <p class="text-[#94A3B8]">Non-streaming mode active. Responses may take longer to process.</p>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Input Bar -->
@@ -476,12 +541,20 @@ function startChat(event) {
         return;
     }
 
+    // Get MCP mode from checkbox (if available)
+    let mcpMode = false;
+    const mcpToggle = document.getElementById('index_mcp_toggle');
+    if (mcpToggle && mcpToggle.checked) {
+        mcpMode = true;
+    }
+
     // Store message and files in localStorage for chat page to pick up
     const chatData = {
         message: message,
         imageFiles: [],
         audioFiles: [],
-        textFiles: []
+        textFiles: [],
+        mcpMode: mcpMode
     };
 
     // Convert files to base64 for storage
