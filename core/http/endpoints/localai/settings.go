@@ -10,6 +10,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/rs/zerolog/log"
 )
 
@@ -20,24 +22,27 @@ type SettingsResponse struct {
 }
 
 type RuntimeSettings struct {
-	WatchdogEnabled         *bool   `json:"watchdog_enabled,omitempty"`
-	WatchdogIdleEnabled     *bool   `json:"watchdog_idle_enabled,omitempty"`
-	WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
-	WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
-	WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
-	SingleBackend           *bool   `json:"single_backend,omitempty"`
-	ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
-}
-
-type CurrentSettings struct {
-	WatchdogEnabled         bool   `json:"watchdog_enabled"`
-	WatchdogIdleEnabled     bool   `json:"watchdog_idle_enabled"`
-	WatchdogBusyEnabled     bool   `json:"watchdog_busy_enabled"`
-	WatchdogIdleTimeout     string `json:"watchdog_idle_timeout"`
-	WatchdogBusyTimeout     string `json:"watchdog_busy_timeout"`
-	SingleBackend           bool   `json:"single_backend"`
-	ParallelBackendRequests bool   `json:"parallel_backend_requests"`
-	Source                  string `json:"source"` // "env", "file", or "default"
+	WatchdogEnabled          *bool             `json:"watchdog_enabled,omitempty"`
+	WatchdogIdleEnabled      *bool             `json:"watchdog_idle_enabled,omitempty"`
+	WatchdogBusyEnabled      *bool             `json:"watchdog_busy_enabled,omitempty"`
+	WatchdogIdleTimeout      *string           `json:"watchdog_idle_timeout,omitempty"`
+	WatchdogBusyTimeout      *string           `json:"watchdog_busy_timeout,omitempty"`
+	SingleBackend            *bool             `json:"single_backend,omitempty"`
+	ParallelBackendRequests  *bool             `json:"parallel_backend_requests,omitempty"`
+	Threads                  *int              `json:"threads,omitempty"`
+	ContextSize              *int              `json:"context_size,omitempty"`
+	F16                      *bool             `json:"f16,omitempty"`
+	Debug                    *bool             `json:"debug,omitempty"`
+	CORS                     *bool             `json:"cors,omitempty"`
+	CSRF                     *bool             `json:"csrf,omitempty"`
+	CORSAllowOrigins         *string           `json:"cors_allow_origins,omitempty"`
+	P2PToken                 *string           `json:"p2p_token,omitempty"`
+	P2PNetworkID             *string           `json:"p2p_network_id,omitempty"`
+	Federated                *bool             `json:"federated,omitempty"`
+	Galleries                *[]config.Gallery `json:"galleries,omitempty"`
+	BackendGalleries         *[]config.Gallery `json:"backend_galleries,omitempty"`
+	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
+	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
 }
 
 // GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
@@ -51,50 +56,62 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			startupConfig = appConfig
 		}
 
-		settings := CurrentSettings{}
+		settings := RuntimeSettings{}
 
-		// Determine if values came from env vars by comparing with startup config
-		// If current values match startup values, they came from env vars (or defaults)
-		// If current values differ from startup, file changed them (so not from env var)
-		envWatchdogIdle := appConfig.WatchDogIdle == startupConfig.WatchDogIdle
-		envWatchdogBusy := appConfig.WatchDogBusy == startupConfig.WatchDogBusy
-		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupConfig.WatchDogIdleTimeout
-		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupConfig.WatchDogBusyTimeout
-		envSingleBackend := appConfig.SingleBackend == startupConfig.SingleBackend
-		envParallelRequests := appConfig.ParallelBackendRequests == startupConfig.ParallelBackendRequests
+		// Set all current values (using pointers for RuntimeSettings)
+		watchdogIdle := appConfig.WatchDogIdle
+		watchdogBusy := appConfig.WatchDogBusy
+		watchdogEnabled := appConfig.WatchDog
+		singleBackend := appConfig.SingleBackend
+		parallelBackendRequests := appConfig.ParallelBackendRequests
+		threads := appConfig.Threads
+		contextSize := appConfig.ContextSize
+		f16 := appConfig.F16
+		debug := appConfig.Debug
+		cors := appConfig.CORS
+		csrf := appConfig.CSRF
+		corsAllowOrigins := appConfig.CORSAllowOrigins
+		p2pToken := appConfig.P2PToken
+		p2pNetworkID := appConfig.P2PNetworkID
+		federated := appConfig.Federated
+		galleries := appConfig.Galleries
+		backendGalleries := appConfig.BackendGalleries
+		autoloadGalleries := appConfig.AutoloadGalleries
+		autoloadBackendGalleries := appConfig.AutoloadBackendGalleries
 
-		// Determine source: if any setting matches startup config, it's from env (or default)
-		// If any setting differs from startup, it's from file
-		settings.WatchdogIdleEnabled = appConfig.WatchDogIdle
-		settings.WatchdogBusyEnabled = appConfig.WatchDogBusy
-		settings.WatchdogEnabled = appConfig.WatchDog
-		settings.SingleBackend = appConfig.SingleBackend
-		settings.ParallelBackendRequests = appConfig.ParallelBackendRequests
+		settings.WatchdogIdleEnabled = &watchdogIdle
+		settings.WatchdogBusyEnabled = &watchdogBusy
+		settings.WatchdogEnabled = &watchdogEnabled
+		settings.SingleBackend = &singleBackend
+		settings.ParallelBackendRequests = &parallelBackendRequests
+		settings.Threads = &threads
+		settings.ContextSize = &contextSize
+		settings.F16 = &f16
+		settings.Debug = &debug
+		settings.CORS = &cors
+		settings.CSRF = &csrf
+		settings.CORSAllowOrigins = &corsAllowOrigins
+		settings.P2PToken = &p2pToken
+		settings.P2PNetworkID = &p2pNetworkID
+		settings.Federated = &federated
+		settings.Galleries = &galleries
+		settings.BackendGalleries = &backendGalleries
+		settings.AutoloadGalleries = &autoloadGalleries
+		settings.AutoloadBackendGalleries = &autoloadBackendGalleries
 
+		var idleTimeout, busyTimeout string
 		if appConfig.WatchDogIdleTimeout > 0 {
-			settings.WatchdogIdleTimeout = appConfig.WatchDogIdleTimeout.String()
+			idleTimeout = appConfig.WatchDogIdleTimeout.String()
 		} else {
-			settings.WatchdogIdleTimeout = "15m" // default
+			idleTimeout = "15m" // default
 		}
-
 		if appConfig.WatchDogBusyTimeout > 0 {
-			settings.WatchdogBusyTimeout = appConfig.WatchDogBusyTimeout.String()
+			busyTimeout = appConfig.WatchDogBusyTimeout.String()
 		} else {
-			settings.WatchdogBusyTimeout = "5m" // default
+			busyTimeout = "5m" // default
 		}
-
-		// Determine overall source: if all settings match startup, it's "env" or "default"
-		// If any setting differs, it's "file"
-		if envWatchdogIdle && envWatchdogBusy && envWatchdogIdleTimeout && envWatchdogBusyTimeout && envSingleBackend && envParallelRequests {
-			// All match startup - check if they're at defaults
-			if !appConfig.WatchDog && !appConfig.SingleBackend && !appConfig.ParallelBackendRequests && appConfig.WatchDogIdleTimeout == 0 && appConfig.WatchDogBusyTimeout == 0 {
-				settings.Source = "default"
-			} else {
-				settings.Source = "env"
-			}
-		} else {
-			settings.Source = "file"
-		}
+		settings.WatchdogIdleTimeout = &idleTimeout
+		settings.WatchdogBusyTimeout = &busyTimeout
 
 		return c.JSON(http.StatusOK, settings)
 	}
@@ -109,23 +126,6 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if startupConfig == nil {
 			// Fallback if startup config not available
 			startupConfig = appConfig
-		}
-
-		// Check if env vars are set by comparing with startup config
-		// If current values match startup values, they came from env vars (or defaults)
-		// If current values differ from startup, file changed them (so not from env var)
-		envWatchdogIdle := appConfig.WatchDogIdle == startupConfig.WatchDogIdle
-		envWatchdogBusy := appConfig.WatchDogBusy == startupConfig.WatchDogBusy
-		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupConfig.WatchDogIdleTimeout
-		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupConfig.WatchDogBusyTimeout
-		envSingleBackend := appConfig.SingleBackend == startupConfig.SingleBackend
-		envParallelRequests := appConfig.ParallelBackendRequests == startupConfig.ParallelBackendRequests
-
-		if envWatchdogIdle || envWatchdogBusy || envWatchdogIdleTimeout || envWatchdogBusyTimeout || envSingleBackend || envParallelRequests {
-			return c.JSON(http.StatusBadRequest, SettingsResponse{
-				Success: false,
-				Error:   "Cannot update settings: environment variables are set and take precedence. Please unset environment variables first.",
-			})
 		}
 
 		body, err := io.ReadAll(c.Request().Body)
@@ -188,7 +188,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			})
 		}
 
-		// Apply settings immediately
+		// Apply settings immediately, checking env var overrides per field
 		watchdogChanged := false
 		if settings.WatchdogEnabled != nil {
 			appConfig.WatchDog = *settings.WatchdogEnabled
@@ -224,15 +224,97 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if settings.ParallelBackendRequests != nil {
 			appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
 		}
+		if settings.Threads != nil {
+			appConfig.Threads = *settings.Threads
+		}
+		if settings.ContextSize != nil {
+			appConfig.ContextSize = *settings.ContextSize
+		}
+		if settings.F16 != nil {
+			appConfig.F16 = *settings.F16
+		}
+		if settings.Debug != nil {
+			appConfig.Debug = *settings.Debug
+		}
+		if settings.CORS != nil {
+			appConfig.CORS = *settings.CORS
+		}
+		if settings.CSRF != nil {
+			appConfig.CSRF = *settings.CSRF
+		}
+		if settings.CORSAllowOrigins != nil {
+			appConfig.CORSAllowOrigins = *settings.CORSAllowOrigins
+		}
+		if settings.P2PToken != nil {
+			appConfig.P2PToken = *settings.P2PToken
+		}
+		if settings.P2PNetworkID != nil {
+			appConfig.P2PNetworkID = *settings.P2PNetworkID
+		}
+		if settings.Federated != nil {
+			appConfig.Federated = *settings.Federated
+		}
+		if settings.Galleries != nil {
+			appConfig.Galleries = *settings.Galleries
+		}
+		if settings.BackendGalleries != nil {
+			appConfig.BackendGalleries = *settings.BackendGalleries
+		}
+		if settings.AutoloadGalleries != nil {
+			appConfig.AutoloadGalleries = *settings.AutoloadGalleries
+		}
+		if settings.AutoloadBackendGalleries != nil {
+			appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+		}
 
 		// Restart watchdog if settings changed
 		if watchdogChanged {
-			if err := app.RestartWatchdog(); err != nil {
-				log.Error().Err(err).Msg("Failed to restart watchdog")
-				return c.JSON(http.StatusInternalServerError, SettingsResponse{
-					Success: false,
-					Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
-				})
+			if settings.WatchdogEnabled != nil && !*settings.WatchdogEnabled || settings.WatchdogEnabled == nil {
+				if err := app.StopWatchdog(); err != nil {
+					log.Error().Err(err).Msg("Failed to stop watchdog")
+					return c.JSON(http.StatusInternalServerError, SettingsResponse{
+						Success: false,
+						Error:   "Settings saved but failed to stop watchdog: " + err.Error(),
+					})
+				}
+			} else {
+				if err := app.RestartWatchdog(); err != nil {
+					log.Error().Err(err).Msg("Failed to restart watchdog")
+					return c.JSON(http.StatusInternalServerError, SettingsResponse{
+						Success: false,
+						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
+					})
+				}
+			}
+		}
+
+		// Restart P2P if P2P settings changed
+		p2pChanged := settings.P2PToken != nil || settings.P2PNetworkID != nil || settings.Federated != nil
+		if p2pChanged {
+			if settings.P2PToken != nil && *settings.P2PToken == "" {
+				// stop P2P
+				if err := app.StopP2P(); err != nil {
+					log.Error().Err(err).Msg("Failed to stop P2P")
+					return c.JSON(http.StatusInternalServerError, SettingsResponse{
+						Success: false,
+						Error:   "Settings saved but failed to stop P2P: " + err.Error(),
+					})
+				}
+			} else {
+				if settings.P2PToken != nil && *settings.P2PToken == "0" {
+					// generate a token if users sets 0 (disabled)
+					token := p2p.GenerateToken(60, 60)
+					settings.P2PToken = &token
+					appConfig.P2PToken = token
+				}
+				// Stop existing P2P
+				if err := app.RestartP2P(); err != nil {
+					log.Error().Err(err).Msg("Failed to stop P2P")
+					return c.JSON(http.StatusInternalServerError, SettingsResponse{
+						Success: false,
+						Error:   "Settings saved but failed to stop P2P: " + err.Error(),
+					})
+				}
 			}
 		}
 

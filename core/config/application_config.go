@@ -33,6 +33,7 @@ type ApplicationConfig struct {
 	ApiKeys                       []string
 	P2PToken                      string
 	P2PNetworkID                  string
+	Federated                     bool
 
 	DisableWebUI                       bool
 	EnforcePredownloadScans            bool
@@ -65,6 +66,8 @@ type ApplicationConfig struct {
 	MachineTag string
 
 	APIAddress string
+
+	TunnelCallback func(tunnels []string)
 }
 
 type AppOption func(*ApplicationConfig)
@@ -180,6 +183,10 @@ var EnableBackendGalleriesAutoload = func(o *ApplicationConfig) {
 	o.AutoloadBackendGalleries = true
 }
 
+var EnableFederated = func(o *ApplicationConfig) {
+	o.Federated = true
+}
+
 func WithExternalBackend(name string, uri string) AppOption {
 	return func(o *ApplicationConfig) {
 		if o.ExternalGRPCBackends == nil {
@@ -270,6 +277,12 @@ func WithThreads(threads int) AppOption {
 func WithContextSize(ctxSize int) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ContextSize = ctxSize
+	}
+}
+
+func WithTunnelCallback(callback func(tunnels []string)) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TunnelCallback = callback
 	}
 }
 

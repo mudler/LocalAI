@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/application"
-	cli_api "github.com/mudler/LocalAI/core/cli/api"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http"
@@ -98,6 +97,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	opts := []config.AppOption{
+		config.WithContext(context.Background()),
 		config.WithConfigFile(r.ModelsConfigFile),
 		config.WithJSONStringPreload(r.PreloadModels),
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
@@ -128,6 +128,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithLoadToMemory(r.LoadToMemory),
 		config.WithMachineTag(r.MachineTag),
 		config.WithAPIAddress(r.Address),
+		config.WithTunnelCallback(func(tunnels []string) {
+			tunnelEnvVar := strings.Join(tunnels, ",")
+			// TODO: this is very specific to llama.cpp, we should have a more generic way to set the environment variable
+			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
+			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
+		}),
 	}
 
 	if r.DisableMetricsEndpoint {
@@ -152,7 +158,9 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		opts = append(opts, config.WithP2PToken(token))
 	}
 
-	backgroundCtx := context.Background()
+	if r.Federated {
+		opts = append(opts, config.EnableFederated)
+	}
 
 	idleWatchDog := r.EnableWatchdogIdle
 	busyWatchDog := r.EnableWatchdogBusy
@@ -222,8 +230,10 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	if err := cli_api.StartP2PStack(backgroundCtx, r.Address, token, r.Peer2PeerNetworkID, r.Federated, app); err != nil {
-		return err
+	if token != "" {
+		if err := app.StartP2P(); err != nil {
+			return err
+		}
 	}
 
 	signals.RegisterGracefulTerminationHandler(func() {

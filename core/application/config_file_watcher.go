@@ -184,13 +184,27 @@ func readExternalBackendsJson(startupAppConfig config.ApplicationConfig) fileHan
 }
 
 type runtimeSettings struct {
-	WatchdogEnabled         *bool   `json:"watchdog_enabled,omitempty"`
-	WatchdogIdleEnabled     *bool   `json:"watchdog_idle_enabled,omitempty"`
-	WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
-	WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
-	WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
-	SingleBackend           *bool   `json:"single_backend,omitempty"`
-	ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
+	WatchdogEnabled          *bool             `json:"watchdog_enabled,omitempty"`
+	WatchdogIdleEnabled      *bool             `json:"watchdog_idle_enabled,omitempty"`
+	WatchdogBusyEnabled      *bool             `json:"watchdog_busy_enabled,omitempty"`
+	WatchdogIdleTimeout      *string           `json:"watchdog_idle_timeout,omitempty"`
+	WatchdogBusyTimeout      *string           `json:"watchdog_busy_timeout,omitempty"`
+	SingleBackend            *bool             `json:"single_backend,omitempty"`
+	ParallelBackendRequests  *bool             `json:"parallel_backend_requests,omitempty"`
+	Threads                  *int              `json:"threads,omitempty"`
+	ContextSize              *int              `json:"context_size,omitempty"`
+	F16                      *bool             `json:"f16,omitempty"`
+	Debug                    *bool             `json:"debug,omitempty"`
+	CORS                     *bool             `json:"cors,omitempty"`
+	CSRF                     *bool             `json:"csrf,omitempty"`
+	CORSAllowOrigins         *string           `json:"cors_allow_origins,omitempty"`
+	P2PToken                 *string           `json:"p2p_token,omitempty"`
+	P2PNetworkID             *string           `json:"p2p_network_id,omitempty"`
+	Federated                *bool             `json:"federated,omitempty"`
+	Galleries                *[]config.Gallery `json:"galleries,omitempty"`
+	BackendGalleries         *[]config.Gallery `json:"backend_galleries,omitempty"`
+	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
+	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
 }
 
 func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHandler {
@@ -199,15 +213,26 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 
 		// Determine if settings came from env vars by comparing with startup config
 		// startupAppConfig contains the original values set from env vars at startup.
-		// If current values match startup values and are non-default, they came from env vars.
-		// We apply file settings only if current values match startup defaults (false/0),
-		// which suggests they weren't set from env vars.
-		envWatchdogIdle := appConfig.WatchDogIdle == startupAppConfig.WatchDogIdle && startupAppConfig.WatchDogIdle
-		envWatchdogBusy := appConfig.WatchDogBusy == startupAppConfig.WatchDogBusy && startupAppConfig.WatchDogBusy
-		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout && startupAppConfig.WatchDogIdleTimeout > 0
-		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout && startupAppConfig.WatchDogBusyTimeout > 0
-		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend && startupAppConfig.SingleBackend
-		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests && startupAppConfig.ParallelBackendRequests
+		// If current values match startup values, they came from env vars (or defaults).
+		// We apply file settings only if current values match startup values (meaning not from env vars).
+		envWatchdogIdle := appConfig.WatchDogIdle == startupAppConfig.WatchDogIdle
+		envWatchdogBusy := appConfig.WatchDogBusy == startupAppConfig.WatchDogBusy
+		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout
+		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout
+		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
+		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests
+		envThreads := appConfig.Threads == startupAppConfig.Threads
+		envContextSize := appConfig.ContextSize == startupAppConfig.ContextSize
+		envF16 := appConfig.F16 == startupAppConfig.F16
+		envDebug := appConfig.Debug == startupAppConfig.Debug
+		envCORS := appConfig.CORS == startupAppConfig.CORS
+		envCSRF := appConfig.CSRF == startupAppConfig.CSRF
+		envCORSAllowOrigins := appConfig.CORSAllowOrigins == startupAppConfig.CORSAllowOrigins
+		envP2PToken := appConfig.P2PToken == startupAppConfig.P2PToken
+		envP2PNetworkID := appConfig.P2PNetworkID == startupAppConfig.P2PNetworkID
+		envFederated := appConfig.Federated == startupAppConfig.Federated
+		envAutoloadGalleries := appConfig.AutoloadGalleries == startupAppConfig.AutoloadGalleries
+		envAutoloadBackendGalleries := appConfig.AutoloadBackendGalleries == startupAppConfig.AutoloadBackendGalleries
 
 		if len(fileContent) > 0 {
 			var settings runtimeSettings
@@ -216,7 +241,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				return err
 			}
 
-			// Apply file settings only if they don't match startup non-default values (i.e., not from env vars)
+			// Apply file settings only if they don't match startup values (i.e., not from env vars)
 			if settings.WatchdogIdleEnabled != nil && !envWatchdogIdle {
 				appConfig.WatchDogIdle = *settings.WatchdogIdleEnabled
 				if appConfig.WatchDogIdle {
@@ -250,6 +275,48 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.ParallelBackendRequests != nil && !envParallelRequests {
 				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
+			}
+			if settings.Threads != nil && !envThreads {
+				appConfig.Threads = *settings.Threads
+			}
+			if settings.ContextSize != nil && !envContextSize {
+				appConfig.ContextSize = *settings.ContextSize
+			}
+			if settings.F16 != nil && !envF16 {
+				appConfig.F16 = *settings.F16
+			}
+			if settings.Debug != nil && !envDebug {
+				appConfig.Debug = *settings.Debug
+			}
+			if settings.CORS != nil && !envCORS {
+				appConfig.CORS = *settings.CORS
+			}
+			if settings.CSRF != nil && !envCSRF {
+				appConfig.CSRF = *settings.CSRF
+			}
+			if settings.CORSAllowOrigins != nil && !envCORSAllowOrigins {
+				appConfig.CORSAllowOrigins = *settings.CORSAllowOrigins
+			}
+			if settings.P2PToken != nil && !envP2PToken {
+				appConfig.P2PToken = *settings.P2PToken
+			}
+			if settings.P2PNetworkID != nil && !envP2PNetworkID {
+				appConfig.P2PNetworkID = *settings.P2PNetworkID
+			}
+			if settings.Federated != nil && !envFederated {
+				appConfig.Federated = *settings.Federated
+			}
+			if settings.Galleries != nil {
+				appConfig.Galleries = *settings.Galleries
+			}
+			if settings.BackendGalleries != nil {
+				appConfig.BackendGalleries = *settings.BackendGalleries
+			}
+			if settings.AutoloadGalleries != nil && !envAutoloadGalleries {
+				appConfig.AutoloadGalleries = *settings.AutoloadGalleries
+			}
+			if settings.AutoloadBackendGalleries != nil && !envAutoloadBackendGalleries {
+				appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
 			}
 
 			// If watchdog is enabled via file but not via env, ensure WatchDog flag is set

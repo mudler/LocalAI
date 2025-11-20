@@ -166,6 +166,216 @@
                 </div>
             </div>
 
+            <!-- Performance Settings Section -->
+            <div class="bg-[#1E293B] border border-[#10B981]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-tachometer-alt mr-2 text-[#10B981] text-sm"></i>
+                    Performance Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure default performance parameters for models
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Threads -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Default Threads</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Number of threads to use for model inference (0 = auto)</p>
+                        <input type="number" x-model="settings.threads" 
+                               min="0"
+                               placeholder="0"
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#10B981]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#10B981]/50">
+                    </div>
+
+                    <!-- Context Size -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Default Context Size</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Default context window size for models</p>
+                        <input type="number" x-model="settings.context_size" 
+                               min="0"
+                               placeholder="512"
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#10B981]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#10B981]/50">
+                    </div>
+
+                    <!-- F16 -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">F16 Precision</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Use 16-bit floating point precision</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.f16" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#10B981]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Debug -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Debug Mode</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Enable debug logging</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.debug" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#10B981]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Settings Section -->
+            <div class="bg-[#1E293B] border border-[#F59E0B]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-globe mr-2 text-[#F59E0B] text-sm"></i>
+                    API Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure CORS and CSRF protection
+                </p>
+
+                <div class="space-y-4">
+                    <!-- CORS -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Enable CORS</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Enable Cross-Origin Resource Sharing</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.cors" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#F59E0B]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F59E0B]"></div>
+                        </label>
+                    </div>
+
+                    <!-- CORS Allow Origins -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">CORS Allow Origins</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Comma-separated list of allowed origins</p>
+                        <input type="text" x-model="settings.cors_allow_origins" 
+                               placeholder="*"
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#F59E0B]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#F59E0B]/50">
+                    </div>
+
+                    <!-- CSRF -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Enable CSRF Protection</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Enable Cross-Site Request Forgery protection</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.csrf" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#F59E0B]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F59E0B]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- P2P Settings Section -->
+            <div class="bg-[#1E293B] border border-[#EC4899]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-network-wired mr-2 text-[#EC4899] text-sm"></i>
+                    P2P Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure peer-to-peer networking
+                </p>
+
+                <div class="space-y-4">
+                    <!-- P2P Token -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">P2P Token</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Authentication token for P2P network (set to 0 to generate a new token)</p>
+                        <input type="text" x-model="settings.p2p_token" 
+                               placeholder=""
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#EC4899]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#EC4899]/50">
+                    </div>
+
+                    <!-- P2P Network ID -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">P2P Network ID</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Network identifier for P2P connections</p>
+                        <input type="text" x-model="settings.p2p_network_id" 
+                               placeholder=""
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#EC4899]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#EC4899]/50">
+                    </div>
+
+                    <!-- Federated -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Federated Mode</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Enable federated instance mode</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.federated" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#EC4899]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#EC4899]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gallery Settings Section -->
+            <div class="bg-[#1E293B] border border-[#6366F1]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-images mr-2 text-[#6366F1] text-sm"></i>
+                    Gallery Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure model and backend galleries
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Autoload Galleries -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Autoload Galleries</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Automatically load model galleries on startup</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.autoload_galleries" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#6366F1]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6366F1]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Autoload Backend Galleries -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[#E5E7EB]">Autoload Backend Galleries</label>
+                            <p class="text-xs text-[#94A3B8] mt-1">Automatically load backend galleries on startup</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.autoload_backend_galleries" 
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#6366F1]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6366F1]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Galleries (JSON) -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Model Galleries (JSON)</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Array of gallery objects with 'url' and 'name' fields</p>
+                        <textarea x-model="settings.galleries_json" 
+                                  rows="4"
+                                  placeholder='[{"url": "https://example.com", "name": "Example Gallery"}]'
+                                  class="w-full px-3 py-2 bg-[#101827] border border-[#6366F1]/20 rounded text-sm text-[#E5E7EB] font-mono focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"></textarea>
+                    </div>
+
+                    <!-- Backend Galleries (JSON) -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Backend Galleries (JSON)</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Array of backend gallery objects with 'url' and 'name' fields</p>
+                        <textarea x-model="settings.backend_galleries_json" 
+                                  rows="4"
+                                  placeholder='[{"url": "https://example.com", "name": "Example Backend Gallery"}]'
+                                  class="w-full px-3 py-2 bg-[#101827] border border-[#6366F1]/20 rounded text-sm text-[#E5E7EB] font-mono focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"></textarea>
+                    </div>
+                </div>
+            </div>
+
             <!-- Source Info -->
             <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4" x-show="sourceInfo">
                 <div class="flex items-start">
@@ -206,7 +416,21 @@ function settingsDashboard() {
             watchdog_idle_timeout: '15m',
             watchdog_busy_timeout: '5m',
             single_backend: false,
-            parallel_backend_requests: false
+            parallel_backend_requests: false,
+            threads: 0,
+            context_size: 512,
+            f16: false,
+            debug: false,
+            cors: false,
+            csrf: false,
+            cors_allow_origins: '',
+            p2p_token: '',
+            p2p_network_id: '',
+            federated: false,
+            autoload_galleries: false,
+            autoload_backend_galleries: false,
+            galleries_json: '[]',
+            backend_galleries_json: '[]'
         },
         sourceInfo: '',
         saving: false,
@@ -228,7 +452,21 @@ function settingsDashboard() {
                         watchdog_idle_timeout: data.watchdog_idle_timeout || '15m',
                         watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
                         single_backend: data.single_backend,
-                        parallel_backend_requests: data.parallel_backend_requests
+                        parallel_backend_requests: data.parallel_backend_requests,
+                        threads: data.threads || 0,
+                        context_size: data.context_size || 512,
+                        f16: data.f16 || false,
+                        debug: data.debug || false,
+                        cors: data.cors || false,
+                        csrf: data.csrf || false,
+                        cors_allow_origins: data.cors_allow_origins || '',
+                        p2p_token: data.p2p_token || '',
+                        p2p_network_id: data.p2p_network_id || '',
+                        federated: data.federated || false,
+                        autoload_galleries: data.autoload_galleries || false,
+                        autoload_backend_galleries: data.autoload_backend_galleries || false,
+                        galleries_json: JSON.stringify(data.galleries || [], null, 2),
+                        backend_galleries_json: JSON.stringify(data.backend_galleries || [], null, 2)
                     };
                     this.sourceInfo = data.source || 'default';
                 } else {
@@ -276,6 +514,61 @@ function settingsDashboard() {
                 }
                 if (this.settings.parallel_backend_requests !== undefined) {
                     payload.parallel_backend_requests = this.settings.parallel_backend_requests;
+                }
+                if (this.settings.threads !== undefined) {
+                    payload.threads = parseInt(this.settings.threads) || 0;
+                }
+                if (this.settings.context_size !== undefined) {
+                    payload.context_size = parseInt(this.settings.context_size) || 512;
+                }
+                if (this.settings.f16 !== undefined) {
+                    payload.f16 = this.settings.f16;
+                }
+                if (this.settings.debug !== undefined) {
+                    payload.debug = this.settings.debug;
+                }
+                if (this.settings.cors !== undefined) {
+                    payload.cors = this.settings.cors;
+                }
+                if (this.settings.csrf !== undefined) {
+                    payload.csrf = this.settings.csrf;
+                }
+                if (this.settings.cors_allow_origins !== undefined) {
+                    payload.cors_allow_origins = this.settings.cors_allow_origins;
+                }
+                if (this.settings.p2p_token !== undefined) {
+                    payload.p2p_token = this.settings.p2p_token;
+                }
+                if (this.settings.p2p_network_id !== undefined) {
+                    payload.p2p_network_id = this.settings.p2p_network_id;
+                }
+                if (this.settings.federated !== undefined) {
+                    payload.federated = this.settings.federated;
+                }
+                if (this.settings.autoload_galleries !== undefined) {
+                    payload.autoload_galleries = this.settings.autoload_galleries;
+                }
+                if (this.settings.autoload_backend_galleries !== undefined) {
+                    payload.autoload_backend_galleries = this.settings.autoload_backend_galleries;
+                }
+                // Parse galleries JSON
+                if (this.settings.galleries_json) {
+                    try {
+                        payload.galleries = JSON.parse(this.settings.galleries_json);
+                    } catch (e) {
+                        this.addNotification('Invalid galleries JSON: ' + e.message, 'error');
+                        this.saving = false;
+                        return;
+                    }
+                }
+                if (this.settings.backend_galleries_json) {
+                    try {
+                        payload.backend_galleries = JSON.parse(this.settings.backend_galleries_json);
+                    } catch (e) {
+                        this.addNotification('Invalid backend galleries JSON: ' + e.message, 'error');
+                        this.saving = false;
+                        return;
+                    }
                 }
                 
                 const response = await fetch('/api/settings', {
