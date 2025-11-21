@@ -108,7 +108,7 @@ Run the installer script:
 curl https://localai.io/install.sh | sh
 ```
 
-For more installation options, see [Installer Options](https://localai.io/docs/advanced/installer/).
+For more installation options, see [Installer Options](https://localai.io/installation/).
 
 ### macOS Download:
 
