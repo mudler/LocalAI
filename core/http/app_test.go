@@ -1214,6 +1214,7 @@ parameters:
 			application, err := application.New(
 				append(commonOpts,
 					config.WithContext(c),
+		      config.WithContextSize(512),
 					config.WithSystemState(systemState),
 					config.WithConfigFile(os.Getenv("CONFIG_FILE")))...,
 			)
