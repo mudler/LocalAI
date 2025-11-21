@@ -8,7 +8,7 @@ EXTRA_PIP_INSTALL_FLAGS="--no-build-isolation"
 # https://docs.vllm.ai/en/v0.8.3/serving/env_vars.html
 # https://docs.redhat.com/it/documentation/red_hat_ai_inference_server/3.0/html/vllm_server_arguments/environment_variables-server-arguments
 export NVCC_THREADS=2
-export MAX_JOB=1
+export MAX_JOBS=1
 
 backend_dir=$(dirname $0)
 
