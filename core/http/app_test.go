@@ -1199,6 +1199,9 @@ parameters:
 
 	Context("Config file", func() {
 		BeforeEach(func() {
+			if runtime.GOOS != "linux" {
+				Skip("run this test only on linux")
+			}
 			modelPath := os.Getenv("MODELS_PATH")
 			backendPath := os.Getenv("BACKENDS_PATH")
 			c, cancel = context.WithCancel(context.Background())
