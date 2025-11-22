@@ -40,3 +40,7 @@ func ImageGeneration(height, width, mode, step, seed int, positive_prompt, negat
 
 	return fn, nil
 }
+
+// ImageGenerationFunc is a test-friendly indirection to call image generation logic.
+// Tests can override this variable to provide a stub implementation.
+var ImageGenerationFunc = ImageGeneration
