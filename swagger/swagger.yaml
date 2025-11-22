@@ -1197,6 +1197,47 @@ paths:
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Creates an image given a prompt.
+  /v1/images/inpainting:
+    post:
+      consumes:
+      - multipart/form-data
+      - application/json
+      parameters:
+      - in: formData
+        name: model
+        type: string
+        description: Model name (eg. dreamshaper-8-inpainting)
+        required: true
+      - in: formData
+        name: prompt
+        type: string
+        description: Positive prompt text
+        required: true
+      - in: formData
+        name: image
+        type: file
+        description: Source image (PNG/JPEG)
+        required: true
+      - in: formData
+        name: mask
+        type: file
+        description: Mask image (PNG). White=keep, Black=replace (or as backend expects)
+        required: true
+      - in: formData
+        name: steps
+        type: integer
+        description: Number of inference steps
+      - in: body
+        name: request
+        description: "Alternative JSON payload with base64 fields: { image: '<b64>', mask: '<b64>', model, prompt }"
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Successful inpainting
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates an inpainted image given an image + mask + prompt.
   /v1/mcp/chat/completions:
     post:
       parameters:
