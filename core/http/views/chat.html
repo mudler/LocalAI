@@ -63,8 +63,15 @@ SOFTWARE.
       if (Alpine.store("chat")) {
         Alpine.store("chat").contextSize = __chatContextSize;
         Alpine.store("chat").mcpMode = initialMcpMode;
+        // Initialize chat loading will happen in chat.js after DOM is ready
         return;
       }
+
+      // Get initial model from template
+      var __initialModel = null;
+      {{ if .Model }}
+      __initialModel = "{{.Model}}";
+      {{ end }}
 
       Alpine.store("chat", {
         history: [],
@@ -72,13 +79,24 @@ SOFTWARE.
         systemPrompt: "",
         mcpMode: initialMcpMode,
         contextSize: __chatContextSize,
+        currentChatId: null,
+        chats: [],
+        chatTitle: "",
+        currentModel: __initialModel,
+        mcpAvailable: false,
+        isUnsavedChat: false,
         tokenUsage: {
           promptTokens: 0,
           completionTokens: 0,
           totalTokens: 0,
           currentRequest: null
         },
+        saveDebounceTimer: null,
         clear() {
+          // Save current chat before clearing
+          if (this.currentChatId) {
+            this.saveCurrentChat();
+          }
           this.history.length = 0;
           this.tokenUsage = {
             promptTokens: 0,
@@ -86,6 +104,288 @@ SOFTWARE.
             totalTokens: 0,
             currentRequest: null
           };
+          this.chatTitle = "";
+        },
+        saveCurrentChat() {
+          if (!this.currentChatId || !window.chatStorage) return;
+          
+          // Don't save empty unsaved chats
+          if (this.isUnsavedChat && this.history.length === 0) {
+            return;
+          }
+          
+          const existingChat = window.chatStorage.loadChat(this.currentChatId);
+          const now = Date.now();
+          
+          const chatData = {
+            id: this.currentChatId,
+            model: this.currentModel || document.getElementById('chat-model')?.value || '',
+            title: this.chatTitle || window.chatStorage.generateChatTitle(this.history),
+            history: this.history.map(msg => ({
+              role: msg.role,
+              content: msg.content,
+              image: msg.image || [],
+              audio: msg.audio || [],
+              expanded: msg.expanded
+            })),
+            systemPrompt: this.systemPrompt,
+            mcpMode: this.mcpMode,
+            tokenUsage: { ...this.tokenUsage },
+            contextSize: this.contextSize,
+            createdAt: existingChat?.createdAt || now,
+            updatedAt: now
+          };
+          
+          // Mark as saved once we save it
+          this.isUnsavedChat = false;
+          
+          // Only update updatedAt if there's an actual change
+          const hasChanges = !existingChat || 
+            JSON.stringify(existingChat.history) !== JSON.stringify(chatData.history) ||
+            existingChat.systemPrompt !== chatData.systemPrompt ||
+            existingChat.mcpMode !== chatData.mcpMode ||
+            existingChat.title !== chatData.title;
+          
+          if (hasChanges || this.isUnsavedChat) {
+            window.chatStorage.saveChat(this.currentChatId, chatData);
+            window.chatStorage.setActiveChatId(this.currentChatId);
+            // Only refresh list if there were actual changes to avoid unnecessary re-sorting
+            this.refreshChatList();
+          }
+        },
+        saveCurrentChatDebounced() {
+          // Clear existing timer
+          if (this.saveDebounceTimer) {
+            clearTimeout(this.saveDebounceTimer);
+          }
+          // Set new timer
+          this.saveDebounceTimer = setTimeout(() => {
+            this.saveCurrentChat();
+          }, 500);
+        },
+        loadChat(chatId) {
+          if (!window.chatStorage) return false;
+          
+          // Save current chat before switching
+          if (this.currentChatId) {
+            this.saveCurrentChat();
+          }
+          
+          const chatData = window.chatStorage.loadChat(chatId);
+          if (!chatData) return false;
+          
+          this.currentChatId = chatId;
+          
+          // Restore history and regenerate HTML for each message
+          const rawHistory = chatData.history || [];
+          this.history = rawHistory.map(msg => {
+            // Regenerate HTML from content if not present
+            let html = msg.html;
+            if (!html && msg.content && typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+              if (msg.role === "tool_call" || msg.role === "tool_result") {
+                // For tool calls and results, try to parse as JSON and format nicely
+                try {
+                  const parsed = typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content;
+                  const formatted = JSON.stringify(parsed, null, 2);
+                  html = DOMPurify.sanitize('<pre><code class="language-json">' + formatted + '</code></pre>');
+                } catch (e) {
+                  // If not JSON, treat as markdown
+                  const lines = msg.content.split("\n");
+                  html = "";
+                  lines.forEach((line) => {
+                    html += DOMPurify.sanitize(marked.parse(line));
+                  });
+                }
+              } else {
+                // For regular messages, format as markdown
+                const lines = msg.content.split("\n");
+                html = "";
+                lines.forEach((line) => {
+                  html += DOMPurify.sanitize(marked.parse(line));
+                });
+              }
+            } else if (!html && msg.content) {
+              // Fallback: escape HTML if marked/DOMPurify not available
+              html = msg.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+            }
+            
+            return {
+              role: msg.role,
+              content: msg.content,
+              html: html || "",
+              image: msg.image || [],
+              audio: msg.audio || [],
+              expanded: msg.expanded !== undefined ? msg.expanded : false
+            };
+          });
+          
+          this.systemPrompt = chatData.systemPrompt || "";
+          this.mcpMode = chatData.mcpMode || false;
+          this.tokenUsage = chatData.tokenUsage || {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            currentRequest: null
+          };
+          this.contextSize = chatData.contextSize || __chatContextSize;
+          this.chatTitle = chatData.title || "";
+          this.currentModel = chatData.model || null;
+          this.isUnsavedChat = false; // Loaded chats are always saved
+          
+          // Check MCP availability for this model
+          this.checkMCPAvailability();
+          
+          // Update system prompt textarea
+          const systemPromptElement = document.getElementById('systemPrompt');
+          if (systemPromptElement) {
+            systemPromptElement.value = this.systemPrompt;
+          }
+          
+          // Update model selector if needed
+          const modelSelector = document.getElementById('modelSelector');
+          if (modelSelector && chatData.model) {
+            modelSelector.value = `chat/${chatData.model}`;
+          }
+          
+          // Update URL without reload
+          const url = new URL(window.location);
+          url.searchParams.set('chatId', chatId);
+          if (chatData.model) {
+            url.pathname = `/chat/${chatData.model}`;
+          }
+          window.history.pushState({ chatId }, '', url);
+          
+          window.chatStorage.setActiveChatId(chatId);
+          // Don't refresh chat list on every load to avoid re-sorting
+          // Only refresh when needed (e.g., after delete/create)
+          
+          return true;
+        },
+        createNewChat(model, saveImmediately = false) {
+          if (!window.chatStorage) return null;
+          
+          // Save current chat before creating new one (only if it's not unsaved or has content)
+          if (this.currentChatId && !this.isUnsavedChat && this.history.length > 0) {
+            this.saveCurrentChat();
+          }
+          
+          // Always create a NEW chat (don't reuse existing ones)
+          const chatId = window.chatStorage.generateChatId();
+          
+          // Reset store to new chat state
+          this.currentChatId = chatId;
+          this.history = [];
+          this.systemPrompt = "";
+          this.mcpMode = false;
+          this.tokenUsage = {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            currentRequest: null
+          };
+          this.contextSize = __chatContextSize;
+          this.chatTitle = `Chat with ${model}`;
+          this.currentModel = model;
+          this.isUnsavedChat = !saveImmediately; // Mark as unsaved unless explicitly told to save
+          
+          // Check MCP availability for this model
+          this.checkMCPAvailability();
+          
+          // Only save to storage if explicitly requested
+          if (saveImmediately) {
+            const newChat = {
+              id: chatId,
+              model: model,
+              title: `Chat with ${model}`,
+              history: [],
+              systemPrompt: '',
+              mcpMode: false,
+              tokenUsage: {
+                promptTokens: 0,
+                completionTokens: 0,
+                totalTokens: 0,
+                currentRequest: null
+              },
+              contextSize: __chatContextSize,
+              createdAt: Date.now(),
+              updatedAt: Date.now()
+            };
+            window.chatStorage.saveChat(chatId, newChat);
+            window.chatStorage.setActiveChatId(chatId);
+            this.refreshChatList();
+          } else {
+            // Clear active chat ID for unsaved chats
+            window.chatStorage.setActiveChatId(null);
+          }
+          
+          // Update URL
+          const url = new URL(window.location);
+          url.pathname = `/chat/${model}`;
+          url.searchParams.set('chatId', chatId);
+          window.history.pushState({ chatId }, '', url);
+          
+          return chatId;
+        },
+        deleteChat(chatId) {
+          if (!window.chatStorage) return false;
+          
+          const deleted = window.chatStorage.deleteChat(chatId);
+          
+          // If deleted chat was current, create new chat
+          if (deleted && chatId === this.currentChatId) {
+            const model = document.getElementById('chat-model')?.value || '';
+            if (model) {
+              this.createNewChat(model);
+            } else {
+              this.currentChatId = null;
+              this.history = [];
+              this.chatTitle = "";
+            }
+          }
+          
+          // Refresh list after delete to update UI
+          if (deleted) {
+            this.refreshChatList();
+          }
+          return deleted;
+        },
+        switchChat(chatId) {
+          return this.loadChat(chatId);
+        },
+        refreshChatList() {
+          if (!window.chatStorage) return;
+          this.chats = window.chatStorage.listChats();
+        },
+        checkMCPAvailability() {
+          const model = this.currentModel || document.getElementById('chat-model')?.value;
+          if (!model) {
+            this.mcpAvailable = false;
+            return;
+          }
+          
+          // Check model selector for MCP support
+          const modelSelector = document.getElementById('modelSelector');
+          if (modelSelector) {
+            const option = modelSelector.querySelector(`option[value="chat/${model}"]`);
+            if (option) {
+              const hasMCP = option.getAttribute('data-has-mcp') === 'true';
+              this.mcpAvailable = hasMCP;
+              // Disable MCP mode if not available
+              if (!hasMCP) {
+                this.mcpMode = false;
+              }
+              return;
+            }
+          }
+          
+          // Fallback: check if model is in the list of MCP-enabled models
+          this.mcpAvailable = false;
+        },
+        updateChatTitle(newTitle) {
+          this.chatTitle = newTitle;
+          if (this.currentChatId) {
+            this.saveCurrentChat();
+          }
         },
         updateTokenUsage(usage) {
           // Usage values in streaming responses are cumulative totals for the current request
@@ -115,6 +415,9 @@ SOFTWARE.
                 completionTokens: usage.completion_tokens || 0,
                 totalTokens: usage.total_tokens || 0
               };
+              
+              // Auto-save on token usage update
+              this.saveCurrentChatDebounced();
             }
           }
         },
@@ -241,6 +544,15 @@ SOFTWARE.
               }
             }, 100);
           }
+          
+          // Auto-save after adding message (debounced)
+          this.saveCurrentChatDebounced();
+          
+          // Update chat title from first user message
+          if (role === 'user' && !this.chatTitle) {
+            const text = content.replace(/<[^>]*>/g, '').trim();
+            this.chatTitle = text.length > 50 ? text.substring(0, 50) + '...' : text || 'New Chat';
+          }
         },
         messages() {
           return this.history.map((message) => ({
@@ -269,29 +581,22 @@ SOFTWARE.
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ sidebarOpen: true }">
+  <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ leftSidebarOpen: true, rightSidebarOpen: true }">
     {{template "views/partials/navbar" .}}
 
-    <!-- Main container with sidebar toggle -->
+    <!-- Main container with sidebars -->
     <div class="flex flex-1 overflow-hidden relative">
-      <!-- Sidebar -->
+      <!-- Left Sidebar - Chat History & Model Selection -->
       <div
         class="sidebar bg-[#1E293B] fixed top-16 bottom-0 left-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
-        :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+        :class="leftSidebarOpen ? 'translate-x-0' : '-translate-x-full'">
 
         <div class="p-4 flex justify-between items-center border-b border-[#101827]">
           <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
-            <a
-              href="https://localai.io/features/text-generation/"
-              target="_blank"
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors"
-              title="Documentation">
-              <i class="fas fa-book text-sm"></i>
-            </a>
+            <h2 class="text-lg font-semibold text-[#E5E7EB]">Chats</h2>
           </div>
           <button
-            @click="sidebarOpen = false"
+            @click="leftSidebarOpen = false"
             class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
             <i class="fa-solid fa-times"></i>
           </button>
@@ -305,16 +610,18 @@ SOFTWARE.
             <select
               id="modelSelector"
               class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-md shadow-sm p-2 appearance-none"
-              onchange="window.location = this.value"
+              onchange="handleModelChange(this.value)"
             >
               <option value="" disabled class="text-[#94A3B8]">Select a model</option>
 
               {{ range .ModelsConfig }}
                 {{ $cfg := . }}
+                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
                 {{ range .KnownUsecaseStrings }}
                   {{ if eq . "FLAG_CHAT" }}
                     <option
                       value="chat/{{$cfg.Name}}"
+                      data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
                       {{ if eq $cfg.Name $model }} selected {{end}}
                       class="bg-[#101827] text-[#E5E7EB]"
                     >
@@ -335,201 +642,229 @@ SOFTWARE.
             </select>
           </div>
 
+          <!-- Chat History Section -->
+          <div class="space-y-2" x-data="{ chatSearch: '', showChatList: true }">
+            <div class="flex items-center justify-between">
+              <label class="text-sm font-medium text-[#94A3B8]">Chat History</label>
+              <button
+                @click="showChatList = !showChatList"
+                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs">
+                <i :class="showChatList ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+              </button>
+            </div>
+            
+            <div x-show="showChatList" x-transition class="space-y-2">
+              <!-- New Chat Button -->
+              <button
+                @click="$store.chat.createNewChat('{{$model}}')"
+                class="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#38BDF8] hover:bg-[#38BDF8]/90 border border-[#38BDF8]/20 transition-colors">
+                <i class="fa-solid fa-plus"></i>
+                <span>New Chat</span>
+              </button>
+              
+              <!-- Search/Filter -->
+              <input
+                type="text"
+                x-model="chatSearch"
+                placeholder="Search chats..."
+                class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-md shadow-sm p-2 text-sm placeholder-[#94A3B8]">
+              
+              <!-- Chat List -->
+              <div class="max-h-64 overflow-y-auto space-y-1">
+                <template x-for="chat in $store.chat.chats.filter(c => 
+                  !chatSearch || 
+                  c.title.toLowerCase().includes(chatSearch.toLowerCase()) || 
+                  c.model.toLowerCase().includes(chatSearch.toLowerCase())
+                )" :key="chat.id">
+                  <div
+                    class="flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors"
+                    :class="$store.chat.currentChatId === chat.id ? 'bg-[#38BDF8]/20 border border-[#38BDF8]/40' : 'bg-[#101827] hover:bg-[#1E293B] border border-[#1E293B]'"
+                    @click="$store.chat.switchChat(chat.id)">
+                    <div class="flex-1 min-w-0">
+                      <div class="text-xs font-medium text-[#E5E7EB] truncate" x-text="chat.title || 'New Chat'"></div>
+                      <div class="flex items-center gap-2 mt-1">
+                        <span class="text-xs text-[#94A3B8]" x-text="chat.model"></span>
+                        <span class="text-xs text-[#94A3B8]" x-text="new Date(chat.updatedAt).toLocaleDateString()"></span>
+                      </div>
+                    </div>
+                    <button
+                      @click.stop="$store.chat.deleteChat(chat.id)"
+                      class="text-[#94A3B8] hover:text-red-400 transition-colors p-1"
+                      title="Delete chat">
+                      <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                  </div>
+                </template>
+                <div x-show="$store.chat.chats.length === 0" class="text-xs text-[#94A3B8] text-center py-4">
+                  No chats yet. Create a new chat to get started.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Sidebar - Settings & Model Info -->
+      <div
+        class="sidebar bg-[#1E293B] fixed top-16 bottom-0 right-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-l border-[#101827] overflow-y-auto"
+        :class="rightSidebarOpen ? 'translate-x-0' : 'translate-x-full'">
+        
+        <div class="p-4 flex justify-between items-center border-b border-[#101827]">
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg font-semibold text-[#E5E7EB]">Settings</h2>
+          </div>
+          <button
+            @click="rightSidebarOpen = false"
+            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
+            <i class="fa-solid fa-times"></i>
+          </button>
+        </div>
+
+        <!-- Right Sidebar content -->
+        <div class="p-4 space-y-6">
           {{ if $model }}
           {{ $galleryConfig:= index $allGalleryConfigs $model}}
           {{ if $galleryConfig }}
           <!-- Model info -->
           <div class="space-y-2">
-            <div class="flex items-center">
-              {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
-              <h3 class="text-md font-medium">{{ $model }}</h3>
+            <div class="flex items-center justify-center mb-4">
+              {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-16 h-16">{{end}}
+            </div>
+            <div class="flex items-center justify-center gap-2">
+              <h3 class="text-md font-medium text-center">{{ $model }}</h3>
               <button 
                 data-twe-ripple-init 
                 data-twe-ripple-color="light" 
-                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors" 
+                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors" 
                 data-modal-target="model-info-modal" 
                 data-modal-toggle="model-info-modal"
                 title="Model Information">
                 <i class="fas fa-info-circle text-sm"></i>
               </button>
-              <button
-                @click="$store.chat.clear()"
-                id="clear"
-                title="Clear chat history"
-                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors">
-                <i class="fa-solid fa-trash-can text-sm"></i>
-              </button>
             </div>
+            <button
+              @click="$store.chat.clear()"
+              id="clear"
+              title="Clear chat history"
+              class="w-full mt-3 px-3 py-2 text-sm rounded text-[#E5E7EB] bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 transition-colors">
+              <i class="fa-solid fa-trash-can mr-2"></i> Clear History
+            </button>
           </div>
           {{ end }}
           {{ end }}
 
-          <div x-data="{ showPromptForm: false }" class="space-y-3">
-              <!-- Token Usage Statistics -->
-              <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
-                <div class="flex items-center justify-between mb-2">
-                  <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
-                    <i class="fas fa-chart-line mr-2 text-[#38BDF8]"></i>
-                    Token Usage
-                  </h4>
-                </div>
-                <div class="space-y-1.5 text-xs">
-                  <div class="flex justify-between text-[#94A3B8]">
-                    <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
-                  </div>
-                  <div class="flex justify-between text-[#94A3B8]">
-                    <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
-                  </div>
-                  <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1.5">
-                    <span class="font-semibold text-[#38BDF8]">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
-                  </div>
-                </div>
-              </div>
+          <!-- System Prompt -->
+          <div x-data="{ showPromptForm: false }" class="space-y-2">
+            <button
+              @click="showPromptForm = !showPromptForm"
+              class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors">
+              <span><i class="fa-solid fa-message mr-2 text-[#38BDF8]"></i> System Prompt</span>
+              <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+            </button>
 
-              <!-- Context Size Indicator -->
-              <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
-                  <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
-                      <i class="fas fa-database mr-2 text-[#38BDF8]"></i>
-                      Context Window
-                    </h4>
-                  </div>
-                  <div class="space-y-2">
-                    <div class="flex justify-between text-xs text-[#94A3B8] mb-1">
-                      <span>Used / Available</span>
-                      <span class="text-[#E5E7EB] font-medium">
-                        <span x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
-                        / 
-                        <span x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
-                      </span>
-                    </div>
-                    <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
-                      <div class="h-full rounded-full transition-all duration-300 ease-out"
-                           :class="{
-                             'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
-                             'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
-                             'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
-                           }"
-                           :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
-                      </div>
-                    </div>
-                    <div class="flex justify-between text-xs">
-                      <span class="text-[#94A3B8]">
-                        Remaining: 
-                        <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.getRemainingTokens())"></span>
-                      </span>
-                      <span class="text-[#94A3B8]">
-                        <span x-text="Math.round($store.chat.getContextUsagePercent())"></span>%
-                      </span>
-                    </div>
-                    <div x-show="$store.chat.getContextUsagePercent() >= 80" class="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-300 text-xs">
-                      <i class="fas fa-exclamation-triangle mr-1"></i>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 95">Context window nearly full!</span>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95">Approaching context limit</span>
-                    </div>
-                  </div>
+            <div x-show="showPromptForm" x-transition x-data="{
+              showToast: false,
+              previousPrompt: $store.chat.systemPrompt,
+              isUpdated() {
+                if (this.previousPrompt !== $store.chat.systemPrompt) {
+                  this.showToast = true;
+                  this.previousPrompt = $store.chat.systemPrompt;
+                  setTimeout(() => {this.showToast = false;}, 2000);
+                }
+              } 
+            }" class="p-3 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
+              <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-2">
+                <textarea
+                  type="text"
+                  id="systemPrompt"
+                  name="systemPrompt"
+                  class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24 placeholder-[#94A3B8]"
+                  placeholder="System prompt"
+                  x-model.lazy="$store.chat.systemPrompt"
+                ></textarea>
+                <div
+                  x-show="showToast"
+                  x-transition
+                  class="mb-2 text-green-400 px-4 py-2 text-sm text-center bg-green-500/10 border border-green-500/30 rounded"
+                >
+                  System prompt updated!
                 </div>
-              </template>
+                <button
+                  type="submit"
+                  class="px-3 py-2 text-sm rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
+                >
+                  Save System Prompt
+                </button>
+              </form>
+            </div>
+          </div>
 
-              {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
-              {{ $modelConfig := "" }}
-              {{ range .ModelsConfig }}
-                {{ if eq .Name $model }}
-                  {{ $modelConfig = . }}
-                {{ end }}
-              {{ end }}
-              {{ if and $modelConfig (or (ne $modelConfig.MCP.Servers "") (ne $modelConfig.MCP.Stdio "")) }}
-              <!-- MCP Toggle -->
-              <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20">
-                <span><i class="fa-solid fa-plug mr-2 text-[#38BDF8]"></i> Agentic MCP Mode</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.mcpMode">
-                  <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
-                </label>
-              </div>
-
-              <!-- MCP Mode Notification -->
-              <div x-show="$store.chat.mcpMode" class="p-3 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
-                <div class="flex items-start space-x-2">
-                  <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
-                  <div>
-                    <p class="font-medium text-[#E5E7EB] mb-1">Non-streaming Mode Active</p>
-                    <p class="text-[#94A3B8]">Responses will be processed in full before display. This may take significantly longer (up to 5 minutes), especially on CPU-only systems.</p>
-                  </div>
+          <!-- Storage Management -->
+          <div x-data="{ showStorage: false }" class="space-y-2">
+            <button
+              @click="showStorage = !showStorage"
+              class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors">
+              <span><i class="fa-solid fa-database mr-2 text-[#38BDF8]"></i> Storage Management</span>
+              <i :class="showStorage ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+            </button>
+            
+            <div x-show="showStorage" x-transition class="p-3 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg space-y-3">
+              <div class="space-y-2 text-xs">
+                <div class="flex justify-between text-[#94A3B8]">
+                  <span>Storage Used:</span>
+                  <span class="text-[#E5E7EB] font-medium" x-text="(window.chatStorage?.getStorageSizeMB() || '0') + ' MB'"></span>
+                </div>
+                <div class="flex justify-between text-[#94A3B8]">
+                  <span>Total Chats:</span>
+                  <span class="text-[#E5E7EB] font-medium" x-text="$store.chat.chats.length"></span>
+                </div>
+                <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-2">
+                  <span>Cache Limit:</span>
+                  <span class="text-[#E5E7EB] font-medium" x-text="(window.chatStorage?.getCacheLimit().mb || 50) + ' MB / ' + (window.chatStorage?.getCacheLimit().chats || 100) + ' chats'"></span>
                 </div>
               </div>
-              {{ end }}
-              {{ end }}
-              {{ end }}
-
-              <button
-                @click="showPromptForm = !showPromptForm"
-                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
-              >
-                <span><i class="fa-solid fa-message mr-2 text-[#38BDF8]"></i> System Prompt</span>
-                <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
-              </button>
-
-              <div x-show="showPromptForm" x-data="{
-                showToast: false,
-                previousPrompt: $store.chat.systemPrompt,
-                isUpdated() {
-                  if (this.previousPrompt !== $store.chat.systemPrompt) {
-                    this.showToast = true;
-                    this.previousPrompt = $store.chat.systemPrompt;
-                    setTimeout(() => {this.showToast = false;}, 2000);
-                  }
-                } 
-              }" class="p-3 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
-                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-2">
-                  <textarea
-                    type="text"
-                    id="systemPrompt"
-                    name="systemPrompt"
-                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24 placeholder-[#94A3B8]"
-                    placeholder="System prompt"
-                    x-model.lazy="$store.chat.systemPrompt"
-                  ></textarea>
-                  <div
-                    x-show="showToast"
-                    x-transition
-                    class="mb-2 text-green-400 px-4 py-2 text-sm text-center bg-green-500/10 border border-green-500/30 rounded"
-                  >
-                    System prompt updated!
-                  </div>
-                  <button
-                    type="submit"
-                    class="px-3 py-2 text-sm rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
-                  >
-                    Save System Prompt
-                  </button>
-                </form>
+              
+              <div class="space-y-2">
+                <button
+                  @click="if(confirm('Are you sure you want to clear all chats? This cannot be undone.')) { window.chatStorage?.clearAllChats(); $store.chat.refreshChatList(); $store.chat.createNewChat('{{$model}}'); }"
+                  class="w-full px-3 py-2 text-sm rounded text-white bg-red-500 hover:bg-red-600 transition-colors">
+                  <i class="fa-solid fa-trash-can mr-2"></i> Clear All Chats
+                </button>
+                <button
+                  @click="if(confirm('Clear chats older than 7 days?')) { const count = window.chatStorage?.clearOldChats(7) || 0; alert('Cleared ' + count + ' chat(s)'); $store.chat.refreshChatList(); }"
+                  class="w-full px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#101827] hover:bg-[#1E293B] border border-[#1E293B] transition-colors">
+                  <i class="fa-solid fa-clock mr-2"></i> Clear Old Chats (7 days)
+                </button>
               </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Main chat container (shifts with sidebar) -->
+      <!-- Main chat container (shifts with sidebars) -->
       <div
         class="flex-1 flex flex-col transition-all duration-300 ease-in-out"
-        :class="sidebarOpen ? 'ml-64' : 'ml-0'">
+        :class="leftSidebarOpen && rightSidebarOpen ? 'ml-64 mr-64' : leftSidebarOpen ? 'ml-64 mr-0' : rightSidebarOpen ? 'ml-0 mr-64' : 'ml-0 mr-0'">
 
         <!-- Chat header with toggle button -->
         <div class="border-b border-[#1E293B] p-4 flex items-center justify-between">
           <div class="flex items-center">
-            <!-- Sidebar toggle button moved to be the first element in the header and with clear styling -->
+            <!-- Left Sidebar toggle button -->
             <button
-              @click="sidebarOpen = !sidebarOpen"
+              @click="leftSidebarOpen = !leftSidebarOpen"
+              class="mr-4 text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none bg-[#1E293B] hover:bg-[#1E293B]/80 p-2 rounded transition-colors"
+              style="min-width: 36px;"
+              title="Toggle chat history">
+              <i class="fa-solid" :class="leftSidebarOpen ? 'fa-times' : 'fa-bars'"></i>
+            </button>
+            
+            <!-- Right Sidebar toggle button -->
+            <button
+              @click="rightSidebarOpen = !rightSidebarOpen"
               class="mr-4 text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none bg-[#1E293B] hover:bg-[#1E293B]/80 p-2 rounded transition-colors"
               style="min-width: 36px;"
               title="Toggle settings">
-              <i class="fa-solid" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
+              <i class="fa-solid fa-cog"></i>
             </button>
 
             <div class="flex items-center">
@@ -540,9 +875,23 @@ SOFTWARE.
               {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
               {{ end }}
               {{ end }}
-              <h1 class="text-lg font-semibold text-[#E5E7EB]">
-                Chat {{ if .Model }} with {{.Model}} {{ end }}
-              </h1>
+              <div class="flex items-center gap-2">
+                <input
+                  type="text"
+                  x-model="$store.chat.chatTitle"
+                  @blur="$store.chat.updateChatTitle($event.target.value)"
+                  @keydown.enter="$event.target.blur()"
+                  class="text-lg font-semibold text-[#E5E7EB] bg-transparent border-none focus:outline-none focus:border-b focus:border-[#38BDF8] px-1"
+                  placeholder="Chat title..."
+                  style="min-width: 200px;"
+                />
+                <button
+                  @click="$store.chat.createNewChat('{{$model}}')"
+                  class="ml-2 px-3 py-1 text-sm rounded text-[#E5E7EB] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors"
+                  title="New Chat">
+                  <i class="fa-solid fa-plus mr-1"></i> New Chat
+                </button>
+              </div>
               <!-- Loading indicator next to model name -->
               <div id="header-loading-indicator" class="ml-3 text-[#38BDF8]" style="display: none;">
                 <i class="fas fa-spinner fa-spin text-sm"></i>
@@ -553,8 +902,8 @@ SOFTWARE.
         </div>
 
         <!-- Chat messages area -->
-        <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
-          <p id="usage" x-show="history.length === 0" class="text-[#94A3B8]">
+        <div class="flex-1 p-4 overflow-auto" id="chat">
+          <p id="usage" x-show="$store.chat.history.length === 0" class="text-[#94A3B8]">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
             <ul class="list-disc list-inside mt-2 space-y-1">
               <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[#38BDF8]"></i> icon.</li>
@@ -563,7 +912,7 @@ SOFTWARE.
             </ul>
           </p>
           <div id="messages" class="max-w-3xl mx-auto space-y-2">
-            <template x-for="(message, index) in history" :key="index">
+            <template x-for="(message, index) in $store.chat.history" :key="index">
               <div>
                 <!-- Reasoning/Thinking messages appear first (before assistant) - collapsible in MCP mode -->
                 <template x-if="message.role === 'reasoning' || message.role === 'thinking'">
@@ -950,6 +1299,28 @@ SOFTWARE.
 
     <!-- Alpine store initialization and utilities -->
     <script>
+      // Handle model change - create or switch to chat for that model
+      window.handleModelChange = function(value) {
+        if (!value) return;
+        
+        // Extract model name from value (format: "chat/{model}")
+        const model = value.replace('chat/', '');
+        if (!model) return;
+        
+        // Use Alpine store to create or switch chat
+        if (window.Alpine && Alpine.store("chat")) {
+          const store = Alpine.store("chat");
+          // Always create a new temporary chat when switching models
+          // Don't auto-select existing chats - let user start fresh
+          store.createNewChat(model, false); // false = don't save immediately
+          // Check MCP availability after creating
+          store.checkMCPAvailability();
+        } else {
+          // Fallback: redirect to chat page
+          window.location = value;
+        }
+      };
+
       document.addEventListener("alpine:init", () => {
         window.copyToClipboard = (content) => {
           const tempElement = document.createElement('div');

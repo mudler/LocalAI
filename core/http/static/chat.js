@@ -35,6 +35,324 @@ let tokensReceived = 0;
 let tokensPerSecondInterval = null;
 let lastTokensPerSecond = null; // Store the last calculated rate
 
+// Chat Storage Manager for handling multiple chats in localStorage
+class ChatStorageManager {
+  constructor() {
+    this.STORAGE_KEY_CHATS = 'localai_chats';
+    this.STORAGE_KEY_ACTIVE_CHAT = 'localai_active_chat_id';
+    this.STORAGE_KEY_CACHE_LIMIT = 'localai_chat_cache_limit';
+    this.DEFAULT_CACHE_LIMIT_MB = 50;
+    this.DEFAULT_CACHE_LIMIT_CHATS = 100;
+  }
+
+  // Generate a unique chat ID
+  generateChatId() {
+    return 'chat_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
+
+  // Get all chats from storage
+  getAllChats() {
+    try {
+      const chatsJson = localStorage.getItem(this.STORAGE_KEY_CHATS);
+      return chatsJson ? JSON.parse(chatsJson) : {};
+    } catch (error) {
+      console.error('Error loading chats from storage:', error);
+      return {};
+    }
+  }
+
+  // Save all chats to storage
+  saveAllChats(chats) {
+    try {
+      localStorage.setItem(this.STORAGE_KEY_CHATS, JSON.stringify(chats));
+      return true;
+    } catch (error) {
+      console.error('Error saving chats to storage:', error);
+      // If quota exceeded, try to enforce cache limit
+      if (error.name === 'QuotaExceededError') {
+        this.enforceCacheLimit();
+        // Try again after cleanup
+        try {
+          localStorage.setItem(this.STORAGE_KEY_CHATS, JSON.stringify(chats));
+          return true;
+        } catch (retryError) {
+          console.error('Error saving after cache cleanup:', retryError);
+          return false;
+        }
+      }
+      return false;
+    }
+  }
+
+  // Save a single chat
+  saveChat(chatId, chatData) {
+    const chats = this.getAllChats();
+    chats[chatId] = {
+      ...chatData,
+      updatedAt: Date.now()
+    };
+    
+    // Enforce cache limit before saving
+    this.enforceCacheLimit();
+    
+    const saved = this.saveAllChats(chats);
+    if (saved) {
+      // Show warning if cleanup occurred
+      const cleanedUp = this.enforceCacheLimit();
+      if (cleanedUp > 0) {
+        this.showToast(`Cleaned up ${cleanedUp} old chat(s) to free storage space`, 'warning');
+      }
+    }
+    return saved;
+  }
+
+  // Load a specific chat
+  loadChat(chatId) {
+    const chats = this.getAllChats();
+    return chats[chatId] || null;
+  }
+
+  // Delete a chat
+  deleteChat(chatId) {
+    const chats = this.getAllChats();
+    if (chats[chatId]) {
+      delete chats[chatId];
+      this.saveAllChats(chats);
+      
+      // If deleted chat was active, clear active chat ID
+      const activeChatId = this.getActiveChatId();
+      if (activeChatId === chatId) {
+        this.setActiveChatId(null);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  // List all chats sorted by updatedAt (newest first), with stable secondary sort by createdAt
+  listChats() {
+    const chats = this.getAllChats();
+    return Object.entries(chats)
+      .map(([id, data]) => ({ id, ...data }))
+      .sort((a, b) => {
+        // Primary sort: updatedAt (newest first)
+        const updatedDiff = (b.updatedAt || 0) - (a.updatedAt || 0);
+        if (updatedDiff !== 0) return updatedDiff;
+        // Secondary sort: createdAt (newest first) for stability
+        return (b.createdAt || 0) - (a.createdAt || 0);
+      });
+  }
+
+  // Get active chat ID
+  getActiveChatId() {
+    return localStorage.getItem(this.STORAGE_KEY_ACTIVE_CHAT);
+  }
+
+  // Set active chat ID
+  setActiveChatId(chatId) {
+    if (chatId) {
+      localStorage.setItem(this.STORAGE_KEY_ACTIVE_CHAT, chatId);
+    } else {
+      localStorage.removeItem(this.STORAGE_KEY_ACTIVE_CHAT);
+    }
+  }
+
+  // Calculate storage size in bytes
+  getStorageSize() {
+    const chats = this.getAllChats();
+    const chatsJson = JSON.stringify(chats);
+    return new Blob([chatsJson]).size;
+  }
+
+  // Get storage size in MB
+  getStorageSizeMB() {
+    return (this.getStorageSize() / (1024 * 1024)).toFixed(2);
+  }
+
+  // Get cache limit settings
+  getCacheLimit() {
+    const limitMB = localStorage.getItem(this.STORAGE_KEY_CACHE_LIMIT + '_mb');
+    const limitChats = localStorage.getItem(this.STORAGE_KEY_CACHE_LIMIT + '_chats');
+    return {
+      mb: limitMB ? parseFloat(limitMB) : this.DEFAULT_CACHE_LIMIT_MB,
+      chats: limitChats ? parseInt(limitChats) : this.DEFAULT_CACHE_LIMIT_CHATS
+    };
+  }
+
+  // Set cache limit
+  setCacheLimit(mb, chats) {
+    if (mb !== null) localStorage.setItem(this.STORAGE_KEY_CACHE_LIMIT + '_mb', mb.toString());
+    if (chats !== null) localStorage.setItem(this.STORAGE_KEY_CACHE_LIMIT + '_chats', chats.toString());
+  }
+
+  // Enforce cache limit - remove oldest chats if limit exceeded
+  enforceCacheLimit() {
+    const limit = this.getCacheLimit();
+    const chats = this.listChats();
+    let removedCount = 0;
+    
+    // Check chat count limit
+    if (chats.length > limit.chats) {
+      const toRemove = chats.slice(limit.chats);
+      const chatsObj = this.getAllChats();
+      toRemove.forEach(chat => {
+        delete chatsObj[chat.id];
+        removedCount++;
+      });
+      this.saveAllChats(chatsObj);
+    }
+    
+    // Check storage size limit
+    let currentSizeMB = parseFloat(this.getStorageSizeMB());
+    while (currentSizeMB > limit.mb && chats.length > removedCount) {
+      const chatsObj = this.getAllChats();
+      const sortedChats = this.listChats();
+      if (sortedChats.length === 0) break;
+      
+      // Remove oldest chat
+      const oldestChat = sortedChats[sortedChats.length - 1];
+      delete chatsObj[oldestChat.id];
+      this.saveAllChats(chatsObj);
+      removedCount++;
+      
+      currentSizeMB = parseFloat(this.getStorageSizeMB());
+    }
+    
+    return removedCount;
+  }
+
+  // Clear all chats
+  clearAllChats() {
+    localStorage.removeItem(this.STORAGE_KEY_CHATS);
+    localStorage.removeItem(this.STORAGE_KEY_ACTIVE_CHAT);
+  }
+
+  // Clear old chats (older than X days)
+  clearOldChats(days) {
+    const cutoffTime = Date.now() - (days * 24 * 60 * 60 * 1000);
+    const chats = this.getAllChats();
+    let removedCount = 0;
+    
+    Object.keys(chats).forEach(chatId => {
+      const chat = chats[chatId];
+      if ((chat.updatedAt || chat.createdAt || 0) < cutoffTime) {
+        delete chats[chatId];
+        removedCount++;
+      }
+    });
+    
+    if (removedCount > 0) {
+      this.saveAllChats(chats);
+    }
+    
+    return removedCount;
+  }
+
+  // Find or create chat for a model
+  findOrCreateChatForModel(model) {
+    const chats = this.listChats();
+    // Find most recent chat for this model
+    const existingChat = chats.find(chat => chat.model === model);
+    
+    if (existingChat) {
+      return existingChat.id;
+    }
+    
+    // Create new chat
+    const newChatId = this.generateChatId();
+    const newChat = {
+      id: newChatId,
+      model: model,
+      title: `Chat with ${model}`,
+      history: [],
+      systemPrompt: '',
+      mcpMode: false,
+      tokenUsage: {
+        promptTokens: 0,
+        completionTokens: 0,
+        totalTokens: 0,
+        currentRequest: null
+      },
+      contextSize: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+    
+    this.saveChat(newChatId, newChat);
+    return newChatId;
+  }
+
+  // Generate chat title from first user message
+  generateChatTitle(history) {
+    if (!history || history.length === 0) {
+      return 'New Chat';
+    }
+    
+    // Find first user message
+    const firstUserMessage = history.find(msg => msg.role === 'user');
+    if (firstUserMessage) {
+      const content = firstUserMessage.content || '';
+      // Remove HTML tags and get first 50 characters
+      const text = content.replace(/<[^>]*>/g, '').trim();
+      return text.length > 50 ? text.substring(0, 50) + '...' : text || 'New Chat';
+    }
+    
+    return 'New Chat';
+  }
+
+  // Show toast notification
+  showToast(message, type = 'info') {
+    // Create toast element if it doesn't exist
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'toast-container';
+      toastContainer.className = 'fixed top-20 right-4 z-50 space-y-2';
+      document.body.appendChild(toastContainer);
+    }
+    
+    const toast = document.createElement('div');
+    const bgColor = type === 'warning' ? 'bg-yellow-500/90' : type === 'error' ? 'bg-red-500/90' : 'bg-blue-500/90';
+    toast.className = `${bgColor} text-white px-4 py-2 rounded-lg shadow-lg max-w-sm`;
+    toast.textContent = message;
+    
+    toastContainer.appendChild(toast);
+    
+    // Remove toast after 3 seconds
+    setTimeout(() => {
+      toast.remove();
+    }, 3000);
+  }
+
+  // Migrate old localStorage structure
+  migrateOldData() {
+    // Check for old system_prompt key
+    const oldSystemPrompt = localStorage.getItem('system_prompt');
+    if (oldSystemPrompt) {
+      // Get current model from URL or page
+      const modelElement = document.getElementById('chat-model');
+      const model = modelElement ? modelElement.value : null;
+      
+      if (model) {
+        // Create a chat with the old system prompt
+        const chatId = this.findOrCreateChatForModel(model);
+        const chat = this.loadChat(chatId);
+        if (chat && !chat.systemPrompt) {
+          chat.systemPrompt = oldSystemPrompt;
+          this.saveChat(chatId, chat);
+        }
+        
+        // Remove old key
+        localStorage.removeItem('system_prompt');
+      }
+    }
+  }
+}
+
+// Create global instance and expose it
+const chatStorage = new ChatStorageManager();
+window.chatStorage = chatStorage;
+
 function toggleLoader(show) {
   const sendButton = document.getElementById('send-button');
   const stopButton = document.getElementById('stop-button');
@@ -151,7 +469,17 @@ function processThinkingTags(content) {
 
 function submitSystemPrompt(event) {
   event.preventDefault();
-  localStorage.setItem("system_prompt", document.getElementById("systemPrompt").value);
+  const systemPrompt = document.getElementById("systemPrompt").value;
+  
+  // Update Alpine store
+  if (window.Alpine && Alpine.store("chat")) {
+    Alpine.store("chat").systemPrompt = systemPrompt;
+    // Save current chat immediately
+    Alpine.store("chat").saveCurrentChat();
+  }
+  
+  // Keep old localStorage for backward compatibility during migration
+  localStorage.setItem("system_prompt", systemPrompt);
   document.getElementById("systemPrompt").blur();
 }
 
@@ -359,8 +687,14 @@ function processAndSendMessage(inputValue) {
     });
   }
   
+  // Save chat before sending first message if it's unsaved
+  const store = Alpine.store("chat");
+  if (store && store.isUnsavedChat) {
+    store.saveCurrentChat();
+  }
+  
   // Add the message to the chat UI with just the icons
-  Alpine.store("chat").add("user", displayContent, images, audios);
+  store.add("user", displayContent, images, audios);
   
   // Update the last message in the store with the full content
   const history = Alpine.store("chat").history;
@@ -1210,16 +1544,109 @@ async function promptGPT(systemPrompt, input) {
   document.getElementById("input").focus();
 }
 
-document.getElementById("system_prompt").addEventListener("submit", submitSystemPrompt);
-document.getElementById("prompt").addEventListener("submit", submitPrompt);
-document.getElementById("input").focus();
+// Wait for DOM and Alpine to be ready before initializing
+document.addEventListener('DOMContentLoaded', function() {
+  // Wait for Alpine to be ready
+  setTimeout(() => {
+    initializeChatStorage();
+  }, 300);
+});
 
-storesystemPrompt = localStorage.getItem("system_prompt");
-if (storesystemPrompt) {
-  document.getElementById("systemPrompt").value = storesystemPrompt;
-} else {
-  document.getElementById("systemPrompt").value = null;
+function initializeChatStorage() {
+  // Migrate old data first
+  chatStorage.migrateOldData();
+  
+  // Get model from URL or page
+  const urlParams = new URLSearchParams(window.location.search);
+  const chatIdFromUrl = urlParams.get('chatId');
+  const modelElement = document.getElementById('chat-model');
+  const model = modelElement ? modelElement.value : null;
+  
+  if (!window.Alpine || !Alpine.store("chat")) {
+    console.warn('Alpine store not available, retrying...');
+    setTimeout(initializeChatStorage, 500);
+    return;
+  }
+  
+  const store = Alpine.store("chat");
+  
+  // Set initial model from page
+  if (model && !store.currentModel) {
+    store.currentModel = model;
+  }
+  
+  // Check MCP availability for initial model
+  if (store.currentModel) {
+    store.checkMCPAvailability();
+  }
+  
+  // Refresh chat list
+  store.refreshChatList();
+  
+  // Check if we have a chatId in URL
+  if (chatIdFromUrl) {
+    const loaded = store.loadChat(chatIdFromUrl);
+    if (!loaded) {
+      // Chat not found, create new one
+      if (model) {
+        store.createNewChat(model);
+      }
+    }
+  } else {
+    // No chatId in URL, check for active chat or create new
+    const activeChatId = chatStorage.getActiveChatId();
+    if (activeChatId && chatStorage.loadChat(activeChatId)) {
+      store.loadChat(activeChatId);
+    } else if (model) {
+      // Create new temporary chat for current model (don't save until user sends message)
+      store.createNewChat(model, false);
+    }
+  }
+  
+  // Set up auto-save on page unload
+  window.addEventListener('beforeunload', function() {
+    if (store.currentChatId) {
+      // Save immediately (no debounce on unload)
+      store.saveCurrentChat();
+    }
+  });
+  
+  // Also save when system prompt changes (immediate, not debounced)
+  const systemPromptElement = document.getElementById('systemPrompt');
+  if (systemPromptElement) {
+    systemPromptElement.addEventListener('input', function() {
+      if (store.currentChatId) {
+        store.systemPrompt = this.value;
+        // Debounced save for input events
+        store.saveCurrentChatDebounced();
+      }
+    });
+  }
+  
+  // Load system prompt from current chat or old storage
+  const storesystemPrompt = store.systemPrompt || localStorage.getItem("system_prompt");
+  if (storesystemPrompt && systemPromptElement) {
+    systemPromptElement.value = storesystemPrompt;
+    store.systemPrompt = storesystemPrompt;
+  }
 }
+
+// Set up event listeners
+document.addEventListener('DOMContentLoaded', function() {
+  const systemPromptForm = document.getElementById("system_prompt");
+  const promptForm = document.getElementById("prompt");
+  const inputElement = document.getElementById("input");
+  
+  if (systemPromptForm) {
+    systemPromptForm.addEventListener("submit", submitSystemPrompt);
+  }
+  if (promptForm) {
+    promptForm.addEventListener("submit", submitPrompt);
+  }
+  if (inputElement) {
+    inputElement.focus();
+  }
+});
 
 marked.setOptions({
   highlight: function (code) {
@@ -1376,55 +1803,70 @@ document.addEventListener("alpine:init", () => {
 
 // Check for message from index page on load
 document.addEventListener('DOMContentLoaded', function() {
-  // Wait for Alpine to be ready
+  // Wait for Alpine and chat storage to be ready
   setTimeout(() => {
     const chatData = localStorage.getItem('localai_index_chat_data');
     if (chatData) {
       try {
         const data = JSON.parse(chatData);
         
-        // Set MCP mode if provided
-        if (data.mcpMode === true && Alpine.store("chat")) {
-          Alpine.store("chat").mcpMode = true;
-        }
+        // Get model from URL or page
+        const modelElement = document.getElementById('chat-model');
+        const model = modelElement ? modelElement.value : null;
         
-        const input = document.getElementById('input');
-        
-        if (input && data.message) {
-          // Set the message in the input
-          input.value = data.message;
+        if (model && window.Alpine && Alpine.store("chat")) {
+          const store = Alpine.store("chat");
           
-          // Process files if any
-          if (data.imageFiles && data.imageFiles.length > 0) {
-            data.imageFiles.forEach(file => {
-              images.push(file.data);
-            });
+          // Create new chat for this model
+          const chatId = store.createNewChat(model);
+          
+          // Set MCP mode if provided
+          if (data.mcpMode === true) {
+            store.mcpMode = true;
+            store.saveCurrentChat();
           }
           
-          if (data.audioFiles && data.audioFiles.length > 0) {
-            data.audioFiles.forEach(file => {
-              audios.push(file.data);
-            });
-          }
+          const input = document.getElementById('input');
           
-          if (data.textFiles && data.textFiles.length > 0) {
-            data.textFiles.forEach(file => {
-              fileContents.push({ name: file.name, content: file.data });
-              currentFileNames.push(file.name);
-            });
-          }
-          
-          // Clear localStorage
-          localStorage.removeItem('localai_index_chat_data');
-          
-          // Auto-submit after a short delay to ensure everything is ready
-          setTimeout(() => {
-            if (input.value.trim()) {
-              processAndSendMessage(input.value);
+          if (input && data.message) {
+            // Set the message in the input
+            input.value = data.message;
+            
+            // Process files if any
+            if (data.imageFiles && data.imageFiles.length > 0) {
+              data.imageFiles.forEach(file => {
+                images.push(file.data);
+              });
             }
-          }, 500);
+            
+            if (data.audioFiles && data.audioFiles.length > 0) {
+              data.audioFiles.forEach(file => {
+                audios.push(file.data);
+              });
+            }
+            
+            if (data.textFiles && data.textFiles.length > 0) {
+              data.textFiles.forEach(file => {
+                fileContents.push({ name: file.name, content: file.data });
+                currentFileNames.push(file.name);
+              });
+            }
+            
+            // Clear localStorage
+            localStorage.removeItem('localai_index_chat_data');
+            
+            // Auto-submit after a short delay to ensure everything is ready
+            setTimeout(() => {
+              if (input.value.trim()) {
+                processAndSendMessage(input.value);
+              }
+            }, 500);
+          } else {
+            // No message, but might have mcpMode - clear localStorage
+            localStorage.removeItem('localai_index_chat_data');
+          }
         } else {
-          // No message, but might have mcpMode - clear localStorage
+          // Fallback: clear localStorage if store not ready
           localStorage.removeItem('localai_index_chat_data');
         }
       } catch (error) {
@@ -1432,6 +1874,6 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('localai_index_chat_data');
       }
     }
-  }, 300);
+  }, 500);
 });
 
