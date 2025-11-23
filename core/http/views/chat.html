@@ -61,37 +61,134 @@ SOFTWARE.
       }
       
       if (Alpine.store("chat")) {
-        Alpine.store("chat").contextSize = __chatContextSize;
-        Alpine.store("chat").mcpMode = initialMcpMode;
+        // Store already initialized, just update context size if needed
+        const activeChat = Alpine.store("chat").activeChat();
+        if (activeChat && __chatContextSize !== null) {
+          activeChat.contextSize = __chatContextSize;
+        }
         return;
       }
 
+      // Generate unique chat ID
+      function generateChatId() {
+        return "chat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+      }
+
+      // Get current model from URL or input
+      function getCurrentModel() {
+        const modelInput = document.getElementById("chat-model");
+        return modelInput ? modelInput.value : "";
+      }
+
       Alpine.store("chat", {
-        history: [],
+        chats: [],
+        activeChatId: null,
+        chatIdCounter: 0,
         languages: [undefined],
-        systemPrompt: "",
-        mcpMode: initialMcpMode,
-        contextSize: __chatContextSize,
-        tokenUsage: {
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-          currentRequest: null
+        
+        // Helper to get active chat
+        activeChat() {
+          if (!this.activeChatId) return null;
+          return this.chats.find(c => c.id === this.activeChatId) || null;
         },
-        clear() {
-          this.history.length = 0;
-          this.tokenUsage = {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-            currentRequest: null
+        
+        // Helper to get chat by ID
+        getChat(chatId) {
+          return this.chats.find(c => c.id === chatId) || null;
+        },
+        
+        // Create a new chat
+        createChat(model, systemPrompt, mcpMode) {
+          const chatId = generateChatId();
+          const now = Date.now();
+          const chat = {
+            id: chatId,
+            name: "New Chat",
+            model: model || getCurrentModel() || "",
+            history: [],
+            systemPrompt: systemPrompt || "",
+            mcpMode: mcpMode || false,
+            tokenUsage: {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              currentRequest: null
+            },
+            contextSize: __chatContextSize,
+            createdAt: now,
+            updatedAt: now
           };
+          this.chats.push(chat);
+          this.activeChatId = chatId;
+          return chat;
         },
+        
+        // Switch to a different chat
+        switchChat(chatId) {
+          if (this.chats.find(c => c.id === chatId)) {
+            this.activeChatId = chatId;
+            // Update context size if needed
+            const chat = this.activeChat();
+            if (chat && __chatContextSize !== null) {
+              chat.contextSize = __chatContextSize;
+            }
+            return true;
+          }
+          return false;
+        },
+        
+        // Delete a chat
+        deleteChat(chatId) {
+          const index = this.chats.findIndex(c => c.id === chatId);
+          if (index === -1) return false;
+          
+          this.chats.splice(index, 1);
+          
+          // If deleted chat was active, switch to another or create new
+          if (this.activeChatId === chatId) {
+            if (this.chats.length > 0) {
+              this.activeChatId = this.chats[0].id;
+            } else {
+              // Create a new default chat
+              this.createChat();
+            }
+          }
+          return true;
+        },
+        
+        // Update chat name
+        updateChatName(chatId, name) {
+          const chat = this.getChat(chatId);
+          if (chat) {
+            chat.name = name || "New Chat";
+            chat.updatedAt = Date.now();
+            return true;
+          }
+          return false;
+        },
+        
+        clear() {
+          const chat = this.activeChat();
+          if (chat) {
+            chat.history.length = 0;
+            chat.tokenUsage = {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              currentRequest: null
+            };
+            chat.updatedAt = Date.now();
+          }
+        },
+        
         updateTokenUsage(usage) {
+          const chat = this.activeChat();
+          if (!chat) return;
+          
           // Usage values in streaming responses are cumulative totals for the current request
           // We track session totals separately and only update when we see new (higher) values
           if (usage) {
-            const currentRequest = this.tokenUsage.currentRequest || {
+            const currentRequest = chat.tokenUsage.currentRequest || {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: 0
@@ -105,29 +202,40 @@ SOFTWARE.
             
             if (isNewUsage) {
               // Update session totals: subtract old request usage, add new
-              this.tokenUsage.promptTokens = this.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
-              this.tokenUsage.completionTokens = this.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
-              this.tokenUsage.totalTokens = this.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
+              chat.tokenUsage.promptTokens = chat.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
+              chat.tokenUsage.completionTokens = chat.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
+              chat.tokenUsage.totalTokens = chat.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
               
               // Store current request usage
-              this.tokenUsage.currentRequest = {
+              chat.tokenUsage.currentRequest = {
                 promptTokens: usage.prompt_tokens || 0,
                 completionTokens: usage.completion_tokens || 0,
                 totalTokens: usage.total_tokens || 0
               };
+              chat.updatedAt = Date.now();
             }
           }
         },
+        
         getRemainingTokens() {
-          if (!this.contextSize) return null;
-          return Math.max(0, this.contextSize - this.tokenUsage.totalTokens);
+          const chat = this.activeChat();
+          if (!chat || !chat.contextSize) return null;
+          return Math.max(0, chat.contextSize - chat.tokenUsage.totalTokens);
         },
+        
         getContextUsagePercent() {
-          if (!this.contextSize) return null;
-          return Math.min(100, (this.tokenUsage.totalTokens / this.contextSize) * 100);
+          const chat = this.activeChat();
+          if (!chat || !chat.contextSize) return null;
+          return Math.min(100, (chat.tokenUsage.totalTokens / chat.contextSize) * 100);
         },
-        add(role, content, image, audio) {
-          const N = this.history.length - 1;
+        
+        add(role, content, image, audio, targetChatId = null) {
+          // If targetChatId is provided, add to that chat, otherwise use active chat
+          // This allows streaming to continue to the correct chat even if user switches
+          const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
+          if (!chat) return;
+          
+          const N = chat.history.length - 1;
           // For thinking, reasoning, tool_call, and tool_result messages, always create a new message
           if (role === "thinking" || role === "reasoning" || role === "tool_call" || role === "tool_result") {
             let c = "";
@@ -154,23 +262,28 @@ SOFTWARE.
             }
             // Set expanded state: thinking is expanded by default in non-MCP mode, collapsed in MCP mode
             // Reasoning, tool_call, and tool_result are always collapsed by default
-            const isMCPMode = this.mcpMode || false;
+            const isMCPMode = chat.mcpMode || false;
             const shouldExpand = (role === "thinking" && !isMCPMode) || false;
-            this.history.push({ role, content, html: c, image, audio, expanded: shouldExpand });
+            chat.history.push({ role, content, html: c, image, audio, expanded: shouldExpand });
             
+            // Auto-name chat from first user message
+            if (role === "user" && chat.name === "New Chat" && content.trim()) {
+              const name = content.trim().substring(0, 50);
+              chat.name = name.length < content.trim().length ? name + "..." : name;
+            }
           }
           // For other messages, merge if same role
-          else if (this.history.length && this.history[N].role === role) {
-            this.history[N].content += content;
-            this.history[N].html = DOMPurify.sanitize(
-              marked.parse(this.history[N].content)
+          else if (chat.history.length && chat.history[N].role === role) {
+            chat.history[N].content += content;
+            chat.history[N].html = DOMPurify.sanitize(
+              marked.parse(chat.history[N].content)
             );
             // Merge new images and audio with existing ones
             if (image && image.length > 0) {
-              this.history[N].image = [...(this.history[N].image || []), ...image];
+              chat.history[N].image = [...(chat.history[N].image || []), ...image];
             }
             if (audio && audio.length > 0) {
-              this.history[N].audio = [...(this.history[N].audio || []), ...audio];
+              chat.history[N].audio = [...(chat.history[N].audio || []), ...audio];
             }
           } else {
             let c = "";
@@ -178,14 +291,28 @@ SOFTWARE.
             lines.forEach((line) => {
               c += DOMPurify.sanitize(marked.parse(line));
             });
-            this.history.push({ 
+            chat.history.push({ 
               role, 
               content, 
               html: c, 
               image: image || [], 
               audio: audio || [] 
             });
+            
+            // Auto-name chat from first user message
+            if (role === "user" && chat.name === "New Chat" && content.trim()) {
+              const name = content.trim().substring(0, 50);
+              chat.name = name.length < content.trim().length ? name + "..." : name;
+            }
           }
+          
+          chat.updatedAt = Date.now();
+          
+          // Auto-save after adding message
+          if (typeof autoSaveChats === 'function') {
+            autoSaveChats();
+          }
+          
           // Scroll to bottom consistently for all messages (use #chat as it's the scrollable container)
           setTimeout(() => {
             const chatContainer = document.getElementById('chat');
@@ -204,7 +331,7 @@ SOFTWARE.
           }, 100);
           const parser = new DOMParser();
           const html = parser.parseFromString(
-            this.history[this.history.length - 1].html,
+            chat.history[chat.history.length - 1].html,
             "text/html"
           );
           const code = html.querySelectorAll("pre code");
@@ -242,13 +369,22 @@ SOFTWARE.
             }, 100);
           }
         },
+        
         messages() {
-          return this.history.map((message) => ({
+          const chat = this.activeChat();
+          if (!chat) return [];
+          return chat.history.map((message) => ({
             role: message.role,
             content: message.content,
             image: message.image,
             audio: message.audio,
           }));
+        },
+        
+        // Getter for active chat history to ensure reactivity
+        get activeHistory() {
+          const chat = this.activeChat();
+          return chat ? chat.history : [];
         },
       });
     }
@@ -299,13 +435,114 @@ SOFTWARE.
 
         <!-- Sidebar content -->
         <div class="p-4 space-y-6">
+          <!-- Chat List -->
+          <div class="space-y-2" x-data="{ editingChatId: null, editingName: '', showCleanup: false }">
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="text-sm font-semibold text-[#E5E7EB]">Chats</h2>
+              <button
+                @click="createNewChat()"
+                class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-sm"
+                title="New Chat">
+                <i class="fa-solid fa-plus"></i>
+              </button>
+            </div>
+            
+            <!-- Chat List -->
+            <div class="max-h-64 overflow-y-auto space-y-1 border border-[#1E293B] rounded-lg p-2">
+              <template x-for="chat in $store.chat.chats" :key="chat.id">
+                <div
+                  class="flex items-center justify-between p-2 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
+                  :class="{ 'bg-[#38BDF8]/20 border border-[#38BDF8]/40': $store.chat.activeChatId === chat.id }"
+                  @click="if (editingChatId !== chat.id) switchChat(chat.id)"
+                >
+                  <div class="flex-1 min-w-0">
+                    <template x-if="editingChatId === chat.id">
+                      <input
+                        type="text"
+                        x-model="editingName"
+                        @blur="updateChatName(chat.id, editingName); editingChatId = null"
+                        @keydown.enter="updateChatName(chat.id, editingName); editingChatId = null"
+                        @keydown.escape="editingChatId = null"
+                        class="w-full bg-[#101827] text-[#E5E7EB] border border-[#38BDF8] rounded px-2 py-1 text-xs"
+                        x-ref="editInput"
+                        x-effect="if (editingChatId === chat.id) { $refs.editInput?.focus(); editingName = chat.name; }"
+                      />
+                    </template>
+                    <template x-if="editingChatId !== chat.id">
+                      <div class="flex items-center space-x-2">
+                        <div class="flex-1 min-w-0">
+                          <div
+                            class="text-xs font-medium text-[#E5E7EB] truncate"
+                            @dblclick="editingChatId = chat.id; editingName = chat.name"
+                            x-text="chat.name || 'New Chat'"
+                          ></div>
+                          <div class="text-xs text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      @click.stop="editingChatId = chat.id; editingName = chat.name"
+                      class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1"
+                      title="Rename chat">
+                      <i class="fa-solid fa-edit"></i>
+                    </button>
+                    <button
+                      @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
+                      class="text-[#94A3B8] hover:text-red-400 transition-colors text-xs p-1"
+                      title="Delete chat"
+                      x-show="$store.chat.chats.length > 1">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              </template>
+              <div x-show="$store.chat.chats.length === 0" class="text-xs text-[#94A3B8] text-center py-2">
+                No chats yet
+              </div>
+            </div>
+            
+            <!-- Cleanup Section -->
+            <div class="mt-2">
+              <button
+                @click="showCleanup = !showCleanup"
+                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors"
+              >
+                <span><i class="fa-solid fa-broom mr-2 text-[#38BDF8]"></i> Cleanup</span>
+                <i :class="showCleanup ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+              </button>
+              
+              <div x-show="showCleanup" x-transition class="mt-2 space-y-2 p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
+                <button
+                  @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); showCleanup = false; }"
+                  class="w-full text-left px-3 py-2 text-xs rounded text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <i class="fa-solid fa-trash mr-2"></i>Delete All Chats
+                </button>
+                <button
+                  @click="if (confirm('Delete chats older than 7 days?')) { bulkDeleteChats({olderThanDays: 7}); showCleanup = false; }"
+                  class="w-full text-left px-3 py-2 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
+                >
+                  <i class="fa-solid fa-clock mr-2"></i>Delete Older Than 7 Days
+                </button>
+                <button
+                  @click="if (confirm('Delete chats older than 30 days?')) { bulkDeleteChats({olderThanDays: 30}); showCleanup = false; }"
+                  class="w-full text-left px-3 py-2 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
+                >
+                  <i class="fa-solid fa-calendar mr-2"></i>Delete Older Than 30 Days
+                </button>
+              </div>
+            </div>
+          </div>
+          
           <!-- Model selection - Fixed to properly select current model -->
           <div class="space-y-2">
             <label class="text-sm font-medium text-[#94A3B8]">Select Model</label>
             <select
               id="modelSelector"
               class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-md shadow-sm p-2 appearance-none"
-              onchange="window.location = this.value"
+              onchange="if ($store.chat.activeChat()) { const modelName = this.value.replace('chat/', ''); $store.chat.activeChat().model = modelName; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); } window.location = this.value;"
             >
               <option value="" disabled class="text-[#94A3B8]">Select a model</option>
 
@@ -376,21 +613,21 @@ SOFTWARE.
                 <div class="space-y-1.5 text-xs">
                   <div class="flex justify-between text-[#94A3B8]">
                     <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
                   </div>
                   <div class="flex justify-between text-[#94A3B8]">
                     <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
                   </div>
                   <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1.5">
                     <span class="font-semibold text-[#38BDF8]">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                   </div>
                 </div>
               </div>
 
               <!-- Context Size Indicator -->
-              <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
+              <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
                 <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
                   <div class="flex items-center justify-between mb-2">
                     <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
@@ -402,9 +639,9 @@ SOFTWARE.
                     <div class="flex justify-between text-xs text-[#94A3B8] mb-1">
                       <span>Used / Available</span>
                       <span class="text-[#E5E7EB] font-medium">
-                        <span x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                        <span x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                         / 
-                        <span x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
+                        <span x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
                       </span>
                     </div>
                     <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
@@ -449,13 +686,13 @@ SOFTWARE.
               <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20">
                 <span><i class="fa-solid fa-plug mr-2 text-[#38BDF8]"></i> Agentic MCP Mode</span>
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.mcpMode">
+                  <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.activeChat()?.mcpMode" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
                   <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
                 </label>
               </div>
 
               <!-- MCP Mode Notification -->
-              <div x-show="$store.chat.mcpMode" class="p-3 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
+              <div x-show="$store.chat.activeChat()?.mcpMode" class="p-3 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
                 <div class="flex items-start space-x-2">
                   <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
                   <div>
@@ -478,11 +715,17 @@ SOFTWARE.
 
               <div x-show="showPromptForm" x-data="{
                 showToast: false,
-                previousPrompt: $store.chat.systemPrompt,
+                previousPrompt: $store.chat.activeChat()?.systemPrompt || '',
                 isUpdated() {
-                  if (this.previousPrompt !== $store.chat.systemPrompt) {
+                  const currentPrompt = $store.chat.activeChat()?.systemPrompt || '';
+                  if (this.previousPrompt !== currentPrompt) {
                     this.showToast = true;
-                    this.previousPrompt = $store.chat.systemPrompt;
+                    this.previousPrompt = currentPrompt;
+                    if ($store.chat.activeChat()) {
+                      $store.chat.activeChat().systemPrompt = currentPrompt;
+                      $store.chat.activeChat().updatedAt = Date.now();
+                      autoSaveChats();
+                    }
                     setTimeout(() => {this.showToast = false;}, 2000);
                   }
                 } 
@@ -494,7 +737,8 @@ SOFTWARE.
                     name="systemPrompt"
                     class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24 placeholder-[#94A3B8]"
                     placeholder="System prompt"
-                    x-model.lazy="$store.chat.systemPrompt"
+                    x-model.lazy="$store.chat.activeChat()?.systemPrompt"
+                    @change="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                   ></textarea>
                   <div
                     x-show="showToast"
@@ -553,8 +797,8 @@ SOFTWARE.
         </div>
 
         <!-- Chat messages area -->
-        <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
-          <p id="usage" x-show="history.length === 0" class="text-[#94A3B8]">
+        <div class="flex-1 p-4 overflow-auto" id="chat">
+          <p id="usage" x-show="!$store.chat.activeChat() || ($store.chat.activeChat()?.history?.length || 0) === 0" class="text-[#94A3B8]">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
             <ul class="list-disc list-inside mt-2 space-y-1">
               <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[#38BDF8]"></i> icon.</li>
@@ -562,8 +806,8 @@ SOFTWARE.
               <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[#38BDF8]"></i> icon.</li>
             </ul>
           </p>
-          <div id="messages" class="max-w-3xl mx-auto space-y-2">
-            <template x-for="(message, index) in history" :key="index">
+          <div id="messages" class="max-w-3xl mx-auto space-y-2" :key="$store.chat.activeChatId">
+            <template x-for="(message, index) in $store.chat.activeHistory" :key="index">
               <div>
                 <!-- Reasoning/Thinking messages appear first (before assistant) - collapsible in MCP mode -->
                 <template x-if="message.role === 'reasoning' || message.role === 'thinking'">
@@ -770,15 +1014,15 @@ SOFTWARE.
                   <div class="flex items-center gap-1">
                     <i class="fas fa-chart-line text-[#38BDF8]"></i>
                     <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
                   </div>
                   <div class="flex items-center gap-1">
                     <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
                   </div>
                   <div class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
                     <span class="text-[#38BDF8] font-semibold">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                   </div>
                   <!-- Tokens per second display -->
                   <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
@@ -788,13 +1032,13 @@ SOFTWARE.
                 </div>
 
                 <!-- Context Window -->
-                <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
+                <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
                   <div class="flex items-center gap-2 text-[#94A3B8]">
                     <i class="fas fa-database text-[#38BDF8]"></i>
                     <span>
-                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                       / 
-                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
+                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
                     </span>
                     <div class="w-16 bg-[#101827] rounded-full h-1.5 overflow-hidden border border-[#1E293B]">
                       <div class="h-full rounded-full transition-all duration-300 ease-out"
@@ -1038,6 +1282,25 @@ SOFTWARE.
             const nameMatch = content.match(/"name"\s*:\s*"([^"]+)"/);
             return nameMatch ? nameMatch[1] : '';
           }
+        };
+        
+        // Chat management functions are defined in chat.js and available globally
+        // These are just placeholders - the actual implementations are in chat.js
+        
+        // Get last message preview for chat list
+        window.getLastMessagePreview = (chat) => {
+          if (!chat || !chat.history || chat.history.length === 0) {
+            return 'No messages yet';
+          }
+          const lastMessage = chat.history[chat.history.length - 1];
+          if (!lastMessage || !lastMessage.content) {
+            return 'No messages yet';
+          }
+          // Get plain text from content (remove HTML tags)
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = lastMessage.content;
+          const text = tempDiv.textContent || tempDiv.innerText || '';
+          return text.substring(0, 40) + (text.length > 40 ? '...' : '');
         };
       });
 

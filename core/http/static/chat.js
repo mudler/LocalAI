@@ -27,13 +27,384 @@ SOFTWARE.
 
 */
 
-// Global variable to store the current AbortController
-let currentAbortController = null;
+// Track requests per chat ID to support parallel chatting
+let activeRequests = new Map(); // chatId -> { controller, reader, startTime, tokensReceived, interval }
+
+// Global variables for UI (stop button, etc.)
+let currentAbortController = null; // For stop button - tracks the active chat's request
 let currentReader = null;
 let requestStartTime = null;
 let tokensReceived = 0;
 let tokensPerSecondInterval = null;
 let lastTokensPerSecond = null; // Store the last calculated rate
+
+// Storage key for chats
+const CHATS_STORAGE_KEY = 'localai_chats_data';
+const SYSTEM_PROMPT_STORAGE_KEY = 'system_prompt'; // Old key for migration
+
+// Debounce timer for auto-save
+let saveDebounceTimer = null;
+const SAVE_DEBOUNCE_MS = 500;
+
+// Save chats to localStorage with error handling
+function saveChatsToStorage() {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return false;
+  }
+  
+  try {
+    const chatStore = Alpine.store("chat");
+    const data = {
+      chats: chatStore.chats.map(chat => ({
+        id: chat.id,
+        name: chat.name,
+        model: chat.model,
+        history: chat.history,
+        systemPrompt: chat.systemPrompt,
+        mcpMode: chat.mcpMode,
+        tokenUsage: chat.tokenUsage,
+        contextSize: chat.contextSize,
+        createdAt: chat.createdAt,
+        updatedAt: chat.updatedAt
+      })),
+      activeChatId: chatStore.activeChatId,
+      lastSaved: Date.now()
+    };
+    
+    const jsonData = JSON.stringify(data);
+    localStorage.setItem(CHATS_STORAGE_KEY, jsonData);
+    return true;
+  } catch (error) {
+    // Handle quota exceeded or other storage errors
+    if (error.name === 'QuotaExceededError' || error.code === 22) {
+      console.warn('localStorage quota exceeded. Consider cleaning up old chats.');
+      // Try to save without history (last resort)
+      try {
+        const chatStore = Alpine.store("chat");
+        const data = {
+          chats: chatStore.chats.map(chat => ({
+            id: chat.id,
+            name: chat.name,
+            model: chat.model,
+            history: [], // Clear history to save space
+            systemPrompt: chat.systemPrompt,
+            mcpMode: chat.mcpMode,
+            tokenUsage: chat.tokenUsage,
+            contextSize: chat.contextSize,
+            createdAt: chat.createdAt,
+            updatedAt: chat.updatedAt
+          })),
+          activeChatId: chatStore.activeChatId,
+          lastSaved: Date.now()
+        };
+        localStorage.setItem(CHATS_STORAGE_KEY, JSON.stringify(data));
+        return true;
+      } catch (e2) {
+        console.error('Failed to save chats even without history:', e2);
+        return false;
+      }
+    } else {
+      console.error('Error saving chats to localStorage:', error);
+      return false;
+    }
+  }
+}
+
+// Load chats from localStorage with migration support
+function loadChatsFromStorage() {
+  try {
+    const stored = localStorage.getItem(CHATS_STORAGE_KEY);
+    if (stored) {
+      const data = JSON.parse(stored);
+      
+      // Validate structure
+      if (data && Array.isArray(data.chats)) {
+        return {
+          chats: data.chats,
+          activeChatId: data.activeChatId || null,
+          lastSaved: data.lastSaved || null
+        };
+      }
+    }
+    
+    // Migration: Check for old format
+    const oldSystemPrompt = localStorage.getItem(SYSTEM_PROMPT_STORAGE_KEY);
+    if (oldSystemPrompt) {
+      // Migrate old single-chat format to new multi-chat format
+      const chatStore = Alpine.store("chat");
+      if (chatStore) {
+        const migratedChat = chatStore.createChat(
+          document.getElementById("chat-model")?.value || "",
+          oldSystemPrompt,
+          false
+        );
+        // Try to preserve any existing history if available
+        if (chatStore.activeChat()) {
+          chatStore.activeChat().name = "Migrated Chat";
+        }
+        // Save migrated data
+        saveChatsToStorage();
+        // Remove old key
+        localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
+        return {
+          chats: chatStore.chats,
+          activeChatId: chatStore.activeChatId,
+          lastSaved: Date.now()
+        };
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error loading chats from localStorage:', error);
+    // Try to recover by clearing corrupted data
+    try {
+      localStorage.removeItem(CHATS_STORAGE_KEY);
+    } catch (e) {
+      console.error('Failed to clear corrupted data:', e);
+    }
+    return null;
+  }
+}
+
+// Auto-save with debouncing
+function autoSaveChats() {
+  if (saveDebounceTimer) {
+    clearTimeout(saveDebounceTimer);
+  }
+  saveDebounceTimer = setTimeout(() => {
+    saveChatsToStorage();
+  }, SAVE_DEBOUNCE_MS);
+}
+
+// Make functions available globally
+window.autoSaveChats = autoSaveChats;
+window.createNewChat = createNewChat;
+window.switchChat = switchChat;
+window.deleteChat = deleteChat;
+window.bulkDeleteChats = bulkDeleteChats;
+window.updateChatName = updateChatName;
+window.updateUIForActiveChat = updateUIForActiveChat;
+
+// Create a new chat
+function createNewChat(model, systemPrompt, mcpMode) {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return null;
+  }
+  
+  const chatStore = Alpine.store("chat");
+  const chat = chatStore.createChat(model, systemPrompt, mcpMode);
+  
+  // Save to storage
+  saveChatsToStorage();
+  
+  // Update UI to reflect new active chat
+  updateUIForActiveChat();
+  
+  return chat;
+}
+
+// Switch to a different chat
+function switchChat(chatId) {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return false;
+  }
+  
+  const chatStore = Alpine.store("chat");
+  const oldActiveChat = chatStore.activeChat();
+  
+  if (chatStore.switchChat(chatId)) {
+    // Save current state before switching
+    saveChatsToStorage();
+    
+    // Update global request tracking for stop button (only if new chat has active request)
+    const newActiveChat = chatStore.activeChat();
+    const newRequest = activeRequests.get(newActiveChat?.id);
+    if (newRequest) {
+      currentAbortController = newRequest.controller;
+      currentReader = newRequest.reader;
+      // Update loader state if new chat has active request
+      const hasActiveRequest = newRequest.controller || newRequest.reader;
+      if (hasActiveRequest) {
+        toggleLoader(true);
+      } else {
+        toggleLoader(false);
+      }
+    } else {
+      // No active request for new chat, clear global references
+      currentAbortController = null;
+      currentReader = null;
+      toggleLoader(false);
+    }
+    
+    // Update UI to reflect new active chat
+    updateUIForActiveChat();
+    
+    return true;
+  }
+  return false;
+}
+
+// Delete a chat
+function deleteChat(chatId) {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return false;
+  }
+  
+  const chatStore = Alpine.store("chat");
+  
+  // Prevent deleting the last chat
+  if (chatStore.chats.length <= 1) {
+    alert('Cannot delete the last chat. Please create a new chat first.');
+    return false;
+  }
+  
+  if (chatStore.deleteChat(chatId)) {
+    // Ensure at least one chat exists after deletion
+    if (chatStore.chats.length === 0) {
+      const currentModel = document.getElementById("chat-model")?.value || "";
+      chatStore.createChat(currentModel, "", false);
+    }
+    
+    saveChatsToStorage();
+    updateUIForActiveChat();
+    return true;
+  }
+  return false;
+}
+
+// Bulk delete chats
+function bulkDeleteChats(options) {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return 0;
+  }
+  
+  const chatStore = Alpine.store("chat");
+  let deletedCount = 0;
+  const now = Date.now();
+  
+  if (options.deleteAll) {
+    // Delete all chats except active one, or create new if deleting all
+    const activeId = chatStore.activeChatId;
+    chatStore.chats = chatStore.chats.filter(chat => {
+      if (chat.id === activeId && chatStore.chats.length > 1) {
+        return true; // Keep active chat if there are others
+      }
+      deletedCount++;
+      return false;
+    });
+    
+    // If all deleted, create a new chat
+    if (chatStore.chats.length === 0) {
+      chatStore.createChat();
+    } else if (!chatStore.chats.find(c => c.id === activeId)) {
+              // Active chat was deleted, switch to first available
+              if (chatStore.chats.length > 0) {
+                chatStore.activeChatId = chatStore.chats[0].id;
+              }
+            }
+          } else if (options.olderThanDays) {
+    const cutoffTime = now - (options.olderThanDays * 24 * 60 * 60 * 1000);
+    const activeId = chatStore.activeChatId;
+    
+    chatStore.chats = chatStore.chats.filter(chat => {
+      if (chat.id === activeId) {
+        return true; // Never delete active chat
+      }
+      if (chat.updatedAt < cutoffTime) {
+        deletedCount++;
+        return false;
+      }
+      return true;
+    });
+    
+    // Ensure at least one chat exists
+    if (chatStore.chats.length === 0) {
+      const currentModel = document.getElementById("chat-model")?.value || "";
+      chatStore.createChat(currentModel, "", false);
+    }
+  }
+  
+  if (deletedCount > 0) {
+    saveChatsToStorage();
+    updateUIForActiveChat();
+  }
+  
+  return deletedCount;
+}
+
+// Update UI elements to reflect active chat
+function updateUIForActiveChat() {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return;
+  }
+  
+  const chatStore = Alpine.store("chat");
+  
+  // Ensure at least one chat exists
+  if (!chatStore.chats || chatStore.chats.length === 0) {
+    const currentModel = document.getElementById("chat-model")?.value || "";
+    chatStore.createChat(currentModel, "", false);
+  }
+  
+  const activeChat = chatStore.activeChat();
+  
+  if (!activeChat) {
+    // No active chat, set first one as active
+    if (chatStore.chats.length > 0) {
+      chatStore.activeChatId = chatStore.chats[0].id;
+    } else {
+      // Still no chats, create one
+      const currentModel = document.getElementById("chat-model")?.value || "";
+      chatStore.createChat(currentModel, "", false);
+    }
+    return;
+  }
+  
+  // Update system prompt input
+  const systemPromptInput = document.getElementById("systemPrompt");
+  if (systemPromptInput) {
+    systemPromptInput.value = activeChat.systemPrompt || "";
+  }
+  
+  // Update MCP toggle
+  const mcpToggle = document.getElementById("mcp-toggle");
+  if (mcpToggle) {
+    mcpToggle.checked = activeChat.mcpMode || false;
+  }
+  
+  // Update model selector (if needed)
+  const modelSelector = document.getElementById("modelSelector");
+  if (modelSelector && activeChat.model) {
+    // Find and select the option matching the active chat's model
+    for (let option of modelSelector.options) {
+      if (option.value === `chat/${activeChat.model}` || option.text === activeChat.model) {
+        option.selected = true;
+        break;
+      }
+    }
+  }
+  
+  // Update chat model hidden input
+  const chatModelInput = document.getElementById("chat-model");
+  if (chatModelInput) {
+    chatModelInput.value = activeChat.model || "";
+  }
+}
+
+// Update chat name
+function updateChatName(chatId, name) {
+  if (!window.Alpine || !Alpine.store("chat")) {
+    return false;
+  }
+  
+  const chatStore = Alpine.store("chat");
+  if (chatStore.updateChatName(chatId, name)) {
+    autoSaveChats();
+    return true;
+  }
+  return false;
+}
 
 function toggleLoader(show) {
   const sendButton = document.getElementById('send-button');
@@ -108,6 +479,26 @@ function scrollThinkingBoxToBottom() {
 window.scrollThinkingBoxToBottom = scrollThinkingBoxToBottom;
 
 function stopRequest() {
+  // Stop the request for the currently active chat
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore.activeChat();
+  if (!activeChat) return;
+  
+  const request = activeRequests.get(activeChat.id);
+  if (request) {
+    if (request.controller) {
+      request.controller.abort();
+    }
+    if (request.reader) {
+      request.reader.cancel();
+    }
+    if (request.interval) {
+      clearInterval(request.interval);
+    }
+    activeRequests.delete(activeChat.id);
+  }
+  
+  // Also clear global references
   if (currentAbortController) {
     currentAbortController.abort();
     currentAbortController = null;
@@ -117,9 +508,12 @@ function stopRequest() {
     currentReader = null;
   }
   toggleLoader(false);
-  Alpine.store("chat").add(
+  chatStore.add(
     "assistant",
     `<span class='error'>Request cancelled by user</span>`,
+    null,
+    null,
+    activeChat.id
   );
 }
 
@@ -151,7 +545,13 @@ function processThinkingTags(content) {
 
 function submitSystemPrompt(event) {
   event.preventDefault();
-  localStorage.setItem("system_prompt", document.getElementById("systemPrompt").value);
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore.activeChat();
+  if (activeChat) {
+    activeChat.systemPrompt = document.getElementById("systemPrompt").value;
+    activeChat.updatedAt = Date.now();
+    autoSaveChats();
+  }
   document.getElementById("systemPrompt").blur();
 }
 
@@ -324,16 +724,21 @@ function submitPrompt(event) {
   const inputValue = input.value;
   if (!inputValue.trim()) return; // Don't send empty messages
 
-  // If already processing, abort the current request and send the new one
-  if (currentAbortController || currentReader) {
-    // Abort current request
-    stopRequest();
-    // Small delay to ensure cleanup completes
-    setTimeout(() => {
-      // Continue with new request
-      processAndSendMessage(inputValue);
-    }, 100);
-    return;
+  // Check if there's an active request for the current chat
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore.activeChat();
+  if (activeChat) {
+    const activeRequest = activeRequests.get(activeChat.id);
+    if (activeRequest && (activeRequest.controller || activeRequest.reader)) {
+      // Abort current request for this chat
+      stopRequest();
+      // Small delay to ensure cleanup completes
+      setTimeout(() => {
+        // Continue with new request
+        processAndSendMessage(inputValue);
+      }, 100);
+      return;
+    }
   }
   
   processAndSendMessage(inputValue);
@@ -363,14 +768,16 @@ function processAndSendMessage(inputValue) {
   Alpine.store("chat").add("user", displayContent, images, audios);
   
   // Update the last message in the store with the full content
-  const history = Alpine.store("chat").history;
-  if (history.length > 0) {
-    history[history.length - 1].content = fullInput;
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore.activeChat();
+  if (activeChat && activeChat.history.length > 0) {
+    activeChat.history[activeChat.history.length - 1].content = fullInput;
+    activeChat.updatedAt = Date.now();
   }
   
   const input = document.getElementById("input");
   if (input) input.value = "";
-  const systemPrompt = localStorage.getItem("system_prompt");
+  const systemPrompt = activeChat?.systemPrompt || "";
   Alpine.nextTick(() => {
     const chatContainer = document.getElementById('chat');
     if (chatContainer) {
@@ -451,17 +858,27 @@ function readInputAudioFile(file) {
 }
 
 async function promptGPT(systemPrompt, input) {
-  const model = document.getElementById("chat-model").value;
-  const mcpMode = Alpine.store("chat").mcpMode;
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore.activeChat();
+  if (!activeChat) {
+    console.error('No active chat');
+    return;
+  }
+  
+  const model = activeChat.model || document.getElementById("chat-model").value;
+  const mcpMode = activeChat.mcpMode || false;
   
   // Reset current request usage tracking for new request
-  if (Alpine.store("chat")) {
-    Alpine.store("chat").tokenUsage.currentRequest = null;
+  if (activeChat.tokenUsage) {
+    activeChat.tokenUsage.currentRequest = null;
   }
+  
+  // Store the chat ID for this request so we can track it even if user switches chats
+  const chatId = activeChat.id;
   
   toggleLoader(true);
 
-  messages = Alpine.store("chat").messages();
+  messages = chatStore.messages();
 
   // if systemPrompt isn't empty, push it at the start of messages
   if (systemPrompt) {
@@ -529,7 +946,16 @@ async function promptGPT(systemPrompt, input) {
   try {
     // Create AbortController for timeout handling and stop button
     const controller = new AbortController();
-    currentAbortController = controller; // Store globally so stop button can abort it
+    // Store per-chat so switching chats doesn't abort this request
+    activeRequests.set(chatId, {
+      controller: controller,
+      reader: null,
+      startTime: Date.now(),
+      tokensReceived: 0,
+      interval: null
+    });
+    // Also store globally for stop button (only for active chat)
+    currentAbortController = controller;
     const timeoutId = setTimeout(() => controller.abort(), mcpMode ? 300000 : 30000); // 5 minutes for MCP, 30 seconds for regular
     
     response = await fetch(endpoint, {
@@ -553,29 +979,46 @@ async function promptGPT(systemPrompt, input) {
         return;
       } else {
         // Timeout error (controller was aborted by timeout, not user)
-        Alpine.store("chat").add(
+        chatStore.add(
           "assistant",
           `<span class='error'>Request timeout: MCP processing is taking longer than expected. Please try again.</span>`,
+          null,
+          null,
+          chatId
         );
       }
     } else {
-      Alpine.store("chat").add(
+      chatStore.add(
         "assistant",
         `<span class='error'>Network Error: ${error.message}</span>`,
+        null,
+        null,
+        chatId
       );
     }
     toggleLoader(false);
-    currentAbortController = null;
+    activeRequests.delete(chatId);
+    const activeChat = chatStore.activeChat();
+    if (activeChat && activeChat.id === chatId) {
+      currentAbortController = null;
+    }
     return;
   }
 
   if (!response.ok) {
-    Alpine.store("chat").add(
+    chatStore.add(
       "assistant",
       `<span class='error'>Error: POST ${endpoint} ${response.status}</span>`,
+      null,
+      null,
+      chatId
     );
     toggleLoader(false);
-    currentAbortController = null;
+    activeRequests.delete(chatId);
+    const activeChat = chatStore.activeChat();
+    if (activeChat && activeChat.id === chatId) {
+      currentAbortController = null;
+    }
     return;
   }
 
@@ -587,11 +1030,15 @@ async function promptGPT(systemPrompt, input) {
       .getReader();
 
     if (!reader) {
-      Alpine.store("chat").add(
+      chatStore.add(
         "assistant",
         `<span class='error'>Error: Failed to decode MCP API response</span>`,
+        null,
+        null,
+        chatId
       );
       toggleLoader(false);
+      activeRequests.delete(chatId);
       return;
     }
 
@@ -613,6 +1060,14 @@ async function promptGPT(systemPrompt, input) {
         const { value, done } = await reader.read();
         if (done) break;
 
+        // Check if chat still exists and is still the target chat (user might have switched)
+        const currentChat = chatStore.getChat(chatId);
+        if (!currentChat) {
+          // Chat was deleted, abort
+          break;
+        }
+        const targetHistory = currentChat.history;
+
         buffer += value;
 
         let lines = buffer.split("\n");
@@ -632,10 +1087,9 @@ async function promptGPT(systemPrompt, input) {
               switch (eventData.type) {
                 case "reasoning":
                   if (eventData.content) {
-                    const chatStore = Alpine.store("chat");
                     // Insert reasoning before assistant message if it exists
-                    if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
-                      chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                    if (lastAssistantMessageIndex >= 0 && targetHistory[lastAssistantMessageIndex]?.role === "assistant") {
+                      targetHistory.splice(lastAssistantMessageIndex, 0, {
                         role: "reasoning",
                         content: eventData.content,
                         html: DOMPurify.sanitize(marked.parse(eventData.content)),
@@ -656,7 +1110,7 @@ async function promptGPT(systemPrompt, input) {
                       }, 100);
                     } else {
                       // No assistant message yet, just add normally
-                      chatStore.add("reasoning", eventData.content);
+                      chatStore.add("reasoning", eventData.content, null, null, chatId);
                     }
                   }
                   break;
@@ -669,7 +1123,7 @@ async function promptGPT(systemPrompt, input) {
                       arguments: eventData.arguments || {},
                       reasoning: eventData.reasoning || ""
                     };
-                    Alpine.store("chat").add("tool_call", JSON.stringify(toolCallData, null, 2));
+                    chatStore.add("tool_call", JSON.stringify(toolCallData, null, 2), null, null, chatId);
                     // Scroll smoothly after adding tool call
                     setTimeout(() => {
                       const chatContainer = document.getElementById('chat');
@@ -690,7 +1144,7 @@ async function promptGPT(systemPrompt, input) {
                       name: eventData.name,
                       result: eventData.result || ""
                     };
-                    Alpine.store("chat").add("tool_result", JSON.stringify(toolResultData, null, 2));
+                    chatStore.add("tool_result", JSON.stringify(toolResultData, null, 2), null, null, chatId);
                     // Scroll smoothly after adding tool result
                     setTimeout(() => {
                       const chatContainer = document.getElementById('chat');
@@ -733,14 +1187,15 @@ async function promptGPT(systemPrompt, input) {
                         const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
                         if (thinkingMatch && thinkingMatch[1]) {
                           const extractedThinking = thinkingMatch[1];
-                          const chatStore = Alpine.store("chat");
-                          const isMCPMode = chatStore.mcpMode || false;
+                          const currentChat = chatStore.getChat(chatId);
+                          if (!currentChat) break; // Chat was deleted
+                          const isMCPMode = currentChat.mcpMode || false;
                           const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
                           if (lastThinkingMessageIndex === -1) {
                             // Insert thinking before the last assistant message if it exists
-                            if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                            if (lastAssistantMessageIndex >= 0 && targetHistory[lastAssistantMessageIndex]?.role === "assistant") {
                               // Insert before assistant message
-                              chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                              targetHistory.splice(lastAssistantMessageIndex, 0, {
                                 role: "thinking",
                                 content: extractedThinking,
                                 html: DOMPurify.sanitize(marked.parse(extractedThinking)),
@@ -752,12 +1207,12 @@ async function promptGPT(systemPrompt, input) {
                               lastAssistantMessageIndex++; // Adjust index since we inserted
                             } else {
                               // No assistant message yet, just add normally
-                              chatStore.add("thinking", extractedThinking);
-                              lastThinkingMessageIndex = chatStore.history.length - 1;
+                              chatStore.add("thinking", extractedThinking, null, null, chatId);
+                              lastThinkingMessageIndex = targetHistory.length - 1;
                             }
                           } else {
                             // Update existing thinking message
-                            const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                            const lastMessage = targetHistory[lastThinkingMessageIndex];
                             if (lastMessage && lastMessage.role === "thinking") {
                               lastMessage.content = extractedThinking;
                               lastMessage.html = DOMPurify.sanitize(marked.parse(extractedThinking));
@@ -783,15 +1238,16 @@ async function promptGPT(systemPrompt, input) {
                     // Handle content based on thinking state
                     if (isThinking) {
                       thinkingContent += contentChunk;
-                      const chatStore = Alpine.store("chat");
-                      const isMCPMode = chatStore.mcpMode || false;
+                      const currentChat = chatStore.getChat(chatId);
+                      if (!currentChat) break; // Chat was deleted
+                      const isMCPMode = currentChat.mcpMode || false;
                       const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
                       // Update the last thinking message or create a new one (incremental)
                       if (lastThinkingMessageIndex === -1) {
                         // Insert thinking before the last assistant message if it exists
-                        if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
+                        if (lastAssistantMessageIndex >= 0 && targetHistory[lastAssistantMessageIndex]?.role === "assistant") {
                           // Insert before assistant message
-                          chatStore.history.splice(lastAssistantMessageIndex, 0, {
+                          targetHistory.splice(lastAssistantMessageIndex, 0, {
                             role: "thinking",
                             content: thinkingContent,
                             html: DOMPurify.sanitize(marked.parse(thinkingContent)),
@@ -803,12 +1259,12 @@ async function promptGPT(systemPrompt, input) {
                           lastAssistantMessageIndex++; // Adjust index since we inserted
                         } else {
                           // No assistant message yet, just add normally
-                          chatStore.add("thinking", thinkingContent);
-                          lastThinkingMessageIndex = chatStore.history.length - 1;
+                          chatStore.add("thinking", thinkingContent, null, null, chatId);
+                          lastThinkingMessageIndex = targetHistory.length - 1;
                         }
                       } else {
                         // Update existing thinking message
-                        const lastMessage = chatStore.history[lastThinkingMessageIndex];
+                        const lastMessage = targetHistory[lastThinkingMessageIndex];
                         if (lastMessage && lastMessage.role === "thinking") {
                           lastMessage.content = thinkingContent;
                           lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
@@ -838,9 +1294,12 @@ async function promptGPT(systemPrompt, input) {
                   break;
                 
                 case "error":
-                  Alpine.store("chat").add(
+                  chatStore.add(
                     "assistant",
                     `<span class='error'>MCP Error: ${eventData.message}</span>`,
+                    null,
+                    null,
+                    chatId
                   );
                   break;
               }
@@ -859,14 +1318,15 @@ async function promptGPT(systemPrompt, input) {
           const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
           
           // Update or create assistant message with processed regular content
+          const currentChat = chatStore.getChat(chatId);
+          if (!currentChat) break; // Chat was deleted
           if (lastAssistantMessageIndex === -1) {
             if (processedRegular && processedRegular.trim()) {
-              Alpine.store("chat").add("assistant", processedRegular);
-              lastAssistantMessageIndex = Alpine.store("chat").history.length - 1;
+              chatStore.add("assistant", processedRegular, null, null, chatId);
+              lastAssistantMessageIndex = targetHistory.length - 1;
             }
           } else {
-            const chatStore = Alpine.store("chat");
-            const lastMessage = chatStore.history[lastAssistantMessageIndex];
+            const lastMessage = targetHistory[lastAssistantMessageIndex];
             if (lastMessage && lastMessage.role === "assistant") {
               lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
               lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
@@ -875,12 +1335,11 @@ async function promptGPT(systemPrompt, input) {
           
           // Add any extracted thinking content from the processed buffer BEFORE assistant message
           if (processedThinking && processedThinking.trim()) {
-            const chatStore = Alpine.store("chat");
-            const isMCPMode = chatStore.mcpMode || false;
+            const isMCPMode = currentChat.mcpMode || false;
             const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
             // Insert thinking before assistant message if it exists
-            if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
-              chatStore.history.splice(lastAssistantMessageIndex, 0, {
+            if (lastAssistantMessageIndex >= 0 && targetHistory[lastAssistantMessageIndex]?.role === "assistant") {
+              targetHistory.splice(lastAssistantMessageIndex, 0, {
                 role: "thinking",
                 content: processedThinking,
                 html: DOMPurify.sanitize(marked.parse(processedThinking)),
@@ -891,7 +1350,7 @@ async function promptGPT(systemPrompt, input) {
               lastAssistantMessageIndex++; // Adjust index since we inserted
             } else {
               // No assistant message yet, just add normally
-              chatStore.add("thinking", processedThinking);
+              chatStore.add("thinking", processedThinking, null, null, chatId);
             }
           }
           
@@ -905,15 +1364,21 @@ async function promptGPT(systemPrompt, input) {
         // Process any remaining thinking tags that might be in the buffer
         const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
         
-        const chatStore = Alpine.store("chat");
+        const currentChat = chatStore.getChat(chatId);
+        if (!currentChat) {
+          // Chat was deleted, cleanup and exit
+          activeRequests.delete(chatId);
+          return;
+        }
+        const targetHistory = currentChat.history;
         
         // First, add any extracted thinking content BEFORE assistant message
         if (processedThinking && processedThinking.trim()) {
-          const isMCPMode = chatStore.mcpMode || false;
+          const isMCPMode = currentChat.mcpMode || false;
           const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
           // Insert thinking before assistant message if it exists
-          if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
-            chatStore.history.splice(lastAssistantMessageIndex, 0, {
+          if (lastAssistantMessageIndex >= 0 && targetHistory[lastAssistantMessageIndex]?.role === "assistant") {
+            targetHistory.splice(lastAssistantMessageIndex, 0, {
               role: "thinking",
               content: processedThinking,
               html: DOMPurify.sanitize(marked.parse(processedThinking)),
@@ -924,34 +1389,35 @@ async function promptGPT(systemPrompt, input) {
             lastAssistantMessageIndex++; // Adjust index since we inserted
           } else {
             // No assistant message yet, just add normally
-            chatStore.add("thinking", processedThinking);
+            chatStore.add("thinking", processedThinking, null, null, chatId);
           }
         }
         
         // Then update or create assistant message
         if (lastAssistantMessageIndex !== -1) {
-          const lastMessage = chatStore.history[lastAssistantMessageIndex];
+          const lastMessage = targetHistory[lastAssistantMessageIndex];
           if (lastMessage && lastMessage.role === "assistant") {
             lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
             lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
           }
         } else if (processedRegular && processedRegular.trim()) {
-          chatStore.add("assistant", processedRegular);
-          lastAssistantMessageIndex = chatStore.history.length - 1;
+          chatStore.add("assistant", processedRegular, null, null, chatId);
+          lastAssistantMessageIndex = targetHistory.length - 1;
         }
       }
       
       // Final thinking content flush if any data remains (from incremental detection)
-      if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+      const finalChat = chatStore.getChat(chatId);
+      if (finalChat && thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+        const finalHistory = finalChat.history;
         // Extract thinking content if tags are present
         const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
         if (thinkingMatch && thinkingMatch[1]) {
-          const chatStore = Alpine.store("chat");
-          const isMCPMode = chatStore.mcpMode || false;
+          const isMCPMode = finalChat.mcpMode || false;
           const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
           // Insert thinking before assistant message if it exists
-          if (lastAssistantMessageIndex >= 0 && chatStore.history[lastAssistantMessageIndex]?.role === "assistant") {
-            chatStore.history.splice(lastAssistantMessageIndex, 0, {
+          if (lastAssistantMessageIndex >= 0 && finalHistory[lastAssistantMessageIndex]?.role === "assistant") {
+            finalHistory.splice(lastAssistantMessageIndex, 0, {
               role: "thinking",
               content: thinkingMatch[1],
               html: DOMPurify.sanitize(marked.parse(thinkingMatch[1])),
@@ -961,60 +1427,76 @@ async function promptGPT(systemPrompt, input) {
             });
           } else {
             // No assistant message yet, just add normally
-            chatStore.add("thinking", thinkingMatch[1]);
+            chatStore.add("thinking", thinkingMatch[1], null, null, chatId);
           }
         } else {
-          Alpine.store("chat").add("thinking", thinkingContent);
+          chatStore.add("thinking", thinkingContent, null, null, chatId);
         }
       }
       
       // Final pass: process the entire assistantContent to catch any missed thinking tags
       // This ensures we don't miss tags that were split across chunks
-      if (assistantContent.trim()) {
+      if (finalChat && assistantContent.trim()) {
+        const finalHistory = finalChat.history;
         const { regularContent: finalRegular, thinkingContent: finalThinking } = processThinkingTags(assistantContent);
         
         // Update assistant message with final processed content (without thinking tags)
         if (finalRegular && finalRegular.trim()) {
           if (lastAssistantMessageIndex !== -1) {
-            const chatStore = Alpine.store("chat");
-            const lastMessage = chatStore.history[lastAssistantMessageIndex];
+            const lastMessage = finalHistory[lastAssistantMessageIndex];
             if (lastMessage && lastMessage.role === "assistant") {
               lastMessage.content = finalRegular;
               lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
             }
           } else {
-            Alpine.store("chat").add("assistant", finalRegular);
+            chatStore.add("assistant", finalRegular, null, null, chatId);
           }
         }
         
         // Add any extracted thinking content (only if not already added)
         if (finalThinking && finalThinking.trim()) {
-          const hasThinking = Alpine.store("chat").history.some(msg => 
+          const hasThinking = finalHistory.some(msg => 
             msg.role === "thinking" && msg.content.trim() === finalThinking.trim()
           );
           if (!hasThinking) {
-            Alpine.store("chat").add("thinking", finalThinking);
+            chatStore.add("thinking", finalThinking, null, null, chatId);
           }
         }
       }
+      
+      // Cleanup request tracking
+      activeRequests.delete(chatId);
 
       // Highlight all code blocks once at the end
       hljs.highlightAll();
     } catch (error) {
       // Don't show error if request was aborted by user
       if (error.name !== 'AbortError' || !currentAbortController) {
-        Alpine.store("chat").add(
-          "assistant",
-          `<span class='error'>Error: Failed to process MCP stream</span>`,
-        );
+        const errorChat = chatStore.getChat(chatId);
+        if (errorChat) {
+          chatStore.add(
+            "assistant",
+            `<span class='error'>Error: Failed to process MCP stream</span>`,
+            null,
+            null,
+            chatId
+          );
+        }
       }
     } finally {
       // Perform any cleanup if necessary
       if (reader) {
         reader.releaseLock();
       }
-      currentReader = null;
-      currentAbortController = null;
+      // Only clear global references if this was the active chat's request
+      const activeChat = chatStore.activeChat();
+      if (activeChat && activeChat.id === chatId) {
+        currentReader = null;
+        currentAbortController = null;
+        toggleLoader(false);
+      }
+      // Cleanup per-chat tracking
+      activeRequests.delete(chatId);
     }
   } else {
     // Handle regular streaming response
@@ -1023,27 +1505,41 @@ async function promptGPT(systemPrompt, input) {
       .getReader();
 
     if (!reader) {
-      Alpine.store("chat").add(
+      chatStore.add(
         "assistant",
         `<span class='error'>Error: Failed to decode API response</span>`,
+        null,
+        null,
+        chatId
       );
       toggleLoader(false);
+      activeRequests.delete(chatId);
       return;
     }
 
-    // Store reader globally so stop button can cancel it
+    // Store reader per-chat and globally
+    const request = activeRequests.get(chatId);
+    if (request) {
+      request.reader = reader;
+    }
     currentReader = reader;
+
+    // Get target chat for this request
+    let targetChat = chatStore.getChat(chatId);
+    if (!targetChat) {
+      // Chat was deleted
+      activeRequests.delete(chatId);
+      return;
+    }
 
     // Function to add content to the chat and handle DOM updates efficiently
     const addToChat = (token) => {
-      const chatStore = Alpine.store("chat");
-      chatStore.add("assistant", token);
+      const currentChat = chatStore.getChat(chatId);
+      if (!currentChat) return; // Chat was deleted
+      chatStore.add("assistant", token, null, null, chatId);
       // Count tokens for rate calculation (rough estimate: count characters/4)
       tokensReceived += Math.ceil(token.length / 4);
       updateTokensPerSecond();
-      // Efficiently scroll into view without triggering multiple reflows
-      // const messages = document.getElementById('messages');
-      // messages.scrollTop = messages.scrollHeight;
     };
 
     let buffer = "";
@@ -1058,6 +1554,14 @@ async function promptGPT(systemPrompt, input) {
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
+
+        // Check if chat still exists
+        targetChat = chatStore.getChat(chatId);
+        if (!targetChat) {
+          // Chat was deleted, abort
+          break;
+        }
+        const targetHistory = targetChat.history;
 
         buffer += value;
 
@@ -1094,7 +1598,7 @@ async function promptGPT(systemPrompt, input) {
                   if (thinkingContent.trim()) {
                     // Only add the final thinking message if we don't already have one
                     if (lastThinkingMessageIndex === -1) {
-                      Alpine.store("chat").add("thinking", thinkingContent);
+                      chatStore.add("thinking", thinkingContent, null, null, chatId);
                     }
                   }
                   return;
@@ -1109,15 +1613,18 @@ async function promptGPT(systemPrompt, input) {
                   // Update the last thinking message or create a new one
                   if (lastThinkingMessageIndex === -1) {
                     // Create new thinking message
-                    Alpine.store("chat").add("thinking", thinkingContent);
-                    lastThinkingMessageIndex = Alpine.store("chat").history.length - 1;
+                    chatStore.add("thinking", thinkingContent, null, null, chatId);
+                    const targetChat = chatStore.getChat(chatId);
+                    lastThinkingMessageIndex = targetChat ? targetChat.history.length - 1 : -1;
                   } else {
                     // Update existing thinking message
-                    const chatStore = Alpine.store("chat");
-                    const lastMessage = chatStore.history[lastThinkingMessageIndex];
-                    if (lastMessage && lastMessage.role === "thinking") {
-                      lastMessage.content = thinkingContent;
-                      lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                    const currentChat = chatStore.getChat(chatId);
+                    if (currentChat && lastThinkingMessageIndex >= 0) {
+                      const lastMessage = currentChat.history[lastThinkingMessageIndex];
+                      if (lastMessage && lastMessage.role === "thinking") {
+                        lastMessage.content = thinkingContent;
+                        lastMessage.html = DOMPurify.sanitize(marked.parse(thinkingContent));
+                      }
                     }
                   }
                   // Scroll when thinking is updated (throttled)
@@ -1168,8 +1675,9 @@ async function promptGPT(systemPrompt, input) {
       if (contentBuffer.length > 0) {
         addToChat(contentBuffer.join(""));
       }
-      if (thinkingContent.trim() && lastThinkingMessageIndex === -1) {
-        Alpine.store("chat").add("thinking", thinkingContent);
+      const finalChat = chatStore.getChat(chatId);
+      if (finalChat && thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+        chatStore.add("thinking", thinkingContent, null, null, chatId);
       }
 
       // Highlight all code blocks once at the end
@@ -1177,18 +1685,31 @@ async function promptGPT(systemPrompt, input) {
     } catch (error) {
       // Don't show error if request was aborted by user
       if (error.name !== 'AbortError' || !currentAbortController) {
-        Alpine.store("chat").add(
-          "assistant",
-          `<span class='error'>Error: Failed to process stream</span>`,
-        );
+        const currentChat = chatStore.getChat(chatId);
+        if (currentChat) {
+          chatStore.add(
+            "assistant",
+            `<span class='error'>Error: Failed to process stream</span>`,
+            null,
+            null,
+            chatId
+          );
+        }
       }
     } finally {
       // Perform any cleanup if necessary
       if (reader) {
         reader.releaseLock();
       }
-      currentReader = null;
-      currentAbortController = null;
+      // Only clear global references if this was the active chat's request
+      const activeChat = chatStore.activeChat();
+      if (activeChat && activeChat.id === chatId) {
+        currentReader = null;
+        currentAbortController = null;
+        toggleLoader(false);
+      }
+      // Cleanup per-chat tracking
+      activeRequests.delete(chatId);
     }
   }
 
@@ -1233,159 +1754,309 @@ document.addEventListener("alpine:init", () => {
   // Check if store already exists (initialized in chat.html)
   if (!Alpine.store("chat")) {
     // Fallback initialization (should not be needed if chat.html loads correctly)
+    // This matches the structure in chat.html
+    function generateChatId() {
+      return "chat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+    }
+    
+    function getCurrentModel() {
+      const modelInput = document.getElementById("chat-model");
+      return modelInput ? modelInput.value : "";
+    }
+    
     Alpine.store("chat", {
-    history: [],
-    languages: [undefined],
-    systemPrompt: "",
-    mcpMode: false,
-    contextSize: null,
-    tokenUsage: {
-      promptTokens: 0,
-      completionTokens: 0,
-      totalTokens: 0,
-      currentRequest: null
-    },
-    clear() {
-      this.history.length = 0;
-      this.tokenUsage = {
-        promptTokens: 0,
-        completionTokens: 0,
-        totalTokens: 0,
-        currentRequest: null
-      };
-    },
-    updateTokenUsage(usage) {
-      // Usage values in streaming responses are cumulative totals for the current request
-      // We track session totals separately and only update when we see new (higher) values
-      if (usage) {
-        const currentRequest = this.tokenUsage.currentRequest || {
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0
+      chats: [],
+      activeChatId: null,
+      chatIdCounter: 0,
+      languages: [undefined],
+      
+      activeChat() {
+        if (!this.activeChatId) return null;
+        return this.chats.find(c => c.id === this.activeChatId) || null;
+      },
+      
+      getChat(chatId) {
+        return this.chats.find(c => c.id === chatId) || null;
+      },
+      
+      createChat(model, systemPrompt, mcpMode) {
+        const chatId = generateChatId();
+        const now = Date.now();
+        const chat = {
+          id: chatId,
+          name: "New Chat",
+          model: model || getCurrentModel() || "",
+          history: [],
+          systemPrompt: systemPrompt || "",
+          mcpMode: mcpMode || false,
+          tokenUsage: {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            currentRequest: null
+          },
+          contextSize: null,
+          createdAt: now,
+          updatedAt: now
         };
+        this.chats.push(chat);
+        this.activeChatId = chatId;
+        return chat;
+      },
+      
+      switchChat(chatId) {
+        if (this.chats.find(c => c.id === chatId)) {
+          this.activeChatId = chatId;
+          return true;
+        }
+        return false;
+      },
+      
+      deleteChat(chatId) {
+        const index = this.chats.findIndex(c => c.id === chatId);
+        if (index === -1) return false;
         
-        // Check if this is a new/updated usage (values increased)
-        const isNewUsage = 
-          (usage.prompt_tokens !== undefined && usage.prompt_tokens > currentRequest.promptTokens) ||
-          (usage.completion_tokens !== undefined && usage.completion_tokens > currentRequest.completionTokens) ||
-          (usage.total_tokens !== undefined && usage.total_tokens > currentRequest.totalTokens);
+        this.chats.splice(index, 1);
         
-        if (isNewUsage) {
-          // Update session totals: subtract old request usage, add new
-          this.tokenUsage.promptTokens = this.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
-          this.tokenUsage.completionTokens = this.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
-          this.tokenUsage.totalTokens = this.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
-          
-          // Store current request usage
-          this.tokenUsage.currentRequest = {
-            promptTokens: usage.prompt_tokens || 0,
-            completionTokens: usage.completion_tokens || 0,
-            totalTokens: usage.total_tokens || 0
-          };
-        }
-      }
-    },
-    getRemainingTokens() {
-      if (!this.contextSize) return null;
-      return Math.max(0, this.contextSize - this.tokenUsage.totalTokens);
-    },
-    getContextUsagePercent() {
-      if (!this.contextSize) return null;
-      return Math.min(100, (this.tokenUsage.totalTokens / this.contextSize) * 100);
-    },
-    add(role, content, image, audio) {
-      const N = this.history.length - 1;
-      // For thinking and reasoning messages, always create a new message
-      if (role === "thinking" || role === "reasoning") {
-        let c = "";
-        const lines = content.split("\n");
-        lines.forEach((line) => {
-          c += DOMPurify.sanitize(marked.parse(line));
-        });
-        this.history.push({ role, content, html: c, image, audio });
-      }
-      // For other messages, merge if same role
-      else if (this.history.length && this.history[N].role === role) {
-        this.history[N].content += content;
-        this.history[N].html = DOMPurify.sanitize(
-          marked.parse(this.history[N].content)
-        );
-        // Merge new images and audio with existing ones
-        if (image && image.length > 0) {
-          this.history[N].image = [...(this.history[N].image || []), ...image];
-        }
-        if (audio && audio.length > 0) {
-          this.history[N].audio = [...(this.history[N].audio || []), ...audio];
-        }
-      } else {
-        let c = "";
-        const lines = content.split("\n");
-        lines.forEach((line) => {
-          c += DOMPurify.sanitize(marked.parse(line));
-        });
-        this.history.push({ 
-          role, 
-          content, 
-          html: c, 
-          image: image || [], 
-          audio: audio || [] 
-        });
-      }
-      const chatContainer = document.getElementById('chat');
-      if (chatContainer) {
-        chatContainer.scrollTo({
-          top: chatContainer.scrollHeight,
-          behavior: 'smooth'
-        });
-      }
-      // Also scroll thinking box if it's a thinking/reasoning message
-      if (role === "thinking" || role === "reasoning") {
-        setTimeout(() => {
-          if (typeof window.scrollThinkingBoxToBottom === 'function') {
-            window.scrollThinkingBoxToBottom();
+        if (this.activeChatId === chatId) {
+          if (this.chats.length > 0) {
+            this.activeChatId = this.chats[0].id;
+          } else {
+            this.createChat();
           }
-        }, 100);
-      }
-      const parser = new DOMParser();
-      const html = parser.parseFromString(
-        this.history[this.history.length - 1].html,
-        "text/html"
-      );
-      const code = html.querySelectorAll("pre code");
-      if (!code.length) return;
-      code.forEach((el) => {
-        const language = el.className.split("language-")[1];
-        if (this.languages.includes(language)) return;
-        const script = document.createElement("script");
-        script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
-        document.head.appendChild(script);
-        this.languages.push(language);
-      });
-    },
-    messages() {
-      return this.history.map((message) => ({
-        role: message.role,
-        content: message.content,
-        image: message.image,
-        audio: message.audio,
-      }));
-    },
+        }
+        return true;
+      },
+      
+      updateChatName(chatId, name) {
+        const chat = this.getChat(chatId);
+        if (chat) {
+          chat.name = name || "New Chat";
+          chat.updatedAt = Date.now();
+          return true;
+        }
+        return false;
+      },
+      
+      clear() {
+        const chat = this.activeChat();
+        if (chat) {
+          chat.history.length = 0;
+          chat.tokenUsage = {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0,
+            currentRequest: null
+          };
+          chat.updatedAt = Date.now();
+        }
+      },
+      
+      updateTokenUsage(usage) {
+        const chat = this.activeChat();
+        if (!chat) return;
+        
+        if (usage) {
+          const currentRequest = chat.tokenUsage.currentRequest || {
+            promptTokens: 0,
+            completionTokens: 0,
+            totalTokens: 0
+          };
+          
+          const isNewUsage = 
+            (usage.prompt_tokens !== undefined && usage.prompt_tokens > currentRequest.promptTokens) ||
+            (usage.completion_tokens !== undefined && usage.completion_tokens > currentRequest.completionTokens) ||
+            (usage.total_tokens !== undefined && usage.total_tokens > currentRequest.totalTokens);
+          
+          if (isNewUsage) {
+            chat.tokenUsage.promptTokens = chat.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
+            chat.tokenUsage.completionTokens = chat.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
+            chat.tokenUsage.totalTokens = chat.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
+            
+            chat.tokenUsage.currentRequest = {
+              promptTokens: usage.prompt_tokens || 0,
+              completionTokens: usage.completion_tokens || 0,
+              totalTokens: usage.total_tokens || 0
+            };
+            chat.updatedAt = Date.now();
+          }
+        }
+      },
+      
+      getRemainingTokens() {
+        const chat = this.activeChat();
+        if (!chat || !chat.contextSize) return null;
+        return Math.max(0, chat.contextSize - chat.tokenUsage.totalTokens);
+      },
+      
+      getContextUsagePercent() {
+        const chat = this.activeChat();
+        if (!chat || !chat.contextSize) return null;
+        return Math.min(100, (chat.tokenUsage.totalTokens / chat.contextSize) * 100);
+      },
+      
+      add(role, content, image, audio, targetChatId = null) {
+        // If targetChatId is provided, add to that chat, otherwise use active chat
+        const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
+        if (!chat) return;
+        
+        const N = chat.history.length - 1;
+        if (role === "thinking" || role === "reasoning") {
+          let c = "";
+          const lines = content.split("\n");
+          lines.forEach((line) => {
+            c += DOMPurify.sanitize(marked.parse(line));
+          });
+          chat.history.push({ role, content, html: c, image, audio });
+        }
+        else if (chat.history.length && chat.history[N].role === role) {
+          chat.history[N].content += content;
+          chat.history[N].html = DOMPurify.sanitize(
+            marked.parse(chat.history[N].content)
+          );
+          if (image && image.length > 0) {
+            chat.history[N].image = [...(chat.history[N].image || []), ...image];
+          }
+          if (audio && audio.length > 0) {
+            chat.history[N].audio = [...(chat.history[N].audio || []), ...audio];
+          }
+        } else {
+          let c = "";
+          const lines = content.split("\n");
+          lines.forEach((line) => {
+            c += DOMPurify.sanitize(marked.parse(line));
+          });
+          chat.history.push({ 
+            role, 
+            content, 
+            html: c, 
+            image: image || [], 
+            audio: audio || [] 
+          });
+          
+          if (role === "user" && chat.name === "New Chat" && content.trim()) {
+            const name = content.trim().substring(0, 50);
+            chat.name = name.length < content.trim().length ? name + "..." : name;
+          }
+        }
+        
+        chat.updatedAt = Date.now();
+        
+        const chatContainer = document.getElementById('chat');
+        if (chatContainer) {
+          chatContainer.scrollTo({
+            top: chatContainer.scrollHeight,
+            behavior: 'smooth'
+          });
+        }
+        if (role === "thinking" || role === "reasoning") {
+          setTimeout(() => {
+            if (typeof window.scrollThinkingBoxToBottom === 'function') {
+              window.scrollThinkingBoxToBottom();
+            }
+          }, 100);
+        }
+        const parser = new DOMParser();
+        const html = parser.parseFromString(
+          chat.history[chat.history.length - 1].html,
+          "text/html"
+        );
+        const code = html.querySelectorAll("pre code");
+        if (!code.length) return;
+        code.forEach((el) => {
+          const language = el.className.split("language-")[1];
+          if (this.languages.includes(language)) return;
+          const script = document.createElement("script");
+          script.src = `https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.8.0/build/languages/${language}.min.js`;
+          document.head.appendChild(script);
+          this.languages.push(language);
+        });
+      },
+      
+      messages() {
+        const chat = this.activeChat();
+        if (!chat) return [];
+        return chat.history.map((message) => ({
+          role: message.role,
+          content: message.content,
+          image: message.image,
+          audio: message.audio,
+        }));
+      },
+      
+      // Getter for active chat history to ensure reactivity
+      get activeHistory() {
+        const chat = this.activeChat();
+        return chat ? chat.history : [];
+      },
     });
   }
 });
 
-// Check for message from index page on load
+// Check for message from index page on load and initialize chats
 document.addEventListener('DOMContentLoaded', function() {
   // Wait for Alpine to be ready
   setTimeout(() => {
+    if (!window.Alpine || !Alpine.store("chat")) {
+      console.error('Alpine store not initialized');
+      return;
+    }
+    
+    const chatStore = Alpine.store("chat");
+    
+    // Load chats from storage
+    const storedData = loadChatsFromStorage();
+    
+    if (storedData && storedData.chats && storedData.chats.length > 0) {
+      // Restore chats from storage - clear existing and push new ones to maintain reactivity
+      chatStore.chats.length = 0;
+      storedData.chats.forEach(chat => {
+        chatStore.chats.push(chat);
+      });
+      chatStore.activeChatId = storedData.activeChatId || storedData.chats[0].id;
+      
+      // Ensure active chat exists
+      if (!chatStore.activeChat()) {
+        chatStore.activeChatId = storedData.chats[0].id;
+      }
+    } else {
+      // No stored chats, create a default chat
+      const currentModel = document.getElementById("chat-model")?.value || "";
+      const oldSystemPrompt = localStorage.getItem(SYSTEM_PROMPT_STORAGE_KEY);
+      chatStore.createChat(currentModel, oldSystemPrompt || "", false);
+      
+      // Remove old system prompt key after migration
+      if (oldSystemPrompt) {
+        localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
+      }
+    }
+    
+    // Update context size from template if available
+    const contextSizeInput = document.getElementById("chat-model");
+    if (contextSizeInput && contextSizeInput.dataset.contextSize) {
+      const contextSize = parseInt(contextSizeInput.dataset.contextSize);
+      const activeChat = chatStore.activeChat();
+      if (activeChat) {
+        activeChat.contextSize = contextSize;
+      }
+    }
+    
+    // Update UI to reflect active chat
+    updateUIForActiveChat();
+    
+    // Handle message from index page
     const chatData = localStorage.getItem('localai_index_chat_data');
     if (chatData) {
       try {
         const data = JSON.parse(chatData);
         
-        // Set MCP mode if provided
-        if (data.mcpMode === true && Alpine.store("chat")) {
-          Alpine.store("chat").mcpMode = true;
+        const activeChat = chatStore.activeChat();
+        if (activeChat) {
+          // Set MCP mode if provided
+          if (data.mcpMode === true) {
+            activeChat.mcpMode = true;
+            chatStore.activeChatId = activeChat.id; // Ensure it's active
+          }
         }
         
         const input = document.getElementById('input');
@@ -1432,6 +2103,9 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.removeItem('localai_index_chat_data');
       }
     }
+    
+    // Save initial state
+    saveChatsToStorage();
   }, 300);
 });
 
