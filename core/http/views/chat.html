@@ -85,6 +85,7 @@ SOFTWARE.
         activeChatId: null,
         chatIdCounter: 0,
         languages: [undefined],
+        activeRequestIds: [], // Track chat IDs with active requests for UI reactivity
         
         // Helper to get active chat
         activeChat() {
@@ -181,8 +182,10 @@ SOFTWARE.
           }
         },
         
-        updateTokenUsage(usage) {
-          const chat = this.activeChat();
+        updateTokenUsage(usage, targetChatId = null) {
+          // If targetChatId is provided, update that chat, otherwise use active chat
+          // This ensures token usage updates go to the chat that initiated the request
+          const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
           if (!chat) return;
           
           // Usage values in streaming responses are cumulative totals for the current request
@@ -227,6 +230,27 @@ SOFTWARE.
           const chat = this.activeChat();
           if (!chat || !chat.contextSize) return null;
           return Math.min(100, (chat.tokenUsage.totalTokens / chat.contextSize) * 100);
+        },
+        
+        // Check if a chat has an active request (for UI indicators)
+        hasActiveRequest(chatId) {
+          if (!chatId) return false;
+          // Use reactive array for Alpine.js reactivity
+          return this.activeRequestIds.includes(chatId);
+        },
+        
+        // Update active request tracking (called from chat.js)
+        updateActiveRequestTracking(chatId, isActive) {
+          if (isActive) {
+            if (!this.activeRequestIds.includes(chatId)) {
+              this.activeRequestIds.push(chatId);
+            }
+          } else {
+            const index = this.activeRequestIds.indexOf(chatId);
+            if (index > -1) {
+              this.activeRequestIds.splice(index, 1);
+            }
+          }
         },
         
         add(role, content, image, audio, targetChatId = null) {
@@ -470,6 +494,11 @@ SOFTWARE.
                     </template>
                     <template x-if="editingChatId !== chat.id">
                       <div class="flex items-center space-x-2">
+                        <!-- Loading indicator for active requests -->
+                        <div x-show="$store.chat.hasActiveRequest(chat.id)" 
+                             class="flex-shrink-0">
+                          <i class="fa-solid fa-spinner fa-spin text-[#38BDF8] text-[10px]"></i>
+                        </div>
                         <div class="flex-1 min-w-0">
                           <div
                             class="text-xs font-medium text-[#E5E7EB] truncate"
