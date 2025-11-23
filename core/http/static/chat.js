@@ -2252,7 +2252,22 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const chatStore = Alpine.store("chat");
     
-    // Load chats from storage
+    // Check for message from index page FIRST - if present, create new chat
+    const chatData = localStorage.getItem('localai_index_chat_data');
+    let shouldCreateNewChat = false;
+    let indexChatData = null;
+    
+    if (chatData) {
+      try {
+        indexChatData = JSON.parse(chatData);
+        shouldCreateNewChat = true; // We have data from index, create new chat
+      } catch (error) {
+        console.error('Error parsing chat data from index:', error);
+        localStorage.removeItem('localai_index_chat_data');
+      }
+    }
+    
+    // Load chats from storage FIRST (but don't set active yet if we're creating new from index)
     const storedData = loadChatsFromStorage();
     
     if (storedData && storedData.chats && storedData.chats.length > 0) {
@@ -2261,95 +2276,100 @@ document.addEventListener('DOMContentLoaded', function() {
       storedData.chats.forEach(chat => {
         chatStore.chats.push(chat);
       });
-      chatStore.activeChatId = storedData.activeChatId || storedData.chats[0].id;
+      // Don't set activeChatId yet if we're creating a new chat from index
+      if (!shouldCreateNewChat) {
+        chatStore.activeChatId = storedData.activeChatId || storedData.chats[0].id;
+        
+        // Ensure active chat exists
+        if (!chatStore.activeChat()) {
+          chatStore.activeChatId = storedData.chats[0].id;
+        }
+      }
+    }
+    
+    if (shouldCreateNewChat) {
+      // Create a new chat with the model from URL (which matches the selected model from index)
+      const currentModel = document.getElementById("chat-model")?.value || "";
+      const newChat = chatStore.createChat(currentModel, "", indexChatData.mcpMode || false);
       
-      // Ensure active chat exists
-      if (!chatStore.activeChat()) {
-        chatStore.activeChatId = storedData.chats[0].id;
+      // Update context size from template if available
+      const contextSizeInput = document.getElementById("chat-model");
+      if (contextSizeInput && contextSizeInput.dataset.contextSize) {
+        const contextSize = parseInt(contextSizeInput.dataset.contextSize);
+        newChat.contextSize = contextSize;
+      }
+      
+      // Set the message and files
+      const input = document.getElementById('input');
+      if (input && indexChatData.message) {
+        input.value = indexChatData.message;
+        
+        // Process files if any
+        if (indexChatData.imageFiles && indexChatData.imageFiles.length > 0) {
+          indexChatData.imageFiles.forEach(file => {
+            images.push(file.data);
+          });
+        }
+        
+        if (indexChatData.audioFiles && indexChatData.audioFiles.length > 0) {
+          indexChatData.audioFiles.forEach(file => {
+            audios.push(file.data);
+          });
+        }
+        
+        if (indexChatData.textFiles && indexChatData.textFiles.length > 0) {
+          indexChatData.textFiles.forEach(file => {
+            fileContents.push({ name: file.name, content: file.data });
+            currentFileNames.push(file.name);
+          });
+        }
+        
+        // Clear localStorage
+        localStorage.removeItem('localai_index_chat_data');
+        
+        // Save the new chat
+        saveChatsToStorage();
+        
+        // Update UI to reflect new active chat
+        updateUIForActiveChat();
+        
+        // Auto-submit after a short delay to ensure everything is ready
+        setTimeout(() => {
+          if (input.value.trim()) {
+            processAndSendMessage(input.value);
+          }
+        }, 500);
+      } else {
+        // No message, but might have mcpMode - clear localStorage
+        localStorage.removeItem('localai_index_chat_data');
+        saveChatsToStorage();
+        updateUIForActiveChat();
       }
     } else {
-      // No stored chats, create a default chat
-      const currentModel = document.getElementById("chat-model")?.value || "";
-      const oldSystemPrompt = localStorage.getItem(SYSTEM_PROMPT_STORAGE_KEY);
-      chatStore.createChat(currentModel, oldSystemPrompt || "", false);
-      
-      // Remove old system prompt key after migration
-      if (oldSystemPrompt) {
-        localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
-      }
-    }
-    
-    // Update context size from template if available
-    const contextSizeInput = document.getElementById("chat-model");
-    if (contextSizeInput && contextSizeInput.dataset.contextSize) {
-      const contextSize = parseInt(contextSizeInput.dataset.contextSize);
-      const activeChat = chatStore.activeChat();
-      if (activeChat) {
-        activeChat.contextSize = contextSize;
-      }
-    }
-    
-    // Update UI to reflect active chat
-    updateUIForActiveChat();
-    
-    // Handle message from index page
-    const chatData = localStorage.getItem('localai_index_chat_data');
-    if (chatData) {
-      try {
-        const data = JSON.parse(chatData);
+      // Normal flow: create default chat if none exist
+      if (!storedData || !storedData.chats || storedData.chats.length === 0) {
+        const currentModel = document.getElementById("chat-model")?.value || "";
+        const oldSystemPrompt = localStorage.getItem(SYSTEM_PROMPT_STORAGE_KEY);
+        chatStore.createChat(currentModel, oldSystemPrompt || "", false);
         
+        // Remove old system prompt key after migration
+        if (oldSystemPrompt) {
+          localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
+        }
+      }
+      
+      // Update context size from template if available
+      const contextSizeInput = document.getElementById("chat-model");
+      if (contextSizeInput && contextSizeInput.dataset.contextSize) {
+        const contextSize = parseInt(contextSizeInput.dataset.contextSize);
         const activeChat = chatStore.activeChat();
         if (activeChat) {
-          // Set MCP mode if provided
-          if (data.mcpMode === true) {
-            activeChat.mcpMode = true;
-            chatStore.activeChatId = activeChat.id; // Ensure it's active
-          }
+          activeChat.contextSize = contextSize;
         }
-        
-        const input = document.getElementById('input');
-        
-        if (input && data.message) {
-          // Set the message in the input
-          input.value = data.message;
-          
-          // Process files if any
-          if (data.imageFiles && data.imageFiles.length > 0) {
-            data.imageFiles.forEach(file => {
-              images.push(file.data);
-            });
-          }
-          
-          if (data.audioFiles && data.audioFiles.length > 0) {
-            data.audioFiles.forEach(file => {
-              audios.push(file.data);
-            });
-          }
-          
-          if (data.textFiles && data.textFiles.length > 0) {
-            data.textFiles.forEach(file => {
-              fileContents.push({ name: file.name, content: file.data });
-              currentFileNames.push(file.name);
-            });
-          }
-          
-          // Clear localStorage
-          localStorage.removeItem('localai_index_chat_data');
-          
-          // Auto-submit after a short delay to ensure everything is ready
-          setTimeout(() => {
-            if (input.value.trim()) {
-              processAndSendMessage(input.value);
-            }
-          }, 500);
-        } else {
-          // No message, but might have mcpMode - clear localStorage
-          localStorage.removeItem('localai_index_chat_data');
-        }
-      } catch (error) {
-        console.error('Error processing chat data from index:', error);
-        localStorage.removeItem('localai_index_chat_data');
       }
+      
+      // Update UI to reflect active chat
+      updateUIForActiveChat();
     }
     
     // Save initial state

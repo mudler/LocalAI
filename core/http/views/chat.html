@@ -464,6 +464,14 @@ SOFTWARE.
         activeChat.contextSize = null;
       }
       
+      // Check MCP availability from data attribute
+      const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
+      if (!hasMCP) {
+        // If model doesn't support MCP, disable MCP mode
+        activeChat.mcpMode = false;
+      }
+      // Note: We don't enable MCP mode automatically, user must toggle it
+      
       // Update the hidden input for consistency
       const contextSizeInput = document.getElementById("chat-model");
       if (contextSizeInput) {
@@ -473,7 +481,15 @@ SOFTWARE.
         } else {
           contextSizeInput.removeAttribute('data-context-size');
         }
+        if (hasMCP) {
+          contextSizeInput.setAttribute('data-has-mcp', 'true');
+        } else {
+          contextSizeInput.setAttribute('data-has-mcp', 'false');
+        }
       }
+      
+      // Trigger MCP availability check in Alpine component
+      // The MCP toggle component will reactively check the data-has-mcp attribute
       
       // Save to storage
       if (typeof autoSaveChats === 'function') {
@@ -483,6 +499,14 @@ SOFTWARE.
       // Update UI - this will refresh the statistics display
       if (typeof updateUIForActiveChat === 'function') {
         updateUIForActiveChat();
+      }
+      
+      // Trigger MCP availability check in Alpine component
+      // Dispatch a custom event that the MCP toggle component can listen to
+      const modelSelector = document.getElementById('modelSelector');
+      if (modelSelector) {
+        // Trigger Alpine reactivity by dispatching change event
+        modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
   </script>
@@ -695,12 +719,14 @@ SOFTWARE.
 
               {{ range .ModelsConfig }}
                 {{ $cfg := . }}
+                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
                 {{ range .KnownUsecaseStrings }}
                   {{ if eq . "FLAG_CHAT" }}
                     <option
                       value="chat/{{$cfg.Name}}"
                       {{ if eq $cfg.Name $model }} selected {{end}}
                       {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
+                      data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
                       class="bg-[#101827] text-[#E5E7EB]"
                     >
                       {{$cfg.Name}}
@@ -807,38 +833,63 @@ SOFTWARE.
                 </template>
               </div>
 
-              {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
-              {{ $modelConfig := "" }}
-              {{ range .ModelsConfig }}
-                {{ if eq .Name $model }}
-                  {{ $modelConfig = . }}
-                {{ end }}
-              {{ end }}
-              {{ if and $modelConfig (or (ne $modelConfig.MCP.Servers "") (ne $modelConfig.MCP.Stdio "")) }}
-              <!-- MCP Toggle - Compact -->
-              <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors">
-                <span><i class="fa-solid fa-plug mr-1.5 text-[#38BDF8]"></i> MCP Mode</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.activeChat()?.mcpMode" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
-                  <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
-                </label>
-              </div>
+              <!-- MCP Toggle - Compact (shown dynamically based on model support) -->
+              <div x-data="{ 
+                mcpAvailable: false,
+                checkMCP() {
+                  const modelSelector = document.getElementById('modelSelector');
+                  if (!modelSelector) {
+                    this.mcpAvailable = false;
+                    return;
+                  }
+                  const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                  if (!selectedOption) {
+                    this.mcpAvailable = false;
+                    return;
+                  }
+                  const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
+                  this.mcpAvailable = hasMCP;
+                  
+                  // If model doesn't support MCP, disable MCP mode
+                  const activeChat = $store.chat.activeChat();
+                  if (activeChat && !hasMCP) {
+                    activeChat.mcpMode = false;
+                  }
+                },
+                init() {
+                  this.checkMCP();
+                  // Watch for model selector changes
+                  const modelSelector = document.getElementById('modelSelector');
+                  if (modelSelector) {
+                    modelSelector.addEventListener('change', () => {
+                      this.checkMCP();
+                    });
+                  }
+                  // Also watch for active chat changes (when switching chats)
+                  this.$watch('$store.chat.activeChatId', () => {
+                    this.checkMCP();
+                  });
+                }
+              }" x-show="mcpAvailable">
+                <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors">
+                  <span><i class="fa-solid fa-plug mr-1.5 text-[#38BDF8]"></i> MCP Mode</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.activeChat()?.mcpMode" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
+                    <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                  </label>
+                </div>
 
-              <!-- MCP Mode Notification - Compact -->
-              <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-[10px]">
-                <div class="flex items-start space-x-1.5">
-                  <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
-                  <div>
-                    <p class="font-medium text-[#E5E7EB] mb-0.5">Non-streaming Mode</p>
-                    <p class="text-[#94A3B8]">Full processing before display (may take up to 5 minutes on CPU).</p>
+                <!-- MCP Mode Notification - Compact -->
+                <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-[10px]">
+                  <div class="flex items-start space-x-1.5">
+                    <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
+                    <div>
+                      <p class="font-medium text-[#E5E7EB] mb-0.5">Non-streaming Mode</p>
+                      <p class="text-[#94A3B8]">Full processing before display (may take up to 5 minutes on CPU).</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              {{ end }}
-              {{ end }}
-              {{ end }}
 
               <button
                 @click="showPromptForm = !showPromptForm"
@@ -1004,7 +1055,7 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#8B5CF6]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto overflow-x-auto tool-call-content" 
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto tool-call-content" 
                                x-html="message.html"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -1037,7 +1088,7 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#10B981]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto overflow-x-auto tool-result-content" 
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto tool-result-content" 
                                x-html="formatToolResult(message.content)"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -1082,9 +1133,9 @@ SOFTWARE.
                     {{ end }}
                     <div class="flex flex-col flex-1">
                       <span class="text-xs font-semibold text-[#94A3B8] mb-1">{{if .Model}}{{.Model}}{{else}}Assistant{{end}}</span>
-                      <div class="flex-1 text-[#E5E7EB] flex items-center space-x-2">
-                        <div class="p-3 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] border border-[#8B5CF6]/20 shadow-lg" x-html="message.html"></div>
-                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1">
+                      <div class="flex-1 text-[#E5E7EB] flex items-center space-x-2 min-w-0">
+                        <div class="p-3 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] border border-[#8B5CF6]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
+                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1 flex-shrink-0">
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
@@ -1568,13 +1619,23 @@ SOFTWARE.
     }
 
     /* Prevent JSON overflow in tool calls and results */
+    .tool-call-content,
+    .tool-result-content {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
     .tool-call-content pre,
     .tool-result-content pre {
         overflow-x: auto;
         overflow-y: auto;
         max-width: 100%;
         word-wrap: break-word;
-        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        white-space: pre;
         background: #101827 !important;
         border: 1px solid #1E293B;
         border-radius: 6px;
@@ -1585,13 +1646,46 @@ SOFTWARE.
     .tool-call-content code,
     .tool-result-content code {
         word-wrap: break-word;
-        white-space: pre-wrap;
         overflow-wrap: break-word;
+        white-space: pre;
         background: transparent !important;
         color: #E5E7EB;
         font-family: 'ui-monospace', 'Monaco', 'Consolas', monospace;
         font-size: 0.875rem;
         line-height: 1.5;
+        display: block;
+        max-width: 100%;
+    }
+    
+    /* Prevent overflow in assistant messages with code/markdown */
+    div[class*="rounded-lg"][class*="bg-gradient"] {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+    
+    div[class*="rounded-lg"][class*="bg-gradient"] pre,
+    div[class*="rounded-lg"][class*="bg-gradient"] code {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        white-space: pre;
+    }
+    
+    /* Ensure code blocks in assistant messages don't overflow */
+    #messages pre,
+    #messages code {
+        max-width: 100%;
+        overflow-x: auto;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    #messages pre code {
+        white-space: pre;
+        display: block;
     }
 
     /* Dark theme syntax highlighting for JSON */
