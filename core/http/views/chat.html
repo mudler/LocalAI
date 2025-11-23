@@ -520,7 +520,46 @@ SOFTWARE.
         <!-- Sidebar content -->
         <div class="p-3 space-y-3">
           <!-- Chat List -->
-          <div class="space-y-2" x-data="{ editingChatId: null, editingName: '', showCleanup: false }">
+          <div class="space-y-2" x-data="{ 
+            editingChatId: null, 
+            editingName: '', 
+            showCleanup: false, 
+            searchQuery: '',
+            filteredChats() {
+              if (!this.searchQuery || !this.searchQuery.trim()) {
+                return $store.chat.chats;
+              }
+              const query = this.searchQuery.toLowerCase().trim();
+              return $store.chat.chats.filter(chat => {
+                // Search in chat name
+                const nameMatch = (chat.name || 'New Chat').toLowerCase().includes(query);
+                
+                // Search in message content
+                const contentMatch = chat.history && chat.history.some(message => {
+                  if (message.content) {
+                    let contentText = '';
+                    if (typeof message.content === 'string') {
+                      // Remove HTML tags for searching
+                      const tempDiv = document.createElement('div');
+                      tempDiv.innerHTML = message.content;
+                      contentText = (tempDiv.textContent || tempDiv.innerText || '').toLowerCase();
+                    } else if (Array.isArray(message.content)) {
+                      // Handle array content (multimodal)
+                      contentText = message.content
+                        .filter(item => item.type === 'text' && item.text)
+                        .map(item => item.text)
+                        .join(' ')
+                        .toLowerCase();
+                    }
+                    return contentText.includes(query);
+                  }
+                  return false;
+                });
+                
+                return nameMatch || contentMatch;
+              });
+            }
+          }">
             <div class="flex items-center justify-between">
               <h2 class="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Chats</h2>
               <button
@@ -531,9 +570,27 @@ SOFTWARE.
               </button>
             </div>
             
+            <!-- Search Input -->
+            <div class="relative">
+              <input
+                type="text"
+                x-model="searchQuery"
+                placeholder="Search conversations..."
+                class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded px-2 py-1.5 pl-7 text-xs placeholder-[#94A3B8]"
+              />
+              <i class="fa-solid fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-[#94A3B8] text-xs"></i>
+              <button
+                x-show="searchQuery.length > 0"
+                @click="searchQuery = ''"
+                class="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#94A3B8] hover:text-[#E5E7EB] text-xs"
+                title="Clear search">
+                <i class="fa-solid fa-times"></i>
+              </button>
+            </div>
+            
             <!-- Chat List -->
             <div class="max-h-48 overflow-y-auto space-y-1 border border-[#1E293B] rounded p-1.5">
-              <template x-for="chat in $store.chat.chats" :key="chat.id">
+              <template x-for="chat in filteredChats()" :key="chat.id">
                 <div
                   class="flex items-center justify-between p-1.5 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
                   :class="{ 'bg-[#38BDF8]/20 border border-[#38BDF8]/40': $store.chat.activeChatId === chat.id }"
@@ -587,6 +644,9 @@ SOFTWARE.
                   </div>
                 </div>
               </template>
+              <div x-show="filteredChats().length === 0 && $store.chat.chats.length > 0" class="text-xs text-[#94A3B8] text-center py-2">
+                No conversations match your search
+              </div>
               <div x-show="$store.chat.chats.length === 0" class="text-xs text-[#94A3B8] text-center py-2">
                 No chats yet
               </div>
