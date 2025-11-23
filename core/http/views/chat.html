@@ -425,6 +425,66 @@ SOFTWARE.
       // DOM already loaded, try immediately
       if (window.Alpine) __initChatStore();
     }
+    
+    // Function to update model and context size when model selector changes
+    window.updateModelAndContextSize = function(selectElement) {
+      if (!window.Alpine || !Alpine.store("chat")) {
+        // Fallback: navigate to new model URL
+        window.location = selectElement.value;
+        return;
+      }
+      
+      const chatStore = Alpine.store("chat");
+      const activeChat = chatStore.activeChat();
+      
+      if (!activeChat) {
+        window.location = selectElement.value;
+        return;
+      }
+      
+      // Get the selected option
+      const selectedOption = selectElement.options[selectElement.selectedIndex];
+      const modelName = selectElement.value.replace('chat/', '');
+      
+      // Update model name
+      activeChat.model = modelName;
+      activeChat.updatedAt = Date.now();
+      
+      // Get context size from data attribute
+      let contextSize = null;
+      if (selectedOption.dataset.contextSize) {
+        contextSize = parseInt(selectedOption.dataset.contextSize);
+        if (!isNaN(contextSize)) {
+          activeChat.contextSize = contextSize;
+        } else {
+          activeChat.contextSize = null;
+        }
+      } else {
+        // No context size available, set to null
+        activeChat.contextSize = null;
+      }
+      
+      // Update the hidden input for consistency
+      const contextSizeInput = document.getElementById("chat-model");
+      if (contextSizeInput) {
+        contextSizeInput.value = modelName;
+        if (contextSize) {
+          contextSizeInput.setAttribute('data-context-size', contextSize);
+        } else {
+          contextSizeInput.removeAttribute('data-context-size');
+        }
+      }
+      
+      // Save to storage
+      if (typeof autoSaveChats === 'function') {
+        autoSaveChats();
+      }
+      
+      // Update UI - this will refresh the statistics display
+      if (typeof updateUIForActiveChat === 'function') {
+        updateUIForActiveChat();
+      }
+    }
   </script>
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
@@ -439,43 +499,43 @@ SOFTWARE.
         class="sidebar bg-[#1E293B] fixed top-16 bottom-0 left-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
 
-        <div class="p-4 flex justify-between items-center border-b border-[#101827]">
+        <div class="p-3 flex justify-between items-center border-b border-[#101827]">
           <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
+            <h2 class="text-sm font-semibold text-[#E5E7EB]">Settings</h2>
             <a
               href="https://localai.io/features/text-generation/"
               target="_blank"
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors"
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs"
               title="Documentation">
-              <i class="fas fa-book text-sm"></i>
+              <i class="fas fa-book"></i>
             </a>
           </div>
           <button
             @click="sidebarOpen = false"
-            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
+            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none text-xs">
             <i class="fa-solid fa-times"></i>
           </button>
         </div>
 
         <!-- Sidebar content -->
-        <div class="p-4 space-y-6">
+        <div class="p-3 space-y-3">
           <!-- Chat List -->
           <div class="space-y-2" x-data="{ editingChatId: null, editingName: '', showCleanup: false }">
-            <div class="flex items-center justify-between mb-2">
-              <h2 class="text-sm font-semibold text-[#E5E7EB]">Chats</h2>
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Chats</h2>
               <button
                 @click="createNewChat()"
-                class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-sm"
+                class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-xs p-1"
                 title="New Chat">
                 <i class="fa-solid fa-plus"></i>
               </button>
             </div>
             
             <!-- Chat List -->
-            <div class="max-h-64 overflow-y-auto space-y-1 border border-[#1E293B] rounded-lg p-2">
+            <div class="max-h-48 overflow-y-auto space-y-1 border border-[#1E293B] rounded p-1.5">
               <template x-for="chat in $store.chat.chats" :key="chat.id">
                 <div
-                  class="flex items-center justify-between p-2 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
+                  class="flex items-center justify-between p-1.5 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
                   :class="{ 'bg-[#38BDF8]/20 border border-[#38BDF8]/40': $store.chat.activeChatId === chat.id }"
                   @click="if (editingChatId !== chat.id) switchChat(chat.id)"
                 >
@@ -487,13 +547,13 @@ SOFTWARE.
                         @blur="updateChatName(chat.id, editingName); editingChatId = null"
                         @keydown.enter="updateChatName(chat.id, editingName); editingChatId = null"
                         @keydown.escape="editingChatId = null"
-                        class="w-full bg-[#101827] text-[#E5E7EB] border border-[#38BDF8] rounded px-2 py-1 text-xs"
+                        class="w-full bg-[#101827] text-[#E5E7EB] border border-[#38BDF8] rounded px-1.5 py-0.5 text-xs"
                         x-ref="editInput"
                         x-effect="if (editingChatId === chat.id) { $refs.editInput?.focus(); editingName = chat.name; }"
                       />
                     </template>
                     <template x-if="editingChatId !== chat.id">
-                      <div class="flex items-center space-x-2">
+                      <div class="flex items-center space-x-1.5">
                         <!-- Loading indicator for active requests -->
                         <div x-show="$store.chat.hasActiveRequest(chat.id)" 
                              class="flex-shrink-0">
@@ -505,21 +565,21 @@ SOFTWARE.
                             @dblclick="editingChatId = chat.id; editingName = chat.name"
                             x-text="chat.name || 'New Chat'"
                           ></div>
-                          <div class="text-xs text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
+                          <div class="text-[10px] text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
                         </div>
                       </div>
                     </template>
                   </div>
-                  <div class="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       @click.stop="editingChatId = chat.id; editingName = chat.name"
-                      class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1"
+                      class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-[10px] p-0.5"
                       title="Rename chat">
                       <i class="fa-solid fa-edit"></i>
                     </button>
                     <button
                       @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
-                      class="text-[#94A3B8] hover:text-red-400 transition-colors text-xs p-1"
+                      class="text-[#94A3B8] hover:text-red-400 transition-colors text-[10px] p-0.5"
                       title="Delete chat"
                       x-show="$store.chat.chats.length > 1">
                       <i class="fa-solid fa-trash"></i>
@@ -532,46 +592,44 @@ SOFTWARE.
               </div>
             </div>
             
-            <!-- Cleanup Section -->
-            <div class="mt-2">
+            <!-- Cleanup Section - Compact -->
+            <button
+              @click="showCleanup = !showCleanup"
+              class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
+            >
+              <span><i class="fa-solid fa-broom mr-1.5 text-[#38BDF8]"></i> Cleanup</span>
+              <i :class="showCleanup ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
+            </button>
+            
+            <div x-show="showCleanup" x-transition class="space-y-1 pl-4 border-l-2 border-[#1E293B]">
               <button
-                @click="showCleanup = !showCleanup"
-                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors"
+                @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); showCleanup = false; }"
+                class="w-full text-left px-2 py-1 text-xs rounded text-red-400 hover:bg-red-500/10 transition-colors"
               >
-                <span><i class="fa-solid fa-broom mr-2 text-[#38BDF8]"></i> Cleanup</span>
-                <i :class="showCleanup ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+                <i class="fa-solid fa-trash mr-1.5"></i>All
               </button>
-              
-              <div x-show="showCleanup" x-transition class="mt-2 space-y-2 p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
-                <button
-                  @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); showCleanup = false; }"
-                  class="w-full text-left px-3 py-2 text-xs rounded text-red-400 hover:bg-red-500/10 transition-colors"
-                >
-                  <i class="fa-solid fa-trash mr-2"></i>Delete All Chats
-                </button>
-                <button
-                  @click="if (confirm('Delete chats older than 7 days?')) { bulkDeleteChats({olderThanDays: 7}); showCleanup = false; }"
-                  class="w-full text-left px-3 py-2 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
-                >
-                  <i class="fa-solid fa-clock mr-2"></i>Delete Older Than 7 Days
-                </button>
-                <button
-                  @click="if (confirm('Delete chats older than 30 days?')) { bulkDeleteChats({olderThanDays: 30}); showCleanup = false; }"
-                  class="w-full text-left px-3 py-2 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
-                >
-                  <i class="fa-solid fa-calendar mr-2"></i>Delete Older Than 30 Days
-                </button>
-              </div>
+              <button
+                @click="if (confirm('Delete chats older than 7 days?')) { bulkDeleteChats({olderThanDays: 7}); showCleanup = false; }"
+                class="w-full text-left px-2 py-1 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
+              >
+                <i class="fa-solid fa-clock mr-1.5"></i>7 Days
+              </button>
+              <button
+                @click="if (confirm('Delete chats older than 30 days?')) { bulkDeleteChats({olderThanDays: 30}); showCleanup = false; }"
+                class="w-full text-left px-2 py-1 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
+              >
+                <i class="fa-solid fa-calendar mr-1.5"></i>30 Days
+              </button>
             </div>
           </div>
           
-          <!-- Model selection - Fixed to properly select current model -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-[#94A3B8]">Select Model</label>
+          <!-- Model selection - Compact -->
+          <div class="space-y-1.5">
+            <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
             <select
               id="modelSelector"
-              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-md shadow-sm p-2 appearance-none"
-              onchange="if ($store.chat.activeChat()) { const modelName = this.value.replace('chat/', ''); $store.chat.activeChat().model = modelName; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); } window.location = this.value;"
+              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded p-1.5 text-xs appearance-none"
+              onchange="updateModelAndContextSize(this);"
             >
               <option value="" disabled class="text-[#94A3B8]">Select a model</option>
 
@@ -582,6 +640,7 @@ SOFTWARE.
                     <option
                       value="chat/{{$cfg.Name}}"
                       {{ if eq $cfg.Name $model }} selected {{end}}
+                      {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
                       class="bg-[#101827] text-[#E5E7EB]"
                     >
                       {{$cfg.Name}}
@@ -604,42 +663,42 @@ SOFTWARE.
           {{ if $model }}
           {{ $galleryConfig:= index $allGalleryConfigs $model}}
           {{ if $galleryConfig }}
-          <!-- Model info -->
-          <div class="space-y-2">
-            <div class="flex items-center">
-              {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
-              <h3 class="text-md font-medium">{{ $model }}</h3>
-              <button 
-                data-twe-ripple-init 
-                data-twe-ripple-color="light" 
-                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors" 
-                data-modal-target="model-info-modal" 
-                data-modal-toggle="model-info-modal"
-                title="Model Information">
-                <i class="fas fa-info-circle text-sm"></i>
-              </button>
-              <button
-                @click="$store.chat.clear()"
-                id="clear"
-                title="Clear chat history"
-                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors">
-                <i class="fa-solid fa-trash-can text-sm"></i>
-              </button>
-            </div>
+          <!-- Model actions - Compact -->
+          <div class="flex items-center gap-2">
+            {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded w-6 h-6">{{end}}
+            <button 
+              data-twe-ripple-init 
+              data-twe-ripple-color="light" 
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs" 
+              data-modal-target="model-info-modal" 
+              data-modal-toggle="model-info-modal"
+              title="Model Information">
+              <i class="fas fa-info-circle"></i>
+            </button>
+            <button
+              @click="$store.chat.clear()"
+              id="clear"
+              title="Clear chat history"
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
           </div>
           {{ end }}
           {{ end }}
 
-          <div x-data="{ showPromptForm: false }" class="space-y-3">
-              <!-- Token Usage Statistics -->
-              <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
-                <div class="flex items-center justify-between mb-2">
-                  <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
-                    <i class="fas fa-chart-line mr-2 text-[#38BDF8]"></i>
-                    Token Usage
-                  </h4>
-                </div>
-                <div class="space-y-1.5 text-xs">
+          <div x-data="{ showPromptForm: false, showStats: false }" class="space-y-2">
+              <!-- Combined Stats Section - Collapsible -->
+              <button
+                @click="showStats = !showStats"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
+              >
+                <span><i class="fas fa-chart-line mr-1.5 text-[#38BDF8]"></i> Statistics</span>
+                <i :class="showStats ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
+              </button>
+              
+              <div x-show="showStats" x-transition class="space-y-2 pl-4 border-l-2 border-[#1E293B]">
+                <!-- Token Usage - Compact -->
+                <div class="space-y-1 text-xs">
                   <div class="flex justify-between text-[#94A3B8]">
                     <span>Prompt:</span>
                     <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
@@ -648,32 +707,25 @@ SOFTWARE.
                     <span>Completion:</span>
                     <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
                   </div>
-                  <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1.5">
+                  <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1">
                     <span class="font-semibold text-[#38BDF8]">Total:</span>
                     <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                   </div>
                 </div>
-              </div>
 
-              <!-- Context Size Indicator -->
-              <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
-                  <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
-                      <i class="fas fa-database mr-2 text-[#38BDF8]"></i>
-                      Context Window
-                    </h4>
-                  </div>
-                  <div class="space-y-2">
-                    <div class="flex justify-between text-xs text-[#94A3B8] mb-1">
-                      <span>Used / Available</span>
+                <!-- Context Window - Compact -->
+                <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
+                  <div class="space-y-1.5 pt-1 border-t border-[#101827]">
+                    <div class="flex justify-between text-xs text-[#94A3B8]">
+                      <span>Context:</span>
                       <span class="text-[#E5E7EB] font-medium">
                         <span x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                         / 
                         <span x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
+                        (<span x-text="Math.round($store.chat.getContextUsagePercent())"></span>%)
                       </span>
                     </div>
-                    <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
+                    <div class="w-full bg-[#101827] rounded-full h-1.5 overflow-hidden border border-[#1E293B]">
                       <div class="h-full rounded-full transition-all duration-300 ease-out"
                            :class="{
                              'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
@@ -683,23 +735,17 @@ SOFTWARE.
                            :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
                       </div>
                     </div>
-                    <div class="flex justify-between text-xs">
-                      <span class="text-[#94A3B8]">
-                        Remaining: 
-                        <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.getRemainingTokens())"></span>
-                      </span>
-                      <span class="text-[#94A3B8]">
-                        <span x-text="Math.round($store.chat.getContextUsagePercent())"></span>%
-                      </span>
+                    <div class="text-xs text-[#94A3B8]">
+                      Remaining: <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.getRemainingTokens())"></span>
                     </div>
-                    <div x-show="$store.chat.getContextUsagePercent() >= 80" class="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-300 text-xs">
+                    <div x-show="$store.chat.getContextUsagePercent() >= 80" class="p-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-300 text-[10px]">
                       <i class="fas fa-exclamation-triangle mr-1"></i>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 95">Context window nearly full!</span>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95">Approaching context limit</span>
+                      <span x-show="$store.chat.getContextUsagePercent() >= 95">Nearly full!</span>
+                      <span x-show="$store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95">Approaching limit</span>
                     </div>
                   </div>
-                </div>
-              </template>
+                </template>
+              </div>
 
               {{ if $model }}
               {{ $galleryConfig:= index $allGalleryConfigs $model}}
@@ -711,22 +757,22 @@ SOFTWARE.
                 {{ end }}
               {{ end }}
               {{ if and $modelConfig (or (ne $modelConfig.MCP.Servers "") (ne $modelConfig.MCP.Stdio "")) }}
-              <!-- MCP Toggle -->
-              <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20">
-                <span><i class="fa-solid fa-plug mr-2 text-[#38BDF8]"></i> Agentic MCP Mode</span>
+              <!-- MCP Toggle - Compact -->
+              <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors">
+                <span><i class="fa-solid fa-plug mr-1.5 text-[#38BDF8]"></i> MCP Mode</span>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.activeChat()?.mcpMode" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
-                  <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                  <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
                 </label>
               </div>
 
-              <!-- MCP Mode Notification -->
-              <div x-show="$store.chat.activeChat()?.mcpMode" class="p-3 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
-                <div class="flex items-start space-x-2">
+              <!-- MCP Mode Notification - Compact -->
+              <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-[10px]">
+                <div class="flex items-start space-x-1.5">
                   <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
                   <div>
-                    <p class="font-medium text-[#E5E7EB] mb-1">Non-streaming Mode Active</p>
-                    <p class="text-[#94A3B8]">Responses will be processed in full before display. This may take significantly longer (up to 5 minutes), especially on CPU-only systems.</p>
+                    <p class="font-medium text-[#E5E7EB] mb-0.5">Non-streaming Mode</p>
+                    <p class="text-[#94A3B8]">Full processing before display (may take up to 5 minutes on CPU).</p>
                   </div>
                 </div>
               </div>
@@ -736,10 +782,10 @@ SOFTWARE.
 
               <button
                 @click="showPromptForm = !showPromptForm"
-                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
               >
-                <span><i class="fa-solid fa-message mr-2 text-[#38BDF8]"></i> System Prompt</span>
-                <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+                <span><i class="fa-solid fa-message mr-1.5 text-[#38BDF8]"></i> System Prompt</span>
+                <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
               </button>
 
               <div x-show="showPromptForm" x-data="{
@@ -758,13 +804,13 @@ SOFTWARE.
                     setTimeout(() => {this.showToast = false;}, 2000);
                   }
                 } 
-              }" class="p-3 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
-                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-2">
+              }" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B]">
+                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-1.5">
                   <textarea
                     type="text"
                     id="systemPrompt"
                     name="systemPrompt"
-                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24 placeholder-[#94A3B8]"
+                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] focus:ring-opacity-50 rounded p-1.5 text-xs appearance-none min-h-20 placeholder-[#94A3B8]"
                     placeholder="System prompt"
                     x-model.lazy="$store.chat.activeChat()?.systemPrompt"
                     @change="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
@@ -772,15 +818,15 @@ SOFTWARE.
                   <div
                     x-show="showToast"
                     x-transition
-                    class="mb-2 text-green-400 px-4 py-2 text-sm text-center bg-green-500/10 border border-green-500/30 rounded"
+                    class="text-green-400 px-2 py-1 text-xs text-center bg-green-500/10 border border-green-500/30 rounded"
                   >
-                    System prompt updated!
+                    Updated!
                   </div>
                   <button
                     type="submit"
-                    class="px-3 py-2 text-sm rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
+                    class="px-2 py-1 text-xs rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
                   >
-                    Save System Prompt
+                    Save
                   </button>
                 </form>
               </div>
