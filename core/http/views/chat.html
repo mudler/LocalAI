@@ -543,11 +543,65 @@ SOFTWARE.
 
         <!-- Sidebar content -->
         <div class="p-3 space-y-3">
+          <!-- Model selection - Compact -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
+              {{ if $model }}
+              {{ $galleryConfig:= index $allGalleryConfigs $model}}
+              {{ if $galleryConfig }}
+              <button 
+                data-twe-ripple-init 
+                data-twe-ripple-color="light" 
+                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1" 
+                data-modal-target="model-info-modal" 
+                data-modal-toggle="model-info-modal"
+                title="Model Information">
+                <i class="fas fa-info-circle"></i>
+              </button>
+              {{ end }}
+              {{ end }}
+            </div>
+            <select
+              id="modelSelector"
+              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded p-1.5 text-xs appearance-none"
+              onchange="updateModelAndContextSize(this);"
+            >
+              <option value="" disabled class="text-[#94A3B8]">Select a model</option>
+
+              {{ range .ModelsConfig }}
+                {{ $cfg := . }}
+                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                {{ range .KnownUsecaseStrings }}
+                  {{ if eq . "FLAG_CHAT" }}
+                    <option
+                      value="chat/{{$cfg.Name}}"
+                      {{ if eq $cfg.Name $model }} selected {{end}}
+                      {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
+                      data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
+                      class="bg-[#101827] text-[#E5E7EB]"
+                    >
+                      {{$cfg.Name}}
+                    </option>
+                  {{ end }}
+                {{ end }}
+              {{ end }}
+              {{ range .ModelsWithoutConfig }}
+                <option
+                  value="chat/{{.}}"
+                  {{ if eq . $model }} selected {{ end }}
+                  class="bg-[#101827] text-[#E5E7EB]"
+                >
+                  {{.}}
+                </option>
+              {{end}}
+            </select>
+          </div>
+
           <!-- Chat List -->
           <div class="space-y-2" x-data="{ 
             editingChatId: null, 
             editingName: '', 
-            showCleanup: false, 
             searchQuery: '',
             filteredChats() {
               let chats = $store.chat.chats;
@@ -598,18 +652,17 @@ SOFTWARE.
               <h2 class="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Chats</h2>
               <div class="flex items-center gap-1">
                 <button
-                  @click="$store.chat.clear()"
-                  id="clear"
-                  title="Clear current chat history"
-                  class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1"
-                  x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
-                  <i class="fa-solid fa-trash-can"></i>
-                </button>
-                <button
                   @click="createNewChat()"
                   class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-xs p-1"
                   title="New Chat">
                   <i class="fa-solid fa-plus"></i>
+                </button>
+                <button
+                  @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); }"
+                  class="text-[#94A3B8] hover:text-red-400 transition-colors text-xs p-1"
+                  title="Delete all chats"
+                  x-show="$store.chat.chats.length > 0">
+                  <i class="fa-solid fa-trash"></i>
                 </button>
               </div>
             </div>
@@ -695,91 +748,6 @@ SOFTWARE.
                 No chats yet
               </div>
             </div>
-            
-            <!-- Cleanup Section - Compact -->
-            <button
-              @click="showCleanup = !showCleanup"
-              class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
-            >
-              <span><i class="fa-solid fa-broom mr-1.5 text-[#38BDF8]"></i> Cleanup</span>
-              <i :class="showCleanup ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
-            </button>
-            
-            <div x-show="showCleanup" x-transition class="space-y-1 pl-4 border-l-2 border-[#1E293B]">
-              <button
-                @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); showCleanup = false; }"
-                class="w-full text-left px-2 py-1 text-xs rounded text-red-400 hover:bg-red-500/10 transition-colors"
-              >
-                <i class="fa-solid fa-trash mr-1.5"></i>All
-              </button>
-              <button
-                @click="if (confirm('Delete chats older than 7 days?')) { bulkDeleteChats({olderThanDays: 7}); showCleanup = false; }"
-                class="w-full text-left px-2 py-1 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
-              >
-                <i class="fa-solid fa-clock mr-1.5"></i>7 Days
-              </button>
-              <button
-                @click="if (confirm('Delete chats older than 30 days?')) { bulkDeleteChats({olderThanDays: 30}); showCleanup = false; }"
-                class="w-full text-left px-2 py-1 text-xs rounded text-[#94A3B8] hover:bg-[#38BDF8]/10 transition-colors"
-              >
-                <i class="fa-solid fa-calendar mr-1.5"></i>30 Days
-              </button>
-            </div>
-          </div>
-          
-          <!-- Model selection - Compact -->
-          <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
-              {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
-              <button 
-                data-twe-ripple-init 
-                data-twe-ripple-color="light" 
-                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1" 
-                data-modal-target="model-info-modal" 
-                data-modal-toggle="model-info-modal"
-                title="Model Information">
-                <i class="fas fa-info-circle"></i>
-              </button>
-              {{ end }}
-              {{ end }}
-            </div>
-            <select
-              id="modelSelector"
-              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded p-1.5 text-xs appearance-none"
-              onchange="updateModelAndContextSize(this);"
-            >
-              <option value="" disabled class="text-[#94A3B8]">Select a model</option>
-
-              {{ range .ModelsConfig }}
-                {{ $cfg := . }}
-                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
-                {{ range .KnownUsecaseStrings }}
-                  {{ if eq . "FLAG_CHAT" }}
-                    <option
-                      value="chat/{{$cfg.Name}}"
-                      {{ if eq $cfg.Name $model }} selected {{end}}
-                      {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
-                      data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
-                      class="bg-[#101827] text-[#E5E7EB]"
-                    >
-                      {{$cfg.Name}}
-                    </option>
-                  {{ end }}
-                {{ end }}
-              {{ end }}
-              {{ range .ModelsWithoutConfig }}
-                <option
-                  value="chat/{{.}}"
-                  {{ if eq . $model }} selected {{ end }}
-                  class="bg-[#101827] text-[#E5E7EB]"
-                >
-                  {{.}}
-                </option>
-              {{end}}
-            </select>
           </div>
 
 
@@ -931,6 +899,16 @@ SOFTWARE.
             </div>
           </div>
 
+          <div class="flex items-center gap-2">
+            <button
+              @click="$store.chat.clear()"
+              id="clear"
+              title="Clear current chat history"
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-2 rounded hover:bg-[#1E293B]"
+              x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
 
         <!-- Chat messages area -->
