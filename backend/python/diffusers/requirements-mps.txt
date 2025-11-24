@@ -1,5 +1,5 @@
 torch==2.7.1
-torchvision==0.22.1
+torchvision==0.24.1+rocm6.3
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers
