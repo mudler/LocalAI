@@ -27,7 +27,7 @@ require (
 	github.com/labstack/echo/v4 v4.13.4
 	github.com/libp2p/go-libp2p v0.43.0
 	github.com/lithammer/fuzzysearch v1.1.8
-	github.com/mholt/archiver/v3 v3.5.1
+	github.com/mholt/archiver/v3 v3.5.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.1.0
 	github.com/mudler/cogito v0.5.1
