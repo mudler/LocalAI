@@ -1,4 +1,4 @@
-torch==2.7.1
+torch==2.9.1+rocm6.3
 torchvision==0.22.1
 git+https://github.com/huggingface/diffusers
 opencv-python

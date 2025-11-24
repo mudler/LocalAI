@@ -7,6 +7,6 @@ accelerate
 compel
 peft
 sentencepiece
-torch==2.7.1
+torch==2.9.1+rocm6.3
 optimum-quanto
 ftfy
