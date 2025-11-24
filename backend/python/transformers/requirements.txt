@@ -1,5 +1,5 @@
 grpcio==1.76.0
-protobuf==6.32.0
+protobuf==6.33.1
 certifi
 setuptools
 scipy==1.15.1
