@@ -550,11 +550,21 @@ SOFTWARE.
             showCleanup: false, 
             searchQuery: '',
             filteredChats() {
+              let chats = $store.chat.chats;
+              
+              // Sort chats by updatedAt (most recent first)
+              chats = [...chats].sort((a, b) => {
+                const timeA = a.updatedAt || a.createdAt || 0;
+                const timeB = b.updatedAt || b.createdAt || 0;
+                return timeB - timeA; // Descending order (newest first)
+              });
+              
               if (!this.searchQuery || !this.searchQuery.trim()) {
-                return $store.chat.chats;
+                return chats;
               }
+              
               const query = this.searchQuery.toLowerCase().trim();
-              return $store.chat.chats.filter(chat => {
+              return chats.filter(chat => {
                 // Search in chat name
                 const nameMatch = (chat.name || 'New Chat').toLowerCase().includes(query);
                 
@@ -586,12 +596,22 @@ SOFTWARE.
           }">
             <div class="flex items-center justify-between">
               <h2 class="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Chats</h2>
-              <button
-                @click="createNewChat()"
-                class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-xs p-1"
-                title="New Chat">
-                <i class="fa-solid fa-plus"></i>
-              </button>
+              <div class="flex items-center gap-1">
+                <button
+                  @click="$store.chat.clear()"
+                  id="clear"
+                  title="Clear current chat history"
+                  class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1"
+                  x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
+                  <i class="fa-solid fa-trash-can"></i>
+                </button>
+                <button
+                  @click="createNewChat()"
+                  class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-xs p-1"
+                  title="New Chat">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+              </div>
             </div>
             
             <!-- Search Input -->
@@ -613,7 +633,7 @@ SOFTWARE.
             </div>
             
             <!-- Chat List -->
-            <div class="max-h-48 overflow-y-auto space-y-1 border border-[#1E293B] rounded p-1.5">
+            <div class="max-h-80 overflow-y-auto space-y-1 border border-[#1E293B] rounded p-1.5">
               <template x-for="chat in filteredChats()" :key="chat.id">
                 <div
                   class="flex items-center justify-between p-1.5 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
@@ -709,7 +729,23 @@ SOFTWARE.
           
           <!-- Model selection - Compact -->
           <div class="space-y-1.5">
-            <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
+              {{ if $model }}
+              {{ $galleryConfig:= index $allGalleryConfigs $model}}
+              {{ if $galleryConfig }}
+              <button 
+                data-twe-ripple-init 
+                data-twe-ripple-color="light" 
+                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1" 
+                data-modal-target="model-info-modal" 
+                data-modal-toggle="model-info-modal"
+                title="Model Information">
+                <i class="fas fa-info-circle"></i>
+              </button>
+              {{ end }}
+              {{ end }}
+            </div>
             <select
               id="modelSelector"
               class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded p-1.5 text-xs appearance-none"
@@ -746,93 +782,8 @@ SOFTWARE.
             </select>
           </div>
 
-          {{ if $model }}
-          {{ $galleryConfig:= index $allGalleryConfigs $model}}
-          {{ if $galleryConfig }}
-          <!-- Model actions - Compact -->
-          <div class="flex items-center gap-2">
-            {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded w-6 h-6">{{end}}
-            <button 
-              data-twe-ripple-init 
-              data-twe-ripple-color="light" 
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs" 
-              data-modal-target="model-info-modal" 
-              data-modal-toggle="model-info-modal"
-              title="Model Information">
-              <i class="fas fa-info-circle"></i>
-            </button>
-            <button
-              @click="$store.chat.clear()"
-              id="clear"
-              title="Clear chat history"
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs">
-              <i class="fa-solid fa-trash-can"></i>
-            </button>
-          </div>
-          {{ end }}
-          {{ end }}
 
-          <div x-data="{ showPromptForm: false, showStats: false }" class="space-y-2">
-              <!-- Combined Stats Section - Collapsible -->
-              <button
-                @click="showStats = !showStats"
-                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
-              >
-                <span><i class="fas fa-chart-line mr-1.5 text-[#38BDF8]"></i> Statistics</span>
-                <i :class="showStats ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
-              </button>
-              
-              <div x-show="showStats" x-transition class="space-y-2 pl-4 border-l-2 border-[#1E293B]">
-                <!-- Token Usage - Compact -->
-                <div class="space-y-1 text-xs">
-                  <div class="flex justify-between text-[#94A3B8]">
-                    <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
-                  </div>
-                  <div class="flex justify-between text-[#94A3B8]">
-                    <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
-                  </div>
-                  <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1">
-                    <span class="font-semibold text-[#38BDF8]">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
-                  </div>
-                </div>
-
-                <!-- Context Window - Compact -->
-                <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
-                  <div class="space-y-1.5 pt-1 border-t border-[#101827]">
-                    <div class="flex justify-between text-xs text-[#94A3B8]">
-                      <span>Context:</span>
-                      <span class="text-[#E5E7EB] font-medium">
-                        <span x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
-                        / 
-                        <span x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
-                        (<span x-text="Math.round($store.chat.getContextUsagePercent())"></span>%)
-                      </span>
-                    </div>
-                    <div class="w-full bg-[#101827] rounded-full h-1.5 overflow-hidden border border-[#1E293B]">
-                      <div class="h-full rounded-full transition-all duration-300 ease-out"
-                           :class="{
-                             'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
-                             'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
-                             'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
-                           }"
-                           :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
-                      </div>
-                    </div>
-                    <div class="text-xs text-[#94A3B8]">
-                      Remaining: <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.getRemainingTokens())"></span>
-                    </div>
-                    <div x-show="$store.chat.getContextUsagePercent() >= 80" class="p-1.5 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-300 text-[10px]">
-                      <i class="fas fa-exclamation-triangle mr-1"></i>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 95">Nearly full!</span>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95">Approaching limit</span>
-                    </div>
-                  </div>
-                </template>
-              </div>
-
+          <div x-data="{ showPromptForm: false }" class="space-y-2">
               <!-- MCP Toggle - Compact (shown dynamically based on model support) -->
               <div x-data="{ 
                 mcpAvailable: false,
