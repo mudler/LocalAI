@@ -1,5 +1,5 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
-torch==2.7.1+cu118
+torch==2.9.1+rocm6.3
 llvmlite==0.43.0
 numba==0.60.0
 accelerate
