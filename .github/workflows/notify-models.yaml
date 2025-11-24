@@ -15,7 +15,7 @@ jobs:
         MODEL_NAME: gemma-3-12b-it-qat
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
         ref: ${{ github.event.pull_request.head.sha }} # Checkout the PR head to get the actual changes
@@ -95,7 +95,7 @@ jobs:
         MODEL_NAME: gemma-3-12b-it-qat
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
       with:
         fetch-depth: 0 # needed to checkout all branches for this Action to work
         ref: ${{ github.event.pull_request.head.sha }} # Checkout the PR head to get the actual changes

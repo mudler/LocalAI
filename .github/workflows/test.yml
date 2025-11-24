@@ -70,7 +70,7 @@ jobs:
           sudo rm -rfv build || true
           df -h
       - name: Clone
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
@@ -166,7 +166,7 @@ jobs:
           sudo rm -rfv build || true
           df -h
       - name: Clone
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Dependencies
@@ -196,7 +196,7 @@ jobs:
         go-version: ['1.25.x']
     steps:
       - name: Clone
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Setup Go ${{ matrix.go-version }}
