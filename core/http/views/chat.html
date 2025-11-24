@@ -901,27 +901,27 @@ SOFTWARE.
                 <i :class="showParamsForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
               </button>
 
-              <div x-show="showParamsForm" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B]">
+              <div x-show="showParamsForm" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B] overflow-hidden">
                 <div class="flex flex-col space-y-3">
                   <!-- Temperature -->
-                  <div class="space-y-1">
-                    <div class="flex items-center justify-between">
-                      <label class="text-xs text-[#94A3B8]">Temperature</label>
-                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
+                  <div class="space-y-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs text-[#94A3B8] flex-shrink-0">Temperature</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
                       <input
                         type="range"
                         min="0"
                         max="2"
                         step="0.01"
-                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        class="flex-1 min-w-0 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
                         :value="$store.chat.activeChat()?.temperature ?? 1.0"
                         @input="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                       />
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
-                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1 flex-shrink-0"
                         title="Reset to default"
                         x-show="$store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined"
                       >
@@ -932,24 +932,24 @@ SOFTWARE.
                   </div>
 
                   <!-- Top P -->
-                  <div class="space-y-1">
-                    <div class="flex items-center justify-between">
-                      <label class="text-xs text-[#94A3B8]">Top P</label>
-                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
+                  <div class="space-y-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs text-[#94A3B8] flex-shrink-0">Top P</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
                       <input
                         type="range"
                         min="0"
                         max="1"
                         step="0.01"
-                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        class="flex-1 min-w-0 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
                         :value="$store.chat.activeChat()?.topP ?? 0.9"
                         @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                       />
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
-                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1 flex-shrink-0"
                         title="Reset to default"
                         x-show="$store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined"
                       >
@@ -960,24 +960,24 @@ SOFTWARE.
                   </div>
 
                   <!-- Top K -->
-                  <div class="space-y-1">
-                    <div class="flex items-center justify-between">
-                      <label class="text-xs text-[#94A3B8]">Top K</label>
-                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
+                  <div class="space-y-1 min-w-0">
+                    <div class="flex items-center justify-between gap-2">
+                      <label class="text-xs text-[#94A3B8] flex-shrink-0">Top K</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 min-w-0">
                       <input
                         type="range"
                         min="0"
                         max="100"
                         step="1"
-                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        class="flex-1 min-w-0 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
                         :value="$store.chat.activeChat()?.topK ?? 40"
                         @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = parseInt($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                       />
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
-                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1 flex-shrink-0"
                         title="Reset to default"
                         x-show="$store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined"
                       >
