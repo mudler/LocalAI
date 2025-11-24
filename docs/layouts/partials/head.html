@@ -59,4 +59,8 @@
         {{- template "_internal/google_analytics.html" . -}}
     {{- end -}}
     {{- end -}}
+    <!-- Landing page assets (lotusdocs) -->
+    {{- if .IsHome -}}
+        {{- partial "landing-head.html" . -}}
+    {{- end -}}
 </head>

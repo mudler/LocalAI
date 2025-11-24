@@ -61,37 +61,140 @@ SOFTWARE.
       }
       
       if (Alpine.store("chat")) {
-        Alpine.store("chat").contextSize = __chatContextSize;
-        Alpine.store("chat").mcpMode = initialMcpMode;
+        // Store already initialized, just update context size if needed
+        const activeChat = Alpine.store("chat").activeChat();
+        if (activeChat && __chatContextSize !== null) {
+          activeChat.contextSize = __chatContextSize;
+        }
         return;
       }
 
+      // Generate unique chat ID
+      function generateChatId() {
+        return "chat_" + Date.now() + "_" + Math.random().toString(36).substr(2, 9);
+      }
+
+      // Get current model from URL or input
+      function getCurrentModel() {
+        const modelInput = document.getElementById("chat-model");
+        return modelInput ? modelInput.value : "";
+      }
+
       Alpine.store("chat", {
-        history: [],
+        chats: [],
+        activeChatId: null,
+        chatIdCounter: 0,
         languages: [undefined],
-        systemPrompt: "",
-        mcpMode: initialMcpMode,
-        contextSize: __chatContextSize,
-        tokenUsage: {
-          promptTokens: 0,
-          completionTokens: 0,
-          totalTokens: 0,
-          currentRequest: null
+        activeRequestIds: [], // Track chat IDs with active requests for UI reactivity
+        
+        // Helper to get active chat
+        activeChat() {
+          if (!this.activeChatId) return null;
+          return this.chats.find(c => c.id === this.activeChatId) || null;
         },
-        clear() {
-          this.history.length = 0;
-          this.tokenUsage = {
-            promptTokens: 0,
-            completionTokens: 0,
-            totalTokens: 0,
-            currentRequest: null
+        
+        // Helper to get chat by ID
+        getChat(chatId) {
+          return this.chats.find(c => c.id === chatId) || null;
+        },
+        
+        // Create a new chat
+        createChat(model, systemPrompt, mcpMode) {
+          const chatId = generateChatId();
+          const now = Date.now();
+          const chat = {
+            id: chatId,
+            name: "New Chat",
+            model: model || getCurrentModel() || "",
+            history: [],
+            systemPrompt: systemPrompt || "",
+            mcpMode: mcpMode || false,
+            temperature: null, // null means use default
+            topP: null, // null means use default
+            topK: null, // null means use default
+            tokenUsage: {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              currentRequest: null
+            },
+            contextSize: __chatContextSize,
+            createdAt: now,
+            updatedAt: now
           };
+          this.chats.push(chat);
+          this.activeChatId = chatId;
+          return chat;
         },
-        updateTokenUsage(usage) {
+        
+        // Switch to a different chat
+        switchChat(chatId) {
+          if (this.chats.find(c => c.id === chatId)) {
+            this.activeChatId = chatId;
+            // Update context size if needed
+            const chat = this.activeChat();
+            if (chat && __chatContextSize !== null) {
+              chat.contextSize = __chatContextSize;
+            }
+            return true;
+          }
+          return false;
+        },
+        
+        // Delete a chat
+        deleteChat(chatId) {
+          const index = this.chats.findIndex(c => c.id === chatId);
+          if (index === -1) return false;
+          
+          this.chats.splice(index, 1);
+          
+          // If deleted chat was active, switch to another or create new
+          if (this.activeChatId === chatId) {
+            if (this.chats.length > 0) {
+              this.activeChatId = this.chats[0].id;
+            } else {
+              // Create a new default chat
+              this.createChat();
+            }
+          }
+          return true;
+        },
+        
+        // Update chat name
+        updateChatName(chatId, name) {
+          const chat = this.getChat(chatId);
+          if (chat) {
+            chat.name = name || "New Chat";
+            chat.updatedAt = Date.now();
+            return true;
+          }
+          return false;
+        },
+        
+        clear() {
+          const chat = this.activeChat();
+          if (chat) {
+            chat.history.length = 0;
+            chat.tokenUsage = {
+              promptTokens: 0,
+              completionTokens: 0,
+              totalTokens: 0,
+              currentRequest: null
+            };
+            chat.updatedAt = Date.now();
+          }
+        },
+        
+        updateTokenUsage(usage, targetChatId = null) {
+          // If targetChatId is provided, update that chat, otherwise use active chat
+          // This ensures token usage updates go to the chat that initiated the request
+          const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
+          if (!chat) return;
+          
           // Usage values in streaming responses are cumulative totals for the current request
           // We track session totals separately and only update when we see new (higher) values
           if (usage) {
-            const currentRequest = this.tokenUsage.currentRequest || {
+            const currentRequest = chat.tokenUsage.currentRequest || {
               promptTokens: 0,
               completionTokens: 0,
               totalTokens: 0
@@ -105,29 +208,61 @@ SOFTWARE.
             
             if (isNewUsage) {
               // Update session totals: subtract old request usage, add new
-              this.tokenUsage.promptTokens = this.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
-              this.tokenUsage.completionTokens = this.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
-              this.tokenUsage.totalTokens = this.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
+              chat.tokenUsage.promptTokens = chat.tokenUsage.promptTokens - currentRequest.promptTokens + (usage.prompt_tokens || 0);
+              chat.tokenUsage.completionTokens = chat.tokenUsage.completionTokens - currentRequest.completionTokens + (usage.completion_tokens || 0);
+              chat.tokenUsage.totalTokens = chat.tokenUsage.totalTokens - currentRequest.totalTokens + (usage.total_tokens || 0);
               
               // Store current request usage
-              this.tokenUsage.currentRequest = {
+              chat.tokenUsage.currentRequest = {
                 promptTokens: usage.prompt_tokens || 0,
                 completionTokens: usage.completion_tokens || 0,
                 totalTokens: usage.total_tokens || 0
               };
+              chat.updatedAt = Date.now();
             }
           }
         },
+        
         getRemainingTokens() {
-          if (!this.contextSize) return null;
-          return Math.max(0, this.contextSize - this.tokenUsage.totalTokens);
+          const chat = this.activeChat();
+          if (!chat || !chat.contextSize) return null;
+          return Math.max(0, chat.contextSize - chat.tokenUsage.totalTokens);
         },
+        
         getContextUsagePercent() {
-          if (!this.contextSize) return null;
-          return Math.min(100, (this.tokenUsage.totalTokens / this.contextSize) * 100);
+          const chat = this.activeChat();
+          if (!chat || !chat.contextSize) return null;
+          return Math.min(100, (chat.tokenUsage.totalTokens / chat.contextSize) * 100);
         },
-        add(role, content, image, audio) {
-          const N = this.history.length - 1;
+        
+        // Check if a chat has an active request (for UI indicators)
+        hasActiveRequest(chatId) {
+          if (!chatId) return false;
+          // Use reactive array for Alpine.js reactivity
+          return this.activeRequestIds.includes(chatId);
+        },
+        
+        // Update active request tracking (called from chat.js)
+        updateActiveRequestTracking(chatId, isActive) {
+          if (isActive) {
+            if (!this.activeRequestIds.includes(chatId)) {
+              this.activeRequestIds.push(chatId);
+            }
+          } else {
+            const index = this.activeRequestIds.indexOf(chatId);
+            if (index > -1) {
+              this.activeRequestIds.splice(index, 1);
+            }
+          }
+        },
+        
+        add(role, content, image, audio, targetChatId = null) {
+          // If targetChatId is provided, add to that chat, otherwise use active chat
+          // This allows streaming to continue to the correct chat even if user switches
+          const chat = targetChatId ? this.getChat(targetChatId) : this.activeChat();
+          if (!chat) return;
+          
+          const N = chat.history.length - 1;
           // For thinking, reasoning, tool_call, and tool_result messages, always create a new message
           if (role === "thinking" || role === "reasoning" || role === "tool_call" || role === "tool_result") {
             let c = "";
@@ -154,23 +289,28 @@ SOFTWARE.
             }
             // Set expanded state: thinking is expanded by default in non-MCP mode, collapsed in MCP mode
             // Reasoning, tool_call, and tool_result are always collapsed by default
-            const isMCPMode = this.mcpMode || false;
+            const isMCPMode = chat.mcpMode || false;
             const shouldExpand = (role === "thinking" && !isMCPMode) || false;
-            this.history.push({ role, content, html: c, image, audio, expanded: shouldExpand });
+            chat.history.push({ role, content, html: c, image, audio, expanded: shouldExpand });
             
+            // Auto-name chat from first user message
+            if (role === "user" && chat.name === "New Chat" && content.trim()) {
+              const name = content.trim().substring(0, 50);
+              chat.name = name.length < content.trim().length ? name + "..." : name;
+            }
           }
           // For other messages, merge if same role
-          else if (this.history.length && this.history[N].role === role) {
-            this.history[N].content += content;
-            this.history[N].html = DOMPurify.sanitize(
-              marked.parse(this.history[N].content)
+          else if (chat.history.length && chat.history[N].role === role) {
+            chat.history[N].content += content;
+            chat.history[N].html = DOMPurify.sanitize(
+              marked.parse(chat.history[N].content)
             );
             // Merge new images and audio with existing ones
             if (image && image.length > 0) {
-              this.history[N].image = [...(this.history[N].image || []), ...image];
+              chat.history[N].image = [...(chat.history[N].image || []), ...image];
             }
             if (audio && audio.length > 0) {
-              this.history[N].audio = [...(this.history[N].audio || []), ...audio];
+              chat.history[N].audio = [...(chat.history[N].audio || []), ...audio];
             }
           } else {
             let c = "";
@@ -178,14 +318,28 @@ SOFTWARE.
             lines.forEach((line) => {
               c += DOMPurify.sanitize(marked.parse(line));
             });
-            this.history.push({ 
+            chat.history.push({ 
               role, 
               content, 
               html: c, 
               image: image || [], 
               audio: audio || [] 
             });
+            
+            // Auto-name chat from first user message
+            if (role === "user" && chat.name === "New Chat" && content.trim()) {
+              const name = content.trim().substring(0, 50);
+              chat.name = name.length < content.trim().length ? name + "..." : name;
+            }
           }
+          
+          chat.updatedAt = Date.now();
+          
+          // Auto-save after adding message
+          if (typeof autoSaveChats === 'function') {
+            autoSaveChats();
+          }
+          
           // Scroll to bottom consistently for all messages (use #chat as it's the scrollable container)
           setTimeout(() => {
             const chatContainer = document.getElementById('chat');
@@ -204,7 +358,7 @@ SOFTWARE.
           }, 100);
           const parser = new DOMParser();
           const html = parser.parseFromString(
-            this.history[this.history.length - 1].html,
+            chat.history[chat.history.length - 1].html,
             "text/html"
           );
           const code = html.querySelectorAll("pre code");
@@ -242,13 +396,22 @@ SOFTWARE.
             }, 100);
           }
         },
+        
         messages() {
-          return this.history.map((message) => ({
+          const chat = this.activeChat();
+          if (!chat) return [];
+          return chat.history.map((message) => ({
             role: message.role,
             content: message.content,
             image: message.image,
             audio: message.audio,
           }));
+        },
+        
+        // Getter for active chat history to ensure reactivity
+        get activeHistory() {
+          const chat = this.activeChat();
+          return chat ? chat.history : [];
         },
       });
     }
@@ -265,57 +428,161 @@ SOFTWARE.
       // DOM already loaded, try immediately
       if (window.Alpine) __initChatStore();
     }
+    
+    // Function to update model and context size when model selector changes
+    window.updateModelAndContextSize = function(selectElement) {
+      if (!window.Alpine || !Alpine.store("chat")) {
+        // Fallback: navigate to new model URL
+        window.location = selectElement.value;
+        return;
+      }
+      
+      const chatStore = Alpine.store("chat");
+      const activeChat = chatStore.activeChat();
+      
+      if (!activeChat) {
+        window.location = selectElement.value;
+        return;
+      }
+      
+      // Get the selected option
+      const selectedOption = selectElement.options[selectElement.selectedIndex];
+      const modelName = selectElement.value.replace('chat/', '');
+      
+      // Update model name
+      activeChat.model = modelName;
+      activeChat.updatedAt = Date.now();
+      
+      // Get context size from data attribute
+      let contextSize = null;
+      if (selectedOption.dataset.contextSize) {
+        contextSize = parseInt(selectedOption.dataset.contextSize);
+        if (!isNaN(contextSize)) {
+          activeChat.contextSize = contextSize;
+        } else {
+          activeChat.contextSize = null;
+        }
+      } else {
+        // No context size available, set to null
+        activeChat.contextSize = null;
+      }
+      
+      // Check MCP availability from data attribute
+      const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
+      if (!hasMCP) {
+        // If model doesn't support MCP, disable MCP mode
+        activeChat.mcpMode = false;
+      }
+      // Note: We don't enable MCP mode automatically, user must toggle it
+      
+      // Update the hidden input for consistency
+      const contextSizeInput = document.getElementById("chat-model");
+      if (contextSizeInput) {
+        contextSizeInput.value = modelName;
+        if (contextSize) {
+          contextSizeInput.setAttribute('data-context-size', contextSize);
+        } else {
+          contextSizeInput.removeAttribute('data-context-size');
+        }
+        if (hasMCP) {
+          contextSizeInput.setAttribute('data-has-mcp', 'true');
+        } else {
+          contextSizeInput.setAttribute('data-has-mcp', 'false');
+        }
+      }
+      
+      // Trigger MCP availability check in Alpine component
+      // The MCP toggle component will reactively check the data-has-mcp attribute
+      
+      // Save to storage
+      if (typeof autoSaveChats === 'function') {
+        autoSaveChats();
+      }
+      
+      // Update UI - this will refresh the statistics display
+      if (typeof updateUIForActiveChat === 'function') {
+        updateUIForActiveChat();
+      }
+      
+      // Trigger MCP availability check in Alpine component
+      // Dispatch a custom event that the MCP toggle component can listen to
+      const modelSelector = document.getElementById('modelSelector');
+      if (modelSelector) {
+        // Trigger Alpine reactivity by dispatching change event
+        modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
   </script>
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ sidebarOpen: true }">
+  <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ sidebarOpen: true, showClearAlert: false }">
     {{template "views/partials/navbar" .}}
 
     <!-- Main container with sidebar toggle -->
     <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
       <div
-        class="sidebar bg-[#1E293B] fixed top-16 bottom-0 left-0 w-64 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
+        class="sidebar bg-[#1E293B] fixed top-14 bottom-0 left-0 w-56 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
 
-        <div class="p-4 flex justify-between items-center border-b border-[#101827]">
+        <div class="p-3 flex justify-between items-center border-b border-[#101827]">
           <div class="flex items-center gap-2">
-            <h2 class="text-lg font-semibold text-[#E5E7EB]">Chat Settings</h2>
+            <h2 class="text-sm font-semibold text-[#E5E7EB]">Settings</h2>
             <a
               href="https://localai.io/features/text-generation/"
               target="_blank"
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors"
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs"
               title="Documentation">
-              <i class="fas fa-book text-sm"></i>
+              <i class="fas fa-book"></i>
             </a>
           </div>
           <button
             @click="sidebarOpen = false"
-            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none">
-            <i class="fa-solid fa-times"></i>
+            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none text-xs"
+            title="Hide sidebar">
+            <i class="fa-solid fa-chevron-left"></i>
           </button>
         </div>
 
         <!-- Sidebar content -->
-        <div class="p-4 space-y-6">
-          <!-- Model selection - Fixed to properly select current model -->
-          <div class="space-y-2">
-            <label class="text-sm font-medium text-[#94A3B8]">Select Model</label>
+        <div class="p-3 space-y-3">
+          <!-- Model selection - Compact -->
+          <div class="space-y-1.5">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
+              {{ if $model }}
+              {{ $galleryConfig:= index $allGalleryConfigs $model}}
+              {{ if $galleryConfig }}
+              <button 
+                data-twe-ripple-init 
+                data-twe-ripple-color="light" 
+                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1" 
+                data-modal-target="model-info-modal" 
+                data-modal-toggle="model-info-modal"
+                title="Model Information">
+                <i class="fas fa-info-circle"></i>
+              </button>
+              {{ end }}
+              {{ end }}
+            </div>
             <select
               id="modelSelector"
-              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-md shadow-sm p-2 appearance-none"
-              onchange="window.location = this.value"
+              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded p-1.5 text-xs appearance-none"
+              onchange="updateModelAndContextSize(this);"
             >
               <option value="" disabled class="text-[#94A3B8]">Select a model</option>
 
               {{ range .ModelsConfig }}
                 {{ $cfg := . }}
+                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
                 {{ range .KnownUsecaseStrings }}
                   {{ if eq . "FLAG_CHAT" }}
                     <option
                       value="chat/{{$cfg.Name}}"
                       {{ if eq $cfg.Name $model }} selected {{end}}
+                      {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
+                      data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
                       class="bg-[#101827] text-[#E5E7EB]"
                     >
                       {{$cfg.Name}}
@@ -335,181 +602,391 @@ SOFTWARE.
             </select>
           </div>
 
-          {{ if $model }}
-          {{ $galleryConfig:= index $allGalleryConfigs $model}}
-          {{ if $galleryConfig }}
-          <!-- Model info -->
-          <div class="space-y-2">
-            <div class="flex items-center">
-              {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
-              <h3 class="text-md font-medium">{{ $model }}</h3>
-              <button 
-                data-twe-ripple-init 
-                data-twe-ripple-color="light" 
-                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors" 
-                data-modal-target="model-info-modal" 
-                data-modal-toggle="model-info-modal"
-                title="Model Information">
-                <i class="fas fa-info-circle text-sm"></i>
-              </button>
+          <!-- Chat List -->
+          <div class="space-y-2" x-data="{ 
+            editingChatId: null, 
+            editingName: '', 
+            searchQuery: '',
+            filteredChats() {
+              let chats = $store.chat.chats;
+              
+              // Sort chats with stable ordering to prevent flickering during parallel streaming
+              chats = [...chats].sort((a, b) => {
+                const aActive = $store.chat.hasActiveRequest(a.id);
+                const bActive = $store.chat.hasActiveRequest(b.id);
+                
+                // Prioritize active chats at the top
+                if (aActive && !bActive) return -1;
+                if (!aActive && bActive) return 1;
+                
+                // For active chats, use createdAt to maintain stable order (prevent flickering)
+                // This ensures active chats don't reorder among themselves as they update
+                if (aActive && bActive) {
+                  const createdA = a.createdAt || 0;
+                  const createdB = b.createdAt || 0;
+                  return createdB - createdA; // Newer active chats first, but stable
+                }
+                
+                // For inactive chats, sort by updatedAt (most recent first)
+                const timeA = a.updatedAt || a.createdAt || 0;
+                const timeB = b.updatedAt || b.createdAt || 0;
+                if (timeB !== timeA) {
+                  return timeB - timeA;
+                }
+                
+                // Tiebreaker: use createdAt
+                const createdA = a.createdAt || 0;
+                const createdB = b.createdAt || 0;
+                return createdB - createdA;
+              });
+              
+              if (!this.searchQuery || !this.searchQuery.trim()) {
+                return chats;
+              }
+              
+              const query = this.searchQuery.toLowerCase().trim();
+              return chats.filter(chat => {
+                // Search in chat name
+                const nameMatch = (chat.name || 'New Chat').toLowerCase().includes(query);
+                
+                // Search in message content
+                const contentMatch = chat.history && chat.history.some(message => {
+                  if (message.content) {
+                    let contentText = '';
+                    if (typeof message.content === 'string') {
+                      // Remove HTML tags for searching
+                      const tempDiv = document.createElement('div');
+                      tempDiv.innerHTML = message.content;
+                      contentText = (tempDiv.textContent || tempDiv.innerText || '').toLowerCase();
+                    } else if (Array.isArray(message.content)) {
+                      // Handle array content (multimodal)
+                      contentText = message.content
+                        .filter(item => item.type === 'text' && item.text)
+                        .map(item => item.text)
+                        .join(' ')
+                        .toLowerCase();
+                    }
+                    return contentText.includes(query);
+                  }
+                  return false;
+                });
+                
+                return nameMatch || contentMatch;
+              });
+            }
+          }">
+            <div class="flex items-center justify-between">
+              <h2 class="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Chats</h2>
+              <div class="flex items-center gap-1">
+                <button
+                  @click="createNewChat()"
+                  class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-xs p-1"
+                  title="New Chat">
+                  <i class="fa-solid fa-plus"></i>
+                </button>
+                <button
+                  @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); }"
+                  class="text-[#94A3B8] hover:text-red-400 transition-colors text-xs p-1"
+                  title="Delete all chats"
+                  x-show="$store.chat.chats.length > 0">
+                  <i class="fa-solid fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            
+            <!-- Search Input -->
+            <div class="relative">
+              <input
+                type="text"
+                x-model="searchQuery"
+                placeholder="Search conversations..."
+                class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded px-2 py-1.5 pl-7 text-xs placeholder-[#94A3B8]"
+              />
+              <i class="fa-solid fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-[#94A3B8] text-xs"></i>
               <button
-                @click="$store.chat.clear()"
-                id="clear"
-                title="Clear chat history"
-                class="ml-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors">
-                <i class="fa-solid fa-trash-can text-sm"></i>
+                x-show="searchQuery.length > 0"
+                @click="searchQuery = ''"
+                class="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#94A3B8] hover:text-[#E5E7EB] text-xs"
+                title="Clear search">
+                <i class="fa-solid fa-times"></i>
               </button>
             </div>
-          </div>
-          {{ end }}
-          {{ end }}
-
-          <div x-data="{ showPromptForm: false }" class="space-y-3">
-              <!-- Token Usage Statistics -->
-              <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
-                <div class="flex items-center justify-between mb-2">
-                  <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
-                    <i class="fas fa-chart-line mr-2 text-[#38BDF8]"></i>
-                    Token Usage
-                  </h4>
-                </div>
-                <div class="space-y-1.5 text-xs">
-                  <div class="flex justify-between text-[#94A3B8]">
-                    <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
-                  </div>
-                  <div class="flex justify-between text-[#94A3B8]">
-                    <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
-                  </div>
-                  <div class="flex justify-between text-[#94A3B8] border-t border-[#101827] pt-1.5">
-                    <span class="font-semibold text-[#38BDF8]">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Context Size Indicator -->
-              <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
-                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-3 space-y-2">
-                  <div class="flex items-center justify-between mb-2">
-                    <h4 class="text-sm font-semibold text-[#E5E7EB] flex items-center">
-                      <i class="fas fa-database mr-2 text-[#38BDF8]"></i>
-                      Context Window
-                    </h4>
-                  </div>
-                  <div class="space-y-2">
-                    <div class="flex justify-between text-xs text-[#94A3B8] mb-1">
-                      <span>Used / Available</span>
-                      <span class="text-[#E5E7EB] font-medium">
-                        <span x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
-                        / 
-                        <span x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
-                      </span>
-                    </div>
-                    <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
-                      <div class="h-full rounded-full transition-all duration-300 ease-out"
-                           :class="{
-                             'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
-                             'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
-                             'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
-                           }"
-                           :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
+            
+            <!-- Chat List -->
+            <div class="max-h-80 overflow-y-auto space-y-1 border border-[#1E293B] rounded p-1.5">
+              <template x-for="chat in filteredChats()" :key="chat.id">
+                <div
+                  class="flex items-center justify-between p-1.5 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
+                  :class="{ 'bg-[#38BDF8]/20 border border-[#38BDF8]/40': $store.chat.activeChatId === chat.id }"
+                  @click="if (editingChatId !== chat.id) switchChat(chat.id)"
+                >
+                  <div class="flex-1 min-w-0">
+                    <template x-if="editingChatId === chat.id">
+                      <input
+                        type="text"
+                        x-model="editingName"
+                        @blur="updateChatName(chat.id, editingName); editingChatId = null"
+                        @keydown.enter="updateChatName(chat.id, editingName); editingChatId = null"
+                        @keydown.escape="editingChatId = null"
+                        class="w-full bg-[#101827] text-[#E5E7EB] border border-[#38BDF8] rounded px-1.5 py-0.5 text-xs"
+                        x-ref="editInput"
+                        x-effect="if (editingChatId === chat.id) { $refs.editInput?.focus(); editingName = chat.name; }"
+                      />
+                    </template>
+                    <template x-if="editingChatId !== chat.id">
+                      <div class="flex items-center space-x-1.5">
+                        <!-- Loading indicator for active requests -->
+                        <div x-show="$store.chat.hasActiveRequest(chat.id)" 
+                             class="flex-shrink-0">
+                          <i class="fa-solid fa-spinner fa-spin text-[#38BDF8] text-[10px]"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                          <div
+                            class="text-xs font-medium text-[#E5E7EB] truncate"
+                            @dblclick="editingChatId = chat.id; editingName = chat.name"
+                            x-text="chat.name || 'New Chat'"
+                          ></div>
+                          <div class="flex items-center gap-1.5">
+                            <div class="text-[10px] text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
+                            <span class="text-[9px] text-[#94A3B8]/60" x-text="formatChatDate(chat.updatedAt || chat.createdAt)"></span>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div class="flex justify-between text-xs">
-                      <span class="text-[#94A3B8]">
-                        Remaining: 
-                        <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.getRemainingTokens())"></span>
-                      </span>
-                      <span class="text-[#94A3B8]">
-                        <span x-text="Math.round($store.chat.getContextUsagePercent())"></span>%
-                      </span>
-                    </div>
-                    <div x-show="$store.chat.getContextUsagePercent() >= 80" class="mt-2 p-2 bg-yellow-500/10 border border-yellow-500/30 rounded text-yellow-300 text-xs">
-                      <i class="fas fa-exclamation-triangle mr-1"></i>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 95">Context window nearly full!</span>
-                      <span x-show="$store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95">Approaching context limit</span>
-                    </div>
+                    </template>
+                  </div>
+                  <div class="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      @click.stop="editingChatId = chat.id; editingName = chat.name"
+                      class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-[10px] p-0.5"
+                      title="Rename chat">
+                      <i class="fa-solid fa-edit"></i>
+                    </button>
+                    <button
+                      @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
+                      class="text-[#94A3B8] hover:text-red-400 transition-colors text-[10px] p-0.5"
+                      title="Delete chat"
+                      x-show="$store.chat.chats.length > 1">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
                   </div>
                 </div>
               </template>
-
-              {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
-              {{ $modelConfig := "" }}
-              {{ range .ModelsConfig }}
-                {{ if eq .Name $model }}
-                  {{ $modelConfig = . }}
-                {{ end }}
-              {{ end }}
-              {{ if and $modelConfig (or (ne $modelConfig.MCP.Servers "") (ne $modelConfig.MCP.Stdio "")) }}
-              <!-- MCP Toggle -->
-              <div class="flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20">
-                <span><i class="fa-solid fa-plug mr-2 text-[#38BDF8]"></i> Agentic MCP Mode</span>
-                <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="mcp-toggle" class="sr-only peer" x-model="$store.chat.mcpMode">
-                  <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
-                </label>
+              <div x-show="filteredChats().length === 0 && $store.chat.chats.length > 0" class="text-xs text-[#94A3B8] text-center py-2">
+                No conversations match your search
               </div>
+              <div x-show="$store.chat.chats.length === 0" class="text-xs text-[#94A3B8] text-center py-2">
+                No chats yet
+              </div>
+            </div>
+          </div>
 
-              <!-- MCP Mode Notification -->
-              <div x-show="$store.chat.mcpMode" class="p-3 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
-                <div class="flex items-start space-x-2">
-                  <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
-                  <div>
-                    <p class="font-medium text-[#E5E7EB] mb-1">Non-streaming Mode Active</p>
-                    <p class="text-[#94A3B8]">Responses will be processed in full before display. This may take significantly longer (up to 5 minutes), especially on CPU-only systems.</p>
+
+          <div x-data="{ showPromptForm: false, showParamsForm: false }" class="space-y-2">
+              <!-- MCP Toggle - Compact (shown dynamically based on model support) -->
+              <div x-data="{ 
+                mcpAvailable: false,
+                checkMCP() {
+                  const modelSelector = document.getElementById('modelSelector');
+                  if (!modelSelector) {
+                    this.mcpAvailable = false;
+                    return;
+                  }
+                  const selectedOption = modelSelector.options[modelSelector.selectedIndex];
+                  if (!selectedOption) {
+                    this.mcpAvailable = false;
+                    return;
+                  }
+                  const hasMCP = selectedOption.getAttribute('data-has-mcp') === 'true';
+                  this.mcpAvailable = hasMCP;
+                  
+                  // If model doesn't support MCP, disable MCP mode
+                  const activeChat = $store.chat.activeChat();
+                  if (activeChat && !hasMCP) {
+                    activeChat.mcpMode = false;
+                  }
+                },
+                init() {
+                  this.checkMCP();
+                  // Watch for model selector changes
+                  const modelSelector = document.getElementById('modelSelector');
+                  if (modelSelector) {
+                    modelSelector.addEventListener('change', () => {
+                      this.checkMCP();
+                    });
+                  }
+                  // Also watch for active chat changes (when switching chats)
+                  this.$watch('$store.chat.activeChatId', () => {
+                    this.checkMCP();
+                  });
+                }
+              }" x-show="mcpAvailable">
+                <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors">
+                  <span><i class="fa-solid fa-plug mr-1.5 text-[#38BDF8]"></i> MCP Mode</span>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="mcp-toggle" class="sr-only peer" :checked="$store.chat.activeChat()?.mcpMode || false" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
+                    <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                  </label>
+                </div>
+
+                <!-- MCP Mode Notification - Compact -->
+                <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-[10px]">
+                  <div class="flex items-start space-x-1.5">
+                    <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
+                    <div>
+                      <p class="font-medium text-[#E5E7EB] mb-0.5">Non-streaming Mode</p>
+                      <p class="text-[#94A3B8]">Full processing before display (may take up to 5 minutes on CPU).</p>
+                    </div>
                   </div>
                 </div>
               </div>
-              {{ end }}
-              {{ end }}
-              {{ end }}
 
               <button
                 @click="showPromptForm = !showPromptForm"
-                class="w-full flex items-center justify-between px-3 py-2 text-sm rounded text-[#E5E7EB] bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 transition-colors glow-on-hover"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
               >
-                <span><i class="fa-solid fa-message mr-2 text-[#38BDF8]"></i> System Prompt</span>
-                <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid"></i>
+                <span><i class="fa-solid fa-message mr-1.5 text-[#38BDF8]"></i> System Prompt</span>
+                <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
               </button>
 
               <div x-show="showPromptForm" x-data="{
                 showToast: false,
-                previousPrompt: $store.chat.systemPrompt,
+                previousPrompt: $store.chat.activeChat()?.systemPrompt || '',
                 isUpdated() {
-                  if (this.previousPrompt !== $store.chat.systemPrompt) {
+                  const currentPrompt = $store.chat.activeChat()?.systemPrompt || '';
+                  if (this.previousPrompt !== currentPrompt) {
                     this.showToast = true;
-                    this.previousPrompt = $store.chat.systemPrompt;
+                    this.previousPrompt = currentPrompt;
+                    if ($store.chat.activeChat()) {
+                      $store.chat.activeChat().systemPrompt = currentPrompt;
+                      $store.chat.activeChat().updatedAt = Date.now();
+                      autoSaveChats();
+                    }
                     setTimeout(() => {this.showToast = false;}, 2000);
                   }
                 } 
-              }" class="p-3 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg">
-                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-2">
+              }" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B]">
+                <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-1.5">
                   <textarea
                     type="text"
                     id="systemPrompt"
                     name="systemPrompt"
-                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring focus:ring-[#38BDF8] focus:ring-opacity-50 rounded-md shadow-sm p-2 appearance-none min-h-24 placeholder-[#94A3B8]"
+                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] focus:ring-opacity-50 rounded p-1.5 text-xs appearance-none min-h-20 placeholder-[#94A3B8]"
                     placeholder="System prompt"
-                    x-model.lazy="$store.chat.systemPrompt"
+                    :value="$store.chat.activeChat()?.systemPrompt || ''"
+                    @input="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                    @change="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                   ></textarea>
                   <div
                     x-show="showToast"
                     x-transition
-                    class="mb-2 text-green-400 px-4 py-2 text-sm text-center bg-green-500/10 border border-green-500/30 rounded"
+                    class="text-green-400 px-2 py-1 text-xs text-center bg-green-500/10 border border-green-500/30 rounded"
                   >
-                    System prompt updated!
+                    Updated!
                   </div>
                   <button
                     type="submit"
-                    class="px-3 py-2 text-sm rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
+                    class="px-2 py-1 text-xs rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
                   >
-                    Save System Prompt
+                    Save
                   </button>
                 </form>
+              </div>
+
+              <!-- Generation Parameters -->
+              <button
+                @click="showParamsForm = !showParamsForm"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
+              >
+                <span><i class="fa-solid fa-sliders mr-1.5 text-[#38BDF8]"></i> Generation Parameters</span>
+                <i :class="showParamsForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
+              </button>
+
+              <div x-show="showParamsForm" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B]">
+                <div class="flex flex-col space-y-3">
+                  <!-- Temperature -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-xs text-[#94A3B8]">Temperature</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.01"
+                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        :value="$store.chat.activeChat()?.temperature ?? 1.0"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[#94A3B8]">Controls randomness (0 = deterministic, 2 = very creative)</p>
+                  </div>
+
+                  <!-- Top P -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-xs text-[#94A3B8]">Top P</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        :value="$store.chat.activeChat()?.topP ?? 0.9"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[#94A3B8]">Nucleus sampling threshold (0-1)</p>
+                  </div>
+
+                  <!-- Top K -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-xs text-[#94A3B8]">Top K</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        :value="$store.chat.activeChat()?.topK ?? 40"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = parseInt($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[#94A3B8]">Limit sampling to top K tokens (0 = disabled)</p>
+                  </div>
+                </div>
               </div>
           </div>
         </div>
@@ -518,7 +995,7 @@ SOFTWARE.
       <!-- Main chat container (shifts with sidebar) -->
       <div
         class="flex-1 flex flex-col transition-all duration-300 ease-in-out"
-        :class="sidebarOpen ? 'ml-64' : 'ml-0'">
+        :class="sidebarOpen ? 'ml-56' : 'ml-0'">
 
         <!-- Chat header with toggle button -->
         <div class="border-b border-[#1E293B] p-4 flex items-center justify-between">
@@ -529,7 +1006,7 @@ SOFTWARE.
               class="mr-4 text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none bg-[#1E293B] hover:bg-[#1E293B]/80 p-2 rounded transition-colors"
               style="min-width: 36px;"
               title="Toggle settings">
-              <i class="fa-solid" :class="sidebarOpen ? 'fa-times' : 'fa-bars'"></i>
+              <i class="fa-solid" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-bars'"></i>
             </button>
 
             <div class="flex items-center">
@@ -550,11 +1027,38 @@ SOFTWARE.
             </div>
           </div>
 
+          <div class="flex items-center gap-2">
+            <button
+              @click="if (confirm('Clear all messages from this conversation? This action cannot be undone.')) { $store.chat.clear(); showClearAlert = true; setTimeout(() => showClearAlert = false, 3000); }"
+              id="clear"
+              title="Clear current chat history"
+              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-2 rounded hover:bg-[#1E293B]"
+              x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
+              <i class="fa-solid fa-broom"></i>
+            </button>
+          </div>
+          
+          <!-- Clear Chat Alert -->
+          <div x-show="showClearAlert"
+               x-transition:enter="transition ease-out duration-300"
+               x-transition:enter-start="opacity-0 translate-y-2"
+               x-transition:enter-end="opacity-100 translate-y-0"
+               x-transition:leave="transition ease-in duration-200"
+               x-transition:leave-start="opacity-100"
+               x-transition:leave-end="opacity-0"
+               class="fixed top-20 right-4 z-50 max-w-sm pointer-events-none">
+            <div class="bg-[#38BDF8]/20 border border-[#38BDF8]/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-check-circle text-[#38BDF8]"></i>
+                <span class="text-sm text-[#E5E7EB] font-medium">Chat history cleared successfully</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Chat messages area -->
-        <div class="flex-1 p-4 overflow-auto" id="chat" x-data="{history: $store.chat.history}">
-          <p id="usage" x-show="history.length === 0" class="text-[#94A3B8]">
+        <div class="flex-1 p-4 overflow-auto" id="chat">
+          <p id="usage" x-show="!$store.chat.activeChat() || ($store.chat.activeChat()?.history?.length || 0) === 0" class="text-[#94A3B8]">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
             <ul class="list-disc list-inside mt-2 space-y-1">
               <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[#38BDF8]"></i> icon.</li>
@@ -562,8 +1066,8 @@ SOFTWARE.
               <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[#38BDF8]"></i> icon.</li>
             </ul>
           </p>
-          <div id="messages" class="max-w-3xl mx-auto space-y-2">
-            <template x-for="(message, index) in history" :key="index">
+          <div id="messages" class="max-w-3xl mx-auto space-y-2" :key="$store.chat.activeChatId">
+            <template x-for="(message, index) in $store.chat.activeHistory" :key="index">
               <div>
                 <!-- Reasoning/Thinking messages appear first (before assistant) - collapsible in MCP mode -->
                 <template x-if="message.role === 'reasoning' || message.role === 'thinking'">
@@ -625,7 +1129,7 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#8B5CF6]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto overflow-x-auto tool-call-content" 
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto tool-call-content" 
                                x-html="message.html"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -658,7 +1162,7 @@ SOFTWARE.
                           x-transition
                           class="mt-2 pt-2 border-t border-[#10B981]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto overflow-x-auto tool-result-content" 
+                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto tool-result-content" 
                                x-html="formatToolResult(message.content)"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -703,9 +1207,9 @@ SOFTWARE.
                     {{ end }}
                     <div class="flex flex-col flex-1">
                       <span class="text-xs font-semibold text-[#94A3B8] mb-1">{{if .Model}}{{.Model}}{{else}}Assistant{{end}}</span>
-                      <div class="flex-1 text-[#E5E7EB] flex items-center space-x-2">
-                        <div class="p-3 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] border border-[#8B5CF6]/20 shadow-lg" x-html="message.html"></div>
-                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1">
+                      <div class="flex-1 text-[#E5E7EB] flex items-center space-x-2 min-w-0">
+                        <div class="p-3 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] border border-[#8B5CF6]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
+                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1 flex-shrink-0">
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
@@ -770,31 +1274,32 @@ SOFTWARE.
                   <div class="flex items-center gap-1">
                     <i class="fas fa-chart-line text-[#38BDF8]"></i>
                     <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.promptTokens)"></span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
                   </div>
                   <div class="flex items-center gap-1">
                     <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.completionTokens)"></span>
+                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
                   </div>
                   <div class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
                     <span class="text-[#38BDF8] font-semibold">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                   </div>
                   <!-- Tokens per second display -->
                   <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
                     <i class="fas fa-tachometer-alt text-[#38BDF8]"></i>
                     <span id="tokens-per-second" class="text-[#E5E7EB] font-medium">-</span>
+                    <span id="max-tokens-per-second-badge" class="ml-2 px-1.5 py-0.5 text-[10px] bg-[#38BDF8]/20 text-[#38BDF8] rounded border border-[#38BDF8]/30 hidden"></span>
                   </div>
                 </div>
 
                 <!-- Context Window -->
-                <template x-if="$store.chat.contextSize && $store.chat.contextSize > 0">
+                <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
                   <div class="flex items-center gap-2 text-[#94A3B8]">
                     <i class="fas fa-database text-[#38BDF8]"></i>
                     <span>
-                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.tokenUsage.totalTokens)"></span>
+                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                       / 
-                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.contextSize)"></span>
+                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
                     </span>
                     <div class="w-16 bg-[#101827] rounded-full h-1.5 overflow-hidden border border-[#1E293B]">
                       <div class="h-full rounded-full transition-all duration-300 ease-out"
@@ -1039,6 +1544,49 @@ SOFTWARE.
             return nameMatch ? nameMatch[1] : '';
           }
         };
+        
+        // Chat management functions are defined in chat.js and available globally
+        // These are just placeholders - the actual implementations are in chat.js
+        
+        // Get last message preview for chat list
+        window.getLastMessagePreview = (chat) => {
+          if (!chat || !chat.history || chat.history.length === 0) {
+            return 'No messages yet';
+          }
+          const lastMessage = chat.history[chat.history.length - 1];
+          if (!lastMessage || !lastMessage.content) {
+            return 'No messages yet';
+          }
+          // Get plain text from content (remove HTML tags)
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = lastMessage.content;
+          const text = tempDiv.textContent || tempDiv.innerText || '';
+          return text.substring(0, 40) + (text.length > 40 ? '...' : '');
+        };
+        
+        // Format chat date for display
+        window.formatChatDate = (timestamp) => {
+          if (!timestamp) return '';
+          const date = new Date(timestamp);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+          
+          if (diffMins < 1) {
+            return 'Just now';
+          } else if (diffMins < 60) {
+            return `${diffMins}m ago`;
+          } else if (diffHours < 24) {
+            return `${diffHours}h ago`;
+          } else if (diffDays < 7) {
+            return `${diffDays}d ago`;
+          } else {
+            // Show date for older chats
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
+        };
       });
 
       // Context size is now initialized in the Alpine store initialization above
@@ -1170,13 +1718,23 @@ SOFTWARE.
     }
 
     /* Prevent JSON overflow in tool calls and results */
+    .tool-call-content,
+    .tool-result-content {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-y: auto;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+
     .tool-call-content pre,
     .tool-result-content pre {
         overflow-x: auto;
         overflow-y: auto;
         max-width: 100%;
         word-wrap: break-word;
-        white-space: pre-wrap;
+        overflow-wrap: break-word;
+        white-space: pre;
         background: #101827 !important;
         border: 1px solid #1E293B;
         border-radius: 6px;
@@ -1187,13 +1745,46 @@ SOFTWARE.
     .tool-call-content code,
     .tool-result-content code {
         word-wrap: break-word;
-        white-space: pre-wrap;
         overflow-wrap: break-word;
+        white-space: pre;
         background: transparent !important;
         color: #E5E7EB;
         font-family: 'ui-monospace', 'Monaco', 'Consolas', monospace;
         font-size: 0.875rem;
         line-height: 1.5;
+        display: block;
+        max-width: 100%;
+    }
+    
+    /* Prevent overflow in assistant messages with code/markdown */
+    div[class*="rounded-lg"][class*="bg-gradient"] {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+    }
+    
+    div[class*="rounded-lg"][class*="bg-gradient"] pre,
+    div[class*="rounded-lg"][class*="bg-gradient"] code {
+        max-width: 100%;
+        overflow-x: auto;
+        overflow-wrap: break-word;
+        word-wrap: break-word;
+        white-space: pre;
+    }
+    
+    /* Ensure code blocks in assistant messages don't overflow */
+    #messages pre,
+    #messages code {
+        max-width: 100%;
+        overflow-x: auto;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+    }
+    
+    #messages pre code {
+        white-space: pre;
+        display: block;
     }
 
     /* Dark theme syntax highlighting for JSON */
@@ -1238,6 +1829,69 @@ SOFTWARE.
     .tool-result-content .hljs-attr {
         color: #8B5CF6 !important;
     }
+    </style>
+
+    <!-- Custom Scrollbar Styling -->
+    <style>
+      /* Webkit browsers (Chrome, Safari, Edge) - Minimal and elegant */
+      .sidebar::-webkit-scrollbar,
+      #chat::-webkit-scrollbar,
+      #messages::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      .sidebar::-webkit-scrollbar-track,
+      #chat::-webkit-scrollbar-track,
+      #messages::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .sidebar::-webkit-scrollbar-thumb,
+      #chat::-webkit-scrollbar-thumb,
+      #messages::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.2);
+        border-radius: 3px;
+        transition: background 0.2s ease;
+      }
+
+      .sidebar::-webkit-scrollbar-thumb:hover,
+      #chat::-webkit-scrollbar-thumb:hover,
+      #messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.4);
+      }
+
+      /* Firefox - Minimal */
+      .sidebar,
+      #chat,
+      #messages {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.2) transparent;
+      }
+
+      /* Chat list scrollbar - Even more minimal */
+      .max-h-80::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .max-h-80::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .max-h-80::-webkit-scrollbar-thumb {
+        background: rgba(148, 163, 184, 0.15);
+        border-radius: 2px;
+        transition: background 0.2s ease;
+      }
+
+      .max-h-80::-webkit-scrollbar-thumb:hover {
+        background: rgba(148, 163, 184, 0.3);
+      }
+
+      .max-h-80 {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.15) transparent;
+      }
     </style>
   </body>
 </html>
