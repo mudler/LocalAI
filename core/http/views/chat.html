@@ -746,7 +746,10 @@ SOFTWARE.
                             @dblclick="editingChatId = chat.id; editingName = chat.name"
                             x-text="chat.name || 'New Chat'"
                           ></div>
-                          <div class="text-[10px] text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
+                          <div class="flex items-center gap-1.5">
+                            <div class="text-[10px] text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
+                            <span class="text-[9px] text-[#94A3B8]/60" x-text="formatChatDate(chat.updatedAt || chat.createdAt)"></span>
+                          </div>
                         </div>
                       </div>
                     </template>
@@ -1559,6 +1562,30 @@ SOFTWARE.
           tempDiv.innerHTML = lastMessage.content;
           const text = tempDiv.textContent || tempDiv.innerText || '';
           return text.substring(0, 40) + (text.length > 40 ? '...' : '');
+        };
+        
+        // Format chat date for display
+        window.formatChatDate = (timestamp) => {
+          if (!timestamp) return '';
+          const date = new Date(timestamp);
+          const now = new Date();
+          const diffMs = now - date;
+          const diffMins = Math.floor(diffMs / 60000);
+          const diffHours = Math.floor(diffMs / 3600000);
+          const diffDays = Math.floor(diffMs / 86400000);
+          
+          if (diffMins < 1) {
+            return 'Just now';
+          } else if (diffMins < 60) {
+            return `${diffMins}m ago`;
+          } else if (diffHours < 24) {
+            return `${diffHours}h ago`;
+          } else if (diffDays < 7) {
+            return `${diffDays}d ago`;
+          } else {
+            // Show date for older chats
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          }
         };
       });
 
