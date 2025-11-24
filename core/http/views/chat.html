@@ -606,11 +606,34 @@ SOFTWARE.
             filteredChats() {
               let chats = $store.chat.chats;
               
-              // Sort chats by updatedAt (most recent first)
+              // Sort chats with stable ordering to prevent flickering during parallel streaming
               chats = [...chats].sort((a, b) => {
+                const aActive = $store.chat.hasActiveRequest(a.id);
+                const bActive = $store.chat.hasActiveRequest(b.id);
+                
+                // Prioritize active chats at the top
+                if (aActive && !bActive) return -1;
+                if (!aActive && bActive) return 1;
+                
+                // For active chats, use createdAt to maintain stable order (prevent flickering)
+                // This ensures active chats don't reorder among themselves as they update
+                if (aActive && bActive) {
+                  const createdA = a.createdAt || 0;
+                  const createdB = b.createdAt || 0;
+                  return createdB - createdA; // Newer active chats first, but stable
+                }
+                
+                // For inactive chats, sort by updatedAt (most recent first)
                 const timeA = a.updatedAt || a.createdAt || 0;
                 const timeB = b.updatedAt || b.createdAt || 0;
-                return timeB - timeA; // Descending order (newest first)
+                if (timeB !== timeA) {
+                  return timeB - timeA;
+                }
+                
+                // Tiebreaker: use createdAt
+                const createdA = a.createdAt || 0;
+                const createdB = b.createdAt || 0;
+                return createdB - createdA;
               });
               
               if (!this.searchQuery || !this.searchQuery.trim()) {
