@@ -55,6 +55,11 @@ func (re *RequestExtractor) setModelNameFromRequest(c echo.Context) {
 		model = c.QueryParam("model")
 	}
 
+	// Check FormValue for multipart/form-data requests (e.g., /v1/images/inpainting)
+	if model == "" {
+		model = c.FormValue("model")
+	}
+
 	if model == "" {
 		// Set model from bearer token, if available
 		auth := c.Request().Header.Get("Authorization")
