@@ -28,7 +28,7 @@ SOFTWARE.
 */
 
 // Track requests per chat ID to support parallel chatting
-let activeRequests = new Map(); // chatId -> { controller, reader, startTime, tokensReceived, interval }
+let activeRequests = new Map(); // chatId -> { controller, reader, startTime, tokensReceived, interval, maxTokensPerSecond }
 
 // Global variables for UI (stop button, etc.)
 let currentAbortController = null; // For stop button - tracks the active chat's request
@@ -247,6 +247,12 @@ function switchChat(chatId) {
     // Save current state before switching
     saveChatsToStorage();
     
+    // Hide badge when switching chats - will be shown if new chat has completed request
+    const maxBadge = document.getElementById('max-tokens-per-second-badge');
+    if (maxBadge) {
+      maxBadge.style.display = 'none';
+    }
+    
     // Update global request tracking for stop button (only if new chat has active request)
     const newActiveChat = chatStore.activeChat();
     const newRequest = activeRequests.get(newActiveChat?.id);
@@ -283,6 +289,10 @@ function switchChat(chatId) {
       currentReader = null;
       toggleLoader(false, newActiveChat?.id);
       // Display is already cleared above
+      
+      // Check if this chat has a completed request with max tokens/s to show
+      // Note: We only show badge for completed requests, not active ones
+      // The badge will be shown when the request ends, not when switching to a chat
     }
     
     // Update UI to reflect new active chat
@@ -475,11 +485,19 @@ function toggleLoader(show, chatId = null) {
       tokensPerSecondInterval = null;
     }
     
-    if (tokensPerSecondDisplay && chatId && activeChat && activeChat.id === chatId) {
+    // Use provided chatId or get from active chat
+    const targetChatId = chatId || (activeChat ? activeChat.id : null);
+    
+    if (tokensPerSecondDisplay && targetChatId && activeChat && activeChat.id === targetChatId) {
       tokensPerSecondDisplay.textContent = '-';
-      updateTokensPerSecond(chatId);
-      // Start a single global interval that always checks the active chat
-      startTokensPerSecondInterval();
+      // Hide max badge when starting new request
+      const maxBadge = document.getElementById('max-tokens-per-second-badge');
+      if (maxBadge) {
+        maxBadge.style.display = 'none';
+      }
+      // Don't start interval here - it will be started when the request is created
+      // Just update once to show initial state
+      updateTokensPerSecond(targetChatId);
     } else if (tokensPerSecondDisplay) {
       // Not the active chat, hide or show dash
       tokensPerSecondDisplay.textContent = '-';
@@ -512,6 +530,12 @@ function toggleLoader(show, chatId = null) {
     if (chatId && activeChat && activeChat.id === chatId) {
       currentAbortController = null;
       currentReader = null;
+      
+      // Show the max tokens/s badge when request ends
+      const request = activeRequests.get(chatId);
+      if (request && request.maxTokensPerSecond > 0) {
+        updateMaxTokensPerSecondBadge(chatId, request.maxTokensPerSecond);
+      }
     }
   }
 }
@@ -523,15 +547,25 @@ function startTokensPerSecondInterval() {
   
   // Get the current active chat ID to track
   const chatStore = Alpine.store("chat");
-  if (!chatStore) return;
+  if (!chatStore) {
+    return;
+  }
   
   const activeChat = chatStore.activeChat();
-  if (!activeChat) return;
+  if (!activeChat) {
+    return;
+  }
   
   // Check if active chat has an active request
+  // We can start the interval if we have at least a controller (reader will be set when streaming starts)
   const request = activeRequests.get(activeChat.id);
-  if (!request || (!request.controller && !request.reader)) {
-    // No active request, don't start interval
+  if (!request) {
+    // No active request for this chat
+    return;
+  }
+  
+  if (!request.controller) {
+    // No controller yet, don't start interval
     return;
   }
   
@@ -558,23 +592,48 @@ function startTokensPerSecondInterval() {
     
     // CRITICAL: Check if the active chat has changed
     if (!currentActiveChat || currentActiveChat.id !== tokensPerSecondIntervalChatId) {
-      // Active chat changed, stop this interval immediately
+      // Active chat changed, stop this interval immediately and hide badge
+      const maxBadge = document.getElementById('max-tokens-per-second-badge');
+      if (maxBadge) {
+        maxBadge.style.display = 'none';
+      }
       stopTokensPerSecondInterval();
       return;
     }
     
     // Check if active chat still has an active request
     const currentRequest = activeRequests.get(currentActiveChat.id);
-    if (!currentRequest || (!currentRequest.controller && !currentRequest.reader)) {
-      // No active request for this chat anymore
+    if (!currentRequest) {
+      // No active request for this chat anymore - hide badge
       tokensPerSecondDisplay.textContent = '-';
+      const maxBadge = document.getElementById('max-tokens-per-second-badge');
+      if (maxBadge) {
+        maxBadge.style.display = 'none';
+      }
+      stopTokensPerSecondInterval();
+      return;
+    }
+    
+    // If controller is gone, request ended - show max rate badge only for this chat
+    if (!currentRequest.controller) {
+      tokensPerSecondDisplay.textContent = '-';
+      if (currentRequest.maxTokensPerSecond > 0) {
+        // Only show badge if this is still the active chat
+        updateMaxTokensPerSecondBadge(currentActiveChat.id, currentRequest.maxTokensPerSecond);
+      } else {
+        // Hide badge if no max value
+        const maxBadge = document.getElementById('max-tokens-per-second-badge');
+        if (maxBadge) {
+          maxBadge.style.display = 'none';
+        }
+      }
       stopTokensPerSecondInterval();
       return;
     }
     
     // Update for the current active chat only
     updateTokensPerSecond(currentActiveChat.id);
-  }, 500);
+  }, 250); // Update more frequently for better responsiveness
 }
 
 // Stop the tokens/second interval
@@ -598,23 +657,6 @@ function updateTokensPerSecond(chatId) {
     return;
   }
   
-  // Always get fresh active chat to ensure we're updating the right one
-  const chatStore = Alpine.store("chat");
-  if (!chatStore) {
-    tokensPerSecondDisplay.textContent = '-';
-    return;
-  }
-  
-  const activeChat = chatStore.activeChat();
-  
-  // CRITICAL: Strict check - only update if this is the current active chat
-  // If not, immediately show dash and return
-  if (!activeChat || activeChat.id !== chatId) {
-    // Not the active chat anymore, don't update - show dash instead
-    tokensPerSecondDisplay.textContent = '-';
-    return;
-  }
-  
   // Get the request info for this chat
   const request = activeRequests.get(chatId);
   if (!request || !request.startTime) {
@@ -622,30 +664,65 @@ function updateTokensPerSecond(chatId) {
     return;
   }
   
-  // Verify the request is still active
-  if (!request.controller && !request.reader) {
+  // Verify the request is still active (controller is cleared when request ends)
+  if (!request.controller) {
     tokensPerSecondDisplay.textContent = '-';
     return;
   }
   
-  // Double-check one more time that this is still the active chat
-  // (in case it changed between the first check and now)
-  const currentActiveChat = chatStore.activeChat();
-  if (!currentActiveChat || currentActiveChat.id !== chatId) {
+  // Check if this is still the active chat
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore ? chatStore.activeChat() : null;
+  if (!activeChat || activeChat.id !== chatId) {
+    // Not the active chat anymore
     tokensPerSecondDisplay.textContent = '-';
     return;
   }
   
   const elapsedSeconds = (Date.now() - request.startTime) / 1000;
-  if (elapsedSeconds > 0 && request.tokensReceived > 0) {
-    const rate = request.tokensReceived / elapsedSeconds;
-    const formattedRate = `${rate.toFixed(1)} tokens/s`;
-    tokensPerSecondDisplay.textContent = formattedRate;
-    lastTokensPerSecond = formattedRate; // Store the last calculated rate
-  } else if (elapsedSeconds > 0) {
-    tokensPerSecondDisplay.textContent = '-';
+  // Show rate if we have tokens, otherwise show waiting indicator
+  if (elapsedSeconds > 0) {
+    if (request.tokensReceived > 0) {
+      const rate = request.tokensReceived / elapsedSeconds;
+      // Update max rate if this is higher
+      if (rate > (request.maxTokensPerSecond || 0)) {
+        request.maxTokensPerSecond = rate;
+      }
+      const formattedRate = `${rate.toFixed(1)} tokens/s`;
+      tokensPerSecondDisplay.textContent = formattedRate;
+      lastTokensPerSecond = formattedRate; // Store the last calculated rate
+      
+      // Update the max badge if it exists (only show during active request if user wants, or we can show it at the end)
+    } else {
+      // Request is active but no tokens yet - show waiting
+      tokensPerSecondDisplay.textContent = '0.0 tokens/s';
+    }
   } else {
+    // Just started
     tokensPerSecondDisplay.textContent = '-';
+  }
+}
+
+// Update the max tokens/s badge display
+function updateMaxTokensPerSecondBadge(chatId, maxRate) {
+  const maxBadge = document.getElementById('max-tokens-per-second-badge');
+  if (!maxBadge) return;
+  
+  // Check if this is still the active chat
+  const chatStore = Alpine.store("chat");
+  const activeChat = chatStore ? chatStore.activeChat() : null;
+  if (!activeChat || activeChat.id !== chatId) {
+    // Not the active chat, hide badge
+    maxBadge.style.display = 'none';
+    return;
+  }
+  
+  // Only show badge if we have a valid max rate
+  if (maxRate > 0) {
+    maxBadge.textContent = `Peak: ${maxRate.toFixed(1)} tokens/s`;
+    maxBadge.style.display = 'inline-flex';
+  } else {
+    maxBadge.style.display = 'none';
   }
 }
 
@@ -1065,7 +1142,7 @@ async function promptGPT(systemPrompt, input) {
   // Store the chat ID for this request so we can track it even if user switches chats
   const chatId = activeChat.id;
   
-  toggleLoader(true);
+  toggleLoader(true, chatId);
 
   messages = chatStore.messages();
 
@@ -1131,6 +1208,17 @@ async function promptGPT(systemPrompt, input) {
   // Add stream parameter for both regular chat and MCP (MCP now supports SSE streaming)
   requestBody.stream = true;
   
+  // Add generation parameters if they are set (null means use default)
+  if (activeChat.temperature !== null && activeChat.temperature !== undefined) {
+    requestBody.temperature = activeChat.temperature;
+  }
+  if (activeChat.topP !== null && activeChat.topP !== undefined) {
+    requestBody.top_p = activeChat.topP;
+  }
+  if (activeChat.topK !== null && activeChat.topK !== undefined) {
+    requestBody.top_k = activeChat.topK;
+  }
+  
   let response;
   try {
     // Create AbortController for timeout handling and stop button
@@ -1142,13 +1230,24 @@ async function promptGPT(systemPrompt, input) {
       reader: null,
       startTime: requestStartTime,
       tokensReceived: 0,
-      interval: null
+      interval: null,
+      maxTokensPerSecond: 0
     });
     
     // Update reactive tracking for UI indicators
     updateRequestTracking(chatId, true);
     // Also store globally for stop button (only for active chat)
     currentAbortController = controller;
+    
+    // Start tokens/second interval now that the request is created
+    // Try to start immediately, and also schedule a retry in case Alpine isn't ready
+    startTokensPerSecondInterval();
+    setTimeout(() => {
+      // Retry in case the first attempt failed due to timing
+      if (!tokensPerSecondInterval) {
+        startTokensPerSecondInterval();
+      }
+    }, 200);
     const timeoutId = setTimeout(() => controller.abort(), mcpMode ? 300000 : 30000); // 5 minutes for MCP, 30 seconds for regular
     
     response = await fetch(endpoint, {
@@ -1731,6 +1830,8 @@ async function promptGPT(systemPrompt, input) {
       request.reader = reader;
       // Ensure tracking is updated when reader is set
       updateRequestTracking(chatId, true);
+      // Ensure interval is running (in case it wasn't started earlier)
+      startTokensPerSecondInterval();
     }
     currentReader = reader;
 
@@ -1751,7 +1852,8 @@ async function promptGPT(systemPrompt, input) {
       // Count tokens for rate calculation (per chat)
       const request = activeRequests.get(chatId);
       if (request) {
-        request.tokensReceived += Math.ceil(token.length / 4);
+        const tokenCount = Math.ceil(token.length / 4);
+        request.tokensReceived += tokenCount;
       }
       // Only update display if this is the active chat (interval will handle it)
       // Don't call updateTokensPerSecond here to avoid unnecessary updates

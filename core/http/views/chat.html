@@ -109,6 +109,9 @@ SOFTWARE.
             history: [],
             systemPrompt: systemPrompt || "",
             mcpMode: mcpMode || false,
+            temperature: null, // null means use default
+            topP: null, // null means use default
+            topK: null, // null means use default
             tokenUsage: {
               promptTokens: 0,
               completionTokens: 0,
@@ -774,7 +777,7 @@ SOFTWARE.
           </div>
 
 
-          <div x-data="{ showPromptForm: false }" class="space-y-2">
+          <div x-data="{ showPromptForm: false, showParamsForm: false }" class="space-y-2">
               <!-- MCP Toggle - Compact (shown dynamically based on model support) -->
               <div x-data="{ 
                 mcpAvailable: false,
@@ -882,6 +885,103 @@ SOFTWARE.
                     Save
                   </button>
                 </form>
+              </div>
+
+              <!-- Generation Parameters -->
+              <button
+                @click="showParamsForm = !showParamsForm"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
+              >
+                <span><i class="fa-solid fa-sliders mr-1.5 text-[#38BDF8]"></i> Generation Parameters</span>
+                <i :class="showParamsForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
+              </button>
+
+              <div x-show="showParamsForm" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B]">
+                <div class="flex flex-col space-y-3">
+                  <!-- Temperature -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-xs text-[#94A3B8]">Temperature</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="2"
+                        step="0.01"
+                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        :value="$store.chat.activeChat()?.temperature ?? 1.0"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[#94A3B8]">Controls randomness (0 = deterministic, 2 = very creative)</p>
+                  </div>
+
+                  <!-- Top P -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-xs text-[#94A3B8]">Top P</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.01"
+                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        :value="$store.chat.activeChat()?.topP ?? 0.9"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[#94A3B8]">Nucleus sampling threshold (0-1)</p>
+                  </div>
+
+                  <!-- Top K -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-xs text-[#94A3B8]">Top K</label>
+                      <span class="text-xs text-[#E5E7EB] font-medium" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        step="1"
+                        class="flex-1 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        :value="$store.chat.activeChat()?.topK ?? 40"
+                        @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = parseInt($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                      />
+                      <button
+                        @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
+                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1"
+                        title="Reset to default"
+                        x-show="$store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined"
+                      >
+                        <i class="fa-solid fa-rotate-left"></i>
+                      </button>
+                    </div>
+                    <p class="text-[10px] text-[#94A3B8]">Limit sampling to top K tokens (0 = disabled)</p>
+                  </div>
+                </div>
               </div>
           </div>
         </div>
@@ -1166,6 +1266,7 @@ SOFTWARE.
                   <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
                     <i class="fas fa-tachometer-alt text-[#38BDF8]"></i>
                     <span id="tokens-per-second" class="text-[#E5E7EB] font-medium">-</span>
+                    <span id="max-tokens-per-second-badge" class="ml-2 px-1.5 py-0.5 text-[10px] bg-[#38BDF8]/20 text-[#38BDF8] rounded border border-[#38BDF8]/30 hidden"></span>
                   </div>
                 </div>
 
