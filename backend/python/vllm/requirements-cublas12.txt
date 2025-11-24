@@ -1,4 +1,4 @@
 accelerate
-torch==2.7.0
+torch==2.9.1+xpu
 transformers
 bitsandbytes
