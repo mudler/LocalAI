@@ -57,7 +57,7 @@ add_library(hw_grpc_proto
   ${hw_proto_srcs}
   ${hw_proto_hdrs} )
 
-add_executable(${TARGET} grpc-server.cpp utils.hpp json.hpp httplib.h)
+add_executable(${TARGET} grpc-server.cpp json.hpp httplib.h)
 
 target_include_directories(${TARGET} PRIVATE ../llava)
 target_include_directories(${TARGET} PRIVATE ${CMAKE_SOURCE_DIR})
