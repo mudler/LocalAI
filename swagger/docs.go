@@ -634,6 +634,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/v1/images/inpainting": {
+            "post": {
+                "description": "Perform image inpainting. Accepts multipart/form-data with ` + "`" + `image` + "`" + ` and ` + "`" + `mask` + "`" + ` files.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "images"
+                ],
+                "summary": "Image inpainting",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Model identifier",
+                        "name": "model",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Text prompt guiding the generation",
+                        "name": "prompt",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of inference steps (default 25)",
+                        "name": "steps",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "Original image file",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Mask image file (white = area to inpaint)",
+                        "name": "mask",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/schema.OpenAIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/v1/mcp/chat/completions": {
             "post": {
                 "summary": "Stream MCP chat completions with reasoning, tool calls, and results",

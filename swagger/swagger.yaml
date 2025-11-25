@@ -1201,43 +1201,55 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      - application/json
+      description: Perform image inpainting. Accepts multipart/form-data with `image`
+        and `mask` files.
       parameters:
-      - in: formData
+      - description: Model identifier
+        in: formData
         name: model
-        type: string
-        description: Model name (eg. dreamshaper-8-inpainting)
         required: true
-      - in: formData
+        type: string
+      - description: Text prompt guiding the generation
+        in: formData
         name: prompt
+        required: true
         type: string
-        description: Positive prompt text
-        required: true
-      - in: formData
-        name: image
-        type: file
-        description: Source image (PNG/JPEG)
-        required: true
-      - in: formData
-        name: mask
-        type: file
-        description: Mask image (PNG). White=keep, Black=replace (or as backend expects)
-        required: true
-      - in: formData
+      - description: Number of inference steps (default 25)
+        in: formData
         name: steps
         type: integer
-        description: Number of inference steps
-      - in: body
-        name: request
-        description: "Alternative JSON payload with base64 fields: { image: '<b64>', mask: '<b64>', model, prompt }"
-        schema:
-          $ref: '#/definitions/schema.OpenAIRequest'
+      - description: Original image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: Mask image file (white = area to inpaint)
+        in: formData
+        name: mask
+        required: true
+        type: file
+      produces:
+      - application/json
       responses:
         "200":
-          description: Successful inpainting
+          description: OK
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
-      summary: Creates an inpainted image given an image + mask + prompt.
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Image inpainting
+      tags:
+      - images
   /v1/mcp/chat/completions:
     post:
       parameters:
