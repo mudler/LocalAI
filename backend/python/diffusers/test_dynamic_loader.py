@@ -195,9 +195,10 @@ class TestDiffusersDynamicLoaderWithMocks(unittest.TestCase):
         import diffusers_dynamic_loader as loader
         from diffusers import DiffusionPipeline
 
-        # Without huggingface_hub installed or with failing model_info,
+        # When model_id is provided but hub lookup fails (or huggingface_hub not installed),
         # should fall back to DiffusionPipeline
-        with patch.object(loader, 'model_info', side_effect=ImportError):
+        # We'll test this by patching the import within the function
+        with patch.dict('sys.modules', {'huggingface_hub': None}):
             cls = loader.resolve_pipeline_class(model_id="some/model")
             self.assertEqual(cls, DiffusionPipeline)
 

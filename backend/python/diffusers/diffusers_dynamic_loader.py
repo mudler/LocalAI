@@ -151,8 +151,9 @@ def _discover_pipelines() -> Tuple[Dict[str, Type], Dict[str, List[str]]]:
                     if attr_name not in task_aliases[alias]:
                         task_aliases[alias].append(attr_name)
 
-        except (ImportError, AttributeError, TypeError):
-            # Skip any problematic attributes
+        except (ImportError, AttributeError, TypeError, RuntimeError, Exception):
+            # Skip any problematic attributes - some pipelines may have
+            # missing optional dependencies (e.g., ftfy, sentencepiece)
             continue
 
     return pipeline_registry, task_aliases
