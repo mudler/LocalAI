@@ -151,7 +151,7 @@ def _discover_pipelines() -> Tuple[Dict[str, Type], Dict[str, List[str]]]:
                     if attr_name not in task_aliases[alias]:
                         task_aliases[alias].append(attr_name)
 
-        except (ImportError, AttributeError, TypeError, RuntimeError, Exception):
+        except (ImportError, AttributeError, TypeError, RuntimeError, ModuleNotFoundError):
             # Skip any problematic attributes - some pipelines may have
             # missing optional dependencies (e.g., ftfy, sentencepiece)
             continue
@@ -297,7 +297,9 @@ def resolve_pipeline_class(
             pass
 
         # Fallback: use DiffusionPipeline.from_pretrained which auto-detects
-        return registry.get('DiffusionPipeline')
+        # DiffusionPipeline is always added to registry in _discover_pipelines
+        from diffusers import DiffusionPipeline
+        return registry.get('DiffusionPipeline', DiffusionPipeline)
 
     raise ValueError(
         "Must provide at least one of: class_name, task, or model_id. "

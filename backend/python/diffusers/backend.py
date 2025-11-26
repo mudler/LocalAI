@@ -33,6 +33,14 @@ from diffusers_dynamic_loader import (
 # Import specific items still needed for special cases and safety checker
 from diffusers import DiffusionPipeline, AutoPipelineForText2Image, ControlNetModel
 from diffusers import FluxPipeline, FluxTransformer2DModel, AutoencoderKLWan
+# Import special case pipelines directly (avoids overhead of dynamic resolution)
+from diffusers import (
+    WanPipeline,
+    WanImageToVideoPipeline,
+    SanaPipeline,
+    StableVideoDiffusionPipeline,
+    Lumina2Text2ImgPipeline,
+)
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image, export_to_video
 from compel import Compel, ReturnedEmbeddingsType
@@ -229,8 +237,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 subfolder="vae",
                 torch_dtype=torch.float32
             )
-            pipeline_class = resolve_pipeline_class(class_name="WanPipeline")
-            pipe = pipeline_class.from_pretrained(
+            pipe = WanPipeline.from_pretrained(
                 request.Model,
                 vae=vae,
                 torch_dtype=torchType
@@ -245,8 +252,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 subfolder="vae",
                 torch_dtype=torch.float32
             )
-            pipeline_class = resolve_pipeline_class(class_name="WanImageToVideoPipeline")
-            pipe = pipeline_class.from_pretrained(
+            pipe = WanImageToVideoPipeline.from_pretrained(
                 request.Model,
                 vae=vae,
                 torch_dtype=torchType
@@ -256,8 +262,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # SanaPipeline - requires special VAE and text encoder handling
         if pipeline_type == "SanaPipeline":
-            pipeline_class = resolve_pipeline_class(class_name="SanaPipeline")
-            pipe = pipeline_class.from_pretrained(
+            pipe = SanaPipeline.from_pretrained(
                 request.Model,
                 variant="bf16",
                 torch_dtype=torch.bfloat16
@@ -269,8 +274,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         # StableVideoDiffusionPipeline - has CPU offload handling
         if pipeline_type == "StableVideoDiffusionPipeline":
             self.img2vid = True
-            pipeline_class = resolve_pipeline_class(class_name="StableVideoDiffusionPipeline")
-            pipe = pipeline_class.from_pretrained(
+            pipe = StableVideoDiffusionPipeline.from_pretrained(
                 request.Model, torch_dtype=torchType, variant=variant
             )
             if not DISABLE_CPU_OFFLOAD:
@@ -285,19 +289,17 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # FluxPipeline - special dtype and LowVRAM handling
         if pipeline_type == "FluxPipeline":
-            pipeline_class = resolve_pipeline_class(class_name="FluxPipeline")
             if fromSingleFile:
-                pipe = pipeline_class.from_single_file(modelFile, torch_dtype=torchType, use_safetensors=True)
+                pipe = FluxPipeline.from_single_file(modelFile, torch_dtype=torchType, use_safetensors=True)
             else:
-                pipe = pipeline_class.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
+                pipe = FluxPipeline.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
             if request.LowVRAM:
                 pipe.enable_model_cpu_offload()
             return pipe
 
         # Lumina2Text2ImgPipeline - special dtype and LowVRAM handling
         if pipeline_type == "Lumina2Text2ImgPipeline":
-            pipeline_class = resolve_pipeline_class(class_name="Lumina2Text2ImgPipeline")
-            pipe = pipeline_class.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
+            pipe = Lumina2Text2ImgPipeline.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
             if request.LowVRAM:
                 pipe.enable_model_cpu_offload()
             return pipe
