@@ -292,14 +292,17 @@ def resolve_pipeline_class(
         except ImportError:
             # huggingface_hub not available
             pass
-        except Exception:
-            # Model info lookup failed
+        except (KeyError, AttributeError, ValueError, OSError):
+            # Model info lookup failed - common cases:
+            # - KeyError: Missing keys in model card
+            # - AttributeError: Missing attributes on model info
+            # - ValueError: Invalid model data
+            # - OSError: Network or file access issues
             pass
 
         # Fallback: use DiffusionPipeline.from_pretrained which auto-detects
-        # DiffusionPipeline is always added to registry in _discover_pipelines
-        from diffusers import DiffusionPipeline
-        return registry.get('DiffusionPipeline', DiffusionPipeline)
+        # DiffusionPipeline is always added to registry in _discover_pipelines (line 132)
+        return registry['DiffusionPipeline']
 
     raise ValueError(
         "Must provide at least one of: class_name, task, or model_id. "
