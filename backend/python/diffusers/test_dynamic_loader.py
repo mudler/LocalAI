@@ -195,12 +195,12 @@ class TestDiffusersDynamicLoaderWithMocks(unittest.TestCase):
         import diffusers_dynamic_loader as loader
         from diffusers import DiffusionPipeline
 
-        # When model_id is provided but hub lookup fails (or huggingface_hub not installed),
-        # should fall back to DiffusionPipeline
-        # We'll test this by patching the import within the function
-        with patch.dict('sys.modules', {'huggingface_hub': None}):
-            cls = loader.resolve_pipeline_class(model_id="some/model")
-            self.assertEqual(cls, DiffusionPipeline)
+        # When model_id is provided, if hub lookup is not successful,
+        # should fall back to DiffusionPipeline.
+        # This tests the fallback behavior - the actual hub lookup may succeed
+        # or fail depending on network, but the fallback path should work.
+        cls = loader.resolve_pipeline_class(model_id="some/nonexistent/model")
+        self.assertEqual(cls, DiffusionPipeline)
 
 
 if __name__ == "__main__":
