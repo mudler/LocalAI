@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+"""
+LocalAI Diffusers Backend
+
+This backend provides gRPC access to diffusers pipelines with dynamic pipeline loading.
+New pipelines added to diffusers become available automatically without code changes.
+"""
 from concurrent import futures
 import traceback
 import argparse
@@ -17,14 +23,21 @@ import backend_pb2_grpc
 
 import grpc
 
-from diffusers import SanaPipeline, StableDiffusion3Pipeline, StableDiffusionXLPipeline, StableDiffusionDepth2ImgPipeline, DPMSolverMultistepScheduler, StableDiffusionPipeline, DiffusionPipeline, \
-    EulerAncestralDiscreteScheduler, FluxPipeline, FluxTransformer2DModel, QwenImageEditPipeline, AutoencoderKLWan, WanPipeline, WanImageToVideoPipeline
-from diffusers import StableDiffusionImg2ImgPipeline, AutoPipelineForText2Image, ControlNetModel, StableVideoDiffusionPipeline, Lumina2Text2ImgPipeline
+# Import dynamic loader for pipeline discovery
+from diffusers_dynamic_loader import (
+    get_pipeline_registry,
+    resolve_pipeline_class,
+    get_available_pipelines,
+)
+
+# Import specific items still needed for special cases and safety checker
+from diffusers import DiffusionPipeline, AutoPipelineForText2Image, ControlNetModel
+from diffusers import FluxPipeline, FluxTransformer2DModel, AutoencoderKLWan
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image, export_to_video
 from compel import Compel, ReturnedEmbeddingsType
 from optimum.quanto import freeze, qfloat8, quantize
-from transformers import CLIPTextModel, T5EncoderModel
+from transformers import T5EncoderModel
 from safetensors.torch import load_file
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -158,6 +171,203 @@ def get_scheduler(name: str, config: dict = {}):
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
+
+    def _load_pipeline(self, request, modelFile, fromSingleFile, torchType, variant):
+        """
+        Load a diffusers pipeline dynamically based on PipelineType.
+
+        This method handles both special cases (like FluxTransformer2DModel, WanPipeline)
+        that require custom initialization and generic pipeline loading through the
+        dynamic loader for all other cases.
+
+        Args:
+            request: The gRPC request containing pipeline configuration
+            modelFile: Path to the model file (for single file loading)
+            fromSingleFile: Whether to use from_single_file() vs from_pretrained()
+            torchType: The torch dtype to use
+            variant: Model variant (e.g., "fp16")
+
+        Returns:
+            The loaded pipeline instance
+        """
+        pipeline_type = request.PipelineType
+
+        # ================================================================
+        # Special cases requiring custom initialization logic
+        # These pipelines have unique requirements that can't be handled
+        # by the generic dynamic loader
+        # ================================================================
+
+        # Handle IMG2IMG request flag with default pipeline
+        if request.IMG2IMG and pipeline_type == "":
+            pipeline_type = "StableDiffusionImg2ImgPipeline"
+
+        # FluxTransformer2DModel - requires quantization and custom transformer loading
+        if pipeline_type == "FluxTransformer2DModel":
+            dtype = torch.bfloat16
+            bfl_repo = os.environ.get("BFL_REPO", "ChuckMcSneed/FLUX.1-dev")
+
+            transformer = FluxTransformer2DModel.from_single_file(modelFile, torch_dtype=dtype)
+            quantize(transformer, weights=qfloat8)
+            freeze(transformer)
+            text_encoder_2 = T5EncoderModel.from_pretrained(bfl_repo, subfolder="text_encoder_2", torch_dtype=dtype)
+            quantize(text_encoder_2, weights=qfloat8)
+            freeze(text_encoder_2)
+
+            pipe = FluxPipeline.from_pretrained(bfl_repo, transformer=None, text_encoder_2=None, torch_dtype=dtype)
+            pipe.transformer = transformer
+            pipe.text_encoder_2 = text_encoder_2
+
+            if request.LowVRAM:
+                pipe.enable_model_cpu_offload()
+            return pipe
+
+        # WanPipeline - requires special VAE handling
+        if pipeline_type == "WanPipeline":
+            vae = AutoencoderKLWan.from_pretrained(
+                request.Model,
+                subfolder="vae",
+                torch_dtype=torch.float32
+            )
+            pipeline_class = resolve_pipeline_class(class_name="WanPipeline")
+            pipe = pipeline_class.from_pretrained(
+                request.Model,
+                vae=vae,
+                torch_dtype=torchType
+            )
+            self.txt2vid = True
+            return pipe
+
+        # WanImageToVideoPipeline - requires special VAE handling
+        if pipeline_type == "WanImageToVideoPipeline":
+            vae = AutoencoderKLWan.from_pretrained(
+                request.Model,
+                subfolder="vae",
+                torch_dtype=torch.float32
+            )
+            pipeline_class = resolve_pipeline_class(class_name="WanImageToVideoPipeline")
+            pipe = pipeline_class.from_pretrained(
+                request.Model,
+                vae=vae,
+                torch_dtype=torchType
+            )
+            self.img2vid = True
+            return pipe
+
+        # SanaPipeline - requires special VAE and text encoder handling
+        if pipeline_type == "SanaPipeline":
+            pipeline_class = resolve_pipeline_class(class_name="SanaPipeline")
+            pipe = pipeline_class.from_pretrained(
+                request.Model,
+                variant="bf16",
+                torch_dtype=torch.bfloat16
+            )
+            pipe.vae.to(torch.bfloat16)
+            pipe.text_encoder.to(torch.bfloat16)
+            return pipe
+
+        # StableVideoDiffusionPipeline - has CPU offload handling
+        if pipeline_type == "StableVideoDiffusionPipeline":
+            self.img2vid = True
+            pipeline_class = resolve_pipeline_class(class_name="StableVideoDiffusionPipeline")
+            pipe = pipeline_class.from_pretrained(
+                request.Model, torch_dtype=torchType, variant=variant
+            )
+            if not DISABLE_CPU_OFFLOAD:
+                pipe.enable_model_cpu_offload()
+            return pipe
+
+        # VideoDiffusionPipeline - alias for DiffusionPipeline with txt2vid flag
+        if pipeline_type == "VideoDiffusionPipeline":
+            self.txt2vid = True
+            pipe = DiffusionPipeline.from_pretrained(request.Model, torch_dtype=torchType)
+            return pipe
+
+        # FluxPipeline - special dtype and LowVRAM handling
+        if pipeline_type == "FluxPipeline":
+            pipeline_class = resolve_pipeline_class(class_name="FluxPipeline")
+            if fromSingleFile:
+                pipe = pipeline_class.from_single_file(modelFile, torch_dtype=torchType, use_safetensors=True)
+            else:
+                pipe = pipeline_class.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
+            if request.LowVRAM:
+                pipe.enable_model_cpu_offload()
+            return pipe
+
+        # Lumina2Text2ImgPipeline - special dtype and LowVRAM handling
+        if pipeline_type == "Lumina2Text2ImgPipeline":
+            pipeline_class = resolve_pipeline_class(class_name="Lumina2Text2ImgPipeline")
+            pipe = pipeline_class.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
+            if request.LowVRAM:
+                pipe.enable_model_cpu_offload()
+            return pipe
+
+        # ================================================================
+        # Default/Empty pipeline type: use AutoPipelineForText2Image
+        # ================================================================
+        if pipeline_type == "" or pipeline_type == "AutoPipelineForText2Image":
+            pipe = AutoPipelineForText2Image.from_pretrained(
+                request.Model,
+                torch_dtype=torchType,
+                use_safetensors=SAFETENSORS,
+                variant=variant
+            )
+            return pipe
+
+        # ================================================================
+        # Generic dynamic pipeline loading
+        # All other pipelines are loaded through the dynamic loader
+        # ================================================================
+        try:
+            pipeline_class = resolve_pipeline_class(class_name=pipeline_type)
+        except ValueError as e:
+            # If pipeline not found, list available pipelines in error
+            available = get_available_pipelines()
+            raise ValueError(
+                f"Unknown pipeline type '{pipeline_type}'. "
+                f"Available pipelines: {', '.join(available[:30])}..."
+            ) from e
+
+        # Determine loading method based on model source
+        if fromSingleFile:
+            # Check if the class supports from_single_file
+            if hasattr(pipeline_class, 'from_single_file'):
+                # Some pipelines need use_safetensors parameter
+                try:
+                    pipe = pipeline_class.from_single_file(modelFile, torch_dtype=torchType, use_safetensors=True)
+                except TypeError:
+                    # Fallback without use_safetensors if not supported
+                    pipe = pipeline_class.from_single_file(modelFile, torch_dtype=torchType)
+            else:
+                # Fallback to from_pretrained for pipelines without single file support
+                print(f"Warning: {pipeline_type} does not support from_single_file, using from_pretrained", file=sys.stderr)
+                pipe = pipeline_class.from_pretrained(request.Model, torch_dtype=torchType)
+        else:
+            # Standard from_pretrained loading
+            # Try with common parameters, falling back to simpler calls
+            try:
+                pipe = pipeline_class.from_pretrained(
+                    request.Model,
+                    torch_dtype=torchType,
+                    variant=variant
+                )
+            except TypeError:
+                # Some pipelines may not accept variant
+                try:
+                    pipe = pipeline_class.from_pretrained(
+                        request.Model,
+                        torch_dtype=torchType
+                    )
+                except TypeError:
+                    # Minimal fallback
+                    pipe = pipeline_class.from_pretrained(request.Model)
+
+        # Apply LowVRAM optimization if supported and requested
+        if request.LowVRAM and hasattr(pipe, 'enable_model_cpu_offload'):
+            pipe.enable_model_cpu_offload()
+
+        return pipe
+
     def Health(self, request, context):
         return backend_pb2.Reply(message=bytes("OK", 'utf-8'))
 
@@ -231,139 +441,16 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
             self.img2vid = False
             self.txt2vid = False
-            ## img2img
-            if (request.PipelineType == "StableDiffusionImg2ImgPipeline") or (request.IMG2IMG and request.PipelineType == ""):
-                if fromSingleFile:
-                    self.pipe = StableDiffusionImg2ImgPipeline.from_single_file(modelFile,
-                                                                                torch_dtype=torchType)
-                else:
-                    self.pipe = StableDiffusionImg2ImgPipeline.from_pretrained(request.Model,
-                                                                               torch_dtype=torchType)
 
-            elif request.PipelineType == "StableDiffusionDepth2ImgPipeline":
-                self.pipe = StableDiffusionDepth2ImgPipeline.from_pretrained(request.Model,
-                                                                             torch_dtype=torchType)
-            ## img2vid
-            elif request.PipelineType == "StableVideoDiffusionPipeline":
-                self.img2vid = True
-                self.pipe = StableVideoDiffusionPipeline.from_pretrained(
-                    request.Model, torch_dtype=torchType, variant=variant
-                )
-                if not DISABLE_CPU_OFFLOAD:
-                    self.pipe.enable_model_cpu_offload()
-            ## text2img
-            elif request.PipelineType == "AutoPipelineForText2Image" or request.PipelineType == "":
-                self.pipe = AutoPipelineForText2Image.from_pretrained(request.Model,
-                                                                      torch_dtype=torchType,
-                                                                      use_safetensors=SAFETENSORS,
-                                                                      variant=variant)
-            elif request.PipelineType == "StableDiffusionPipeline":
-                if fromSingleFile:
-                    self.pipe = StableDiffusionPipeline.from_single_file(modelFile,
-                                                                         torch_dtype=torchType)
-                else:
-                    self.pipe = StableDiffusionPipeline.from_pretrained(request.Model,
-                                                                        torch_dtype=torchType)
-            elif request.PipelineType == "DiffusionPipeline":
-                self.pipe = DiffusionPipeline.from_pretrained(request.Model,
-                                                              torch_dtype=torchType)
-            elif request.PipelineType == "QwenImageEditPipeline":
-                self.pipe = QwenImageEditPipeline.from_pretrained(request.Model,
-                                                                 torch_dtype=torchType)
-            elif request.PipelineType == "VideoDiffusionPipeline":
-                self.txt2vid = True
-                self.pipe = DiffusionPipeline.from_pretrained(request.Model,
-                                                              torch_dtype=torchType)
-            elif request.PipelineType == "StableDiffusionXLPipeline":
-                if fromSingleFile:
-                    self.pipe = StableDiffusionXLPipeline.from_single_file(modelFile,
-                                                                           torch_dtype=torchType,
-                                                                           use_safetensors=True)
-                else:
-                    self.pipe = StableDiffusionXLPipeline.from_pretrained(
-                        request.Model,
-                        torch_dtype=torchType,
-                        use_safetensors=True,
-                        variant=variant)
-            elif request.PipelineType == "StableDiffusion3Pipeline":
-                if fromSingleFile:
-                    self.pipe = StableDiffusion3Pipeline.from_single_file(modelFile,
-                                                                          torch_dtype=torchType,
-                                                                          use_safetensors=True)
-                else:
-                    self.pipe = StableDiffusion3Pipeline.from_pretrained(
-                        request.Model,
-                        torch_dtype=torchType,
-                        use_safetensors=True,
-                        variant=variant)
-            elif request.PipelineType == "FluxPipeline":
-                if fromSingleFile:
-                    self.pipe = FluxPipeline.from_single_file(modelFile,
-                                                              torch_dtype=torchType,
-                                                              use_safetensors=True)
-                else:
-                    self.pipe = FluxPipeline.from_pretrained(
-                        request.Model,
-                        torch_dtype=torch.bfloat16)
-                if request.LowVRAM:
-                    self.pipe.enable_model_cpu_offload()
-            elif request.PipelineType == "FluxTransformer2DModel":
-                    dtype = torch.bfloat16
-                    # specify from environment or default to "ChuckMcSneed/FLUX.1-dev"
-                    bfl_repo = os.environ.get("BFL_REPO", "ChuckMcSneed/FLUX.1-dev")
-
-                    transformer = FluxTransformer2DModel.from_single_file(modelFile, torch_dtype=dtype)
-                    quantize(transformer, weights=qfloat8)
-                    freeze(transformer)
-                    text_encoder_2 = T5EncoderModel.from_pretrained(bfl_repo, subfolder="text_encoder_2", torch_dtype=dtype)
-                    quantize(text_encoder_2, weights=qfloat8)
-                    freeze(text_encoder_2)
-
-                    self.pipe = FluxPipeline.from_pretrained(bfl_repo, transformer=None, text_encoder_2=None, torch_dtype=dtype)
-                    self.pipe.transformer = transformer
-                    self.pipe.text_encoder_2 = text_encoder_2
-
-                    if request.LowVRAM:
-                        self.pipe.enable_model_cpu_offload()
-            elif request.PipelineType == "Lumina2Text2ImgPipeline":
-                self.pipe = Lumina2Text2ImgPipeline.from_pretrained(
-                    request.Model,
-                    torch_dtype=torch.bfloat16)
-                if request.LowVRAM:
-                    self.pipe.enable_model_cpu_offload()
-            elif request.PipelineType == "SanaPipeline":
-                self.pipe = SanaPipeline.from_pretrained(
-                    request.Model,
-                    variant="bf16",
-                    torch_dtype=torch.bfloat16)
-                self.pipe.vae.to(torch.bfloat16)
-                self.pipe.text_encoder.to(torch.bfloat16)
-            elif request.PipelineType == "WanPipeline":
-                # WAN2.2 pipeline requires special VAE handling
-                vae = AutoencoderKLWan.from_pretrained(
-                    request.Model, 
-                    subfolder="vae", 
-                    torch_dtype=torch.float32
-                )
-                self.pipe = WanPipeline.from_pretrained(
-                    request.Model,
-                    vae=vae,
-                    torch_dtype=torchType
-                )
-                self.txt2vid = True  # WAN2.2 is a text-to-video pipeline
-            elif request.PipelineType == "WanImageToVideoPipeline":
-                # WAN2.2 image-to-video pipeline
-                vae = AutoencoderKLWan.from_pretrained(
-                    request.Model, 
-                    subfolder="vae", 
-                    torch_dtype=torch.float32
-                )
-                self.pipe = WanImageToVideoPipeline.from_pretrained(
-                    request.Model,
-                    vae=vae,
-                    torch_dtype=torchType
-                )
-                self.img2vid = True  # WAN2.2 image-to-video pipeline
+            # Load pipeline using dynamic loader
+            # Special cases that require custom initialization are handled first
+            self.pipe = self._load_pipeline(
+                request=request,
+                modelFile=modelFile,
+                fromSingleFile=fromSingleFile,
+                torchType=torchType,
+                variant=variant
+            )
 
             if CLIPSKIP and request.CLIPSkip != 0:
                 self.clip_skip = request.CLIPSkip
