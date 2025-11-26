@@ -302,7 +302,9 @@ def resolve_pipeline_class(
 
         # Fallback: use DiffusionPipeline.from_pretrained which auto-detects
         # DiffusionPipeline is always added to registry in _discover_pipelines (line 132)
-        return registry['DiffusionPipeline']
+        # but use .get() with import fallback for extra safety
+        from diffusers import DiffusionPipeline
+        return registry.get('DiffusionPipeline', DiffusionPipeline)
 
     raise ValueError(
         "Must provide at least one of: class_name, task, or model_id. "
