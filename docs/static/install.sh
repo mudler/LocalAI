@@ -358,9 +358,8 @@ enable_selinux_container_booleans() {
 install_container_toolkit_apt() {
     info 'Installing NVIDIA container toolkit repository...'
 
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | $SUDO gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg \
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | $SUDO gpg --dearmor -o /etc/apt/trusted.gpg.d/nvidia-container-toolkit-keyring.gpg \
   && curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-    sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
     $SUDO tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
 
     $SUDO apt-get update && $SUDO apt-get install -y nvidia-container-toolkit
