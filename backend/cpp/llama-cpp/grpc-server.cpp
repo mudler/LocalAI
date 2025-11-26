@@ -8,6 +8,10 @@
 //
 
 #include "server.cpp"
+#include "server-task.cpp"
+#include "server-queue.cpp"
+#include "server-common.cpp"
+
 // LocalAI
 
 #include "backend.pb.h"
@@ -2134,7 +2138,7 @@ public:
             
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_rerank(ctx_server.model, ctx_server.vocab, ctx_server.mctx, request->query(), documents[i]);
+                auto tmp = format_prompt_rerank(ctx_server.model, ctx_server.vocab, ctx_server.mctx, request->query(), documents[i]);
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
                 task.id = ctx_server.queue_tasks.get_new_id();
                 task.index = i;
