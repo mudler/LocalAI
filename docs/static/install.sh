@@ -137,15 +137,10 @@ uninstall_localai() {
         fi
     done
 
-    # Remove models directory
-    if [ -d "/var/lib/local-ai" ]; then
-        info "Removing LocalAI data directory..."
-        $SUDO rm -rf /var/lib/local-ai
-    fi
-
-    # Remove local-ai user if it exists
+    # Remove local-ai user and all its data if it exists
     if id local-ai >/dev/null 2>&1; then
-        info "Removing local-ai user..."
+        info "Removing local-ai user and all its data..."
+        $SUDO gpasswd -d $(whoami) local-ai
         $SUDO userdel -r local-ai || true
     fi
 
