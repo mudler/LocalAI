@@ -39,7 +39,7 @@ curl https://localai.io/install.sh | VAR=value sh
 | **PORT** | Specifies the port on which LocalAI will run (default is 8080) |
 | **THREADS** | Number of processor threads the application should use. Defaults to the number of logical cores minus one |
 | **VERSION** | Specifies the version of LocalAI to install. Defaults to the latest available version |
-| **MODELS_PATH** | Directory path where LocalAI models are stored (default is `/usr/share/local-ai/models`) |
+| **MODELS_PATH** | Directory path where LocalAI models are stored (default is `/var/lib/local-ai/models`) |
 | **P2P_TOKEN** | Token to use for the federation or for starting workers. See [distributed inferencing documentation]({{%relref "features/distributed_inferencing" %}}) |
 | **WORKER** | Set to `"true"` to make the instance a worker (p2p token is required) |
 | **FEDERATED** | Set to `"true"` to share the instance with the federation (p2p token is required) |

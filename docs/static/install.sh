@@ -20,7 +20,7 @@
 #   API_KEY       - API key for securing LocalAI access (default: none)
 #   PORT          - Port to run LocalAI on (default: 8080)
 #   THREADS       - Number of CPU threads to use (default: auto-detected)
-#   MODELS_PATH   - Path to store models (default: /usr/share/local-ai/models)
+#   MODELS_PATH   - Path to store models (default: /var/lib/local-ai/models)
 #   CORE_IMAGES   - Set to "true" to download core LocalAI images (default: false)
 #   P2P_TOKEN     - Token for P2P federation/worker mode (default: none)
 #   WORKER        - Set to "true" to run as a worker node (default: false)
@@ -138,9 +138,9 @@ uninstall_localai() {
     done
 
     # Remove models directory
-    if [ -d "/usr/share/local-ai" ]; then
+    if [ -d "/var/lib/local-ai" ]; then
         info "Removing LocalAI data directory..."
-        $SUDO rm -rf /usr/share/local-ai
+        $SUDO rm -rf /var/lib/local-ai
     fi
 
     # Remove local-ai user if it exists
@@ -190,7 +190,7 @@ fi
 THREADS=${THREADS:-$procs}
 LATEST_VERSION=$(curl -s "https://api.github.com/repos/mudler/LocalAI/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
 LOCALAI_VERSION="${LOCALAI_VERSION:-$LATEST_VERSION}" #changed due to VERSION beign already defined in Fedora 42 Cloud Edition
-MODELS_PATH=${MODELS_PATH:-/usr/share/local-ai/models}
+MODELS_PATH=${MODELS_PATH:-/var/lib/local-ai/models}
 
 
 check_gpu() {
@@ -232,7 +232,7 @@ trap aborted INT
 configure_systemd() {
     if ! id local-ai >/dev/null 2>&1; then
         info "Creating local-ai user..."
-        $SUDO useradd -r -s /bin/false -U -m -d /usr/share/local-ai local-ai
+        $SUDO useradd -r -s /bin/false -U -m -d /var/lib/local-ai local-ai
     fi
 
     info "Adding current user to local-ai group..."
@@ -251,7 +251,7 @@ Restart=always
 EnvironmentFile=/etc/localai.env
 RestartSec=3
 Environment="PATH=$PATH"
-WorkingDirectory=/usr/share/local-ai
+WorkingDirectory=/var/lib/local-ai
 
 [Install]
 WantedBy=default.target

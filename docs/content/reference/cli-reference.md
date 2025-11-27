@@ -33,7 +33,7 @@ Complete reference for all LocalAI command-line interface (CLI) parameters and e
 | Parameter | Default | Description | Environment Variable |
 |-----------|---------|-------------|----------------------|
 | `--backends-path` | `BASEPATH/backends` | Path containing backends used for inferencing | `$LOCALAI_BACKENDS_PATH`, `$BACKENDS_PATH` |
-| `--backends-system-path` | `/usr/share/localai/backends` | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
+| `--backends-system-path` | `/var/lib/local-ai/backends` | Path containing system backends used for inferencing | `$LOCALAI_BACKENDS_SYSTEM_PATH`, `$BACKEND_SYSTEM_PATH` |
 | `--external-backends` | | A list of external backends to load from gallery on boot | `$LOCALAI_EXTERNAL_BACKENDS`, `$EXTERNAL_BACKENDS` |
 | `--external-grpc-backends` | | A list of external gRPC backends (format: `BACKEND_NAME:URI`) | `$LOCALAI_EXTERNAL_GRPC_BACKENDS`, `$EXTERNAL_GRPC_BACKENDS` |
 | `--backend-galleries` | | JSON list of backend galleries | `$LOCALAI_BACKEND_GALLERIES`, `$BACKEND_GALLERIES` |
