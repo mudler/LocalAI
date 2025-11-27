@@ -856,6 +856,16 @@ detect_start_command() {
     fi
 }
 
+SUDO=
+if [ "$(id -u)" -ne 0 ]; then
+    # Running as root, no need for sudo
+    if ! available sudo; then
+        fatal "This script requires superuser permissions. Please re-run as root."
+    fi
+
+    SUDO="sudo"
+fi
+
 # Check if uninstall flag is provided
 if [ "$1" = "--uninstall" ]; then
     uninstall_localai
@@ -875,16 +885,6 @@ esac
 if [ "$OS" = "Darwin" ]; then
     install_binary_darwin
     exit 0
-fi
-
-SUDO=
-if [ "$(id -u)" -ne 0 ]; then
-    # Running as root, no need for sudo
-    if ! available sudo; then
-        fatal "This script requires superuser permissions. Please re-run as root."
-    fi
-
-    SUDO="sudo"
 fi
 
 if check_gpu lspci amdgpu || check_gpu lshw amdgpu; then
