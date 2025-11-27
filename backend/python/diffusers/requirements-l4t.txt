@@ -1,6 +1,6 @@
 --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu126/
 torch
-diffusers
+git+https://github.com/huggingface/diffusers
 transformers
 accelerate
 compel
