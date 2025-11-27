@@ -227,7 +227,10 @@ trap aborted INT
 configure_systemd() {
     if ! id local-ai >/dev/null 2>&1; then
         info "Creating local-ai user..."
-        $SUDO useradd -r -s /bin/false -U -m -d /var/lib/local-ai local-ai
+        $SUDO useradd -r -s /bin/false -U -M -d /var/lib/local-ai local-ai
+        $SUDO mkdir -p /var/lib/local-ai
+        $SUDO chmod 0755 /var/lib/local-ai
+        $SUDO chown local-ai:local-ai /var/lib/local-ai
     fi
 
     info "Adding current user to local-ai group..."
