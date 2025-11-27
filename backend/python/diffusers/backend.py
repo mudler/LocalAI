@@ -28,19 +28,12 @@ from diffusers_dynamic_loader import (
     get_pipeline_registry,
     resolve_pipeline_class,
     get_available_pipelines,
+    load_diffusers_pipeline,
 )
 
 # Import specific items still needed for special cases and safety checker
 from diffusers import DiffusionPipeline, AutoPipelineForText2Image, ControlNetModel
 from diffusers import FluxPipeline, FluxTransformer2DModel, AutoencoderKLWan
-# Import special case pipelines directly (avoids overhead of dynamic resolution)
-from diffusers import (
-    WanPipeline,
-    WanImageToVideoPipeline,
-    SanaPipeline,
-    StableVideoDiffusionPipeline,
-    Lumina2Text2ImgPipeline,
-)
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image, export_to_video
 from compel import Compel, ReturnedEmbeddingsType
@@ -182,11 +175,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def _load_pipeline(self, request, modelFile, fromSingleFile, torchType, variant):
         """
-        Load a diffusers pipeline dynamically based on PipelineType.
+        Load a diffusers pipeline dynamically using the dynamic loader.
 
-        This method handles both special cases (like FluxTransformer2DModel, WanPipeline)
-        that require custom initialization and generic pipeline loading through the
-        dynamic loader for all other cases.
+        This method uses load_diffusers_pipeline() for most pipelines, falling back
+        to explicit handling only for pipelines requiring custom initialization
+        (e.g., quantization, special VAE handling).
 
         Args:
             request: The gRPC request containing pipeline configuration
@@ -200,15 +193,15 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         """
         pipeline_type = request.PipelineType
 
-        # ================================================================
-        # Special cases requiring custom initialization logic
-        # These pipelines have unique requirements that can't be handled
-        # by the generic dynamic loader
-        # ================================================================
-
         # Handle IMG2IMG request flag with default pipeline
         if request.IMG2IMG and pipeline_type == "":
             pipeline_type = "StableDiffusionImg2ImgPipeline"
+
+        # ================================================================
+        # Special cases requiring custom initialization logic
+        # Only handle pipelines that truly need custom code (quantization,
+        # special VAE handling, etc.). All other pipelines use dynamic loading.
+        # ================================================================
 
         # FluxTransformer2DModel - requires quantization and custom transformer loading
         if pipeline_type == "FluxTransformer2DModel":
@@ -230,40 +223,43 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 pipe.enable_model_cpu_offload()
             return pipe
 
-        # WanPipeline - requires special VAE handling
+        # WanPipeline - requires special VAE with float32 dtype
         if pipeline_type == "WanPipeline":
             vae = AutoencoderKLWan.from_pretrained(
                 request.Model,
                 subfolder="vae",
                 torch_dtype=torch.float32
             )
-            pipe = WanPipeline.from_pretrained(
-                request.Model,
+            pipe = load_diffusers_pipeline(
+                class_name="WanPipeline",
+                model_id=request.Model,
                 vae=vae,
                 torch_dtype=torchType
             )
             self.txt2vid = True
             return pipe
 
-        # WanImageToVideoPipeline - requires special VAE handling
+        # WanImageToVideoPipeline - requires special VAE with float32 dtype
         if pipeline_type == "WanImageToVideoPipeline":
             vae = AutoencoderKLWan.from_pretrained(
                 request.Model,
                 subfolder="vae",
                 torch_dtype=torch.float32
             )
-            pipe = WanImageToVideoPipeline.from_pretrained(
-                request.Model,
+            pipe = load_diffusers_pipeline(
+                class_name="WanImageToVideoPipeline",
+                model_id=request.Model,
                 vae=vae,
                 torch_dtype=torchType
             )
             self.img2vid = True
             return pipe
 
-        # SanaPipeline - requires special VAE and text encoder handling
+        # SanaPipeline - requires special VAE and text encoder dtype conversion
         if pipeline_type == "SanaPipeline":
-            pipe = SanaPipeline.from_pretrained(
-                request.Model,
+            pipe = load_diffusers_pipeline(
+                class_name="SanaPipeline",
+                model_id=request.Model,
                 variant="bf16",
                 torch_dtype=torch.bfloat16
             )
@@ -271,98 +267,68 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             pipe.text_encoder.to(torch.bfloat16)
             return pipe
 
-        # StableVideoDiffusionPipeline - has CPU offload handling
+        # VideoDiffusionPipeline - alias for DiffusionPipeline with txt2vid flag
+        if pipeline_type == "VideoDiffusionPipeline":
+            self.txt2vid = True
+            pipe = load_diffusers_pipeline(
+                class_name="DiffusionPipeline",
+                model_id=request.Model,
+                torch_dtype=torchType
+            )
+            return pipe
+
+        # StableVideoDiffusionPipeline - needs img2vid flag and CPU offload
         if pipeline_type == "StableVideoDiffusionPipeline":
             self.img2vid = True
-            pipe = StableVideoDiffusionPipeline.from_pretrained(
-                request.Model, torch_dtype=torchType, variant=variant
+            pipe = load_diffusers_pipeline(
+                class_name="StableVideoDiffusionPipeline",
+                model_id=request.Model,
+                torch_dtype=torchType,
+                variant=variant
             )
             if not DISABLE_CPU_OFFLOAD:
                 pipe.enable_model_cpu_offload()
             return pipe
 
-        # VideoDiffusionPipeline - alias for DiffusionPipeline with txt2vid flag
-        if pipeline_type == "VideoDiffusionPipeline":
-            self.txt2vid = True
-            pipe = DiffusionPipeline.from_pretrained(request.Model, torch_dtype=torchType)
-            return pipe
-
-        # FluxPipeline - special dtype and LowVRAM handling
-        if pipeline_type == "FluxPipeline":
-            if fromSingleFile:
-                pipe = FluxPipeline.from_single_file(modelFile, torch_dtype=torchType, use_safetensors=True)
-            else:
-                pipe = FluxPipeline.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
-            if request.LowVRAM:
-                pipe.enable_model_cpu_offload()
-            return pipe
-
-        # Lumina2Text2ImgPipeline - special dtype and LowVRAM handling
-        if pipeline_type == "Lumina2Text2ImgPipeline":
-            pipe = Lumina2Text2ImgPipeline.from_pretrained(request.Model, torch_dtype=torch.bfloat16)
-            if request.LowVRAM:
-                pipe.enable_model_cpu_offload()
-            return pipe
-
         # ================================================================
-        # Default/Empty pipeline type: use AutoPipelineForText2Image
+        # Dynamic pipeline loading - the default path for most pipelines
+        # Uses the dynamic loader to instantiate any pipeline by class name
         # ================================================================
+
+        # Build kwargs for dynamic loading
+        load_kwargs = {"torch_dtype": torchType}
+        
+        # Add variant if not loading from single file
+        if not fromSingleFile and variant:
+            load_kwargs["variant"] = variant
+            
+        # Add use_safetensors for from_pretrained
+        if not fromSingleFile:
+            load_kwargs["use_safetensors"] = SAFETENSORS
+
+        # Determine pipeline class name or use default
         if pipeline_type == "" or pipeline_type == "AutoPipelineForText2Image":
+            # Default to AutoPipelineForText2Image for empty pipeline type
             pipe = AutoPipelineForText2Image.from_pretrained(
                 request.Model,
-                torch_dtype=torchType,
-                use_safetensors=SAFETENSORS,
-                variant=variant
+                **load_kwargs
             )
-            return pipe
-
-        # ================================================================
-        # Generic dynamic pipeline loading
-        # All other pipelines are loaded through the dynamic loader
-        # ================================================================
-        try:
-            pipeline_class = resolve_pipeline_class(class_name=pipeline_type)
-        except ValueError as e:
-            # If pipeline not found, list available pipelines in error
-            available = get_available_pipelines()
-            raise ValueError(
-                f"Unknown pipeline type '{pipeline_type}'. "
-                f"Available pipelines: {', '.join(available[:30])}..."
-            ) from e
-
-        # Determine loading method based on model source
-        if fromSingleFile:
-            # Check if the class supports from_single_file
-            if hasattr(pipeline_class, 'from_single_file'):
-                # Some pipelines need use_safetensors parameter
-                try:
-                    pipe = pipeline_class.from_single_file(modelFile, torch_dtype=torchType, use_safetensors=True)
-                except TypeError:
-                    # Fallback without use_safetensors if not supported
-                    pipe = pipeline_class.from_single_file(modelFile, torch_dtype=torchType)
-            else:
-                # Fallback to from_pretrained for pipelines without single file support
-                print(f"Warning: {pipeline_type} does not support from_single_file, using from_pretrained", file=sys.stderr)
-                pipe = pipeline_class.from_pretrained(request.Model, torch_dtype=torchType)
         else:
-            # Standard from_pretrained loading
-            # Try with common parameters, falling back to simpler calls
+            # Use dynamic loader for all other pipelines
             try:
-                pipe = pipeline_class.from_pretrained(
-                    request.Model,
-                    torch_dtype=torchType,
-                    variant=variant
+                pipe = load_diffusers_pipeline(
+                    class_name=pipeline_type,
+                    model_id=modelFile if fromSingleFile else request.Model,
+                    from_single_file=fromSingleFile,
+                    **load_kwargs
                 )
-            except TypeError:
-                # Some pipelines may not accept variant
-                try:
-                    pipe = pipeline_class.from_pretrained(
-                        request.Model,
-                        torch_dtype=torchType
-                    )
-                except TypeError:
-                    # Minimal fallback
-                    pipe = pipeline_class.from_pretrained(request.Model)
+            except Exception as e:
+                # Provide helpful error with available pipelines
+                available = get_available_pipelines()
+                raise ValueError(
+                    f"Failed to load pipeline '{pipeline_type}': {e}\n"
+                    f"Available pipelines: {', '.join(available[:30])}..."
+                ) from e
 
         # Apply LowVRAM optimization if supported and requested
         if request.LowVRAM and hasattr(pipe, 'enable_model_cpu_offload'):

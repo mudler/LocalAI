@@ -67,15 +67,15 @@ pipe = load_diffusers_pipeline(
 
 ### Special Pipeline Handling
 
-Some pipelines require custom initialization logic (e.g., special VAE handling, quantization). These are handled as special cases in the backend:
+Most pipelines are loaded dynamically through `load_diffusers_pipeline()`. Only pipelines requiring truly custom initialization logic are handled explicitly:
 
-- `FluxTransformer2DModel`: Quantization and custom transformer loading
-- `WanPipeline` / `WanImageToVideoPipeline`: Special VAE handling
-- `SanaPipeline`: Special VAE and text encoder dtype handling
-- `StableVideoDiffusionPipeline`: CPU offload handling
-- `FluxPipeline`: Special dtype and LowVRAM handling
+- `FluxTransformer2DModel`: Requires quantization and custom transformer loading (cannot use dynamic loader)
+- `WanPipeline` / `WanImageToVideoPipeline`: Uses dynamic loader with special VAE (float32 dtype)
+- `SanaPipeline`: Uses dynamic loader with post-load dtype conversion for VAE/text encoder
+- `StableVideoDiffusionPipeline`: Uses dynamic loader with CPU offload handling
+- `VideoDiffusionPipeline`: Alias for DiffusionPipeline with video flags
 
-All other pipelines are loaded generically through the dynamic loader.
+All other pipelines (StableDiffusionPipeline, StableDiffusionXLPipeline, FluxPipeline, etc.) are loaded purely through the dynamic loader.
 
 ### Error Handling
 
