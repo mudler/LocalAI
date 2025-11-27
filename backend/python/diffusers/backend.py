@@ -32,7 +32,7 @@ from diffusers_dynamic_loader import (
 )
 
 # Import specific items still needed for special cases and safety checker
-from diffusers import DiffusionPipeline, AutoPipelineForText2Image, ControlNetModel
+from diffusers import DiffusionPipeline, ControlNetModel
 from diffusers import FluxPipeline, FluxTransformer2DModel, AutoencoderKLWan
 from diffusers.pipelines.stable_diffusion import safety_checker
 from diffusers.utils import load_image, export_to_video
@@ -297,38 +297,33 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # Build kwargs for dynamic loading
         load_kwargs = {"torch_dtype": torchType}
-        
+
         # Add variant if not loading from single file
         if not fromSingleFile and variant:
             load_kwargs["variant"] = variant
-            
+
         # Add use_safetensors for from_pretrained
         if not fromSingleFile:
             load_kwargs["use_safetensors"] = SAFETENSORS
 
-        # Determine pipeline class name or use default
-        if pipeline_type == "" or pipeline_type == "AutoPipelineForText2Image":
-            # Default to AutoPipelineForText2Image for empty pipeline type
-            pipe = AutoPipelineForText2Image.from_pretrained(
-                request.Model,
+        # Determine pipeline class name - default to AutoPipelineForText2Image
+        effective_pipeline_type = pipeline_type if pipeline_type else "AutoPipelineForText2Image"
+
+        # Use dynamic loader for all pipelines
+        try:
+            pipe = load_diffusers_pipeline(
+                class_name=effective_pipeline_type,
+                model_id=modelFile if fromSingleFile else request.Model,
+                from_single_file=fromSingleFile,
                 **load_kwargs
             )
-        else:
-            # Use dynamic loader for all other pipelines
-            try:
-                pipe = load_diffusers_pipeline(
-                    class_name=pipeline_type,
-                    model_id=modelFile if fromSingleFile else request.Model,
-                    from_single_file=fromSingleFile,
-                    **load_kwargs
-                )
-            except Exception as e:
-                # Provide helpful error with available pipelines
-                available = get_available_pipelines()
-                raise ValueError(
-                    f"Failed to load pipeline '{pipeline_type}': {e}\n"
-                    f"Available pipelines: {', '.join(available[:30])}..."
-                ) from e
+        except Exception as e:
+            # Provide helpful error with available pipelines
+            available = get_available_pipelines()
+            raise ValueError(
+                f"Failed to load pipeline '{effective_pipeline_type}': {e}\n"
+                f"Available pipelines: {', '.join(available[:30])}..."
+            ) from e
 
         # Apply LowVRAM optimization if supported and requested
         if request.LowVRAM and hasattr(pipe, 'enable_model_cpu_offload'):
