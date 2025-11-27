@@ -5,6 +5,9 @@ This module provides dynamic discovery and loading of diffusers pipelines at run
 eliminating the need for per-pipeline conditional statements. New pipelines added to
 diffusers become available automatically without code changes.
 
+The module also supports discovering other diffusers classes like schedulers, models,
+and other components, making it a generic solution for dynamic class loading.
+
 Usage:
     from diffusers_dynamic_loader import load_diffusers_pipeline, get_available_pipelines
 
@@ -19,6 +22,10 @@ Usage:
 
     # Get list of available pipelines
     available = get_available_pipelines()
+
+    # Discover other diffusers classes (schedulers, models, etc.)
+    schedulers = discover_diffusers_classes("SchedulerMixin")
+    models = discover_diffusers_classes("ModelMixin")
 """
 
 import importlib
@@ -30,6 +37,9 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 # Global cache for discovered pipelines - computed once per process
 _pipeline_registry: Optional[Dict[str, Type]] = None
 _task_aliases: Optional[Dict[str, List[str]]] = None
+
+# Global cache for other discovered class types
+_class_registries: Dict[str, Dict[str, Type]] = {}
 
 
 def _camel_to_kebab(name: str) -> str:
@@ -111,50 +121,126 @@ def _extract_task_keywords(class_name: str) -> List[str]:
     return list(set(aliases))  # Remove duplicates
 
 
+def discover_diffusers_classes(
+    base_class_name: str,
+    include_base: bool = True
+) -> Dict[str, Type]:
+    """
+    Discover all subclasses of a given base class from diffusers.
+
+    This function provides a generic way to discover any type of diffusers class,
+    not just pipelines. It can be used to discover schedulers, models, processors,
+    and other components.
+
+    Args:
+        base_class_name: Name of the base class to search for subclasses
+                        (e.g., "DiffusionPipeline", "SchedulerMixin", "ModelMixin")
+        include_base: Whether to include the base class itself in results
+
+    Returns:
+        Dict mapping class names to class objects
+
+    Examples:
+        # Discover all pipeline classes
+        pipelines = discover_diffusers_classes("DiffusionPipeline")
+
+        # Discover all scheduler classes
+        schedulers = discover_diffusers_classes("SchedulerMixin")
+
+        # Discover all model classes
+        models = discover_diffusers_classes("ModelMixin")
+
+        # Discover AutoPipeline classes
+        auto_pipelines = discover_diffusers_classes("AutoPipelineForText2Image")
+    """
+    global _class_registries
+
+    # Check cache first
+    if base_class_name in _class_registries:
+        return _class_registries[base_class_name]
+
+    import diffusers
+
+    # Try to get the base class from diffusers
+    base_class = None
+    try:
+        base_class = getattr(diffusers, base_class_name)
+    except AttributeError:
+        # Try to find in submodules
+        for submodule in ['schedulers', 'models', 'pipelines']:
+            try:
+                module = importlib.import_module(f'diffusers.{submodule}')
+                if hasattr(module, base_class_name):
+                    base_class = getattr(module, base_class_name)
+                    break
+            except (ImportError, ModuleNotFoundError):
+                continue
+
+    if base_class is None:
+        raise ValueError(f"Could not find base class '{base_class_name}' in diffusers")
+
+    registry: Dict[str, Type] = {}
+
+    # Include base class if requested
+    if include_base:
+        registry[base_class_name] = base_class
+
+    # Scan diffusers module for subclasses
+    for attr_name in dir(diffusers):
+        try:
+            attr = getattr(diffusers, attr_name)
+            if (isinstance(attr, type) and
+                issubclass(attr, base_class) and
+                (include_base or attr is not base_class)):
+                registry[attr_name] = attr
+        except (ImportError, AttributeError, TypeError, RuntimeError, ModuleNotFoundError):
+            continue
+
+    # Cache the results
+    _class_registries[base_class_name] = registry
+    return registry
+
+
+def get_available_classes(base_class_name: str) -> List[str]:
+    """
+    Get a sorted list of all discovered class names for a given base class.
+
+    Args:
+        base_class_name: Name of the base class (e.g., "SchedulerMixin")
+
+    Returns:
+        Sorted list of discovered class names
+    """
+    return sorted(discover_diffusers_classes(base_class_name).keys())
+
+
 def _discover_pipelines() -> Tuple[Dict[str, Type], Dict[str, List[str]]]:
     """
-    Discover all subclasses of DiffusionPipeline from diffusers.pipelines.
+    Discover all subclasses of DiffusionPipeline from diffusers.
 
-    This function imports diffusers.pipelines modules and collects all classes
-    that are subclasses of DiffusionPipeline.
+    This function uses the generic discover_diffusers_classes() internally
+    and adds pipeline-specific task alias generation.
 
     Returns:
         A tuple of (pipeline_registry, task_aliases) where:
         - pipeline_registry: Dict mapping class names to class objects
         - task_aliases: Dict mapping task aliases to lists of class names
     """
-    from diffusers import DiffusionPipeline
+    # Use the generic discovery function
+    pipeline_registry = discover_diffusers_classes("DiffusionPipeline", include_base=True)
 
-    pipeline_registry: Dict[str, Type] = {}
+    # Generate task aliases for pipelines
     task_aliases: Dict[str, List[str]] = {}
+    for attr_name in pipeline_registry:
+        if attr_name == "DiffusionPipeline":
+            continue  # Skip base class for alias generation
 
-    # Also add DiffusionPipeline itself as it's a valid generic pipeline
-    pipeline_registry['DiffusionPipeline'] = DiffusionPipeline
-
-    # Get all pipeline classes that are exposed in diffusers
-    import diffusers
-    for attr_name in dir(diffusers):
-        try:
-            attr = getattr(diffusers, attr_name)
-            # Check if it's a class and a subclass of DiffusionPipeline
-            if (isinstance(attr, type) and
-                issubclass(attr, DiffusionPipeline) and
-                attr is not DiffusionPipeline):
-
-                pipeline_registry[attr_name] = attr
-
-                # Generate task aliases for this pipeline
-                aliases = _extract_task_keywords(attr_name)
-                for alias in aliases:
-                    if alias not in task_aliases:
-                        task_aliases[alias] = []
-                    if attr_name not in task_aliases[alias]:
-                        task_aliases[alias].append(attr_name)
-
-        except (ImportError, AttributeError, TypeError, RuntimeError, ModuleNotFoundError):
-            # Skip any problematic attributes - some pipelines may have
-            # missing optional dependencies (e.g., ftfy, sentencepiece)
-            continue
+        aliases = _extract_task_keywords(attr_name)
+        for alias in aliases:
+            if alias not in task_aliases:
+                task_aliases[alias] = []
+            if attr_name not in task_aliases[alias]:
+                task_aliases[alias].append(attr_name)
 
     return pipeline_registry, task_aliases
 
