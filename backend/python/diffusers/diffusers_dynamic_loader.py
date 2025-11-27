@@ -219,7 +219,9 @@ def _discover_pipelines() -> Tuple[Dict[str, Type], Dict[str, List[str]]]:
     Discover all subclasses of DiffusionPipeline from diffusers.
 
     This function uses the generic discover_diffusers_classes() internally
-    and adds pipeline-specific task alias generation.
+    and adds pipeline-specific task alias generation. It also includes
+    AutoPipeline classes which are special utility classes for automatic
+    pipeline selection.
 
     Returns:
         A tuple of (pipeline_registry, task_aliases) where:
@@ -228,6 +230,23 @@ def _discover_pipelines() -> Tuple[Dict[str, Type], Dict[str, List[str]]]:
     """
     # Use the generic discovery function
     pipeline_registry = discover_diffusers_classes("DiffusionPipeline", include_base=True)
+
+    # Also add AutoPipeline classes - these are special utility classes that are
+    # NOT subclasses of DiffusionPipeline but are commonly used
+    import diffusers
+    auto_pipeline_classes = [
+        "AutoPipelineForText2Image",
+        "AutoPipelineForImage2Image",
+        "AutoPipelineForInpainting",
+    ]
+    for cls_name in auto_pipeline_classes:
+        try:
+            cls = getattr(diffusers, cls_name)
+            if cls is not None:
+                pipeline_registry[cls_name] = cls
+        except AttributeError:
+            # Class not available in this version of diffusers
+            pass
 
     # Generate task aliases for pipelines
     task_aliases: Dict[str, List[str]] = {}
