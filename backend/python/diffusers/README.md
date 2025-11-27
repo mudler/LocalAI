@@ -33,6 +33,8 @@ from diffusers_dynamic_loader import (
     get_available_pipelines,
     get_available_tasks,
     resolve_pipeline_class,
+    discover_diffusers_classes,
+    get_available_classes,
 )
 
 # List all available pipelines
@@ -63,6 +65,28 @@ pipe = load_diffusers_pipeline(
     from_single_file=True,
     torch_dtype=torch.float16
 )
+
+# Discover other diffusers classes (schedulers, models, etc.)
+schedulers = discover_diffusers_classes("SchedulerMixin")
+print(f"Available schedulers: {list(schedulers.keys())[:5]}...")
+
+# Get list of available scheduler classes
+scheduler_list = get_available_classes("SchedulerMixin")
+```
+
+### Generic Class Discovery
+
+The dynamic loader can discover not just pipelines but any class type from diffusers:
+
+```python
+# Discover all scheduler classes
+schedulers = discover_diffusers_classes("SchedulerMixin")
+
+# Discover all model classes
+models = discover_diffusers_classes("ModelMixin")
+
+# Get a sorted list of available classes
+scheduler_names = get_available_classes("SchedulerMixin")
 ```
 
 ### Special Pipeline Handling

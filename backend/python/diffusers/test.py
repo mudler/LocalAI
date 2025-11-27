@@ -256,6 +256,43 @@ class TestDiffusersDynamicLoader(unittest.TestCase):
 
         self.assertIn("Unknown pipeline", str(ctx.exception))
 
+    def test_discover_diffusers_classes_pipelines(self):
+        """Test generic class discovery for DiffusionPipeline."""
+        classes = loader.discover_diffusers_classes("DiffusionPipeline")
+
+        # Should return a dict
+        self.assertIsInstance(classes, dict)
+
+        # Should contain known pipeline classes
+        self.assertIn("DiffusionPipeline", classes)
+        self.assertIn("StableDiffusionPipeline", classes)
+
+    def test_discover_diffusers_classes_caches_results(self):
+        """Test that class discovery results are cached."""
+        classes1 = loader.discover_diffusers_classes("DiffusionPipeline")
+        classes2 = loader.discover_diffusers_classes("DiffusionPipeline")
+
+        # Should be the same object (cached)
+        self.assertIs(classes1, classes2)
+
+    def test_discover_diffusers_classes_exclude_base(self):
+        """Test discovering classes without base class."""
+        classes = loader.discover_diffusers_classes("DiffusionPipeline", include_base=False)
+
+        # Should still contain subclasses
+        self.assertIn("StableDiffusionPipeline", classes)
+
+    def test_get_available_classes(self):
+        """Test getting list of available classes for a base class."""
+        classes = loader.get_available_classes("DiffusionPipeline")
+
+        # Should return a sorted list
+        self.assertIsInstance(classes, list)
+        self.assertEqual(classes, sorted(classes))
+
+        # Should contain known classes
+        self.assertIn("StableDiffusionPipeline", classes)
+
 
 class TestDiffusersDynamicLoaderWithMocks(unittest.TestCase):
     """Test cases using mocks to test edge cases."""
