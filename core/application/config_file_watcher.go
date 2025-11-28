@@ -43,6 +43,8 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 	if err != nil {
 		log.Error().Err(err).Str("file", "runtime_settings.json").Msg("unable to register config file handler")
 	}
+	// Note: agent_tasks.json and agent_jobs.json are handled by AgentJobService directly
+	// The service watches and reloads these files internally
 	return c
 }
 
@@ -206,6 +208,7 @@ type runtimeSettings struct {
 	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
 	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
 	ApiKeys                  *[]string         `json:"api_keys,omitempty"`
+	AgentJobRetentionDays    *int              `json:"agent_job_retention_days,omitempty"`
 }
 
 func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHandler {
@@ -234,6 +237,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envFederated := appConfig.Federated == startupAppConfig.Federated
 		envAutoloadGalleries := appConfig.AutoloadGalleries == startupAppConfig.AutoloadGalleries
 		envAutoloadBackendGalleries := appConfig.AutoloadBackendGalleries == startupAppConfig.AutoloadBackendGalleries
+		envAgentJobRetentionDays := appConfig.AgentJobRetentionDays == startupAppConfig.AgentJobRetentionDays
 
 		if len(fileContent) > 0 {
 			var settings runtimeSettings
@@ -327,6 +331,9 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				runtimeKeys := *settings.ApiKeys
 				// Replace all runtime keys with what's in runtime_settings.json
 				appConfig.ApiKeys = append(envKeys, runtimeKeys...)
+			}
+			if settings.AgentJobRetentionDays != nil && !envAgentJobRetentionDays {
+				appConfig.AgentJobRetentionDays = *settings.AgentJobRetentionDays
 			}
 
 			// If watchdog is enabled via file but not via env, ensure WatchDog flag is set

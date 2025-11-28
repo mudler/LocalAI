@@ -2,6 +2,7 @@ package routes
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
@@ -20,7 +21,8 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 	appConfig *config.ApplicationConfig,
 	galleryService *services.GalleryService,
 	opcache *services.OpCache,
-	evaluator *templates.Evaluator) {
+	evaluator *templates.Evaluator,
+	app *application.Application) {
 
 	router.GET("/swagger/*", echoswagger.WrapHandler) // default
 
@@ -152,6 +154,23 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}
 		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+	}
+
+	// Agent job routes
+	if app != nil && app.AgentJobService() != nil {
+		router.POST("/api/agent/tasks", localai.CreateTaskEndpoint(app))
+		router.PUT("/api/agent/tasks/:id", localai.UpdateTaskEndpoint(app))
+		router.DELETE("/api/agent/tasks/:id", localai.DeleteTaskEndpoint(app))
+		router.GET("/api/agent/tasks", localai.ListTasksEndpoint(app))
+		router.GET("/api/agent/tasks/:id", localai.GetTaskEndpoint(app))
+
+		router.POST("/api/agent/jobs/execute", localai.ExecuteJobEndpoint(app))
+		router.GET("/api/agent/jobs/:id", localai.GetJobEndpoint(app))
+		router.GET("/api/agent/jobs", localai.ListJobsEndpoint(app))
+		router.POST("/api/agent/jobs/:id/cancel", localai.CancelJobEndpoint(app))
+		router.DELETE("/api/agent/jobs/:id", localai.DeleteJobEndpoint(app))
+
+		router.POST("/api/agent/tasks/:name/execute", localai.ExecuteTaskByNameEndpoint(app))
 	}
 
 }

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="taskEditor()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow max-w-6xl">
+        <!-- Header -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-4xl font-bold text-[#E5E7EB] mb-2">
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
+                            <span x-text="taskId ? 'Edit Task' : 'Create Task'"></span>
+                        </span>
+                    </h1>
+                    <p class="text-lg text-[#94A3B8]">Configure an agent task with prompt template and execution settings</p>
+                </div>
+                <a href="/agent-jobs" class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                    <i class="fas fa-arrow-left mr-2"></i>Back
+                </a>
+            </div>
+        </div>
+
+        <form @submit.prevent="saveTask()" class="space-y-8">
+            <!-- Basic Information -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Basic Information</h2>
+                
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Name *</label>
+                        <input type="text" x-model="task.name" required
+                               class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                    </div>
+
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Description</label>
+                        <textarea x-model="task.description" rows="3"
+                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                    </div>
+
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Model *</label>
+                        <select x-model="task.model" required
+                                class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                            <option value="">Select a model with MCP configuration...</option>
+                            {{ range .ModelsConfig }}
+                            {{ $cfg := . }}
+                            {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                            {{ if $hasMCP }}
+                            <option value="{{$cfg.Name}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                            {{ end }}
+                            {{ end }}
+                        </select>
+                        <p class="text-sm text-[#94A3B8] mt-1">Only models with MCP configuration are shown</p>
+                    </div>
+
+                    <div>
+                        <label class="flex items-center">
+                            <input type="checkbox" x-model="task.enabled"
+                                   class="mr-2">
+                            <span class="text-[#E5E7EB]">Enabled</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Prompt Template -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Prompt Template</h2>
+                <div>
+                    <label class="block text-[#E5E7EB] mb-2">Prompt *</label>
+                    <p class="text-sm text-[#94A3B8] mb-2">Use {{.param}} syntax for template parameters (e.g., {{.user_name}})</p>
+                    <textarea x-model="task.prompt" required rows="10"
+                               class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                </div>
+            </div>
+
+            <!-- Cron Schedule -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Cron Schedule (Optional)</h2>
+                <div>
+                    <label class="block text-[#E5E7EB] mb-2">Cron Expression</label>
+                    <input type="text" x-model="task.cron" 
+                           placeholder="0 0 * * * (daily at midnight)"
+                           class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                    <p class="text-sm text-[#94A3B8] mt-1">Standard 5-field cron format (minute hour day month weekday)</p>
+                </div>
+            </div>
+
+            <!-- Webhook Configuration -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhook (Optional)</h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Webhook URL</label>
+                        <input type="url" x-model="task.webhook_url"
+                               class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                    </div>
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Authorization Header</label>
+                        <input type="text" x-model="task.webhook_auth" placeholder="Bearer token or Basic auth"
+                               class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                    </div>
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
+                        <textarea x-model="task.webhook_template" rows="5"
+                                   placeholder='{"text": "Job {{.Job.ID}} completed with status {{.Status}}"}'
+                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                        <p class="text-sm text-[#94A3B8] mt-1">Go template with Job, Task, Result, Parameters, Status variables</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Result Push (Success) -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Result Push - Success</h2>
+                <p class="text-sm text-[#94A3B8] mb-4">Push job results to external APIs when job completes successfully</p>
+                <div class="space-y-4">
+                    <template x-for="(push, index) in task.result_push" :key="index">
+                        <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Endpoint <span x-text="index + 1"></span></h3>
+                                <button type="button" @click="task.result_push.splice(index, 1)" 
+                                        class="text-red-400 hover:text-red-300">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                    <input type="url" x-model="push.url" required
+                                           class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                </div>
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">HTTP Method</label>
+                                    <select x-model="push.method"
+                                            class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                        <option value="POST">POST</option>
+                                        <option value="PUT">PUT</option>
+                                        <option value="PATCH">PATCH</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                    <textarea x-model="push.headers_json" rows="3"
+                                              placeholder='{"Authorization": "Bearer token"}'
+                                              class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
+                                    <textarea x-model="push.payload_template" rows="5"
+                                              placeholder='{"job_id": "{{.Job.ID}}", "result": "{{.Result}}"}'
+                                              class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <button type="button" @click="addResultPush('success')" 
+                            class="w-full bg-[#101827] border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 rounded px-4 py-3 text-[#38BDF8] transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Add Result Push Endpoint
+                    </button>
+                </div>
+            </div>
+
+            <!-- Result Push (Failure) -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Result Push - Failure</h2>
+                <p class="text-sm text-[#94A3B8] mb-4">Push job results to external APIs when job fails</p>
+                <div class="space-y-4">
+                    <template x-for="(push, index) in task.result_push_failure" :key="index">
+                        <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                            <div class="flex justify-between items-center mb-4">
+                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Endpoint <span x-text="index + 1"></span></h3>
+                                <button type="button" @click="task.result_push_failure.splice(index, 1)" 
+                                        class="text-red-400 hover:text-red-300">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                    <input type="url" x-model="push.url" required
+                                           class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                </div>
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">HTTP Method</label>
+                                    <select x-model="push.method"
+                                            class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                        <option value="POST">POST</option>
+                                        <option value="PUT">PUT</option>
+                                        <option value="PATCH">PATCH</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                    <textarea x-model="push.headers_json" rows="3"
+                                              placeholder='{"Authorization": "Bearer token"}'
+                                              class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
+                                    <textarea x-model="push.payload_template" rows="5"
+                                              placeholder='{"job_id": "{{.Job.ID}}", "error": "{{.Job.Error}}"}'
+                                              class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <button type="button" @click="addResultPush('failure')" 
+                            class="w-full bg-[#101827] border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 rounded px-4 py-3 text-[#38BDF8] transition-colors">
+                        <i class="fas fa-plus mr-2"></i>Add Result Push Endpoint
+                    </button>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex justify-end space-x-4">
+                <a href="/agent-jobs" class="px-6 py-3 bg-[#1E293B] hover:bg-[#2D3A4F] rounded-lg transition-colors">
+                    Cancel
+                </a>
+                <button type="submit" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                    <i class="fas fa-save mr-2"></i>Save Task
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        function taskEditor() {
+            return {
+                taskId: null,
+                task: {
+                    name: '',
+                    description: '',
+                    model: '',
+                    prompt: '',
+                    enabled: true,
+                    cron: '',
+                    webhook_url: '',
+                    webhook_auth: '',
+                    webhook_template: '',
+                    result_push: [],
+                    result_push_failure: []
+                },
+                models: [],
+
+                init() {
+                    // Get task ID from URL
+                    const path = window.location.pathname;
+                    const match = path.match(/\/agent-jobs\/tasks\/([^\/]+)\/edit/);
+                    if (match) {
+                        this.taskId = match[1];
+                        this.loadTask();
+                    }
+                    this.loadModels();
+                },
+
+                async loadTask() {
+                    try {
+                        const response = await fetch('/api/agent/tasks/' + this.taskId);
+                        const task = await response.json();
+                        this.task = {
+                            ...task,
+                            result_push: task.result_push || [],
+                            result_push_failure: task.result_push_failure || []
+                        };
+                        // Convert headers objects to JSON strings for editing
+                        this.task.result_push.forEach(push => {
+                            push.headers_json = JSON.stringify(push.headers || {}, null, 2);
+                        });
+                        this.task.result_push_failure.forEach(push => {
+                            push.headers_json = JSON.stringify(push.headers || {}, null, 2);
+                        });
+                    } catch (error) {
+                        console.error('Failed to load task:', error);
+                    }
+                },
+
+                async loadModels() {
+                    // Models are already provided in the template via ModelsConfig
+                    // This function is kept for compatibility but models are populated from template
+                    const select = this.$el.querySelector('select');
+                    if (select) {
+                        this.models = Array.from(select.options)
+                            .filter(opt => opt.value)
+                            .map(opt => opt.value);
+                    }
+                },
+
+                addResultPush(type) {
+                    const push = {
+                        url: '',
+                        method: 'POST',
+                        headers: {},
+                        headers_json: '{}',
+                        payload_template: ''
+                    };
+                    if (type === 'success') {
+                        this.task.result_push.push(push);
+                    } else {
+                        this.task.result_push_failure.push(push);
+                    }
+                },
+
+                async saveTask() {
+                    // Convert headers_json strings back to objects
+                    const taskToSave = {
+                        ...this.task,
+                        result_push: this.task.result_push.map(push => {
+                            const headers = {};
+                            try {
+                                Object.assign(headers, JSON.parse(push.headers_json || '{}'));
+                            } catch (e) {
+                                console.error('Invalid headers JSON:', e);
+                            }
+                            return {
+                                url: push.url,
+                                method: push.method || 'POST',
+                                headers: headers,
+                                payload_template: push.payload_template || ''
+                            };
+                        }),
+                        result_push_failure: this.task.result_push_failure.map(push => {
+                            const headers = {};
+                            try {
+                                Object.assign(headers, JSON.parse(push.headers_json || '{}'));
+                            } catch (e) {
+                                console.error('Invalid headers JSON:', e);
+                            }
+                            return {
+                                url: push.url,
+                                method: push.method || 'POST',
+                                headers: headers,
+                                payload_template: push.payload_template || ''
+                            };
+                        })
+                    };
+
+                    try {
+                        let response;
+                        if (this.taskId) {
+                            response = await fetch('/api/agent/tasks/' + this.taskId, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(taskToSave)
+                            });
+                        } else {
+                            response = await fetch('/api/agent/tasks', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(taskToSave)
+                            });
+                        }
+                        if (response.ok) {
+                            window.location.href = '/agent-jobs';
+                        } else {
+                            const error = await response.json();
+                            alert('Failed to save task: ' + (error.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Failed to save task:', error);
+                        alert('Failed to save task: ' + error.message);
+                    }
+                }
+            }
+        }
+    </script>
+</div>
+</body>
+</html>
+

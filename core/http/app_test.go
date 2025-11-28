@@ -210,6 +210,41 @@ func postRequestResponseJSON[B1 any, B2 any](url string, reqJson *B1, respJson *
 	return json.Unmarshal(body, respJson)
 }
 
+func putRequestJSON[B any](url string, bodyJson *B) error {
+	payload, err := json.Marshal(bodyJson)
+	if err != nil {
+		return err
+	}
+
+	GinkgoWriter.Printf("PUT %s: %s\n", url, string(payload))
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(payload))
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", bearerKey)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
+	}
+
+	return nil
+}
+
 func postInvalidRequest(url string) (error, int) {
 
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString("invalid request"))
@@ -1193,6 +1228,138 @@ parameters:
 					Expect(findRespBody.Similarities[i]).To(BeNumerically(">=", -1))
 					Expect(findRespBody.Similarities[i]).To(BeNumerically("<=", 1))
 				}
+			})
+
+			Context("Agent Jobs", Label("agent-jobs"), func() {
+				It("creates and manages tasks", func() {
+					// Create a task
+					taskBody := map[string]interface{}{
+						"name":        "Test Task",
+						"description": "Test Description",
+						"model":       "testmodel.ggml",
+						"prompt":      "Hello {{.name}}",
+						"enabled":     true,
+					}
+
+					var createResp map[string]interface{}
+					err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(createResp["id"]).ToNot(BeEmpty())
+					taskID := createResp["id"].(string)
+
+					// Get the task
+					var task schema.Task
+					resp, err := http.Get("http://127.0.0.1:9090/api/agent/tasks/" + taskID)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+					body, _ := io.ReadAll(resp.Body)
+					json.Unmarshal(body, &task)
+					Expect(task.Name).To(Equal("Test Task"))
+
+					// List tasks
+					resp, err = http.Get("http://127.0.0.1:9090/api/agent/tasks")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+					var tasks []schema.Task
+					body, _ = io.ReadAll(resp.Body)
+					json.Unmarshal(body, &tasks)
+					Expect(len(tasks)).To(BeNumerically(">=", 1))
+
+					// Update task
+					taskBody["name"] = "Updated Task"
+					err = putRequestJSON("http://127.0.0.1:9090/api/agent/tasks/"+taskID, &taskBody)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Verify update
+					resp, err = http.Get("http://127.0.0.1:9090/api/agent/tasks/" + taskID)
+					Expect(err).ToNot(HaveOccurred())
+					body, _ = io.ReadAll(resp.Body)
+					json.Unmarshal(body, &task)
+					Expect(task.Name).To(Equal("Updated Task"))
+
+					// Delete task
+					req, _ := http.NewRequest("DELETE", "http://127.0.0.1:9090/api/agent/tasks/"+taskID, nil)
+					req.Header.Set("Authorization", bearerKey)
+					resp, err = http.DefaultClient.Do(req)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+				})
+
+				It("executes and monitors jobs", func() {
+					// Create a task first
+					taskBody := map[string]interface{}{
+						"name":    "Job Test Task",
+						"model":   "testmodel.ggml",
+						"prompt":  "Say hello",
+						"enabled": true,
+					}
+
+					var createResp map[string]interface{}
+					err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
+					Expect(err).ToNot(HaveOccurred())
+					taskID := createResp["id"].(string)
+
+					// Execute a job
+					jobBody := map[string]interface{}{
+						"task_id":    taskID,
+						"parameters": map[string]string{},
+					}
+
+					var jobResp schema.JobExecutionResponse
+					err = postRequestResponseJSON("http://127.0.0.1:9090/api/agent/jobs/execute", &jobBody, &jobResp)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(jobResp.JobID).ToNot(BeEmpty())
+					jobID := jobResp.JobID
+
+					// Get job status
+					var job schema.Job
+					resp, err := http.Get("http://127.0.0.1:9090/api/agent/jobs/" + jobID)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+					body, _ := io.ReadAll(resp.Body)
+					json.Unmarshal(body, &job)
+					Expect(job.ID).To(Equal(jobID))
+					Expect(job.TaskID).To(Equal(taskID))
+
+					// List jobs
+					resp, err = http.Get("http://127.0.0.1:9090/api/agent/jobs")
+					Expect(err).ToNot(HaveOccurred())
+					Expect(resp.StatusCode).To(Equal(200))
+					var jobs []schema.Job
+					body, _ = io.ReadAll(resp.Body)
+					json.Unmarshal(body, &jobs)
+					Expect(len(jobs)).To(BeNumerically(">=", 1))
+
+					// Cancel job (if still pending/running)
+					if job.Status == schema.JobStatusPending || job.Status == schema.JobStatusRunning {
+						req, _ := http.NewRequest("POST", "http://127.0.0.1:9090/api/agent/jobs/"+jobID+"/cancel", nil)
+						req.Header.Set("Authorization", bearerKey)
+						resp, err = http.DefaultClient.Do(req)
+						Expect(err).ToNot(HaveOccurred())
+						Expect(resp.StatusCode).To(Equal(200))
+					}
+				})
+
+				It("executes task by name", func() {
+					// Create a task with a specific name
+					taskBody := map[string]interface{}{
+						"name":    "Named Task",
+						"model":   "testmodel.ggml",
+						"prompt":  "Hello",
+						"enabled": true,
+					}
+
+					var createResp map[string]interface{}
+					err := postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks", &taskBody, &createResp)
+					Expect(err).ToNot(HaveOccurred())
+
+					// Execute by name
+					paramsBody := map[string]string{"param1": "value1"}
+					var jobResp schema.JobExecutionResponse
+					err = postRequestResponseJSON("http://127.0.0.1:9090/api/agent/tasks/Named Task/execute", &paramsBody, &jobResp)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(jobResp.JobID).ToNot(BeEmpty())
+				})
 			})
 		})
 	})

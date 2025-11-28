@@ -226,6 +226,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
 		SingleBackend           *bool   `json:"single_backend,omitempty"`
 		ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
+		AgentJobRetentionDays   *int    `json:"agent_job_retention_days,omitempty"`
 	}
 
 	if err := json.Unmarshal(fileContent, &settings); err != nil {
@@ -287,6 +288,12 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	if settings.ParallelBackendRequests != nil {
 		if !options.ParallelBackendRequests {
 			options.ParallelBackendRequests = *settings.ParallelBackendRequests
+		}
+	}
+	if settings.AgentJobRetentionDays != nil {
+		// Only apply if current value is default (0), suggesting it wasn't set from env var
+		if options.AgentJobRetentionDays == 0 {
+			options.AgentJobRetentionDays = *settings.AgentJobRetentionDays
 		}
 	}
 	if !options.WatchDogIdle && !options.WatchDogBusy {

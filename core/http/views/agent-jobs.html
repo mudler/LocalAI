@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="agentJobs()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Header -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-4xl font-bold text-[#E5E7EB] mb-2">
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
+                            Agent Jobs
+                        </span>
+                    </h1>
+                    <p class="text-lg text-[#94A3B8]">Manage agent tasks and monitor job execution</p>
+                </div>
+                <a href="/agent-jobs/tasks/new" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Create Task
+                </a>
+            </div>
+        </div>
+
+        <!-- Tasks Section -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Tasks</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[#38BDF8]/20">
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Name</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Model</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Cron</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Status</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="task in tasks" :key="task.id">
+                            <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
+                                <td class="py-3 px-4">
+                                    <div class="font-semibold text-[#E5E7EB]" x-text="task.name"></div>
+                                    <div class="text-sm text-[#94A3B8]" x-text="task.description || 'No description'"></div>
+                                </td>
+                                <td class="py-3 px-4 text-[#E5E7EB]" x-text="task.model"></td>
+                                <td class="py-3 px-4">
+                                    <span x-show="task.cron" class="text-[#38BDF8]" x-text="task.cron"></span>
+                                    <span x-show="!task.cron" class="text-[#94A3B8]">-</span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span :class="task.enabled ? 'bg-green-500' : 'bg-gray-500'" 
+                                          class="px-2 py-1 rounded text-xs text-white" 
+                                          x-text="task.enabled ? 'Enabled' : 'Disabled'"></span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="flex space-x-2">
+                                        <button @click="executeTask(task.id)" 
+                                                class="text-blue-400 hover:text-blue-300">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <a :href="'/agent-jobs/tasks/' + task.id + '/edit'" 
+                                           class="text-yellow-400 hover:text-yellow-300">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button @click="deleteTask(task.id)" 
+                                                class="text-red-400 hover:text-red-300">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="tasks.length === 0">
+                            <td colspan="5" class="py-8 text-center text-[#94A3B8]">
+                                No tasks found. <a href="/agent-jobs/tasks/new" class="text-blue-400 hover:text-blue-300">Create one</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Jobs Section -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job History</h2>
+                <div class="flex space-x-4">
+                    <select x-model="jobFilter" @change="fetchJobs()" 
+                            class="bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB]">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="running">Running</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[#38BDF8]/20">
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Job ID</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Task</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Status</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Created</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="job in jobs" :key="job.id">
+                            <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
+                                <td class="py-3 px-4">
+                                    <div class="font-mono text-sm text-[#E5E7EB]" x-text="job.id.substring(0, 8) + '...'"></div>
+                                </td>
+                                <td class="py-3 px-4 text-[#E5E7EB]" x-text="job.task_id"></td>
+                                <td class="py-3 px-4">
+                                    <span :class="{
+                                        'bg-yellow-500': job.status === 'pending',
+                                        'bg-blue-500': job.status === 'running',
+                                        'bg-green-500': job.status === 'completed',
+                                        'bg-red-500': job.status === 'failed',
+                                        'bg-gray-500': job.status === 'cancelled'
+                                    }" 
+                                    class="px-2 py-1 rounded text-xs text-white" 
+                                    x-text="job.status"></span>
+                                </td>
+                                <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="formatDate(job.created_at)"></td>
+                                <td class="py-3 px-4">
+                                    <div class="flex space-x-2">
+                                        <button @click="viewJob(job.id)" 
+                                                class="text-blue-400 hover:text-blue-300">
+                                            <i class="fas fa-eye"></i>
+                                        </button>
+                                        <button x-show="job.status === 'pending' || job.status === 'running'" 
+                                                @click="cancelJob(job.id)" 
+                                                class="text-red-400 hover:text-red-300">
+                                            <i class="fas fa-stop"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="jobs.length === 0">
+                            <td colspan="5" class="py-8 text-center text-[#94A3B8]">No jobs found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Job Details Modal -->
+    <div x-show="selectedJob" 
+         x-cloak
+         @click.away="selectedJob = null"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-[#E5E7EB]">Job Details</h3>
+                <button @click="selectedJob = null" class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <template x-if="selectedJob">
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Status</label>
+                        <div class="text-[#E5E7EB]" x-text="selectedJob.status"></div>
+                    </div>
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Result</label>
+                        <div class="bg-[#101827] p-4 rounded mt-2 text-[#E5E7EB] whitespace-pre-wrap" 
+                             x-text="selectedJob.result || 'No result yet'"></div>
+                    </div>
+                    <div x-show="selectedJob.error">
+                        <label class="text-[#94A3B8] text-sm">Error</label>
+                        <div class="bg-red-900/20 p-4 rounded mt-2 text-red-400" x-text="selectedJob.error"></div>
+                    </div>
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Parameters</label>
+                        <pre class="bg-[#101827] p-4 rounded mt-2 text-[#E5E7EB] text-sm" 
+                             x-text="JSON.stringify(selectedJob.parameters, null, 2)"></pre>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        function agentJobs() {
+            return {
+                tasks: [],
+                jobs: [],
+                selectedJob: null,
+                jobFilter: '',
+                loading: false,
+
+                init() {
+                    this.fetchTasks();
+                    this.fetchJobs();
+                    // Poll for job updates every 2 seconds
+                    setInterval(() => {
+                        this.fetchJobs();
+                    }, 2000);
+                },
+
+                async fetchTasks() {
+                    try {
+                        const response = await fetch('/api/agent/tasks');
+                        this.tasks = await response.json();
+                    } catch (error) {
+                        console.error('Failed to fetch tasks:', error);
+                    }
+                },
+
+                async fetchJobs() {
+                    try {
+                        let url = '/api/agent/jobs?limit=50';
+                        if (this.jobFilter) {
+                            url += '&status=' + this.jobFilter;
+                        }
+                        const response = await fetch(url);
+                        this.jobs = await response.json();
+                    } catch (error) {
+                        console.error('Failed to fetch jobs:', error);
+                    }
+                },
+
+                async executeTask(taskId) {
+                    try {
+                        const response = await fetch('/api/agent/jobs/execute', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ task_id: taskId, parameters: {} })
+                        });
+                        if (response.ok) {
+                            this.fetchJobs();
+                        }
+                    } catch (error) {
+                        console.error('Failed to execute task:', error);
+                    }
+                },
+
+                async deleteTask(taskId) {
+                    if (!confirm('Are you sure you want to delete this task?')) return;
+                    try {
+                        const response = await fetch('/api/agent/tasks/' + taskId, {
+                            method: 'DELETE'
+                        });
+                        if (response.ok) {
+                            this.fetchTasks();
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete task:', error);
+                    }
+                },
+
+                async viewJob(jobId) {
+                    try {
+                        const response = await fetch('/api/agent/jobs/' + jobId);
+                        this.selectedJob = await response.json();
+                    } catch (error) {
+                        console.error('Failed to fetch job:', error);
+                    }
+                },
+
+                async cancelJob(jobId) {
+                    try {
+                        const response = await fetch('/api/agent/jobs/' + jobId + '/cancel', {
+                            method: 'POST'
+                        });
+                        if (response.ok) {
+                            this.fetchJobs();
+                        }
+                    } catch (error) {
+                        console.error('Failed to cancel job:', error);
+                    }
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleString();
+                }
+            }
+        }
+    </script>
+</div>
+</body>
+</html>
+
