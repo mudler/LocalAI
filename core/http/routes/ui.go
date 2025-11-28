@@ -64,7 +64,7 @@ func RegisterUIRoutes(app *echo.Echo,
 			"Version":      internal.PrintableVersion(),
 			"ModelsConfig": modelConfigs,
 		}
-		return c.Render(200, "views/agent-task-editor", summary)
+		return c.Render(200, "views/agent-task-details", summary)
 	})
 
 	// Task details page (less specific, comes after edit route)

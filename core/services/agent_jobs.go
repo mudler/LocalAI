@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"text/template"
@@ -336,9 +337,17 @@ func (s *AgentJobService) GetTask(id string) (*schema.Task, error) {
 	return &task, nil
 }
 
-// ListTasks returns all tasks
+// ListTasks returns all tasks, sorted by creation date (newest first)
 func (s *AgentJobService) ListTasks() []schema.Task {
-	return s.tasks.Values()
+	tasks := s.tasks.Values()
+	// Sort by CreatedAt descending (newest first), then by Name for stability
+	sort.Slice(tasks, func(i, j int) bool {
+		if tasks[i].CreatedAt.Equal(tasks[j].CreatedAt) {
+			return tasks[i].Name < tasks[j].Name
+		}
+		return tasks[i].CreatedAt.After(tasks[j].CreatedAt)
+	})
+	return tasks
 }
 
 // buildPrompt builds a prompt from a template with parameters
@@ -829,9 +838,14 @@ func (s *AgentJobService) ScheduleCronTask(task schema.Task) error {
 	// Parse cron expression (support standard 5-field format)
 	// Convert to 6-field format if needed (with seconds)
 	cronExpr := task.Cron
+	// Use cron parameters if provided, otherwise use empty map
+	cronParams := task.CronParameters
+	if cronParams == nil {
+		cronParams = map[string]string{}
+	}
 	entryID, err := s.cronScheduler.AddFunc(cronExpr, func() {
-		// Create job for cron execution
-		_, err := s.ExecuteJob(task.ID, map[string]string{}, "cron")
+		// Create job for cron execution with configured parameters
+		_, err := s.ExecuteJob(task.ID, cronParams, "cron")
 		if err != nil {
 			log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to execute cron job")
 		}

@@ -6,15 +6,16 @@ import (
 
 // Task represents a reusable agent task definition
 type Task struct {
-	ID          string    `json:"id"`          // UUID
-	Name        string    `json:"name"`        // User-friendly name
-	Description string    `json:"description"` // Optional description
-	Model       string    `json:"model"`       // Model name (must have MCP config)
-	Prompt      string    `json:"prompt"`      // Template prompt (supports {{.param}} syntax)
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Enabled     bool      `json:"enabled"`        // Can be disabled without deletion
-	Cron        string    `json:"cron,omitempty"` // Optional cron expression
+	ID             string            `json:"id"`          // UUID
+	Name           string            `json:"name"`        // User-friendly name
+	Description    string            `json:"description"` // Optional description
+	Model          string            `json:"model"`       // Model name (must have MCP config)
+	Prompt         string            `json:"prompt"`      // Template prompt (supports {{.param}} syntax)
+	CreatedAt      time.Time         `json:"created_at"`
+	UpdatedAt      time.Time         `json:"updated_at"`
+	Enabled        bool              `json:"enabled"`                   // Can be disabled without deletion
+	Cron           string            `json:"cron,omitempty"`            // Optional cron expression
+	CronParameters map[string]string `json:"cron_parameters,omitempty"` // Parameters to use when executing cron jobs
 
 	// Webhook configuration (for notifications)
 	// Support multiple webhook endpoints
