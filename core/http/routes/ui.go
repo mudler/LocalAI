@@ -36,10 +36,12 @@ func RegisterUIRoutes(app *echo.Echo,
 
 	// Agent Jobs pages
 	app.GET("/agent-jobs", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
 		summary := map[string]interface{}{
-			"Title":   "LocalAI - Agent Jobs",
-			"BaseURL": middleware.BaseURL(c),
-			"Version": internal.PrintableVersion(),
+			"Title":        "LocalAI - Agent Jobs",
+			"BaseURL":      middleware.BaseURL(c),
+			"Version":      internal.PrintableVersion(),
+			"ModelsConfig": modelConfigs,
 		}
 		return c.Render(200, "views/agent-jobs", summary)
 	})

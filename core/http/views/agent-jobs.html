@@ -19,14 +19,203 @@
                     </h1>
                     <p class="text-lg text-[#94A3B8]">Manage agent tasks and monitor job execution</p>
                 </div>
-                <a href="/agent-jobs/tasks/new" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors">
+                <a href="/agent-jobs/tasks/new" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors" x-show="hasMCPModels">
                     <i class="fas fa-plus mr-2"></i>Create Task
                 </a>
             </div>
         </div>
 
+        <!-- Wizard: No Models -->
+        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-12 mb-8" x-show="!hasModels">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 mb-6">
+                    <i class="text-[#8B5CF6] text-2xl fas fa-robot"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
+                        No Models Installed
+                    </span>
+                </h2>
+                <p class="text-xl text-[#94A3B8] mb-8">
+                    To use Agent Jobs, you need to install a model first. Agent Jobs require models with MCP (Model Context Protocol) configuration.
+                </p>
+                
+                <!-- Features Preview -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                    <div class="bg-[#101827] border border-[#38BDF8]/20 rounded-lg p-4">
+                        <div class="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-images text-[#38BDF8] text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Model Gallery</h3>
+                        <p class="text-xs text-[#94A3B8]">Browse and install pre-configured models</p>
+                    </div>
+                    <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-lg p-4">
+                        <div class="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-upload text-[#8B5CF6] text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Import Models</h3>
+                        <p class="text-xs text-[#94A3B8]">Upload your own model files</p>
+                    </div>
+                    <div class="bg-[#101827] border border-green-500/20 rounded-lg p-4">
+                        <div class="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-code text-green-400 text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">API Download</h3>
+                        <p class="text-xs text-[#94A3B8]">Use the API to download models programmatically</p>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-rocket text-[#8B5CF6] mr-2"></i>
+                        How to Get Started
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">1</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Browse the Model Gallery</p>
+                                <p class="text-[#94A3B8] text-sm">Explore our curated collection of pre-configured models. Find models for chat, image generation, audio processing, and more.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">2</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Install a Model</p>
+                                <p class="text-[#94A3B8] text-sm">Click on a model from the gallery to install it, or use the import feature to upload your own model files.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">3</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Configure MCP</p>
+                                <p class="text-[#94A3B8] text-sm">After installing a model, configure MCP (Model Context Protocol) to enable Agent Jobs functionality.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="/browse/" 
+                       class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-images mr-2"></i>
+                        Browse Model Gallery
+                    </a>
+                    <a href="/import-model" 
+                       class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-upload mr-2"></i>
+                        Import Model
+                    </a>
+                    <a href="https://localai.io/basics/getting_started/" target="_blank" 
+                       class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        Getting Started
+                        <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wizard: Models but No MCP -->
+        <div class="bg-[#1E293B] border border-yellow-500/20 rounded-xl p-12 mb-8" x-show="hasModels && !hasMCPModels">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-6">
+                    <i class="text-yellow-500 text-2xl fas fa-exclamation-triangle"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-yellow-500">
+                        MCP Configuration Required
+                    </span>
+                </h2>
+                <p class="text-xl text-[#94A3B8] mb-8">
+                    You have models installed, but none have MCP (Model Context Protocol) enabled. Agent Jobs require MCP to function.
+                </p>
+                
+                <!-- Available Models List -->
+                <div class="bg-[#101827] border border-yellow-500/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-list text-yellow-500 mr-2"></i>
+                        Available Models
+                    </h3>
+                    <div class="space-y-3">
+                        <template x-for="model in availableModels" :key="model.name">
+                            <div class="flex items-center justify-between p-3 bg-[#0A0E1A] rounded-lg border border-[#38BDF8]/10">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-cube text-[#38BDF8]"></i>
+                                    <span class="text-[#E5E7EB] font-medium" x-text="model.name"></span>
+                                </div>
+                                <a :href="'/models/edit/' + model.name" 
+                                   class="inline-flex items-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                    <i class="fas fa-edit mr-2"></i>
+                                    Configure MCP
+                                </a>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="bg-[#101827] border border-yellow-500/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-cog text-yellow-500 mr-2"></i>
+                        How to Enable MCP
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-yellow-500 font-bold text-sm">1</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Edit a Model Configuration</p>
+                                <p class="text-[#94A3B8] text-sm">Click "Configure MCP" on any model above, or navigate to the model editor to add MCP configuration.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-yellow-500 font-bold text-sm">2</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Add MCP Configuration</p>
+                                <p class="text-[#94A3B8] text-sm">In the model YAML, add MCP server or stdio configuration. See the documentation for detailed examples.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-yellow-500 font-bold text-sm">3</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Save and Return</p>
+                                <p class="text-[#94A3B8] text-sm">After saving the MCP configuration, return to this page to create your first Agent Job task.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="https://localai.io/features/mcp/" target="_blank" 
+                       class="inline-flex items-center bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-book mr-2"></i>
+                        MCP Documentation
+                        <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+                    </a>
+                    <a href="/manage" 
+                       class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-cog mr-2"></i>
+                        Manage Models
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <!-- Tasks Section -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="hasMCPModels">
             <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Tasks</h2>
             <div class="overflow-x-auto">
                 <table class="w-full">
@@ -101,7 +290,7 @@
         </div>
 
         <!-- Jobs Section -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8" x-show="hasMCPModels">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job History</h2>
                 <div class="flex space-x-4">
@@ -225,6 +414,20 @@
         </div>
     </div>
 
+    <!-- Models Data (hidden, for JavaScript) -->
+    <script id="models-data" type="application/json">
+    {{ if .ModelsConfig }}
+    [
+        {{ range $index, $cfg := .ModelsConfig }}
+        {{ if $index }},{{ end }}{
+            "name": "{{ $cfg.Name }}",
+            "hasMCP": {{ if or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}true{{ else }}false{{ end }}
+        }
+        {{ end }}
+    ]
+    {{ else }}[]{{ end }}
+    </script>
+
     <script>
         function agentJobs() {
             return {
@@ -236,14 +439,43 @@
                 selectedTaskForExecution: null,
                 executionParameters: {},
                 executionParametersText: '',
+                modelsConfig: [],
+                hasModels: false,
+                hasMCPModels: false,
+                availableModels: [],
 
                 init() {
+                    // Check models from template data
+                    this.checkModels();
                     this.fetchTasks();
                     this.fetchJobs();
                     // Poll for job updates every 2 seconds
                     setInterval(() => {
                         this.fetchJobs();
                     }, 2000);
+                },
+
+                checkModels() {
+                    // Get models from template data
+                    const modelsDataElement = document.getElementById('models-data');
+                    let modelsData = [];
+                    if (modelsDataElement) {
+                        try {
+                            modelsData = JSON.parse(modelsDataElement.textContent);
+                        } catch (e) {
+                            console.error('Failed to parse models data:', e);
+                        }
+                    }
+                    
+                    this.modelsConfig = modelsData;
+                    this.hasModels = modelsData.length > 0;
+                    
+                    // Check for MCP-enabled models
+                    const mcpModels = modelsData.filter(m => m.hasMCP);
+                    this.hasMCPModels = mcpModels.length > 0;
+                    
+                    // Get available models (without MCP) for the wizard
+                    this.availableModels = modelsData.filter(m => !m.hasMCP);
                 },
 
                 async fetchTasks() {
