@@ -11,18 +11,20 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"text/template"
 	"time"
 
+	"github.com/Masterminds/sprig/v3"
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/config"
+	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/cogito"
-	mcpTools "github.com/mudler/LocalAI/core/http/endpoints/mcp"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog/log"
 )
@@ -52,6 +54,10 @@ type AgentJobService struct {
 
 	// Job retention
 	retentionDays int // From runtime settings, default: 30
+
+	// Service lifecycle
+	ctx    context.Context
+	cancel context.CancelFunc
 
 	// Mutex for file operations
 	fileMutex sync.Mutex
@@ -125,7 +131,6 @@ func (s *AgentJobService) LoadTasksFromFile() error {
 		return fmt.Errorf("failed to parse tasks file: %w", err)
 	}
 
-	// Load tasks into memory
 	for _, task := range tasksFile.Tasks {
 		s.tasks.Set(task.ID, task)
 		// Schedule cron if enabled and has cron expression
@@ -137,6 +142,7 @@ func (s *AgentJobService) LoadTasksFromFile() error {
 	}
 
 	log.Info().Int("count", len(tasksFile.Tasks)).Msg("Loaded tasks from file")
+
 	return nil
 }
 
@@ -591,6 +597,9 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	// Create LLM client
 	defaultLLM := cogito.NewOpenAILLM(modelConfig.Name, apiKey, "http://127.0.0.1:"+port)
 
+	// Initialize traces slice
+	job.Traces = []schema.JobTrace{}
+
 	// Build cogito options
 	cogitoOpts := modelConfig.BuildCogitoOptions()
 	cogitoOpts = append(
@@ -599,20 +608,69 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 		cogito.WithMCPs(sessions...),
 		cogito.WithStatusCallback(func(status string) {
 			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).Msgf("Status: %s", status)
+			// Store trace
+			trace := schema.JobTrace{
+				Type:      "status",
+				Content:   status,
+				Timestamp: time.Now(),
+			}
+			job.Traces = append(job.Traces, trace)
+			s.jobs.Set(job.ID, job)
 		}),
 		cogito.WithReasoningCallback(func(reasoning string) {
 			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).Msgf("Reasoning: %s", reasoning)
+			// Store trace
+			trace := schema.JobTrace{
+				Type:      "reasoning",
+				Content:   reasoning,
+				Timestamp: time.Now(),
+			}
+			job.Traces = append(job.Traces, trace)
+			s.jobs.Set(job.ID, job)
 		}),
 		cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
 			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).
 				Str("tool", t.Name).Str("reasoning", t.Reasoning).Interface("arguments", t.Arguments).
 				Msg("Tool call")
+			// Store trace
+			arguments := make(map[string]interface{})
+			if t.Arguments != nil {
+				arguments = t.Arguments
+			}
+			trace := schema.JobTrace{
+				Type:      "tool_call",
+				Content:   t.Reasoning,
+				Timestamp: time.Now(),
+				ToolName:  t.Name,
+				Arguments: arguments,
+			}
+			job.Traces = append(job.Traces, trace)
+			s.jobs.Set(job.ID, job)
 			return true
 		}),
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).
 				Str("tool", t.Name).Str("result", t.Result).Interface("tool_arguments", t.ToolArguments).
 				Msg("Tool call result")
+			// Store trace
+			arguments := make(map[string]interface{})
+			// Convert ToolArguments to map via JSON marshaling
+			if toolArgsBytes, err := json.Marshal(t.ToolArguments); err == nil {
+				var toolArgsMap map[string]interface{}
+				if err := json.Unmarshal(toolArgsBytes, &toolArgsMap); err == nil {
+					arguments = toolArgsMap
+				}
+			}
+			arguments["result"] = t.Result
+			trace := schema.JobTrace{
+				Type:      "tool_result",
+				Content:   t.Result,
+				Timestamp: time.Now(),
+				ToolName:  t.Name,
+				Arguments: arguments,
+			}
+			job.Traces = append(job.Traces, trace)
+			s.jobs.Set(job.ID, job)
 		}),
 	)
 
@@ -638,6 +696,76 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 		return fmt.Errorf("failed to get response: %w", err)
 	}
 
+	// Extract traces from fragment.Status after execution
+	// This provides complete information about tool calls and results
+	// We use Status data to supplement/replace callback data for completeness
+	if f.Status != nil {
+		// Clear existing tool_call and tool_result traces (from callbacks) and replace with Status data
+		// Keep status and reasoning traces from callbacks
+		filteredTraces := []schema.JobTrace{}
+		for _, trace := range job.Traces {
+			if trace.Type != "tool_call" && trace.Type != "tool_result" {
+				filteredTraces = append(filteredTraces, trace)
+			}
+		}
+		job.Traces = filteredTraces
+
+		// Extract tool calls from Status.ToolsCalled
+		if len(f.Status.ToolsCalled) > 0 {
+			for _, toolCallInterface := range f.Status.ToolsCalled {
+				// Marshal to JSON and unmarshal to extract fields
+				if toolCallBytes, err := json.Marshal(toolCallInterface); err == nil {
+					var toolCallData map[string]interface{}
+					if err := json.Unmarshal(toolCallBytes, &toolCallData); err == nil {
+						arguments := make(map[string]interface{})
+						if args, ok := toolCallData["arguments"].(map[string]interface{}); ok {
+							arguments = args
+						}
+						reasoning := ""
+						if r, ok := toolCallData["reasoning"].(string); ok {
+							reasoning = r
+						}
+						name := ""
+						if n, ok := toolCallData["name"].(string); ok {
+							name = n
+						}
+						trace := schema.JobTrace{
+							Type:      "tool_call",
+							Content:   reasoning,
+							Timestamp: time.Now(),
+							ToolName:  name,
+							Arguments: arguments,
+						}
+						job.Traces = append(job.Traces, trace)
+					}
+				}
+			}
+		}
+
+		// Extract tool results from Status.ToolResults
+		if len(f.Status.ToolResults) > 0 {
+			for _, toolResult := range f.Status.ToolResults {
+				arguments := make(map[string]interface{})
+				// Convert ToolArguments to map via JSON marshaling
+				if toolArgsBytes, err := json.Marshal(toolResult.ToolArguments); err == nil {
+					var toolArgsMap map[string]interface{}
+					if err := json.Unmarshal(toolArgsBytes, &toolArgsMap); err == nil {
+						arguments = toolArgsMap
+					}
+				}
+				arguments["result"] = toolResult.Result
+				trace := schema.JobTrace{
+					Type:      "tool_result",
+					Content:   toolResult.Result,
+					Timestamp: time.Now(),
+					ToolName:  toolResult.Name,
+					Arguments: arguments,
+				}
+				job.Traces = append(job.Traces, trace)
+			}
+		}
+	}
+
 	// Update job with result
 	completedAt := time.Now()
 	job.Status = schema.JobStatusCompleted
@@ -652,12 +780,9 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 		}
 	}()
 
-	// Send webhook and push results (non-blocking)
+	// Send webhooks (non-blocking)
 	go func() {
-		if task.WebhookURL != "" {
-			s.sendWebhook(job, task)
-		}
-		s.pushResult(job, task)
+		s.sendWebhooks(job, task)
 	}()
 
 	return nil
@@ -730,162 +855,165 @@ func (s *AgentJobService) UnscheduleCronTask(taskID string) {
 	}
 }
 
-// sendWebhook sends a webhook notification
-func (s *AgentJobService) sendWebhook(job schema.Job, task schema.Task) {
-	// Build payload
-	payload, err := s.buildWebhookPayload(job, task)
-	if err != nil {
-		log.Error().Err(err).Str("job_id", job.ID).Msg("Failed to build webhook payload")
-		s.updateJobWebhookStatus(job.ID, false, err)
+// sendWebhooks sends webhook notifications to all configured webhooks
+func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
+	// Collect all webhook configs from new format
+	webhookConfigs := task.Webhooks
+
+	if len(webhookConfigs) == 0 {
+		return // No webhooks configured
+	}
+
+	log.Info().Str("job_id", job.ID).Int("webhook_count", len(webhookConfigs)).Msg("Sending webhooks")
+
+	// Send all webhooks concurrently and track results
+	var wg sync.WaitGroup
+	errors := make(chan webhookError, len(webhookConfigs))
+	successCount := 0
+
+	for _, webhookConfig := range webhookConfigs {
+		wg.Add(1)
+		go func(config schema.WebhookConfig) {
+			defer wg.Done()
+			if err := s.sendWebhook(job, task, config); err != nil {
+				errors <- webhookError{
+					URL:   config.URL,
+					Error: err.Error(),
+				}
+			} else {
+				successCount++
+			}
+		}(webhookConfig)
+	}
+	wg.Wait()
+	close(errors)
+
+	// Collect errors
+	var webhookErrors []string
+	for err := range errors {
+		webhookErrors = append(webhookErrors, fmt.Sprintf("%s: %s", err.URL, err.Error))
+	}
+
+	// Update job with webhook status
+	job = s.jobs.Get(job.ID)
+	if job.ID == "" {
 		return
+	}
+
+	now := time.Now()
+	if len(webhookErrors) == 0 {
+		// All webhooks succeeded
+		job.WebhookSent = true
+		job.WebhookSentAt = &now
+		job.WebhookError = ""
+	} else if successCount > 0 {
+		// Some succeeded, some failed
+		job.WebhookSent = true
+		job.WebhookSentAt = &now
+		job.WebhookError = fmt.Sprintf("Some webhooks failed (%d/%d succeeded): %s", successCount, len(webhookConfigs), strings.Join(webhookErrors, "; "))
+	} else {
+		// All failed
+		job.WebhookSent = false
+		job.WebhookError = fmt.Sprintf("All webhooks failed: %s", strings.Join(webhookErrors, "; "))
+	}
+
+	s.jobs.Set(job.ID, job)
+
+	// Save to file (async)
+	go func() {
+		if err := s.SaveJobsToFile(); err != nil {
+			log.Error().Err(err).Msg("Failed to save jobs to file")
+		}
+	}()
+}
+
+// webhookError represents a webhook delivery error
+type webhookError struct {
+	URL   string
+	Error string
+}
+
+// sendWebhook sends a single webhook notification
+// Returns an error if the webhook delivery failed
+func (s *AgentJobService) sendWebhook(job schema.Job, task schema.Task, webhookConfig schema.WebhookConfig) error {
+	// Build payload
+	payload, err := s.buildWebhookPayload(job, task, webhookConfig)
+	if err != nil {
+		log.Error().Err(err).Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Failed to build webhook payload")
+		return fmt.Errorf("failed to build payload: %w", err)
+	}
+
+	log.Debug().Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Str("payload", string(payload)).Msg("Sending webhook")
+
+	// Determine HTTP method (default to POST)
+	method := webhookConfig.Method
+	if method == "" {
+		method = "POST"
 	}
 
 	// Create HTTP request
-	req, err := http.NewRequest("POST", task.WebhookURL, bytes.NewBuffer(payload))
+	req, err := http.NewRequest(method, webhookConfig.URL, bytes.NewBuffer(payload))
 	if err != nil {
-		log.Error().Err(err).Str("job_id", job.ID).Msg("Failed to create webhook request")
-		s.updateJobWebhookStatus(job.ID, false, err)
-		return
+		log.Error().Err(err).Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Failed to create webhook request")
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
+	// Set headers
 	req.Header.Set("Content-Type", "application/json")
-	if task.WebhookAuth != "" {
-		req.Header.Set("Authorization", task.WebhookAuth)
+	for key, value := range webhookConfig.Headers {
+		req.Header.Set(key, value)
 	}
 
 	// Execute with retry
 	client := &http.Client{Timeout: 30 * time.Second}
-	err = s.executeWithRetry(client, req, job.ID, "webhook")
+	err = s.executeWithRetry(client, req)
 	if err != nil {
-		s.updateJobWebhookStatus(job.ID, false, err)
-		return
+		log.Error().Err(err).Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Webhook delivery failed")
+		return fmt.Errorf("webhook delivery failed: %w", err)
 	}
 
-	s.updateJobWebhookStatus(job.ID, true, nil)
+	log.Info().Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Webhook delivered successfully")
+	return nil
 }
 
 // buildWebhookPayload builds webhook payload (default or template)
-func (s *AgentJobService) buildWebhookPayload(job schema.Job, task schema.Task) ([]byte, error) {
-	if task.WebhookTemplate != "" {
+func (s *AgentJobService) buildWebhookPayload(job schema.Job, task schema.Task, webhookConfig schema.WebhookConfig) ([]byte, error) {
+	if webhookConfig.PayloadTemplate != "" {
 		// Use custom template
-		return s.buildPayloadFromTemplate(job, task, task.WebhookTemplate)
+		return s.buildPayloadFromTemplate(job, task, webhookConfig.PayloadTemplate)
 	}
 
 	// Use default format
+	// Include Error field (empty string if no error)
 	payload := map[string]interface{}{
 		"job_id":       job.ID,
 		"task_id":      job.TaskID,
 		"task_name":    task.Name,
 		"status":       string(job.Status),
 		"result":       job.Result,
+		"error":        job.Error, // Empty string if no error
 		"parameters":   job.Parameters,
 		"started_at":   job.StartedAt,
 		"completed_at": job.CompletedAt,
 	}
 
-	if job.Error != "" {
-		payload["error"] = job.Error
-	}
-
 	return json.Marshal(payload)
-}
-
-// pushResult pushes job results to external APIs
-func (s *AgentJobService) pushResult(job schema.Job, task schema.Task) {
-	// Determine which result push configs to use based on job status
-	var pushConfigs []schema.ResultPushConfig
-
-	switch job.Status {
-	case schema.JobStatusCompleted:
-		pushConfigs = task.ResultPush
-	case schema.JobStatusFailed:
-		pushConfigs = task.ResultPushFailure
-	default:
-		return // Only push on completed or failed
-	}
-
-	if len(pushConfigs) == 0 {
-		return // No result push configured for this status
-	}
-
-	// Push to all configured endpoints concurrently
-	var wg sync.WaitGroup
-	errors := make(chan error, len(pushConfigs))
-
-	for _, config := range pushConfigs {
-		wg.Add(1)
-		go func(cfg schema.ResultPushConfig) {
-			defer wg.Done()
-			if err := s.pushToEndpoint(job, task, cfg); err != nil {
-				errors <- err
-			}
-		}(config)
-	}
-
-	wg.Wait()
-	close(errors)
-
-	// Collect errors (non-blocking - job status not affected)
-	var pushErrors []string
-	for err := range errors {
-		pushErrors = append(pushErrors, err.Error())
-	}
-
-	if len(pushErrors) > 0 {
-		// Store errors but don't fail the job
-		s.updateJobResultPushStatus(job.ID, false, fmt.Errorf("some endpoints failed: %v", pushErrors))
-	} else {
-		s.updateJobResultPushStatus(job.ID, true, nil)
-	}
-}
-
-// pushToEndpoint pushes to a single endpoint
-func (s *AgentJobService) pushToEndpoint(job schema.Job, task schema.Task, config schema.ResultPushConfig) error {
-	// Build payload
-	var payload []byte
-	var err error
-
-	if config.PayloadTemplate != "" {
-		// Use custom template
-		payload, err = s.buildPayloadFromTemplate(job, task, config.PayloadTemplate)
-	} else {
-		// Use default format
-		payload, err = s.buildDefaultPayload(job, task)
-	}
-
-	if err != nil {
-		return fmt.Errorf("failed to build payload: %w", err)
-	}
-
-	// Create HTTP request
-	method := config.Method
-	if method == "" {
-		method = "POST" // Default
-	}
-
-	req, err := http.NewRequest(method, config.URL, bytes.NewBuffer(payload))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Set headers
-	req.Header.Set("Content-Type", "application/json")
-	for k, v := range config.Headers {
-		req.Header.Set(k, v)
-	}
-
-	// Execute with retry
-	client := &http.Client{Timeout: 30 * time.Second}
-	return s.executeWithRetry(client, req, job.ID, "result_push")
 }
 
 // buildPayloadFromTemplate builds payload from template
 func (s *AgentJobService) buildPayloadFromTemplate(job schema.Job, task schema.Task, templateStr string) ([]byte, error) {
 	// Create template context
+	// Available variables:
+	// - .Job - Job object with all fields
+	// - .Task - Task object
+	// - .Result - Job result (if successful)
+	// - .Error - Error message (if failed, empty string if successful)
+	// - .Status - Job status string
 	ctx := map[string]interface{}{
 		"Job":        job,
 		"Task":       task,
 		"Result":     job.Result,
+		"Error":      job.Error,
 		"Parameters": job.Parameters,
 		"Status":     string(job.Status),
 	}
@@ -898,7 +1026,7 @@ func (s *AgentJobService) buildPayloadFromTemplate(job schema.Job, task schema.T
 		},
 	}
 
-	tmpl, err := template.New("payload").Funcs(funcMap).Parse(templateStr)
+	tmpl, err := template.New("payload").Funcs(funcMap).Funcs(sprig.FuncMap()).Parse(templateStr)
 	if err != nil {
 		return nil, err
 	}
@@ -911,36 +1039,12 @@ func (s *AgentJobService) buildPayloadFromTemplate(job schema.Job, task schema.T
 	return buf.Bytes(), nil
 }
 
-// buildDefaultPayload builds default JSON payload
-func (s *AgentJobService) buildDefaultPayload(job schema.Job, task schema.Task) ([]byte, error) {
-	payload := map[string]interface{}{
-		"job_id":            job.ID,
-		"task_id":            job.TaskID,
-		"task_name":         task.Name,
-		"status":            string(job.Status),
-		"result":            job.Result,
-		"parameters":        job.Parameters,
-		"started_at":        job.StartedAt,
-		"completed_at":      job.CompletedAt,
-		"completed_at_unix": int64(0),
-	}
-
-	if job.CompletedAt != nil {
-		payload["completed_at_unix"] = job.CompletedAt.Unix()
-	}
-
-	if job.Error != "" {
-		payload["error"] = job.Error
-	}
-
-	return json.Marshal(payload)
-}
-
 // executeWithRetry executes HTTP request with retry logic
-func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Request, jobID, operation string) error {
+func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Request) error {
 	maxRetries := 3
 	backoff := []time.Duration{1 * time.Second, 2 * time.Second, 4 * time.Second}
 
+	var err error
 	for i := 0; i < maxRetries; i++ {
 		// Recreate request body if needed (it may have been consumed)
 		if req.Body != nil {
@@ -948,8 +1052,8 @@ func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Reques
 			req.Body.Close()
 			req.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 		}
-
-		resp, err := client.Do(req)
+		var resp *http.Response
+		resp, err = client.Do(req)
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			resp.Body.Close()
 			return nil // Success
@@ -964,52 +1068,7 @@ func (s *AgentJobService) executeWithRetry(client *http.Client, req *http.Reques
 		}
 	}
 
-	return fmt.Errorf("failed after %d retries", maxRetries)
-}
-
-// updateJobWebhookStatus updates webhook delivery status
-func (s *AgentJobService) updateJobWebhookStatus(jobID string, sent bool, err error) {
-	job := s.jobs.Get(jobID)
-	if job.ID == "" {
-		return
-	}
-
-	job.WebhookSent = sent
-	if sent {
-		now := time.Now()
-		job.WebhookSentAt = &now
-		job.WebhookError = ""
-	} else if err != nil {
-		job.WebhookError = err.Error()
-	}
-
-	s.jobs.Set(jobID, job)
-}
-
-// updateJobResultPushStatus updates result push delivery status
-func (s *AgentJobService) updateJobResultPushStatus(jobID string, pushed bool, err error) {
-	job := s.jobs.Get(jobID)
-	if job.ID == "" {
-		return
-	}
-
-	job.ResultPushed = pushed
-	if pushed {
-		now := time.Now()
-		job.ResultPushedAt = &now
-		job.ResultPushError = ""
-	} else if err != nil {
-		job.ResultPushError = err.Error()
-	}
-
-	s.jobs.Set(jobID, job)
-
-	// Save to file (async)
-	go func() {
-		if err := s.SaveJobsToFile(); err != nil {
-			log.Error().Err(err).Msg("Failed to save jobs to file")
-		}
-	}()
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, err)
 }
 
 // CleanupOldJobs removes jobs older than retention period
@@ -1038,6 +1097,16 @@ func (s *AgentJobService) CleanupOldJobs() error {
 
 // Start starts the background service
 func (s *AgentJobService) Start(ctx context.Context) error {
+	// Create service context
+	s.ctx, s.cancel = context.WithCancel(ctx)
+
+	// Update retention days from config
+	retentionDays := s.appConfig.AgentJobRetentionDays
+	if retentionDays == 0 {
+		retentionDays = 30 // Default
+	}
+	s.retentionDays = retentionDays
+
 	// Load tasks and jobs from files
 	if err := s.LoadTasksFromFile(); err != nil {
 		log.Warn().Err(err).Msg("Failed to load tasks from file")
@@ -1052,7 +1121,7 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 	// Start worker pool (5 workers)
 	workerCount := 5
 	for i := 0; i < workerCount; i++ {
-		go s.worker(ctx)
+		go s.worker(s.ctx)
 	}
 
 	// Schedule daily cleanup at midnight
@@ -1070,7 +1139,28 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 		log.Warn().Err(err).Msg("Failed to run initial cleanup")
 	}
 
-	log.Info().Msg("AgentJobService started")
+	log.Info().Int("retention_days", s.retentionDays).Msg("AgentJobService started")
 	return nil
 }
 
+// Stop stops the agent job service
+func (s *AgentJobService) Stop() error {
+	if s.cancel != nil {
+		s.cancel()
+		s.cancel = nil
+	}
+	if s.cronScheduler != nil {
+		s.cronScheduler.Stop()
+	}
+	log.Info().Msg("AgentJobService stopped")
+	return nil
+}
+
+// UpdateRetentionDays updates the retention days setting
+func (s *AgentJobService) UpdateRetentionDays(days int) {
+	s.retentionDays = days
+	if days == 0 {
+		s.retentionDays = 30 // Default
+	}
+	log.Info().Int("retention_days", s.retentionDays).Msg("Updated agent job retention days")
+}

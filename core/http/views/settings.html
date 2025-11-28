@@ -317,6 +317,29 @@
                 </div>
             </div>
 
+            <!-- Agent Jobs Settings Section -->
+            <div class="bg-[#1E293B] border border-[#06B6D4]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-2 text-[#06B6D4] text-sm"></i>
+                    Agent Jobs Settings
+                </h2>
+                <p class="text-xs text-[#94A3B8] mb-4">
+                    Configure agent job retention and cleanup
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Agent Job Retention Days -->
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Job Retention Days</label>
+                        <p class="text-xs text-[#94A3B8] mb-2">Number of days to keep job history (default: 30)</p>
+                        <input type="number" x-model="settings.agent_job_retention_days" 
+                               min="0"
+                               placeholder="30"
+                               class="w-full px-3 py-2 bg-[#101827] border border-[#06B6D4]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/50">
+                    </div>
+                </div>
+            </div>
+
             <!-- API Keys Settings Section -->
             <div class="bg-[#1E293B] border border-[#EF4444]/20 rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
@@ -455,7 +478,8 @@ function settingsDashboard() {
             autoload_backend_galleries: false,
             galleries_json: '[]',
             backend_galleries_json: '[]',
-            api_keys_text: ''
+            api_keys_text: '',
+            agent_job_retention_days: 30
         },
         sourceInfo: '',
         saving: false,
@@ -492,7 +516,8 @@ function settingsDashboard() {
                         autoload_backend_galleries: data.autoload_backend_galleries || false,
                         galleries_json: JSON.stringify(data.galleries || [], null, 2),
                         backend_galleries_json: JSON.stringify(data.backend_galleries || [], null, 2),
-                        api_keys_text: (data.api_keys || []).join('\n')
+                        api_keys_text: (data.api_keys || []).join('\n'),
+                        agent_job_retention_days: data.agent_job_retention_days || 30
                     };
                     this.sourceInfo = data.source || 'default';
                 } else {
@@ -608,6 +633,9 @@ function settingsDashboard() {
                         this.saving = false;
                         return;
                     }
+                }
+                if (this.settings.agent_job_retention_days !== undefined) {
+                    payload.agent_job_retention_days = parseInt(this.settings.agent_job_retention_days) || 30;
                 }
                 
                 const response = await fetch('/api/settings', {

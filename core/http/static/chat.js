@@ -2392,7 +2392,10 @@ document.addEventListener('DOMContentLoaded', function() {
     if (shouldCreateNewChat) {
       // Create a new chat with the model from URL (which matches the selected model from index)
       const currentModel = document.getElementById("chat-model")?.value || "";
-      const newChat = chatStore.createChat(currentModel, "", indexChatData.mcpMode || false);
+      // Check URL parameter for MCP mode (takes precedence over localStorage)
+      const urlParams = new URLSearchParams(window.location.search);
+      const mcpFromUrl = urlParams.get('mcp') === 'true';
+      const newChat = chatStore.createChat(currentModel, "", mcpFromUrl || indexChatData.mcpMode || false);
       
       // Update context size from template if available
       const contextSizeInput = document.getElementById("chat-model");
@@ -2442,8 +2445,16 @@ document.addEventListener('DOMContentLoaded', function() {
           }
         }, 500);
       } else {
-        // No message, but might have mcpMode - clear localStorage
+        // No message, but might have mcpMode from URL - clear localStorage
         localStorage.removeItem('localai_index_chat_data');
+        
+        // If MCP mode was set from URL, ensure it's enabled
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mcp') === 'true' && newChat) {
+          newChat.mcpMode = true;
+          saveChatsToStorage();
+          updateUIForActiveChat();
+        }
         saveChatsToStorage();
         updateUIForActiveChat();
       }
@@ -2452,11 +2463,24 @@ document.addEventListener('DOMContentLoaded', function() {
       if (!storedData || !storedData.chats || storedData.chats.length === 0) {
         const currentModel = document.getElementById("chat-model")?.value || "";
         const oldSystemPrompt = localStorage.getItem(SYSTEM_PROMPT_STORAGE_KEY);
-        chatStore.createChat(currentModel, oldSystemPrompt || "", false);
+        // Check URL parameter for MCP mode
+        const urlParams = new URLSearchParams(window.location.search);
+        const mcpFromUrl = urlParams.get('mcp') === 'true';
+        chatStore.createChat(currentModel, oldSystemPrompt || "", mcpFromUrl);
         
         // Remove old system prompt key after migration
         if (oldSystemPrompt) {
           localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
+        }
+      } else {
+        // Existing chats loaded - check URL parameter for MCP mode
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('mcp') === 'true') {
+          const activeChat = chatStore.activeChat();
+          if (activeChat) {
+            activeChat.mcpMode = true;
+            saveChatsToStorage();
+          }
         }
       }
       

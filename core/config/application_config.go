@@ -336,6 +336,12 @@ func WithApiKeys(apiKeys []string) AppOption {
 	}
 }
 
+func WithAgentJobRetentionDays(days int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentJobRetentionDays = days
+	}
+}
+
 func WithEnforcedPredownloadScans(enforced bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.EnforcePredownloadScans = enforced

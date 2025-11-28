@@ -45,19 +45,29 @@ SOFTWARE.
     function __initChatStore() {
       if (!window.Alpine) return;
       
-      // Check for MCP mode from localStorage (set by index page)
+      // Check for MCP mode from localStorage (set by index page) or URL parameter
       // Note: We don't clear localStorage here - chat.js will handle that after reading all data
       let initialMcpMode = false;
-      try {
-        const chatData = localStorage.getItem('localai_index_chat_data');
-        if (chatData) {
-          const parsed = JSON.parse(chatData);
-          if (parsed.mcpMode === true) {
-            initialMcpMode = true;
+      
+      // First check URL parameter
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('mcp') === 'true') {
+        initialMcpMode = true;
+      }
+      
+      // Then check localStorage (URL param takes precedence)
+      if (!initialMcpMode) {
+        try {
+          const chatData = localStorage.getItem('localai_index_chat_data');
+          if (chatData) {
+            const parsed = JSON.parse(chatData);
+            if (parsed.mcpMode === true) {
+              initialMcpMode = true;
+            }
           }
+        } catch (e) {
+          console.error('Error reading MCP mode from localStorage:', e);
         }
-      } catch (e) {
-        console.error('Error reading MCP mode from localStorage:', e);
       }
       
       if (Alpine.store("chat")) {
@@ -564,6 +574,13 @@ SOFTWARE.
                 <i class="fas fa-info-circle"></i>
               </button>
               {{ end }}
+              {{ end }}
+              {{ if $model }}
+              <a href="/models/edit/{{$model}}" 
+                 class="text-[#94A3B8] hover:text-yellow-400 transition-colors text-xs p-1" 
+                 title="Edit Model Configuration">
+                <i class="fas fa-edit"></i>
+              </a>
               {{ end }}
             </div>
             <select

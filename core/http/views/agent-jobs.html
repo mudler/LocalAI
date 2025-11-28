@@ -43,10 +43,23 @@
                         <template x-for="task in tasks" :key="task.id">
                             <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
                                 <td class="py-3 px-4">
-                                    <div class="font-semibold text-[#E5E7EB]" x-text="task.name"></div>
+                                    <a :href="'/agent-jobs/tasks/' + task.id" 
+                                       class="font-semibold text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                       x-text="task.name"></a>
                                     <div class="text-sm text-[#94A3B8]" x-text="task.description || 'No description'"></div>
                                 </td>
-                                <td class="py-3 px-4 text-[#E5E7EB]" x-text="task.model"></td>
+                                <td class="py-3 px-4">
+                                    <div class="flex items-center space-x-2">
+                                        <a :href="'/chat/' + task.model + '?mcp=true'" 
+                                           class="text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                           x-text="task.model"></a>
+                                        <a :href="'/models/edit/' + task.model" 
+                                           class="text-yellow-400 hover:text-yellow-300"
+                                           title="Edit model configuration">
+                                            <i class="fas fa-edit text-sm"></i>
+                                        </a>
+                                    </div>
+                                </td>
                                 <td class="py-3 px-4">
                                     <span x-show="task.cron" class="text-[#38BDF8]" x-text="task.cron"></span>
                                     <span x-show="!task.cron" class="text-[#94A3B8]">-</span>
@@ -58,16 +71,19 @@
                                 </td>
                                 <td class="py-3 px-4">
                                     <div class="flex space-x-2">
-                                        <button @click="executeTask(task.id)" 
-                                                class="text-blue-400 hover:text-blue-300">
+                                        <button @click="showExecuteModal(task)" 
+                                                class="text-blue-400 hover:text-blue-300"
+                                                title="Execute task">
                                             <i class="fas fa-play"></i>
                                         </button>
                                         <a :href="'/agent-jobs/tasks/' + task.id + '/edit'" 
-                                           class="text-yellow-400 hover:text-yellow-300">
+                                           class="text-yellow-400 hover:text-yellow-300"
+                                           title="Edit task">
                                             <i class="fas fa-edit"></i>
                                         </a>
                                         <button @click="deleteTask(task.id)" 
-                                                class="text-red-400 hover:text-red-300">
+                                                class="text-red-400 hover:text-red-300"
+                                                title="Delete task">
                                             <i class="fas fa-trash"></i>
                                         </button>
                                     </div>
@@ -98,6 +114,11 @@
                         <option value="failed">Failed</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
+                    <button @click="clearJobHistory()" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                            title="Clear all job history">
+                        <i class="fas fa-trash mr-2"></i>Clear History
+                    </button>
                 </div>
             </div>
             <div class="overflow-x-auto">
@@ -115,9 +136,17 @@
                         <template x-for="job in jobs" :key="job.id">
                             <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
                                 <td class="py-3 px-4">
-                                    <div class="font-mono text-sm text-[#E5E7EB]" x-text="job.id.substring(0, 8) + '...'"></div>
+                                    <a :href="'/agent-jobs/jobs/' + job.id" 
+                                       class="font-mono text-sm text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                       x-text="job.id.substring(0, 8) + '...'"
+                                       :title="job.id"></a>
                                 </td>
-                                <td class="py-3 px-4 text-[#E5E7EB]" x-text="job.task_id"></td>
+                                <td class="py-3 px-4">
+                                    <a :href="'/agent-jobs/tasks/' + job.task_id" 
+                                       class="text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                       x-text="getTaskName(job.task_id)"
+                                       :title="'Task ID: ' + job.task_id"></a>
+                                </td>
                                 <td class="py-3 px-4">
                                     <span :class="{
                                         'bg-yellow-500': job.status === 'pending',
@@ -131,17 +160,11 @@
                                 </td>
                                 <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="formatDate(job.created_at)"></td>
                                 <td class="py-3 px-4">
-                                    <div class="flex space-x-2">
-                                        <button @click="viewJob(job.id)" 
-                                                class="text-blue-400 hover:text-blue-300">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <button x-show="job.status === 'pending' || job.status === 'running'" 
-                                                @click="cancelJob(job.id)" 
-                                                class="text-red-400 hover:text-red-300">
-                                            <i class="fas fa-stop"></i>
-                                        </button>
-                                    </div>
+                                    <button x-show="job.status === 'pending' || job.status === 'running'" 
+                                            @click="cancelJob(job.id)" 
+                                            class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-stop"></i>
+                                    </button>
                                 </td>
                             </tr>
                         </template>
@@ -154,37 +177,48 @@
         </div>
     </div>
 
-    <!-- Job Details Modal -->
-    <div x-show="selectedJob" 
+    <!-- Execute Task Modal -->
+    <div x-show="showExecuteTaskModal" 
          x-cloak
-         @click.away="selectedJob = null"
+         @click.away="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''"
          class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 max-w-2xl w-full mx-4">
             <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-semibold text-[#E5E7EB]">Job Details</h3>
-                <button @click="selectedJob = null" class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                <h3 class="text-2xl font-semibold text-[#E5E7EB]">Execute Task</h3>
+                <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''" 
+                        class="text-[#94A3B8] hover:text-[#E5E7EB]">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <template x-if="selectedJob">
+            <template x-if="selectedTaskForExecution">
                 <div class="space-y-4">
                     <div>
-                        <label class="text-[#94A3B8] text-sm">Status</label>
-                        <div class="text-[#E5E7EB]" x-text="selectedJob.status"></div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Task</label>
+                        <div class="text-[#94A3B8]" x-text="selectedTaskForExecution.name"></div>
                     </div>
                     <div>
-                        <label class="text-[#94A3B8] text-sm">Result</label>
-                        <div class="bg-[#101827] p-4 rounded mt-2 text-[#E5E7EB] whitespace-pre-wrap" 
-                             x-text="selectedJob.result || 'No result yet'"></div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Parameters</label>
+                        <p class="text-xs text-[#94A3B8] mb-3">
+                            Enter parameters as key-value pairs (one per line, format: key=value). 
+                            These will be used to template the prompt.
+                        </p>
+                        <textarea x-model="executionParametersText" 
+                                  rows="6"
+                                  placeholder="user_name=Alice&#10;job_title=Software Engineer&#10;task_description=Review code changes"
+                                  class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                        <p class="text-xs text-[#94A3B8] mt-1">
+                            Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
+                        </p>
                     </div>
-                    <div x-show="selectedJob.error">
-                        <label class="text-[#94A3B8] text-sm">Error</label>
-                        <div class="bg-red-900/20 p-4 rounded mt-2 text-red-400" x-text="selectedJob.error"></div>
-                    </div>
-                    <div>
-                        <label class="text-[#94A3B8] text-sm">Parameters</label>
-                        <pre class="bg-[#101827] p-4 rounded mt-2 text-[#E5E7EB] text-sm" 
-                             x-text="JSON.stringify(selectedJob.parameters, null, 2)"></pre>
+                    <div class="flex justify-end space-x-4">
+                        <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''" 
+                                class="px-4 py-2 bg-[#101827] hover:bg-[#0A0E1A] text-[#E5E7EB] rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="executeTaskWithParameters()" 
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            <i class="fas fa-play mr-2"></i>Execute
+                        </button>
                     </div>
                 </div>
             </template>
@@ -196,9 +230,12 @@
             return {
                 tasks: [],
                 jobs: [],
-                selectedJob: null,
                 jobFilter: '',
                 loading: false,
+                showExecuteTaskModal: false,
+                selectedTaskForExecution: null,
+                executionParameters: {},
+                executionParametersText: '',
 
                 init() {
                     this.fetchTasks();
@@ -231,18 +268,62 @@
                     }
                 },
 
-                async executeTask(taskId) {
+                showExecuteModal(task) {
+                    this.selectedTaskForExecution = task;
+                    this.executionParameters = {};
+                    this.executionParametersText = '';
+                    this.showExecuteTaskModal = true;
+                },
+
+                parseParameters(text) {
+                    const params = {};
+                    if (!text || !text.trim()) {
+                        return params;
+                    }
+                    const lines = text.split('\n');
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        const equalIndex = trimmed.indexOf('=');
+                        if (equalIndex > 0) {
+                            const key = trimmed.substring(0, equalIndex).trim();
+                            const value = trimmed.substring(equalIndex + 1).trim();
+                            if (key) {
+                                params[key] = value;
+                            }
+                        }
+                    }
+                    return params;
+                },
+
+                async executeTaskWithParameters() {
+                    if (!this.selectedTaskForExecution) return;
+                    
+                    // Parse parameters from text
+                    this.executionParameters = this.parseParameters(this.executionParametersText);
+                    
                     try {
                         const response = await fetch('/api/agent/jobs/execute', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ task_id: taskId, parameters: {} })
+                            body: JSON.stringify({ 
+                                task_id: this.selectedTaskForExecution.id, 
+                                parameters: this.executionParameters 
+                            })
                         });
                         if (response.ok) {
+                            this.showExecuteTaskModal = false;
+                            this.selectedTaskForExecution = null;
+                            this.executionParameters = {};
+                            this.executionParametersText = '';
                             this.fetchJobs();
+                        } else {
+                            const error = await response.json();
+                            alert('Failed to execute task: ' + (error.error || 'Unknown error'));
                         }
                     } catch (error) {
                         console.error('Failed to execute task:', error);
+                        alert('Failed to execute task: ' + error.message);
                     }
                 },
 
@@ -260,13 +341,8 @@
                     }
                 },
 
-                async viewJob(jobId) {
-                    try {
-                        const response = await fetch('/api/agent/jobs/' + jobId);
-                        this.selectedJob = await response.json();
-                    } catch (error) {
-                        console.error('Failed to fetch job:', error);
-                    }
+                viewJob(jobId) {
+                    window.location.href = '/agent-jobs/jobs/' + jobId;
                 },
 
                 async cancelJob(jobId) {
@@ -286,6 +362,50 @@
                     if (!dateStr) return '-';
                     const date = new Date(dateStr);
                     return date.toLocaleString();
+                },
+
+                getTaskName(taskId) {
+                    const task = this.tasks.find(t => t.id === taskId);
+                    return task ? task.name : taskId.substring(0, 8) + '...';
+                },
+
+                async clearJobHistory() {
+                    if (!confirm('Are you sure you want to clear all job history? This action cannot be undone.')) return;
+                    try {
+                        // Get all jobs (with a high limit to get all)
+                        const response = await fetch('/api/agent/jobs?limit=10000');
+                        if (response.ok) {
+                            const jobs = await response.json();
+                            // Delete each job
+                            let deleted = 0;
+                            let failed = 0;
+                            for (const job of jobs) {
+                                try {
+                                    const deleteResponse = await fetch('/api/agent/jobs/' + job.id, {
+                                        method: 'DELETE'
+                                    });
+                                    if (deleteResponse.ok) {
+                                        deleted++;
+                                    } else {
+                                        failed++;
+                                    }
+                                } catch (error) {
+                                    console.error('Failed to delete job:', job.id, error);
+                                    failed++;
+                                }
+                            }
+                            // Refresh job list
+                            this.fetchJobs();
+                            if (failed > 0) {
+                                alert(`Cleared ${deleted} jobs. ${failed} jobs could not be deleted.`);
+                            } else {
+                                alert(`Successfully cleared ${deleted} jobs.`);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to clear job history:', error);
+                        alert('Failed to clear job history: ' + error.message);
+                    }
                 }
             }
         }

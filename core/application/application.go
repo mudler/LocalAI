@@ -23,6 +23,7 @@ type Application struct {
 	p2pMutex           sync.Mutex
 	p2pCtx             context.Context
 	p2pCancel          context.CancelFunc
+	agentJobMutex      sync.Mutex
 }
 
 func newApplication(appConfig *config.ApplicationConfig) *Application {

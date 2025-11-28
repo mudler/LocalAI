@@ -271,8 +271,10 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if settings.AutoloadBackendGalleries != nil {
 			appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
 		}
+		agentJobChanged := false
 		if settings.AgentJobRetentionDays != nil {
 			appConfig.AgentJobRetentionDays = *settings.AgentJobRetentionDays
+			agentJobChanged = true
 		}
 		if settings.ApiKeys != nil {
 			// API keys from env vars (startup) should be kept, runtime settings keys are added
@@ -305,6 +307,17 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
 					})
 				}
+			}
+		}
+
+		// Restart agent job service if retention days changed
+		if agentJobChanged {
+			if err := app.RestartAgentJobService(); err != nil {
+				log.Error().Err(err).Msg("Failed to restart agent job service")
+				return c.JSON(http.StatusInternalServerError, SettingsResponse{
+					Success: false,
+					Error:   "Settings saved but failed to restart agent job service: " + err.Error(),
+				})
 			}
 		}
 

@@ -1,6 +1,7 @@
 package localai
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -266,12 +267,12 @@ func DeleteJobEndpoint(app *application.Application) echo.HandlerFunc {
 
 // ExecuteTaskByNameEndpoint executes a task by name
 // @Summary Execute a task by name
-// @Description Execute an agent task by its name (convenience endpoint)
+// @Description Execute an agent task by its name (convenience endpoint). Parameters can be provided in the request body as a JSON object with string values.
 // @Tags agent-jobs
 // @Accept json
 // @Produce json
 // @Param name path string true "Task name"
-// @Param request body map[string]string false "Template parameters"
+// @Param request body map[string]string false "Template parameters (JSON object with string values)"
 // @Success 201 {object} schema.JobExecutionResponse "Job created"
 // @Failure 400 {object} map[string]string "Invalid request"
 // @Failure 404 {object} map[string]string "Task not found"
@@ -280,8 +281,31 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		name := c.Param("name")
 		var params map[string]string
-		if err := c.Bind(&params); err != nil {
-			// If no body provided, use empty params
+		
+		// Try to bind parameters from request body
+		// If body is empty or invalid, use empty params
+		if c.Request().ContentLength > 0 {
+			if err := c.Bind(&params); err != nil {
+				// If binding fails, try to read as raw JSON
+				body := make(map[string]interface{})
+				if err := c.Bind(&body); err == nil {
+					// Convert interface{} values to strings
+					params = make(map[string]string)
+					for k, v := range body {
+						if str, ok := v.(string); ok {
+							params[k] = str
+						} else {
+							// Convert non-string values to string
+							params[k] = fmt.Sprintf("%v", v)
+						}
+					}
+				} else {
+					// If all binding fails, use empty params
+					params = make(map[string]string)
+				}
+			}
+		} else {
+			// No body provided, use empty params
 			params = make(map[string]string)
 		}
 

@@ -52,9 +52,10 @@ func RegisterUIRoutes(app *echo.Echo,
 			"Version":      internal.PrintableVersion(),
 			"ModelsConfig": modelConfigs,
 		}
-		return c.Render(200, "views/agent-task-editor", summary)
+		return c.Render(200, "views/agent-task-details", summary)
 	})
 
+	// More specific route must come first
 	app.GET("/agent-jobs/tasks/:id/edit", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		summary := map[string]interface{}{
@@ -64,6 +65,25 @@ func RegisterUIRoutes(app *echo.Echo,
 			"ModelsConfig": modelConfigs,
 		}
 		return c.Render(200, "views/agent-task-editor", summary)
+	})
+
+	// Task details page (less specific, comes after edit route)
+	app.GET("/agent-jobs/tasks/:id", func(c echo.Context) error {
+		summary := map[string]interface{}{
+			"Title":   "LocalAI - Task Details",
+			"BaseURL": middleware.BaseURL(c),
+			"Version": internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/agent-task-details", summary)
+	})
+
+	app.GET("/agent-jobs/jobs/:id", func(c echo.Context) error {
+		summary := map[string]interface{}{
+			"Title":   "LocalAI - Job Details",
+			"BaseURL": middleware.BaseURL(c),
+			"Version": internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/agent-job-details", summary)
 	})
 
 	// P2P

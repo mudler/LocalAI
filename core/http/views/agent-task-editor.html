@@ -74,9 +74,92 @@
                 <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Prompt Template</h2>
                 <div>
                     <label class="block text-[#E5E7EB] mb-2">Prompt *</label>
-                    <p class="text-sm text-[#94A3B8] mb-2">Use {{.param}} syntax for template parameters (e.g., {{.user_name}})</p>
-                    <textarea x-model="task.prompt" required rows="10"
+                    <p class="text-sm text-[#94A3B8] mb-4">
+                        Use Go template syntax with <code class="bg-[#101827] px-1.5 py-0.5 rounded text-[#38BDF8]">{{"{{"}}.param{{"}}"}}</code> for dynamic parameters. 
+                        Parameters are provided when executing the job and will be substituted into the prompt.
+                    </p>
+                    
+                    <!-- Example Prompt -->
+                    <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4 mb-4">
+                        <p class="text-xs text-[#94A3B8] mb-2 font-semibold">Example Prompt:</p>
+                        <pre class="text-xs text-[#E5E7EB] font-mono whitespace-pre-wrap">You are a helpful assistant. The user's name is {{"{{"}}.user_name{{"}}"}} and they work as a {{"{{"}}.job_title{{"}}"}}.
+
+Please help them with the following task: {{"{{"}}.task_description{{"}}"}}
+
+Provide a detailed response that addresses their specific needs.</pre>
+                    </div>
+                    
+                    <textarea x-model="task.prompt" required rows="12"
+                               placeholder="Enter your prompt template here. Use {{.parameter_name}} to reference parameters that will be provided when the job executes."
                                class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                    <p class="text-xs text-[#94A3B8] mt-2">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        The prompt will be processed as a Go template. All parameters passed during job execution will be available as template variables.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- API Examples -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">API Usage Examples</h2>
+                
+                <div class="space-y-6">
+                    <!-- Execute Job with Task ID -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-play text-[#38BDF8] mr-2"></i>
+                            Execute Job with Task ID
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST http://localhost:8080/api/agent/jobs/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "task_id": "<span x-text="(task && task.id) ? task.id : 'task-uuid'"></span>",
+    "parameters": {
+      "user_name": "Bob",
+      "job_title": "Data Scientist",
+      "task_description": "Analyze sales data"
+    }
+  }'</code></pre>
+                        </div>
+                    </div>
+                    
+                    <!-- Execute Task by Name (Alternative) -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-code text-[#38BDF8] mr-2"></i>
+                            Execute Task by Name (Alternative)
+                        </h3>
+                        <p class="text-xs text-[#94A3B8] mb-2">You can also execute a task using its name instead of ID.</p>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST http://localhost:8080/api/agent/tasks/<span x-text="(task && task.name) ? task.name : 'task-name'"></span>/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "user_name": "Alice",
+    "job_title": "Software Engineer",
+    "task_description": "Review the latest code changes"
+  }'</code></pre>
+                        </div>
+                        <p class="text-xs text-[#94A3B8] mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            The request body should be a JSON object where keys are parameter names and values are strings. 
+                            If no body is provided, the task will execute with empty parameters.
+                        </p>
+                    </div>
+                    
+                    <!-- Check Job Status -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-info-circle text-[#38BDF8] mr-2"></i>
+                            Check Job Status
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X GET http://localhost:8080/api/agent/jobs/JOB_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -94,38 +177,16 @@
 
             <!-- Webhook Configuration -->
             <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhook (Optional)</h2>
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhooks (Optional)</h2>
+                <p class="text-sm text-[#94A3B8] mb-4">
+                    Configure webhook URLs to receive notifications when jobs complete. You can add multiple webhooks, each with custom headers and HTTP methods.
+                </p>
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-[#E5E7EB] mb-2">Webhook URL</label>
-                        <input type="url" x-model="task.webhook_url"
-                               class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
-                    </div>
-                    <div>
-                        <label class="block text-[#E5E7EB] mb-2">Authorization Header</label>
-                        <input type="text" x-model="task.webhook_auth" placeholder="Bearer token or Basic auth"
-                               class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
-                    </div>
-                    <div>
-                        <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
-                        <textarea x-model="task.webhook_template" rows="5"
-                                   placeholder='{"text": "Job {{.Job.ID}} completed with status {{.Status}}"}'
-                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                        <p class="text-sm text-[#94A3B8] mt-1">Go template with Job, Task, Result, Parameters, Status variables</p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Result Push (Success) -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Result Push - Success</h2>
-                <p class="text-sm text-[#94A3B8] mb-4">Push job results to external APIs when job completes successfully</p>
-                <div class="space-y-4">
-                    <template x-for="(push, index) in task.result_push" :key="index">
+                    <template x-for="(webhook, index) in task.webhooks" :key="index">
                         <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
                             <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Endpoint <span x-text="index + 1"></span></h3>
-                                <button type="button" @click="task.result_push.splice(index, 1)" 
+                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Webhook <span x-text="index + 1"></span></h3>
+                                <button type="button" @click="task.webhooks.splice(index, 1)" 
                                         class="text-red-400 hover:text-red-300">
                                     <i class="fas fa-trash"></i>
                                 </button>
@@ -133,12 +194,14 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="block text-[#E5E7EB] mb-2">URL *</label>
-                                    <input type="url" x-model="push.url" required
+                                    <input type="url" x-model="webhook.url" required
+                                           placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
                                            class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                    <p class="text-xs text-[#94A3B8] mt-1">URL where webhook notifications will be sent</p>
                                 </div>
                                 <div>
                                     <label class="block text-[#E5E7EB] mb-2">HTTP Method</label>
-                                    <select x-model="push.method"
+                                    <select x-model="webhook.method"
                                             class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
                                         <option value="POST">POST</option>
                                         <option value="PUT">PUT</option>
@@ -147,76 +210,44 @@
                                 </div>
                                 <div>
                                     <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
-                                    <textarea x-model="push.headers_json" rows="3"
-                                              placeholder='{"Authorization": "Bearer token"}'
+                                    <textarea x-model="webhook.headers_json" rows="3"
+                                              placeholder='{"Authorization": "Bearer token", "Content-Type": "application/json"}'
                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                    <p class="text-xs text-[#94A3B8] mt-1">Custom headers for the webhook request (e.g., Authorization)</p>
                                 </div>
                                 <div>
                                     <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
-                                    <textarea x-model="push.payload_template" rows="5"
-                                              placeholder='{"job_id": "{{.Job.ID}}", "result": "{{.Result}}"}'
+                                    <p class="text-xs text-[#94A3B8] mb-2">Customize the webhook payload using Go template syntax. Available variables: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Job</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Task</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Result</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Error</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Status</code></p>
+                                    <p class="text-xs text-[#94A3B8] mb-2">Note: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Error</code> will be empty string if job succeeded, or contain the error message if it failed. Use this to handle both success and failure cases in a single webhook.</p>
+                                    <div class="bg-[#0A0E1A] border border-[#38BDF8]/10 rounded-lg p-3 mb-2">
+                                        <p class="text-xs text-[#94A3B8] mb-1 font-semibold">Example (Slack with error handling):</p>
+                                        <pre class="text-xs text-[#E5E7EB] font-mono whitespace-pre-wrap">{
+  "text": "Job {{.Job.ID}} {{if .Error}}failed{{else}}completed{{end}}",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Task:* {{.Task.Name}}\n*Status:* {{.Status}}\n{{if .Error}}*Error:* {{.Error}}{{else}}*Result:* {{.Result}}{{end}}"
+      }
+    }
+  ]
+}</pre>
+                                    </div>
+                                    <textarea x-model="webhook.payload_template" rows="5"
+                                              placeholder='{"text": "Job {{.Job.ID}} completed with status {{.Status}}", "error": "{{.Error}}"}'
                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
                                 </div>
                             </div>
                         </div>
                     </template>
-                    <button type="button" @click="addResultPush('success')" 
+                    <button type="button" @click="addWebhook()" 
                             class="w-full bg-[#101827] border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 rounded px-4 py-3 text-[#38BDF8] transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Add Result Push Endpoint
+                        <i class="fas fa-plus mr-2"></i>Add Webhook
                     </button>
                 </div>
             </div>
 
-            <!-- Result Push (Failure) -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Result Push - Failure</h2>
-                <p class="text-sm text-[#94A3B8] mb-4">Push job results to external APIs when job fails</p>
-                <div class="space-y-4">
-                    <template x-for="(push, index) in task.result_push_failure" :key="index">
-                        <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
-                            <div class="flex justify-between items-center mb-4">
-                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Endpoint <span x-text="index + 1"></span></h3>
-                                <button type="button" @click="task.result_push_failure.splice(index, 1)" 
-                                        class="text-red-400 hover:text-red-300">
-                                    <i class="fas fa-trash"></i>
-                                </button>
-                            </div>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="block text-[#E5E7EB] mb-2">URL *</label>
-                                    <input type="url" x-model="push.url" required
-                                           class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
-                                </div>
-                                <div>
-                                    <label class="block text-[#E5E7EB] mb-2">HTTP Method</label>
-                                    <select x-model="push.method"
-                                            class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
-                                        <option value="POST">POST</option>
-                                        <option value="PUT">PUT</option>
-                                        <option value="PATCH">PATCH</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
-                                    <textarea x-model="push.headers_json" rows="3"
-                                              placeholder='{"Authorization": "Bearer token"}'
-                                              class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                                </div>
-                                <div>
-                                    <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
-                                    <textarea x-model="push.payload_template" rows="5"
-                                              placeholder='{"job_id": "{{.Job.ID}}", "error": "{{.Job.Error}}"}'
-                                              class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                    <button type="button" @click="addResultPush('failure')" 
-                            class="w-full bg-[#101827] border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 rounded px-4 py-3 text-[#38BDF8] transition-colors">
-                        <i class="fas fa-plus mr-2"></i>Add Result Push Endpoint
-                    </button>
-                </div>
-            </div>
 
             <!-- Actions -->
             <div class="flex justify-end space-x-4">
@@ -241,11 +272,7 @@
                     prompt: '',
                     enabled: true,
                     cron: '',
-                    webhook_url: '',
-                    webhook_auth: '',
-                    webhook_template: '',
-                    result_push: [],
-                    result_push_failure: []
+                    webhooks: []
                 },
                 models: [],
 
@@ -264,18 +291,21 @@
                     try {
                         const response = await fetch('/api/agent/tasks/' + this.taskId);
                         const task = await response.json();
+                        // Handle webhooks: use new format (backend should have migrated legacy fields)
+                        let webhooks = [];
+                        if (task.webhooks && Array.isArray(task.webhooks) && task.webhooks.length > 0) {
+                            // Use new format
+                            webhooks = task.webhooks.map(wh => ({
+                                ...wh,
+                                headers_json: JSON.stringify(wh.headers || {}, null, 2)
+                            }));
+                        }
+                        // Note: Legacy fields (webhook_url, webhook_auth, webhook_template) should be migrated
+                        // by the backend, so we don't need to handle them here
                         this.task = {
                             ...task,
-                            result_push: task.result_push || [],
-                            result_push_failure: task.result_push_failure || []
+                            webhooks: webhooks
                         };
-                        // Convert headers objects to JSON strings for editing
-                        this.task.result_push.forEach(push => {
-                            push.headers_json = JSON.stringify(push.headers || {}, null, 2);
-                        });
-                        this.task.result_push_failure.forEach(push => {
-                            push.headers_json = JSON.stringify(push.headers || {}, null, 2);
-                        });
                     } catch (error) {
                         console.error('Failed to load task:', error);
                     }
@@ -292,53 +322,42 @@
                     }
                 },
 
-                addResultPush(type) {
-                    const push = {
+                addWebhook() {
+                    const webhook = {
                         url: '',
                         method: 'POST',
                         headers: {},
                         headers_json: '{}',
                         payload_template: ''
                     };
-                    if (type === 'success') {
-                        this.task.result_push.push(push);
-                    } else {
-                        this.task.result_push_failure.push(push);
-                    }
+                    this.task.webhooks.push(webhook);
                 },
 
                 async saveTask() {
                     // Convert headers_json strings back to objects
+                    // Explicitly exclude legacy webhook fields
                     const taskToSave = {
-                        ...this.task,
-                        result_push: this.task.result_push.map(push => {
+                        name: this.task.name,
+                        description: this.task.description,
+                        model: this.task.model,
+                        prompt: this.task.prompt,
+                        enabled: this.task.enabled,
+                        cron: this.task.cron,
+                        webhooks: this.task.webhooks.map(webhook => {
                             const headers = {};
                             try {
-                                Object.assign(headers, JSON.parse(push.headers_json || '{}'));
+                                Object.assign(headers, JSON.parse(webhook.headers_json || '{}'));
                             } catch (e) {
                                 console.error('Invalid headers JSON:', e);
                             }
                             return {
-                                url: push.url,
-                                method: push.method || 'POST',
+                                url: webhook.url,
+                                method: webhook.method || 'POST',
                                 headers: headers,
-                                payload_template: push.payload_template || ''
-                            };
-                        }),
-                        result_push_failure: this.task.result_push_failure.map(push => {
-                            const headers = {};
-                            try {
-                                Object.assign(headers, JSON.parse(push.headers_json || '{}'));
-                            } catch (e) {
-                                console.error('Invalid headers JSON:', e);
-                            }
-                            return {
-                                url: push.url,
-                                method: push.method || 'POST',
-                                headers: headers,
-                                payload_template: push.payload_template || ''
+                                payload_template: webhook.payload_template || ''
                             };
                         })
+                        // Explicitly exclude legacy fields: webhook_url, webhook_auth, webhook_template
                     };
 
                     try {
