@@ -20,6 +20,7 @@ fi
 if [ "x${BUILD_PROFILE}" == "xl4t" ]; then
   PYTHON_VERSION="3.12"
   PYTHON_PATCH="12"
+  PY_STANDALONE_TAG="20251120"
 fi
 
 installRequirements
