@@ -14,8 +14,22 @@ import backend_pb2_grpc
 import torch
 from kittentts import KittenTTS
 import soundfile as sf
+import pathlib
+import logging
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 import grpc
+
+# Configure structured logging for security audit trails
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler(sys.stderr)
+    ]
+)
+logger = logging.getLogger('KittenTTS-Backend')
 
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
@@ -23,6 +37,70 @@ _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 # If MAX_WORKERS are specified in the environment use it, otherwise default to 1
 MAX_WORKERS = int(os.environ.get('PYTHON_GRPC_MAX_WORKERS', '1'))
 KITTEN_LANGUAGE = os.environ.get('KITTEN_LANGUAGE', None)
+
+# Rate limiting configuration
+REQUESTS_PER_MINUTE = int(os.environ.get('TTS_REQUESTS_PER_MINUTE', '10'))
+REQUEST_TIMEOUT_SECONDS = int(os.environ.get('TTS_REQUEST_TIMEOUT_SECONDS', '300'))
+
+class RateLimiter:
+    """Simple rate limiter to prevent DoS attacks via excessive requests."""
+    def __init__(self, max_requests, window_seconds):
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
+        self.requests = defaultdict(list)
+    
+    def is_allowed(self, client_id):
+        """Check if a client is allowed to make a request."""
+        now = time.time()
+        # Clean old requests
+        self.requests[client_id] = [
+            req_time for req_time in self.requests[client_id]
+            if now - req_time < self.window_seconds
+        ]
+        # Check if limit exceeded
+        if len(self.requests[client_id]) >= self.max_requests:
+            return False
+        # Record this request
+        self.requests[client_id].append(now)
+        return True
+
+# Global rate limiter instance
+rate_limiter = RateLimiter(REQUESTS_PER_MINUTE, 60)
+
+def validate_output_path(path):
+    """Validate output path to prevent path traversal and shell injection attacks."""
+    if not path:
+        raise ValueError("Output path cannot be empty")
+    
+    # Check for null bytes which could be used in attacks
+    if '\x00' in path:
+        raise ValueError("Path contains null bytes")
+    
+    # Ensure it's a valid filename without shell metacharacters that could be used in command injection
+    invalid_chars = ['$', '`', ';', '|', '&', '>', '<', '(', ')', '{', '}', '[', ']', '\n', '\r']
+    for char in invalid_chars:
+        if char in path:
+            raise ValueError(f"Path contains invalid character: {char}")
+    
+    # Prevent path traversal attacks by checking for ".."
+    if ".." in path:
+        raise ValueError("Path traversal detected")
+    
+    # Convert to Path object for validation
+    path_obj = pathlib.Path(path)
+    
+    return str(path_obj)
+
+def validate_text_input(text):
+    """Validate text input to prevent injection attacks."""
+    if not text:
+        raise ValueError("Text input cannot be empty")
+    
+    # Check for null bytes
+    if '\x00' in text:
+        raise ValueError("Text contains null bytes")
+    
+    return text
 
 # Implement the BackendServicer class with the service methods
 class BackendServicer(backend_pb2_grpc.BackendServicer):
@@ -57,17 +135,43 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
     def TTS(self, request, context):
         try:
+            # Extract client identifier for rate limiting and logging
+            client_id = "unknown"
+            try:
+                client_id = context.peer() if context else "unknown"
+            except:
+                pass
+            
+            # Check rate limit
+            if not rate_limiter.is_allowed(client_id):
+                logger.warning(f"Rate limit exceeded for client: {client_id}")
+                return backend_pb2.Result(success=False, message="Rate limit exceeded")
+            
+            # Log TTS request for audit trail
+            logger.info(f"TTS request from {client_id}: voice={request.voice}, text_length={len(request.text)}")
+            
             # KittenTTS doesn't use language parameter like TTS, so we ignore it
             # For multi-speaker models, use voice parameter
             voice = request.voice if request.voice else "expr-voice-2-f"
             
+            # Validate inputs to prevent security vulnerabilities
+            safe_dst = validate_output_path(request.dst)
+            safe_text = validate_text_input(request.text)
+            
             # Generate audio using KittenTTS
-            audio = self.tts.generate(request.text, voice=voice)
+            audio = self.tts.generate(safe_text, voice=voice)
             
             # Save the audio using soundfile
-            sf.write(request.dst, audio, 24000)
+            sf.write(safe_dst, audio, 24000)
             
+            # Log successful TTS generation
+            logger.info(f"TTS generation successful for {client_id}: output={safe_dst}")
+            
+        except ValueError as err:
+            logger.warning(f"Validation error for {client_id}: {err}")
+            return backend_pb2.Result(success=False, message=f"Invalid input: {str(err)}")
         except Exception as err:
+            logger.error(f"Unexpected error during TTS for {client_id}: {err=}, {type(err)=}")
             return backend_pb2.Result(success=False, message=f"Unexpected {err=}, {type(err)=}")
         return backend_pb2.Result(success=True)
 
