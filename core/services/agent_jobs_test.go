@@ -261,6 +261,8 @@ var _ = Describe("AgentJobService", func() {
 			jobID, err := service.ExecuteJob(taskID, params, "test")
 			Expect(err).NotTo(HaveOccurred())
 
+			service.SaveJobsToFile()
+
 			// Create a new service instance to test loading
 			newService := services.NewAgentJobService(
 				appConfig,
