@@ -70,15 +70,18 @@ type ApplicationConfig struct {
 	TunnelCallback func(tunnels []string)
 
 	DisableRuntimeSettings bool
+
+	AgentJobRetentionDays int // Default: 30 days
 }
 
 type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:       context.Background(),
-		UploadLimitMB: 15,
-		Debug:         true,
+		Context:               context.Background(),
+		UploadLimitMB:         15,
+		Debug:                 true,
+		AgentJobRetentionDays: 30, // Default: 30 days
 	}
 	for _, oo := range o {
 		oo(opt)
@@ -330,6 +333,12 @@ func WithDynamicConfigDirPollInterval(interval time.Duration) AppOption {
 func WithApiKeys(apiKeys []string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.ApiKeys = apiKeys
+	}
+}
+
+func WithAgentJobRetentionDays(days int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.AgentJobRetentionDays = days
 	}
 }
 

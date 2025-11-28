@@ -34,6 +34,60 @@ func RegisterUIRoutes(app *echo.Echo,
 		})
 	}
 
+	// Agent Jobs pages
+	app.GET("/agent-jobs", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		summary := map[string]interface{}{
+			"Title":        "LocalAI - Agent Jobs",
+			"BaseURL":      middleware.BaseURL(c),
+			"Version":      internal.PrintableVersion(),
+			"ModelsConfig": modelConfigs,
+		}
+		return c.Render(200, "views/agent-jobs", summary)
+	})
+
+	app.GET("/agent-jobs/tasks/new", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		summary := map[string]interface{}{
+			"Title":        "LocalAI - Create Task",
+			"BaseURL":      middleware.BaseURL(c),
+			"Version":      internal.PrintableVersion(),
+			"ModelsConfig": modelConfigs,
+		}
+		return c.Render(200, "views/agent-task-details", summary)
+	})
+
+	// More specific route must come first
+	app.GET("/agent-jobs/tasks/:id/edit", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		summary := map[string]interface{}{
+			"Title":        "LocalAI - Edit Task",
+			"BaseURL":      middleware.BaseURL(c),
+			"Version":      internal.PrintableVersion(),
+			"ModelsConfig": modelConfigs,
+		}
+		return c.Render(200, "views/agent-task-details", summary)
+	})
+
+	// Task details page (less specific, comes after edit route)
+	app.GET("/agent-jobs/tasks/:id", func(c echo.Context) error {
+		summary := map[string]interface{}{
+			"Title":   "LocalAI - Task Details",
+			"BaseURL": middleware.BaseURL(c),
+			"Version": internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/agent-task-details", summary)
+	})
+
+	app.GET("/agent-jobs/jobs/:id", func(c echo.Context) error {
+		summary := map[string]interface{}{
+			"Title":   "LocalAI - Job Details",
+			"BaseURL": middleware.BaseURL(c),
+			"Version": internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/agent-job-details", summary)
+	})
+
 	// P2P
 	app.GET("/p2p/", func(c echo.Context) error {
 		summary := map[string]interface{}{

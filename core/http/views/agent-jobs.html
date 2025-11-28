@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="agentJobs()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Header -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-4xl font-bold text-[#E5E7EB] mb-2">
+                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
+                            Agent Jobs
+                        </span>
+                    </h1>
+                    <p class="text-lg text-[#94A3B8]">Manage agent tasks and monitor job execution</p>
+                </div>
+                <a href="/agent-jobs/tasks/new" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors" x-show="hasMCPModels">
+                    <i class="fas fa-plus mr-2"></i>Create Task
+                </a>
+            </div>
+        </div>
+
+        <!-- Wizard: No Models -->
+        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-12 mb-8" x-show="!hasModels">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 mb-6">
+                    <i class="text-[#8B5CF6] text-2xl fas fa-robot"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
+                        No Models Installed
+                    </span>
+                </h2>
+                <p class="text-xl text-[#94A3B8] mb-8">
+                    To use Agent Jobs, you need to install a model first. Agent Jobs require models with MCP (Model Context Protocol) configuration.
+                </p>
+                
+                <!-- Features Preview -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
+                    <div class="bg-[#101827] border border-[#38BDF8]/20 rounded-lg p-4">
+                        <div class="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-images text-[#38BDF8] text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Model Gallery</h3>
+                        <p class="text-xs text-[#94A3B8]">Browse and install pre-configured models</p>
+                    </div>
+                    <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-lg p-4">
+                        <div class="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-upload text-[#8B5CF6] text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Import Models</h3>
+                        <p class="text-xs text-[#94A3B8]">Upload your own model files</p>
+                    </div>
+                    <div class="bg-[#101827] border border-green-500/20 rounded-lg p-4">
+                        <div class="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
+                            <i class="fas fa-code text-green-400 text-xl"></i>
+                        </div>
+                        <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">API Download</h3>
+                        <p class="text-xs text-[#94A3B8]">Use the API to download models programmatically</p>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-rocket text-[#8B5CF6] mr-2"></i>
+                        How to Get Started
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">1</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Browse the Model Gallery</p>
+                                <p class="text-[#94A3B8] text-sm">Explore our curated collection of pre-configured models. Find models for chat, image generation, audio processing, and more.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">2</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Install a Model</p>
+                                <p class="text-[#94A3B8] text-sm">Click on a model from the gallery to install it, or use the import feature to upload your own model files.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-[#8B5CF6] font-bold text-sm">3</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Configure MCP</p>
+                                <p class="text-[#94A3B8] text-sm">After installing a model, configure MCP (Model Context Protocol) to enable Agent Jobs functionality.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="/browse/" 
+                       class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-images mr-2"></i>
+                        Browse Model Gallery
+                    </a>
+                    <a href="/import-model" 
+                       class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-upload mr-2"></i>
+                        Import Model
+                    </a>
+                    <a href="https://localai.io/basics/getting_started/" target="_blank" 
+                       class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        Getting Started
+                        <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wizard: Models but No MCP -->
+        <div class="bg-[#1E293B] border border-yellow-500/20 rounded-xl p-12 mb-8" x-show="hasModels && !hasMCPModels">
+            <div class="text-center max-w-4xl mx-auto">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-6">
+                    <i class="text-yellow-500 text-2xl fas fa-exclamation-triangle"></i>
+                </div>
+                <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-4">
+                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-yellow-500">
+                        MCP Configuration Required
+                    </span>
+                </h2>
+                <p class="text-xl text-[#94A3B8] mb-8">
+                    You have models installed, but none have MCP (Model Context Protocol) enabled. Agent Jobs require MCP to function.
+                </p>
+                
+                <!-- Available Models List -->
+                <div class="bg-[#101827] border border-yellow-500/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-list text-yellow-500 mr-2"></i>
+                        Available Models
+                    </h3>
+                    <div class="space-y-3">
+                        <template x-for="model in availableModels" :key="model.name">
+                            <div class="flex items-center justify-between p-3 bg-[#0A0E1A] rounded-lg border border-[#38BDF8]/10">
+                                <div class="flex items-center space-x-3">
+                                    <i class="fas fa-cube text-[#38BDF8]"></i>
+                                    <span class="text-[#E5E7EB] font-medium" x-text="model.name"></span>
+                                </div>
+                                <a :href="'/models/edit/' + model.name" 
+                                   class="inline-flex items-center bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors text-sm">
+                                    <i class="fas fa-edit mr-2"></i>
+                                    Configure MCP
+                                </a>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Setup Instructions -->
+                <div class="bg-[#101827] border border-yellow-500/20 rounded-xl p-6 mb-8 text-left">
+                    <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
+                        <i class="fas fa-cog text-yellow-500 mr-2"></i>
+                        How to Enable MCP
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-yellow-500 font-bold text-sm">1</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Edit a Model Configuration</p>
+                                <p class="text-[#94A3B8] text-sm">Click "Configure MCP" on any model above, or navigate to the model editor to add MCP configuration.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-yellow-500 font-bold text-sm">2</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Add MCP Configuration</p>
+                                <p class="text-[#94A3B8] text-sm">In the model YAML, add MCP server or stdio configuration. See the documentation for detailed examples.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-yellow-500/20 flex items-center justify-center mr-3 mt-0.5">
+                                <span class="text-yellow-500 font-bold text-sm">3</span>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-[#E5E7EB] font-medium mb-2">Save and Return</p>
+                                <p class="text-[#94A3B8] text-sm">After saving the MCP configuration, return to this page to create your first Agent Job task.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flex flex-wrap justify-center gap-4">
+                    <a href="https://localai.io/features/mcp/" target="_blank" 
+                       class="inline-flex items-center bg-yellow-600 hover:bg-yellow-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-book mr-2"></i>
+                        MCP Documentation
+                        <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+                    </a>
+                    <a href="/manage" 
+                       class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-cog mr-2"></i>
+                        Manage Models
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tasks Section -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="hasMCPModels">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Tasks</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[#38BDF8]/20">
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Name</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Model</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Cron</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Status</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="task in tasks" :key="task.id">
+                            <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
+                                <td class="py-3 px-4">
+                                    <a :href="'/agent-jobs/tasks/' + task.id" 
+                                       class="font-semibold text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                       x-text="task.name"></a>
+                                    <div class="text-sm text-[#94A3B8]" x-text="task.description || 'No description'"></div>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="flex items-center space-x-2">
+                                        <a :href="'/chat/' + task.model + '?mcp=true'" 
+                                           class="text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                           x-text="task.model"></a>
+                                        <a :href="'/models/edit/' + task.model" 
+                                           class="text-yellow-400 hover:text-yellow-300"
+                                           title="Edit model configuration">
+                                            <i class="fas fa-edit text-sm"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span x-show="task.cron" class="text-[#38BDF8]" x-text="task.cron"></span>
+                                    <span x-show="!task.cron" class="text-[#94A3B8]">-</span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span :class="task.enabled ? 'bg-green-500' : 'bg-gray-500'" 
+                                          class="px-2 py-1 rounded text-xs text-white" 
+                                          x-text="task.enabled ? 'Enabled' : 'Disabled'"></span>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <div class="flex space-x-2">
+                                        <button @click="showExecuteModal(task)" 
+                                                class="text-blue-400 hover:text-blue-300"
+                                                title="Execute task">
+                                            <i class="fas fa-play"></i>
+                                        </button>
+                                        <a :href="'/agent-jobs/tasks/' + task.id + '/edit'" 
+                                           class="text-yellow-400 hover:text-yellow-300"
+                                           title="Edit task">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button @click="deleteTask(task.id)" 
+                                                class="text-red-400 hover:text-red-300"
+                                                title="Delete task">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="tasks.length === 0">
+                            <td colspan="5" class="py-8 text-center text-[#94A3B8]">
+                                No tasks found. <a href="/agent-jobs/tasks/new" class="text-blue-400 hover:text-blue-300">Create one</a>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Jobs Section -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8" x-show="hasMCPModels">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job History</h2>
+                <div class="flex space-x-4">
+                    <select x-model="jobFilter" @change="fetchJobs()" 
+                            class="bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB]">
+                        <option value="">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="running">Running</option>
+                        <option value="completed">Completed</option>
+                        <option value="failed">Failed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                    <button @click="clearJobHistory()" 
+                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                            title="Clear all job history">
+                        <i class="fas fa-trash mr-2"></i>Clear History
+                    </button>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-[#38BDF8]/20">
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Job ID</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Task</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Status</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Created</th>
+                            <th class="text-left py-3 px-4 text-[#94A3B8]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="job in jobs" :key="job.id">
+                            <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
+                                <td class="py-3 px-4">
+                                    <a :href="'/agent-jobs/jobs/' + job.id" 
+                                       class="font-mono text-sm text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                       x-text="job.id.substring(0, 8) + '...'"
+                                       :title="job.id"></a>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <a :href="'/agent-jobs/tasks/' + job.task_id" 
+                                       class="text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                       x-text="getTaskName(job.task_id)"
+                                       :title="'Task ID: ' + job.task_id"></a>
+                                </td>
+                                <td class="py-3 px-4">
+                                    <span :class="{
+                                        'bg-yellow-500': job.status === 'pending',
+                                        'bg-blue-500': job.status === 'running',
+                                        'bg-green-500': job.status === 'completed',
+                                        'bg-red-500': job.status === 'failed',
+                                        'bg-gray-500': job.status === 'cancelled'
+                                    }" 
+                                    class="px-2 py-1 rounded text-xs text-white" 
+                                    x-text="job.status"></span>
+                                </td>
+                                <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="formatDate(job.created_at)"></td>
+                                <td class="py-3 px-4">
+                                    <button x-show="job.status === 'pending' || job.status === 'running'" 
+                                            @click="cancelJob(job.id)" 
+                                            class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-stop"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                        <tr x-show="jobs.length === 0">
+                            <td colspan="5" class="py-8 text-center text-[#94A3B8]">No jobs found</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Execute Task Modal -->
+    <div x-show="showExecuteTaskModal" 
+         x-cloak
+         @click.away="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 max-w-2xl w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-[#E5E7EB]">Execute Task</h3>
+                <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''" 
+                        class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <template x-if="selectedTaskForExecution">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Task</label>
+                        <div class="text-[#94A3B8]" x-text="selectedTaskForExecution.name"></div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Parameters</label>
+                        <p class="text-xs text-[#94A3B8] mb-3">
+                            Enter parameters as key-value pairs (one per line, format: key=value). 
+                            These will be used to template the prompt.
+                        </p>
+                        <textarea x-model="executionParametersText" 
+                                  rows="6"
+                                  placeholder="user_name=Alice&#10;job_title=Software Engineer&#10;task_description=Review code changes"
+                                  class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                        <p class="text-xs text-[#94A3B8] mt-1">
+                            Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
+                        </p>
+                    </div>
+                    <div class="flex justify-end space-x-4">
+                        <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''" 
+                                class="px-4 py-2 bg-[#101827] hover:bg-[#0A0E1A] text-[#E5E7EB] rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="executeTaskWithParameters()" 
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            <i class="fas fa-play mr-2"></i>Execute
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Models Data (hidden, for JavaScript) -->
+    <script id="models-data" type="application/json">
+    {{ if .ModelsConfig }}
+    [
+        {{ range $index, $cfg := .ModelsConfig }}
+        {{ if $index }},{{ end }}{
+            "name": "{{ $cfg.Name }}",
+            "hasMCP": {{ if or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}true{{ else }}false{{ end }}
+        }
+        {{ end }}
+    ]
+    {{ else }}[]{{ end }}
+    </script>
+
+    <script>
+        function agentJobs() {
+            return {
+                tasks: [],
+                jobs: [],
+                jobFilter: '',
+                loading: false,
+                showExecuteTaskModal: false,
+                selectedTaskForExecution: null,
+                executionParameters: {},
+                executionParametersText: '',
+                modelsConfig: [],
+                hasModels: false,
+                hasMCPModels: false,
+                availableModels: [],
+
+                init() {
+                    // Check models from template data
+                    this.checkModels();
+                    this.fetchTasks();
+                    this.fetchJobs();
+                    // Poll for job updates every 2 seconds
+                    setInterval(() => {
+                        this.fetchJobs();
+                    }, 2000);
+                },
+
+                checkModels() {
+                    // Get models from template data
+                    const modelsDataElement = document.getElementById('models-data');
+                    let modelsData = [];
+                    if (modelsDataElement) {
+                        try {
+                            modelsData = JSON.parse(modelsDataElement.textContent);
+                        } catch (e) {
+                            console.error('Failed to parse models data:', e);
+                        }
+                    }
+                    
+                    this.modelsConfig = modelsData;
+                    this.hasModels = modelsData.length > 0;
+                    
+                    // Check for MCP-enabled models
+                    const mcpModels = modelsData.filter(m => m.hasMCP);
+                    this.hasMCPModels = mcpModels.length > 0;
+                    
+                    // Get available models (without MCP) for the wizard
+                    this.availableModels = modelsData.filter(m => !m.hasMCP);
+                },
+
+                async fetchTasks() {
+                    try {
+                        const response = await fetch('/api/agent/tasks');
+                        this.tasks = await response.json();
+                    } catch (error) {
+                        console.error('Failed to fetch tasks:', error);
+                    }
+                },
+
+                async fetchJobs() {
+                    try {
+                        let url = '/api/agent/jobs?limit=50';
+                        if (this.jobFilter) {
+                            url += '&status=' + this.jobFilter;
+                        }
+                        const response = await fetch(url);
+                        this.jobs = await response.json();
+                    } catch (error) {
+                        console.error('Failed to fetch jobs:', error);
+                    }
+                },
+
+                showExecuteModal(task) {
+                    this.selectedTaskForExecution = task;
+                    this.executionParameters = {};
+                    this.executionParametersText = '';
+                    this.showExecuteTaskModal = true;
+                },
+
+                parseParameters(text) {
+                    const params = {};
+                    if (!text || !text.trim()) {
+                        return params;
+                    }
+                    const lines = text.split('\n');
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        const equalIndex = trimmed.indexOf('=');
+                        if (equalIndex > 0) {
+                            const key = trimmed.substring(0, equalIndex).trim();
+                            const value = trimmed.substring(equalIndex + 1).trim();
+                            if (key) {
+                                params[key] = value;
+                            }
+                        }
+                    }
+                    return params;
+                },
+
+                async executeTaskWithParameters() {
+                    if (!this.selectedTaskForExecution) return;
+                    
+                    // Parse parameters from text
+                    this.executionParameters = this.parseParameters(this.executionParametersText);
+                    
+                    try {
+                        const response = await fetch('/api/agent/jobs/execute', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                task_id: this.selectedTaskForExecution.id, 
+                                parameters: this.executionParameters 
+                            })
+                        });
+                        if (response.ok) {
+                            this.showExecuteTaskModal = false;
+                            this.selectedTaskForExecution = null;
+                            this.executionParameters = {};
+                            this.executionParametersText = '';
+                            this.fetchJobs();
+                        } else {
+                            const error = await response.json();
+                            alert('Failed to execute task: ' + (error.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Failed to execute task:', error);
+                        alert('Failed to execute task: ' + error.message);
+                    }
+                },
+
+                async deleteTask(taskId) {
+                    if (!confirm('Are you sure you want to delete this task?')) return;
+                    try {
+                        const response = await fetch('/api/agent/tasks/' + taskId, {
+                            method: 'DELETE'
+                        });
+                        if (response.ok) {
+                            this.fetchTasks();
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete task:', error);
+                    }
+                },
+
+                viewJob(jobId) {
+                    window.location.href = '/agent-jobs/jobs/' + jobId;
+                },
+
+                async cancelJob(jobId) {
+                    try {
+                        const response = await fetch('/api/agent/jobs/' + jobId + '/cancel', {
+                            method: 'POST'
+                        });
+                        if (response.ok) {
+                            this.fetchJobs();
+                        }
+                    } catch (error) {
+                        console.error('Failed to cancel job:', error);
+                    }
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleString();
+                },
+
+                getTaskName(taskId) {
+                    const task = this.tasks.find(t => t.id === taskId);
+                    return task ? task.name : taskId.substring(0, 8) + '...';
+                },
+
+                async clearJobHistory() {
+                    if (!confirm('Are you sure you want to clear all job history? This action cannot be undone.')) return;
+                    try {
+                        // Get all jobs (with a high limit to get all)
+                        const response = await fetch('/api/agent/jobs?limit=10000');
+                        if (response.ok) {
+                            const jobs = await response.json();
+                            // Delete each job
+                            let deleted = 0;
+                            let failed = 0;
+                            for (const job of jobs) {
+                                try {
+                                    const deleteResponse = await fetch('/api/agent/jobs/' + job.id, {
+                                        method: 'DELETE'
+                                    });
+                                    if (deleteResponse.ok) {
+                                        deleted++;
+                                    } else {
+                                        failed++;
+                                    }
+                                } catch (error) {
+                                    console.error('Failed to delete job:', job.id, error);
+                                    failed++;
+                                }
+                            }
+                            // Refresh job list
+                            this.fetchJobs();
+                            if (failed > 0) {
+                                alert(`Cleared ${deleted} jobs. ${failed} jobs could not be deleted.`);
+                            } else {
+                                alert(`Successfully cleared ${deleted} jobs.`);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to clear job history:', error);
+                        alert('Failed to clear job history: ' + error.message);
+                    }
+                }
+            }
+        }
+    </script>
+</div>
+</body>
+</html>
+

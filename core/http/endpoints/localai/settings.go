@@ -44,6 +44,7 @@ type RuntimeSettings struct {
 	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
 	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
 	ApiKeys                  *[]string         `json:"api_keys"` // No omitempty - we need to save empty arrays to clear keys
+	AgentJobRetentionDays    *int              `json:"agent_job_retention_days,omitempty"`
 }
 
 // GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
@@ -80,6 +81,7 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		autoloadGalleries := appConfig.AutoloadGalleries
 		autoloadBackendGalleries := appConfig.AutoloadBackendGalleries
 		apiKeys := appConfig.ApiKeys
+		agentJobRetentionDays := appConfig.AgentJobRetentionDays
 
 		settings.WatchdogIdleEnabled = &watchdogIdle
 		settings.WatchdogBusyEnabled = &watchdogBusy
@@ -101,6 +103,7 @@ func GetSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		settings.AutoloadGalleries = &autoloadGalleries
 		settings.AutoloadBackendGalleries = &autoloadBackendGalleries
 		settings.ApiKeys = &apiKeys
+		settings.AgentJobRetentionDays = &agentJobRetentionDays
 
 		var idleTimeout, busyTimeout string
 		if appConfig.WatchDogIdleTimeout > 0 {
@@ -268,6 +271,11 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if settings.AutoloadBackendGalleries != nil {
 			appConfig.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
 		}
+		agentJobChanged := false
+		if settings.AgentJobRetentionDays != nil {
+			appConfig.AgentJobRetentionDays = *settings.AgentJobRetentionDays
+			agentJobChanged = true
+		}
 		if settings.ApiKeys != nil {
 			// API keys from env vars (startup) should be kept, runtime settings keys are added
 			// Combine startup keys (env vars) with runtime settings keys
@@ -299,6 +307,17 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
 					})
 				}
+			}
+		}
+
+		// Restart agent job service if retention days changed
+		if agentJobChanged {
+			if err := app.RestartAgentJobService(); err != nil {
+				log.Error().Err(err).Msg("Failed to restart agent job service")
+				return c.JSON(http.StatusInternalServerError, SettingsResponse{
+					Success: false,
+					Error:   "Settings saved but failed to restart agent job service: " + err.Error(),
+				})
 			}
 		}
 
