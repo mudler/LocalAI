@@ -1,4 +1,4 @@
---extra-index-url https://pypi.jetson-ai-lab.io/sbsa/cu130
+--extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu129/
 torch
 git+https://github.com/huggingface/diffusers
 transformers
