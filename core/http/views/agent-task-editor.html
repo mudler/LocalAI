@@ -168,10 +168,14 @@ Provide a detailed response that addresses their specific needs.</pre>
                 <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Cron Schedule (Optional)</h2>
                 <div>
                     <label class="block text-[#E5E7EB] mb-2">Cron Expression</label>
-                    <input type="text" x-model="task.cron" 
+                    <input type="text" 
+                           x-model="task.cron" 
+                           @blur="validateCron(task.cron)"
+                           @input="cronError = ''"
                            placeholder="0 0 * * * (daily at midnight)"
-                           class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                           :class="cronError ? 'w-full bg-[#101827] border border-red-500 rounded px-4 py-2 text-[#E5E7EB] focus:border-red-500 focus:ring-2 focus:ring-red-500/50' : 'w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50'">
                     <p class="text-sm text-[#94A3B8] mt-1">Standard 5-field cron format (minute hour day month weekday)</p>
+                    <p x-show="cronError" class="text-sm text-red-400 mt-2" x-text="cronError"></p>
                 </div>
             </div>
 
@@ -275,6 +279,7 @@ Provide a detailed response that addresses their specific needs.</pre>
                     webhooks: []
                 },
                 models: [],
+                cronError: '',
 
                 init() {
                     // Get task ID from URL
@@ -333,7 +338,45 @@ Provide a detailed response that addresses their specific needs.</pre>
                     this.task.webhooks.push(webhook);
                 },
 
+                validateCron(cronExpr) {
+                    this.cronError = '';
+                    if (!cronExpr || cronExpr.trim() === '') {
+                        return true; // Empty is valid (optional field)
+                    }
+                    
+                    // Basic validation: should have 5 space-separated fields
+                    const fields = cronExpr.trim().split(/\s+/);
+                    if (fields.length !== 5) {
+                        this.cronError = 'Cron expression must have exactly 5 fields (minute hour day month weekday)';
+                        return false;
+                    }
+                    
+                    // Validate each field
+                    const patterns = {
+                        minute: /^(\*|[0-5]?\d(-[0-5]?\d)?(,[0-5]?\d(-[0-5]?\d)?)*|\/[0-5]?\d)$/,
+                        hour: /^(\*|[01]?\d|2[0-3])(-([01]?\d|2[0-3]))?(,([01]?\d|2[0-3])(-([01]?\d|2[0-3]))?)*|\/[01]?\d$/,
+                        day: /^(\*|[12]?\d|3[01])(-([12]?\d|3[01]))?(,([12]?\d|3[01])(-([12]?\d|3[01]))?)*|\/[12]?\d$/,
+                        month: /^(\*|[01]?\d)(-([01]?\d))?(,([01]?\d)(-([01]?\d))?)*|\/[01]?\d$|JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC/,
+                        weekday: /^(\*|[0-6])(-[0-6])?(,[0-6](-[0-6])?)*|\/[0-6]$|SUN|MON|TUE|WED|THU|FRI|SAT/
+                    };
+                    
+                    // More lenient validation - just check basic structure
+                    // The actual parsing will be done server-side
+                    const validChars = /^[\d\*\s\-\/\,]+$/i;
+                    if (!validChars.test(cronExpr) && !cronExpr.match(/[A-Z]{3}/i)) {
+                        this.cronError = 'Cron expression contains invalid characters';
+                        return false;
+                    }
+                    
+                    return true;
+                },
+
                 async saveTask() {
+                    // Validate cron before saving
+                    if (this.task.cron && !this.validateCron(this.task.cron)) {
+                        return; // Don't save if cron is invalid
+                    }
+                    
                     // Convert headers_json strings back to objects
                     // Explicitly exclude legacy webhook fields
                     const taskToSave = {
@@ -379,7 +422,13 @@ Provide a detailed response that addresses their specific needs.</pre>
                             window.location.href = '/agent-jobs';
                         } else {
                             const error = await response.json();
-                            alert('Failed to save task: ' + (error.error || 'Unknown error'));
+                            const errorMsg = error.error || 'Unknown error';
+                            // Check if error is related to cron
+                            if (errorMsg.toLowerCase().includes('cron')) {
+                                this.cronError = errorMsg;
+                            } else {
+                                alert('Failed to save task: ' + errorMsg);
+                            }
                         }
                     } catch (error) {
                         console.error('Failed to save task:', error);

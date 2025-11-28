@@ -101,7 +101,7 @@ func NewAgentJobService(
 		jobsFile:      jobsFile,
 		jobQueue:      make(chan JobExecution, 100), // Buffer for 100 jobs
 		cancellations: xsync.NewSyncedMap[string, context.CancelFunc](),
-		cronScheduler: cron.New(cron.WithSeconds()), // Support seconds in cron
+		cronScheduler: cron.New(), // Support seconds in cron
 		cronEntries:   xsync.NewSyncedMap[string, cron.EntryID](),
 		retentionDays: retentionDays,
 	}
