@@ -80,13 +80,14 @@
                         Find Your Perfect Model
                     </h3>
                     <div class="relative">
-                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
+                        <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none z-10">
                             <i class="fas fa-search text-[var(--color-text-secondary)]"></i>
                         </div>
                         <input
                             x-model="searchTerm"
                             @input.debounce.500ms="fetchModels()"
-                            class="input w-full pl-12 pr-16 py-4"
+                            class="input w-full pr-16 py-4"
+                            style="padding-left: 3.5rem !important;"
                             type="search"
                             placeholder="Search models by name, tag, or description...">
                         <span class="absolute right-4 top-4" x-show="loading">

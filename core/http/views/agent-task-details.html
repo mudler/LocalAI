@@ -165,6 +165,59 @@ Provide a detailed response that addresses their specific needs.</pre>
                     </div>
                 </div>
 
+                <!-- Multimedia Sources Configuration -->
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Multimedia Sources (Optional)</h2>
+                    <p class="text-sm text-[#94A3B8] mb-4">
+                        Configure multimedia sources (images, videos, audios, files) to fetch when cron jobs execute. 
+                        Each source can have custom headers for authentication/authorization. These will be fetched and included in the job execution.
+                    </p>
+                    <div class="space-y-4">
+                        <template x-for="(source, index) in taskForm.multimedia_sources" :key="index">
+                            <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Multimedia Source <span x-text="index + 1"></span></h3>
+                                    <button type="button" @click="taskForm.multimedia_sources.splice(index, 1)" 
+                                            class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">Type *</label>
+                                        <select x-model="source.type" required
+                                                class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                            <option value="">Select type...</option>
+                                            <option value="image">Image</option>
+                                            <option value="video">Video</option>
+                                            <option value="audio">Audio</option>
+                                            <option value="file">File</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                        <input type="url" x-model="source.url" required
+                                               placeholder="https://example.com/image.png"
+                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                        <p class="text-xs text-[#94A3B8] mt-1">URL where multimedia content will be fetched from</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                        <textarea x-model="source.headers_json" rows="3"
+                                                  placeholder='{"Authorization": "Bearer token"}'
+                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                        <p class="text-xs text-[#94A3B8] mt-1">Custom headers for the HTTP request (e.g., Authorization)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <button type="button" @click="addMultimediaSource()" 
+                                class="w-full bg-[#101827] hover:bg-[#0A0E1A] border border-[#38BDF8]/20 border-dashed rounded-lg p-4 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add Multimedia Source
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Webhook Configuration -->
                 <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
                     <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhooks (Optional)</h2>
@@ -350,6 +403,33 @@ Provide a detailed response that addresses their specific needs.</pre>
                         </p>
                     </div>
                     
+                    <!-- Execute Task with Multimedia -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-images text-[#38BDF8] mr-2"></i>
+                            Execute Task with Multimedia (Images)
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "task_id": "<span x-text="task ? task.id : 'task-uuid'"></span>",
+    "parameters": {
+      "user_name": "Alice",
+      "task_description": "Analyze this image"
+    },
+    "images": [
+      "https://example.com/image.png",
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    ]
+  }'</code></pre>
+                        </div>
+                        <p class="text-xs text-[#94A3B8] mt-2">
+                            You can provide multimedia content as URLs or base64-encoded data URIs. Supported types: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">images</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">videos</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">audios</code>, and <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">files</code>.
+                        </p>
+                    </div>
+                    
                     <!-- Check Job Status -->
                     <div>
                         <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
@@ -478,23 +558,42 @@ Provide a detailed response that addresses their specific needs.</pre>
     <!-- Execute Task Modal -->
     <div x-show="showExecuteTaskModal" 
          x-cloak
-         @click.away="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''"
+         @click.away="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'"
          class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 max-w-2xl w-full mx-4">
-            <div class="flex justify-between items-center mb-6">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col" @click.stop>
+            <div class="flex justify-between items-center p-8 pb-6 border-b border-[#38BDF8]/20">
                 <h3 class="text-2xl font-semibold text-[#E5E7EB]">Execute Task</h3>
-                <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''" 
+                <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
                         class="text-[#94A3B8] hover:text-[#E5E7EB]">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
             <template x-if="task">
-                <div class="space-y-4">
+                <div class="flex flex-col flex-1 min-h-0">
+                    <div class="flex-1 overflow-y-auto px-8 py-6 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Task</label>
                         <div class="text-[#94A3B8]" x-text="task.name"></div>
                     </div>
-                    <div>
+                    
+                    <!-- Tabs for Parameters and Multimedia -->
+                    <div class="border-b border-[#38BDF8]/20">
+                        <div class="flex space-x-4">
+                            <button @click="executeModalTab = 'parameters'" 
+                                    :class="executeModalTab === 'parameters' ? 'border-b-2 border-[#38BDF8] text-[#38BDF8]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
+                                    class="px-4 py-2 font-medium transition-colors">
+                                Parameters
+                            </button>
+                            <button @click="executeModalTab = 'multimedia'" 
+                                    :class="executeModalTab === 'multimedia' ? 'border-b-2 border-[#38BDF8] text-[#38BDF8]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
+                                    class="px-4 py-2 font-medium transition-colors">
+                                Multimedia
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Parameters Tab -->
+                    <div x-show="executeModalTab === 'parameters'">
                         <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Parameters</label>
                         <p class="text-xs text-[#94A3B8] mb-3">
                             Enter parameters as key-value pairs (one per line, format: key=value). 
@@ -508,8 +607,61 @@ Provide a detailed response that addresses their specific needs.</pre>
                             Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
                         </p>
                     </div>
-                    <div class="flex justify-end space-x-4">
-                        <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''" 
+                    
+                    <!-- Multimedia Tab -->
+                    <div x-show="executeModalTab === 'multimedia'" class="space-y-4">
+                        <p class="text-xs text-[#94A3B8] mb-3">
+                            Provide multimedia content as URLs or base64-encoded data URIs. You can also upload files which will be converted to base64.
+                        </p>
+                        
+                        <!-- Images -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Images</label>
+                            <textarea x-model="executionMultimedia.images" 
+                                      rows="3"
+                                      placeholder="https://example.com/image.png&#10;data:image/png;base64,iVBORw0KG..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'image')" accept="image/*" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                        
+                        <!-- Videos -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Videos</label>
+                            <textarea x-model="executionMultimedia.videos" 
+                                      rows="3"
+                                      placeholder="https://example.com/video.mp4&#10;data:video/mp4;base64,..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'video')" accept="video/*" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                        
+                        <!-- Audios -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Audios</label>
+                            <textarea x-model="executionMultimedia.audios" 
+                                      rows="3"
+                                      placeholder="https://example.com/audio.mp3&#10;data:audio/mpeg;base64,..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'audio')" accept="audio/*" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                        
+                        <!-- Files -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Files</label>
+                            <textarea x-model="executionMultimedia.files" 
+                                      rows="3"
+                                      placeholder="https://example.com/file.pdf&#10;data:application/pdf;base64,..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'file')" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 p-8 pt-6 border-t border-[#38BDF8]/20 bg-[#1E293B]">
+                        <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
                                 class="px-4 py-2 bg-[#101827] hover:bg-[#0A0E1A] text-[#E5E7EB] rounded-lg transition-colors">
                             Cancel
                         </button>
@@ -533,6 +685,13 @@ Provide a detailed response that addresses their specific needs.</pre>
                 showExecuteTaskModal: false,
                 executionParameters: {},
                 executionParametersText: '',
+                executionMultimedia: {
+                    images: '',
+                    videos: '',
+                    audios: '',
+                    files: ''
+                },
+                executeModalTab: 'parameters',
                 isNewTask: false,
                 isEditMode: false,
                 taskForm: {
@@ -543,7 +702,8 @@ Provide a detailed response that addresses their specific needs.</pre>
                     enabled: true,
                     cron: '',
                     cron_parameters: {},
-                    webhooks: []
+                    webhooks: [],
+                    multimedia_sources: []
                 },
                 cronError: '',
                 cronParametersText: '',
@@ -600,6 +760,15 @@ Provide a detailed response that addresses their specific needs.</pre>
                             // Note: Legacy fields (webhook_url, webhook_auth, webhook_template) should be migrated
                             // by the backend, so we don't need to handle them here
                             
+                            // Handle multimedia sources
+                            let multimediaSources = [];
+                            if (this.task.multimedia_sources && Array.isArray(this.task.multimedia_sources) && this.task.multimedia_sources.length > 0) {
+                                multimediaSources = this.task.multimedia_sources.map(ms => ({
+                                    ...ms,
+                                    headers_json: JSON.stringify(ms.headers || {}, null, 2)
+                                }));
+                            }
+                            
                             // Convert cron_parameters to text format
                             let cronParamsText = '';
                             if (this.task.cron_parameters && Object.keys(this.task.cron_parameters).length > 0) {
@@ -616,7 +785,8 @@ Provide a detailed response that addresses their specific needs.</pre>
                                 enabled: this.task.enabled !== undefined ? this.task.enabled : true,
                                 cron: this.task.cron || '',
                                 cron_parameters: this.task.cron_parameters || {},
-                                webhooks: webhooks
+                                webhooks: webhooks,
+                                multimedia_sources: multimediaSources
                             };
                             this.cronParametersText = cronParamsText;
                         } else {
@@ -665,6 +835,19 @@ Provide a detailed response that addresses their specific needs.</pre>
                         payload_template: ''
                     };
                     this.taskForm.webhooks.push(webhook);
+                },
+
+                addMultimediaSource() {
+                    const source = {
+                        type: '',
+                        url: '',
+                        headers: {},
+                        headers_json: '{}'
+                    };
+                    if (!this.taskForm.multimedia_sources) {
+                        this.taskForm.multimedia_sources = [];
+                    }
+                    this.taskForm.multimedia_sources.push(source);
                 },
 
                 updateCronParameters() {
@@ -791,6 +974,8 @@ Provide a detailed response that addresses their specific needs.</pre>
                 showExecuteModal() {
                     this.executionParameters = {};
                     this.executionParametersText = '';
+                    this.executionMultimedia = {images: '', videos: '', audios: '', files: ''};
+                    this.executeModalTab = 'parameters';
                     this.showExecuteTaskModal = true;
                 },
 
@@ -821,19 +1006,35 @@ Provide a detailed response that addresses their specific needs.</pre>
                     // Parse parameters from text
                     this.executionParameters = this.parseParameters(this.executionParametersText);
                     
+                    // Parse multimedia from text (split by newlines, filter empty)
+                    const parseMultimedia = (text) => {
+                        if (!text || !text.trim()) return [];
+                        return text.split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0);
+                    };
+                    
+                    const requestBody = {
+                        task_id: this.task.id,
+                        parameters: this.executionParameters,
+                        images: parseMultimedia(this.executionMultimedia.images),
+                        videos: parseMultimedia(this.executionMultimedia.videos),
+                        audios: parseMultimedia(this.executionMultimedia.audios),
+                        files: parseMultimedia(this.executionMultimedia.files)
+                    };
+                    
                     try {
                         const response = await fetch('/api/agent/jobs/execute', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                task_id: this.task.id, 
-                                parameters: this.executionParameters 
-                            })
+                            body: JSON.stringify(requestBody)
                         });
                         if (response.ok) {
                             this.showExecuteTaskModal = false;
                             this.executionParameters = {};
                             this.executionParametersText = '';
+                            this.executionMultimedia = {images: '', videos: '', audios: '', files: ''};
+                            this.executeModalTab = 'parameters';
                             this.fetchJobs();
                         } else {
                             const error = await response.json();
@@ -842,6 +1043,34 @@ Provide a detailed response that addresses their specific needs.</pre>
                     } catch (error) {
                         console.error('Failed to execute task:', error);
                         alert('Failed to execute task: ' + error.message);
+                    }
+                },
+                
+                handleFileUpload(event, type) {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    
+                    const dataURIs = [];
+                    let processed = 0;
+                    
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const reader = new FileReader();
+                        
+                        reader.onload = (e) => {
+                            const dataURI = e.target.result;
+                            dataURIs.push(dataURI);
+                            processed++;
+                            
+                            if (processed === files.length) {
+                                // Append to existing content
+                                const current = this.executionMultimedia[type + 's'] || '';
+                                const newContent = current ? current + '\n' + dataURIs.join('\n') : dataURIs.join('\n');
+                                this.executionMultimedia[type + 's'] = newContent;
+                            }
+                        };
+                        
+                        reader.readAsDataURL(file);
                     }
                 },
 

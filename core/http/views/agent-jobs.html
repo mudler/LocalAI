@@ -365,21 +365,40 @@
          x-cloak
          @click.away="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''"
          class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-xl p-8 max-w-2xl w-full mx-4">
-            <div class="flex justify-between items-center mb-6">
+        <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col">
+            <div class="flex justify-between items-center p-8 pb-6 border-b border-[var(--color-primary-border)]/20">
                 <h3 class="text-2xl font-semibold text-[var(--color-text-primary)]">Execute Task</h3>
-                <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''" 
+                        <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'"
                         class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
             <template x-if="selectedTaskForExecution">
-                <div class="space-y-4">
+                <div class="flex flex-col flex-1 min-h-0">
+                    <div class="flex-1 overflow-y-auto px-8 py-6 space-y-4">
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Task</label>
                         <div class="text-[var(--color-text-secondary)]" x-text="selectedTaskForExecution.name"></div>
                     </div>
-                    <div>
+                    
+                    <!-- Tabs for Parameters and Multimedia -->
+                    <div class="border-b border-[var(--color-primary-border)]/20">
+                        <div class="flex space-x-4">
+                            <button @click="executeModalTab = 'parameters'" 
+                                    :class="executeModalTab === 'parameters' ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                                    class="px-4 py-2 font-medium transition-colors">
+                                Parameters
+                            </button>
+                            <button @click="executeModalTab = 'multimedia'" 
+                                    :class="executeModalTab === 'multimedia' ? 'border-b-2 border-[var(--color-primary)] text-[var(--color-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'"
+                                    class="px-4 py-2 font-medium transition-colors">
+                                Multimedia
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Parameters Tab -->
+                    <div x-show="executeModalTab === 'parameters'">
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Parameters</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-3">
                             Enter parameters as key-value pairs (one per line, format: key=value). 
@@ -393,8 +412,61 @@
                             Example: <code class="bg-[var(--color-bg-primary)] px-1 py-0.5 rounded text-[var(--color-primary)]">user_name=Alice</code>
                         </p>
                     </div>
-                    <div class="flex justify-end space-x-4">
-                        <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''" 
+                    
+                    <!-- Multimedia Tab -->
+                    <div x-show="executeModalTab === 'multimedia'" class="space-y-4">
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-3">
+                            Provide multimedia content as URLs or base64-encoded data URIs. You can also upload files which will be converted to base64.
+                        </p>
+                        
+                        <!-- Images -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Images</label>
+                            <textarea x-model="executionMultimedia.images" 
+                                      rows="3"
+                                      placeholder="https://example.com/image.png&#10;data:image/png;base64,iVBORw0KG..."
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary-border)] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'image')" accept="image/*" multiple
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-hover)]">
+                        </div>
+                        
+                        <!-- Videos -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Videos</label>
+                            <textarea x-model="executionMultimedia.videos" 
+                                      rows="3"
+                                      placeholder="https://example.com/video.mp4&#10;data:video/mp4;base64,..."
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary-border)] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'video')" accept="video/*" multiple
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-hover)]">
+                        </div>
+                        
+                        <!-- Audios -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Audios</label>
+                            <textarea x-model="executionMultimedia.audios" 
+                                      rows="3"
+                                      placeholder="https://example.com/audio.mp3&#10;data:audio/mpeg;base64,..."
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary-border)] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'audio')" accept="audio/*" multiple
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-hover)]">
+                        </div>
+                        
+                        <!-- Files -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Files</label>
+                            <textarea x-model="executionMultimedia.files" 
+                                      rows="3"
+                                      placeholder="https://example.com/file.pdf&#10;data:application/pdf;base64,..."
+                                      class="w-full bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded px-4 py-2 text-[var(--color-text-primary)] font-mono text-sm focus:border-[var(--color-primary-border)] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'file')" multiple
+                                   class="mt-2 text-sm text-[var(--color-text-secondary)] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[var(--color-primary)] file:text-white hover:file:bg-[var(--color-primary-hover)]">
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 p-8 pt-6 border-t border-[var(--color-primary-border)]/20 bg-[var(--color-bg-secondary)]">
+                        <button @click="showExecuteTaskModal = false; selectedTaskForExecution = null; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
                                 class="px-4 py-2 bg-[var(--color-bg-primary)] hover:bg-[#0A0E1A] text-[var(--color-text-primary)] rounded-lg transition-colors">
                             Cancel
                         </button>
@@ -433,6 +505,13 @@
                 selectedTaskForExecution: null,
                 executionParameters: {},
                 executionParametersText: '',
+                executionMultimedia: {
+                    images: '',
+                    videos: '',
+                    audios: '',
+                    files: ''
+                },
+                executeModalTab: 'parameters',
                 modelsConfig: [],
                 hasModels: false,
                 hasMCPModels: false,
@@ -528,20 +607,36 @@
                     // Parse parameters from text
                     this.executionParameters = this.parseParameters(this.executionParametersText);
                     
+                    // Parse multimedia from text (split by newlines, filter empty)
+                    const parseMultimedia = (text) => {
+                        if (!text || !text.trim()) return [];
+                        return text.split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0);
+                    };
+                    
+                    const requestBody = {
+                        task_id: this.selectedTaskForExecution.id,
+                        parameters: this.executionParameters,
+                        images: parseMultimedia(this.executionMultimedia.images),
+                        videos: parseMultimedia(this.executionMultimedia.videos),
+                        audios: parseMultimedia(this.executionMultimedia.audios),
+                        files: parseMultimedia(this.executionMultimedia.files)
+                    };
+                    
                     try {
                         const response = await fetch('/api/agent/jobs/execute', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ 
-                                task_id: this.selectedTaskForExecution.id, 
-                                parameters: this.executionParameters 
-                            })
+                            body: JSON.stringify(requestBody)
                         });
                         if (response.ok) {
                             this.showExecuteTaskModal = false;
                             this.selectedTaskForExecution = null;
                             this.executionParameters = {};
                             this.executionParametersText = '';
+                            this.executionMultimedia = {images: '', videos: '', audios: '', files: ''};
+                            this.executeModalTab = 'parameters';
                             this.fetchJobs();
                         } else {
                             const error = await response.json();
@@ -550,6 +645,34 @@
                     } catch (error) {
                         console.error('Failed to execute task:', error);
                         alert('Failed to execute task: ' + error.message);
+                    }
+                },
+                
+                handleFileUpload(event, type) {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    
+                    const dataURIs = [];
+                    let processed = 0;
+                    
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const reader = new FileReader();
+                        
+                        reader.onload = (e) => {
+                            const dataURI = e.target.result;
+                            dataURIs.push(dataURI);
+                            processed++;
+                            
+                            if (processed === files.length) {
+                                // Append to existing content
+                                const current = this.executionMultimedia[type + 's'] || '';
+                                const newContent = current ? current + '\n' + dataURIs.join('\n') : dataURIs.join('\n');
+                                this.executionMultimedia[type + 's'] = newContent;
+                            }
+                        };
+                        
+                        reader.readAsDataURL(file);
                     }
                 },
 
