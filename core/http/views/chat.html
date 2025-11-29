@@ -526,30 +526,30 @@ SOFTWARE.
   <script defer src="static/chat.js"></script>
   {{ $allGalleryConfigs:=.GalleryConfig }}
   {{ $model:=.Model}}
-  <body class="bg-[#101827] text-[#E5E7EB] flex flex-col h-screen" x-data="{ sidebarOpen: true, showClearAlert: false }">
+  <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex flex-col h-screen" x-data="{ sidebarOpen: true, showClearAlert: false }">
     {{template "views/partials/navbar" .}}
 
     <!-- Main container with sidebar toggle -->
     <div class="flex flex-1 overflow-hidden relative">
       <!-- Sidebar -->
       <div
-        class="sidebar bg-[#1E293B] fixed top-14 bottom-0 left-0 w-56 transform transition-transform duration-300 ease-in-out z-30 border-r border-[#101827] overflow-y-auto"
+        class="sidebar bg-[var(--color-bg-secondary)] fixed top-14 bottom-0 left-0 w-56 transform transition-transform duration-300 ease-in-out z-30 border-r border-[var(--color-bg-primary)] overflow-y-auto"
         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
 
-        <div class="p-3 flex justify-between items-center border-b border-[#101827]">
+        <div class="p-3 flex justify-between items-center border-b border-[var(--color-bg-primary)]">
           <div class="flex items-center gap-2">
-            <h2 class="text-sm font-semibold text-[#E5E7EB]">Settings</h2>
+            <h2 class="text-sm font-semibold text-[var(--color-text-primary)]">Settings</h2>
             <a
               href="https://localai.io/features/text-generation/"
               target="_blank"
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs"
               title="Documentation">
               <i class="fas fa-book"></i>
             </a>
           </div>
           <button
             @click="sidebarOpen = false"
-            class="text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none text-xs"
+            class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none text-xs"
             title="Hide sidebar">
             <i class="fa-solid fa-chevron-left"></i>
           </button>
@@ -560,14 +560,14 @@ SOFTWARE.
           <!-- Model selection - Compact -->
           <div class="space-y-1.5">
             <div class="flex items-center justify-between">
-              <label class="text-xs font-medium text-[#94A3B8] uppercase tracking-wide">Model</label>
+              <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">Model</label>
               {{ if $model }}
               {{ $galleryConfig:= index $allGalleryConfigs $model}}
               {{ if $galleryConfig }}
               <button 
                 data-twe-ripple-init 
                 data-twe-ripple-color="light" 
-                class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs p-1" 
+                class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1" 
                 data-modal-target="model-info-modal" 
                 data-modal-toggle="model-info-modal"
                 title="Model Information">
@@ -577,7 +577,7 @@ SOFTWARE.
               {{ end }}
               {{ if $model }}
               <a href="/models/edit/{{$model}}" 
-                 class="text-[#94A3B8] hover:text-yellow-400 transition-colors text-xs p-1" 
+                 class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1" 
                  title="Edit Model Configuration">
                 <i class="fas fa-edit"></i>
               </a>
@@ -585,10 +585,10 @@ SOFTWARE.
             </div>
             <select
               id="modelSelector"
-              class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded p-1.5 text-xs appearance-none"
+              class="input w-full p-1.5 text-xs"
               onchange="updateModelAndContextSize(this);"
             >
-              <option value="" disabled class="text-[#94A3B8]">Select a model</option>
+              <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
 
               {{ range .ModelsConfig }}
                 {{ $cfg := . }}
@@ -600,7 +600,7 @@ SOFTWARE.
                       {{ if eq $cfg.Name $model }} selected {{end}}
                       {{ if $cfg.LLMConfig.ContextSize }}data-context-size="{{$cfg.LLMConfig.ContextSize}}"{{ end }}
                       data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}"
-                      class="bg-[#101827] text-[#E5E7EB]"
+                      class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
                     >
                       {{$cfg.Name}}
                     </option>
@@ -611,7 +611,7 @@ SOFTWARE.
                 <option
                   value="chat/{{.}}"
                   {{ if eq . $model }} selected {{ end }}
-                  class="bg-[#101827] text-[#E5E7EB]"
+                  class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
                 >
                   {{.}}
                 </option>
@@ -693,17 +693,17 @@ SOFTWARE.
             }
           }">
             <div class="flex items-center justify-between">
-              <h2 class="text-xs font-semibold text-[#94A3B8] uppercase tracking-wide">Chats</h2>
+              <h2 class="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide">Chats</h2>
               <div class="flex items-center gap-1">
                 <button
                   @click="createNewChat()"
-                  class="text-[#38BDF8] hover:text-[#8B5CF6] transition-colors text-xs p-1"
+                  class="text-[var(--color-primary)] hover:text-[var(--color-accent)] transition-colors text-xs p-1"
                   title="New Chat">
                   <i class="fa-solid fa-plus"></i>
                 </button>
                 <button
                   @click="if (confirm('Delete all chats? This cannot be undone.')) { bulkDeleteChats({deleteAll: true}); }"
-                  class="text-[#94A3B8] hover:text-red-400 transition-colors text-xs p-1"
+                  class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-xs p-1"
                   title="Delete all chats"
                   x-show="$store.chat.chats.length > 0">
                   <i class="fa-solid fa-trash"></i>
@@ -717,24 +717,24 @@ SOFTWARE.
                 type="text"
                 x-model="searchQuery"
                 placeholder="Search conversations..."
-                class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8]/50 rounded px-2 py-1.5 pl-7 text-xs placeholder-[#94A3B8]"
+                class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] focus:border-[var(--color-primary-border)] focus:ring-1 focus:ring-[var(--color-primary)]/50 rounded px-2 py-1.5 pl-7 text-xs placeholder-[var(--color-text-secondary)]"
               />
-              <i class="fa-solid fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-[#94A3B8] text-xs"></i>
+              <i class="fa-solid fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] text-xs"></i>
               <button
                 x-show="searchQuery.length > 0"
                 @click="searchQuery = ''"
-                class="absolute right-2 top-1/2 transform -translate-y-1/2 text-[#94A3B8] hover:text-[#E5E7EB] text-xs"
+                class="absolute right-2 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] text-xs"
                 title="Clear search">
                 <i class="fa-solid fa-times"></i>
               </button>
             </div>
             
             <!-- Chat List -->
-            <div class="max-h-80 overflow-y-auto space-y-1 border border-[#1E293B] rounded p-1.5">
+            <div class="max-h-80 overflow-y-auto space-y-1 border border-[var(--color-bg-secondary)] rounded p-1.5">
               <template x-for="chat in filteredChats()" :key="chat.id">
                 <div
-                  class="flex items-center justify-between p-1.5 rounded hover:bg-[#1E293B] transition-colors cursor-pointer group"
-                  :class="{ 'bg-[#38BDF8]/20 border border-[#38BDF8]/40': $store.chat.activeChatId === chat.id }"
+                  class="flex items-center justify-between p-1.5 rounded hover:bg-[var(--color-bg-secondary)] transition-colors cursor-pointer group"
+                  :class="{ 'bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40': $store.chat.activeChatId === chat.id }"
                   @click="if (editingChatId !== chat.id) switchChat(chat.id)"
                 >
                   <div class="flex-1 min-w-0">
@@ -745,7 +745,7 @@ SOFTWARE.
                         @blur="updateChatName(chat.id, editingName); editingChatId = null"
                         @keydown.enter="updateChatName(chat.id, editingName); editingChatId = null"
                         @keydown.escape="editingChatId = null"
-                        class="w-full bg-[#101827] text-[#E5E7EB] border border-[#38BDF8] rounded px-1.5 py-0.5 text-xs"
+                        class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-primary-border)] rounded px-1.5 py-0.5 text-xs"
                         x-ref="editInput"
                         x-effect="if (editingChatId === chat.id) { $refs.editInput?.focus(); editingName = chat.name; }"
                       />
@@ -755,17 +755,17 @@ SOFTWARE.
                         <!-- Loading indicator for active requests -->
                         <div x-show="$store.chat.hasActiveRequest(chat.id)" 
                              class="flex-shrink-0">
-                          <i class="fa-solid fa-spinner fa-spin text-[#38BDF8] text-[10px]"></i>
+                          <i class="fa-solid fa-spinner fa-spin text-[var(--color-primary)] text-[10px]"></i>
                         </div>
                         <div class="flex-1 min-w-0">
                           <div
-                            class="text-xs font-medium text-[#E5E7EB] truncate"
+                            class="text-xs font-medium text-[var(--color-text-primary)] truncate"
                             @dblclick="editingChatId = chat.id; editingName = chat.name"
                             x-text="chat.name || 'New Chat'"
                           ></div>
                           <div class="flex items-center gap-1.5">
-                            <div class="text-[10px] text-[#94A3B8] truncate" x-text="getLastMessagePreview(chat)"></div>
-                            <span class="text-[9px] text-[#94A3B8]/60" x-text="formatChatDate(chat.updatedAt || chat.createdAt)"></span>
+                            <div class="text-[10px] text-[var(--color-text-secondary)] truncate" x-text="getLastMessagePreview(chat)"></div>
+                            <span class="text-[9px] text-[var(--color-text-secondary)]/60" x-text="formatChatDate(chat.updatedAt || chat.createdAt)"></span>
                           </div>
                         </div>
                       </div>
@@ -774,13 +774,13 @@ SOFTWARE.
                   <div class="flex items-center space-x-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       @click.stop="editingChatId = chat.id; editingName = chat.name"
-                      class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-[10px] p-0.5"
+                      class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-[10px] p-0.5"
                       title="Rename chat">
                       <i class="fa-solid fa-edit"></i>
                     </button>
                     <button
                       @click.stop="if (confirm('Delete this chat?')) deleteChat(chat.id)"
-                      class="text-[#94A3B8] hover:text-red-400 transition-colors text-[10px] p-0.5"
+                      class="text-[var(--color-text-secondary)] hover:text-[var(--color-error)] transition-colors text-[10px] p-0.5"
                       title="Delete chat"
                       x-show="$store.chat.chats.length > 1">
                       <i class="fa-solid fa-trash"></i>
@@ -788,10 +788,10 @@ SOFTWARE.
                   </div>
                 </div>
               </template>
-              <div x-show="filteredChats().length === 0 && $store.chat.chats.length > 0" class="text-xs text-[#94A3B8] text-center py-2">
+              <div x-show="filteredChats().length === 0 && $store.chat.chats.length > 0" class="text-xs text-[var(--color-text-secondary)] text-center py-2">
                 No conversations match your search
               </div>
-              <div x-show="$store.chat.chats.length === 0" class="text-xs text-[#94A3B8] text-center py-2">
+              <div x-show="$store.chat.chats.length === 0" class="text-xs text-[var(--color-text-secondary)] text-center py-2">
                 No chats yet
               </div>
             </div>
@@ -837,21 +837,21 @@ SOFTWARE.
                   });
                 }
               }" x-show="mcpAvailable">
-                <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors">
-                  <span><i class="fa-solid fa-plug mr-1.5 text-[#38BDF8]"></i> MCP Mode</span>
+                <div class="flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+                  <span><i class="fa-solid fa-plug mr-1.5 text-[var(--color-primary)]"></i> MCP Mode</span>
                   <label class="relative inline-flex items-center cursor-pointer">
                     <input type="checkbox" id="mcp-toggle" class="sr-only peer" :checked="$store.chat.activeChat()?.mcpMode || false" @change="if ($store.chat.activeChat()) { $store.chat.activeChat().mcpMode = $event.target.checked; autoSaveChats(); }">
-                    <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                    <div class="w-9 h-5 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--color-primary)]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-bg-secondary)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                   </label>
                 </div>
 
                 <!-- MCP Mode Notification - Compact -->
-                <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-[10px]">
+                <div x-show="$store.chat.activeChat()?.mcpMode" class="p-2 bg-[var(--color-primary)]/10 border border-[var(--color-primary-border)]/30 rounded text-[var(--color-text-secondary)] text-[10px]">
                   <div class="flex items-start space-x-1.5">
-                    <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5"></i>
+                    <i class="fa-solid fa-info-circle text-[var(--color-primary)] mt-0.5"></i>
                     <div>
-                      <p class="font-medium text-[#E5E7EB] mb-0.5">Non-streaming Mode</p>
-                      <p class="text-[#94A3B8]">Full processing before display (may take up to 5 minutes on CPU).</p>
+                      <p class="font-medium text-[var(--color-text-primary)] mb-0.5">Non-streaming Mode</p>
+                      <p class="text-[var(--color-text-secondary)]">Full processing before display (may take up to 5 minutes on CPU).</p>
                     </div>
                   </div>
                 </div>
@@ -859,9 +859,9 @@ SOFTWARE.
 
               <button
                 @click="showPromptForm = !showPromptForm"
-                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <span><i class="fa-solid fa-message mr-1.5 text-[#38BDF8]"></i> System Prompt</span>
+                <span><i class="fa-solid fa-message mr-1.5 text-[var(--color-primary)]"></i> System Prompt</span>
                 <i :class="showPromptForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
               </button>
 
@@ -881,13 +881,14 @@ SOFTWARE.
                     setTimeout(() => {this.showToast = false;}, 2000);
                   }
                 } 
-              }" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B]">
+              }" class="p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)]">
                 <form id="system_prompt" @submit.prevent="isUpdated" class="flex flex-col space-y-1.5">
                   <textarea
                     type="text"
                     id="systemPrompt"
+                    class="input"
                     name="systemPrompt"
-                    class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#38BDF8] focus:ring-1 focus:ring-[#38BDF8] focus:ring-opacity-50 rounded p-1.5 text-xs appearance-none min-h-20 placeholder-[#94A3B8]"
+                    class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] focus:border-[var(--color-primary-border)] focus:ring-1 focus:ring-[var(--color-primary)] focus:ring-opacity-50 rounded p-1.5 text-xs appearance-none min-h-20 placeholder-[var(--color-text-secondary)]"
                     placeholder="System prompt"
                     :value="$store.chat.activeChat()?.systemPrompt || ''"
                     @input="if ($store.chat.activeChat()) { $store.chat.activeChat().systemPrompt = $event.target.value; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
@@ -896,13 +897,13 @@ SOFTWARE.
                   <div
                     x-show="showToast"
                     x-transition
-                    class="text-green-400 px-2 py-1 text-xs text-center bg-green-500/10 border border-green-500/30 rounded"
+                    class="text-[var(--color-success)] px-2 py-1 text-xs text-center bg-[var(--color-success-light)] border border-[var(--color-success-light)] rounded"
                   >
                     Updated!
                   </div>
                   <button
                     type="submit"
-                    class="px-2 py-1 text-xs rounded text-[#101827] bg-[#38BDF8] hover:bg-[#38BDF8]/90 transition-colors font-medium"
+                    class="px-2 py-1 text-xs rounded text-[var(--color-bg-primary)] bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors font-medium"
                   >
                     Save
                   </button>
@@ -912,19 +913,19 @@ SOFTWARE.
               <!-- Generation Parameters -->
               <button
                 @click="showParamsForm = !showParamsForm"
-                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] transition-colors"
+                class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
               >
-                <span><i class="fa-solid fa-sliders mr-1.5 text-[#38BDF8]"></i> Generation Parameters</span>
+                <span><i class="fa-solid fa-sliders mr-1.5 text-[var(--color-primary)]"></i> Generation Parameters</span>
                 <i :class="showParamsForm ? 'fa-chevron-up' : 'fa-chevron-down'" class="fa-solid text-[10px]"></i>
               </button>
 
-              <div x-show="showParamsForm" class="p-2 bg-[#1E293B] border border-[#38BDF8]/20 rounded pl-4 border-l-2 border-[#1E293B] overflow-hidden">
+              <div x-show="showParamsForm" class="p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] overflow-hidden">
                 <div class="flex flex-col space-y-3">
                   <!-- Temperature -->
                   <div class="space-y-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
-                      <label class="text-xs text-[#94A3B8] flex-shrink-0">Temperature</label>
-                      <span class="text-xs text-[#E5E7EB] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
+                      <label class="text-xs text-[var(--color-text-secondary)] flex-shrink-0">Temperature</label>
+                      <span class="text-xs text-[var(--color-text-primary)] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined) ? $store.chat.activeChat().temperature.toFixed(2) : 'Default'"></span>
                     </div>
                     <div class="flex items-center gap-2 min-w-0">
                       <input
@@ -932,27 +933,27 @@ SOFTWARE.
                         min="0"
                         max="2"
                         step="0.01"
-                        class="flex-1 min-w-0 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        class="flex-1 min-w-0 h-1.5 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)]"
                         :value="$store.chat.activeChat()?.temperature ?? 1.0"
                         @input="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                       />
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().temperature = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
-                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1 flex-shrink-0"
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
                         title="Reset to default"
                         x-show="$store.chat.activeChat()?.temperature !== null && $store.chat.activeChat()?.temperature !== undefined"
                       >
                         <i class="fa-solid fa-rotate-left"></i>
                       </button>
                     </div>
-                    <p class="text-[10px] text-[#94A3B8]">Controls randomness (0 = deterministic, 2 = very creative)</p>
+                    <p class="text-[10px] text-[var(--color-text-secondary)]">Controls randomness (0 = deterministic, 2 = very creative)</p>
                   </div>
 
                   <!-- Top P -->
                   <div class="space-y-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
-                      <label class="text-xs text-[#94A3B8] flex-shrink-0">Top P</label>
-                      <span class="text-xs text-[#E5E7EB] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
+                      <label class="text-xs text-[var(--color-text-secondary)] flex-shrink-0">Top P</label>
+                      <span class="text-xs text-[var(--color-text-primary)] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined) ? $store.chat.activeChat().topP.toFixed(2) : 'Default'"></span>
                     </div>
                     <div class="flex items-center gap-2 min-w-0">
                       <input
@@ -960,27 +961,27 @@ SOFTWARE.
                         min="0"
                         max="1"
                         step="0.01"
-                        class="flex-1 min-w-0 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        class="flex-1 min-w-0 h-1.5 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)]"
                         :value="$store.chat.activeChat()?.topP ?? 0.9"
                         @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = parseFloat($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                       />
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topP = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
-                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1 flex-shrink-0"
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
                         title="Reset to default"
                         x-show="$store.chat.activeChat()?.topP !== null && $store.chat.activeChat()?.topP !== undefined"
                       >
                         <i class="fa-solid fa-rotate-left"></i>
                       </button>
                     </div>
-                    <p class="text-[10px] text-[#94A3B8]">Nucleus sampling threshold (0-1)</p>
+                    <p class="text-[10px] text-[var(--color-text-secondary)]">Nucleus sampling threshold (0-1)</p>
                   </div>
 
                   <!-- Top K -->
                   <div class="space-y-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
-                      <label class="text-xs text-[#94A3B8] flex-shrink-0">Top K</label>
-                      <span class="text-xs text-[#E5E7EB] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
+                      <label class="text-xs text-[var(--color-text-secondary)] flex-shrink-0">Top K</label>
+                      <span class="text-xs text-[var(--color-text-primary)] font-medium flex-shrink-0" x-text="($store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined) ? $store.chat.activeChat().topK : 'Default'"></span>
                     </div>
                     <div class="flex items-center gap-2 min-w-0">
                       <input
@@ -988,20 +989,20 @@ SOFTWARE.
                         min="0"
                         max="100"
                         step="1"
-                        class="flex-1 min-w-0 h-1.5 bg-[#101827] rounded-lg appearance-none cursor-pointer accent-[#38BDF8]"
+                        class="flex-1 min-w-0 h-1.5 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer accent-[var(--color-primary)]"
                         :value="$store.chat.activeChat()?.topK ?? 40"
                         @input="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = parseInt($event.target.value); $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
                       />
                       <button
                         @click="if ($store.chat.activeChat()) { $store.chat.activeChat().topK = null; $store.chat.activeChat().updatedAt = Date.now(); autoSaveChats(); }"
-                        class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors text-xs px-2 py-1 flex-shrink-0"
+                        class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs px-2 py-1 flex-shrink-0"
                         title="Reset to default"
                         x-show="$store.chat.activeChat()?.topK !== null && $store.chat.activeChat()?.topK !== undefined"
                       >
                         <i class="fa-solid fa-rotate-left"></i>
                       </button>
                     </div>
-                    <p class="text-[10px] text-[#94A3B8]">Limit sampling to top K tokens (0 = disabled)</p>
+                    <p class="text-[10px] text-[var(--color-text-secondary)]">Limit sampling to top K tokens (0 = disabled)</p>
                   </div>
                 </div>
               </div>
@@ -1015,30 +1016,30 @@ SOFTWARE.
         :class="sidebarOpen ? 'ml-56' : 'ml-0'">
 
         <!-- Chat header with toggle button -->
-        <div class="border-b border-[#1E293B] p-4 flex items-center justify-between">
+        <div class="border-b border-[var(--color-bg-secondary)] p-4 flex items-center justify-between">
           <div class="flex items-center">
             <!-- Sidebar toggle button moved to be the first element in the header and with clear styling -->
             <button
               @click="sidebarOpen = !sidebarOpen"
-              class="mr-4 text-[#94A3B8] hover:text-[#E5E7EB] focus:outline-none bg-[#1E293B] hover:bg-[#1E293B]/80 p-2 rounded transition-colors"
+              class="mr-4 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] focus:outline-none bg-[var(--color-bg-secondary)] hover:bg-[var(--color-bg-secondary)]/80 p-2 rounded transition-colors"
               style="min-width: 36px;"
               title="Toggle settings">
               <i class="fa-solid" :class="sidebarOpen ? 'fa-chevron-left' : 'fa-bars'"></i>
             </button>
 
             <div class="flex items-center">
-              <i class="fa-solid fa-comments mr-2 text-[#38BDF8]"></i>
+              <i class="fa-solid fa-comments mr-2 text-[var(--color-primary)]"></i>
               {{ if $model }}
               {{ $galleryConfig:= index $allGalleryConfigs $model}}
               {{ if $galleryConfig }}
               {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
               {{ end }}
               {{ end }}
-              <h1 class="text-lg font-semibold text-[#E5E7EB]">
+              <h1 class="text-lg font-semibold text-[var(--color-text-primary)]">
                 Chat {{ if .Model }} with {{.Model}} {{ end }}
               </h1>
               <!-- Loading indicator next to model name -->
-              <div id="header-loading-indicator" class="ml-3 text-[#38BDF8]" style="display: none;">
+              <div id="header-loading-indicator" class="ml-3 text-[var(--color-primary)]" style="display: none;">
                 <i class="fas fa-spinner fa-spin text-sm"></i>
               </div>
             </div>
@@ -1049,7 +1050,7 @@ SOFTWARE.
               @click="if (confirm('Clear all messages from this conversation? This action cannot be undone.')) { $store.chat.clear(); showClearAlert = true; setTimeout(() => showClearAlert = false, 3000); }"
               id="clear"
               title="Clear current chat history"
-              class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-2 rounded hover:bg-[#1E293B]"
+              class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-2 rounded hover:bg-[var(--color-bg-secondary)]"
               x-show="$store.chat.activeChat() && ($store.chat.activeChat()?.history?.length || 0) > 0">
               <i class="fa-solid fa-broom"></i>
             </button>
@@ -1064,10 +1065,10 @@ SOFTWARE.
                x-transition:leave-start="opacity-100"
                x-transition:leave-end="opacity-0"
                class="fixed top-20 right-4 z-50 max-w-sm pointer-events-none">
-            <div class="bg-[#38BDF8]/20 border border-[#38BDF8]/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
+            <div class="bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40 rounded-lg p-3 shadow-lg backdrop-blur-sm">
               <div class="flex items-center gap-2">
-                <i class="fa-solid fa-check-circle text-[#38BDF8]"></i>
-                <span class="text-sm text-[#E5E7EB] font-medium">Chat history cleared successfully</span>
+                <i class="fa-solid fa-check-circle text-[var(--color-primary)]"></i>
+                <span class="text-sm text-[var(--color-text-primary)] font-medium">Chat history cleared successfully</span>
               </div>
             </div>
           </div>
@@ -1075,12 +1076,12 @@ SOFTWARE.
 
         <!-- Chat messages area -->
         <div class="flex-1 p-4 overflow-auto" id="chat">
-          <p id="usage" x-show="!$store.chat.activeChat() || ($store.chat.activeChat()?.history?.length || 0) === 0" class="text-[#94A3B8]">
+          <p id="usage" x-show="!$store.chat.activeChat() || ($store.chat.activeChat()?.history?.length || 0) === 0" class="text-[var(--color-text-secondary)]">
             Start chatting with the AI by typing a prompt in the input field below and pressing Enter.<br>
             <ul class="list-disc list-inside mt-2 space-y-1">
-              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[#38BDF8]"></i> icon.</li>
-              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone text-[#38BDF8]"></i> icon.</li>
-              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[#38BDF8]"></i> icon.</li>
+              <li>For models that support images, you can upload an image by clicking the <i class="fa-solid fa-image text-[var(--color-primary)]"></i> icon.</li>
+              <li>For models that support audio, you can upload an audio file by clicking the <i class="fa-solid fa-microphone text-[var(--color-primary)]"></i> icon.</li>
+              <li>To send a text, markdown or PDF file, click the <i class="fa-solid fa-file text-[var(--color-primary)]"></i> icon.</li>
             </ul>
           </p>
           <div id="messages" class="max-w-3xl mx-auto space-y-2" :key="$store.chat.activeChatId">
@@ -1090,28 +1091,28 @@ SOFTWARE.
                 <template x-if="message.role === 'reasoning' || message.role === 'thinking'">
                   <div class="flex items-start space-x-2 mb-1">
                     <div class="flex flex-col flex-1">
-                      <div class="p-2 flex-1 rounded-lg bg-[#38BDF8]/10 text-[#94A3B8] border border-[#38BDF8]/30">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-primary)]/10 text-[var(--color-text-secondary)] border border-[var(--color-primary-border)]/30">
                         <button 
                           @click="message.expanded = !message.expanded"
-                          class="w-full flex items-center justify-between text-left hover:bg-[#38BDF8]/20 rounded p-2 transition-colors"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-primary)]/20 rounded p-2 transition-colors"
                         >
                           <div class="flex items-center space-x-2">
-                            <i :class="message.role === 'thinking' ? 'fa-solid fa-brain' : 'fa-solid fa-lightbulb'" class="text-[#38BDF8]"></i>
-                            <span class="text-xs font-semibold text-[#38BDF8]" x-text="message.role === 'thinking' ? 'Thinking' : 'Reasoning'"></span>
-                            <span class="text-xs text-[#94A3B8]" x-show="message.content && message.content.length > 0" x-text="'(' + Math.ceil(message.content.length / 100) + ' lines)'"></span>
+                            <i :class="message.role === 'thinking' ? 'fa-solid fa-brain' : 'fa-solid fa-lightbulb'" class="text-[var(--color-primary)]"></i>
+                            <span class="text-xs font-semibold text-[var(--color-primary)]" x-text="message.role === 'thinking' ? 'Thinking' : 'Reasoning'"></span>
+                            <span class="text-xs text-[var(--color-text-secondary)]" x-show="message.content && message.content.length > 0" x-text="'(' + Math.ceil(message.content.length / 100) + ' lines)'"></span>
                           </div>
                           <i 
-                            class="fa-solid text-[#38BDF8] transition-transform text-xs"
+                            class="fa-solid text-[var(--color-primary)] transition-transform text-xs"
                             :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
                           ></i>
                         </button>
                         <div 
                           x-show="message.expanded"
                           x-transition
-                          class="mt-2 pt-2 border-t border-[#38BDF8]/20"
+                          class="mt-2 pt-2 border-t border-[var(--color-primary-border)]/20"
                         >
                           <div 
-                            class="text-[#E5E7EB] text-sm max-h-96 overflow-auto" 
+                            class="text-[var(--color-text-primary)] text-sm max-h-96 overflow-auto" 
                             x-html="message.html"
                             data-thinking-box
                             x-effect="if (message.expanded && message.html) { setTimeout(() => { if ($el.scrollHeight > $el.clientHeight) { $el.scrollTo({ top: $el.scrollHeight, behavior: 'smooth' }); } }, 50); }"
@@ -1126,27 +1127,27 @@ SOFTWARE.
                 <template x-if="message.role === 'tool_call'">
                   <div class="flex items-start space-x-2 mb-1">
                     <div class="flex flex-col flex-1">
-                      <div class="p-2 flex-1 rounded-lg bg-[#8B5CF6]/10 text-[#94A3B8] border border-[#8B5CF6]/30">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-text-secondary)] border border-[var(--color-accent-border)]/30">
                         <button 
                           @click="message.expanded = !message.expanded"
-                          class="w-full flex items-center justify-between text-left hover:bg-[#8B5CF6]/20 rounded p-2 transition-colors"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-accent)]/20 rounded p-2 transition-colors"
                         >
                           <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-wrench text-[#8B5CF6]"></i>
-                            <span class="text-xs font-semibold text-[#8B5CF6]">Tool Call</span>
-                            <span class="text-xs text-[#94A3B8]" x-text="getToolName(message.content)"></span>
+                            <i class="fa-solid fa-wrench text-[var(--color-accent)]"></i>
+                            <span class="text-xs font-semibold text-[var(--color-accent)]">Tool Call</span>
+                            <span class="text-xs text-[var(--color-text-secondary)]" x-text="getToolName(message.content)"></span>
                           </div>
                           <i 
-                            class="fa-solid text-[#8B5CF6] transition-transform text-xs"
+                            class="fa-solid text-[var(--color-accent)] transition-transform text-xs"
                             :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
                           ></i>
                         </button>
                         <div 
                           x-show="message.expanded"
                           x-transition
-                          class="mt-2 pt-2 border-t border-[#8B5CF6]/20"
+                          class="mt-2 pt-2 border-t border-[var(--color-accent-border)]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto tool-call-content" 
+                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-auto tool-call-content" 
                                x-html="message.html"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -1159,27 +1160,27 @@ SOFTWARE.
                 <template x-if="message.role === 'tool_result'">
                   <div class="flex items-start space-x-2 mb-1">
                     <div class="flex flex-col flex-1">
-                      <div class="p-2 flex-1 rounded-lg bg-[#10B981]/10 text-[#94A3B8] border border-[#10B981]/30">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-success)]/10 text-[var(--color-text-secondary)] border border-[var(--color-success)]/30">
                         <button 
                           @click="message.expanded = !message.expanded"
-                          class="w-full flex items-center justify-between text-left hover:bg-[#10B981]/20 rounded p-2 transition-colors"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-success)]/20 rounded p-2 transition-colors"
                         >
                           <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-check-circle text-[#10B981]"></i>
-                            <span class="text-xs font-semibold text-[#10B981]">Tool Result</span>
-                            <span class="text-xs text-[#94A3B8]" x-text="getToolName(message.content) || 'Success'"></span>
+                            <i class="fa-solid fa-check-circle text-[var(--color-success)]"></i>
+                            <span class="text-xs font-semibold text-[var(--color-success)]">Tool Result</span>
+                            <span class="text-xs text-[var(--color-text-secondary)]" x-text="getToolName(message.content) || 'Success'"></span>
                           </div>
                           <i 
-                            class="fa-solid text-[#10B981] transition-transform text-xs"
+                            class="fa-solid text-[var(--color-success)] transition-transform text-xs"
                             :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
                           ></i>
                         </button>
                         <div 
                           x-show="message.expanded"
                           x-transition
-                          class="mt-2 pt-2 border-t border-[#10B981]/20"
+                          class="mt-2 pt-2 border-t border-[var(--color-success)]/20"
                         >
-                          <div class="text-[#E5E7EB] text-xs max-h-96 overflow-auto tool-result-content" 
+                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-auto tool-result-content" 
                                x-html="formatToolResult(message.content)"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -1195,8 +1196,8 @@ SOFTWARE.
                 <template x-if="message.role === 'user'">
                   <div class="flex items-center space-x-2">
                     <div class="flex flex-col flex-1 items-end">
-                      <span class="text-xs font-semibold text-[#94A3B8] mb-1">You</span>
-                      <div class="p-3 flex-1 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] text-[#E5E7EB] border border-[#38BDF8]/20 shadow-lg" x-html="message.html"></div>
+                      <span class="text-xs font-semibold text-[var(--color-text-secondary)] mb-1">You</span>
+                      <div class="p-3 flex-1 rounded-lg bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] border border-[var(--color-primary-border)]/20 shadow-lg" x-html="message.html"></div>
                       <template x-if="message.image && message.image.length > 0">
                         <div class="mt-2 space-y-2">
                           <template x-for="(img, index) in message.image" :key="index">
@@ -1220,13 +1221,13 @@ SOFTWARE.
                 <template x-if="message.role != 'user' && message.role != 'thinking' && message.role != 'reasoning' && message.role != 'tool_call' && message.role != 'tool_result'">
                   <div class="flex items-center space-x-2">
                     {{ if $galleryConfig }}
-                    {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[#38BDF8]/20">{{end}}
+                    {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg mt-2 max-w-8 max-h-8 border border-[var(--color-primary-border)]/20">{{end}}
                     {{ end }}
                     <div class="flex flex-col flex-1">
-                      <span class="text-xs font-semibold text-[#94A3B8] mb-1">{{if .Model}}{{.Model}}{{else}}Assistant{{end}}</span>
-                      <div class="flex-1 text-[#E5E7EB] flex items-center space-x-2 min-w-0">
-                        <div class="p-3 rounded-lg bg-gradient-to-br from-[#1E293B] to-[#101827] border border-[#8B5CF6]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
-                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[#94A3B8] hover:text-[#38BDF8] transition-colors p-1 flex-shrink-0">
+                      <span class="text-xs font-semibold text-[var(--color-text-secondary)] mb-1">{{if .Model}}{{.Model}}{{else}}Assistant{{end}}</span>
+                      <div class="flex-1 text-[var(--color-text-primary)] flex items-center space-x-2 min-w-0">
+                        <div class="p-3 rounded-lg bg-[var(--color-bg-secondary)] border border-[var(--color-accent-border)]/20 shadow-lg max-w-full overflow-x-auto overflow-wrap-anywhere" x-html="message.html"></div>
+                        <button @click="copyToClipboard(message.html)" title="Copy to clipboard" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors p-1 flex-shrink-0">
                           <i class="fa-solid fa-copy"></i>
                         </button>
                       </div>
@@ -1253,7 +1254,7 @@ SOFTWARE.
                 {{ else }}
                 <i
                   class="fa-solid h-8 w-8"
-                  :class="message.role === 'user' ? 'fa-user text-[#38BDF8]' : 'fa-robot text-[#8B5CF6]'"
+                  :class="message.role === 'user' ? 'fa-user text-[var(--color-primary)]' : 'fa-robot text-[var(--color-accent)]'"
                 ></i>
                 {{ end }}
                 </div>
@@ -1264,18 +1265,18 @@ SOFTWARE.
 
 
           <!-- Chat Input -->
-          <div class="p-4 border-t border-[#1E293B]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
+          <div class="p-4 border-t border-[var(--color-bg-secondary)]" x-data="{ inputValue: '', shiftPressed: false, attachedFiles: [] }">
             <form id="prompt" action="chat/{{.Model}}" method="get" @submit.prevent="submitPrompt" class="max-w-3xl mx-auto">
               <!-- Attachment Tags - Show above input when files are attached -->
               <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
                 <template x-for="(file, index) in attachedFiles" :key="index">
-                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[#38BDF8]/20 border border-[#38BDF8]/40 text-[#E5E7EB]">
-                    <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[#38BDF8]"></i>
+                  <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[var(--color-primary)]/20 border border-[var(--color-primary-border)]/40 text-[var(--color-text-primary)]">
+                    <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[var(--color-primary)]"></i>
                     <span x-text="file.name" class="max-w-[200px] truncate"></span>
                     <button 
                       type="button"
                       @click="attachedFiles.splice(index, 1); removeFileFromInput(file.type, file.name)"
-                      class="ml-1 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors"
+                      class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
                       title="Remove attachment"
                     >
                       <i class="fa-solid fa-times text-xs"></i>
@@ -1287,62 +1288,63 @@ SOFTWARE.
               <!-- Token Usage and Context Window - Compact above input -->
               <div class="mb-3 flex items-center justify-between gap-4 text-xs">
                 <!-- Token Usage -->
-                <div class="flex items-center gap-3 text-[#94A3B8]">
+                <div class="flex items-center gap-3 text-[var(--color-text-secondary)]">
                   <div class="flex items-center gap-1">
-                    <i class="fas fa-chart-line text-[#38BDF8]"></i>
+                    <i class="fas fa-chart-line text-[var(--color-primary)]"></i>
                     <span>Prompt:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
+                    <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.promptTokens || 0)"></span>
                   </div>
                   <div class="flex items-center gap-1">
                     <span>Completion:</span>
-                    <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
+                    <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.completionTokens || 0)"></span>
                   </div>
-                  <div class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
-                    <span class="text-[#38BDF8] font-semibold">Total:</span>
-                    <span class="text-[#E5E7EB] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
+                  <div class="flex items-center gap-1 border-l border-[var(--color-bg-secondary)] pl-3">
+                    <span class="text-[var(--color-primary)] font-semibold">Total:</span>
+                    <span class="text-[var(--color-text-primary)] font-bold" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                   </div>
                   <!-- Tokens per second display -->
-                  <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[#1E293B] pl-3">
-                    <i class="fas fa-tachometer-alt text-[#38BDF8]"></i>
-                    <span id="tokens-per-second" class="text-[#E5E7EB] font-medium">-</span>
-                    <span id="max-tokens-per-second-badge" class="ml-2 px-1.5 py-0.5 text-[10px] bg-[#38BDF8]/20 text-[#38BDF8] rounded border border-[#38BDF8]/30 hidden"></span>
+                  <div id="tokens-per-second-container" class="flex items-center gap-1 border-l border-[var(--color-bg-secondary)] pl-3">
+                    <i class="fas fa-tachometer-alt text-[var(--color-primary)]"></i>
+                    <span id="tokens-per-second" class="text-[var(--color-text-primary)] font-medium">-</span>
+                    <span id="max-tokens-per-second-badge" class="ml-2 px-1.5 py-0.5 text-[10px] bg-[var(--color-primary)]/20 text-[var(--color-primary)] rounded border border-[var(--color-primary-border)]/30 hidden"></span>
                   </div>
                 </div>
 
                 <!-- Context Window -->
                 <template x-if="$store.chat.activeChat()?.contextSize && $store.chat.activeChat().contextSize > 0">
-                  <div class="flex items-center gap-2 text-[#94A3B8]">
-                    <i class="fas fa-database text-[#38BDF8]"></i>
+                  <div class="flex items-center gap-2 text-[var(--color-text-secondary)]">
+                    <i class="fas fa-database text-[var(--color-primary)]"></i>
                     <span>
-                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
+                      <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.tokenUsage?.totalTokens || 0)"></span>
                       / 
-                      <span class="text-[#E5E7EB] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
+                      <span class="text-[var(--color-text-primary)] font-medium" x-text="new Intl.NumberFormat().format($store.chat.activeChat()?.contextSize || 0)"></span>
                     </span>
-                    <div class="w-16 bg-[#101827] rounded-full h-1.5 overflow-hidden border border-[#1E293B]">
+                    <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden border border-[var(--color-bg-secondary)]">
                       <div class="h-full rounded-full transition-all duration-300 ease-out"
                            :class="{
-                             'bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]': $store.chat.getContextUsagePercent() < 80,
+                             'bg-gradient-to-r from-[var(--color-primary)] to-[var(--color-accent)]': $store.chat.getContextUsagePercent() < 80,
                              'bg-gradient-to-r from-yellow-500 to-orange-500': $store.chat.getContextUsagePercent() >= 80 && $store.chat.getContextUsagePercent() < 95,
                              'bg-gradient-to-r from-red-500 to-red-600': $store.chat.getContextUsagePercent() >= 95
                            }"
                            :style="'width: ' + Math.min(100, $store.chat.getContextUsagePercent()) + '%'">
                       </div>
                     </div>
-                    <span class="text-[#94A3B8]" x-text="Math.round($store.chat.getContextUsagePercent()) + '%'"></span>
-                    <span x-show="$store.chat.getContextUsagePercent() >= 80" class="text-yellow-400">
+                    <span class="text-[var(--color-text-secondary)]" x-text="Math.round($store.chat.getContextUsagePercent()) + '%'"></span>
+                    <span x-show="$store.chat.getContextUsagePercent() >= 80" class="text-[var(--color-warning)]">
                       <i class="fas fa-exclamation-triangle"></i>
                     </span>
                   </div>
                 </template>
               </div>
 
-              <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl shadow-lg focus-within:ring-2 focus-within:ring-[#38BDF8]/50 focus-within:border-[#38BDF8] transition-all duration-200">
+              <div class="relative w-full">
                 <textarea
                   id="input"
                   name="input"
                   x-model="inputValue"
+                  class="input w-full p-3 pr-16 resize-none border-0"
                   placeholder="Send a message..."
-                  class="p-3 pr-16 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
+                  class="p-3 pr-16 w-full bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] placeholder-[var(--color-text-secondary)] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
                   required
                   @keydown.shift="shiftPressed = true"
                   @keyup.shift="shiftPressed = false"
@@ -1352,19 +1354,19 @@ SOFTWARE.
                 <button
                   type="button"
                   onclick="document.getElementById('input_image').click()"
-                  class="fa-solid fa-image text-[#94A3B8] absolute right-12 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
+                  class="fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
                   title="Attach images"
                 ></button>
                 <button
                   type="button"
                   onclick="document.getElementById('input_audio').click()"
-                  class="fa-solid fa-microphone text-[#94A3B8] absolute right-20 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
+                  class="fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
                   title="Attach an audio file"
                 ></button>
                 <button
                   type="button"
                   onclick="document.getElementById('input_file').click()"
-                  class="fa-solid fa-file text-[#94A3B8] absolute right-28 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
+                  class="fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
                   title="Upload text, markdown or PDF file"
                 ></button>
 
@@ -1375,7 +1377,7 @@ SOFTWARE.
                     id="stop-button"
                     type="button"
                     onclick="stopRequest()"
-                    class="text-lg p-2 text-red-400 hover:text-red-500 transition-colors duration-200"
+                    class="text-lg p-2 text-[var(--color-error)] hover:text-[var(--color-error)] transition-colors duration-200"
                     style="display: none;"
                     title="Stop request"
                   >
@@ -1386,7 +1388,7 @@ SOFTWARE.
                   <button
                     id="send-button"
                     type="submit"
-                    class="text-lg p-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors duration-200"
+                    class="text-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200"
                     title="Send message (Enter)"
                   >
                     <i class="fa-solid fa-paper-plane"></i>
@@ -1504,7 +1506,7 @@ SOFTWARE.
             
             // Format the JSON nicely
             const formatted = JSON.stringify(parsed, null, 2);
-            return DOMPurify.sanitize('<pre class="bg-[#101827] p-3 rounded border border-[#10B981]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
+            return DOMPurify.sanitize('<pre class="bg-[var(--color-bg-primary)] p-3 rounded border border-[var(--color-success)]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
           } catch (e) {
             // If not JSON, try to format as markdown or plain text
             try {
@@ -1534,7 +1536,7 @@ SOFTWARE.
                   try {
                     const parsed = JSON.parse(jsonStr);
                     const formatted = JSON.stringify(parsed, null, 2);
-                    return DOMPurify.sanitize('<pre class="bg-[#101827] p-3 rounded border border-[#10B981]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
+                    return DOMPurify.sanitize('<pre class="bg-[var(--color-bg-primary)] p-3 rounded border border-[var(--color-success)]/20 overflow-x-auto"><code class="language-json">' + formatted + '</code></pre>');
                   } catch (e2) {
                     // Fall through to markdown
                   }
@@ -1544,7 +1546,7 @@ SOFTWARE.
               return DOMPurify.sanitize(marked.parse(content));
             } catch (e2) {
               // Last resort: plain text
-              return DOMPurify.sanitize('<pre class="bg-[#101827] p-3 rounded border border-[#10B981]/20 overflow-x-auto text-xs">' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>');
+              return DOMPurify.sanitize('<pre class="bg-[var(--color-bg-primary)] p-3 rounded border border-[var(--color-success)]/20 overflow-x-auto text-xs">' + content.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</pre>');
             }
           }
         };
@@ -1813,18 +1815,18 @@ SOFTWARE.
 
     .tool-call-content .hljs-keyword,
     .tool-result-content .hljs-keyword {
-        color: #8B5CF6 !important;
+        color: var(--color-accent) !important;
         font-weight: 600;
     }
 
     .tool-call-content .hljs-string,
     .tool-result-content .hljs-string {
-        color: #10B981 !important;
+        color: var(--color-success) !important;
     }
 
     .tool-call-content .hljs-number,
     .tool-result-content .hljs-number {
-        color: #38BDF8 !important;
+        color: var(--color-primary) !important;
     }
 
     .tool-call-content .hljs-literal,
@@ -1839,12 +1841,12 @@ SOFTWARE.
 
     .tool-call-content .hljs-property,
     .tool-result-content .hljs-property {
-        color: #38BDF8 !important;
+        color: var(--color-primary) !important;
     }
 
     .tool-call-content .hljs-attr,
     .tool-result-content .hljs-attr {
-        color: #8B5CF6 !important;
+        color: var(--color-accent) !important;
     }
     </style>
 

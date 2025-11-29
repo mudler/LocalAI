@@ -9,15 +9,13 @@
 
     <div class="container mx-auto px-4 py-8 flex-grow max-w-6xl">
         <!-- Header -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
-            <div class="flex justify-between items-center">
+        <div class="hero-section">
+            <div class="hero-content flex justify-between items-center">
                 <div>
-                    <h1 class="text-4xl font-bold text-[#E5E7EB] mb-2">
-                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
-                            Job Details
-                        </span>
+                    <h1 class="hero-title">
+                        Job Details
                     </h1>
-                    <p class="text-lg text-[#94A3B8]">Live job status, reasoning traces, and execution details</p>
+                    <p class="hero-subtitle">Live job status, reasoning traces, and execution details</p>
                 </div>
                 <a href="/agent-jobs" class="text-[#94A3B8] hover:text-[#E5E7EB]">
                     <i class="fas fa-arrow-left mr-2"></i>Back to Jobs
@@ -26,7 +24,7 @@
         </div>
 
         <!-- Job Status Card -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+        <div class="card p-8 mb-8">
             <div class="flex items-center justify-between mb-6">
                 <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job Status</h2>
                 <div class="flex items-center space-x-4">
@@ -41,7 +39,8 @@
                     x-text="job.status ? job.status.toUpperCase() : 'LOADING...'"></span>
                     <button x-show="job.status === 'pending' || job.status === 'running'" 
                             @click="cancelJob()" 
-                            class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                            class="btn-primary"
+                            style="background: var(--color-error);">
                         <i class="fas fa-stop mr-2"></i>Cancel
                     </button>
                 </div>
@@ -76,7 +75,7 @@
         </div>
 
         <!-- Agent Prompt Template -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="task && task.prompt">
+        <div class="card p-8 mb-8" x-show="task && task.prompt">
             <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Agent Prompt Template</h2>
             <p class="text-sm text-[#94A3B8] mb-4">The original prompt template from the task definition.</p>
             <div class="bg-[#101827] p-4 rounded text-[#E5E7EB] whitespace-pre-wrap font-mono text-sm" x-text="task.prompt"></div>
@@ -97,7 +96,7 @@
         </div>
 
         <!-- Rendered Job Prompt -->
-        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="task && task.prompt">
+        <div class="card p-8 mb-8" x-show="task && task.prompt">
             <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Rendered Job Prompt</h2>
             <p class="text-sm text-[#94A3B8] mb-4">The prompt with parameters substituted, as it was sent to the agent.</p>
             <div class="bg-[#101827] p-4 rounded text-[#E5E7EB] whitespace-pre-wrap" x-text="getRenderedPrompt()"></div>
@@ -110,7 +109,7 @@
         </div>
 
         <!-- Error -->
-        <div class="bg-[#1E293B] border border-red-500/20 rounded-xl p-8 mb-8" x-show="job.error">
+        <div class="card p-8 mb-8" x-show="job.error" style="border-color: var(--color-error);">
             <h2 class="text-2xl font-semibold text-red-400 mb-6">Error</h2>
             <div class="bg-red-900/20 p-4 rounded text-red-400 whitespace-pre-wrap" x-text="job.error"></div>
         </div>

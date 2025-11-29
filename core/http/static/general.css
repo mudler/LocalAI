@@ -1,5 +1,5 @@
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-body, 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif);
 }
 .chat-container { height: 90vh; display: flex; flex-direction: column; }
 .chat-messages { overflow-y: auto; flex-grow: 1; }
@@ -78,4 +78,29 @@ li {
 
 li:last-child {
     margin-bottom: 0; /* Removes bottom margin from the last item */
+}
+
+/* Scrollbar Styling - Minimal */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bg-secondary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primary);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-bg-secondary) var(--color-bg-primary);
 }

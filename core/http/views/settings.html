@@ -2,7 +2,7 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
 <div class="flex flex-col min-h-screen" x-data="settingsDashboard()">
 
     {{template "views/partials/navbar" .}}
@@ -36,27 +36,27 @@
         <!-- Header -->
         <div class="mb-6">
             <div class="flex items-center justify-between mb-2">
-                <h1 class="text-2xl font-semibold text-[#E5E7EB]">
+                <h1 class="h2">
                     Application Settings
                 </h1>
                 <a href="/manage" 
-                   class="inline-flex items-center text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                   class="inline-flex items-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
                     <i class="fas fa-arrow-left mr-2 text-sm"></i>
                     <span class="text-sm">Back to Manage</span>
                 </a>
             </div>
-            <p class="text-sm text-[#94A3B8]">Configure watchdog and backend request settings</p>
+            <p class="text-sm text-[var(--color-text-secondary)]">Configure watchdog and backend request settings</p>
         </div>
 
         <!-- Settings Form -->
         <form @submit.prevent="saveSettings()" class="space-y-6">
             <!-- Watchdog Settings Section -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-shield-alt mr-2 text-[#38BDF8] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-shield-alt mr-2 text-[var(--color-primary)] text-sm"></i>
                     Watchdog Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure automatic monitoring and management of backend processes
                 </p>
 
@@ -64,76 +64,76 @@
                     <!-- Enable Watchdog -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Enable Watchdog</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Enable automatic monitoring of backend processes</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Watchdog</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable automatic monitoring of backend processes</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.watchdog_enabled" 
                                    @change="updateWatchdogEnabled()"
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
                     <!-- Enable Idle Check -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Enable Idle Check</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Automatically stop backends that are idle for too long</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Idle Check</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are idle for too long</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.watchdog_idle_enabled" 
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
                     <!-- Idle Timeout -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Idle Timeout</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Time before an idle backend is stopped (e.g., 15m, 1h)</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Idle Timeout</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time before an idle backend is stopped (e.g., 15m, 1h)</p>
                         <input type="text" x-model="settings.watchdog_idle_timeout" 
                                :disabled="!settings.watchdog_idle_enabled"
                                placeholder="15m"
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#38BDF8]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#38BDF8]/50"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_idle_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
 
                     <!-- Enable Busy Check -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Enable Busy Check</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Automatically stop backends that are busy for too long (stuck processes)</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Busy Check</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are busy for too long (stuck processes)</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.watchdog_busy_enabled" 
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#38BDF8]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                         </label>
                     </div>
 
                     <!-- Busy Timeout -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Busy Timeout</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Time before a busy backend is stopped (e.g., 5m, 30m)</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Busy Timeout</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time before a busy backend is stopped (e.g., 5m, 30m)</p>
                         <input type="text" x-model="settings.watchdog_busy_timeout" 
                                :disabled="!settings.watchdog_busy_enabled"
                                placeholder="5m"
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#38BDF8]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#38BDF8]/50"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_busy_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
                 </div>
             </div>
 
             <!-- Backend Request Settings Section -->
-            <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-cogs mr-2 text-[#8B5CF6] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-cogs mr-2 text-[var(--color-accent)] text-sm"></i>
                     Backend Request Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure how backends handle multiple requests
                 </p>
 
@@ -141,97 +141,97 @@
                     <!-- Single Backend Mode -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Single Backend Mode</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Allow only one backend to be active at a time</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Single Backend Mode</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Allow only one backend to be active at a time</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.single_backend" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#8B5CF6]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8B5CF6]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
 
                     <!-- Parallel Backend Requests -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Parallel Backend Requests</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Enable backends to handle multiple requests in parallel (if supported)</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Parallel Backend Requests</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable backends to handle multiple requests in parallel (if supported)</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.parallel_backend_requests" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#8B5CF6]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#8B5CF6]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
                 </div>
             </div>
 
             <!-- Performance Settings Section -->
-            <div class="bg-[#1E293B] border border-[#10B981]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-tachometer-alt mr-2 text-[#10B981] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-success-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-tachometer-alt mr-2 text-[var(--color-success)] text-sm"></i>
                     Performance Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure default performance parameters for models
                 </p>
 
                 <div class="space-y-4">
                     <!-- Threads -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Default Threads</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Number of threads to use for model inference (0 = auto)</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Default Threads</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Number of threads to use for model inference (0 = auto)</p>
                         <input type="number" x-model="settings.threads" 
                                min="0"
                                placeholder="0"
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#10B981]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#10B981]/50">
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
                     </div>
 
                     <!-- Context Size -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Default Context Size</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Default context window size for models</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Default Context Size</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Default context window size for models</p>
                         <input type="number" x-model="settings.context_size" 
                                min="0"
                                placeholder="512"
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#10B981]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#10B981]/50">
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
                     </div>
 
                     <!-- F16 -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">F16 Precision</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Use 16-bit floating point precision</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">F16 Precision</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Use 16-bit floating point precision</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.f16" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#10B981]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
                     </div>
 
                     <!-- Debug -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Debug Mode</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Enable debug logging</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Debug Mode</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable debug logging</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.debug" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#10B981]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#10B981]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
                     </div>
                 </div>
             </div>
 
             <!-- API Settings Section -->
-            <div class="bg-[#1E293B] border border-[#F59E0B]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-globe mr-2 text-[#F59E0B] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-warning-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-globe mr-2 text-[var(--color-warning)] text-sm"></i>
                     API Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure CORS and CSRF protection
                 </p>
 
@@ -239,138 +239,138 @@
                     <!-- CORS -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Enable CORS</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Enable Cross-Origin Resource Sharing</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable CORS</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Origin Resource Sharing</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.cors" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#F59E0B]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F59E0B]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
                         </label>
                     </div>
 
                     <!-- CORS Allow Origins -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">CORS Allow Origins</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Comma-separated list of allowed origins</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">CORS Allow Origins</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Comma-separated list of allowed origins</p>
                         <input type="text" x-model="settings.cors_allow_origins" 
                                placeholder="*"
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#F59E0B]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#F59E0B]/50">
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-warning-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-warning-light)]">
                     </div>
 
                     <!-- CSRF -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Enable CSRF Protection</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Enable Cross-Site Request Forgery protection</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable CSRF Protection</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Site Request Forgery protection</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.csrf" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#F59E0B]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#F59E0B]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
                         </label>
                     </div>
                 </div>
             </div>
 
             <!-- P2P Settings Section -->
-            <div class="bg-[#1E293B] border border-[#EC4899]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-network-wired mr-2 text-[#EC4899] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-network-wired mr-2 text-[var(--color-accent)] text-sm"></i>
                     P2P Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure peer-to-peer networking
                 </p>
 
                 <div class="space-y-4">
                     <!-- P2P Token -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">P2P Token</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Authentication token for P2P network (set to 0 to generate a new token)</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">P2P Token</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Authentication token for P2P network (set to 0 to generate a new token)</p>
                         <input type="text" x-model="settings.p2p_token" 
                                placeholder=""
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#EC4899]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#EC4899]/50">
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
 
                     <!-- P2P Network ID -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">P2P Network ID</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Network identifier for P2P connections</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">P2P Network ID</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Network identifier for P2P connections</p>
                         <input type="text" x-model="settings.p2p_network_id" 
                                placeholder=""
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#EC4899]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#EC4899]/50">
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
 
                     <!-- Federated -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Federated Mode</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Enable federated instance mode</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Federated Mode</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable federated instance mode</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.federated" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#EC4899]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#EC4899]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
                 </div>
             </div>
 
             <!-- Agent Jobs Settings Section -->
-            <div class="bg-[#1E293B] border border-[#06B6D4]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-tasks mr-2 text-[#06B6D4] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-2 text-[var(--color-primary)] text-sm"></i>
                     Agent Jobs Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure agent job retention and cleanup
                 </p>
 
                 <div class="space-y-4">
                     <!-- Agent Job Retention Days -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Job Retention Days</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Number of days to keep job history (default: 30)</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Job Retention Days</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Number of days to keep job history (default: 30)</p>
                         <input type="number" x-model="settings.agent_job_retention_days" 
                                min="0"
                                placeholder="30"
-                               class="w-full px-3 py-2 bg-[#101827] border border-[#06B6D4]/20 rounded text-sm text-[#E5E7EB] focus:outline-none focus:ring-2 focus:ring-[#06B6D4]/50">
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50">
                     </div>
                 </div>
             </div>
 
             <!-- API Keys Settings Section -->
-            <div class="bg-[#1E293B] border border-[#EF4444]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-key mr-2 text-[#EF4444] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-error-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-key mr-2 text-[var(--color-error)] text-sm"></i>
                     API Keys
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Manage API keys for authentication. Keys from environment variables are always included.
                 </p>
 
                 <div class="space-y-4">
                     <!-- API Keys List -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">API Keys</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">List of API keys (one per line or comma-separated)</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">API Keys</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">List of API keys (one per line or comma-separated)</p>
                         <textarea x-model="settings.api_keys_text" 
                                   rows="4"
                                   placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba"
-                                  class="w-full px-3 py-2 bg-[#101827] border border-[#EF4444]/20 rounded text-sm text-[#E5E7EB] font-mono focus:outline-none focus:ring-2 focus:ring-[#EF4444]/50"></textarea>
-                        <p class="text-xs text-[#94A3B8] mt-1">Note: API keys are sensitive. Handle with care.</p>
+                                  class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-error-light)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-error-light)]"></textarea>
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">Note: API keys are sensitive. Handle with care.</p>
                     </div>
                 </div>
             </div>
 
             <!-- Gallery Settings Section -->
-            <div class="bg-[#1E293B] border border-[#6366F1]/20 rounded-lg p-6">
-                <h2 class="text-xl font-semibold text-[#E5E7EB] mb-4 flex items-center">
-                    <i class="fas fa-images mr-2 text-[#6366F1] text-sm"></i>
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-images mr-2 text-[var(--color-accent)] text-sm"></i>
                     Gallery Settings
                 </h2>
-                <p class="text-xs text-[#94A3B8] mb-4">
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
                     Configure model and backend galleries
                 </p>
 
@@ -378,47 +378,47 @@
                     <!-- Autoload Galleries -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Autoload Galleries</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Automatically load model galleries on startup</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Autoload Galleries</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load model galleries on startup</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.autoload_galleries" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#6366F1]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6366F1]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
 
                     <!-- Autoload Backend Galleries -->
                     <div class="flex items-center justify-between">
                         <div>
-                            <label class="text-sm font-medium text-[#E5E7EB]">Autoload Backend Galleries</label>
-                            <p class="text-xs text-[#94A3B8] mt-1">Automatically load backend galleries on startup</p>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Autoload Backend Galleries</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load backend galleries on startup</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
                             <input type="checkbox" x-model="settings.autoload_backend_galleries" 
                                    class="sr-only peer">
-                            <div class="w-11 h-6 bg-[#101827] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#6366F1]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#6366F1]"></div>
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
                     </div>
 
                     <!-- Galleries (JSON) -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Model Galleries (JSON)</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Array of gallery objects with 'url' and 'name' fields</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Model Galleries (JSON)</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Array of gallery objects with 'url' and 'name' fields</p>
                         <textarea x-model="settings.galleries_json" 
                                   rows="4"
                                   placeholder='[{"url": "https://example.com", "name": "Example Gallery"}]'
-                                  class="w-full px-3 py-2 bg-[#101827] border border-[#6366F1]/20 rounded text-sm text-[#E5E7EB] font-mono focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"></textarea>
+                                  class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
                     </div>
 
                     <!-- Backend Galleries (JSON) -->
                     <div>
-                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Backend Galleries (JSON)</label>
-                        <p class="text-xs text-[#94A3B8] mb-2">Array of backend gallery objects with 'url' and 'name' fields</p>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Backend Galleries (JSON)</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Array of backend gallery objects with 'url' and 'name' fields</p>
                         <textarea x-model="settings.backend_galleries_json" 
                                   rows="4"
                                   placeholder='[{"url": "https://example.com", "name": "Example Backend Gallery"}]'
-                                  class="w-full px-3 py-2 bg-[#101827] border border-[#6366F1]/20 rounded text-sm text-[#E5E7EB] font-mono focus:outline-none focus:ring-2 focus:ring-[#6366F1]/50"></textarea>
+                                  class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
                     </div>
                 </div>
             </div>
@@ -441,7 +441,7 @@
             <div class="flex justify-end">
                 <button type="submit" 
                         :disabled="saving"
-                        class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 disabled:opacity-50 disabled:cursor-not-allowed text-white py-2 px-6 rounded-lg font-medium transition-colors">
+                        class="btn-primary">
                     <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
                     <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
                 </button>

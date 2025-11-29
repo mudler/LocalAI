@@ -9,27 +9,18 @@
     {{template "views/partials/navbar" .}}
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Section -->
-        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-10">
-            <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#38BDF8]">
-                        <i class="fas fa-volume-high mr-2"></i>Text to Speech {{ if .Model }} with {{.Model}} {{ end }}
-                    </span>
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <i class="fas fa-volume-high mr-2"></i>Text to Speech {{ if .Model }} with {{.Model}} {{ end }}
                 </h1>
-                <p class="text-xl text-[#94A3B8] mb-6">Convert your text into natural-sounding speech</p>
-                <div class="flex flex-wrap justify-center gap-4">
-                    <a href="https://localai.io/features/text-to-audio/" target="_blank" 
-                        class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
-                        <i class="fas fa-book-reader mr-2"></i>
-                        <span>Documentation</span>
-                    </a>
-                </div>
+                <p class="hero-subtitle">Convert your text into natural-sounding speech</p>
             </div>
         </div>
 
         <!-- TTS Interface -->
         <div class="max-w-3xl mx-auto">
-            <div class="bg-[#1E293B] border border-[#1E293B] rounded-xl overflow-hidden">
+            <div class="card overflow-hidden">
                 <!-- Header with Model Selection -->
                 <div class="border-b border-[#1E293B] p-5">
                     <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -42,7 +33,7 @@
                                 id="model-select"
                                 x-model="link"
                                 @change="window.location = link"
-                                class="bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 rounded-lg shadow-sm p-2.5 appearance-none"
+                                class="input p-2.5"
                             >	
                                 <option value="" disabled class="text-[#94A3B8]">Select a model</option>
                                 {{ $model:=.Model}}
@@ -83,10 +74,10 @@
                                 name="input"
                                 placeholder="Enter text to convert to speech..."
                                 autocomplete="off"
-                                class="w-full bg-[#101827] text-[#E5E7EB] border border-[#1E293B] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 rounded-lg shadow-sm p-4 pl-4 pr-12"
+                                class="input w-full p-4 pl-4 pr-12"
                                 required
                             />
-                            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8B5CF6] hover:text-[#38BDF8] transition">
+                            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8B5CF6] hover:text-[#38BDF8] transition icon-hover">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
                         </div>

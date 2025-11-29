@@ -1,4 +1,4 @@
-<nav class="bg-[#101827] shadow-2xl border-b border-[#1E293B]">
+<nav class="bg-[var(--color-bg-primary)] shadow-2xl border-b border-[var(--color-bg-secondary)]">
     <div class="container mx-auto px-4 py-2">
         <div class="flex items-center justify-between">
             <div class="flex items-center">
@@ -6,46 +6,46 @@
                 <a href="./" class="flex items-center group">
                     <img src="static/logo_horizontal.png" 
                          alt="LocalAI Logo" 
-                         class="h-10 mr-3 brightness-110 transition-all duration-300 group-hover:brightness-125 group-hover:drop-shadow-[0_0_8px_rgba(56,189,248,0.5)]">
+                         class="h-10 mr-3 brightness-110 transition-all duration-300 group-hover:brightness-125 group-hover:drop-shadow-[0_0_8px_var(--color-primary-border)]">
                 </a>
             </div>
             
             <!-- Menu button for small screens -->
             <div class="lg:hidden">
-                <button id="menu-toggle" class="text-[#94A3B8] hover:text-[#38BDF8] focus:outline-none p-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B]">
+                <button id="menu-toggle" class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] focus:outline-none p-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)]">
                     <i class="fas fa-bars fa-lg"></i>
                 </button>
             </div>
             
             <!-- Navigation links -->
             <div class="hidden lg:flex lg:items-center lg:justify-end lg:space-x-1" x-data="{ manageOpen: false }">
-                <a href="./" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fas fa-home text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Home
+                <a href="./" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fas fa-home text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Home
                 </a>
-                <a href="chat/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fa-solid fa-comments text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Chat
+                <a href="chat/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fa-solid fa-comments text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Chat
                 </a>
-                <a href="text2image/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fas fa-image text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Images
+                <a href="text2image/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fas fa-image text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Images
                 </a>
-                <a href="tts/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fa-solid fa-music text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>TTS
+                <a href="tts/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fa-solid fa-music text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>TTS
                 </a>
-                <a href="talk/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fa-solid fa-phone text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Talk
+                <a href="talk/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fa-solid fa-phone text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Talk
                 </a>
-                <a href="swagger/" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fas fa-code text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>API
+                <a href="swagger/" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fas fa-code text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>API
                 </a>
-                <a href="agent-jobs" class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                    <i class="fas fa-tasks text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Agent Jobs
+                <a href="agent-jobs" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                    <i class="fas fa-tasks text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Agent Jobs
                 </a>
                 
                 <!-- System Dropdown -->
                 <div class="relative" @click.away="manageOpen = false">
                     <button @click="manageOpen = !manageOpen" 
-                            class="text-[#94A3B8] hover:text-[#E5E7EB] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[#1E293B] flex items-center group text-sm">
-                        <i class="fas fa-cog text-[#38BDF8] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Settings
+                            class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] px-2 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-[var(--color-bg-secondary)] flex items-center group text-sm">
+                        <i class="fas fa-cog text-[var(--color-primary)] mr-1.5 text-sm group-hover:scale-110 transition-transform"></i>Settings
                         <i class="fas fa-chevron-down ml-1 text-xs transition-transform" :class="manageOpen ? 'rotate-180' : ''"></i>
                     </button>
                     <div x-show="manageOpen" 
@@ -55,18 +55,18 @@
                          x-transition:leave="transition ease-in duration-150"
                          x-transition:leave-start="opacity-100 scale-100"
                          x-transition:leave-end="opacity-0 scale-95"
-                         class="absolute top-full right-0 mt-1 w-48 bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg shadow-lg z-50 py-1">
-                        <a href="browse/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
-                            <i class="fas fa-brain text-[#38BDF8] mr-2 text-xs"></i>Models
+                         class="absolute top-full right-0 mt-1 w-48 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg shadow-lg z-50 py-1">
+                        <a href="browse/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-brain text-[var(--color-primary)] mr-2 text-xs"></i>Models
                         </a>
-                        <a href="browse/backends" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
-                            <i class="fas fa-server text-[#38BDF8] mr-2 text-xs"></i>Backends
+                        <a href="browse/backends" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-server text-[var(--color-primary)] mr-2 text-xs"></i>Backends
                         </a>
-                        <a href="p2p/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
-                            <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-2 text-xs"></i>Swarm
+                        <a href="p2p/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fa-solid fa-circle-nodes text-[var(--color-primary)] mr-2 text-xs"></i>Swarm
                         </a>
-                        <a href="/manage" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#101827] px-3 py-2 text-sm transition-colors flex items-center">
-                            <i class="fas fa-cog text-[#38BDF8] mr-2 text-xs"></i>System
+                        <a href="/manage" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-primary)] px-3 py-2 text-sm transition-colors flex items-center">
+                            <i class="fas fa-cog text-[var(--color-primary)] mr-2 text-xs"></i>System
                         </a>
                     </div>
                 </div>
@@ -75,17 +75,17 @@
         
         <!-- Collapsible menu for small screens -->
         <div class="hidden lg:hidden" id="mobile-menu" x-data="{ manageOpen: false }">
-            <div class="pt-3 pb-2 space-y-1 border-t border-[#1E293B] mt-2">
-                <a href="./" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fas fa-home text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Home
+            <div class="pt-3 pb-2 space-y-1 border-t border-[var(--color-bg-secondary)] mt-2">
+                <a href="./" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-home text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>Home
                 </a>
                 
                 <!-- System with submenu -->
                 <div>
                     <button @click="manageOpen = !manageOpen" 
-                            class="w-full text-left text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center justify-between text-sm">
+                            class="w-full text-left text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center justify-between text-sm">
                         <div class="flex items-center">
-                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Settings
+                            <i class="fas fa-cog text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>Settings
                         </div>
                         <i class="fas fa-chevron-down text-xs transition-transform" :class="manageOpen ? 'rotate-180' : ''"></i>
                     </button>
@@ -97,38 +97,38 @@
                          x-transition:leave-start="opacity-100 max-h-96"
                          x-transition:leave-end="opacity-0 max-h-0"
                          class="overflow-hidden">
-                        <a href="browse/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                            <i class="fas fa-brain text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Models
+                        <a href="browse/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-brain text-[var(--color-primary)] mr-3 w-5 text-center text-xs"></i>Models
                         </a>
-                        <a href="browse/backends" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                            <i class="fas fa-server text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Backends
+                        <a href="browse/backends" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-server text-[var(--color-primary)] mr-3 w-5 text-center text-xs"></i>Backends
                         </a>
-                        <a href="p2p/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                            <i class="fa-solid fa-circle-nodes text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>Swarm
+                        <a href="p2p/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fa-solid fa-circle-nodes text-[var(--color-primary)] mr-3 w-5 text-center text-xs"></i>Swarm
                         </a>
-                        <a href="/manage" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                            <i class="fas fa-cog text-[#38BDF8] mr-3 w-5 text-center text-xs"></i>System
+                        <a href="/manage" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] pl-8 pr-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                            <i class="fas fa-cog text-[var(--color-primary)] mr-3 w-5 text-center text-xs"></i>System
                         </a>
                     </div>
                 </div>
                 
-                <a href="chat/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fa-solid fa-comments text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Chat
+                <a href="chat/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fa-solid fa-comments text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>Chat
                 </a>
-                <a href="text2image/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fas fa-image text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Images
+                <a href="text2image/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-image text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>Images
                 </a>
-                <a href="tts/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fa-solid fa-music text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>TTS
+                <a href="tts/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fa-solid fa-music text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>TTS
                 </a>
-                <a href="talk/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fa-solid fa-phone text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Talk
+                <a href="talk/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fa-solid fa-phone text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>Talk
                 </a>
-                <a href="swagger/" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fas fa-code text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>API
+                <a href="swagger/" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-code text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>API
                 </a>
-                <a href="agent-jobs" class="block text-[#94A3B8] hover:text-[#E5E7EB] hover:bg-[#1E293B] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
-                    <i class="fas fa-tasks text-[#38BDF8] mr-3 w-5 text-center text-sm"></i>Agent Jobs
+                <a href="agent-jobs" class="block text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center text-sm">
+                    <i class="fas fa-tasks text-[var(--color-primary)] mr-3 w-5 text-center text-sm"></i>Agent Jobs
                 </a>
             </div>
         </div>

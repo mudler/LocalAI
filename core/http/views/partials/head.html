@@ -9,20 +9,28 @@
   <script defer src="static/assets/alpine.js"></script>
   <script defer src="static/assets/marked.js"></script>
   <script defer src="static/assets/purify.js"></script>
+  <!-- LocalAI Design System CSS -->
+  <link href="static/theme.css" rel="stylesheet" />
+  <link href="static/typography.css" rel="stylesheet" />
+  <link href="static/animations.css" rel="stylesheet" />
+  <link href="static/components.css" rel="stylesheet" />
   <link href="static/general.css" rel="stylesheet" />
-  <link href="static/assets/font1.css" rel="stylesheet">
-  <link href="static/assets/font2.css" rel="stylesheet" />
   <link rel="stylesheet" href="static/assets/tw-elements.css" />
   <script src="static/assets/tailwindcss.js"></script>
+
+  <!-- Preload critical fonts -->
+  <link rel="preload" href="static/assets/playfair-display-bold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="static/assets/space-grotesk-regular.ttf" as="font" type="font/ttf" crossorigin>
 
   <script>
     tailwind.config = {
       darkMode: "class",
       theme: {
         fontFamily: {
-          sans: ["Roboto", "sans-serif"],
-          body: ["Roboto", "sans-serif"],
-          mono: ["ui-monospace", "monospace"],
+          sans: ["Space Grotesk", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+          body: ["Space Grotesk", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+          display: ["Playfair Display", "serif"],
+          mono: ["JetBrains Mono", "Fira Code", "monospace"],
         },
       },
       corePlugins: {
@@ -77,114 +85,4 @@
   <link href="static/assets/fontawesome/css/brands.css" rel="stylesheet" />
   <link href="static/assets/fontawesome/css/solid.css" rel="stylesheet" />
   <script src="static/assets/flowbite.min.js"></script>
-
-  <!-- Tech Noir UI Styling -->
-  <style>
-    /* Core Tech Noir Color Palette */
-    :root {
-      --tn-bg: #101827;
-      --tn-ui: #1E293B;
-      --tn-primary: #38BDF8;
-      --tn-secondary: #8B5CF6;
-      --tn-text: #E5E7EB;
-      --tn-muted: #94A3B8;
-    }
-
-    .animation-container {
-      position: relative;
-      width: 100%;
-      height: 25vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      background: linear-gradient(135deg, var(--tn-bg) 0%, var(--tn-ui) 100%);
-    }
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    .text-overlay {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      text-align: center;
-      z-index: 1;
-    }
-    .fa-circle-nodes {
-      animation: rotateCircleNodes 8s linear infinite;
-      display: inline-block;
-      filter: drop-shadow(0 0 8px var(--tn-primary));
-    }
-    @keyframes rotateCircleNodes {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    .fa-flask {
-      animation: shakeFlask 3s ease-in-out infinite;
-      transform-origin: bottom center;
-    }
-    @keyframes shakeFlask {
-      0%, 10% { transform: rotate(0deg); }
-      20% { transform: rotate(-10deg); }
-      30% { transform: rotate(10deg); }
-      40% { transform: rotate(-8deg); }
-      50% { transform: rotate(8deg); }
-      60% { transform: rotate(-5deg); }
-      70% { transform: rotate(5deg); }
-      80% { transform: rotate(-2deg); }
-      90% { transform: rotate(2deg); }
-      100% { transform: rotate(0deg); }
-    }
-
-    /* Active node with cyan glow */
-    .active-node {
-      position: relative;
-      overflow: hidden;
-    }
-
-    .active-node::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 2px;
-      background: linear-gradient(90deg, transparent, var(--tn-primary), transparent);
-      animation: nodeGlow 3s ease-in-out infinite;
-    }
-
-    @keyframes nodeGlow {
-      0% { left: -100%; }
-      50% { left: 100%; }
-      100% { left: 100%; }
-    }
-
-    /* Enhanced scrollbar styling */
-    ::-webkit-scrollbar {
-      width: 10px;
-      height: 10px;
-    }
-
-    ::-webkit-scrollbar-track {
-      background: var(--tn-bg);
-    }
-
-    ::-webkit-scrollbar-thumb {
-      background: var(--tn-ui);
-      border-radius: 5px;
-      border: 2px solid var(--tn-bg);
-    }
-
-    ::-webkit-scrollbar-thumb:hover {
-      background: var(--tn-primary);
-    }
-
-    /* Glow effects for interactive elements */
-    .glow-on-hover:hover {
-      box-shadow: 0 0 20px rgba(56, 189, 248, 0.3);
-    }
-  </style>
 </head>

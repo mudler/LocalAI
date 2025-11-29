@@ -162,9 +162,8 @@
             <canvas id="networkCanvas"></canvas>
             <div class="text-overlay">
                 <header class="text-center py-12">
-                    <h1 class="text-5xl font-bold text-gray-100">
+                    <h1 class="hero-title">
                         <i class="fa-solid fa-circle-nodes mr-2"></i> Network Clusters Explorer   
-        
                     </h1>
                     <p class="mt-4 text-lg">
                         View the clusters and workers available in each network.
@@ -188,7 +187,7 @@
         </div>
             <div class="flow-root">
             <!-- Toggle button for showing/hiding the form -->
-            <button class="bg-red-600 hover:bg-blue-600 float-right mb-2 flex items-center px-4 py-2 rounded" @click="toggleForm()">
+            <button class="btn-primary float-right mb-2" @click="toggleForm()">
                 <!-- Conditional icon display -->
                 <i :class="showForm ? 'fa-solid fa-times' : 'fa-solid fa-plus'" class="mr-2"></i>
                 <span x-text="showForm ? 'Close' : 'Add New Network'"></span>
@@ -196,20 +195,20 @@
         </div>
             <!-- Form for adding a new network -->
             <div class="form-container" x-show="showForm" @click.outside="showForm = false">
-                <h2 class="text-3xl font-bold mb-4"><i class="fa-solid fa-plus"></i> Add New Network</h2>
+                <h2 class="h2"><i class="fa-solid fa-plus"></i> Add New Network</h2>
                 <div class="form-control">
                     <label for="name">Network Name</label>
-                    <input type="text" id="name" x-model="newNetwork.name" placeholder="Enter network name" />
+                    <input type="text" id="name" x-model="newNetwork.name" placeholder="Enter network name" class="input" />
                 </div>
                 <div class="form-control">
                     <label for="description">Description</label>
-                    <textarea id="description" x-model="newNetwork.description" placeholder="Enter description"></textarea>
+                    <textarea id="description" x-model="newNetwork.description" placeholder="Enter description" class="input"></textarea>
                 </div>
                 <div class="form-control">
                     <label for="token">Token</label>
-                    <textarea id="token" x-model="newNetwork.token" placeholder="Enter token"></textarea>
+                    <textarea id="token" x-model="newNetwork.token" placeholder="Enter token" class="input"></textarea>
                 </div>
-                <button @click="addNetwork"><i class="fa-solid fa-plus"></i> Add Network</button>
+                <button @click="addNetwork" class="btn-primary"><i class="fa-solid fa-plus"></i> Add Network</button>
                 <template x-if="errorMessage">
                     <p class="error" x-text="errorMessage"></p>
                 </template>
@@ -248,7 +247,7 @@
                         <p class="text-lg font-bold mb-4 mt-1"><i class="fa-solid fa-book mr-2"></i> Description</p>
                         <p x-text="network.description"></p>
                     </div>
-                    <h2 class="text-3xl font-bold mb-4 mt-4">Available Clusters in this network</h2>
+                    <h2 class="h2">Available Clusters in this network</h2>
                     <template x-for="cluster in network.Clusters" :key="cluster.NetworkID + cluster.Type">
                         <div class="cluster">
                             <div class="cluster-title"></div>

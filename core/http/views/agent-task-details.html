@@ -12,10 +12,8 @@
         <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
             <div class="flex justify-between items-center">
                 <div>
-                    <h1 class="text-4xl font-bold text-[#E5E7EB] mb-2">
-                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] via-[#8B5CF6] to-[#38BDF8]">
-                            <span x-text="isNewTask ? 'Create Task' : (isEditMode ? 'Edit Task' : 'Task Details')"></span>
-                        </span>
+                    <h1 class="hero-title">
+                        <span x-text="isNewTask ? 'Create Task' : (isEditMode ? 'Edit Task' : 'Task Details')"></span>
                     </h1>
                     <p class="text-lg text-[#94A3B8]" x-text="isNewTask ? 'Create a new agent task' : (task ? task.name : 'Loading...')"></p>
                 </div>
