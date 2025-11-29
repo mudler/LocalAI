@@ -2,7 +2,7 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
 <div class="flex flex-col min-h-screen">
 
     {{template "views/partials/navbar" .}}
@@ -12,110 +12,104 @@
         <div class="w-full max-w-3xl mx-auto">
             {{ if eq (len .ModelsConfig) 0 }}
             <!-- No Models - Wizard Guide -->
-            <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-12">
-                <div class="text-center max-w-4xl mx-auto">
-                    <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 mb-6">
-                        <i class="text-[#8B5CF6] text-2xl fas fa-robot"></i>
-                    </div>
-                    <h2 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-4">
-                        <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#38BDF8] to-[#8B5CF6]">
-                            No Models Installed
-                        </span>
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h2 class="hero-title">
+                        No Models Installed
                     </h2>
-                    <p class="text-xl text-[#94A3B8] mb-8">
+                    <p class="hero-subtitle">
                         Get started with LocalAI by installing your first model. Choose from our gallery, import your own, or use the API to download models.
                     </p>
-                    
-                    <!-- Features Preview -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-                        <div class="bg-[#101827] border border-[#38BDF8]/20 rounded-lg p-4">
-                            <div class="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <i class="fas fa-images text-[#38BDF8] text-xl"></i>
-                            </div>
-                            <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Model Gallery</h3>
-                            <p class="text-xs text-[#94A3B8]">Browse and install pre-configured models</p>
-                        </div>
-                        <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-lg p-4">
-                            <div class="w-10 h-10 bg-purple-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <i class="fas fa-upload text-[#8B5CF6] text-xl"></i>
-                            </div>
-                            <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">Import Models</h3>
-                            <p class="text-xs text-[#94A3B8]">Upload your own model files</p>
-                        </div>
-                        <div class="bg-[#101827] border border-green-500/20 rounded-lg p-4">
-                            <div class="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center mx-auto mb-3">
-                                <i class="fas fa-code text-green-400 text-xl"></i>
-                            </div>
-                            <h3 class="text-sm font-semibold text-[#E5E7EB] mb-2">API Download</h3>
-                            <p class="text-xs text-[#94A3B8]">Use the API to download models programmatically</p>
-                        </div>
+                </div>
+            </div>
+            
+            <!-- Features Preview -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="card card-animate">
+                    <div class="w-10 h-10 bg-[var(--color-primary-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-images text-[var(--color-primary)] text-xl"></i>
                     </div>
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Model Gallery</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Browse and install pre-configured models</p>
+                </div>
+                <div class="card card-animate">
+                    <div class="w-10 h-10 bg-[var(--color-accent-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-upload text-[var(--color-accent)] text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Import Models</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Upload your own model files</p>
+                </div>
+                <div class="card card-animate">
+                    <div class="w-10 h-10 bg-[var(--color-success-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-code text-[var(--color-success)] text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">API Download</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Use the API to download models programmatically</p>
+                </div>
+            </div>
 
-                    <!-- Setup Instructions -->
-                    <div class="bg-[#101827] border border-[#8B5CF6]/20 rounded-xl p-6 mb-8 text-left">
-                        <h3 class="text-lg font-bold text-[#E5E7EB] mb-4 flex items-center">
-                            <i class="fas fa-rocket text-[#8B5CF6] mr-2"></i>
-                            How to Get Started
-                        </h3>
-                        <div class="space-y-4">
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
-                                    <span class="text-[#8B5CF6] font-bold text-sm">1</span>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-[#E5E7EB] font-medium mb-2">Browse the Model Gallery</p>
-                                    <p class="text-[#94A3B8] text-sm">Explore our curated collection of pre-configured models. Find models for chat, image generation, audio processing, and more.</p>
-                                </div>
-                            </div>
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
-                                    <span class="text-[#8B5CF6] font-bold text-sm">2</span>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-[#E5E7EB] font-medium mb-2">Install a Model</p>
-                                    <p class="text-[#94A3B8] text-sm">Click on a model from the gallery to install it, or use the import feature to upload your own model files.</p>
-                                </div>
-                            </div>
-                            <div class="flex items-start">
-                                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mr-3 mt-0.5">
-                                    <span class="text-[#8B5CF6] font-bold text-sm">3</span>
-                                </div>
-                                <div class="flex-1">
-                                    <p class="text-[#E5E7EB] font-medium mb-2">Start Chatting</p>
-                                    <p class="text-[#94A3B8] text-sm">Once installed, return to this page to start chatting with your model or use the API to interact programmatically.</p>
-                                </div>
-                            </div>
+            <!-- Setup Instructions -->
+            <div class="card mb-6 text-left">
+                <h3 class="text-lg font-bold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-rocket text-[var(--color-accent)] mr-2"></i>
+                    How to Get Started
+                </h3>
+                <div class="space-y-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                            <span class="text-[var(--color-accent)] font-bold text-sm">1</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[var(--color-text-primary)] font-medium mb-2">Browse the Model Gallery</p>
+                            <p class="text-[var(--color-text-secondary)] text-sm">Explore our curated collection of pre-configured models. Find models for chat, image generation, audio processing, and more.</p>
                         </div>
                     </div>
-                    
-                    <div class="flex flex-wrap justify-center gap-4">
-                        <a href="/browse/" 
-                           class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
-                            <i class="fas fa-images mr-2"></i>
-                            Browse Model Gallery
-                        </a>
-                        <a href="/import-model" 
-                           class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
-                            <i class="fas fa-upload mr-2"></i>
-                            Import Model
-                        </a>
-                        <a href="https://localai.io/basics/getting_started/" target="_blank" 
-                           class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-lg font-semibold transition-colors">
-                            <i class="fas fa-graduation-cap mr-2"></i>
-                            Getting Started
-                            <i class="fas fa-external-link-alt ml-2 text-sm"></i>
-                        </a>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                            <span class="text-[var(--color-accent)] font-bold text-sm">2</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[var(--color-text-primary)] font-medium mb-2">Install a Model</p>
+                            <p class="text-[var(--color-text-secondary)] text-sm">Click on a model from the gallery to install it, or use the import feature to upload your own model files.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                            <span class="text-[var(--color-accent)] font-bold text-sm">3</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[var(--color-text-primary)] font-medium mb-2">Start Chatting</p>
+                            <p class="text-[var(--color-text-secondary)] text-sm">Once installed, return to this page to start chatting with your model or use the API to interact programmatically.</p>
+                        </div>
                     </div>
                 </div>
             </div>
+            
+            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                <a href="/browse/" class="btn-primary">
+                    <i class="fas fa-images mr-2"></i>
+                    Browse Model Gallery
+                </a>
+                <a href="/import-model" class="btn-primary">
+                    <i class="fas fa-upload mr-2"></i>
+                    Import Model
+                </a>
+                <a href="https://localai.io/basics/getting_started/" target="_blank" class="btn-secondary">
+                    <i class="fas fa-graduation-cap mr-2"></i>
+                    Getting Started
+                    <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+                </a>
+            </div>
             {{ else }}
-            <!-- Welcome Message -->
-            <div class="text-center mb-12">
-                <div class="mb-6 flex justify-center">
-                    <img src="static/logo.png" alt="LocalAI Logo" class="h-24 md:h-32 drop-shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+            <!-- Welcome Message / Hero Section -->
+            <div class="hero-section">
+                <div class="hero-content">
+                    <div class="mb-4 flex justify-center">
+                        <img src="static/logo.png" alt="LocalAI Logo" class="h-16 md:h-20">
+                    </div>
+                    <h1 class="hero-title">How can I help you today?</h1>
+                    <p class="hero-subtitle">Ask me anything, and I'll do my best to assist you.</p>
                 </div>
-     
-                <p class="text-lg text-[#94A3B8]">How can I help you today?</p>
             </div>
 
             <!-- Chat Input Form -->
@@ -309,21 +303,21 @@
             }">
                 <!-- Model Selector with MCP Toggle -->
                 <div class="mb-4">
-                    <label class="block text-sm font-medium text-[#94A3B8] mb-2">Select Model</label>
+                    <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Select Model</label>
                     <div class="flex items-center gap-3">
                         <select
                             x-model="selectedModel"
                             @change="$nextTick(() => checkMCPAvailability())"
-                            class="flex-1 bg-[#1E293B] text-[#E5E7EB] border border-[#38BDF8]/20 focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50 rounded-lg p-3 appearance-none"
+                            class="input flex-1"
                             required
                         >
-                            <option value="" disabled class="text-[#94A3B8]">Select a model to chat with...</option>
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model to chat with...</option>
                             {{ range .ModelsConfig }}
                             {{ $cfg := . }}
                             {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
                             {{ range .KnownUsecaseStrings }}
                                 {{ if eq . "FLAG_CHAT" }}
-                                <option value="{{$cfg.Name}}" data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                                <option value="{{$cfg.Name}}" data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}" class="bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
                                 {{ end }}
                             {{ end }}
                             {{ end }}
@@ -332,12 +326,12 @@
                         <!-- Compact MCP Toggle - Show only if MCP is available for selected model -->
                         <div 
                             x-show="mcpAvailable"
-                            class="flex items-center gap-2 px-3 py-2 text-xs rounded text-[#E5E7EB] bg-[#1E293B] border border-[#38BDF8]/20 whitespace-nowrap">
-                            <i class="fa-solid fa-plug text-[#38BDF8] text-sm"></i>
-                            <span class="text-[#94A3B8]">MCP</span>
+                            class="flex items-center gap-2 px-3 py-2 text-xs rounded text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)] whitespace-nowrap">
+                            <i class="fa-solid fa-plug text-[var(--color-primary)] text-sm"></i>
+                            <span class="text-[var(--color-text-secondary)]">MCP</span>
                             <label class="relative inline-flex items-center cursor-pointer ml-1">
                                 <input type="checkbox" id="index_mcp_toggle" class="sr-only peer" x-model="mcpMode">
-                                <div class="w-9 h-5 bg-[#101827] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[#38BDF8]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#1E293B] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[#38BDF8]"></div>
+                                <div class="w-9 h-5 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--color-primary-border)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-bg-secondary)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
                             </label>
                         </div>
                     </div>
@@ -345,10 +339,10 @@
                     <!-- MCP Mode Notification - Compact tooltip style -->
                     <div 
                         x-show="mcpMode && mcpAvailable"
-                        class="mt-2 p-2 bg-[#38BDF8]/10 border border-[#38BDF8]/30 rounded text-[#94A3B8] text-xs">
+                        class="mt-2 p-2 bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] rounded text-[var(--color-text-secondary)] text-xs">
                         <div class="flex items-start space-x-2">
-                            <i class="fa-solid fa-info-circle text-[#38BDF8] mt-0.5 text-xs"></i>
-                            <p class="text-[#94A3B8]">Non-streaming mode active. Responses may take longer to process.</p>
+                            <i class="fa-solid fa-info-circle text-[var(--color-primary)] mt-0.5 text-xs"></i>
+                            <p class="text-[var(--color-text-secondary)]">Non-streaming mode active. Responses may take longer to process.</p>
                         </div>
                     </div>
                 </div>
@@ -358,13 +352,13 @@
                     <!-- Attachment Tags - Show above input when files are attached -->
                     <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
                         <template x-for="(file, index) in attachedFiles" :key="index">
-                            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[#38BDF8]/20 border border-[#38BDF8]/40 text-[#E5E7EB]">
-                                <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[#38BDF8]"></i>
+                            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] text-[var(--color-text-primary)]">
+                                <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[var(--color-primary)]"></i>
                                 <span x-text="file.name" class="max-w-[200px] truncate"></span>
                                 <button 
                                     type="button"
                                     @click="attachedFiles.splice(index, 1); removeAttachedFile(file.type, file.name)"
-                                    class="ml-1 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors"
+                                    class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
                                     title="Remove attachment"
                                 >
                                     <i class="fa-solid fa-times text-xs"></i>
@@ -373,11 +367,11 @@
                         </template>
                     </div>
 
-                    <div class="relative w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl focus-within:ring-2 focus-within:ring-[#38BDF8]/50 focus-within:border-[#38BDF8] transition-all duration-200">
+                    <div class="relative w-full">
                         <textarea
                             x-model="inputValue"
                             :placeholder="currentPlaceholder"
-                            class="p-3 pr-16 w-full bg-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] focus:outline-none resize-none border-0 rounded-xl transition-colors duration-200"
+                            class="input p-3 pr-16 w-full resize-none border-0"
                             required
                             @keydown.shift="shiftPressed = true"
                             @keyup.shift="shiftPressed = false"
@@ -392,19 +386,19 @@
                         <button
                             type="button"
                             @click="document.getElementById('index_input_image').click()"
-                            class="fa-solid fa-image text-[#94A3B8] absolute right-12 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
+                            class="fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
                             title="Attach images"
                         ></button>
                         <button
                             type="button"
                             @click="document.getElementById('index_input_audio').click()"
-                            class="fa-solid fa-microphone text-[#94A3B8] absolute right-20 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
+                            class="fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
                             title="Attach an audio file"
                         ></button>
                         <button
                             type="button"
                             @click="document.getElementById('index_input_file').click()"
-                            class="fa-solid fa-file text-[#94A3B8] absolute right-28 top-3 text-base p-1.5 hover:text-[#38BDF8] transition-colors duration-200"
+                            class="fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
                             title="Upload text, markdown or PDF file"
                         ></button>
 
@@ -413,7 +407,7 @@
                             type="submit"
                             :disabled="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim())"
                             :class="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
-                            class="text-lg p-2 text-[#94A3B8] hover:text-[#38BDF8] transition-colors duration-200 absolute right-3 top-3"
+                            class="text-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200 absolute right-3 top-3"
                             title="Send message (Enter)"
                         >
                             <i class="fa-solid fa-paper-plane"></i>
@@ -450,22 +444,19 @@
 
             <!-- Quick Links -->
             <div class="flex flex-wrap justify-center gap-3 mb-8">
-                <a href="/manage" 
-                   class="inline-flex items-center text-sm text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2 rounded-lg hover:bg-[#1E293B] transition-colors">
+                <a href="/manage" class="btn-tertiary">
                     <i class="fas fa-cog mr-2"></i>
                     Installed Models and Backends
                 </a>
-                <a href="/import-model" class="inline-flex items-center text-sm text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2 rounded-lg hover:bg-[#1E293B] transition-colors">
+                <a href="/import-model" class="btn-tertiary">
                     <i class="fas fa-upload mr-2"></i>
                     Import Model
                 </a>
-                <a href="/browse/" 
-                   class="inline-flex items-center text-sm text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2 rounded-lg hover:bg-[#1E293B] transition-colors">
+                <a href="/browse/" class="btn-tertiary">
                     <i class="fas fa-images mr-2"></i>
                     Browse Gallery
                 </a>
-                <a href="https://localai.io" target="_blank" 
-                   class="inline-flex items-center text-sm text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2 rounded-lg hover:bg-[#1E293B] transition-colors">
+                <a href="https://localai.io" target="_blank" class="btn-tertiary">
                     <i class="fas fa-book mr-2"></i>
                     Documentation
                 </a>
@@ -473,7 +464,7 @@
 
             <!-- Model Status Summary - Subtle -->
             {{ $loadedModels := .LoadedModels }}
-            <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[#94A3B8]" 
+            <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[var(--color-text-secondary)]" 
                  x-data="{ stoppingAll: false, stopAllModels() { window.stopAllModels(this); }, stopModel(name) { window.stopModel(name); }, getLoadedCount() { return document.querySelectorAll('[data-loaded-model]').length; } }"
                  x-show="getLoadedCount() > 0"
                  style="display: none;">
@@ -481,10 +472,10 @@
                     <i class="fas fa-circle text-green-500 text-[10px]"></i>
                     <span x-text="`${getLoadedCount()} model(s) loaded`"></span>
                 </span>
-                <span class="text-[#38BDF8]/40">•</span>
+                <span class="text-[var(--color-primary)] opacity-40">•</span>
                 {{ range .ModelsConfig }}
                     {{ if index $loadedModels .Name }}
-                    <span class="inline-flex items-center gap-1 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors" data-loaded-model>
+                    <span class="inline-flex items-center gap-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors" data-loaded-model>
                         <span class="truncate max-w-[100px]">{{.Name}}</span>
                         <button
                             @click="stopModel('{{.Name}}')"
@@ -496,7 +487,7 @@
                     </span>
                     {{ end }}
                 {{ end }}
-                <span class="text-[#38BDF8]/40">•</span>
+                <span class="text-[var(--color-primary)] opacity-40">•</span>
                 <button
                     @click="stopAllModels()"
                     :disabled="stoppingAll"

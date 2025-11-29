@@ -14,10 +14,8 @@
                 <div class="mb-6 text-6xl text-red-400">
                     <i class="fas fa-exclamation-circle"></i>
                 </div>
-                <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-red-600">
-                        {{if .ErrorCode}}{{.ErrorCode}}{{else}}Error{{end}}
-                    </span>
+                <h1 class="hero-title mb-4" style="color: var(--color-error);">
+                    {{if .ErrorCode}}{{.ErrorCode}}{{else}}Error{{end}}
                 </h1>
                 <p class="text-xl text-[#94A3B8] mb-6">{{if .ErrorMessage}}{{.ErrorMessage}}{{else}}An unexpected error occurred{{end}}</p>
                 <div class="flex flex-wrap justify-center gap-4">

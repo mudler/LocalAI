@@ -2,7 +2,7 @@
 <html lang="en">
 {{template "views/partials/head" .}}
 
-<body class="bg-[#101827] text-[#E5E7EB]">
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
 <div class="flex flex-col min-h-screen" x-data="indexDashboard()">
 
     {{template "views/partials/navbar" .}}
@@ -17,7 +17,7 @@
                  x-transition:leave="transition ease-in duration-150"
                  x-transition:leave-start="opacity-100"
                  x-transition:leave-end="opacity-0"
-                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-[var(--color-success)]'"
                  class="rounded-lg p-4 text-white flex items-start space-x-3">
                 <div class="flex-shrink-0">
                     <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
@@ -32,48 +32,45 @@
         </template>
     </div>
 
-    <div class="container mx-auto px-4 py-6 flex-grow">
-        <!-- Header -->
-        <div class="mb-6">
-            <h1 class="text-2xl font-semibold text-[#E5E7EB] mb-1">
-                Model & Backend Management
-            </h1>
-            <p class="text-sm text-[#94A3B8]">Manage your installed models and backends</p>
-        </div>
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Header -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Model & Backend Management
+                </h1>
+                <p class="hero-subtitle">Manage your installed models and backends</p>
+                
+                <!-- Quick Actions -->
+                <div class="flex flex-wrap justify-center gap-3">
+                    <a href="browse" class="btn-primary text-sm py-1.5 px-3">
+                        <i class="fas fa-images mr-1.5 text-[10px]"></i>
+                        <span>Model Gallery</span>
+                    </a>
+                    
+                    <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
+                        <i class="fas fa-plus mr-1.5 text-[10px]"></i>
+                        <span>Import Model</span>
+                    </a>
 
-        <!-- Quick Actions -->
-        <div class="flex flex-wrap gap-2 mb-6">
-            <a href="browse" 
-               class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors">
-                <i class="fas fa-images mr-1.5 text-[10px]"></i>
-                <span>Model Gallery</span>
-            </a>
-            
-            <a href="/import-model"
-               class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors">
-                <i class="fas fa-plus mr-1.5 text-[10px]"></i>
-                <span>Import Model</span>
-            </a>
+                    <button id="reload-models-btn" class="btn-primary text-sm py-1.5 px-3">
+                        <i class="fas fa-sync-alt mr-1.5 text-[10px]"></i>
+                        <span>Update Models</span>
+                    </button>
 
-            <button id="reload-models-btn"
-               class="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors">
-                <i class="fas fa-sync-alt mr-1.5 text-[10px]"></i>
-                <span>Update Models</span>
-            </button>
+                    <a href="/browse/backends" class="btn-secondary text-sm py-1.5 px-3">
+                        <i class="fas fa-cogs mr-1.5 text-[10px]"></i>
+                        <span>Backend Gallery</span>
+                    </a>
 
-            <a href="/browse/backends"
-               class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-1.5 px-3 rounded text-xs font-medium transition-colors">
-                <i class="fas fa-cogs mr-1.5 text-[10px]"></i>
-                <span>Backend Gallery</span>
-            </a>
-
-            {{ if not .DisableRuntimeSettings }}
-            <a href="/settings"
-               class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 text-[#E5E7EB] py-1.5 px-3 rounded text-xs font-medium transition-colors">
-                <i class="fas fa-cog mr-1.5 text-[10px]"></i>
-                <span>Settings</span>
-            </a>
-            {{ end }}
+                    {{ if not .DisableRuntimeSettings }}
+                    <a href="/settings" class="btn-secondary text-sm py-1.5 px-3">
+                        <i class="fas fa-cog mr-1.5 text-[10px]"></i>
+                        <span>Settings</span>
+                    </a>
+                    {{ end }}
+                </div>
+            </div>
         </div>
 
         <!-- Models Section -->
@@ -82,41 +79,41 @@
             
             {{ if eq (len .ModelsConfig) 0 }}
             <!-- No Models State -->
-            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-lg p-8">
+            <div class="card p-8">
                 <div class="text-center max-w-4xl mx-auto">
                     <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
                         <i class="text-yellow-400 text-xl fas fa-robot"></i>
                     </div>
-                    <h2 class="text-2xl font-bold text-[#E5E7EB] mb-2">No models installed yet</h2>
-                    <p class="text-sm text-[#94A3B8] mb-6">Get started by installing a model from the gallery or importing it</p>
+                    <h2 class="h2 mb-2">No models installed yet</h2>
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-6">Get started by installing a model from the gallery or importing it</p>
                     
                     <div class="flex flex-wrap justify-center gap-2 mb-6">
-                        <a href="browse" class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] py-1.5 px-3 rounded text-xs font-medium transition-colors">
+                        <a href="browse" class="btn-primary text-sm py-1.5 px-3">
                             <i class="fas fa-images mr-1.5 text-[10px]"></i>
                             Browse Model Gallery
                         </a>
-                        <a href="/import-model" class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-1.5 px-3 rounded text-xs font-medium transition-colors">
+                        <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
                             <i class="fas fa-upload mr-1.5 text-[10px]"></i>
                             Import Model
                         </a>
-                        <a href="https://localai.io/basics/getting_started/" target="_blank" class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#38BDF8]/20 text-[#E5E7EB] py-1.5 px-3 rounded text-xs font-medium transition-colors">
+                        <a href="https://localai.io/basics/getting_started/" target="_blank" class="btn-secondary text-sm py-1.5 px-3">
                             <i class="fas fa-book mr-1.5 text-[10px]"></i>
                             Documentation
                         </a>
                     </div>
 
                     {{ if ne (len .Models) 0 }}
-                    <div class="mt-8 pt-6 border-t border-[#38BDF8]/20">
-                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-2 flex items-center">
-                            <i class="fas fa-file-alt mr-2 text-[#38BDF8] text-sm"></i>
+                    <div class="mt-8 pt-6 border-t border-[var(--color-primary-border)]/20">
+                        <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-2 flex items-center">
+                            <i class="fas fa-file-alt mr-2 text-[var(--color-primary)] text-sm"></i>
                             Detected Model Files
                         </h3>
-                        <p class="text-xs text-[#94A3B8] mb-4">These models were found but don't have configuration files yet</p>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-4">These models were found but don't have configuration files yet</p>
                         <div class="flex flex-wrap gap-2 justify-center">
                             {{ range .Models }}
-                            <div class="bg-[#101827] border border-[#38BDF8]/20 rounded px-2 py-1 flex items-center gap-2">
-                                <i class="fas fa-brain text-xs text-[#38BDF8]"></i>
-                                <span class="text-xs text-[#E5E7EB] font-medium">{{.}}</span>
+                            <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded px-2 py-1 flex items-center gap-2">
+                                <i class="fas fa-brain text-xs text-[var(--color-primary)]"></i>
+                                <span class="text-xs text-[var(--color-text-primary)] font-medium">{{.}}</span>
                             </div>              
                             {{end}}
                         </div>
@@ -129,24 +126,24 @@
             {{ $modelsN := len .ModelsConfig}}
             {{ $modelsN = add $modelsN (len .Models)}}
             <div class="mb-6">
-                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-1 flex items-center">
-                    <i class="fas fa-brain mr-2 text-[#38BDF8] text-sm"></i>
+                <h2 class="h3 mb-1 flex items-center">
+                    <i class="fas fa-brain mr-2 text-[var(--color-primary)] text-sm"></i>
                     Installed Models
                 </h2>
-                <p class="text-sm text-[#94A3B8] mb-4">
-                    <span class="text-[#38BDF8] font-medium">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
+                <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+                    <span class="text-[var(--color-primary)] font-medium">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
                 </p>
             </div>
             
             <div class="overflow-x-auto mb-8">
                 <table class="w-full border-collapse">
                     <thead>
-                        <tr class="border-b border-[#1E293B]">
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Name</th>
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Status</th>
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Backend</th>
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Use Cases</th>
-                            <th class="text-right p-2 text-xs font-semibold text-[#94A3B8]">Actions</th>
+                        <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Name</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Status</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Backend</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Use Cases</th>
+                            <th class="text-right p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -156,7 +153,7 @@
                         {{ range .ModelsConfig }}
                         {{ $backendCfg := . }}
                         {{ $cfg:= index $galleryConfig .Name}}
-                        <tr class="hover:bg-[#1E293B]/50 border-b border-[#1E293B] transition-colors">
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
                             <!-- Name Column -->
                             <td class="p-2">
                                 <div class="flex items-center gap-2">
@@ -164,15 +161,15 @@
                                         {{ if and $cfg $cfg.Icon }}
                                         <img src="{{$cfg.Icon}}" class="w-4 h-4 object-contain" alt="{{.Name}} icon">
                                         {{ else }}
-                                        <i class="fas fa-brain text-xs text-[#38BDF8]"></i>
+                                        <i class="fas fa-brain text-xs text-[var(--color-primary)]"></i>
                                         {{ end }}
                                         {{ if index $loadedModels .Name }}
-                                        <div class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border border-[#1E293B]"></div>
+                                        <div class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[var(--color-success)] rounded-full border border-[var(--color-bg-secondary)]"></div>
                                         {{ end }}
                                     </div>
-                                    <span class="text-xs text-[#E5E7EB] font-medium truncate">{{.Name}}</span>
+                                    <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.Name}}</span>
                                     <a href="/models/edit/{{.Name}}" 
-                                       class="text-[#38BDF8]/60 hover:text-[#38BDF8] hover:bg-[#38BDF8]/10 rounded p-0.5 transition-colors ml-1 flex-shrink-0"
+                                       class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded p-0.5 transition-colors ml-1 flex-shrink-0"
                                        title="Edit {{.Name}}">
                                         <i class="fas fa-edit text-[10px]"></i>
                                     </a>
@@ -183,12 +180,12 @@
                             <td class="p-2">
                                 <div class="flex flex-wrap gap-1">
                                     {{ if index $loadedModels .Name }}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-300">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300">
                                         <i class="fas fa-circle text-[8px] mr-1"></i>Running
                                     </span>
                                     {{ end }}
                                     {{ if and $backendCfg (or (ne $backendCfg.MCP.Servers "") (ne $backendCfg.MCP.Stdio ""))  }}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#8B5CF6]/10 text-[#8B5CF6]">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)]">
                                         <i class="fas fa-plug text-[8px] mr-1"></i>MCP
                                     </span>
                                     {{ end }}
@@ -198,7 +195,7 @@
                             <!-- Backend Column -->
                             <td class="p-2">
                                 {{ if .Backend }}
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#38BDF8]/10 text-[#38BDF8]">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                                     <i class="fas fa-cog text-[8px] mr-1"></i>{{.Backend}}
                                 </span>
                                 {{ else }}
@@ -213,17 +210,17 @@
                                 <div class="flex flex-wrap gap-1">
                                     {{ range .KnownUsecaseStrings }}
                                     {{ if eq . "FLAG_CHAT" }}
-                                    <a href="chat/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#38BDF8]/10 text-[#38BDF8] hover:bg-[#38BDF8]/20 transition-colors" title="Chat">
+                                    <a href="chat/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Chat">
                                         <i class="fas fa-comment-alt text-[8px] mr-1"></i>Chat
                                     </a>
                                     {{ end }}
                                     {{ if eq . "FLAG_IMAGE" }}
-                                    <a href="text2image/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-300 hover:bg-green-500/20 transition-colors" title="Image">
+                                    <a href="text2image/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300 hover:bg-[var(--color-success)]/20 transition-colors" title="Image">
                                         <i class="fas fa-image text-[8px] mr-1"></i>Image
                                     </a>
                                     {{ end }}
                                     {{ if eq . "FLAG_TTS" }}
-                                    <a href="tts/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#8B5CF6]/10 text-[#8B5CF6] hover:bg-[#8B5CF6]/20 transition-colors" title="TTS">
+                                    <a href="tts/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors" title="TTS">
                                         <i class="fas fa-microphone text-[8px] mr-1"></i>TTS
                                     </a>
                                     {{ end }}
@@ -253,11 +250,11 @@
                         
                         <!-- Models without config -->
                         {{ range .Models }}
-                        <tr class="hover:bg-[#1E293B]/50 border-b border-[#1E293B] transition-colors">
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
                             <td class="p-2">
                                 <div class="flex items-center gap-2">
-                                    <i class="fas fa-brain text-xs text-[#94A3B8]"></i>
-                                    <span class="text-xs text-[#E5E7EB] font-medium truncate">{{.}}</span>
+                                    <i class="fas fa-brain text-xs text-[var(--color-text-secondary)]"></i>
+                                    <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.}}</span>
                                 </div>
                             </td>
                             <td class="p-2">
@@ -271,10 +268,10 @@
                                 </span>
                             </td>
                             <td class="p-2">
-                                <span class="text-xs text-[#94A3B8]">—</span>
+                                <span class="text-xs text-[var(--color-text-secondary)]">—</span>
                             </td>
                             <td class="p-2">
-                                <span class="text-xs text-[#94A3B8]">—</span>
+                                <span class="text-xs text-[var(--color-text-secondary)]">—</span>
                             </td>
                         </tr>
                         {{end}}
@@ -288,42 +285,42 @@
         <div class="mt-8">
             <div class="mb-6">
                 <div class="flex items-center justify-between mb-1">
-                    <h2 class="text-2xl font-semibold text-[#E5E7EB] flex items-center">
-                        <i class="fas fa-cogs mr-2 text-[#8B5CF6] text-sm"></i>
+                    <h2 class="h3 flex items-center">
+                        <i class="fas fa-cogs mr-2 text-[var(--color-accent)] text-sm"></i>
                         Installed Backends
                     </h2>
                     {{ if gt (len .InstalledBackends) 0 }}
                     <button
                         @click="reinstallAllBackends()"
                         :disabled="reinstallingAll"
-                        class="inline-flex items-center bg-[#38BDF8] hover:bg-[#38BDF8]/80 disabled:opacity-50 disabled:cursor-not-allowed text-white py-1.5 px-3 rounded text-xs font-medium transition-colors"
+                        class="btn-primary text-sm py-1.5 px-3"
                         title="Reinstall all backends">
                         <i class="fas fa-arrow-rotate-right mr-1.5 text-[10px]" :class="reinstallingAll ? 'fa-spin' : ''"></i>
                         <span x-text="reinstallingAll ? 'Reinstalling...' : 'Reinstall All'"></span>
                     </button>
                     {{ end }}
                 </div>
-                <p class="text-sm text-[#94A3B8] mb-4">
-                    <span class="text-[#8B5CF6] font-medium">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
+                <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+                    <span class="text-[var(--color-accent)] font-medium">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
                 </p>
             </div>
 
             {{ if eq (len .InstalledBackends) 0 }}
             <!-- No backends state -->
-            <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-lg p-8">
+            <div class="card p-8">
                 <div class="text-center max-w-4xl mx-auto">
-                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 mb-4">
-                        <i class="text-[#8B5CF6] text-xl fas fa-cogs"></i>
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--color-accent-light)] border border-[var(--color-accent-border)] mb-4">
+                        <i class="text-[var(--color-accent)] text-xl fas fa-cogs"></i>
                     </div>
-                    <h2 class="text-2xl font-bold text-[#E5E7EB] mb-2">No backends installed yet</h2>
-                    <p class="text-sm text-[#94A3B8] mb-6">Backends power your AI models. Install them from the backend gallery to get started</p>
+                    <h2 class="h2 mb-2">No backends installed yet</h2>
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-6">Backends power your AI models. Install them from the backend gallery to get started</p>
                     
                     <div class="flex flex-wrap justify-center gap-3">
-                        <a href="/browse/backends" class="inline-flex items-center bg-[#8B5CF6] hover:bg-[#8B5CF6]/90 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                        <a href="/browse/backends" class="btn-primary">
                             <i class="fas fa-cogs mr-2 text-xs"></i>
                             Browse Backend Gallery
                         </a>
-                        <a href="https://localai.io/backends/" target="_blank" class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-2 px-4 rounded-lg text-sm font-medium transition-colors">
+                        <a href="https://localai.io/backends/" target="_blank" class="btn-secondary">
                             <i class="fas fa-book mr-2 text-xs"></i>
                             Documentation
                         </a>
@@ -335,21 +332,21 @@
             <div class="overflow-x-auto mb-8">
                 <table class="w-full border-collapse">
                     <thead>
-                        <tr class="border-b border-[#1E293B]">
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Name</th>
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Type</th>
-                            <th class="text-left p-2 text-xs font-semibold text-[#94A3B8]">Metadata</th>
-                            <th class="text-right p-2 text-xs font-semibold text-[#94A3B8]">Actions</th>
+                        <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Name</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Type</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Metadata</th>
+                            <th class="text-right p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {{ range .InstalledBackends }}
-                        <tr class="hover:bg-[#1E293B]/50 border-b border-[#1E293B] transition-colors" data-backend-name="{{.Name}}" data-is-system="{{.IsSystem}}">
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors" data-backend-name="{{.Name}}" data-is-system="{{.IsSystem}}">
                             <!-- Name Column -->
                             <td class="p-2">
                                 <div class="flex items-center gap-2">
-                                    <i class="fas fa-cog text-xs text-[#8B5CF6]"></i>
-                                    <span class="text-xs text-[#E5E7EB] font-medium truncate">{{.Name}}</span>
+                                    <i class="fas fa-cog text-xs text-[var(--color-accent)]"></i>
+                                    <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.Name}}</span>
                                 </div>
                             </td>
                             
@@ -361,12 +358,12 @@
                                         <i class="fas fa-shield-alt text-[8px] mr-1"></i>System
                                     </span>
                                     {{ else }}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-500/10 text-green-300">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300">
                                         <i class="fas fa-download text-[8px] mr-1"></i>User
                                     </span>
                                     {{ end }}
                                     {{ if .IsMeta }}
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[#8B5CF6]/10 text-[#8B5CF6]">
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)]">
                                         <i class="fas fa-layer-group text-[8px] mr-1"></i>Meta
                                     </span>
                                     {{ end }}
@@ -377,17 +374,17 @@
                             <td class="p-2">
                                 <div class="flex flex-col gap-1">
                                     {{ if and .Metadata .Metadata.Alias }}
-                                    <span class="text-xs text-[#94A3B8]">
-                                        <i class="fas fa-tag text-[8px] mr-1"></i>Alias: <span class="text-[#E5E7EB]">{{.Metadata.Alias}}</span>
+                                    <span class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-tag text-[8px] mr-1"></i>Alias: <span class="text-[var(--color-text-primary)]">{{.Metadata.Alias}}</span>
                                     </span>
                                     {{ end }}
                                     {{ if and .Metadata .Metadata.MetaBackendFor }}
-                                    <span class="text-xs text-[#94A3B8]">
-                                        <i class="fas fa-link text-[8px] mr-1"></i>For: <span class="text-[#8B5CF6]">{{.Metadata.MetaBackendFor}}</span>
+                                    <span class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-link text-[8px] mr-1"></i>For: <span class="text-[var(--color-accent)]">{{.Metadata.MetaBackendFor}}</span>
                                     </span>
                                     {{ end }}
                                     {{ if and .Metadata .Metadata.InstalledAt }}
-                                    <span class="text-xs text-[#94A3B8]">
+                                    <span class="text-xs text-[var(--color-text-secondary)]">
                                         <i class="fas fa-calendar text-[8px] mr-1"></i>{{.Metadata.InstalledAt}}
                                     </span>
                                     {{ end }}
@@ -401,7 +398,7 @@
                                     <button
                                         @click="reinstallBackend('{{.Name}}')"
                                         :disabled="reinstallingBackends['{{.Name}}']"
-                                        class="text-[#38BDF8]/60 hover:text-[#38BDF8] hover:bg-[#38BDF8]/10 disabled:opacity-50 disabled:cursor-not-allowed rounded p-1 transition-colors"
+                                        class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-50 disabled:cursor-not-allowed rounded p-1 transition-colors"
                                         title="Reinstall {{.Name}}">
                                         <i class="fas fa-arrow-rotate-right text-xs" :class="reinstallingBackends['{{.Name}}'] ? 'fa-spin' : ''"></i>
                                     </button>
@@ -412,7 +409,7 @@
                                         <i class="fas fa-trash-alt text-xs"></i>
                                     </button>
                                     {{ else }}
-                                    <span class="text-xs text-[#94A3B8]">—</span>
+                                    <span class="text-xs text-[var(--color-text-secondary)]">—</span>
                                     {{ end }}
                                 </div>
                             </td>

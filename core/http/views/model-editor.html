@@ -10,22 +10,19 @@
 
     <div class="container mx-auto px-4 py-8 flex-grow">
         <!-- Hero Header -->
-        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-8">
-            <div class="max-w-5xl mx-auto">
+        <div class="hero-section">
+            <div class="hero-content">
                 <div class="flex flex-col md:flex-row md:items-center md:justify-between">
-                    <div class="mb-4 md:mb-0">
-                        <h1 class="text-3xl md:text-4xl font-bold text-[#E5E7EB] mb-2">
-                            <span class="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-purple-400 to-fuchsia-400">
-                                {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
-                            </span>
+                    <div>
+                        <h1 class="hero-title">
+                            {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
                         </h1>
-                        <p class="text-lg text-[#94A3B8] font-light" x-text="isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'"></p>
+                        <p class="hero-subtitle" x-text="isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'"></p>
                     </div>
                     <div class="flex gap-3">
                         <!-- Mode Toggle (only show when not in edit mode) -->
                         <template x-if="!isEditMode">
-                            <button @click="toggleMode()" 
-                                    class="inline-flex items-center bg-[#1E293B] hover:bg-[#1E293B]/80 border border-[#8B5CF6]/20 text-[#E5E7EB] py-3 px-6 rounded-lg font-semibold transition-colors">
+                            <button @click="toggleMode()" class="btn-secondary">
                                 <i class="fas" :class="isAdvancedMode ? 'fa-magic mr-2' : 'fa-code mr-2'"></i>
                                 <span x-text="isAdvancedMode ? 'Simple Mode' : 'Advanced Mode'"></span>
                             </button>
@@ -33,11 +30,11 @@
                         <!-- Advanced Mode Buttons -->
                         <template x-if="isAdvancedMode">
                             <div class="flex gap-3">
-                                <button id="validateBtn" class="inline-flex items-center bg-blue-600 hover:bg-blue-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                                <button id="validateBtn" class="btn-primary">
                                     <i class="fas fa-check mr-2"></i>
                                     <span>Validate</span>
                                 </button>
-                                <button id="saveBtn" class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                                <button id="saveBtn" class="btn-primary">
                                     <i class="fas fa-save mr-2"></i>
                                     <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
                                 </button>
@@ -47,8 +44,7 @@
                         <template x-if="!isAdvancedMode && !isEditMode">
                             <button @click="submitImport()" 
                                     :disabled="isSubmitting || !importUri.trim()"
-                                    :class="(isSubmitting || !importUri.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
-                                    class="inline-flex items-center bg-green-600 hover:bg-green-700 text-white py-3 px-6 rounded-lg font-semibold transition-colors">
+                                    class="btn-primary">
                                 <i class="fas" :class="isSubmitting ? 'fa-spinner fa-spin mr-2' : 'fa-upload mr-2'"></i>
                                 <span x-text="isSubmitting ? 'Importing...' : 'Import Model'"></span>
                             </button>
@@ -66,7 +62,7 @@
              x-transition:enter="transition ease-out duration-200"
              x-transition:enter-start="opacity-0"
              x-transition:enter-end="opacity-100"
-             class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8">
+             class="card p-8">
             <div class="space-y-6">
                 <h2 class="text-2xl font-semibold text-[#E5E7EB] flex items-center gap-3 mb-6">
                     <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
@@ -102,7 +98,7 @@
                         x-model="importUri"
                         type="text" 
                         placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
-                        class="w-full px-4 py-3 bg-[#101827] border border-[#1E293B] rounded-lg text-[#E5E7EB] focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-colors"
+                        class="input w-full"
                         :disabled="isSubmitting">
                     <p class="mt-2 text-xs text-[#94A3B8]">
                         Enter the URI or path to the model file you want to import
@@ -331,7 +327,7 @@
                                 x-model="commonPreferences.description"
                                 rows="3"
                                 placeholder="Leave empty to use default description"
-                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all resize-none"
+                                class="input w-full resize-none"
                                 :disabled="isSubmitting"></textarea>
                             <p class="mt-1 text-xs text-gray-400">
                                 Custom description for the model. If empty, a default description will be generated.

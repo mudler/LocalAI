@@ -35,14 +35,12 @@
     <div class="container mx-auto px-4 py-8 flex-grow">
 
         <!-- Hero Header -->
-        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-12">
-            <div class="max-w-5xl mx-auto text-center">
-                <h1 class="text-4xl md:text-5xl font-bold text-[#E5E7EB] mb-4">
-                    <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] via-[#38BDF8] to-[#8B5CF6]">
-                        Backend Management
-                    </span>
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Backend Management
                 </h1>
-                <p class="text-lg md:text-xl text-[#94A3B8] mb-6 font-light">
+                <p class="hero-subtitle">
                     Discover and install AI backends to power your models
                 </p>
                 <div class="flex flex-wrap justify-center items-center gap-6 text-sm md:text-base">
@@ -56,8 +54,7 @@
                         <span class="font-semibold text-cyan-300" x-text="installedBackends"></span>
                         <span class="text-[#94A3B8] ml-1">installed</span>
                     </a>
-                    <a href="https://localai.io/backends/" target="_blank" 
-                       class="inline-flex items-center bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg transition-colors">
+                    <a href="https://localai.io/backends/" target="_blank" class="btn-primary">
                         <i class="fas fa-info-circle mr-2"></i>
                         <span>Documentation</span>
                         <i class="fas fa-external-link-alt ml-2 text-xs"></i>
@@ -69,7 +66,7 @@
         {{template "views/partials/inprogress" .}}
 
         <!-- Search and Filter Section -->
-        <div class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl p-8 mb-8">
+        <div class="card p-8 mb-8">
             <div>
                 <!-- Search Input -->
                 <div class="mb-8">
@@ -84,7 +81,7 @@
                         <input 
                             x-model="searchTerm"
                             @input.debounce.500ms="fetchBackends()"
-                            class="w-full pl-12 pr-16 py-4 text-base font-normal text-[#E5E7EB] bg-[#101827] border border-[#1E293B] rounded-lg transition-colors focus:text-[#E5E7EB] focus:bg-[#101827] focus:border-[#8B5CF6] focus:ring-2 focus:ring-[#8B5CF6]/50 focus:outline-none" 
+                            class="input w-full pl-12 pr-16 py-4" 
                             type="search" 
                             placeholder="Search backends by name, description or type...">
                         <span class="absolute right-4 top-4" x-show="loading">
