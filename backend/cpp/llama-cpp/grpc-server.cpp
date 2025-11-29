@@ -1199,7 +1199,7 @@ public:
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat
-                task.params.oaicompat                 = OAICOMPAT_TYPE_NONE;
+                task.params.res_type                 = TASK_RESPONSE_TYPE_NONE;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
@@ -1930,7 +1930,7 @@ public:
                 task.id_slot = json_value(data, "id_slot", -1);
 
                 // OAI-compat
-                task.params.oaicompat                 = OAICOMPAT_TYPE_NONE;
+                task.params.res_type                 = TASK_RESPONSE_TYPE_NONE;
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
@@ -2056,7 +2056,7 @@ public:
                 task.index         = i;
                 task.tokens = std::move(tokenized_prompts[i]);
 
-                task.params.oaicompat = OAICOMPAT_TYPE_NONE;
+                task.params.res_type = TASK_RESPONSE_TYPE_NONE;
                 task.params.embd_normalize = embd_normalize;
                 tasks.push_back(std::move(task));
             }
