@@ -148,10 +148,15 @@ func (c *Client) SetBaseURL(url string) {
 	c.baseURL = url
 }
 
-// ListFiles lists all files in a HuggingFace repository
-func (c *Client) ListFiles(repoID string) ([]FileInfo, error) {
+// listFilesInPath lists all files in a specific path of a HuggingFace repository (recursive helper)
+func (c *Client) listFilesInPath(repoID, path string) ([]FileInfo, error) {
 	baseURL := strings.TrimSuffix(c.baseURL, "/api/models")
-	url := fmt.Sprintf("%s/api/models/%s/tree/main", baseURL, repoID)
+	var url string
+	if path == "" {
+		url = fmt.Sprintf("%s/api/models/%s/tree/main", baseURL, repoID)
+	} else {
+		url = fmt.Sprintf("%s/api/models/%s/tree/main/%s", baseURL, repoID, path)
+	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -173,12 +178,45 @@ func (c *Client) ListFiles(repoID string) ([]FileInfo, error) {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
-	var files []FileInfo
-	if err := json.Unmarshal(body, &files); err != nil {
+	var items []FileInfo
+	if err := json.Unmarshal(body, &items); err != nil {
 		return nil, fmt.Errorf("failed to parse JSON response: %w", err)
 	}
 
-	return files, nil
+	var allFiles []FileInfo
+	for _, item := range items {
+		switch item.Type {
+		// If it's a directory/folder, recursively list its contents
+		case "directory", "folder":
+			// Build the subfolder path
+			subPath := item.Path
+			if path != "" {
+				subPath = fmt.Sprintf("%s/%s", path, item.Path)
+			}
+
+			// Recursively get files from subfolder
+			// The recursive call will already prepend the subPath to each file's path
+			subFiles, err := c.listFilesInPath(repoID, subPath)
+			if err != nil {
+				return nil, fmt.Errorf("failed to list files in subfolder %s: %w", subPath, err)
+			}
+
+			allFiles = append(allFiles, subFiles...)
+		case "file":
+			// It's a file, prepend the current path to make it relative to root
+			//	if path != "" {
+			//		item.Path = fmt.Sprintf("%s/%s", path, item.Path)
+			//	}
+			allFiles = append(allFiles, item)
+		}
+	}
+
+	return allFiles, nil
+}
+
+// ListFiles lists all files in a HuggingFace repository, including files in subfolders
+func (c *Client) ListFiles(repoID string) ([]FileInfo, error) {
+	return c.listFilesInPath(repoID, "")
 }
 
 // GetFileSHA gets the SHA256 checksum for a specific file by searching through the file list

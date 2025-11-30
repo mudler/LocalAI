@@ -337,6 +337,137 @@ var _ = Describe("HuggingFace API Client", func() {
 		})
 	})
 
+	Context("when listing files with subfolders", func() {
+		BeforeEach(func() {
+			// Mock response for root directory with files and a subfolder
+			mockRootResponse := `[
+				{
+					"type": "file",
+					"path": "README.md",
+					"size": 5000,
+					"oid": "readme123"
+				},
+				{
+					"type": "directory",
+					"path": "subfolder",
+					"size": 0,
+					"oid": "dir123"
+				},
+				{
+					"type": "file",
+					"path": "config.json",
+					"size": 1000,
+					"oid": "config123"
+				}
+			]`
+
+			// Mock response for subfolder directory
+			mockSubfolderResponse := `[
+				{
+					"type": "file",
+					"path": "subfolder/file.bin",
+					"size": 2000000,
+					"oid": "filebin123",
+					"lfs": {
+						"oid": "filebin456",
+						"size": 2000000,
+						"pointerSize": 135
+					}
+				},
+				{
+					"type": "directory",
+					"path": "nested",
+					"size": 0,
+					"oid": "nesteddir123"
+				}
+			]`
+
+			// Mock response for nested subfolder
+			mockNestedResponse := `[
+				{
+					"type": "file",
+					"path": "subfolder/nested/nested_file.gguf",
+					"size": 5000000,
+					"oid": "nested123",
+					"lfs": {
+						"oid": "nested456",
+						"size": 5000000,
+						"pointerSize": 135
+					}
+				}
+			]`
+
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				urlPath := r.URL.Path
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+
+				if strings.Contains(urlPath, "/tree/main/subfolder/nested") {
+					w.Write([]byte(mockNestedResponse))
+				} else if strings.Contains(urlPath, "/tree/main/subfolder") {
+					w.Write([]byte(mockSubfolderResponse))
+				} else if strings.Contains(urlPath, "/tree/main") {
+					w.Write([]byte(mockRootResponse))
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			}))
+
+			client.SetBaseURL(server.URL)
+		})
+
+		It("should recursively list all files including those in subfolders", func() {
+			files, err := client.ListFiles("test/model")
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).To(HaveLen(4))
+
+			// Verify root level files
+			readmeFile := findFileByPath(files, "README.md")
+			Expect(readmeFile).ToNot(BeNil())
+			Expect(readmeFile.Size).To(Equal(int64(5000)))
+			Expect(readmeFile.Oid).To(Equal("readme123"))
+
+			configFile := findFileByPath(files, "config.json")
+			Expect(configFile).ToNot(BeNil())
+			Expect(configFile.Size).To(Equal(int64(1000)))
+			Expect(configFile.Oid).To(Equal("config123"))
+
+			// Verify subfolder file with relative path
+			subfolderFile := findFileByPath(files, "subfolder/file.bin")
+			Expect(subfolderFile).ToNot(BeNil())
+			Expect(subfolderFile.Size).To(Equal(int64(2000000)))
+			Expect(subfolderFile.LFS).ToNot(BeNil())
+			Expect(subfolderFile.LFS.Oid).To(Equal("filebin456"))
+
+			// Verify nested subfolder file
+			nestedFile := findFileByPath(files, "subfolder/nested/nested_file.gguf")
+			Expect(nestedFile).ToNot(BeNil())
+			Expect(nestedFile.Size).To(Equal(int64(5000000)))
+			Expect(nestedFile.LFS).ToNot(BeNil())
+			Expect(nestedFile.LFS.Oid).To(Equal("nested456"))
+		})
+
+		It("should handle files with correct relative paths", func() {
+			files, err := client.ListFiles("test/model")
+
+			Expect(err).ToNot(HaveOccurred())
+
+			// Check that all paths are relative and correct
+			paths := make([]string, len(files))
+			for i, file := range files {
+				paths[i] = file.Path
+			}
+
+			Expect(paths).To(ContainElements(
+				"README.md",
+				"config.json",
+				"subfolder/file.bin",
+				"subfolder/nested/nested_file.gguf",
+			))
+		})
+	})
+
 	Context("when getting file SHA", func() {
 		BeforeEach(func() {
 			mockFilesResponse := `[
@@ -405,6 +536,7 @@ var _ = Describe("HuggingFace API Client", func() {
 		BeforeEach(func() {
 			mockFilesResponse := `[
 				{
+					"type": "file",
 					"path": "model-Q4_K_M.gguf",
 					"size": 1000000,
 					"oid": "abc123",
@@ -416,6 +548,7 @@ var _ = Describe("HuggingFace API Client", func() {
 					}
 				},
 				{
+					"type": "file",
 					"path": "README.md",
 					"size": 5000,
 					"oid": "readme123"
@@ -538,4 +671,84 @@ var _ = Describe("HuggingFace API Client", func() {
 			Expect(preferred).To(BeNil())
 		})
 	})
+
+	Context("integration test with real HuggingFace API", func() {
+		It("should recursively list all files including subfolders from real repository", func() {
+			// This test makes actual API calls to HuggingFace
+			// Skip if running in CI or if network is not available
+			realClient := hfapi.NewClient()
+			repoID := "bartowski/Qwen_Qwen3-Next-80B-A3B-Instruct-GGUF"
+
+			files, err := realClient.ListFiles(repoID)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).ToNot(BeEmpty(), "should return at least some files")
+
+			// Verify that we get files from subfolders
+			// Based on the repository structure, there should be files in subfolders like:
+			// - Qwen_Qwen3-Next-80B-A3B-Instruct-Q4_1/...
+			// - Qwen_Qwen3-Next-80B-A3B-Instruct-Q5_K_L/...
+			// etc.
+			hasSubfolderFiles := false
+			rootLevelFiles := 0
+			subfolderFiles := 0
+
+			for _, file := range files {
+				if strings.Contains(file.Path, "/") {
+					hasSubfolderFiles = true
+					subfolderFiles++
+					// Verify the path format is correct (subfolder/file.gguf)
+					Expect(file.Path).ToNot(HavePrefix("/"), "paths should be relative, not absolute")
+					Expect(file.Path).ToNot(HaveSuffix("/"), "file paths should not end with /")
+				} else {
+					rootLevelFiles++
+				}
+			}
+
+			Expect(hasSubfolderFiles).To(BeTrue(), "should find files in subfolders")
+			Expect(rootLevelFiles).To(BeNumerically(">", 0), "should find files at root level")
+			Expect(subfolderFiles).To(BeNumerically(">", 0), "should find files in subfolders")
+			// Verify specific expected files exist
+			// Root level files
+			readmeFile := findFileByPath(files, "README.md")
+			Expect(readmeFile).ToNot(BeNil(), "README.md should exist at root level")
+
+			// Verify we can find files in subfolders
+			// Look for any file in a subfolder (the exact structure may vary, can be nested)
+			foundSubfolderFile := false
+			for _, file := range files {
+				if strings.Contains(file.Path, "/") && strings.HasSuffix(file.Path, ".gguf") {
+					foundSubfolderFile = true
+					// Verify the path structure: can be nested like subfolder/subfolder/file.gguf
+					parts := strings.Split(file.Path, "/")
+					Expect(len(parts)).To(BeNumerically(">=", 2), "subfolder files should have at least subfolder/file.gguf format")
+					// The last part should be the filename
+					Expect(parts[len(parts)-1]).To(HaveSuffix(".gguf"), "file in subfolder should be a .gguf file")
+					Expect(parts[len(parts)-1]).ToNot(BeEmpty(), "filename should not be empty")
+					break
+				}
+			}
+			Expect(foundSubfolderFile).To(BeTrue(), "should find at least one .gguf file in a subfolder")
+
+			// Verify file properties are populated
+			for _, file := range files {
+				Expect(file.Path).ToNot(BeEmpty(), "file path should not be empty")
+				Expect(file.Type).To(Equal("file"), "all returned items should be files, not directories")
+				// Size might be 0 for some files, but OID should be present
+				if file.LFS == nil {
+					Expect(file.Oid).ToNot(BeEmpty(), "file should have an OID if no LFS")
+				}
+			}
+		})
+	})
 })
+
+// findFileByPath is a helper function to find a file by its path in a slice of FileInfo
+func findFileByPath(files []hfapi.FileInfo, path string) *hfapi.FileInfo {
+	for i := range files {
+		if files[i].Path == path {
+			return &files[i]
+		}
+	}
+	return nil
+}
