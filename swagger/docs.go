@@ -1989,6 +1989,13 @@ const docTemplate = `{
         "schema.Job": {
             "type": "object",
             "properties": {
+                "audios": {
+                    "description": "List of audio URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "completed_at": {
                     "type": "string"
                 },
@@ -1999,9 +2006,23 @@ const docTemplate = `{
                     "description": "Error message if failed",
                     "type": "string"
                 },
+                "files": {
+                    "description": "List of file URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "id": {
                     "description": "UUID",
                     "type": "string"
+                },
+                "images": {
+                    "description": "Multimedia content (for manual execution)\nCan contain URLs or base64-encoded data URIs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "parameters": {
                     "description": "Template parameters",
@@ -2040,6 +2061,13 @@ const docTemplate = `{
                     "description": "\"manual\", \"cron\", \"api\"",
                     "type": "string"
                 },
+                "videos": {
+                    "description": "List of video URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "webhook_error": {
                     "description": "Error if webhook failed",
                     "type": "string"
@@ -2056,6 +2084,27 @@ const docTemplate = `{
         "schema.JobExecutionRequest": {
             "type": "object",
             "properties": {
+                "audios": {
+                    "description": "List of audio URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "files": {
+                    "description": "List of file URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "images": {
+                    "description": "Multimedia content (optional, for manual execution)\nCan contain URLs or base64-encoded data URIs",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "parameters": {
                     "description": "Optional, for templating",
                     "type": "object",
@@ -2066,6 +2115,13 @@ const docTemplate = `{
                 "task_id": {
                     "description": "Required",
                     "type": "string"
+                },
+                "videos": {
+                    "description": "List of video URLs or base64 strings",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -2229,6 +2285,26 @@ const docTemplate = `{
                     }
                 },
                 "object": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.MultimediaSourceConfig": {
+            "type": "object",
+            "properties": {
+                "headers": {
+                    "description": "Custom headers for HTTP request (e.g., Authorization)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "type": {
+                    "description": "\"image\", \"video\", \"audio\", \"file\"",
+                    "type": "string"
+                },
+                "url": {
+                    "description": "URL to fetch from",
                     "type": "string"
                 }
             }
@@ -2622,6 +2698,13 @@ const docTemplate = `{
                 "model": {
                     "description": "Model name (must have MCP config)",
                     "type": "string"
+                },
+                "multimedia_sources": {
+                    "description": "Multimedia sources (for cron jobs)\nURLs to fetch multimedia content from when cron job executes\nEach source can have custom headers for authentication/authorization",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.MultimediaSourceConfig"
+                    }
                 },
                 "name": {
                     "description": "User-friendly name",

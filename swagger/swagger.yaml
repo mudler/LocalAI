@@ -385,6 +385,11 @@ definitions:
     type: object
   schema.Job:
     properties:
+      audios:
+        description: List of audio URLs or base64 strings
+        items:
+          type: string
+        type: array
       completed_at:
         type: string
       created_at:
@@ -392,9 +397,21 @@ definitions:
       error:
         description: Error message if failed
         type: string
+      files:
+        description: List of file URLs or base64 strings
+        items:
+          type: string
+        type: array
       id:
         description: UUID
         type: string
+      images:
+        description: |-
+          Multimedia content (for manual execution)
+          Can contain URLs or base64-encoded data URIs
+        items:
+          type: string
+        type: array
       parameters:
         additionalProperties:
           type: string
@@ -420,6 +437,11 @@ definitions:
       triggered_by:
         description: '"manual", "cron", "api"'
         type: string
+      videos:
+        description: List of video URLs or base64 strings
+        items:
+          type: string
+        type: array
       webhook_error:
         description: Error if webhook failed
         type: string
@@ -431,6 +453,23 @@ definitions:
     type: object
   schema.JobExecutionRequest:
     properties:
+      audios:
+        description: List of audio URLs or base64 strings
+        items:
+          type: string
+        type: array
+      files:
+        description: List of file URLs or base64 strings
+        items:
+          type: string
+        type: array
+      images:
+        description: |-
+          Multimedia content (optional, for manual execution)
+          Can contain URLs or base64-encoded data URIs
+        items:
+          type: string
+        type: array
       parameters:
         additionalProperties:
           type: string
@@ -439,6 +478,11 @@ definitions:
       task_id:
         description: Required
         type: string
+      videos:
+        description: List of video URLs or base64 strings
+        items:
+          type: string
+        type: array
     type: object
   schema.JobExecutionResponse:
     properties:
@@ -551,6 +595,20 @@ definitions:
           $ref: '#/definitions/schema.OpenAIModel'
         type: array
       object:
+        type: string
+    type: object
+  schema.MultimediaSourceConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers for HTTP request (e.g., Authorization)
+        type: object
+      type:
+        description: '"image", "video", "audio", "file"'
+        type: string
+      url:
+        description: URL to fetch from
         type: string
     type: object
   schema.NodeData:
@@ -826,6 +884,14 @@ definitions:
       model:
         description: Model name (must have MCP config)
         type: string
+      multimedia_sources:
+        description: |-
+          Multimedia sources (for cron jobs)
+          URLs to fetch multimedia content from when cron job executes
+          Each source can have custom headers for authentication/authorization
+        items:
+          $ref: '#/definitions/schema.MultimediaSourceConfig'
+        type: array
       name:
         description: User-friendly name
         type: string
