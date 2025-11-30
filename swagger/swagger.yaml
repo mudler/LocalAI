@@ -383,6 +383,106 @@ definitions:
       total_tokens:
         type: integer
     type: object
+  schema.Job:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      error:
+        description: Error message if failed
+        type: string
+      id:
+        description: UUID
+        type: string
+      parameters:
+        additionalProperties:
+          type: string
+        description: Template parameters
+        type: object
+      result:
+        description: Agent response
+        type: string
+      started_at:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/schema.JobStatus'
+        description: pending, running, completed, failed, cancelled
+      task_id:
+        description: Reference to Task
+        type: string
+      traces:
+        description: Execution traces (reasoning, tool calls, tool results)
+        items:
+          $ref: '#/definitions/schema.JobTrace'
+        type: array
+      triggered_by:
+        description: '"manual", "cron", "api"'
+        type: string
+      webhook_error:
+        description: Error if webhook failed
+        type: string
+      webhook_sent:
+        description: Webhook delivery tracking
+        type: boolean
+      webhook_sent_at:
+        type: string
+    type: object
+  schema.JobExecutionRequest:
+    properties:
+      parameters:
+        additionalProperties:
+          type: string
+        description: Optional, for templating
+        type: object
+      task_id:
+        description: Required
+        type: string
+    type: object
+  schema.JobExecutionResponse:
+    properties:
+      job_id:
+        type: string
+      status:
+        type: string
+      url:
+        description: URL to check job status
+        type: string
+    type: object
+  schema.JobStatus:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - JobStatusPending
+    - JobStatusRunning
+    - JobStatusCompleted
+    - JobStatusFailed
+    - JobStatusCancelled
+  schema.JobTrace:
+    properties:
+      arguments:
+        additionalProperties: true
+        description: Tool arguments or result data
+        type: object
+      content:
+        description: The actual trace content
+        type: string
+      timestamp:
+        description: When this trace occurred
+        type: string
+      tool_name:
+        description: Tool name (for tool_call/tool_result)
+        type: string
+      type:
+        description: '"reasoning", "tool_call", "tool_result", "status"'
+        type: string
+    type: object
   schema.LogprobContent:
     properties:
       bytes:
@@ -702,6 +802,52 @@ definitions:
         description: voice audio file or speaker id
         type: string
     type: object
+  schema.Task:
+    properties:
+      created_at:
+        type: string
+      cron:
+        description: Optional cron expression
+        type: string
+      cron_parameters:
+        additionalProperties:
+          type: string
+        description: Parameters to use when executing cron jobs
+        type: object
+      description:
+        description: Optional description
+        type: string
+      enabled:
+        description: Can be disabled without deletion
+        type: boolean
+      id:
+        description: UUID
+        type: string
+      model:
+        description: Model name (must have MCP config)
+        type: string
+      name:
+        description: User-friendly name
+        type: string
+      prompt:
+        description: Template prompt (supports {{.param}} syntax)
+        type: string
+      updated_at:
+        type: string
+      webhooks:
+        description: |-
+          Webhook configuration (for notifications)
+          Support multiple webhook endpoints
+          Webhooks can handle both success and failure cases using template variables:
+          - {{.Job}} - Job object with all fields
+          - {{.Task}} - Task object
+          - {{.Result}} - Job result (if successful)
+          - {{.Error}} - Error message (if failed, empty string if successful)
+          - {{.Status}} - Job status string
+        items:
+          $ref: '#/definitions/schema.WebhookConfig'
+        type: array
+    type: object
   schema.TokenizeRequest:
     properties:
       content:
@@ -773,6 +919,23 @@ definitions:
       width:
         type: integer
     type: object
+  schema.WebhookConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers (e.g., Authorization)
+        type: object
+      method:
+        description: 'HTTP method (POST, PUT, PATCH) - default: POST'
+        type: string
+      payload_template:
+        description: Optional template for payload
+        type: string
+      url:
+        description: Webhook endpoint URL
+        type: string
+    type: object
   services.GalleryOpStatus:
     properties:
       cancellable:
@@ -811,6 +974,328 @@ info:
   title: LocalAI API
   version: 2.0.0
 paths:
+  /api/agent/jobs:
+    get:
+      description: Get a list of agent jobs, optionally filtered by task_id and status
+      parameters:
+      - description: Filter by task ID
+        in: query
+        name: task_id
+        type: string
+      - description: Filter by status (pending, running, completed, failed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Limit number of results
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of jobs
+          schema:
+            items:
+              $ref: '#/definitions/schema.Job'
+            type: array
+      summary: List agent jobs
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}:
+    delete:
+      description: Delete an agent job by ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent job
+      tags:
+      - agent-jobs
+    get:
+      description: Get an agent job by ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job details
+          schema:
+            $ref: '#/definitions/schema.Job'
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent job
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}/cancel:
+    post:
+      description: Cancel a running or pending agent job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job cancelled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Job cannot be cancelled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel an agent job
+      tags:
+      - agent-jobs
+  /api/agent/jobs/execute:
+    post:
+      consumes:
+      - application/json
+      description: Create and execute a new agent job
+      parameters:
+      - description: Job execution request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JobExecutionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Job created
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute an agent job
+      tags:
+      - agent-jobs
+  /api/agent/tasks:
+    get:
+      description: Get a list of all agent tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of tasks
+          schema:
+            items:
+              $ref: '#/definitions/schema.Task'
+            type: array
+      summary: List all agent tasks
+      tags:
+      - agent-jobs
+    post:
+      consumes:
+      - application/json
+      description: Create a new reusable agent task with prompt template and configuration
+      parameters:
+      - description: Task definition
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Task created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new agent task
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{id}:
+    delete:
+      description: Delete an agent task by ID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent task
+      tags:
+      - agent-jobs
+    get:
+      description: Get an agent task by ID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task details
+          schema:
+            $ref: '#/definitions/schema.Task'
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent task
+      tags:
+      - agent-jobs
+    put:
+      consumes:
+      - application/json
+      description: Update an existing agent task
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated task definition
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task updated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an agent task
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{name}/execute:
+    post:
+      consumes:
+      - application/json
+      description: Execute an agent task by its name (convenience endpoint). Parameters
+        can be provided in the request body as a JSON object with string values.
+      parameters:
+      - description: Task name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Template parameters (JSON object with string values)
+        in: body
+        name: request
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Job created
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute a task by name
+      tags:
+      - agent-jobs
   /api/p2p:
     get:
       responses:
