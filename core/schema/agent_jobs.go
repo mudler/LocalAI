@@ -52,8 +52,15 @@ type WebhookConfig struct {
 // Used in cron jobs to periodically fetch multimedia from URLs with custom headers
 type MultimediaSourceConfig struct {
 	Type    string            `json:"type"`              // "image", "video", "audio", "file"
-	URL     string            `json:"url"`              // URL to fetch from
+	URL     string            `json:"url"`               // URL to fetch from
 	Headers map[string]string `json:"headers,omitempty"` // Custom headers for HTTP request (e.g., Authorization)
+}
+
+type MultimediaAttachment struct {
+	Images []string `json:"images,omitempty"`
+	Videos []string `json:"videos,omitempty"`
+	Audios []string `json:"audios,omitempty"`
+	Files  []string `json:"files,omitempty"`
 }
 
 // JobStatus represents the status of a job

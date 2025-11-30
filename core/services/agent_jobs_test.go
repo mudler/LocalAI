@@ -420,12 +420,7 @@ var _ = Describe("AgentJobService", func() {
 
 			It("should create a job with multimedia content", func() {
 				params := map[string]string{"name": "World"}
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{"https://example.com/image1.png", "data:image/png;base64,iVBORw0KG"},
 					Videos: []string{"https://example.com/video.mp4"},
 					Audios: []string{"data:audio/mpeg;base64,SUQzBAAAAA"},
@@ -452,12 +447,7 @@ var _ = Describe("AgentJobService", func() {
 
 			It("should create a job with partial multimedia (only images)", func() {
 				params := map[string]string{}
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{"https://example.com/image.png"},
 				}
 
@@ -487,12 +477,7 @@ var _ = Describe("AgentJobService", func() {
 
 			It("should save and load jobs with multimedia from file", func() {
 				params := map[string]string{}
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{"https://example.com/image.png"},
 					Videos: []string{"https://example.com/video.mp4"},
 				}
@@ -547,12 +532,7 @@ var _ = Describe("AgentJobService", func() {
 			})
 
 			It("should handle URLs correctly", func() {
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{"https://example.com/image.png"},
 					Videos: []string{"http://example.com/video.mp4"},
 				}
@@ -567,12 +547,7 @@ var _ = Describe("AgentJobService", func() {
 			})
 
 			It("should handle data URIs correctly", func() {
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{"data:image/png;base64,iVBORw0KG"},
 					Videos: []string{"data:video/mp4;base64,AAAAIGZ0eXBpc29t"},
 				}
@@ -589,12 +564,7 @@ var _ = Describe("AgentJobService", func() {
 			It("should handle base64 strings (will be converted during execution)", func() {
 				// Base64 strings without data URI prefix should be stored as-is
 				// They will be converted to data URIs during execution
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="},
 				}
 
@@ -608,14 +578,8 @@ var _ = Describe("AgentJobService", func() {
 			})
 
 			It("should handle empty multimedia arrays", func() {
-				multimedia := &struct {
-					Images []string
-					Videos []string
-					Audios []string
-					Files  []string
-				}{
+				multimedia := &schema.MultimediaAttachment{
 					Images: []string{""},
-					Videos: []string{},
 				}
 
 				jobID, err := service.ExecuteJob(taskID, map[string]string{}, "test", multimedia)

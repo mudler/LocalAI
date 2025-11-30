@@ -73,6 +73,13 @@ type JobExecution struct {
 	Cancel context.CancelFunc
 }
 
+const (
+	JobImageType = "image"
+	JobVideoType = "video"
+	JobAudioType = "audio"
+	JobFileType  = "file"
+)
+
 // NewAgentJobService creates a new AgentJobService instance
 func NewAgentJobService(
 	appConfig *config.ApplicationConfig,
@@ -368,12 +375,7 @@ func (s *AgentJobService) buildPrompt(templateStr string, params map[string]stri
 
 // ExecuteJob creates and queues a job for execution
 // multimedia can be nil for backward compatibility
-func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, triggeredBy string, multimedia *struct {
-	Images []string
-	Videos []string
-	Audios []string
-	Files  []string
-}) (string, error) {
+func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, triggeredBy string, multimedia *schema.MultimediaAttachment) (string, error) {
 	task := s.tasks.Get(taskID)
 	if task.ID == "" {
 		return "", fmt.Errorf("task not found: %s", taskID)
@@ -413,13 +415,13 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 
 			// Add to appropriate slice based on type
 			switch source.Type {
-			case "image":
+			case JobImageType:
 				job.Images = append(job.Images, dataURI)
-			case "video":
+			case JobVideoType:
 				job.Videos = append(job.Videos, dataURI)
-			case "audio":
+			case JobAudioType:
 				job.Audios = append(job.Audios, dataURI)
-			case "file":
+			case JobFileType:
 				job.Files = append(job.Files, dataURI)
 			}
 		}
@@ -622,13 +624,13 @@ func (s *AgentJobService) fetchMultimediaFromURL(url string, headers map[string]
 // getMimeTypeForMediaType returns the default MIME type for a media type
 func (s *AgentJobService) getMimeTypeForMediaType(mediaType string) string {
 	switch mediaType {
-	case "image":
+	case JobImageType:
 		return "image/png"
-	case "video":
+	case JobVideoType:
 		return "video/mp4"
-	case "audio":
+	case JobAudioType:
 		return "audio/mpeg"
-	case "file":
+	case JobFileType:
 		return "application/octet-stream"
 	default:
 		return "application/octet-stream"
@@ -746,7 +748,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Convert images
 	if len(job.Images) > 0 {
-		images, err := s.convertToMultimediaContent(job.Images, "image")
+		images, err := s.convertToMultimediaContent(job.Images, JobImageType)
 		if err != nil {
 			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert images")
 		} else {
@@ -756,7 +758,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Convert videos
 	if len(job.Videos) > 0 {
-		videos, err := s.convertToMultimediaContent(job.Videos, "video")
+		videos, err := s.convertToMultimediaContent(job.Videos, JobVideoType)
 		if err != nil {
 			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert videos")
 		} else {
@@ -766,7 +768,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Convert audios
 	if len(job.Audios) > 0 {
-		audios, err := s.convertToMultimediaContent(job.Audios, "audio")
+		audios, err := s.convertToMultimediaContent(job.Audios, JobAudioType)
 		if err != nil {
 			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert audios")
 		} else {
@@ -776,7 +778,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Convert files
 	if len(job.Files) > 0 {
-		files, err := s.convertToMultimediaContent(job.Files, "file")
+		files, err := s.convertToMultimediaContent(job.Files, JobFileType)
 		if err != nil {
 			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert files")
 		} else {
