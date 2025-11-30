@@ -3,6 +3,7 @@ package services
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -71,6 +72,13 @@ type JobExecution struct {
 	Ctx    context.Context
 	Cancel context.CancelFunc
 }
+
+const (
+	JobImageType = "image"
+	JobVideoType = "video"
+	JobAudioType = "audio"
+	JobFileType  = "file"
+)
 
 // NewAgentJobService creates a new AgentJobService instance
 func NewAgentJobService(
@@ -366,7 +374,8 @@ func (s *AgentJobService) buildPrompt(templateStr string, params map[string]stri
 }
 
 // ExecuteJob creates and queues a job for execution
-func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, triggeredBy string) (string, error) {
+// multimedia can be nil for backward compatibility
+func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, triggeredBy string, multimedia *schema.MultimediaAttachment) (string, error) {
 	task := s.tasks.Get(taskID)
 	if task.ID == "" {
 		return "", fmt.Errorf("task not found: %s", taskID)
@@ -386,6 +395,52 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 		Parameters:  params,
 		CreatedAt:   now,
 		TriggeredBy: triggeredBy,
+	}
+
+	// Handle multimedia: merge task-level (for cron) and job-level (for manual execution)
+	if triggeredBy == "cron" && len(task.MultimediaSources) > 0 {
+		// Fetch multimedia from task sources
+		job.Images = []string{}
+		job.Videos = []string{}
+		job.Audios = []string{}
+		job.Files = []string{}
+
+		for _, source := range task.MultimediaSources {
+			// Fetch content from URL with custom headers
+			dataURI, err := s.fetchMultimediaFromURL(source.URL, source.Headers, source.Type)
+			if err != nil {
+				log.Warn().Err(err).Str("url", source.URL).Str("type", source.Type).Msg("Failed to fetch multimedia from task source")
+				continue
+			}
+
+			// Add to appropriate slice based on type
+			switch source.Type {
+			case JobImageType:
+				job.Images = append(job.Images, dataURI)
+			case JobVideoType:
+				job.Videos = append(job.Videos, dataURI)
+			case JobAudioType:
+				job.Audios = append(job.Audios, dataURI)
+			case JobFileType:
+				job.Files = append(job.Files, dataURI)
+			}
+		}
+	}
+
+	// Override with job-level multimedia if provided (manual execution takes precedence)
+	if multimedia != nil {
+		if len(multimedia.Images) > 0 {
+			job.Images = multimedia.Images
+		}
+		if len(multimedia.Videos) > 0 {
+			job.Videos = multimedia.Videos
+		}
+		if len(multimedia.Audios) > 0 {
+			job.Audios = multimedia.Audios
+		}
+		if len(multimedia.Files) > 0 {
+			job.Files = multimedia.Files
+		}
 	}
 
 	// Store job
@@ -512,6 +567,108 @@ func (s *AgentJobService) DeleteJob(id string) error {
 	return nil
 }
 
+type multimediaContent struct {
+	url       string
+	mediaType string
+}
+
+func (mu multimediaContent) URL() string {
+	return mu.url
+}
+
+// fetchMultimediaFromURL fetches multimedia content from a URL with custom headers
+// and converts it to a data URI string
+func (s *AgentJobService) fetchMultimediaFromURL(url string, headers map[string]string, mediaType string) (string, error) {
+	// Create HTTP request
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set custom headers
+	for key, value := range headers {
+		req.Header.Set(key, value)
+	}
+
+	// Execute request
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return "", fmt.Errorf("HTTP error: %d", resp.StatusCode)
+	}
+
+	// Read content
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Encode to base64
+	encoded := base64.StdEncoding.EncodeToString(data)
+
+	// Determine MIME type
+	mimeType := s.getMimeTypeForMediaType(mediaType)
+	if contentType := resp.Header.Get("Content-Type"); contentType != "" {
+		mimeType = contentType
+	}
+
+	// Return as data URI
+	return fmt.Sprintf("data:%s;base64,%s", mimeType, encoded), nil
+}
+
+// getMimeTypeForMediaType returns the default MIME type for a media type
+func (s *AgentJobService) getMimeTypeForMediaType(mediaType string) string {
+	switch mediaType {
+	case JobImageType:
+		return "image/png"
+	case JobVideoType:
+		return "video/mp4"
+	case JobAudioType:
+		return "audio/mpeg"
+	case JobFileType:
+		return "application/octet-stream"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// convertToMultimediaContent converts a slice of strings (URLs or base64) to multimediaContent objects
+func (s *AgentJobService) convertToMultimediaContent(items []string, mediaType string) ([]cogito.Multimedia, error) {
+	result := make([]cogito.Multimedia, 0, len(items))
+
+	for _, item := range items {
+		if item == "" {
+			continue
+		}
+
+		// Check if it's already a data URI
+		if strings.HasPrefix(item, "data:") {
+			result = append(result, multimediaContent{url: item, mediaType: mediaType})
+			continue
+		}
+
+		// Check if it's a URL
+		if strings.HasPrefix(item, "http://") || strings.HasPrefix(item, "https://") {
+			// Pass URL directly to cogito (it handles fetching)
+			result = append(result, multimediaContent{url: item, mediaType: mediaType})
+			continue
+		}
+
+		// Assume it's base64 without data URI prefix
+		// Add appropriate prefix based on media type
+		mimeType := s.getMimeTypeForMediaType(mediaType)
+		dataURI := fmt.Sprintf("data:%s;base64,%s", mimeType, item)
+		result = append(result, multimediaContent{url: dataURI, mediaType: mediaType})
+	}
+
+	return result, nil
+}
+
 // executeJobInternal executes a job using cogito
 func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, ctx context.Context) error {
 	// Update job status to running
@@ -585,7 +742,51 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 
 	// Create cogito fragment
 	fragment := cogito.NewEmptyFragment()
-	fragment = fragment.AddMessage("user", prompt)
+
+	// Collect all multimedia content
+	multimediaItems := []cogito.Multimedia{}
+
+	// Convert images
+	if len(job.Images) > 0 {
+		images, err := s.convertToMultimediaContent(job.Images, JobImageType)
+		if err != nil {
+			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert images")
+		} else {
+			multimediaItems = append(multimediaItems, images...)
+		}
+	}
+
+	// Convert videos
+	if len(job.Videos) > 0 {
+		videos, err := s.convertToMultimediaContent(job.Videos, JobVideoType)
+		if err != nil {
+			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert videos")
+		} else {
+			multimediaItems = append(multimediaItems, videos...)
+		}
+	}
+
+	// Convert audios
+	if len(job.Audios) > 0 {
+		audios, err := s.convertToMultimediaContent(job.Audios, JobAudioType)
+		if err != nil {
+			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert audios")
+		} else {
+			multimediaItems = append(multimediaItems, audios...)
+		}
+	}
+
+	// Convert files
+	if len(job.Files) > 0 {
+		files, err := s.convertToMultimediaContent(job.Files, JobFileType)
+		if err != nil {
+			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert files")
+		} else {
+			multimediaItems = append(multimediaItems, files...)
+		}
+	}
+
+	fragment = fragment.AddMessage("user", prompt, multimediaItems...)
 
 	// Get API address and key
 	_, port, err := net.SplitHostPort(s.appConfig.APIAddress)
@@ -845,7 +1046,8 @@ func (s *AgentJobService) ScheduleCronTask(task schema.Task) error {
 	}
 	entryID, err := s.cronScheduler.AddFunc(cronExpr, func() {
 		// Create job for cron execution with configured parameters
-		_, err := s.ExecuteJob(task.ID, cronParams, "cron")
+		// Multimedia will be fetched from task sources in ExecuteJob
+		_, err := s.ExecuteJob(task.ID, cronParams, "cron", nil)
 		if err != nil {
 			log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to execute cron job")
 		}

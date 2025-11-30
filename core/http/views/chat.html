@@ -717,9 +717,10 @@ SOFTWARE.
                 type="text"
                 x-model="searchQuery"
                 placeholder="Search conversations..."
-                class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] focus:border-[var(--color-primary-border)] focus:ring-1 focus:ring-[var(--color-primary)]/50 rounded px-2 py-1.5 pl-7 text-xs placeholder-[var(--color-text-secondary)]"
+                class="w-full bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] border border-[var(--color-bg-secondary)] focus:border-[var(--color-primary-border)] focus:ring-1 focus:ring-[var(--color-primary)]/50 rounded py-1.5 pr-2 text-xs placeholder-[var(--color-text-secondary)]"
+                style="padding-left: 2rem !important;"
               />
-              <i class="fa-solid fa-search absolute left-2 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] text-xs"></i>
+              <i class="fa-solid fa-search absolute left-2.5 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)] text-xs pointer-events-none z-10"></i>
               <button
                 x-show="searchQuery.length > 0"
                 @click="searchQuery = ''"

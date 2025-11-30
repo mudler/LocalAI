@@ -27,6 +27,10 @@ type Task struct {
 	// - {{.Status}} - Job status string
 	Webhooks []WebhookConfig `json:"webhooks,omitempty"` // Webhook configs for job completion notifications
 
+	// Multimedia sources (for cron jobs)
+	// URLs to fetch multimedia content from when cron job executes
+	// Each source can have custom headers for authentication/authorization
+	MultimediaSources []MultimediaSourceConfig `json:"multimedia_sources,omitempty"` // Multimedia sources for cron jobs
 }
 
 // WebhookConfig represents configuration for sending webhook notifications
@@ -42,6 +46,21 @@ type WebhookConfig struct {
 	// - {{.Result}} - Job result (if successful)
 	// - {{.Error}} - Error message (if failed, empty string if successful)
 	// - {{.Status}} - Job status string
+}
+
+// MultimediaSourceConfig represents configuration for fetching multimedia content
+// Used in cron jobs to periodically fetch multimedia from URLs with custom headers
+type MultimediaSourceConfig struct {
+	Type    string            `json:"type"`              // "image", "video", "audio", "file"
+	URL     string            `json:"url"`               // URL to fetch from
+	Headers map[string]string `json:"headers,omitempty"` // Custom headers for HTTP request (e.g., Authorization)
+}
+
+type MultimediaAttachment struct {
+	Images []string `json:"images,omitempty"`
+	Videos []string `json:"videos,omitempty"`
+	Audios []string `json:"audios,omitempty"`
+	Files  []string `json:"files,omitempty"`
 }
 
 // JobStatus represents the status of a job
@@ -75,6 +94,13 @@ type Job struct {
 
 	// Execution traces (reasoning, tool calls, tool results)
 	Traces []JobTrace `json:"traces,omitempty"`
+
+	// Multimedia content (for manual execution)
+	// Can contain URLs or base64-encoded data URIs
+	Images []string `json:"images,omitempty"` // List of image URLs or base64 strings
+	Videos []string `json:"videos,omitempty"` // List of video URLs or base64 strings
+	Audios []string `json:"audios,omitempty"` // List of audio URLs or base64 strings
+	Files  []string `json:"files,omitempty"`  // List of file URLs or base64 strings
 }
 
 // JobTrace represents a single execution trace entry
@@ -90,6 +116,12 @@ type JobTrace struct {
 type JobExecutionRequest struct {
 	TaskID     string            `json:"task_id"`    // Required
 	Parameters map[string]string `json:"parameters"` // Optional, for templating
+	// Multimedia content (optional, for manual execution)
+	// Can contain URLs or base64-encoded data URIs
+	Images []string `json:"images,omitempty"` // List of image URLs or base64 strings
+	Videos []string `json:"videos,omitempty"` // List of video URLs or base64 strings
+	Audios []string `json:"audios,omitempty"` // List of audio URLs or base64 strings
+	Files  []string `json:"files,omitempty"`  // List of file URLs or base64 strings
 }
 
 // JobExecutionResponse represents the response after creating a job

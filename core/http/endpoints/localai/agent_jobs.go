@@ -147,7 +147,18 @@ func ExecuteJobEndpoint(app *application.Application) echo.HandlerFunc {
 			req.Parameters = make(map[string]string)
 		}
 
-		jobID, err := app.AgentJobService().ExecuteJob(req.TaskID, req.Parameters, "api")
+		// Build multimedia struct from request
+		var multimedia *schema.MultimediaAttachment
+		if len(req.Images) > 0 || len(req.Videos) > 0 || len(req.Audios) > 0 || len(req.Files) > 0 {
+			multimedia = &schema.MultimediaAttachment{
+				Images: req.Images,
+				Videos: req.Videos,
+				Audios: req.Audios,
+				Files:  req.Files,
+			}
+		}
+
+		jobID, err := app.AgentJobService().ExecuteJob(req.TaskID, req.Parameters, "api", multimedia)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
@@ -281,7 +292,7 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		name := c.Param("name")
 		var params map[string]string
-		
+
 		// Try to bind parameters from request body
 		// If body is empty or invalid, use empty params
 		if c.Request().ContentLength > 0 {
@@ -323,7 +334,7 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": "Task not found: " + name})
 		}
 
-		jobID, err := app.AgentJobService().ExecuteJob(task.ID, params, "api")
+		jobID, err := app.AgentJobService().ExecuteJob(task.ID, params, "api", nil)
 		if err != nil {
 			return c.JSON(http.StatusBadRequest, map[string]string{"error": err.Error()})
 		}
@@ -336,4 +347,3 @@ func ExecuteTaskByNameEndpoint(app *application.Application) echo.HandlerFunc {
 		})
 	}
 }
-
