@@ -237,8 +237,14 @@ function getBuildProfile() {
 # Make the venv relocatable:
 # - rewrite venv/bin/python{,3} to relative symlinks into $(_portable_dir)
 # - normalize entrypoint shebangs to /usr/bin/env python3
-# - update pyvenv.cfg to point to the portable Python directory
+# - optionally update pyvenv.cfg to point to the portable Python directory (only at runtime)
+# Usage: _makeVenvPortable [--update-pyvenv-cfg]
 _makeVenvPortable() {
+    local update_pyvenv_cfg=false
+    if [ "${1:-}" = "--update-pyvenv-cfg" ]; then
+        update_pyvenv_cfg=true
+    fi
+
     local venv_dir="${EDIR}/venv"
     local vbin="${venv_dir}/bin"
 
@@ -256,33 +262,35 @@ _makeVenvPortable() {
     ln -s "${rel_py}" "${vbin}/python3"
     ln -s "python3" "${vbin}/python"
 
-    # 2) Update pyvenv.cfg to point to the portable Python directory
+    # 2) Update pyvenv.cfg to point to the portable Python directory (only at runtime)
     #    Use absolute path resolved at runtime so it works when the venv is copied
-    local pyvenv_cfg="${venv_dir}/pyvenv.cfg"
-    if [ -f "${pyvenv_cfg}" ]; then
-        local portable_dir="$(_portable_dir)"
-        # Resolve to absolute path - this ensures it works when the backend is copied
-        # Only resolve if the directory exists (it should if ensurePortablePython was called)
-        if [ -d "${portable_dir}" ]; then
-            portable_dir="$(cd "${portable_dir}" && pwd)"
-        else
-            # Fallback to relative path if directory doesn't exist yet
-            portable_dir="../python"
-        fi
-        local sed_i=(sed -i)
-        # macOS/BSD sed needs a backup suffix; GNU sed doesn't. Make it portable:
-        if sed --version >/dev/null 2>&1; then
-            sed_i=(sed -i)
-        else
-            sed_i=(sed -i '')
-        fi
-        # Update the home field in pyvenv.cfg
-        # Handle both absolute paths (starting with /) and relative paths
-        if grep -q "^home = " "${pyvenv_cfg}"; then
-            "${sed_i[@]}" "s|^home = .*|home = ${portable_dir}|" "${pyvenv_cfg}"
-        else
-            # If home field doesn't exist, add it
-            echo "home = ${portable_dir}" >> "${pyvenv_cfg}"
+    if [ "$update_pyvenv_cfg" = "true" ]; then
+        local pyvenv_cfg="${venv_dir}/pyvenv.cfg"
+        if [ -f "${pyvenv_cfg}" ]; then
+            local portable_dir="$(_portable_dir)"
+            # Resolve to absolute path - this ensures it works when the backend is copied
+            # Only resolve if the directory exists (it should if ensurePortablePython was called)
+            if [ -d "${portable_dir}" ]; then
+                portable_dir="$(cd "${portable_dir}" && pwd)"
+            else
+                # Fallback to relative path if directory doesn't exist yet
+                portable_dir="../python"
+            fi
+            local sed_i=(sed -i)
+            # macOS/BSD sed needs a backup suffix; GNU sed doesn't. Make it portable:
+            if sed --version >/dev/null 2>&1; then
+                sed_i=(sed -i)
+            else
+                sed_i=(sed -i '')
+            fi
+            # Update the home field in pyvenv.cfg
+            # Handle both absolute paths (starting with /) and relative paths
+            if grep -q "^home = " "${pyvenv_cfg}"; then
+                "${sed_i[@]}" "s|^home = .*|home = ${portable_dir}|" "${pyvenv_cfg}"
+            else
+                # If home field doesn't exist, add it
+                echo "home = ${portable_dir}" >> "${pyvenv_cfg}"
+            fi
         fi
     fi
 
@@ -347,19 +355,14 @@ function ensureVenv() {
             fi
         fi
         if [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
+            # During install, only update symlinks and shebangs, not pyvenv.cfg
             _makeVenvPortable
         fi
     fi
 
     # We call it here to make sure that when we source a venv we can still use python as expected
-    # Also make existing venvs portable if we're using portable Python (e.g., after copying from container)
     if [ -x "$(_portable_python)" ]; then
         _macosPortableEnv
-        # If venv exists and we're using portable Python, ensure it's made portable
-        # This handles the case where the venv was copied from a container
-        if [ -d "${EDIR}/venv" ] && [ "x${PORTABLE_PYTHON}" == "xtrue" ]; then
-            _makeVenvPortable
-        fi
     fi
 
     if [ "x${VIRTUAL_ENV:-}" != "x${EDIR}/venv" ]; then
@@ -457,6 +460,11 @@ function installRequirements() {
 #  - ${BACKEND_NAME}.py
 function startBackend() {
     ensureVenv
+    # Update pyvenv.cfg before running to ensure paths are correct for current location
+    # This is critical when the backend position is dynamic (e.g., copied from container)
+    if [ "x${PORTABLE_PYTHON}" == "xtrue" ] || [ -x "$(_portable_python)" ]; then
+        _makeVenvPortable --update-pyvenv-cfg
+    fi
     if [ ! -z "${BACKEND_FILE:-}" ]; then
         exec "${EDIR}/venv/bin/python" "${BACKEND_FILE}" "$@"
     elif [ -e "${MY_DIR}/server.py" ]; then
