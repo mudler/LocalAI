@@ -26,6 +26,10 @@
     vulkan: "vulkan-llama-cpp"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp"
     darwin-x86: "darwin-x86-llama-cpp"
+    nvidia-cuda-13: "cuda13-llama-cpp"
+    nvidia-cuda-12: "cuda12-llama-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -49,6 +53,10 @@
     amd: "rocm-whisper"
     vulkan: "vulkan-whisper"
     nvidia-l4t: "nvidia-l4t-arm64-whisper"
+    nvidia-cuda-13: "cuda13-whisper"
+    nvidia-cuda-12: "cuda12-whisper"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-whisper"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-whisper"
 - &stablediffusionggml
   name: "stablediffusion-ggml"
   alias: "stablediffusion-ggml"
@@ -73,6 +81,10 @@
     vulkan: "vulkan-stablediffusion-ggml"
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml"
     metal: "metal-stablediffusion-ggml"
+    nvidia-cuda-13: "cuda13-stablediffusion-ggml"
+    nvidia-cuda-12: "cuda12-stablediffusion-ggml"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
     # darwin-x86: "darwin-x86-stablediffusion-ggml"
 - &rfdetr
   name: "rfdetr"
