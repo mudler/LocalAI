@@ -1,5 +1,4 @@
 --index-url https://download.pytorch.org/whl/cu130
-accelerate
-torch==2.7.0
+torch==2.9.0
 transformers
 bitsandbytes
