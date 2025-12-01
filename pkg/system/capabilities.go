@@ -4,6 +4,7 @@ package system
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -17,13 +18,31 @@ const (
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
 	nvidia            = "nvidia"
-	amd               = "amd"
-	intel             = "intel"
+
+	amd   = "amd"
+	intel = "intel"
+
+	nvidiaCuda13    = "nvidia-cuda-13"
+	nvidiaCuda12    = "nvidia-cuda-12"
+	nvidiaL4TCuda12 = "nvidia-l4t-cuda-12"
+	nvidiaL4TCuda13 = "nvidia-l4t-cuda-13"
 
 	capabilityEnv        = "LOCALAI_FORCE_META_BACKEND_CAPABILITY"
 	capabilityRunFileEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE"
 	defaultRunFile       = "/run/localai/capability"
 )
+
+var (
+	cuda13DirExists bool
+	cuda12DirExists bool
+)
+
+func init() {
+	_, err := os.Stat(filepath.Join("usr", "local", "cuda-13"))
+	cuda13DirExists = err == nil
+	_, err = os.Stat(filepath.Join("usr", "local", "cuda-12"))
+	cuda12DirExists = err == nil
+}
 
 func (s *SystemState) Capability(capMap map[string]string) string {
 	reportedCapability := s.getSystemCapabilities()
@@ -77,10 +96,24 @@ func (s *SystemState) getSystemCapabilities() string {
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
-		if s.GPUVendor == "nvidia" {
+		if s.GPUVendor == nvidia {
 			log.Info().Msgf("Using nvidia-l4t capability (arm64 on linux), set %s to override", capabilityEnv)
+			if cuda13DirExists {
+				return nvidiaL4TCuda13
+			}
+			if cuda12DirExists {
+				return nvidiaL4TCuda12
+			}
 			return nvidiaL4T
 		}
+	}
+
+	if cuda13DirExists {
+		return nvidiaCuda13
+	}
+
+	if cuda12DirExists {
+		return nvidiaCuda12
 	}
 
 	if s.GPUVendor == "" {
@@ -103,13 +136,13 @@ func detectGPUVendor(gpus []*gpu.GraphicsCard) (string, error) {
 		if gpu.DeviceInfo != nil {
 			if gpu.DeviceInfo.Vendor != nil {
 				gpuVendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
-				if strings.Contains(gpuVendorName, "NVIDIA") {
+				if strings.Contains(gpuVendorName, strings.ToUpper(nvidia)) {
 					return nvidia, nil
 				}
-				if strings.Contains(gpuVendorName, "AMD") {
+				if strings.Contains(gpuVendorName, strings.ToUpper(amd)) {
 					return amd, nil
 				}
-				if strings.Contains(gpuVendorName, "INTEL") {
+				if strings.Contains(gpuVendorName, strings.ToUpper(intel)) {
 					return intel, nil
 				}
 			}
@@ -131,7 +164,7 @@ func (s *SystemState) BackendPreferenceTokens() []string {
 	case strings.HasPrefix(capStr, amd):
 		return []string{"rocm", "hip", "vulkan", "cpu"}
 	case strings.HasPrefix(capStr, intel):
-		return []string{"sycl", "intel", "cpu"}
+		return []string{"sycl", intel, "cpu"}
 	case strings.HasPrefix(capStr, metal):
 		return []string{"metal", "cpu"}
 	case strings.HasPrefix(capStr, darwinX86):
