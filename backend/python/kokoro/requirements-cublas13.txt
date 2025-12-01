@@ -1,0 +1,7 @@
+--index-url https://download.pytorch.org/whl/cu130
+torch==2.7.1
+torchaudio==2.7.1
+transformers
+accelerate
+kokoro
+soundfile
