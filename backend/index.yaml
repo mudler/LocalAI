@@ -492,7 +492,7 @@
     nvidia-cuda-13: "cuda13-neutts-development"
     nvidia-cuda-12: "cuda12-neutts-development"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-neutts-development"
-- !!merge <<: *llama-cpp
+- !!merge <<: *llamacpp
   name: "llama-cpp-development"
   capabilities:
     default: "cpu-llama-cpp-development"
