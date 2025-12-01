@@ -1,4 +1,4 @@
---index-url https://download.pytorch.org/whl/cu130
+--extra-index-url https://download.pytorch.org/whl/cu130
 git+https://github.com/huggingface/diffusers
 opencv-python
 transformers

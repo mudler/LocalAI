@@ -479,18 +479,6 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-13-coqui'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "coqui"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-          - build-type: 'cublas'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-bark'
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
@@ -568,30 +556,6 @@ jobs:
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "rfdetr"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-          - build-type: 'cublas'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-13-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-          - build-type: 'cublas'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-13-neutts'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
           # hipblas builds
