@@ -7,10 +7,10 @@
 // but modified to work with gRPC
 //
 
-#include "server.cpp"
 #include "server-task.cpp"
 #include "server-queue.cpp"
 #include "server-common.cpp"
+#include "server-context.cpp"
 
 // LocalAI
 
@@ -22,6 +22,13 @@
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 #include <regex>
+#include <atomic>
+#include <signal.h>
+#include <thread>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 
 using grpc::Server;
@@ -39,9 +46,23 @@ using grpc::Status;
 
 bool loaded_model; // TODO: add a mutex for this, but happens only once loading the model
 
+static std::function<void(int)> shutdown_handler;
+static std::atomic_flag is_terminating = ATOMIC_FLAG_INIT;
+
+static inline void signal_handler(int signal) {
+    if (is_terminating.test_and_set()) {
+        // in case it hangs, we can force terminate the server by hitting Ctrl+C twice
+        // this is for better developer experience, we can remove when the server is stable enough
+        fprintf(stderr, "Received second interrupt, terminating immediately.\n");
+        exit(1);
+    }
+
+    shutdown_handler(signal);
+}
+
 // Forward declarations
 static void start_llama_server(server_context& ctx_server);
-static json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server);
+static json parse_options(bool streaming, const backend::PredictOptions* predict, const common_params& params_base, llama_context* ctx);
 static ggml_type kv_cache_type_from_str(const std::string & s);
 static std::string get_all_kv_cache_types();
 static void add_rpc_devices(std::string servers);
@@ -64,25 +85,18 @@ static void start_llama_server(server_context& ctx_server) {
 
     // print sample chat example to make it clear which template is used
     // LOG_INF("%s: chat template, chat_template: %s, example_format: '%s'\n", __func__,
-    //     common_chat_templates_source(ctx_server.chat_templates.get()),
-    //     common_chat_format_example(ctx_server.chat_templates.get(), ctx_server.params_base.use_jinja).c_str(), ctx_server.params_base.default_template_kwargs);
+    //     common_chat_templates_source(ctx_server.impl->chat_templates.get()),
+    //     common_chat_format_example(ctx_server.impl->chat_templates.get(), ctx_server.impl->params_base.use_jinja).c_str(), ctx_server.impl->params_base.default_template_kwargs);
 
     // Keep the chat templates initialized in load_model() so they can be used when UseTokenizerTemplate is enabled
     // Templates will only be used conditionally in Predict/PredictStream when UseTokenizerTemplate is true and Messages are provided
 
-    ctx_server.queue_tasks.on_new_task([&ctx_server](server_task && task) {
-        ctx_server.process_single_task(std::move(task));
-    });
-
-    ctx_server.queue_tasks.on_update_slots([&ctx_server]() {
-        ctx_server.update_slots();
-    });
-
     shutdown_handler = [&](int) {
         // this will unblock start_loop()
-        ctx_server.queue_tasks.terminate();
+        ctx_server.terminate();
     };
 
+    // TODO: refactor in common/console
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
     struct sigaction sigint_action;
     sigint_action.sa_handler = signal_handler;
@@ -97,11 +111,11 @@ static void start_llama_server(server_context& ctx_server) {
     SetConsoleCtrlHandler(reinterpret_cast<PHANDLER_ROUTINE>(console_ctrl_handler), true);
 #endif
 
-    // this call blocks the main thread until queue_tasks.terminate() is called
-    ctx_server.queue_tasks.start_loop();
+    // this call blocks the main thread until ctx_server.terminate() is called
+    ctx_server.start_loop();
 }
 
-json parse_options(bool streaming, const backend::PredictOptions* predict, const server_context& ctx_server)
+json parse_options(bool streaming, const backend::PredictOptions* predict, const common_params& params_base, llama_context* ctx)
 {
     
     // Create now a json data from the prediction options instead
@@ -258,9 +272,9 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     //TODO: images,
 
     // Serialize grammar triggers from server context to JSON array
-    if (!ctx_server.params_base.sampling.grammar_triggers.empty()) {
+    if (!params_base.sampling.grammar_triggers.empty()) {
         json grammar_triggers = json::array();
-        for (const auto& trigger : ctx_server.params_base.sampling.grammar_triggers) {
+        for (const auto& trigger : params_base.sampling.grammar_triggers) {
             json trigger_json;
             trigger_json["value"] = trigger.value;
             // Always serialize as WORD type since upstream converts WORD to TOKEN internally
@@ -271,10 +285,10 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     }
 
     // Serialize preserved tokens from server context to JSON array
-    if (!ctx_server.params_base.sampling.preserved_tokens.empty()) {
+    if (!params_base.sampling.preserved_tokens.empty()) {
         json preserved_tokens = json::array();
-        for (const auto& token : ctx_server.params_base.sampling.preserved_tokens) {
-            preserved_tokens.push_back(common_token_to_piece(ctx_server.ctx, token));
+        for (const auto& token : params_base.sampling.preserved_tokens) {
+            preserved_tokens.push_back(common_token_to_piece(ctx, token));
         }
         data["preserved_tokens"] = preserved_tokens;
     }
@@ -311,7 +325,6 @@ static std::string get_all_kv_cache_types() {
     }
     return msg.str();
 }
-
 
 // Adds an RPC server
 // https://github.com/ggerganov/llama.cpp/compare/4dbc8b9cb71876e005724f4e8f73a3544646bcf5..3edfa7d3753c29e44b964c0ff424d2ea8d5fdee6
@@ -380,28 +393,28 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
-        char *optname = strtok(&opt[0], ":");
+        std::vector<char> opt_buf(opt.begin(), opt.end());
+        opt_buf.push_back('\0');
+        char *optname = strtok(opt_buf.data(), ":");
         char *optval = strtok(NULL, ":");
-        if (optval == NULL) {
-            optval = "true";
-        }
+        std::string optval_str = (optval == NULL) ? "true" : optval;
 
         if (!strcmp(optname, "context_shift")) {
-            if (!strcmp(optval, "true") || !strcmp(optval, "1") || !strcmp(optval, "yes") || !strcmp(optval, "on") || !strcmp(optval, "enabled")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
                 params.ctx_shift = true;
-            } else if (!strcmp(optval, "false") || !strcmp(optval, "0") || !strcmp(optval, "no") || !strcmp(optval, "off") || !strcmp(optval, "disabled")) {
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.ctx_shift = false;
             }
         } else if (!strcmp(optname, "use_jinja") || !strcmp(optname, "jinja")) {
-            if (!strcmp(optval, "true") || !strcmp(optval, "1") || !strcmp(optval, "yes") || !strcmp(optval, "on") || !strcmp(optval, "enabled")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
                 params.use_jinja = true;
-            } else if (!strcmp(optval, "false") || !strcmp(optval, "0") || !strcmp(optval, "no") || !strcmp(optval, "off") || !strcmp(optval, "disabled")) {
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
                 params.use_jinja = false;
             }
         } else if (!strcmp(optname, "cache_ram")) {
             if (optval != NULL) {
                 try {
-                    params.cache_ram_mib = std::stoi(optval);
+                    params.cache_ram_mib = std::stoi(optval_str);
                 } catch (const std::exception& e) {
                     // If conversion fails, keep default value (-1)
                 }
@@ -409,7 +422,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
         } else if (!strcmp(optname, "parallel") || !strcmp(optname, "n_parallel")) {
             if (optval != NULL) {
                 try {
-                    params.n_parallel = std::stoi(optval);
+                    params.n_parallel = std::stoi(optval_str);
                     if (params.n_parallel > 1) {
                         params.cont_batching = true;
                     }
@@ -419,7 +432,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
             }
         } else if (!strcmp(optname, "grpc_servers") || !strcmp(optname, "rpc_servers")) {
             if (optval != NULL) {
-                grpc_servers_option = std::string(optval);
+                grpc_servers_option = optval_str;
             }
         }
     }
@@ -493,7 +506,13 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
      }
      // get the directory of modelfile
      std::string model_dir = params.model.path.substr(0, params.model.path.find_last_of("/\\"));
-     params.lora_adapters.push_back({ model_dir + "/"+request->loraadapter(), scale_factor });
+     common_adapter_lora_info lora_info;
+     lora_info.path = model_dir + "/" + request->loraadapter();
+     lora_info.scale = scale_factor;
+     lora_info.task_name = "";
+     lora_info.prompt_prefix = "";
+     lora_info.ptr = nullptr;
+     params.lora_adapters.push_back(std::move(lora_info));
     }
     params.use_mlock = request->mlock();
     params.use_mmap = request->mmap();
@@ -554,9 +573,10 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
 class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
+    const common_params* params_base_ptr; // Store pointer to params_base, set after model load
 
 public:
-    BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
+    BackendServiceImpl(server_context& ctx) : ctx_server(ctx), params_base_ptr(nullptr) {}
 
     grpc::Status Health(ServerContext* context, const backend::HealthMessage* request, backend::Reply* reply) {
         // Implement Health RPC
@@ -593,7 +613,7 @@ public:
             std::vector<common_grammar_trigger> processed_triggers;
             for (const auto& trigger : params.sampling.grammar_triggers) {
                 if (trigger.type == COMMON_GRAMMAR_TRIGGER_TYPE_WORD) {
-                    auto ids = common_tokenize(ctx_server.vocab, trigger.value, /* add_special= */ false, /* parse_special= */ true);
+                    auto ids = common_tokenize(ctx_server.impl->vocab, trigger.value, /* add_special= */ false, /* parse_special= */ true);
                     if (ids.size() == 1) {
                         auto token = ids[0];
                         // Add the token to preserved_tokens if not already present
@@ -616,16 +636,18 @@ public:
                 }
             }
             // Update the grammar triggers in params_base
-            ctx_server.params_base.sampling.grammar_triggers = std::move(processed_triggers);
+            ctx_server.impl->params_base.sampling.grammar_triggers = std::move(processed_triggers);
             // Also update preserved_tokens in params_base
-            ctx_server.params_base.sampling.preserved_tokens = params.sampling.preserved_tokens;
+            ctx_server.impl->params_base.sampling.preserved_tokens = params.sampling.preserved_tokens;
         }
 
         //ctx_server.init();
         result->set_message("Loading succeeded");
         result->set_success(true);
         loaded_model = true;
-        ctx_server.slot_prompt_similarity = params.slot_prompt_similarity;
+        ctx_server.impl->slot_prompt_similarity = params.slot_prompt_similarity;
+        // Store pointer to params_base for use in parse_options
+        params_base_ptr = &ctx_server.impl->params_base;
 
         return Status::OK;
     }
@@ -653,25 +675,29 @@ public:
     }
 
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
-        json data = parse_options(true, request, ctx_server);
+        if (!params_base_ptr) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        json data = parse_options(true, request, *params_base_ptr, ctx_server.get_llama_context());
 
 
         //Raise error if embeddings is set to true
-        if (ctx_server.params_base.embedding) {
+        if (ctx_server.impl->params_base.embedding) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Embedding is not supported in streaming mode");
         }
 
 
         auto completion_id = gen_chatcmplid();
         // need to store the reader as a pointer, so that it won't be destroyed when the handle returns
-        const auto rd = std::make_shared<server_response_reader>(ctx_server);
+        auto queues = ctx_server.get_queues();
+        const auto rd = std::make_shared<server_response_reader>(queues, 1); // HTTP_POLLING_SECONDS = 1
         try {
             std::vector<server_task> tasks;
 
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
-            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
+            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_templates != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
@@ -1051,11 +1077,11 @@ public:
                 // This handles all template application, grammar merging, etc. automatically
                 // Files extracted from multimodal content in messages will be added to the files vector
                 // Create parser options with current chat_templates to ensure tmpls is not null
-                oaicompat_parser_options parser_opt = ctx_server.oai_parser_opt;
-                parser_opt.tmpls = ctx_server.chat_templates.get(); // Ensure tmpls is set to current chat_templates
+                oaicompat_parser_options parser_opt = ctx_server.impl->oai_parser_opt;
+                parser_opt.tmpls = ctx_server.impl->chat_templates.get(); // Ensure tmpls is set to current chat_templates
                 // Update allow_image and allow_audio based on current mctx state
-                parser_opt.allow_image = ctx_server.mctx ? mtmd_support_vision(ctx_server.mctx) : false;
-                parser_opt.allow_audio = ctx_server.mctx ? mtmd_support_audio(ctx_server.mctx) : false;
+                parser_opt.allow_image = ctx_server.impl->mctx ? mtmd_support_vision(ctx_server.impl->mctx) : false;
+                parser_opt.allow_audio = ctx_server.impl->mctx ? mtmd_support_audio(ctx_server.impl->mctx) : false;
                 
                 // Debug: Log tools before template processing
                 if (body_json.contains("tools")) {
@@ -1150,7 +1176,7 @@ public:
 
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
-            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
+            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_templates == nullptr) {
                 const auto &images_data = data.find("image_data");
                 if (images_data != data.end() && images_data->is_array())
                 {
@@ -1172,29 +1198,29 @@ public:
                 }
             }
 
-            const bool has_mtmd = ctx_server.mctx != nullptr;
+            const bool has_mtmd = ctx_server.impl->mctx != nullptr;
 
             // process prompt
             std::vector<server_tokens> inputs;
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt_str, files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt_str, true, true);
+                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true);
             }
 
             tasks.reserve(inputs.size());
             for (size_t i = 0; i < inputs.size(); i++) {
                 server_task task = server_task(type);
 
-                task.id    = ctx_server.queue_tasks.get_new_id();
+                task.id    = queues.first.get_new_id();
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
                 task.params           = server_task::params_from_json_cmpl(
-                        ctx_server.ctx,
-                        ctx_server.params_base,
+                        ctx_server.get_llama_context(),
+                        ctx_server.impl->params_base,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -1358,23 +1384,27 @@ public:
     }
 
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
-         json data = parse_options(true, request, ctx_server);
+         if (!params_base_ptr) {
+             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+         }
+         json data = parse_options(true, request, *params_base_ptr, ctx_server.get_llama_context());
 
         data["stream"] = false;
         //Raise error if embeddings is set to true
-        if (ctx_server.params_base.embedding) {
+        if (ctx_server.impl->params_base.embedding) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Embedding is not supported in Predict mode");
         }
         std::cout << "[PREDICT] Received result: " << data.dump(2) << std::endl;
         auto completion_id = gen_chatcmplid();
-        const auto rd = std::make_shared<server_response_reader>(ctx_server);
+        auto queues = ctx_server.get_queues();
+        const auto rd = std::make_shared<server_response_reader>(queues, 1); // HTTP_POLLING_SECONDS = 1
         try {
             std::vector<server_task> tasks;
 
             std::string prompt_str;
             std::vector<raw_buffer> files; // Declare files early so it's accessible in both branches
             // Handle chat templates when UseTokenizerTemplate is enabled and Messages are provided
-            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.chat_templates != nullptr) {
+            if (request->usetokenizertemplate() && request->messages_size() > 0 && ctx_server.impl->chat_templates != nullptr) {
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
@@ -1779,11 +1809,11 @@ public:
                 // This handles all template application, grammar merging, etc. automatically
                 // Files extracted from multimodal content in messages will be added to the files vector
                 // Create parser options with current chat_templates to ensure tmpls is not null
-                oaicompat_parser_options parser_opt = ctx_server.oai_parser_opt;
-                parser_opt.tmpls = ctx_server.chat_templates.get(); // Ensure tmpls is set to current chat_templates
+                oaicompat_parser_options parser_opt = ctx_server.impl->oai_parser_opt;
+                parser_opt.tmpls = ctx_server.impl->chat_templates.get(); // Ensure tmpls is set to current chat_templates
                 // Update allow_image and allow_audio based on current mctx state
-                parser_opt.allow_image = ctx_server.mctx ? mtmd_support_vision(ctx_server.mctx) : false;
-                parser_opt.allow_audio = ctx_server.mctx ? mtmd_support_audio(ctx_server.mctx) : false;
+                parser_opt.allow_image = ctx_server.impl->mctx ? mtmd_support_vision(ctx_server.impl->mctx) : false;
+                parser_opt.allow_audio = ctx_server.impl->mctx ? mtmd_support_audio(ctx_server.impl->mctx) : false;
                 
                 // Debug: Log tools before template processing
                 if (body_json.contains("tools")) {
@@ -1878,7 +1908,7 @@ public:
 
             // If not using chat templates, extract files from image_data/audio_data fields
             // (If using chat templates, files were already extracted by oaicompat_chat_params_parse)
-            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.chat_templates == nullptr) {
+            if (!request->usetokenizertemplate() || request->messages_size() == 0 || ctx_server.impl->chat_templates == nullptr) {
                 const auto &images_data = data.find("image_data");
                 if (images_data != data.end() && images_data->is_array())
                 {
@@ -1903,29 +1933,29 @@ public:
             }
 
             // process files
-            const bool has_mtmd = ctx_server.mctx != nullptr;
+            const bool has_mtmd = ctx_server.impl->mctx != nullptr;
 
             // process prompt
             std::vector<server_tokens> inputs;
             if (has_mtmd) {
                 // multimodal
-                inputs.push_back(process_mtmd_prompt(ctx_server.mctx, prompt_str, files));
+                inputs.push_back(process_mtmd_prompt(ctx_server.impl->mctx, prompt_str, files));
             } else {
                  // Everything else, including multimodal completions.
-                inputs = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt_str, true, true);
+                inputs = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt_str, true, true);
             }
 
             tasks.reserve(inputs.size());
             for (size_t i = 0; i < inputs.size(); i++) {
                 server_task task = server_task(type);
 
-                task.id    = ctx_server.queue_tasks.get_new_id();
+                task.id    = queues.first.get_new_id();
                 task.index = i;
 
                 task.tokens    = std::move(inputs[i]);
                 task.params           = server_task::params_from_json_cmpl(
-                        ctx_server.ctx,
-                        ctx_server.params_base,
+                        ctx_server.get_llama_context(),
+                        ctx_server.impl->params_base,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -2021,8 +2051,10 @@ public:
     }
 
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
-
-        json body = parse_options(false, request, ctx_server);
+        if (!params_base_ptr) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        json body = parse_options(false, request, *params_base_ptr, ctx_server.get_llama_context());
 
         body["stream"] = false;
 
@@ -2036,7 +2068,7 @@ public:
         json prompt = body.at("embeddings");
 
 
-        auto tokenized_prompts = tokenize_input_prompts(ctx_server.vocab, ctx_server.mctx, prompt, true, true);
+        auto tokenized_prompts = tokenize_input_prompts(ctx_server.impl->vocab, ctx_server.impl->mctx, prompt, true, true);
         for (const auto & tokens : tokenized_prompts) {
             // this check is necessary for models that do not add BOS token to the input
             if (tokens.empty()) {
@@ -2046,13 +2078,14 @@ public:
 
         int embd_normalize = 2; // default to Euclidean/L2 norm
         // create and queue the task
-        const auto rd = std::make_shared<server_response_reader>(ctx_server);
+        auto queues = ctx_server.get_queues();
+        const auto rd = std::make_shared<server_response_reader>(queues, 1); // HTTP_POLLING_SECONDS = 1
         {
             std::vector<server_task> tasks;
             for (size_t i = 0; i < tokenized_prompts.size(); i++) {
                 server_task task = server_task(SERVER_TASK_TYPE_EMBEDDING);
 
-                task.id            = ctx_server.queue_tasks.get_new_id();
+                task.id            = queues.first.get_new_id();
                 task.index         = i;
                 task.tokens = std::move(tokenized_prompts[i]);
 
@@ -2114,7 +2147,7 @@ public:
     }
 
     grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) {
-        if (!ctx_server.params_base.embedding || ctx_server.params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
+        if (!ctx_server.impl->params_base.embedding || ctx_server.impl->params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
             return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This server does not support reranking. Start it with `--reranking` and without `--embedding`");
         }
 
@@ -2128,7 +2161,8 @@ public:
         }
 
         // Create and queue the task
-        const auto rd = std::make_shared<server_response_reader>(ctx_server);
+        auto queues = ctx_server.get_queues();
+        const auto rd = std::make_shared<server_response_reader>(queues, 1); // HTTP_POLLING_SECONDS = 1
         {
             std::vector<server_task> tasks;
             std::vector<std::string> documents;
@@ -2138,9 +2172,9 @@ public:
             
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
-                auto tmp = format_prompt_rerank(ctx_server.model, ctx_server.vocab, ctx_server.mctx, request->query(), documents[i]);
+                auto tmp = format_prompt_rerank(ctx_server.impl->model, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
                 server_task task = server_task(SERVER_TASK_TYPE_RERANK);
-                task.id = ctx_server.queue_tasks.get_new_id();
+                task.id = queues.first.get_new_id();
                 task.index = i;
                 task.tokens = std::move(tmp);
                 tasks.push_back(std::move(task));
@@ -2200,7 +2234,10 @@ public:
     }
 
     grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
-        json body = parse_options(false, request, ctx_server);
+        if (!params_base_ptr) {
+            return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
+        }
+        json body = parse_options(false, request, *params_base_ptr, ctx_server.get_llama_context());
         body["stream"] = false;
         
         json tokens_response = json::array();
@@ -2208,11 +2245,11 @@ public:
             const bool add_special = json_value(body, "add_special", false);
             const bool with_pieces = json_value(body, "with_pieces", false);
 
-            llama_tokens tokens = tokenize_mixed(ctx_server.vocab, body.at("content"), add_special, true);
+            llama_tokens tokens = tokenize_mixed(ctx_server.impl->vocab, body.at("content"), add_special, true);
 
 
             for (const auto& token : tokens) {
-                std::string piece = common_token_to_piece(ctx_server.ctx, token);
+                std::string piece = common_token_to_piece(ctx_server.get_llama_context(), token);
                 response->add_tokens(token);
             }
         }
@@ -2223,17 +2260,18 @@ public:
     grpc::Status GetMetrics(ServerContext* context, const backend::MetricsRequest* request, backend::MetricsResponse* response) {
 
 // request slots data using task queue
-        int task_id = ctx_server.queue_tasks.get_new_id();
+        auto queues = ctx_server.get_queues();
+        int task_id = queues.first.get_new_id();
         {
             server_task task(SERVER_TASK_TYPE_METRICS);
             task.id = task_id;
-            ctx_server.queue_results.add_waiting_task_id(task_id);
-            ctx_server.queue_tasks.post(std::move(task), true); // high-priority task
+            queues.second.add_waiting_task_id(task_id);
+            queues.first.post(std::move(task), true); // high-priority task
         }
 
         // get the result
-        server_task_result_ptr result = ctx_server.queue_results.recv(task_id);
-        ctx_server.queue_results.remove_waiting_task_id(task_id);
+        server_task_result_ptr result = queues.second.recv(task_id);
+        queues.second.remove_waiting_task_id(task_id);
 
         if (result->is_error()) {
             // Handle case when no active slot exists
@@ -2307,7 +2345,7 @@ int main(int argc, char** argv) {
     auto clean_up = [&server, &ctx_server]() {
         SRV_INF("%s: cleaning up before exit...\n", __func__);
         server->Shutdown();
-        ctx_server.queue_results.terminate();
+        ctx_server.terminate();
         llama_backend_free();
     };
 
