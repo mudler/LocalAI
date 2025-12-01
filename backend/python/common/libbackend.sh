@@ -211,7 +211,7 @@ function init() {
 # - hipblas
 # - intel
 function getBuildProfile() {
-    if [ x"${BUILD_TYPE:-}" == "xcublas" ]; then
+    if [ x"${BUILD_TYPE:-}" == "xcublas" ] || [ x"${BUILD_TYPE:-}" == "xl4t" ]; then
         if [ ! -z "${CUDA_MAJOR_VERSION:-}" ]; then
             echo ${BUILD_TYPE}${CUDA_MAJOR_VERSION}
         else

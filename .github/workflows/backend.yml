@@ -462,18 +462,6 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
-          - build-type: 'l4t'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/arm64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-l4t-kokoro'
-            runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            skip-drivers: 'true'
-            backend: "kokoro"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -519,18 +507,6 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
-            backend: "chatterbox"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-          - build-type: 'l4t'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/arm64'
-            skip-drivers: 'true'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-l4t-arm64-chatterbox'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
@@ -594,18 +570,6 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
-          - build-type: 'l4t'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/arm64'
-            skip-drivers: 'true'
-            tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64-rfdetr'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
-            backend: "rfdetr"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -627,18 +591,6 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             skip-drivers: 'false'
-            backend: "neutts"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-          - build-type: 'l4t'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/arm64'
-            skip-drivers: 'true'
-            tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64-neutts'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"

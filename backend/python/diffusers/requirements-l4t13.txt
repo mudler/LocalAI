@@ -1,0 +1,12 @@
+--extra-index-url https://pypi.jetson-ai-lab.io/sbsa/cu130
+torch
+git+https://github.com/huggingface/diffusers
+transformers
+accelerate
+compel
+peft
+optimum-quanto
+numpy<2
+sentencepiece
+torchvision
+ftfy
