@@ -156,21 +156,10 @@ func getApiKeyRequiredFilterFunction(applicationConfig *config.ApplicationConfig
 	return func(c echo.Context) bool {
 		path := c.Request().URL.Path
 
-		// Always skip authentication for static files
-		if strings.HasPrefix(path, "/static/") {
-			return true
-		}
-
-		// Always skip authentication for generated content
-		if strings.HasPrefix(path, "/generated-audio/") ||
-			strings.HasPrefix(path, "/generated-images/") ||
-			strings.HasPrefix(path, "/generated-videos/") {
-			return true
-		}
-
-		// Skip authentication for favicon
-		if path == "/favicon.svg" {
-			return true
+		for _, p := range applicationConfig.PathWithoutAuth {
+			if strings.HasPrefix(path, p) {
+				return true
+			}
 		}
 
 		// Handle GET request exemptions if enabled
