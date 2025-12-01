@@ -72,6 +72,8 @@ type ApplicationConfig struct {
 	DisableRuntimeSettings bool
 
 	AgentJobRetentionDays int // Default: 30 days
+
+	PathWithoutAuth []string
 }
 
 type AppOption func(*ApplicationConfig)
@@ -82,6 +84,15 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		UploadLimitMB:         15,
 		Debug:                 true,
 		AgentJobRetentionDays: 30, // Default: 30 days
+		PathWithoutAuth: []string{
+			"/static/",
+			"/generated-audio/",
+			"/generated-images/",
+			"/generated-videos/",
+			"/favicon.svg",
+			"/readyz",
+			"/healthz",
+		},
 	}
 	for _, oo := range o {
 		oo(opt)
