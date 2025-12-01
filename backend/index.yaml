@@ -108,6 +108,10 @@
     #amd: "rocm-rfdetr"
     nvidia-l4t: "nvidia-l4t-arm64-rfdetr"
     default: "cpu-rfdetr"
+    nvidia-cuda-13: "cuda13-rfdetr"
+    nvidia-cuda-12: "cuda12-rfdetr"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-rfdetr"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -140,6 +144,8 @@
     nvidia: "cuda12-vllm"
     amd: "rocm-vllm"
     intel: "intel-vllm"
+    nvidia-cuda-13: "cuda13-vllm"
+    nvidia-cuda-12: "cuda12-vllm"
 - &mlx
   name: "mlx"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx"
@@ -213,6 +219,8 @@
     nvidia: "cuda12-transformers"
     intel: "intel-transformers"
     amd: "rocm-transformers"
+    nvidia-cuda-13: "cuda13-transformers"
+    nvidia-cuda-12: "cuda12-transformers"
 - &diffusers
   name: "diffusers"
   icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
@@ -233,6 +241,10 @@
     nvidia-l4t: "nvidia-l4t-diffusers"
     metal: "metal-diffusers"
     default: "cpu-diffusers"
+    nvidia-cuda-13: "cuda13-diffusers"
+    nvidia-cuda-12: "cuda12-diffusers"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-diffusers"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-diffusers"
 - &exllama2
   name: "exllama2"
   urls:
@@ -248,6 +260,8 @@
   capabilities:
     nvidia: "cuda12-exllama2"
     intel: "intel-exllama2"
+    nvidia-cuda-13: "cuda13-exllama2"
+    nvidia-cuda-12: "cuda12-exllama2"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -264,6 +278,8 @@
     nvidia: "cuda12-faster-whisper"
     intel: "intel-faster-whisper"
     amd: "rocm-faster-whisper"
+    nvidia-cuda-13: "cuda13-faster-whisper"
+    nvidia-cuda-12: "cuda12-faster-whisper"
 - &kokoro
   icon: https://avatars.githubusercontent.com/u/166769057?v=4
   description: |
@@ -283,6 +299,10 @@
     intel: "intel-kokoro"
     amd: "rocm-kokoro"
     nvidia-l4t: "nvidia-l4t-kokoro"
+    nvidia-cuda-13: "cuda13-kokoro"
+    nvidia-cuda-12: "cuda12-kokoro"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-kokoro"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-kokoro"
 - &coqui
   urls:
     - https://github.com/idiap/coqui-ai-TTS
@@ -304,6 +324,8 @@
     nvidia: "cuda12-coqui"
     intel: "intel-coqui"
     amd: "rocm-coqui"
+    nvidia-cuda-13: "cuda13-coqui"
+    nvidia-cuda-12: "cuda12-coqui"
   icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
 - &bark
   urls:
@@ -320,6 +342,8 @@
     cuda: "cuda12-bark"
     intel: "intel-bark"
     rocm: "rocm-bark"
+    nvidia-cuda-13: "cuda13-bark"
+    nvidia-cuda-12: "cuda12-bark"
   icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
 - &barkcpp
   urls:
@@ -366,6 +390,10 @@
     metal: "metal-chatterbox"
     default: "cpu-chatterbox"
     nvidia-l4t: "nvidia-l4t-arm64-chatterbox"
+    nvidia-cuda-13: "cuda13-chatterbox"
+    nvidia-cuda-12: "cuda12-chatterbox"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-chatterbox"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox"
 - &piper
   name: "piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
@@ -454,6 +482,10 @@
     nvidia: "cuda12-neutts"
     amd: "rocm-neutts"
     nvidia-l4t: "nvidia-l4t-neutts"
+    nvidia-cuda-13: "cuda13-neutts"
+    nvidia-cuda-12: "cuda12-neutts"
+    nvidia-l4t-cuda-12: "nvidia-l4t-neutts"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-neutts"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -461,6 +493,10 @@
     nvidia: "cuda12-neutts-development"
     amd: "rocm-neutts-development"
     nvidia-l4t: "nvidia-l4t-neutts-development"
+    nvidia-cuda-13: "cuda13-neutts-development"
+    nvidia-cuda-12: "cuda12-neutts-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-neutts-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-neutts-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
@@ -482,6 +518,11 @@
   mirrors:
     - localai/localai-backends:latest-nvidia-l4t-arm64-neutts
 - !!merge <<: *neutts
+  name: "cuda13-neutts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-neutts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-neutts
+- !!merge <<: *neutts
   name: "cpu-neutts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-neutts"
   mirrors:
@@ -491,6 +532,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-neutts"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-cuda-12-neutts
+- !!merge <<: *neutts
+  name: "cuda13-neutts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-neutts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-neutts
 - !!merge <<: *neutts
   name: "rocm-neutts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-neutts"
