@@ -484,7 +484,7 @@
     nvidia-l4t: "nvidia-l4t-neutts"
     nvidia-cuda-13: "cuda13-neutts"
     nvidia-cuda-12: "cuda12-neutts"
-    nvidia-l4t-cuda-12: "nvidia-l4t-neutts"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-neutts"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-neutts"
 - !!merge <<: *neutts
   name: "neutts-development"
@@ -513,7 +513,7 @@
   mirrors:
     - localai/localai-backends:latest-gpu-rocm-hipblas-neutts
 - !!merge <<: *neutts
-  name: "nvidia-l4t-neutts"
+  name: "nvidia-l4t-arm64-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-neutts"
   mirrors:
     - localai/localai-backends:latest-nvidia-l4t-arm64-neutts
@@ -543,10 +543,20 @@
   mirrors:
     - localai/localai-backends:master-gpu-rocm-hipblas-neutts
 - !!merge <<: *neutts
-  name: "nvidia-l4t-neutts-development"
+  name: "nvidia-l4t-arm64-neutts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-neutts"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-arm64-neutts
+- !!merge <<: *neutts
+  name: "cuda13-nvidia-l4t-arm64-neutts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-neutts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-neutts
+- !!merge <<: *neutts
+  name: "cuda13-nvidia-l4t-arm64-neutts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-neutts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-neutts
 - !!merge <<: *mlx
   name: "mlx-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-metal-darwin-arm64-mlx"
