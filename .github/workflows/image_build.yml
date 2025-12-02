@@ -56,6 +56,11 @@ on:
         required: false
         default: ''
         type: string
+      ubuntu-version:
+        description: 'Ubuntu version'
+        required: false
+        default: '2204'
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -238,6 +243,7 @@ jobs:
             GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
@@ -265,6 +271,7 @@ jobs:
             GRPC_VERSION=v1.65.0
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha

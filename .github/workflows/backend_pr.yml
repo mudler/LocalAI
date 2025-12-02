@@ -52,6 +52,7 @@ jobs:
       dockerfile: ${{ matrix.dockerfile }}
       skip-drivers: ${{ matrix.skip-drivers }}
       context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
     secrets:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
