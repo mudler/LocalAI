@@ -16,4 +16,11 @@ if [ "x${BUILD_PROFILE}" == "xintel" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
 
+# Use python 3.12 for l4t
+if [ "x${BUILD_PROFILE}" == "xl4t12" ] || [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
+  PYTHON_VERSION="3.12"
+  PYTHON_PATCH="12"
+  PY_STANDALONE_TAG="20251120"
+fi
+
 installRequirements

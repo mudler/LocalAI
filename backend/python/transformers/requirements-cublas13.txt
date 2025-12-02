@@ -1,0 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+torch==2.9.0
+llvmlite==0.43.0
+numba==0.60.0
+transformers
+bitsandbytes
+outetts
+sentence-transformers==5.1.0
+protobuf==6.33.1

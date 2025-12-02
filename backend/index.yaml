@@ -26,6 +26,10 @@
     vulkan: "vulkan-llama-cpp"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp"
     darwin-x86: "darwin-x86-llama-cpp"
+    nvidia-cuda-13: "cuda13-llama-cpp"
+    nvidia-cuda-12: "cuda12-llama-cpp"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp"
 - &whispercpp
   name: "whisper"
   alias: "whisper"
@@ -49,6 +53,10 @@
     amd: "rocm-whisper"
     vulkan: "vulkan-whisper"
     nvidia-l4t: "nvidia-l4t-arm64-whisper"
+    nvidia-cuda-13: "cuda13-whisper"
+    nvidia-cuda-12: "cuda12-whisper"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-whisper"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-whisper"
 - &stablediffusionggml
   name: "stablediffusion-ggml"
   alias: "stablediffusion-ggml"
@@ -73,6 +81,10 @@
     vulkan: "vulkan-stablediffusion-ggml"
     nvidia-l4t: "nvidia-l4t-arm64-stablediffusion-ggml"
     metal: "metal-stablediffusion-ggml"
+    nvidia-cuda-13: "cuda13-stablediffusion-ggml"
+    nvidia-cuda-12: "cuda12-stablediffusion-ggml"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-stablediffusion-ggml"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
     # darwin-x86: "darwin-x86-stablediffusion-ggml"
 - &rfdetr
   name: "rfdetr"
@@ -96,6 +108,9 @@
     #amd: "rocm-rfdetr"
     nvidia-l4t: "nvidia-l4t-arm64-rfdetr"
     default: "cpu-rfdetr"
+    nvidia-cuda-13: "cuda13-rfdetr"
+    nvidia-cuda-12: "cuda12-rfdetr"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-rfdetr"
 - &vllm
   name: "vllm"
   license: apache-2.0
@@ -128,6 +143,7 @@
     nvidia: "cuda12-vllm"
     amd: "rocm-vllm"
     intel: "intel-vllm"
+    nvidia-cuda-12: "cuda12-vllm"
 - &mlx
   name: "mlx"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx"
@@ -201,6 +217,8 @@
     nvidia: "cuda12-transformers"
     intel: "intel-transformers"
     amd: "rocm-transformers"
+    nvidia-cuda-13: "cuda13-transformers"
+    nvidia-cuda-12: "cuda12-transformers"
 - &diffusers
   name: "diffusers"
   icon: https://raw.githubusercontent.com/huggingface/diffusers/main/docs/source/en/imgs/diffusers_library.jpg
@@ -221,6 +239,10 @@
     nvidia-l4t: "nvidia-l4t-diffusers"
     metal: "metal-diffusers"
     default: "cpu-diffusers"
+    nvidia-cuda-13: "cuda13-diffusers"
+    nvidia-cuda-12: "cuda12-diffusers"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-diffusers"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-diffusers"
 - &exllama2
   name: "exllama2"
   urls:
@@ -236,6 +258,7 @@
   capabilities:
     nvidia: "cuda12-exllama2"
     intel: "intel-exllama2"
+    nvidia-cuda-12: "cuda12-exllama2"
 - &faster-whisper
   icon: https://avatars.githubusercontent.com/u/1520500?s=200&v=4
   description: |
@@ -252,6 +275,8 @@
     nvidia: "cuda12-faster-whisper"
     intel: "intel-faster-whisper"
     amd: "rocm-faster-whisper"
+    nvidia-cuda-13: "cuda13-faster-whisper"
+    nvidia-cuda-12: "cuda12-faster-whisper"
 - &kokoro
   icon: https://avatars.githubusercontent.com/u/166769057?v=4
   description: |
@@ -271,6 +296,9 @@
     intel: "intel-kokoro"
     amd: "rocm-kokoro"
     nvidia-l4t: "nvidia-l4t-kokoro"
+    nvidia-cuda-13: "cuda13-kokoro"
+    nvidia-cuda-12: "cuda12-kokoro"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-kokoro"
 - &coqui
   urls:
     - https://github.com/idiap/coqui-ai-TTS
@@ -292,6 +320,8 @@
     nvidia: "cuda12-coqui"
     intel: "intel-coqui"
     amd: "rocm-coqui"
+    nvidia-cuda-13: "cuda13-coqui"
+    nvidia-cuda-12: "cuda12-coqui"
   icon: https://avatars.githubusercontent.com/u/1338804?s=200&v=4
 - &bark
   urls:
@@ -308,6 +338,8 @@
     cuda: "cuda12-bark"
     intel: "intel-bark"
     rocm: "rocm-bark"
+    nvidia-cuda-13: "cuda13-bark"
+    nvidia-cuda-12: "cuda12-bark"
   icon: https://avatars.githubusercontent.com/u/99442120?s=200&v=4
 - &barkcpp
   urls:
@@ -354,6 +386,10 @@
     metal: "metal-chatterbox"
     default: "cpu-chatterbox"
     nvidia-l4t: "nvidia-l4t-arm64-chatterbox"
+    nvidia-cuda-13: "cuda13-chatterbox"
+    nvidia-cuda-12: "cuda12-chatterbox"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-chatterbox"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox"
 - &piper
   name: "piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
@@ -442,6 +478,8 @@
     nvidia: "cuda12-neutts"
     amd: "rocm-neutts"
     nvidia-l4t: "nvidia-l4t-neutts"
+    nvidia-cuda-12: "cuda12-neutts"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-neutts"
 - !!merge <<: *neutts
   name: "neutts-development"
   capabilities:
@@ -449,6 +487,22 @@
     nvidia: "cuda12-neutts-development"
     amd: "rocm-neutts-development"
     nvidia-l4t: "nvidia-l4t-neutts-development"
+    nvidia-cuda-12: "cuda12-neutts-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-neutts-development"
+- !!merge <<: *llamacpp
+  name: "llama-cpp-development"
+  capabilities:
+    default: "cpu-llama-cpp-development"
+    nvidia: "cuda12-llama-cpp-development"
+    intel: "intel-sycl-f16-llama-cpp-development"
+    amd: "rocm-llama-cpp-development"
+    metal: "metal-llama-cpp-development"
+    vulkan: "vulkan-llama-cpp-development"
+    nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-development"
+    nvidia-cuda-13: "cuda13-llama-cpp-development"
+    nvidia-cuda-12: "cuda12-llama-cpp-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-llama-cpp-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-llama-cpp-development"
 - !!merge <<: *neutts
   name: "cpu-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-neutts"
@@ -465,7 +519,7 @@
   mirrors:
     - localai/localai-backends:latest-gpu-rocm-hipblas-neutts
 - !!merge <<: *neutts
-  name: "nvidia-l4t-neutts"
+  name: "nvidia-l4t-arm64-neutts"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-neutts"
   mirrors:
     - localai/localai-backends:latest-nvidia-l4t-arm64-neutts
@@ -485,7 +539,7 @@
   mirrors:
     - localai/localai-backends:master-gpu-rocm-hipblas-neutts
 - !!merge <<: *neutts
-  name: "nvidia-l4t-neutts-development"
+  name: "nvidia-l4t-arm64-neutts-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-neutts"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-arm64-neutts
@@ -547,6 +601,16 @@
     - localai/localai-backends:latest-nvidia-l4t-arm64-llama-cpp
 - !!merge <<: *llamacpp
   name: "nvidia-l4t-arm64-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-llama-cpp"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-llama-cpp
+- !!merge <<: *llamacpp
+  name: "cuda13-nvidia-l4t-arm64-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-llama-cpp"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-llama-cpp
+- !!merge <<: *llamacpp
+  name: "cuda13-nvidia-l4t-arm64-llama-cpp-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-llama-cpp"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-arm64-llama-cpp
@@ -630,6 +694,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-llama-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-intel-sycl-f16-llama-cpp
+- !!merge <<: *llamacpp
+  name: "cuda13-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-llama-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-llama-cpp
+- !!merge <<: *llamacpp
+  name: "cuda13-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-llama-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-llama-cpp
 ## whisper
 - !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper"
@@ -638,6 +712,16 @@
     - localai/localai-backends:latest-nvidia-l4t-arm64-whisper
 - !!merge <<: *whispercpp
   name: "nvidia-l4t-arm64-whisper-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-whisper"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-whisper
+- !!merge <<: *whispercpp
+  name: "cuda13-nvidia-l4t-arm64-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-whisper"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-whisper
+- !!merge <<: *whispercpp
+  name: "cuda13-nvidia-l4t-arm64-whisper-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-whisper"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-arm64-whisper
@@ -731,6 +815,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f16-whisper"
   mirrors:
     - localai/localai-backends:master-gpu-intel-sycl-f16-whisper
+- !!merge <<: *whispercpp
+  name: "cuda13-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-whisper"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-whisper
+- !!merge <<: *whispercpp
+  name: "cuda13-whisper-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-whisper"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-whisper
 ## stablediffusion-ggml
 - !!merge <<: *stablediffusionggml
   name: "cpu-stablediffusion-ggml"
@@ -810,6 +904,26 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-stablediffusion-ggml"
   mirrors:
     - localai/localai-backends:latest-nvidia-l4t-arm64-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-arm64-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "cuda13-nvidia-l4t-arm64-stablediffusion-ggml-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "cuda13-stablediffusion-ggml"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-stablediffusion-ggml
+- !!merge <<: *stablediffusionggml
+  name: "cuda13-stablediffusion-ggml-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-stablediffusion-ggml
 # vllm
 - !!merge <<: *vllm
   name: "vllm-development"
@@ -856,6 +970,7 @@
     #amd: "rocm-rfdetr-development"
     nvidia-l4t: "nvidia-l4t-arm64-rfdetr-development"
     default: "cpu-rfdetr-development"
+    nvidia-cuda-13: "cuda13-rfdetr-development"
 - !!merge <<: *rfdetr
   name: "cuda12-rfdetr"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-rfdetr"
@@ -876,6 +991,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-rfdetr"
   mirrors:
     - localai/localai-backends:latest-nvidia-l4t-arm64-rfdetr
+- !!merge <<: *rfdetr
+  name: "nvidia-l4t-arm64-rfdetr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-arm64-rfdetr"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-arm64-rfdetr
 - !!merge <<: *rfdetr
   name: "cpu-rfdetr"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-rfdetr"
@@ -906,6 +1026,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-rfdetr"
   mirrors:
     - localai/localai-backends:latest-gpu-intel-rfdetr
+- !!merge <<: *rfdetr
+  name: "cuda13-rfdetr"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-rfdetr"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-rfdetr
+- !!merge <<: *rfdetr
+  name: "cuda13-rfdetr-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-rfdetr"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-rfdetr
 ## Rerankers
 - !!merge <<: *rerankers
   name: "rerankers-development"
@@ -913,6 +1043,7 @@
     nvidia: "cuda12-rerankers-development"
     intel: "intel-rerankers-development"
     amd: "rocm-rerankers-development"
+    nvidia-cuda-13: "cuda13-rerankers-development"
 - !!merge <<: *rerankers
   name: "cuda11-rerankers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-rerankers"
@@ -953,6 +1084,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-rerankers"
   mirrors:
     - localai/localai-backends:master-gpu-intel-rerankers
+- !!merge <<: *rerankers
+  name: "cuda13-rerankers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-rerankers"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-rerankers
+- !!merge <<: *rerankers
+  name: "cuda13-rerankers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-rerankers"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-rerankers
 ## Transformers
 - !!merge <<: *transformers
   name: "transformers-development"
@@ -960,6 +1101,7 @@
     nvidia: "cuda12-transformers-development"
     intel: "intel-transformers-development"
     amd: "rocm-transformers-development"
+    nvidia-cuda-13: "cuda13-transformers-development"
 - !!merge <<: *transformers
   name: "cuda12-transformers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-transformers"
@@ -1000,6 +1142,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-transformers"
   mirrors:
     - localai/localai-backends:master-gpu-intel-transformers
+- !!merge <<: *transformers
+  name: "cuda13-transformers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-transformers"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-transformers
+- !!merge <<: *transformers
+  name: "cuda13-transformers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-transformers"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-transformers
 ## Diffusers
 - !!merge <<: *diffusers
   name: "diffusers-development"
@@ -1010,6 +1162,7 @@
     nvidia-l4t: "nvidia-l4t-diffusers-development"
     metal: "metal-diffusers-development"
     default: "cpu-diffusers-development"
+    nvidia-cuda-13: "cuda13-diffusers-development"
 - !!merge <<: *diffusers
   name: "cpu-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-diffusers"
@@ -1027,6 +1180,16 @@
     - localai/localai-backends:latest-gpu-nvidia-l4t-diffusers
 - !!merge <<: *diffusers
   name: "nvidia-l4t-diffusers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-l4t-diffusers"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-l4t-diffusers
+- !!merge <<: *diffusers
+  name: "cuda13-nvidia-l4t-arm64-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-l4t-diffusers"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-l4t-diffusers
+- !!merge <<: *diffusers
+  name: "cuda13-nvidia-l4t-arm64-diffusers-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-l4t-diffusers"
   mirrors:
     - localai/localai-backends:master-gpu-nvidia-l4t-diffusers
@@ -1070,6 +1233,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-diffusers"
   mirrors:
     - localai/localai-backends:master-gpu-intel-diffusers
+- !!merge <<: *diffusers
+  name: "cuda13-diffusers"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-diffusers"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-diffusers
+- !!merge <<: *diffusers
+  name: "cuda13-diffusers-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-diffusers"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-diffusers
 - !!merge <<: *diffusers
   name: "metal-diffusers"
   uri: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-diffusers"
@@ -1164,6 +1337,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-kokoro"
   mirrors:
     - localai/localai-backends:latest-gpu-rocm-hipblas-kokoro
+- !!merge <<: *kokoro
+  name: "cuda13-kokoro"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-kokoro"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-kokoro
+- !!merge <<: *kokoro
+  name: "cuda13-kokoro-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-kokoro"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-kokoro
 ## faster-whisper
 - !!merge <<: *faster-whisper
   name: "faster-whisper-development"
@@ -1171,6 +1354,7 @@
     nvidia: "cuda12-faster-whisper-development"
     intel: "intel-faster-whisper-development"
     amd: "rocm-faster-whisper-development"
+    nvidia-cuda-13: "cuda13-faster-whisper-development"
 - !!merge <<: *faster-whisper
   name: "cuda11-faster-whisper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-11-faster-whisper"
@@ -1196,6 +1380,16 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-faster-whisper"
   mirrors:
     - localai/localai-backends:master-gpu-intel-faster-whisper
+- !!merge <<: *faster-whisper
+  name: "cuda13-faster-whisper"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-faster-whisper"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-faster-whisper
+- !!merge <<: *faster-whisper
+  name: "cuda13-faster-whisper-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-faster-whisper"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-faster-whisper
 ## coqui
 
 - !!merge <<: *coqui
@@ -1303,6 +1497,10 @@
     metal: "metal-chatterbox-development"
     default: "cpu-chatterbox-development"
     nvidia-l4t: "nvidia-l4t-arm64-chatterbox"
+    nvidia-cuda-13: "cuda13-chatterbox-development"
+    nvidia-cuda-12: "cuda12-chatterbox-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-arm64-chatterbox"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox"
 - !!merge <<: *chatterbox
   name: "cpu-chatterbox"
   uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-chatterbox"
@@ -1353,3 +1551,23 @@
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-chatterbox"
   mirrors:
     - localai/localai-backends:latest-gpu-nvidia-cuda-12-chatterbox
+- !!merge <<: *chatterbox
+  name: "cuda13-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-chatterbox"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-chatterbox
+- !!merge <<: *chatterbox
+  name: "cuda13-chatterbox-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-chatterbox"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-chatterbox
+- !!merge <<: *chatterbox
+  name: "cuda13-nvidia-l4t-arm64-chatterbox"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-l4t-arm64-chatterbox"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-l4t-arm64-chatterbox
+- !!merge <<: *chatterbox
+  name: "cuda13-nvidia-l4t-arm64-chatterbox-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-l4t-arm64-chatterbox"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-l4t-arm64-chatterbox

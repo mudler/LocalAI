@@ -1,0 +1,5 @@
+--extra-index-url https://download.pytorch.org/whl/cu130
+transformers
+accelerate
+torch==2.9.1
+rerankers[transformers]

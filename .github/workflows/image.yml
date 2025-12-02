@@ -100,6 +100,17 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-12"
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-nvidia-cuda-13'
+            runs-on: 'ubuntu-latest'
+            base-image: "ubuntu:22.04"
+            skip-drivers: 'false'
+            makeflags: "--jobs=4 --output-sync=target"
+            aio: "-aio-gpu-nvidia-cuda-13"
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -148,6 +159,16 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64'
+            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            runs-on: 'ubuntu-24.04-arm'
+            makeflags: "--jobs=4 --output-sync=target"
+            skip-drivers: 'true'
+          - build-type: 'cublas'
+            cuda-major-version: "13"
+            cuda-minor-version: "0"
+            platforms: 'linux/arm64'
+            tag-latest: 'auto'
+            tag-suffix: '-nvidia-l4t-arm64-cuda-13'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             makeflags: "--jobs=4 --output-sync=target"

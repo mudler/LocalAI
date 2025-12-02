@@ -68,13 +68,13 @@ RUN <<EOT bash
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
-        echo "nvidia" > /run/localai/capability
+        echo "nvidia-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
     fi
 EOT
 
 RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
-        echo "nvidia-l4t" > /run/localai/capability
+        echo "nvidia-l4t-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
     fi
 EOT
 
