@@ -54,7 +54,16 @@ RUN <<EOT bash
             curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
-            if [ "${BUILD_TYPE}" = "l4t" ] && [ "${CUDA_MAJOR_VERSION}}" = "13" ]; then
+            if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
+                apt-get remove -y cuda-keyring && \
+                apt-get clean && \
+                rm -rf /var/lib/apt/lists/* && \
+                apt-get remove -y cuda-nvcc-* \
+                            libcufft-dev-* \
+                            libcurand-dev-* \
+                            libcublas-dev-* \
+                            libcusparse-dev-* \
+                            libcusolver-dev-*
                 curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb
             else
                 curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
