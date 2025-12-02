@@ -97,7 +97,7 @@ RUN <<EOT bash
         wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
         dpkg -i cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
         cp /var/cudss-local-tegra-repo-ubuntu2204-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
-        apt-get update && apt-get -y install cudss-cuda-${CUDA_MAJOR_VERSION}
+        apt-get update && apt-get -y install cudss cudss-cuda-${CUDA_MAJOR_VERSION}
     fi
 EOT
 
