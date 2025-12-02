@@ -3,4 +3,3 @@ accelerate
 torch==2.7.0+cu118
 transformers
 bitsandbytes
-vllm

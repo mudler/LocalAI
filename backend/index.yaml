@@ -143,7 +143,6 @@
     nvidia: "cuda12-vllm"
     amd: "rocm-vllm"
     intel: "intel-vllm"
-    nvidia-cuda-13: "cuda13-vllm"
     nvidia-cuda-12: "cuda12-vllm"
 - &mlx
   name: "mlx"
@@ -932,7 +931,6 @@
     nvidia: "cuda12-vllm-development"
     amd: "rocm-vllm-development"
     intel: "intel-vllm-development"
-    nvidia-cuda-13: "cuda13-vllm-development"
 - !!merge <<: *vllm
   name: "cuda12-vllm"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vllm"
@@ -963,16 +961,6 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-vllm"
   mirrors:
     - localai/localai-backends:master-gpu-intel-vllm
-- !!merge <<: *vllm
-  name: "cuda13-vllm"
-  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-vllm"
-  mirrors:
-    - localai/localai-backends:latest-gpu-nvidia-cuda-13-vllm
-- !!merge <<: *vllm
-  name: "cuda13-vllm-development"
-  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-vllm"
-  mirrors:
-    - localai/localai-backends:master-gpu-nvidia-cuda-13-vllm
 # rfdetr
 - !!merge <<: *rfdetr
   name: "rfdetr-development"
