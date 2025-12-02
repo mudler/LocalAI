@@ -20911,9 +20911,6 @@
   overrides:
     parameters:
       model: flux1-dev-Q2_K.gguf
-    options:
-      - scheduler:simple
-      - keep_clip_on_cpu:true
   files:
     - filename: "flux1-dev-Q2_K.gguf"
       sha256: "b8c464bc0f10076ef8f00ba040d220d90c7993f7c4245ae80227d857f65df105"
