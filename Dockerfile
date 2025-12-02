@@ -55,6 +55,7 @@ RUN <<EOT bash
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
             if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
+                apt-get install -y cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} && \
                 apt-get remove -y cuda-keyring && \
                 apt-get clean && \
                 rm -rf /var/lib/apt/lists/* && \
@@ -63,7 +64,7 @@ RUN <<EOT bash
                             libcurand-dev-* \
                             libcublas-dev-* \
                             libcusparse-dev-* \
-                            libcusolver-dev-*
+                            libcusolver-dev-* && \
                 curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb
             else
                 curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
@@ -97,7 +98,11 @@ RUN <<EOT bash
         wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
         dpkg -i cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
         cp /var/cudss-local-tegra-repo-ubuntu2204-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
-        apt-get update && apt-get -y install cudss cudss-cuda-${CUDA_MAJOR_VERSION}
+        apt-get update && apt-get -y install cudss cudss-cuda-${CUDA_MAJOR_VERSION} && \
+        wget https://developer.download.nvidia.com/compute/nvpl/25.5/local_installers/nvpl-local-repo-ubuntu2404-25.5_1.0-1_arm64.deb && \
+        dpkg -i nvpl-local-repo-ubuntu2404-25.5_1.0-1_arm64.deb && \
+        cp /var/nvpl-local-repo-ubuntu2404-25.5/nvpl-*-keyring.gpg /usr/share/keyrings/ && \
+        apt-get update && apt-get install -y nvpl
     fi
 EOT
 
