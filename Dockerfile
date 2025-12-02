@@ -9,7 +9,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        ffmpeg libopenblas-base libopenblas-dev && \
+        ffmpeg && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -189,14 +189,6 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2 && \
 
 COPY --chmod=644 custom-ca-certs/* /usr/local/share/ca-certificates/
 RUN update-ca-certificates
-
-
-# OpenBLAS requirements and stable diffusion
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        libopenblas-dev && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
 
 RUN test -n "$TARGETARCH" \
     || (echo 'warn: missing $TARGETARCH, either set this `ARG` manually, or run using `docker buildkit`')
