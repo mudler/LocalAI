@@ -46,7 +46,7 @@ EOT
 
 # CuBLAS requirements
 RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+    if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils
@@ -54,7 +54,20 @@ RUN <<EOT bash
             curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
-            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+            if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
+                apt-get remove -y cuda-keyring && \
+                apt-get clean && \
+                rm -rf /var/lib/apt/lists/* && \
+                apt-get remove -y cuda-nvcc-* \
+                            libcufft-dev-* \
+                            libcurand-dev-* \
+                            libcublas-dev-* \
+                            libcusparse-dev-* \
+                            libcusolver-dev-*
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb
+            else
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+            fi
         fi
         dpkg -i cuda-keyring_1.1-1_all.deb && \
         rm -f cuda-keyring_1.1-1_all.deb && \
@@ -84,7 +97,7 @@ RUN <<EOT bash
         wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
         dpkg -i cudss-local-tegra-repo-ubuntu2204-0.6.0_0.6.0-1_arm64.deb && \
         cp /var/cudss-local-tegra-repo-ubuntu2204-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
-        apt-get update && apt-get -y install cudss
+        apt-get update && apt-get -y install cudss-cuda-${CUDA_MAJOR_VERSION}
     fi
 EOT
 
