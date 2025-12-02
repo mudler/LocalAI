@@ -3,3 +3,4 @@ accelerate
 torch
 transformers
 bitsandbytes
+vllm

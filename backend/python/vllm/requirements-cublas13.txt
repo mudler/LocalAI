@@ -3,3 +3,4 @@ torch==2.9.1
 transformers
 bitsandbytes
 accelerate
+vllm
