@@ -46,7 +46,7 @@ EOT
 
 # CuBLAS requirements
 RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
+    if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils
@@ -54,7 +54,11 @@ RUN <<EOT bash
             curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.1-1_all.deb
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
-            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+            if [ "${BUILD_TYPE}" = "l4t" ] && [ "${CUDA_MAJOR_VERSION}}" = "13" ]; then
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/sbsa/cuda-keyring_1.1-1_all.deb
+            else
+                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/arm64/cuda-keyring_1.1-1_all.deb
+            fi
         fi
         dpkg -i cuda-keyring_1.1-1_all.deb && \
         rm -f cuda-keyring_1.1-1_all.deb && \
