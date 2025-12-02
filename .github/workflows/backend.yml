@@ -92,7 +92,7 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-l4t-diffusers'
+            tag-suffix: '-nvidia-l4t-diffusers'
             runs-on: 'ubuntu-24.04-arm'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
@@ -396,7 +396,7 @@ jobs:
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
+            tag-suffix: '-nvidia-l4t-cuda-13-arm64-llama-cpp'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             backend: "llama-cpp"
@@ -431,7 +431,7 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-l4t-diffusers'
+            tag-suffix: '-nvidia-l4t-cuda-13-arm64-diffusers'
             runs-on: 'ubuntu-24.04-arm'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
@@ -504,7 +504,7 @@ jobs:
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64-stablediffusion-ggml'
+            tag-suffix: '-nvidia-l4t-cuda-13-arm64-stablediffusion-ggml'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             backend: "stablediffusion-ggml"
@@ -528,7 +528,7 @@ jobs:
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64-whisper'
+            tag-suffix: '-nvidia-l4t-cuda-13-arm64-whisper'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             backend: "whisper"
@@ -734,7 +734,7 @@ jobs:
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-l4t-kokoro'
+            tag-suffix: '-nvidia-l4t-kokoro'
             runs-on: 'ubuntu-24.04-arm'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             skip-drivers: 'true'
@@ -1153,7 +1153,7 @@ jobs:
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-l4t-arm64-chatterbox'
+            tag-suffix: '-nvidia-l4t-arm64-chatterbox'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
             runs-on: 'ubuntu-24.04-arm'
             backend: "chatterbox"
