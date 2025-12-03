@@ -636,7 +636,7 @@ install_docker() {
     fi
 
     # Avoid problem on older docker versions
-    DOCKER_VERSION=`docker version --format '{{.Server.Version}}' | sed 's/^\([0-9]*\(\.[0-9]*\)\).*/\1/'`
+    DOCKER_VERSION=`docker version --format '{{.Server.Version}}' | sed 's/^\([0-9]*\.[0-9]*\).*/\1/'`
     CONTAINER_PRIVILEGES=
     if expr $DOCKER_VERSION '<' 20.10 >/dev/null ; then
         CONTAINER_PRIVILEGES="--privileged=true"
