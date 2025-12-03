@@ -39,7 +39,6 @@ jobs:
       #max-parallel: ${{ github.event_name != 'pull_request' && 6 || 4 }}
       matrix:
         include:
-          # CUDA 11 builds
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "9"
@@ -64,7 +63,7 @@ jobs:
             skip-drivers: 'true'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./""
+            context: "./"
             ubuntu-version: '2404'
           - build-type: ''
             cuda-major-version: ""
@@ -78,6 +77,7 @@ jobs:
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
+            ubuntu-version: '2404'
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -224,7 +224,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
@@ -237,7 +237,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisper'
@@ -250,7 +250,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
@@ -263,7 +263,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
@@ -276,7 +276,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-neutts'
@@ -722,7 +722,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "9"
+            cuda-minor-version: "0"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-vibevoice'
@@ -893,18 +893,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
             ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.golang"
-            context: "./"
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -971,18 +959,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
             ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-whisper'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "whisper"
-            dockerfile: "./backend/Dockerfile.golang"
-            context: "./"
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1104,18 +1080,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "rfdetr"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1156,18 +1120,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1196,7 +1148,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "9"
+            cuda-minor-version: "0"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -1248,18 +1200,6 @@ jobs:
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
             ubuntu-version: '2404'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12-neutts'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            backend: "neutts"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./"
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1275,7 +1215,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "9"
+            cuda-minor-version: "0"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
