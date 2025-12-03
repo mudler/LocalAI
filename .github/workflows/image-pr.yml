@@ -44,6 +44,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -53,6 +54,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -61,6 +63,7 @@ jobs:
             grpc-base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
+            ubuntu-version: '2204'
           - build-type: 'sycl'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -69,6 +72,7 @@ jobs:
             tag-suffix: 'sycl'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
+            ubuntu-version: '2204'
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -76,6 +80,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=4 --output-sync=target"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"

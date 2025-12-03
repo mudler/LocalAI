@@ -52,6 +52,7 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -64,6 +65,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -76,6 +78,7 @@ jobs:
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -88,6 +91,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -100,6 +104,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -112,6 +117,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -124,6 +130,7 @@ jobs:
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # CUDA 11 additional backends
           - build-type: 'cublas'
             cuda-major-version: "11"
@@ -137,6 +144,7 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -149,6 +157,7 @@ jobs:
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -161,6 +170,7 @@ jobs:
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -173,6 +183,7 @@ jobs:
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -185,6 +196,7 @@ jobs:
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
@@ -198,6 +210,7 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -210,6 +223,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -222,6 +236,7 @@ jobs:
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -234,6 +249,7 @@ jobs:
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -246,6 +262,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -258,6 +275,7 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -270,6 +288,7 @@ jobs:
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -282,6 +301,7 @@ jobs:
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -294,6 +314,7 @@ jobs:
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -306,6 +327,7 @@ jobs:
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -318,6 +340,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -330,6 +353,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -342,6 +366,7 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -354,6 +379,7 @@ jobs:
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -366,6 +392,7 @@ jobs:
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # cuda 13
           - build-type: 'cublas'
             cuda-major-version: "13"
@@ -379,6 +406,7 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -391,6 +419,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -416,6 +445,7 @@ jobs:
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -428,6 +458,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -453,6 +484,7 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -465,6 +497,7 @@ jobs:
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -477,6 +510,7 @@ jobs:
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -489,6 +523,7 @@ jobs:
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -501,6 +536,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -526,6 +562,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -551,6 +588,7 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # hipblas builds
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -564,6 +602,7 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -576,6 +615,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -588,6 +628,7 @@ jobs:
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -600,6 +641,7 @@ jobs:
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -612,6 +654,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # ROCm additional backends
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -625,6 +668,7 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -637,6 +681,7 @@ jobs:
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -649,6 +694,7 @@ jobs:
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -661,7 +707,8 @@ jobs:
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
-          # sycl builds
+            ubuntu-version: '2204'
+            # sycl builds
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -674,6 +721,7 @@ jobs:
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -686,6 +734,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -698,6 +747,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -710,6 +760,7 @@ jobs:
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -722,6 +773,7 @@ jobs:
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -734,6 +786,7 @@ jobs:
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -746,6 +799,7 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # SYCL additional backends
           - build-type: 'intel'
             cuda-major-version: ""
@@ -759,6 +813,7 @@ jobs:
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -771,6 +826,7 @@ jobs:
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -783,6 +839,7 @@ jobs:
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -795,6 +852,7 @@ jobs:
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # piper
           - build-type: ''
             cuda-major-version: ""
@@ -808,6 +866,7 @@ jobs:
             backend: "piper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           # bark-cpp
           - build-type: ''
             cuda-major-version: ""
@@ -821,6 +880,7 @@ jobs:
             backend: "bark-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -833,6 +893,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -845,6 +906,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -857,6 +919,7 @@ jobs:
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
+            ubuntu-version: '2204'
           # Stablediffusion-ggml
           - build-type: ''
             cuda-major-version: ""
@@ -870,6 +933,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -882,6 +946,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -894,6 +959,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -906,6 +972,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -918,6 +985,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -930,6 +998,7 @@ jobs:
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           # whisper
           - build-type: ''
             cuda-major-version: ""
@@ -943,6 +1012,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -955,6 +1025,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -967,6 +1038,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -979,6 +1051,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -991,6 +1064,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1003,6 +1077,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1015,6 +1090,7 @@ jobs:
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           #silero-vad
           - build-type: ''
             cuda-major-version: ""
@@ -1028,6 +1104,7 @@ jobs:
             backend: "silero-vad"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           # local-store
           - build-type: ''
             cuda-major-version: ""
@@ -1041,6 +1118,7 @@ jobs:
             backend: "local-store"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           # huggingface
           - build-type: ''
             cuda-major-version: ""
@@ -1054,6 +1132,7 @@ jobs:
             backend: "huggingface"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
+            ubuntu-version: '2204'
           # rfdetr
           - build-type: ''
             cuda-major-version: ""
@@ -1067,6 +1146,7 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -1079,6 +1159,7 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1091,6 +1172,7 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1103,6 +1185,7 @@ jobs:
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # exllama2
           - build-type: ''
             cuda-major-version: ""
@@ -1116,6 +1199,7 @@ jobs:
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -1128,6 +1212,7 @@ jobs:
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1140,6 +1225,7 @@ jobs:
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1152,6 +1238,7 @@ jobs:
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1164,6 +1251,7 @@ jobs:
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # runs out of space on the runner
           # - build-type: 'hipblas'
           #   cuda-major-version: ""
@@ -1190,6 +1278,7 @@ jobs:
             backend: "kitten-tts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           # neutts
           - build-type: ''
             cuda-major-version: ""
@@ -1203,7 +1292,7 @@ jobs:
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
-
+            ubuntu-version: '2204'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1216,6 +1305,7 @@ jobs:
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1228,6 +1318,7 @@ jobs:
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./backend"
+            ubuntu-version: '2204'
   backend-jobs-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
     strategy:
