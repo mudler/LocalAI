@@ -365,6 +365,9 @@ backends/stablediffusion-ggml: docker-build-stablediffusion-ggml docker-save-sta
 backends/whisper: docker-build-whisper docker-save-whisper build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/whisper.tar)"
 
+backends/faster-whisper: docker-build-faster-whisper docker-save-faster-whisper build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/faster-whisper.tar)"
+
 backends/silero-vad: docker-build-silero-vad docker-save-silero-vad build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/silero-vad.tar)"
 
@@ -529,6 +532,9 @@ docker-save-whisper: backend-images
 
 docker-build-faster-whisper:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:faster-whisper -f backend/Dockerfile.python --build-arg BACKEND=faster-whisper .
+
+docker-save-faster-whisper:
+	docker save local-ai-backend:faster-whisper -o backend-images/faster-whisper.tar
 
 docker-build-coqui:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:coqui -f backend/Dockerfile.python --build-arg BACKEND=coqui .
