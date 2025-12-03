@@ -22,6 +22,7 @@ jobs:
       base-image: ${{ matrix.base-image }}
       grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
