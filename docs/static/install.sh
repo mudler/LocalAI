@@ -677,8 +677,8 @@ install_docker() {
 
         info "Checking Nvidia Kernel Drivers presence..."
         if ! available nvidia-smi; then
-          OS_NAME=$ID
-          OS_VERSION=$VERSION_ID
+            OS_NAME=$ID
+            OS_VERSION=$VERSION_ID
 
             case $OS_NAME in
                 debian|ubuntu) $SUDO apt-get -y install nvidia-cuda-toolkit;;
@@ -737,12 +737,12 @@ install_docker() {
 
         info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/models \
-                --restart=always \
-                -e MODELS_PATH=/models \
-                -e API_KEY=$API_KEY \
-                -e THREADS=$THREADS \
-                $envs \
-                -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
+            --restart=always \
+            -e MODELS_PATH=/models \
+            -e API_KEY=$API_KEY \
+            -e THREADS=$THREADS \
+            $envs \
+            -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     fi
 
     install_success
