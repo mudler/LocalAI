@@ -32,7 +32,7 @@ RUN apt-get update && \
         python3-venv make cmake && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
+    pip install --break-system-packages --user --upgrade pip
 
 
 # Cuda
