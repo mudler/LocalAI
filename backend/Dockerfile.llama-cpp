@@ -71,7 +71,7 @@ RUN apt-get update && \
         ca-certificates \
         make \
         curl unzip \
-        libssl-dev && \
+        libssl-dev wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
