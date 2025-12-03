@@ -40,8 +40,8 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
-            grpc-base-image: "ubuntu:22.04"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            grpc-base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             aio: "-aio-gpu-hipblas"
@@ -76,7 +76,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: ''
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
             makeflags: "--jobs=4 --output-sync=target"
@@ -101,7 +101,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-12"
@@ -123,7 +123,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-vulkan"
@@ -132,7 +132,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-gpu-intel'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
