@@ -14,6 +14,8 @@ UBUNTU_VERSION?=2204
 GORELEASER?=
 
 export BUILD_TYPE?=
+export CUDA_MAJOR_VERSION?=12
+export CUDA_MINOR_VERSION?=9
 
 GO_TAGS?=
 BUILD_ID?=
@@ -335,17 +337,17 @@ docker:
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
 		-t $(DOCKER_IMAGE) .
 
-docker-cuda11:
+docker-cuda12:
 	docker build \
-		--build-arg CUDA_MAJOR_VERSION=11 \
-		--build-arg CUDA_MINOR_VERSION=8 \
+		--build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+		--build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
-		-t $(DOCKER_IMAGE)-cuda-11 .
+		-t $(DOCKER_IMAGE)-cuda-12 .
 
 docker-aio:
 	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
