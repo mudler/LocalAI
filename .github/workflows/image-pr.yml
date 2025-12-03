@@ -42,7 +42,7 @@ jobs:
             tag-latest: 'false'
             tag-suffix: '-gpu-nvidia-cuda-12'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             makeflags: "--jobs=3 --output-sync=target"
             ubuntu-version: '2204'
           - build-type: 'cublas'
@@ -59,8 +59,8 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             tag-suffix: '-hipblas'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
-            grpc-base-image: "ubuntu:22.04"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+            grpc-base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             ubuntu-version: '2204'
@@ -68,7 +68,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'false'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
-            grpc-base-image: "ubuntu:22.04"
+            grpc-base-image: "ubuntu:24.04"
             tag-suffix: 'sycl'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
@@ -78,7 +78,7 @@ jobs:
             tag-latest: 'false'
             tag-suffix: '-vulkan-core'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             makeflags: "--jobs=4 --output-sync=target"
             ubuntu-version: '2204'
           - build-type: 'cublas'
