@@ -88,8 +88,7 @@ RUN <<EOT bash
                 libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         fi
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        echo "nvidia-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
+        rm -rf /var/lib/apt/lists/*
     fi
 EOT
 
