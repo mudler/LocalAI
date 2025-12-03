@@ -80,6 +80,7 @@ ENV PATH=/usr/local/cuda/bin:${PATH}
 # HipBLAS requirements
 ENV PATH=/opt/rocm/bin:${PATH}
 
+
 # Vulkan requirements
 RUN <<EOT bash
     if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
@@ -124,7 +125,7 @@ RUN <<EOT bash
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
             apt-get install -y --no-install-recommends \
-                libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
+                libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         fi
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
