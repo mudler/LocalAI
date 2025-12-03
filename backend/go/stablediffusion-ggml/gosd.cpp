@@ -163,7 +163,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
 
     const char *stableDiffusionModel = "";
     if (diff == 1 ) {
-        stableDiffusionModel = model;
+        stableDiffusionModel = strdup(model);
         model = "";
     }
 
@@ -193,8 +193,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     enum sd_type_t wtype = SD_TYPE_COUNT;
     enum rng_type_t rng_type = STD_DEFAULT_RNG;
     enum rng_type_t sampler_rng_type = RNG_TYPE_COUNT;
-    enum prediction_t prediction = PREDICTION_COUNT;
-    enum lora_apply_mode_t lora_apply_mode = LORA_APPLY_MODE_COUNT;
+    enum prediction_t prediction = DEFAULT_PRED;
+    enum lora_apply_mode_t lora_apply_mode = LORA_APPLY_AUTO;
     bool offload_params_to_cpu = false;
     bool keep_clip_on_cpu = false;
     bool keep_control_net_on_cpu = false;
@@ -206,7 +206,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     bool force_sdxl_vae_conv_scale = false;
     bool chroma_use_dit_mask = true;
     bool chroma_use_t5_mask = false;
-    int chroma_t5_mask_pad = 0;
+    int chroma_t5_mask_pad = 1;
     float flow_shift = INFINITY;
 
     fprintf(stderr, "parsing options: %p\n", options);
@@ -220,16 +220,16 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         }
 
         if (!strcmp(optname, "clip_l_path")) {
-            clip_l_path = optval;
+            clip_l_path = strdup(optval);
         }
         if (!strcmp(optname, "clip_g_path")) {
-            clip_g_path = optval;
+            clip_g_path = strdup(optval);
         }
         if (!strcmp(optname, "t5xxl_path")) {
-            t5xxl_path = optval;
+            t5xxl_path = strdup(optval);
         }
         if (!strcmp(optname, "vae_path")) {
-            vae_path = optval;
+            vae_path = strdup(optval);
         }
         if (!strcmp(optname, "scheduler")) {
             scheduler_str = optval;
@@ -244,26 +244,24 @@ int load_model(const char *model, char *model_path, char* options[], int threads
                 std::filesystem::path lora_path(optval);
                 std::filesystem::path full_lora_path = model_path_str / lora_path;
                 lora_dir = strdup(full_lora_path.string().c_str());
-                lora_dir_allocated = true;
                 fprintf(stderr, "Lora dir resolved to: %s\n", lora_dir);
             } else {
                 lora_dir = strdup(optval);
-                lora_dir_allocated = true;
                 fprintf(stderr, "No model path provided, using lora dir as-is: %s\n", lora_dir);
             }
         }
 
         // New parsing
-        if (!strcmp(optname, "clip_vision_path")) clip_vision_path = optval;
-        if (!strcmp(optname, "llm_path")) llm_path = optval;
-        if (!strcmp(optname, "llm_vision_path")) llm_vision_path = optval;
-        if (!strcmp(optname, "diffusion_model_path")) diffusion_model_path = optval;
-        if (!strcmp(optname, "high_noise_diffusion_model_path")) high_noise_diffusion_model_path = optval;
-        if (!strcmp(optname, "taesd_path")) taesd_path = optval;
-        if (!strcmp(optname, "control_net_path")) control_net_path = optval;
-        if (!strcmp(optname, "embedding_dir")) embedding_dir = optval;
-        if (!strcmp(optname, "photo_maker_path")) photo_maker_path = optval;
-        if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = optval;
+        if (!strcmp(optname, "clip_vision_path")) clip_vision_path = strdup(optval);
+        if (!strcmp(optname, "llm_path")) llm_path = strdup(optval);
+        if (!strcmp(optname, "llm_vision_path")) llm_vision_path = strdup(optval);
+        if (!strcmp(optname, "diffusion_model_path")) diffusion_model_path = strdup(optval);
+        if (!strcmp(optname, "high_noise_diffusion_model_path")) high_noise_diffusion_model_path = strdup(optval);
+        if (!strcmp(optname, "taesd_path")) taesd_path = strdup(optval);
+        if (!strcmp(optname, "control_net_path")) control_net_path = strdup(optval);
+        if (!strcmp(optname, "embedding_dir")) embedding_dir = strdup(optval);
+        if (!strcmp(optname, "photo_maker_path")) photo_maker_path = strdup(optval);
+        if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = strdup(optval);
 
         if (!strcmp(optname, "vae_decode_only")) vae_decode_only = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "free_params_immediately")) free_params_immediately = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
@@ -407,10 +405,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
 
     if (sd_ctx == NULL) {
         fprintf (stderr, "failed loading model (generic error)\n");
-        // Clean up allocated memory
-        if (lora_dir_allocated && lora_dir) {
-            free(lora_dir);
-        }
+        // TODO: Clean up allocated memory
         return 1;
     }
     fprintf (stderr, "Created context: OK\n");
@@ -440,11 +435,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     }
 
     sd_c = sd_ctx;
-
-    // Clean up allocated memory
-    if (lora_dir_allocated && lora_dir) {
-        free(lora_dir);
-    }
 
     return 0;
 }
@@ -491,7 +481,7 @@ void sd_img_gen_params_set_seed(sd_img_gen_params_t *params, int64_t seed) {
     params->seed = seed;
 }
 
-int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char **ref_images, int ref_images_count) {
+int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, char *src_image, float strength, char *mask_image, char* ref_images[], int ref_images_count) {
 
     sd_image_t* results;
 
@@ -719,10 +709,10 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     for (auto buffer : ref_image_buffers) {
         if (buffer) free(buffer);
     }
-    fprintf (stderr, "gen_image is done: %s", dst);
+    fprintf (stderr, "gen_image is done: %s\n", dst);
     fflush(stderr);
 
-    return 0;
+    return !ret;
 }
 
 int unload() {
