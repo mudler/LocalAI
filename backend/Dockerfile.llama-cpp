@@ -20,7 +20,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates \
         build-essential curl libssl-dev \
-        git && \
+        git wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -62,6 +62,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
 ARG TARGETVARIANT
 ARG GO_VERSION=1.22.6
+ARG UBUNTU_VERSION=2204
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -125,12 +126,13 @@ RUN <<EOT bash
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
             apt-get install -y --no-install-recommends \
-                libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         fi
         apt-get clean && \
         rm -rf /var/lib/apt/lists/*
     fi
 EOT
+
 
 # https://github.com/NVIDIA/Isaac-GR00T/issues/343
 RUN <<EOT bash
