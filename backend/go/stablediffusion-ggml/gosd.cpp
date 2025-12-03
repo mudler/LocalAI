@@ -185,10 +185,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     const char *photo_maker_path = "";
     const char *tensor_type_rules = "";
     char *lora_dir = model_path;
-    bool lora_dir_allocated = false;
 
     bool vae_decode_only = true;
-    bool free_params_immediately = true;
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
     enum rng_type_t rng_type = STD_DEFAULT_RNG;
@@ -264,7 +262,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         if (!strcmp(optname, "tensor_type_rules")) tensor_type_rules = strdup(optval);
 
         if (!strcmp(optname, "vae_decode_only")) vae_decode_only = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
-        if (!strcmp(optname, "free_params_immediately")) free_params_immediately = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "offload_params_to_cpu")) offload_params_to_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_clip_on_cpu")) keep_clip_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
         if (!strcmp(optname, "keep_control_net_on_cpu")) keep_control_net_on_cpu = (strcmp(optval, "true") == 0 || strcmp(optval, "1") == 0);
@@ -381,7 +378,8 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.photo_maker_path = photo_maker_path;
     ctx_params.tensor_type_rules = tensor_type_rules;
     ctx_params.vae_decode_only = vae_decode_only;
-    ctx_params.free_params_immediately = free_params_immediately;
+    // XXX: Setting to true causes a segfault on the second run
+    ctx_params.free_params_immediately = false;
     ctx_params.n_threads = n_threads;
     ctx_params.rng_type = rng_type;
     ctx_params.keep_clip_on_cpu = keep_clip_on_cpu;
