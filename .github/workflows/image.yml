@@ -84,7 +84,7 @@ jobs:
             ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12'
@@ -153,7 +153,7 @@ jobs:
         include:
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64'

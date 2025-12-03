@@ -42,7 +42,7 @@ jobs:
           # CUDA 11 builds
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-diffusers'
@@ -81,7 +81,7 @@ jobs:
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vibevoice'
@@ -107,7 +107,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
@@ -120,7 +120,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
@@ -133,7 +133,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
@@ -146,7 +146,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
@@ -159,7 +159,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
@@ -172,7 +172,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
@@ -185,7 +185,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
@@ -198,7 +198,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
@@ -211,7 +211,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
@@ -722,7 +722,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-vibevoice'
@@ -855,7 +855,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -895,7 +895,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
@@ -946,7 +946,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -973,7 +973,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisper'
@@ -1024,7 +1024,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -1106,7 +1106,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
@@ -1158,7 +1158,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
@@ -1196,7 +1196,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
@@ -1250,7 +1250,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-neutts'
@@ -1275,7 +1275,7 @@ jobs:
             ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             skip-drivers: 'true'
             tag-latest: 'auto'
