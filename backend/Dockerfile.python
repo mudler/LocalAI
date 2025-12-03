@@ -31,8 +31,15 @@ RUN apt-get update && \
         python3-dev llvm \
         python3-venv make cmake && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
+    rm -rf /var/lib/apt/lists/*
+
+RUN <<EOT bash
+    if [ "${UBUNTU_VERSION}" = "2404" ]; then
+        pip install --break-system-packages --user --upgrade pip
+    else
+        pip install --upgrade pip
+    fi
+EOT
 
 
 # Cuda
