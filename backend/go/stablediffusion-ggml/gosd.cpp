@@ -703,9 +703,12 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
     fprintf (stderr, "Channel: %d\n", results[0].channel);
     fprintf (stderr, "Data: %p\n", results[0].data);
 
-    stbi_write_png(dst, results[0].width, results[0].height, results[0].channel,
-                       results[0].data, 0, NULL);
-    fprintf (stderr, "Saved resulting image to '%s'\n", dst);
+    int ret = stbi_write_png(dst, results[0].width, results[0].height, results[0].channel,
+                             results[0].data, 0, NULL);
+    if (ret)
+      fprintf (stderr, "Saved resulting image to '%s'\n", dst);
+    else
+      fprintf(stderr, "Failed to write image to '%s'\n", dst);
 
     // Clean up
     free(results[0].data);
@@ -717,6 +720,7 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
         if (buffer) free(buffer);
     }
     fprintf (stderr, "gen_image is done: %s", dst);
+    fflush(stderr);
 
     return 0;
 }
