@@ -635,6 +635,13 @@ install_docker() {
         $SUDO systemctl start docker
     fi
 
+    # Avoid problem on older docker versions
+    DOCKER_VERSION=`docker version --format '{{.Server.Version}}' | sed 's/^\([0-9]*\(\.[0-9]*\)\).*/\1/'`
+    CONTAINER_PRIVILEGES=
+    if expr $DOCKER_VERSION '<' 20.10 >/dev/null ; then
+        CONTAINER_PRIVILEGES="--privileged=true"
+    fi
+
     info "Creating LocalAI Docker volume..."
     # Create volume if doesn't exist already
     if ! $SUDO docker volume inspect local-ai-data > /dev/null 2>&1; then
@@ -663,6 +670,7 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -690,6 +698,7 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/models \
             --gpus all \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -707,6 +716,7 @@ install_docker() {
             --device /dev/kfd \
             --group-add=video \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -722,6 +732,7 @@ install_docker() {
         $SUDO docker run -v local-ai-data:/models \
             --device /dev/dri \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
             $envs \
@@ -738,6 +749,7 @@ install_docker() {
         info "Starting LocalAI Docker container..."
         $SUDO docker run -v local-ai-data:/models \
             --restart=always \
+            ${CONTAINER_PRIVILEGES} \
             -e MODELS_PATH=/models \
             -e API_KEY=$API_KEY \
             -e THREADS=$THREADS \
