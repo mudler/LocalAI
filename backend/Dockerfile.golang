@@ -162,6 +162,8 @@ EOT
 
 COPY . /LocalAI
 
+RUN git config --global --add safe.directory /LocalAI
+
 RUN cd /LocalAI && make protogen-go && make -C /LocalAI/backend/go/${BACKEND} build
 
 FROM scratch
