@@ -174,9 +174,9 @@ RUN <<EOT bash
 EOT
 
 
-COPY python/${BACKEND} /${BACKEND}
-COPY backend.proto /${BACKEND}/backend.proto
-COPY python/common/ /${BACKEND}/common
+COPY backend/python/${BACKEND} /${BACKEND}
+COPY backend/backend.proto /${BACKEND}/backend.proto
+COPY backend/python/common/ /${BACKEND}/common
 
 RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
 
