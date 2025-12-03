@@ -169,7 +169,8 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-cuda-13'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
+            ubuntu-version: '2404'
