@@ -13,6 +13,8 @@ CUDA_MINOR_VERSION?=0
 GORELEASER?=
 
 export BUILD_TYPE?=
+export CUDA_MAJOR_VERSION?=12
+export CUDA_MINOR_VERSION?=9
 
 GO_TAGS?=
 BUILD_ID?=
@@ -180,7 +182,7 @@ prepare-e2e:
 	mkdir -p $(TEST_DIR)
 	cp -rfv $(abspath ./tests/e2e-fixtures)/gpu.yaml $(TEST_DIR)/gpu.yaml
 	test -e $(TEST_DIR)/ggllm-test-model.bin || wget -q https://huggingface.co/TheBloke/CodeLlama-7B-Instruct-GGUF/resolve/main/codellama-7b-instruct.Q2_K.gguf -O $(TEST_DIR)/ggllm-test-model.bin
-	docker build --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=12 --build-arg CUDA_MINOR_VERSION=0 -t localai-tests .
+	docker build --build-arg IMAGE_TYPE=core --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t localai-tests .
 
 run-e2e-image:
 	ls -liah $(abspath ./tests/e2e-fixtures)
@@ -313,16 +315,16 @@ docker:
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		-t $(DOCKER_IMAGE) .
 
-docker-cuda11:
+docker-cuda12:
 	docker build \
-		--build-arg CUDA_MAJOR_VERSION=11 \
-		--build-arg CUDA_MINOR_VERSION=8 \
+		--build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+		--build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
-		-t $(DOCKER_IMAGE)-cuda-11 .
+		-t $(DOCKER_IMAGE)-cuda-12 .
 
 docker-aio:
 	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
@@ -427,25 +429,25 @@ backend-images:
 	mkdir -p backend-images
 
 docker-build-llama-cpp:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:llama-cpp -f backend/Dockerfile.llama-cpp .
 
 docker-build-bark-cpp:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:bark-cpp -f backend/Dockerfile.golang --build-arg BACKEND=bark-cpp .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:bark-cpp -f backend/Dockerfile.golang --build-arg BACKEND=bark-cpp .
 
 docker-build-piper:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:piper -f backend/Dockerfile.golang --build-arg BACKEND=piper .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:piper -f backend/Dockerfile.golang --build-arg BACKEND=piper .
 
 docker-build-local-store:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:local-store -f backend/Dockerfile.golang --build-arg BACKEND=local-store .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:local-store -f backend/Dockerfile.golang --build-arg BACKEND=local-store .
 
 docker-build-huggingface:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:huggingface -f backend/Dockerfile.golang --build-arg BACKEND=huggingface .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:huggingface -f backend/Dockerfile.golang --build-arg BACKEND=huggingface .
 
 docker-build-rfdetr:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:rfdetr -f backend/Dockerfile.python --build-arg BACKEND=rfdetr .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:rfdetr -f backend/Dockerfile.python --build-arg BACKEND=rfdetr .
 
 docker-build-kitten-tts:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:kitten-tts -f backend/Dockerfile.python --build-arg BACKEND=kitten-tts .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:kitten-tts -f backend/Dockerfile.python --build-arg BACKEND=kitten-tts .
 
 docker-save-kitten-tts: backend-images
 	docker save local-ai-backend:kitten-tts -o backend-images/kitten-tts.tar
@@ -457,13 +459,13 @@ docker-save-vibevoice: backend-images
 	docker save local-ai-backend:vibevoice -o backend-images/vibevoice.tar
 
 docker-build-neutts:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:neutts -f backend/Dockerfile.python --build-arg BACKEND=neutts .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:neutts -f backend/Dockerfile.python --build-arg BACKEND=neutts .
 
 docker-save-neutts: backend-images
 	docker save local-ai-backend:neutts -o backend-images/neutts.tar
 
 docker-build-kokoro:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
 
 docker-build-vllm:
 	docker build --build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) --build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:vllm -f backend/Dockerfile.python --build-arg BACKEND=vllm ./backend
@@ -484,7 +486,7 @@ docker-save-local-store: backend-images
 	docker save local-ai-backend:local-store -o backend-images/local-store.tar
 
 docker-build-silero-vad:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:silero-vad -f backend/Dockerfile.golang --build-arg BACKEND=silero-vad .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:silero-vad -f backend/Dockerfile.golang --build-arg BACKEND=silero-vad .
 
 docker-save-silero-vad: backend-images
 	docker save local-ai-backend:silero-vad -o backend-images/silero-vad.tar
@@ -505,40 +507,43 @@ docker-save-stablediffusion-ggml: backend-images
 	docker save local-ai-backend:stablediffusion-ggml -o backend-images/stablediffusion-ggml.tar
 
 docker-build-rerankers:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:rerankers -f backend/Dockerfile.python --build-arg BACKEND=rerankers .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:rerankers -f backend/Dockerfile.python --build-arg BACKEND=rerankers .
+
+docker-build-vllm:
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:vllm -f backend/Dockerfile.python --build-arg BACKEND=vllm .
 
 docker-build-transformers:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:transformers -f backend/Dockerfile.python --build-arg BACKEND=transformers .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:transformers -f backend/Dockerfile.python --build-arg BACKEND=transformers .
 
 docker-build-diffusers:
-	docker build --progress=plain --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:diffusers -f backend/Dockerfile.python --build-arg BACKEND=diffusers .
+	docker build --progress=plain --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:diffusers -f backend/Dockerfile.python --build-arg BACKEND=diffusers .
 
 docker-save-diffusers: backend-images
 	docker save local-ai-backend:diffusers -o backend-images/diffusers.tar
 
 docker-build-whisper:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:whisper -f backend/Dockerfile.golang --build-arg BACKEND=whisper  .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:whisper -f backend/Dockerfile.golang --build-arg BACKEND=whisper  .
 
 docker-save-whisper: backend-images
 	docker save local-ai-backend:whisper -o backend-images/whisper.tar
 
 docker-build-faster-whisper:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:faster-whisper -f backend/Dockerfile.python --build-arg BACKEND=faster-whisper .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:faster-whisper -f backend/Dockerfile.python --build-arg BACKEND=faster-whisper .
 
 docker-build-coqui:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:coqui -f backend/Dockerfile.python --build-arg BACKEND=coqui .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:coqui -f backend/Dockerfile.python --build-arg BACKEND=coqui .
 
 docker-build-bark:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:bark -f backend/Dockerfile.python --build-arg BACKEND=bark .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:bark -f backend/Dockerfile.python --build-arg BACKEND=bark .
 
 docker-build-chatterbox:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox .
 
 docker-build-vibevoice:
 	docker build --progress=plain --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:vibevoice -f backend/Dockerfile.python --build-arg BACKEND=vibevoice ./backend
 
 docker-build-exllama2:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .
+	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .
 
 docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2
 
