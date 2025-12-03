@@ -25,6 +25,7 @@ go-bert
 # LocalAI build binary
 LocalAI
 /local-ai
+/local-ai-launcher
 # prevent above rules from omitting the helm chart
 !charts/*
 # prevent above rules from omitting the api/localai folder
