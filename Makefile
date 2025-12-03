@@ -299,7 +299,7 @@ test-extra: prepare-test-extra
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
 IMAGE_TYPE?=core
-BASE_IMAGE?=ubuntu:22.04
+BASE_IMAGE?=ubuntu:24.04
 
 docker:
 	docker build \
