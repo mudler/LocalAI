@@ -1211,6 +1211,8 @@ public:
             }
 
             tasks.reserve(inputs.size());
+            std::vector<task_result_state> states;
+            states.reserve(inputs.size());
             for (size_t i = 0; i < inputs.size(); i++) {
                 server_task task = server_task(type);
 
@@ -1229,9 +1231,13 @@ public:
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
+                // Extract oaicompat_chat_syntax for state tracking before moving task
+                states.push_back(task.params.oaicompat_chat_syntax);
+
                 tasks.push_back(std::move(task));
             }
 
+            rd->set_states(std::move(states));
             rd->post_tasks(std::move(tasks));
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
@@ -1946,6 +1952,8 @@ public:
             }
 
             tasks.reserve(inputs.size());
+            std::vector<task_result_state> states;
+            states.reserve(inputs.size());
             for (size_t i = 0; i < inputs.size(); i++) {
                 server_task task = server_task(type);
 
@@ -1964,9 +1972,13 @@ public:
                 task.params.oaicompat_cmpl_id         = completion_id;
                 // oaicompat_model is already populated by params_from_json_cmpl
 
+                // Extract oaicompat_chat_syntax for state tracking before moving task
+                states.push_back(task.params.oaicompat_chat_syntax);
+
                 tasks.push_back(std::move(task));
             }
 
+            rd->set_states(std::move(states));
             rd->post_tasks(std::move(tasks));
         } catch (const std::exception & e) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, e.what());
