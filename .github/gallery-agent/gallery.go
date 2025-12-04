@@ -5,10 +5,37 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/ghodss/yaml"
+	"github.com/mudler/LocalAI/core/gallery/importers"
 )
+
+func formatTextContent(text string) string {
+	var formattedLines []string
+	lines := strings.Split(text, "\n")
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			// Keep empty lines as empty (no indentation)
+			formattedLines = append(formattedLines, "")
+		} else {
+			// Add indentation to non-empty lines
+			formattedLines = append(formattedLines, "    "+line)
+		}
+	}
+	formattedText := strings.Join(formattedLines, "\n")
+	// Remove any trailing spaces from the formatted description
+	formattedText = strings.TrimRight(formattedText, " \t")
+	return formattedText
+}
 
 // generateYAMLEntry generates a YAML entry for a model using the specified anchor
 func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
+
+	modelConfig, err := importers.DiscoverModelConfig("https://huggingface.co/"+model.ModelID, nil)
+	if err != nil {
+		panic(err)
+	}
+
 	// Extract model name from ModelID
 	parts := strings.Split(model.ModelID, "/")
 	modelName := model.ModelID
@@ -22,18 +49,6 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 	modelName = strings.ReplaceAll(modelName, "-q3_k_m", "")
 	modelName = strings.ReplaceAll(modelName, "-q2_k", "")
 
-	fileName := ""
-	checksum := ""
-	if model.PreferredModelFile != nil {
-		fileParts := strings.Split(model.PreferredModelFile.Path, "/")
-		if len(fileParts) > 0 {
-			fileName = fileParts[len(fileParts)-1]
-		}
-		checksum = model.PreferredModelFile.SHA256
-	} else {
-		fileName = model.ModelID
-	}
-
 	description := model.ReadmeContent
 	if description == "" {
 		description = fmt.Sprintf("AI model: %s", modelName)
@@ -41,66 +56,33 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
 
 	// Clean up description to prevent YAML linting issues
 	description = cleanTextContent(description)
+	formattedDescription := formatTextContent(description)
 
-	// Format description for YAML (indent each line and ensure no trailing spaces)
-	lines := strings.Split(description, "\n")
-	var formattedLines []string
-	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			// Keep empty lines as empty (no indentation)
-			formattedLines = append(formattedLines, "")
-		} else {
-			// Add indentation to non-empty lines
-			formattedLines = append(formattedLines, "    "+line)
-		}
-	}
-	formattedDescription := strings.Join(formattedLines, "\n")
-	// Remove any trailing spaces from the formatted description
-	formattedDescription = strings.TrimRight(formattedDescription, " \t")
+	configFile := formatTextContent(modelConfig.ConfigFile)
+
+	filesYAML, _ := yaml.Marshal(modelConfig.Files)
+
+	files := formatTextContent(string(filesYAML))
+
 	yamlTemplate := ""
-	if checksum != "" {
-		yamlTemplate = `- !!merge <<: *%s
+	yamlTemplate = `- !!merge <<: *%s
   name: "%s"
   urls:
     - https://huggingface.co/%s
   description: |
 %s
   overrides:
-    parameters:
-      model: %s
+%s
   files:
-    - filename: %s
-      sha256: %s
-      uri: huggingface://%s/%s`
-		return fmt.Sprintf(yamlTemplate,
-			familyAnchor,
-			modelName,
-			model.ModelID,
-			formattedDescription,
-			fileName,
-			fileName,
-			checksum,
-			model.ModelID,
-			fileName,
-		)
-	} else {
-		yamlTemplate = `- !!merge <<: *%s
-  name: "%s"
-  urls:
-    - https://huggingface.co/%s
-  description: |
-%s
-  overrides:
-    parameters:
-      model: %s`
-		return fmt.Sprintf(yamlTemplate,
-			familyAnchor,
-			modelName,
-			model.ModelID,
-			formattedDescription,
-			fileName,
-		)
-	}
+%s`
+	return fmt.Sprintf(yamlTemplate,
+		familyAnchor,
+		modelName,
+		model.ModelID,
+		formattedDescription,
+		configFile,
+		files,
+	)
 }
 
 // extractModelFamilies extracts all YAML anchors from the gallery index.yaml file
