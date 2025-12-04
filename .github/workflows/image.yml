@@ -27,6 +27,7 @@ jobs:
       grpc-base-image: ${{ matrix.grpc-base-image }}
       aio: ${{ matrix.aio }}
       makeflags: ${{ matrix.makeflags }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -44,6 +45,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             aio: "-aio-gpu-hipblas"
+            ubuntu-version: '2204'
 
   core-image-build:
     uses: ./.github/workflows/image_build.yml
@@ -60,6 +62,7 @@ jobs:
       grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
       skip-drivers: ${{ matrix.skip-drivers }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -78,6 +81,7 @@ jobs:
             aio: "-aio-cpu"
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "11"
             cuda-minor-version: "7"
@@ -89,6 +93,7 @@ jobs:
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
             aio: "-aio-gpu-nvidia-cuda-11"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -100,6 +105,7 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-12"
+            ubuntu-version: '2204'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -111,6 +117,7 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-13"
+            ubuntu-version: '2204'
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -120,6 +127,7 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-vulkan"
+            ubuntu-version: '2204'
           - build-type: 'intel'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -129,6 +137,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             aio: "-aio-gpu-intel"
+            ubuntu-version: '2204'
 
   gh-runner:
     uses: ./.github/workflows/image_build.yml
@@ -145,6 +154,7 @@ jobs:
       grpc-base-image: ${{ matrix.grpc-base-image }}
       makeflags: ${{ matrix.makeflags }}
       skip-drivers: ${{ matrix.skip-drivers }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -163,13 +173,15 @@ jobs:
             runs-on: 'ubuntu-24.04-arm'
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'true'
+            ubuntu-version: "2204"
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-cuda-13'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             makeflags: "--jobs=4 --output-sync=target"
-            skip-drivers: 'true'
+            skip-drivers: 'false'
+            ubuntu-version: '2404'

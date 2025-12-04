@@ -970,6 +970,9 @@ parameters:
 		})
 
 		It("returns logprobs in chat completions when requested", func() {
+			if runtime.GOOS != "linux" {
+				Skip("test only on linux")
+			}
 			topLogprobsVal := 3
 			response, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{
 				Model:       "testmodel.ggml",
@@ -1027,6 +1030,9 @@ parameters:
 		})
 
 		It("applies logit_bias to chat completions when requested", func() {
+			if runtime.GOOS != "linux" {
+				Skip("test only on linux")
+			}
 			// logit_bias is a map of token IDs (as strings) to bias values (-100 to 100)
 			// According to OpenAI API: modifies the likelihood of specified tokens appearing in the completion
 			logitBias := map[string]int{

@@ -1,5 +1,5 @@
 ---
-name: 'build python backend container images (reusable)'
+name: 'build backend container images (reusable)'
 
 on:
   workflow_call:
@@ -52,6 +52,11 @@ on:
       skip-drivers:
         description: 'Skip drivers'
         default: 'false'
+        type: string
+      ubuntu-version:
+        description: 'Ubuntu version'
+        required: false
+        default: '2204'
         type: string
     secrets:
       dockerUsername:
@@ -208,6 +213,7 @@ jobs:
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
@@ -228,6 +234,7 @@ jobs:
             CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
             BASE_IMAGE=${{ inputs.base-image }}
             BACKEND=${{ inputs.backend }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
           context: ${{ inputs.context }}
           file: ${{ inputs.dockerfile }}
           cache-from: type=gha
