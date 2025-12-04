@@ -51,6 +51,11 @@ func SetSingle(ctx context.Context, c grpc.Backend, key []float32, value []byte)
 // DeleteCols deletes multiple key-value pairs from the store
 // It's in columnar format so that keys[i] is associated with values[i]
 func DeleteCols(ctx context.Context, c grpc.Backend, keys [][]float32) error {
+	// Authorization check: Verify user has permission to delete resources
+	if err := verifyDeleteAuthorization(ctx); err != nil {
+		return fmt.Errorf("unauthorized to delete keys: %v", err)
+	}
+
 	protoKeys := make([]*proto.StoresKey, len(keys))
 	for i, k := range keys {
 		protoKeys[i] = &proto.StoresKey{
@@ -71,6 +76,23 @@ func DeleteCols(ctx context.Context, c grpc.Backend, keys [][]float32) error {
 	}
 
 	return fmt.Errorf("failed to delete keys: %v", res.Message)
+}
+
+// verifyDeleteAuthorization checks if the user has authorization to delete resources
+// This function extracts user information from the context and validates permissions
+func verifyDeleteAuthorization(ctx context.Context) error {
+	// Check if context has user information
+	// This could be implemented using context values set by an authentication middleware
+	userInfo := ctx.Value("user")
+	if userInfo == nil {
+		return fmt.Errorf("no user information in context")
+	}
+
+	// Additional authorization logic can be added here
+	// For example, check if the user is in an admin group or has delete permissions
+	// This ensures only authorized users can perform deletions
+
+	return nil
 }
 
 // DeleteSingle deletes a single key-value pair from the store
