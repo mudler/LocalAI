@@ -55,7 +55,7 @@ jobs:
           MAX_MODELS: ${{ github.event.inputs.max_models || '1' }}
         run: |
           export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
-          go run .github/gallery-agent
+          go run ./.github/gallery-agent
 
       - name: Check for changes
         id: check_changes
