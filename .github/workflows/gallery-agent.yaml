@@ -38,13 +38,17 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-
+      - uses: mudler/localai-github-action@v1
+        with:
+          model: 'qwen3-1.7b'
 
       - name: Run gallery agent
         env:
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          #OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          OPENAI_MODE: qwen3-1.7b
+          OPENAI_BASE_URL: "http://localhost:8080"
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          #OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           SEARCH_TERM: ${{ github.event.inputs.search_term || 'GGUF' }}
           LIMIT: ${{ github.event.inputs.limit || '15' }}
           QUANTIZATION: ${{ github.event.inputs.quantization || 'Q4_K_M' }}
