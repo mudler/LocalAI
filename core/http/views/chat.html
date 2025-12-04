@@ -1126,29 +1126,29 @@ SOFTWARE.
                 
                 <!-- Tool calls (collapsible) -->
                 <template x-if="message.role === 'tool_call'">
-                  <div class="flex items-start space-x-2 mb-1">
-                    <div class="flex flex-col flex-1">
-                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-text-secondary)] border border-[var(--color-accent-border)]/30">
+                  <div class="flex items-start space-x-2 mb-1 min-w-0">
+                    <div class="flex flex-col flex-1 min-w-0">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-accent)]/10 text-[var(--color-text-secondary)] border border-[var(--color-accent-border)]/30 min-w-0">
                         <button 
                           @click="message.expanded = !message.expanded"
-                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-accent)]/20 rounded p-2 transition-colors"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-accent)]/20 rounded p-2 transition-colors min-w-0"
                         >
-                          <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-wrench text-[var(--color-accent)]"></i>
-                            <span class="text-xs font-semibold text-[var(--color-accent)]">Tool Call</span>
-                            <span class="text-xs text-[var(--color-text-secondary)]" x-text="getToolName(message.content)"></span>
+                          <div class="flex items-center space-x-2 min-w-0 flex-1">
+                            <i class="fa-solid fa-wrench text-[var(--color-accent)] flex-shrink-0"></i>
+                            <span class="text-xs font-semibold text-[var(--color-accent)] flex-shrink-0">Tool Call</span>
+                            <span class="text-xs text-[var(--color-text-secondary)] truncate min-w-0" x-text="getToolName(message.content)"></span>
                           </div>
                           <i 
-                            class="fa-solid text-[var(--color-accent)] transition-transform text-xs"
+                            class="fa-solid text-[var(--color-accent)] transition-transform text-xs flex-shrink-0"
                             :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
                           ></i>
                         </button>
                         <div 
                           x-show="message.expanded"
                           x-transition
-                          class="mt-2 pt-2 border-t border-[var(--color-accent-border)]/20"
+                          class="mt-2 pt-2 border-t border-[var(--color-accent-border)]/20 min-w-0"
                         >
-                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-auto tool-call-content" 
+                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-x-auto overflow-y-auto tool-call-content w-full min-w-0" 
                                x-html="message.html"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -1159,29 +1159,29 @@ SOFTWARE.
                 
                 <!-- Tool results (collapsible) -->
                 <template x-if="message.role === 'tool_result'">
-                  <div class="flex items-start space-x-2 mb-1">
-                    <div class="flex flex-col flex-1">
-                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-success)]/10 text-[var(--color-text-secondary)] border border-[var(--color-success)]/30">
+                  <div class="flex items-start space-x-2 mb-1 min-w-0">
+                    <div class="flex flex-col flex-1 min-w-0">
+                      <div class="p-2 flex-1 rounded-lg bg-[var(--color-success)]/10 text-[var(--color-text-secondary)] border border-[var(--color-success)]/30 min-w-0">
                         <button 
                           @click="message.expanded = !message.expanded"
-                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-success)]/20 rounded p-2 transition-colors"
+                          class="w-full flex items-center justify-between text-left hover:bg-[var(--color-success)]/20 rounded p-2 transition-colors min-w-0"
                         >
-                          <div class="flex items-center space-x-2">
-                            <i class="fa-solid fa-check-circle text-[var(--color-success)]"></i>
-                            <span class="text-xs font-semibold text-[var(--color-success)]">Tool Result</span>
-                            <span class="text-xs text-[var(--color-text-secondary)]" x-text="getToolName(message.content) || 'Success'"></span>
+                          <div class="flex items-center space-x-2 min-w-0 flex-1">
+                            <i class="fa-solid fa-check-circle text-[var(--color-success)] flex-shrink-0"></i>
+                            <span class="text-xs font-semibold text-[var(--color-success)] flex-shrink-0">Tool Result</span>
+                            <span class="text-xs text-[var(--color-text-secondary)] truncate min-w-0" x-text="getToolName(message.content) || 'Success'"></span>
                           </div>
                           <i 
-                            class="fa-solid text-[var(--color-success)] transition-transform text-xs"
+                            class="fa-solid text-[var(--color-success)] transition-transform text-xs flex-shrink-0"
                             :class="message.expanded ? 'fa-chevron-up' : 'fa-chevron-down'"
                           ></i>
                         </button>
                         <div 
                           x-show="message.expanded"
                           x-transition
-                          class="mt-2 pt-2 border-t border-[var(--color-success)]/20"
+                          class="mt-2 pt-2 border-t border-[var(--color-success)]/20 min-w-0"
                         >
-                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-auto tool-result-content" 
+                          <div class="text-[var(--color-text-primary)] text-xs max-h-96 overflow-x-auto overflow-y-auto tool-result-content w-full min-w-0" 
                                x-html="formatToolResult(message.content)"
                                x-effect="if (message.expanded && window.hljs) { setTimeout(() => { $el.querySelectorAll('pre code.language-json').forEach(block => { if (!block.classList.contains('hljs')) window.hljs.highlightElement(block); }); }, 50); }"></div>
                         </div>
@@ -1741,10 +1741,12 @@ SOFTWARE.
     .tool-call-content,
     .tool-result-content {
         max-width: 100%;
+        width: 100%;
         overflow-x: auto;
         overflow-y: auto;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        box-sizing: border-box;
     }
 
     .tool-call-content pre,
@@ -1752,6 +1754,7 @@ SOFTWARE.
         overflow-x: auto;
         overflow-y: auto;
         max-width: 100%;
+        width: 100%;
         word-wrap: break-word;
         overflow-wrap: break-word;
         white-space: pre;
@@ -1760,6 +1763,7 @@ SOFTWARE.
         border-radius: 6px;
         padding: 12px;
         margin: 0;
+        box-sizing: border-box;
     }
 
     .tool-call-content code,
@@ -1774,6 +1778,16 @@ SOFTWARE.
         line-height: 1.5;
         display: block;
         max-width: 100%;
+        width: 100%;
+        overflow-x: auto;
+        box-sizing: border-box;
+    }
+    
+    /* Ensure parent containers don't overflow */
+    .tool-call-content > *,
+    .tool-result-content > * {
+        max-width: 100%;
+        box-sizing: border-box;
     }
     
     /* Prevent overflow in assistant messages with code/markdown */
