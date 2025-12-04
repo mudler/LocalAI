@@ -146,7 +146,14 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Install grpcio-tools (the version in 22.04 is too old)
-RUN pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
+RUN <<EOT bash
+    if [ "${UBUNTU_VERSION}" = "2404" ]; then
+        pip install --break-system-packages --user grpcio-tools==1.71.0 grpcio==1.71.0
+    else
+        pip install grpcio-tools==1.71.0 grpcio==1.71.0
+    fi
+EOT
+
 
 COPY python/${BACKEND} /${BACKEND}
 COPY backend.proto /${BACKEND}/backend.proto
