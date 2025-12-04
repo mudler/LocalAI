@@ -21085,10 +21085,7 @@
   name: Z-Image-Turbo
   icon: https://z-image.ai/logo.png
   license: apache-2.0
-  description: |
-    Z-Image is a powerful and highly efficient image generation model with 6B parameters. Currently there are three variants of which this is the Turbo edition.
-
-    🚀 Z-Image-Turbo – A distilled version of Z-Image that matches or exceeds leading competitors with only 8 NFEs (Number of Function Evaluations). It offers ⚡️sub-second inference latency⚡️ on enterprise-grade H800 GPUs and fits comfortably within 16G VRAM consumer devices. It excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.
+  description: "Z-Image is a powerful and highly efficient image generation model with 6B parameters. Currently there are three variants of which this is the Turbo edition.\n\n\U0001F680 Z-Image-Turbo – A distilled version of Z-Image that matches or exceeds leading competitors with only 8 NFEs (Number of Function Evaluations). It offers ⚡️sub-second inference latency⚡️ on enterprise-grade H800 GPUs and fits comfortably within 16G VRAM consumer devices. It excels in photorealistic image generation, bilingual text rendering (English & Chinese), and robust instruction adherence.\n"
   urls:
     - https://github.com/Tongyi-MAI/Z-Image
   tags:
@@ -21101,12 +21098,11 @@
       sha256: a37931937683a723ae737a0c6fc67dab7782fd8a1b9dea2ca445b7a1dbd5ca3a
       uri: huggingface://MaziyarPanahi/Qwen3-4B-GGUF/Qwen3-4B.Q4_K_M.gguf
     - filename: z_image_turbo-Q4_0.gguf
-      sha256: 14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd
       uri: https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_0.gguf
+      sha256: 2bc57986874c84f7ec6d02d9d7070a53b0029954a0e38a6e1342eb91095572f5
     - filename: ae.safetensors
       sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
       uri: https://huggingface.co/ChuckMcSneed/FLUX.1-dev/resolve/main/ae.safetensors
-
 - &whisper
   url: "github:mudler/LocalAI/gallery/whisper-base.yaml@master" ## Whisper
   name: "whisper-1"
