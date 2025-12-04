@@ -551,9 +551,11 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
 
         # create a dictionary of values for the parameters
         options = {
-            "negative_prompt": request.negative_prompt,
             "num_inference_steps": steps,
         }
+
+        if hasattr(request, 'negative_prompt') and request.negative_prompt != "":
+            options["negative_prompt"] = request.negative_prompt
 
         # Handle image source: prioritize RefImages over request.src
         image_src = None
@@ -578,17 +580,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         if CLIPSKIP and self.clip_skip != 0:
             options["clip_skip"] = self.clip_skip
 
-        # Get the keys that we will build the args for our pipe for
-        keys = options.keys()
-
-        if request.EnableParameters != "":
-            keys = [key.strip() for key in request.EnableParameters.split(",")]
-
-        if request.EnableParameters == "none":
-            keys = []
-
-        # create a dictionary of parameters by using the keys from EnableParameters and the values from defaults
-        kwargs = {key: options.get(key) for key in keys if key in options}
+        kwargs = {}
 
         # populate kwargs from self.options.
         kwargs.update(self.options)
