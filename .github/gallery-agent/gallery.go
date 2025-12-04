@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -29,9 +30,8 @@ func formatTextContent(text string) string {
 }
 
 // generateYAMLEntry generates a YAML entry for a model using the specified anchor
-func generateYAMLEntry(model ProcessedModel, familyAnchor string) string {
-
-	modelConfig, err := importers.DiscoverModelConfig("https://huggingface.co/"+model.ModelID, nil)
+func generateYAMLEntry(model ProcessedModel, familyAnchor string, quantization string) string {
+	modelConfig, err := importers.DiscoverModelConfig("https://huggingface.co/"+model.ModelID, json.RawMessage(`{ "quantization": "`+quantization+`"}`))
 	if err != nil {
 		panic(err)
 	}
@@ -120,7 +120,7 @@ func extractModelFamilies() ([]ModelFamily, error) {
 }
 
 // generateYAMLForModels generates YAML entries for selected models and appends to index.yaml
-func generateYAMLForModels(ctx context.Context, models []ProcessedModel) error {
+func generateYAMLForModels(ctx context.Context, models []ProcessedModel, quantization string) error {
 	// Extract available model families
 	families, err := extractModelFamilies()
 	if err != nil {
@@ -151,7 +151,7 @@ func generateYAMLForModels(ctx context.Context, models []ProcessedModel) error {
 		fmt.Printf("Selected family '%s' for model %s\n", familyAnchor, model.ModelID)
 
 		// Generate YAML entry
-		yamlEntry := generateYAMLEntry(model, familyAnchor)
+		yamlEntry := generateYAMLEntry(model, familyAnchor, quantization)
 		yamlEntries = append(yamlEntries, yamlEntry)
 	}
 
