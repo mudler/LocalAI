@@ -83,42 +83,47 @@ const char* lora_apply_mode_str[] = {
 };
 static_assert(std::size(lora_apply_mode_str) == LORA_APPLY_MODE_COUNT, "lora apply mode mismatch");
 
-const char* sd_type_str[] = {
-    [0] = "f32",
-    [1] = "f16",
-    [2] = "q4_0",
-    [3] = "q4_1",
-    [6] = "q5_0",
-    [7] = "q5_1",
-    [8] = "q8_0",
-    [9] = "q8_1",
-    [10] = "q2_k",
-    [11] = "q3_k",
-    [12] = "q4_k",
-    [13] = "q5_k",
-    [14] = "q6_k",
-    [15] = "q8_k",
-    [16] = "iq2_xxs",
-    [17] = "iq2_xs",
-    [18] = "iq3_xxs",
-    [19] = "iq1_s",
-    [20] = "iq4_nl",
-    [21] = "iq3_s",
-    [22] = "iq2_s",
-    [23] = "iq4_xs",
-    [24] = "i8",
-    [25] = "i16",
-    [26] = "i32",
-    [27] = "i64",
-    [28] = "f64",
-    [29] = "iq1_m",
-    [30] = "bf16",
-    [34] = "tq1_0",
-    [35] = "tq2_0",
-    [39] = "mxfp4",
+constexpr const char* sd_type_str[] = {
+    "f32",      // 0
+    "f16",      // 1
+    "q4_0",     // 2
+    "q4_1",     // 3
+    nullptr,    // 4
+    nullptr,    // 5
+    "q5_0",     // 6
+    "q5_1",     // 7
+    "q8_0",     // 8
+    "q8_1",     // 9
+    "q2_k",     // 10
+    "q3_k",     // 11
+    "q4_k",     // 12
+    "q5_k",     // 13
+    "q6_k",     // 14
+    "q8_k",     // 15
+    "iq2_xxs",  // 16
+    "iq2_xs",   // 17
+    "iq3_xxs",  // 18
+    "iq1_s",    // 19
+    "iq4_nl",   // 20
+    "iq3_s",    // 21
+    "iq2_s",    // 22
+    "iq4_xs",   // 23
+    "i8",       // 24
+    "i16",      // 25
+    "i32",      // 26
+    "i64",      // 27
+    "f64",      // 28
+    "iq1_m",    // 29
+    "bf16",     // 30
+    nullptr, nullptr, nullptr, nullptr,  // 31-34
+    "tq1_0",    // 35
+    "tq2_0",    // 36
+    nullptr, nullptr,           // 37-38
+    "mxfp4"     // 39
 };
 static_assert(std::size(sd_type_str) == SD_TYPE_COUNT, "sd type mismatch");
 
+sd_ctx_params_t ctx_params;
 sd_ctx_t* sd_c;
 // Moved from the context (load time) to generation time params
 scheduler_t scheduler = SCHEDULER_COUNT;
@@ -189,7 +194,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     bool vae_decode_only = true;
     int n_threads = threads;
     enum sd_type_t wtype = SD_TYPE_COUNT;
-    enum rng_type_t rng_type = STD_DEFAULT_RNG;
+    enum rng_type_t rng_type = CUDA_RNG;
     enum rng_type_t sampler_rng_type = RNG_TYPE_COUNT;
     enum prediction_t prediction = DEFAULT_PRED;
     enum lora_apply_mode_t lora_apply_mode = LORA_APPLY_AUTO;
@@ -359,7 +364,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     fprintf(stderr, "parsed options\n");
 
     fprintf (stderr, "Creating context\n");
-    sd_ctx_params_t ctx_params;
     sd_ctx_params_init(&ctx_params);
     ctx_params.model_path = model;
     ctx_params.clip_l_path = clip_l_path;
@@ -462,6 +466,9 @@ sd_tiling_params_t* sd_img_gen_params_get_vae_tiling_params(sd_img_gen_params_t 
 sd_img_gen_params_t* sd_img_gen_params_new(void) {
     sd_img_gen_params_t *params = (sd_img_gen_params_t *)std::malloc(sizeof(sd_img_gen_params_t));
     sd_img_gen_params_init(params);
+    sd_sample_params_init(&params->sample_params);
+    sd_easycache_params_init(&params->easycache);
+    params->control_strength = 0.9f;
     return params;
 }
 
@@ -658,6 +665,10 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
             fprintf(stderr, "Using %zu reference images\n", ref_images_vec.size());
         }
     }
+
+    fprintf(stderr, "Generating image with params: \nctx\n---\n%s\ngen\n---\n%s\n",
+            sd_ctx_params_to_str(&ctx_params),
+            sd_img_gen_params_to_str(p));
 
     results = generate_image(sd_c, p);
 
