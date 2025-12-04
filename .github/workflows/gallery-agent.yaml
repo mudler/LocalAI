@@ -38,7 +38,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-      - uses: mudler/localai-github-action@v1
+      - uses: mudler/localai-github-action@v1.1
         with:
           model: 'qwen3-1.7b'
 
