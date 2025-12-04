@@ -22,7 +22,7 @@ RUN apt-get update && \
         espeak-ng \
         curl \
         libssl-dev \
-        git \
+        git wget \
         git-lfs \
         unzip clang \
         upx-ucl \
@@ -31,8 +31,15 @@ RUN apt-get update && \
         python3-dev llvm \
         python3-venv make cmake && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    pip install --upgrade pip
+    rm -rf /var/lib/apt/lists/*
+
+RUN <<EOT bash
+    if [ "${UBUNTU_VERSION}" = "2404" ]; then
+        pip install --break-system-packages --user --upgrade pip
+    else
+        pip install --upgrade pip
+    fi
+EOT
 
 
 # Cuda
@@ -85,13 +92,13 @@ RUN <<EOT bash
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
             apt-get install -y --no-install-recommends \
-                libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
+            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         fi
         apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        echo "nvidia-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
+        rm -rf /var/lib/apt/lists/*
     fi
 EOT
+
 
 # https://github.com/NVIDIA/Isaac-GR00T/issues/343
 RUN <<EOT bash
@@ -139,7 +146,14 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Install grpcio-tools (the version in 22.04 is too old)
-RUN pip install --user grpcio-tools==1.71.0 grpcio==1.71.0
+RUN <<EOT bash
+    if [ "${UBUNTU_VERSION}" = "2404" ]; then
+        pip install --break-system-packages --user grpcio-tools==1.71.0 grpcio==1.71.0
+    else
+        pip install grpcio-tools==1.71.0 grpcio==1.71.0
+    fi
+EOT
+
 
 COPY python/${BACKEND} /${BACKEND}
 COPY backend.proto /${BACKEND}/backend.proto
