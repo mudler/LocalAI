@@ -21099,7 +21099,7 @@
       uri: huggingface://MaziyarPanahi/Qwen3-4B-GGUF/Qwen3-4B.Q4_K_M.gguf
     - filename: z_image_turbo-Q4_0.gguf
       uri: https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_K.gguf
-      sha256: 2bc57986874c84f7ec6d02d9d7070a53b0029954a0e38a6e1342eb91095572f5
+      sha256: 14b375ab4f226bc5378f68f37e899ef3c2242b8541e61e2bc1aff40976086fbd
     - filename: ae.safetensors
       sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
       uri: https://huggingface.co/ChuckMcSneed/FLUX.1-dev/resolve/main/ae.safetensors
