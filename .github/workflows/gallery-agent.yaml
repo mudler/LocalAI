@@ -49,12 +49,12 @@ jobs:
           PATH="$PATH:$HOME/go/bin" make protogen-go
       - uses: mudler/localai-github-action@v1.1
         with:
-          model: 'qwen3-1.7b'
+          model: 'qwen3-4b'
 
       - name: Run gallery agent
         env:
           #OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
-          OPENAI_MODE: qwen3-1.7b
+          OPENAI_MODE: qwen3-4b
           OPENAI_BASE_URL: "http://localhost:8080"
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
           #OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
