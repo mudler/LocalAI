@@ -23139,3 +23139,43 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "huihui-ministral-3-8b-reasoning-2512-abliterated"
+  urls:
+    - https://huggingface.co/mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model to share in a model gallery. Let me start by recalling the information from the previous interaction.
+
+    The model is called Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF. The base model is huihui-ai/Huihui-Ministral-3-8B-Reasoning-2512-abliterated. The license is Apache-2.0, and it's quantized with various options. The tags include mistral-common, abliterated, uncensored. The usage notes mention GGUF files and the provided quants.
+
+    I need to summarize this into a concise description. Start with the name and base model. Mention the quantization details, like the quantize_version and the available quantized types. Highlight the key features: 8B parameter count, reasoning capabilities, and the quantized versions. Also, note the license and the tags. Make sure to mention the size of the model and the supported languages. Include the GGUF files and the different quantization options. Avoid technical jargon but be specific about the quantized types. Check if the user needs more details or if they want it more polished. Since they asked for a clear description, keep it straightforward but informative.
+    </think>
+
+    **Model Description:**
+    The Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF is an 8B-parameter model optimized for reasoning capabilities, with quantized versions (e.g., Q8_0, Q4_K_S, Q6_K) for efficient deployment. Licensed under Apache-2.0, it supports multiple languages (en, fr, es, de, it, pt, nl, zh, ja, ko, ar) and includes tags like `mistral-common`, `abliterated`, and `uncensored`. It offers GGUF files with varying quantization levels, prioritizing fast inference (e.g., Q8_0) and balanced accuracy (e.g., Q4_K_S). The model is designed for reasoning tasks with a focus on performance and scalability.
+  overrides:
+    parameters:
+      model: Huihui-Ministral-3-8B-Reasoning-2512-abliterated.Q4_K_M.gguf
+    name: Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: mmproj/Huihui-Ministral-3-8B-Reasoning-2512-abliterated.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: Huihui-Ministral-3-8B-Reasoning-2512-abliterated.Q4_K_M.gguf
+      sha256: 0b41d5945565e7ab70808c4cafc9469577f0054c44a1e11daddb8567fd96467a
+      uri: https://huggingface.co/mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF/resolve/main/Huihui-Ministral-3-8B-Reasoning-2512-abliterated.Q4_K_M.gguf
+    - filename: mmproj/Huihui-Ministral-3-8B-Reasoning-2512-abliterated.mmproj-f16.gguf
+      sha256: 3e6af4da3e55fa7496a255b08e2a521d71c717ddb550f896b102cf6dd22e796a
+      uri: https://huggingface.co/mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF/resolve/main/Huihui-Ministral-3-8B-Reasoning-2512-abliterated.mmproj-f16.gguf
+

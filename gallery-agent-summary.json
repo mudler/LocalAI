@@ -1,0 +1,13 @@
+{
+  "search_term": "GGUF",
+  "total_found": 15,
+  "models_added": 1,
+  "added_model_ids": [
+    "mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF"
+  ],
+  "added_model_urls": [
+    "https://huggingface.co/mradermacher/Huihui-Ministral-3-8B-Reasoning-2512-abliterated-GGUF"
+  ],
+  "quantization": "Q4_K_M",
+  "processing_time": "57m12.566431749s"
+}
