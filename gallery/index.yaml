@@ -21098,7 +21098,7 @@
       sha256: a37931937683a723ae737a0c6fc67dab7782fd8a1b9dea2ca445b7a1dbd5ca3a
       uri: huggingface://MaziyarPanahi/Qwen3-4B-GGUF/Qwen3-4B.Q4_K_M.gguf
     - filename: z_image_turbo-Q4_0.gguf
-      uri: https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_0.gguf
+      uri: https://huggingface.co/leejet/Z-Image-Turbo-GGUF/resolve/main/z_image_turbo-Q4_K.gguf
       sha256: 2bc57986874c84f7ec6d02d9d7070a53b0029954a0e38a6e1342eb91095572f5
     - filename: ae.safetensors
       sha256: afc8e28272cd15db3919bacdb6918ce9c1ed22e96cb12c4d5ed0fba823529e38
