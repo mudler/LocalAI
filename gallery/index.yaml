@@ -23139,3 +23139,56 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "mistralai.mistral-large-3-675b-instruct-2512"
+  urls:
+    - https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model for a model gallery. The repository given is DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF, which is a quantized version of the original Mistral-Large-3-675B-Instruct-2512 model.
+
+    First, I need to figure out the base model. The readme mentions that the quantized version is based on mistralai/Mistral-Large-3-675B-Instruct-2512. So the original model is from Mistral AI. The quantized version is probably smaller in size, which is why it's suitable for deployment on devices with limited resources.
+
+    The model is likely a large language model with a 3.675B parameter count, which is quite substantial. The "Instruct" part suggests it's fine-tuned for instruction-following tasks. The 2512 might refer to the number of training steps or some other metric, but I'm not sure. Maybe it's the version number or a specific training parameter.
+
+    The model's capabilities would include text generation, reasoning, and possibly some code-related tasks since Mistral models often have that capability. The quantized version is experimental and requires a specific llama.cpp build, so it's not the original model but a variant optimized for efficiency.
+
+    I should mention that this is a quantized version, so it's smaller but still powerful. Highlight the base model's parameters and the fact that it's instruct-finetuned. Also, note that it's suitable for applications needing large language models with a balance between performance and resource efficiency.
+
+    Need to avoid technical jargon but keep it informative. Make sure to clarify that it's a quantized version and not the original, so users know it's a different model but based on the same architecture. Also, mention the experimental nature and the required dependencies if relevant.
+    </think>
+
+    The model in question is a **quantized version** of the original **Mistral-Large-3-675B-Instruct-2512** by Mistral AI, optimized for efficiency. While the quantized version is smaller and suitable for deployment on resource-constrained systems, it is based on the original large-scale language model, which is fine-tuned for instruction-following tasks.
+
+    Key features include:
+    - **3.675B parameters** (original base model).
+    - Fine-tuned for instruction comprehension and reasoning.
+    - Experimental, requiring specific llama.cpp dependencies for compatibility.
+    - Suitable for applications needing large language models with a balance between performance and resource efficiency.
+
+    Note: This is not the original model but a quantized variant, ideal for scenarios where size and speed are critical.
+  overrides:
+    parameters:
+      model: mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0-00051-of-00051.gguf
+    name: mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: mmproj/mmproj-mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0.gguf
+    description: Imported from https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: mmproj/mmproj-mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0.gguf
+      sha256: 75e70d7cd716ae1e091bccfb7adc58f4859e7a756f6218348ea9d8b4eb7b0d7d
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mmproj-mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0-00051-of-00051.gguf
+      sha256: 9ad0ffdbeb2972dadf6e76826a4744d78f9cfe9d699e3e0db38d7add9044a3a1
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0-00051-of-00051.gguf
+
