@@ -23139,3 +23139,126 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "mistralai.mistral-large-3-675b-instruct-2512"
+  urls:
+    - https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model for a model gallery. Let me look at the information provided.
+
+    The repository is DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF. The readme mentions it's a quantized version of the base model mistralai/Mistral-Large-3-675B-Instruct-2512. The base model is a large language model with 3.675B parameters, instruct fine-tuned, and has 2512 layers. The pipeline tag is image-text-to-text, so it's probably multimodal. The readme also says it's experimental and needs a specific llama.cpp build. There's a Ko-fi link, but that's probably not relevant for the description.
+
+    I need to focus on the model's specifications. The key points are the base model's size (3.675B parameters), the instruction tuning, the number of layers (2512), and the pipeline capability. Also, note that this is a quantized version, so it's a smaller, optimized version of the base model. But the user wants the real description, so I should refer to the base model's details. The experimental note and the llama.cpp requirement might be important to mention for context, but maybe not in the gallery description. The model is likely designed for tasks involving both images and text, so highlighting that could be useful. Need to make sure the description is concise but informative, avoiding technical jargon but still precise. Also, mention that it's a quantized version of the original, but the base model is the one from Hugging Face. Make sure to highlight the key features like parameter count, training, and pipeline type. Avoid any mention of the experimental status unless necessary, but since it's a quantized version, maybe that's part of the description. Alright, putting it all together now.
+    </think>
+
+    The model described here is a **quantized version** of the **Mistral-Large-3-675B-Instruct-2512** base model from Hugging Face. It is a large language model with **3.675 billion parameters** and **2512 layers**, fine-tuned for instruction-following tasks. While this version is optimized for efficiency (quantized), it is based on the original model's architecture and training data. The model supports **image-text-to-text** pipelines, making it suitable for multimodal applications. Note that it requires a specific llama.cpp build for use. For the original, unquantized model, refer to the base repository: [mistralai/Mistral-Large-3-675B-Instruct-2512](https://huggingface.co/mistralai/Mistral-Large-3-675B-Instruct-2512).
+  overrides:
+    parameters:
+      model: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00001-of-00029.gguf
+    name: mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: mmproj/mmproj-mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0.gguf
+    description: Imported from https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00001-of-00029.gguf
+      sha256: c396fc14589fa5a3477533f783dab0724383a67a16f8b665a5f4cef3173bff5f
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00001-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00002-of-00029.gguf
+      sha256: 67376e2e6dae0c3aaca5aad9b7aa29f7b755a1d333e27f9848d342e04e2c23ab
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00002-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00003-of-00029.gguf
+      sha256: 8c2b3cee73a868acc229e0addfab49cb1e3c445ad67c87a6436c2ca5a2545e7d
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00003-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00004-of-00029.gguf
+      sha256: b54d2f70c31f25924e54b8f873ca856934cad9f69da01ecfd49c7aed093b5cac
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00004-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00005-of-00029.gguf
+      sha256: 99fdeeaf1ae6038504cace1c3b068ed1245991af89b06754f6c5e6481c082610
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00005-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00006-of-00029.gguf
+      sha256: f689f74aeb3ba4ce0125e85f72703fc2683978f351830a4efb884214a5b34ecd
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00006-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00007-of-00029.gguf
+      sha256: d92313c33477b38faf4903c781724dc2989812b2e36d1bd2e19902be7d32690d
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00007-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00008-of-00029.gguf
+      sha256: bac8fd5529d4ad3b50a45ee5c5ca9f30236fe2457da2eb70c3d29e6d46e12dac
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00008-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00009-of-00029.gguf
+      sha256: ec710e77c5fa7c9ee8296e4edf33057354e7fb19b45b77cac1ca1a938aee80e7
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00009-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00010-of-00029.gguf
+      sha256: 8966aa08de0c30403ecc8dc8cb905735c1fd525009fdd3cff9e230131e5e6edb
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00010-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00011-of-00029.gguf
+      sha256: 80c86eb6d096b7945ad13cc2d7861b657b1a133ba444060e7f624bdb95458862
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00011-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00012-of-00029.gguf
+      sha256: cacdb8e7d3273d111ec75c69be9d1ff23acc5640bf943ae78ad192e073cdc6b5
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00012-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00013-of-00029.gguf
+      sha256: 89a8e7dd5e5c1a65b83b0187763135c152cff2379a4ada508a591b2dbc2d1b07
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00013-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00014-of-00029.gguf
+      sha256: 2abbeaa0164094e2ce73f5d237e1569cd69e0d8788c31e21b60d0795f7a482fc
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00014-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00015-of-00029.gguf
+      sha256: 6154ab901cc43c4735839ca44572865885742eb695b373da3f5126b2599cb78f
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00015-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00016-of-00029.gguf
+      sha256: dc3c8bad9ccb3f830b884968e5f2060b693e5ac565e6643971f3963d0baafaa1
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00016-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00017-of-00029.gguf
+      sha256: cf31fd6c858b56fe4aed8a88d30034a725c2b691950bf669424da4c940c2a945
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00017-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00018-of-00029.gguf
+      sha256: 628290189dcc3182b6e4eccfff1c6ab7652e6978a8559adbd402a24e91dc0998
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00018-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00019-of-00029.gguf
+      sha256: e765d11e81033073711ad1d43f243fd3b5ee66e151fd8764d90606110bf0ad6a
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00019-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00020-of-00029.gguf
+      sha256: 8fce9ca99db3ecf544f7b27b3e32a3a11448bfb171793a433b0f4967716801d0
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00020-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00021-of-00029.gguf
+      sha256: 997aa0b4c0777e9e69f010a51a1632dc0cc5a2f4bf5577445e601c12cd8c7ffb
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00021-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00022-of-00029.gguf
+      sha256: e81207604e037cc209fefd01c0813d68cea4eb6c74d20139d2f8af4ade61844c
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00022-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00023-of-00029.gguf
+      sha256: f52bde47494c82b4e9cfddf880b5745f547542ab6212a3cbdac4e18237383dc8
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00023-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00024-of-00029.gguf
+      sha256: fe2146d9ddf25ad22dc3d3e9c42037de8190993c9e26e98d9d59fb00af7cf083
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00024-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00025-of-00029.gguf
+      sha256: 5358c2e9821a2cf39a979e0dd9a1bab9a82c572ca07501b7d31f4615f2ba8a31
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00025-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00026-of-00029.gguf
+      sha256: de2d13e38cc82471e906f8b163646924183b70fef2b9db90244ea9324a79d725
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00026-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00027-of-00029.gguf
+      sha256: 5ff0b3e76204ec6dd030b6940dab8398abb51725126e816f1765693d0ebb7b3e
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00027-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00028-of-00029.gguf
+      sha256: f92ffb50376a915a21ef95378e442565dc1cc84fd23644d575a9cd4716e4372f
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00028-of-00029.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00029-of-00029.gguf
+      sha256: a03e2d346e135cb5b0d4cdbb25ac99870bb34b85838fce6d4e9e85adcaf3763f
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q4_K_M-00029-of-00029.gguf
+    - filename: mmproj/mmproj-mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0.gguf
+      sha256: 75e70d7cd716ae1e091bccfb7adc58f4859e7a756f6218348ea9d8b4eb7b0d7d
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mmproj-mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0.gguf
+

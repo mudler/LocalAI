@@ -1,0 +1,13 @@
+{
+  "search_term": "GGUF",
+  "total_found": 15,
+  "models_added": 1,
+  "added_model_ids": [
+    "DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF"
+  ],
+  "added_model_urls": [
+    "https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF"
+  ],
+  "quantization": "Q4_K_M",
+  "processing_time": "1h43m57.121225441s"
+}
