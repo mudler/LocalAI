@@ -89,7 +89,7 @@ func RegisterUIRoutes(app *echo.Echo,
 	})
 
 	// P2P
-	app.GET("/p2p/", func(c echo.Context) error {
+	app.GET("/p2p", func(c echo.Context) error {
 		summary := map[string]interface{}{
 			"Title":   "LocalAI - P2P dashboard",
 			"BaseURL": middleware.BaseURL(c),
@@ -115,7 +115,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		registerBackendGalleryRoutes(app, appConfig, galleryService, processingOps)
 	}
 
-	app.GET("/talk/", func(c echo.Context) error {
+	app.GET("/talk", func(c echo.Context) error {
 		modelConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
 
 		if len(modelConfigs) == 0 {
@@ -136,7 +136,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		return c.Render(200, "views/talk", summary)
 	})
 
-	app.GET("/chat/", func(c echo.Context) error {
+	app.GET("/chat", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
@@ -236,7 +236,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		return c.Render(200, "views/text2image", summary)
 	})
 
-	app.GET("/text2image/", func(c echo.Context) error {
+	app.GET("/text2image", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
@@ -286,7 +286,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		return c.Render(200, "views/tts", summary)
 	})
 
-	app.GET("/tts/", func(c echo.Context) error {
+	app.GET("/tts", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
