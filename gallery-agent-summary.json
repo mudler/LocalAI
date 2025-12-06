@@ -1,0 +1,13 @@
+{
+  "search_term": "GGUF",
+  "total_found": 15,
+  "models_added": 1,
+  "added_model_ids": [
+    "mradermacher/heretic_xLAM-2-1b-fc-r-GGUF"
+  ],
+  "added_model_urls": [
+    "https://huggingface.co/mradermacher/heretic_xLAM-2-1b-fc-r-GGUF"
+  ],
+  "quantization": "Q4_K_M",
+  "processing_time": "2h43m55.184676356s"
+}
