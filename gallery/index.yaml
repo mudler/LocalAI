@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "heretic_xlam-2-1b-fc-r"
+  urls:
+    - https://huggingface.co/mradermacher/heretic_xLAM-2-1b-fc-r-GGUF
+  description: |
+    AI model: heretic_xlam-2-1b-fc-r
+  overrides:
+    parameters:
+      model: heretic_xLAM-2-1b-fc-r.Q4_K_M.gguf
+    name: heretic_xLAM-2-1b-fc-r-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/heretic_xLAM-2-1b-fc-r-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: heretic_xLAM-2-1b-fc-r.Q4_K_M.gguf
+      sha256: 11faa3657a92163f7ac06458dc8e15aa356419142dfadf616a5029867d528368
+      uri: https://huggingface.co/mradermacher/heretic_xLAM-2-1b-fc-r-GGUF/resolve/main/heretic_xLAM-2-1b-fc-r.Q4_K_M.gguf
+
