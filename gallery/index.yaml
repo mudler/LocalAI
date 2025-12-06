@@ -23139,3 +23139,44 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "mistralai.mistral-large-3-675b-instruct-2512"
+  urls:
+    - https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model for a model gallery. Let me start by looking at the information provided.
+
+    The repository is DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF. The readme mentions it's a quantized version of the original model, which is mistralai/Mistral-Large-3-675B-Instruct-2512. So the base model is the original, and this is a quantized version.
+
+    The user wants the real description, not the quantized one. The readme also has a pipeline tag for image-text-to-text, which is important. The logo and the "Make knowledge free for everyone" message are there, but maybe not necessary for the description.
+
+    I need to highlight that this is a quantized version, but the original model is the one from Hugging Face. The key points should be the model name, the original author, the size (3-675B parameters), the instruction tuning, and the pipeline capability. Also, mention that it's a quantized version but based on the original. Make sure it's concise and suitable for a gallery. Avoid technical jargon but keep it informative. Check if the parameters are correct. The original model is Mistral-Large-3-675B-Instruct-2512, so the quantized version is based on that. The pipeline tag is image-text-to-text, so that's a key feature. Need to present that clearly. Also, note that it's from DevQuasar but the original is by Mistral AI. Make sure the description is accurate and not misleading. Alright, putting it all together now.
+    </think>
+
+    The model in question is a **quantized version** of the original **Mistral-Large-3-675B-Instruct-2512** by Mistral AI. While this repository provides a compressed version for efficiency, it is based on the full-parameter base model. The quantized version retains the original model's instruction-tuned capabilities, offering strong performance in text generation and reasoning tasks. It is optimized for faster inference while maintaining the core functionality of the original model. The repository includes a pipeline for **image-text-to-text** tasks, making it suitable for multimodal applications. Always note that this is a **quantized variant**, not the original unquantized model.
+  overrides:
+    parameters:
+      model: mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0-00042-of-00051.gguf
+    name: mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: mmproj/mmproj--mistralai.Mistral-Large-3-675B-Instruct-2512.f16.gguf
+    description: Imported from https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: mmproj/mmproj--mistralai.Mistral-Large-3-675B-Instruct-2512.f16.gguf
+      sha256: bdba1717bcb74fab7d45ea037b6f9b59c7cbee35533e5185e1eaf4460210f299
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mmproj--mistralai.Mistral-Large-3-675B-Instruct-2512.f16.gguf
+    - filename: mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0-00042-of-00051.gguf
+      sha256: a9ac283b11f9a723c80522a75a1990fb8e7ae4bcae88daa198656840555f1520
+      uri: https://huggingface.co/DevQuasar/mistralai.Mistral-Large-3-675B-Instruct-2512-GGUF/resolve/main/mistralai.Mistral-Large-3-675B-Instruct-2512.Q8_0-00042-of-00051.gguf
+
