@@ -23139,3 +23139,46 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "mincoder-4b-exp-i1"
+  urls:
+    - https://huggingface.co/mradermacher/MinCoder-4B-Exp-i1-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model for a model gallery. Let me start by looking at the information provided.
+
+    First, the repository in question is mradermacher/MinCoder-4B-Exp-i1-GGUF. The readme mentions that the base model is beyoru/MinCoder-4B-Exp, which is quantized. The user wants the real description of the original model, not the quantized one. So I need to check the base model's readme.
+
+    Looking at the base model's readme, it's from beyoru/MinCoder-4B-Exp. The description there says it's a fine-tuned version of Qwen3-4B-Instruct using a custom RL framework that rewards passing test cases. The model is experimental and focuses on algorithmic problem-solving through test-case-based rewards.
+
+    Now, the user's task is to present this information in a way suitable for a model gallery. The description should be concise, highlight key features, and be engaging. I need to make sure to mention the base model, the training method, the purpose, and the experimental nature. Also, include the image link if relevant, but since the user might not have access, maybe just mention the image is available.
+
+    Avoid technical jargon but keep it informative. Make sure to note that it's a fine-tuned model with a focus on reasoning and problem-solving. Also, mention the license and framework if necessary, but the user didn't ask for that. The main points are the model's purpose, training method, and experimental status.
+
+    Check if there's any other important info. The model is for algorithmic problem-solving, similar to LeetCode. Highlight that it's trained with rewards from test cases, not labeled data. Emphasize the generalization and reasoning abilities.
+
+    So, putting it all together: Start with the model name, mention it's a fine-tuned version of Qwen3, explain the training method, its purpose, and note that it's experimental. Keep it brief but informative.
+    </think>
+
+    The **MinCoder-4B-Exp** model is a fine-tuned version of the Qwen3-4B-Instruct base model, optimized for algorithmic problem-solving. Trained using a custom reinforcement learning framework, it learns to generate solutions by rewarding progress in passing automated test cases—similar to programming task evaluations on LeetCode. This approach enhances its reasoning and generalization capabilities for algorithmic challenges. While experimental, it demonstrates strong potential for tasks requiring logical reasoning and code-generation skills.
+  overrides:
+    parameters:
+      model: MinCoder-4B-Exp.i1-Q4_K_M.gguf
+    name: MinCoder-4B-Exp-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MinCoder-4B-Exp-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: MinCoder-4B-Exp.i1-Q4_K_M.gguf
+      sha256: 4bfd3cdaec8340b73c5e13b497815ef09f44df8a221b0c80b8c92432b88f8b73
+      uri: https://huggingface.co/mradermacher/MinCoder-4B-Exp-i1-GGUF/resolve/main/MinCoder-4B-Exp.i1-Q4_K_M.gguf
+
