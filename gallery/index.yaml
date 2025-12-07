@@ -23139,3 +23139,42 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "ministral-3-14b-delerp-0.9-instruct"
+  urls:
+    - https://huggingface.co/mradermacher/Ministral-3-14B-DeLERP-0.9-Instruct-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model for a model gallery. Let me start by looking at the information provided.
+
+    First, the repository in question is mradermacher/Ministral-3-14B-DeLERP-0.9-Instruct-GGUF. The readme mentions that it's a quantized version of the base model rpDungeon/Ministral-3-14B-DeLERP-0.9-Instruct. The base model is likely the original, so I need to focus on that.
+
+    The user mentioned that the current repository is quantized, so the description should highlight that it's a quantized version of the base model. The base model's readme wasn't accessible, but the quantized one has details about the quantization types and sizes. The provided quants include Q2_K, Q3_K_S, Q4_K_S, etc., with sizes ranging from 5.3GB to 14.5GB. The Q4_K_S and Q4_K_M are recommended for speed, while Q6_K offers higher quality.
+
+    The model is likely a large language model, given the name "Ministral-3-14B," which suggests it's a 14B parameter model. The "DeLERP-0.9-Instruct" part might indicate it's a variant with specific training or optimization techniques. The GGUF format is mentioned, so it's important to note that it's a GGUF file, which is a format used for quantized models.
+
+    The user wants a description that can be shared in a model gallery, so it needs to be concise but informative. I should mention the base model, the quantization details, the available quantization types, their sizes, and the recommended ones. Also, include the GGUF format and the original model's repository if possible. Make sure to highlight the key points like parameters, quantization types, and the purpose of the model (instructed model for tasks like text generation).
+    </think>
+
+    The model **Ministral-3-14B-DeLERP-0.9-Instruct** is a large language model based on the **rpDungeon/Ministral-3-14B-DeLERP-0.9-Instruct** base model, quantized into multiple formats for efficiency. It is designed for instruction-following tasks and supports various quantization types (e.g., Q2_K, Q4_K_S, Q6_K) with sizes ranging from 5.3GB to 14.5GB. The **Q4_K_S** and **Q4_K_M** variants are recommended for faster inference, while **Q6_K** offers higher quality at 11.2GB. The GGUF format enables compatibility with tools optimized for quantized models. This model is suitable for applications requiring balanced performance and memory efficiency.
+  overrides:
+    parameters:
+      model: Ministral-3-14B-DeLERP-0.9-Instruct.Q4_K_M.gguf
+    name: Ministral-3-14B-DeLERP-0.9-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Ministral-3-14B-DeLERP-0.9-Instruct-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: Ministral-3-14B-DeLERP-0.9-Instruct.Q4_K_M.gguf
+      sha256: 1ee8a34af475d4bb1cdf272126a450a4e3f74b4d6adf6ade7ebed31c1a33f2f4
+      uri: https://huggingface.co/mradermacher/Ministral-3-14B-DeLERP-0.9-Instruct-GGUF/resolve/main/Ministral-3-14B-DeLERP-0.9-Instruct.Q4_K_M.gguf
+
