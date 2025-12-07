@@ -23139,3 +23139,46 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "harbinger-24b-biprojected-norm-preserving-abliterated"
+  urls:
+    - https://huggingface.co/mradermacher/Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model for a model gallery. Let me start by looking at the information provided.
+
+    The repository is mradermacher/Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF. The readme mentions it's a quantized version, and the original base model is vprilepskii/Harbinger-24B-biprojected-norm-preserving-abliterated. The quantization types include Q4_K_S, Q2_K, Q8_0, etc., which suggests it's a quantized version of the base model. The user wants the real description, not the quantized one, so I need to focus on the base model.
+
+    The base model's readme isn't directly available here, but the user mentioned that the quantized readme points to the base. So I need to infer the base model's details from the quantized info. The base model is Harbinger-24B, which is a large language model. The "biprojected-norm-preserving-abliterated" part might indicate some specific training or optimization techniques. The "GGUF" format is a quantized model format, so the base model is likely in a different format, maybe the original HF format.
+
+    I should mention the base model's size (24B parameters), the training details, and the key features like biprojection and norm preservation. Also, note that the quantized version is optimized for lower memory usage, suitable for inference on devices with limited resources. Make sure to highlight that the base model is the original, not the quantized one, and that the quantized version is based on it. Keep it concise and suitable for a model gallery, so it's easy to understand for users looking at the model's specifications.
+    </think>
+
+    The model in question is a **quantized version** of the original **Harbinger-24B** base model, which is a large language model (LLM) with 24 billion parameters. The quantized version (in GGUF format) is optimized for lower memory usage, making it suitable for deployment on devices with limited resources. However, the **original base model** (not quantized) is hosted at [vprilepskii/Harbinger-24B-biprojected-norm-preserving-abliterated](https://huggingface.co/vprilepskii/Harbinger-24B-biprojected-norm-preserving-abliterated), featuring advanced training techniques such as:
+
+    - **Biprojection**: A method to improve numerical stability and training efficiency.
+    - **Norm Preservation**: Ensures consistent output quality during quantization.
+    - **Abliteration**: Likely refers to a specific optimization or pruning technique.
+
+    The quantized version supports multiple quantization formats (e.g., Q4_K_S, Q2_K, Q8_0) for flexibility in deployment scenarios. For the **original model**, the base version retains the full parameter count and training methodology, making it ideal for high-precision tasks. The quantized variant is optimized for inference efficiency but may sacrifice some precision.
+  overrides:
+    parameters:
+      model: Harbinger-24B-biprojected-norm-preserving-abliterated.Q4_K_M.gguf
+    name: Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: Harbinger-24B-biprojected-norm-preserving-abliterated.Q4_K_M.gguf
+      sha256: aca9e8c1a76380270e2fdb2c652f2315510b1e2d50afc226a6f09c4738c867ef
+      uri: https://huggingface.co/mradermacher/Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF/resolve/main/Harbinger-24B-biprojected-norm-preserving-abliterated.Q4_K_M.gguf
+

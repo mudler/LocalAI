@@ -1,0 +1,13 @@
+{
+  "search_term": "GGUF",
+  "total_found": 15,
+  "models_added": 1,
+  "added_model_ids": [
+    "mradermacher/Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF"
+  ],
+  "added_model_urls": [
+    "https://huggingface.co/mradermacher/Harbinger-24B-biprojected-norm-preserving-abliterated-GGUF"
+  ],
+  "quantization": "Q4_K_M",
+  "processing_time": "3h39m38.349574692s"
+}
