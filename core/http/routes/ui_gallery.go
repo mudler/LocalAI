@@ -9,8 +9,7 @@ import (
 )
 
 func registerGalleryRoutes(app *echo.Echo, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache) {
-
-	app.GET("/browse/", func(c echo.Context) error {
+	app.GET("/browse", func(c echo.Context) error {
 		summary := map[string]interface{}{
 			"Title":        "LocalAI - Models",
 			"BaseURL":      middleware.BaseURL(c),
