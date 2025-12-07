@@ -23139,3 +23139,48 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "blossom-v6.3-14b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Blossom-V6.3-14B-i1-GGUF
+  description: |
+    <think>
+    Okay, let's tackle this. The user wants a clear and concise description of the model for a model gallery. The repository given is mradermacher/Blossom-V6.3-14B-i1-GGUF, which is a quantized version of the original model Azure99/Blossom-V6.3-14B.
+
+    First, I need to figure out the base model. The readme mentions "base_model: Azure99/Blossom-V6.3-14B", so that's the original. The current model is a quantized version, so I should highlight that it's a quantized version of the base model.
+
+    The model's name is Blossom-V6.3-14B, so I should include that. The quantization type is GGUF, and the specific quantization is i1-Q4_K_M, which is mentioned as a recommended option. The size is around 9.1 GB, which is important for users to know.
+
+    The model supports multiple languages, specifically Chinese and English, as per the readme. It's based on the transformers library and licensed under Apache 2.0. The user might also want to know about the datasets used for training, which are Azure99's SFT stage1 and stage2 datasets.
+
+    I should mention the available quantized versions, noting that i1-Q4_K_M is recommended for a balance of speed and quality. Also, the model's performance and use cases, like text generation and multilingual tasks, should be included. Including the link to the model page would be helpful for users to find more information.
+
+    I need to avoid technical jargon but still be precise. Make sure to state that this is a quantized version, so it's more efficient but not the original. Highlight the key features: size, quantization type, supported languages, and the base model. Also, mention the availability of different quantization options and the recommended one.
+    </think>
+
+    The **Blossom-V6.3-14B** model is a quantized version of the original **Azure99/Blossom-V6.3-14B** (14B parameters), optimized for efficiency while retaining strong performance. It is available in the **GGUF** format with a recommended quantization type of **i1-Q4_K_M** (9.1 GB), balancing speed and quality.
+
+    This model supports **Chinese (zh)** and **English (en)** languages, trained on the **Azure99/blossom-v6.3-sft-stage1** and **Azure99/blossom-v6.3-sft-stage2** datasets. It is licensed under **Apache 2.0** and designed for text generation, multilingual tasks, and inference workflows.
+
+    For users, the model offers multiple quantization options (e.g., i1-Q4_K_M, i1-Q6_K), with the i1-Q4_K_M variant recommended for a trade-off between size and performance. The model is ideal for applications requiring compact, efficient large language models.
+  overrides:
+    parameters:
+      model: Blossom-V6.3-14B.i1-Q4_K_M.gguf
+    name: Blossom-V6.3-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Blossom-V6.3-14B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: Blossom-V6.3-14B.i1-Q4_K_M.gguf
+      sha256: d24a36a86088ea1b53695e7253715405d6a9c480d67721ebb8f30400b4ae2474
+      uri: https://huggingface.co/mradermacher/Blossom-V6.3-14B-i1-GGUF/resolve/main/Blossom-V6.3-14B.i1-Q4_K_M.gguf
+
