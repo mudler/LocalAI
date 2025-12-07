@@ -23139,3 +23139,40 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "poppy_porpoise-l3-8b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Poppy_Porpoise-L3-8B-i1-GGUF
+  description: |
+    <think>
+    Okay, the user wants a clear and concise description of the model from the repository mradermacher/Poppy_Porpoise-L3-8B-i1-GGUF. They mentioned that this is a quantized version, so I need to focus on the base model.
+
+    Looking at the readme, the base model is Nitral-Archive/Poppy_Porpoise-L3-8B. The quantized version here is likely a GGUF file, which is a format for quantized models. The readme lists various quantization types and their qualities, like IQ1, IQ2, IQ3, etc. The best quality seems to be the i1-Q4_K_M, which is 5.0 GB and recommended.
+
+    The model is an 8B (8 billion parameters) language model. The quantization is probably done for efficiency, making it suitable for devices with limited resources. The readme also mentions that the base model is from Nitral-Archive, so I should credit them. The model is in English and has a license of "other," but the exact terms aren't specified here.
+
+    The user wants this description for a model gallery, so it should be brief but informative. I need to highlight the base model, the quantization details, the size, and the recommended quantization. Also, mention that it's a large language model with a focus on efficiency and performance. Avoid technical jargon but keep it accurate. Make sure to note that the base model is different from the quantized version provided here.
+    </think>
+
+    The model in question is a quantized version of the **Poppy_Porpoise-L3-8B** large language model, originally authored by **Nitral-Archive**. The quantized version (available here) is optimized for efficiency, with a recommended quantization type of **i1-Q4_K_M** (5.0 GB), balancing speed and quality. It is designed for use in resource-constrained environments while retaining the original model's capabilities. The base model, Nitral-Archive/Poppy_Porpoise-L3-8B, is a large-scale language model with a focus on performance and flexibility, though this quantized version is not the original author's work.
+  overrides:
+    parameters:
+      model: Poppy_Porpoise-L3-8B.i1-Q4_K_M.gguf
+    name: Poppy_Porpoise-L3-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Poppy_Porpoise-L3-8B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: Poppy_Porpoise-L3-8B.i1-Q4_K_M.gguf
+      sha256: 18808f35209905bac5c097340c1b87e035db9b463c23fbcfd6f4eb2bae176b06
+      uri: https://huggingface.co/mradermacher/Poppy_Porpoise-L3-8B-i1-GGUF/resolve/main/Poppy_Porpoise-L3-8B.i1-Q4_K_M.gguf
+
