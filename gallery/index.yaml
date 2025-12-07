@@ -23139,3 +23139,38 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "doge-3b"
+  urls:
+    - https://huggingface.co/mradermacher/DoGe-3B-GGUF
+  description: |
+    The **DoGe-3B** model is a large language model (3 billion parameters) originally developed by **opendatalab-raiser**, licensed under the **Apache-2.0** license. It is a text-based model optimized for general-purpose language understanding and generation, suitable for tasks like text completion, question answering, and code generation.
+
+    A quantized version (DoGe-3B-GGUF) is available in the **mradermacher** repository, offering reduced computational requirements while retaining core capabilities. This quantized format is ideal for efficient inference on resource-constrained systems. The model is designed for multilingual support (with English as a primary language) and includes multi-modal projection layers for extended functionality.
+
+    It is recommended for applications requiring balance between performance and efficiency, with the original model serving as the high-precision baseline.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DoGe-3B.Q4_K_M.gguf
+    name: DoGe-3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/DoGe-3B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/DoGe-3B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/DoGe-3B.Q4_K_M.gguf
+      sha256: 55aa5f88b75ab460d5d3dd0188f7673bbea7ad0bcfa9b46ba2d5f9bc8e4c9024
+      uri: https://huggingface.co/mradermacher/DoGe-3B-GGUF/resolve/main/DoGe-3B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/DoGe-3B.mmproj-f16.gguf
+      sha256: 7fd537d713a75d3e357bacec08305fae53e2779f04be16b3c08bfff7ca889c5c
+      uri: https://huggingface.co/mradermacher/DoGe-3B-GGUF/resolve/main/DoGe-3B.mmproj-f16.gguf
+
