@@ -23139,3 +23139,38 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "blossom-v6.3-30b-a3b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Blossom-V6.3-30B-A3B-i1-GGUF
+  description: |
+    **Blossom-V6.3-30B-A3B** is an advanced open-source conversational large language model designed for reproducible, open, and cost-effective general-purpose tasks. Part of the Blossom series, this model improves upon earlier versions by addressing repeated-output issues and introducing a MoE (Mixture of Experts) variant for enhanced capabilities.
+
+    **Key Features:**
+    - **Model Size:** 30B parameters, optimized for high-performance inference.
+    - **Training Data:** Synthesized from two datasets ([Blossom-V6.3-SFT-Stage1](https://huggingface.co/Azure99/blossom-v6.3-sft-stage1) and [Blossom-V6.3-SFT-Stage2](https://huggingface.co/Azure99/blossom-v6.3-sft-stage2)), trained using a collaborative approach with three models (Deepseek-V3.1, Gemini 2.5 Flash, and Qwen3-235B-A22B-Instruct-2507).
+    - **Inference:** Compatible with Hugging Face's `transformers` library and supports GGUF format for efficient deployment via Ollama.
+    - **Accessibility:** Available on Hugging Face, with a demo interface and code examples for easy integration.
+
+    Ideal for researchers and developers seeking a powerful, open-source model with balanced performance and affordability.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Blossom-V6.3-30B-A3B.i1-Q4_K_M.gguf
+    name: Blossom-V6.3-30B-A3B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Blossom-V6.3-30B-A3B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Blossom-V6.3-30B-A3B.i1-Q4_K_M.gguf
+      sha256: eb08465eab2b7579841e7a9f16a5a6fd51cf774d551c6714bdcec530882c73ff
+      uri: https://huggingface.co/mradermacher/Blossom-V6.3-30B-A3B-i1-GGUF/resolve/main/Blossom-V6.3-30B-A3B.i1-Q4_K_M.gguf
+
