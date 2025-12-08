@@ -80,8 +80,9 @@
   </tr>
 </table>
 
-## Screenshots
+## Screenshots / Video
 
+[![LocalAI 101](https://img.youtube.com/vi/PDqYhB9nNHA/0.jpg)](https://www.youtube.com/watch?v=PDqYhB9nNHA)
 
 | Talk Interface | Generate Audio |
 | --- | --- |
