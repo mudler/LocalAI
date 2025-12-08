@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *granite4
+  name: "granite_8b_phase17_complete"
+  urls:
+    - https://huggingface.co/tarundachepally/Granite_8b_phase17_complete-Q4_K_S-GGUF
+  description: |
+    The **Granite-8B** model is a large language model based on the **tarundachepally/Granite_8b_phase17_complete** base model, optimized for efficient deployment. Quantized to **Q4_K_S** format, it reduces memory usage while retaining core capabilities, making it suitable for inference on systems with limited resources. Compatible with **llama.cpp**, it can be run via CLI or server, offering flexibility for developers and researchers. Ideal for applications requiring high performance with reduced hardware demands.
+  overrides:
+    parameters:
+      model: llama-cpp/models/granite_8b_phase17_complete-q4_k_s.gguf
+    name: Granite_8b_phase17_complete-Q4_K_S-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/tarundachepally/Granite_8b_phase17_complete-Q4_K_S-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/granite_8b_phase17_complete-q4_k_s.gguf
+      sha256: 13ad30142b406e72c4c5e97272a455fd9ee9ccf3bebd430ca957cbf451641205
+      uri: https://huggingface.co/tarundachepally/Granite_8b_phase17_complete-Q4_K_S-GGUF/resolve/main/granite_8b_phase17_complete-q4_k_s.gguf
+
