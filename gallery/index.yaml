@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt4-x-alpaca-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gpt4-x-alpaca-i1-GGUF
+  description: |
+    The **GPT4 x Alpaca** model is a fine-tuned version of the base model **maicomputer/gpt4-x-alpaca**, trained on GPT4's responses for 3 epochs. It excels in reasoning, factual knowledge, and multi-turn dialogue, with evaluation results showing strong performance on benchmarks like ARC, HellaSwag, MMLU, and GSM8K. The model is available in multiple quantized formats (e.g., IQ2_M, Q4_K_M, Q6_K), offering trade-offs between size, speed, and quality for diverse applications. Ideal for tasks requiring both linguistic capability and efficiency.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gpt4-x-alpaca.i1-Q4_K_M.gguf
+    name: gpt4-x-alpaca-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gpt4-x-alpaca-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/gpt4-x-alpaca.i1-Q4_K_M.gguf
+      sha256: 7580ca84d5d657d865a4c198cce2c8c6b665b8a9c4f7f6fc6e0bf848d29e1088
+      uri: https://huggingface.co/mradermacher/gpt4-x-alpaca-i1-GGUF/resolve/main/gpt4-x-alpaca.i1-Q4_K_M.gguf
+
