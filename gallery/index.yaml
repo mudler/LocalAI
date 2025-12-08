@@ -23139,3 +23139,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwq-32b-mix-coder"
+  urls:
+    - https://huggingface.co/mradermacher/Qwq-32b-Mix-Coder-GGUF
+  description: |
+    The model **Qwq-32b-Mix-Coder** is a large language model based on the **Madras1/Qwq-32b-Mix-Coder** base model, optimized for efficiency through quantization. It combines strong coding and natural language capabilities, making it suitable for tasks requiring both text generation and code understanding.
+
+    The repository provides multiple quantized versions (e.g., **Q4_K_S** for speed, **Q6_K** for high quality), with file sizes ranging from 12.4GB to 34.9GB. The **Q4_K_S** variant is recommended for faster inference, while **Q6_K** offers a balance of performance and quality.
+
+    This model is ideal for applications needing large-scale language processing, with support for various quantization formats. For full details, refer to the [base model](https://huggingface.co/Madras1/Qwq-32b-Mix-Coder).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwq-32b-Mix-Coder.Q4_K_M.gguf
+    name: Qwq-32b-Mix-Coder-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwq-32b-Mix-Coder-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwq-32b-Mix-Coder.Q4_K_M.gguf
+      sha256: 088be8f39d26ab8d83b896bc7853878e8b903527c3ec24c753e39d435ca9da85
+      uri: https://huggingface.co/mradermacher/Qwq-32b-Mix-Coder-GGUF/resolve/main/Qwq-32b-Mix-Coder.Q4_K_M.gguf
+
