@@ -82,7 +82,16 @@
 
 ## Screenshots / Video
 
-[![LocalAI 101](https://img.youtube.com/vi/PDqYhB9nNHA/0.jpg)](https://www.youtube.com/watch?v=PDqYhB9nNHA)
+### Youtube video
+
+<h1 align="center">
+  <br>
+  <a href="https://www.youtube.com/watch?v=PDqYhB9nNHA" target="_blank"> <img width="300" src="https://img.youtube.com/vi/PDqYhB9nNHA/0.jpg"> </a><br>
+<br>
+</h1>
+
+
+### Screenshots
 
 | Talk Interface | Generate Audio |
 | --- | --- |
