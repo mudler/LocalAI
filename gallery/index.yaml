@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "gemma-7b-bnb-4bit"
+  urls:
+    - https://huggingface.co/ss-lab/Gemma-7b-bnb-4bit-GGUF
+  description: |
+    The model is a **quantized version of the Gemma-7B** base model, optimized for efficiency using the **Q4_K_M** quantization format. It is formatted in **GGUF** (a lightweight, high-performance model format) and is compatible with tools like **llama.cpp** for inference. The model was fine-tuned and converted using the **Unsloth** library, with adjustments made to ensure compatibility with GGUF. Licensed under MIT, it is suitable for text-generation tasks and designed for lower memory usage while retaining performance.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-7b.Q4_K_M.gguf
+    name: Gemma-7b-bnb-4bit-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ss-lab/Gemma-7b-bnb-4bit-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/gemma-7b.Q4_K_M.gguf
+      sha256: b62303c6a03b1a20cea574a9cd2bad02d25c28eaecc568c3d83c8600e7620950
+      uri: https://huggingface.co/ss-lab/Gemma-7b-bnb-4bit-GGUF/resolve/main/gemma-7b.Q4_K_M.gguf
+
