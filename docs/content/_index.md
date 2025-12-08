@@ -18,6 +18,8 @@ Start with **[LocalAI](https://localai.io)**'s OpenAI-compatible API, extend wit
 **Open Source** MIT Licensed.
 {{% /notice %}}
 
+<iframe width="560" height="315" src="https://www.youtube.com/embed/PDqYhB9nNHA?si=jUClTH7uuGMwMvFw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+
 ## Why Choose LocalAI?
 
 **OpenAI API Compatible** - Run AI models locally with our modular ecosystem. From language models to autonomous agents and semantic search, build your complete AI stack without the cloud.
