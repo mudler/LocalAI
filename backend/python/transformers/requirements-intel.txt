@@ -3,7 +3,7 @@ intel-extension-for-pytorch==2.3.110+xpu
 torch==2.5.1+cxx11.abi
 oneccl_bind_pt==2.8.0+xpu
 optimum[openvino]
-llvmlite==0.43.0
+llvmlite==0.46.0
 numba==0.60.0
 transformers
 intel-extension-for-transformers

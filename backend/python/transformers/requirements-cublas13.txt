@@ -1,6 +1,6 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
 torch==2.9.0
-llvmlite==0.43.0
+llvmlite==0.46.0
 numba==0.60.0
 transformers
 bitsandbytes

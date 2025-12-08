@@ -1,5 +1,5 @@
 torch==2.7.1
-llvmlite==0.43.0
+llvmlite==0.46.0
 numba==0.60.0
 accelerate
 transformers
