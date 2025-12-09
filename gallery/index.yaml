@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "longcat-image"
+  urls:
+    - https://huggingface.co/stduhpf/LongCat-Image-gguf
+  description: |
+    The model described in the base repository **meituan-longcat/LongCat-Image** is a large language model specifically adapted for image-related tasks. Developed by Meituan, it likely combines vision and language capabilities to process and understand visual data, such as object detection, image captioning, or multi-modal reasoning. This version represents the original model prior to quantization, ensuring accuracy and fidelity in its specifications. It is suitable for applications requiring robust image-understanding capabilities.
+  overrides:
+    parameters:
+      model: llama-cpp/models/longcat_bfl_format-Q4_K_M.gguf
+    name: LongCat-Image-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/stduhpf/LongCat-Image-gguf
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/longcat_bfl_format-Q4_K_M.gguf
+      sha256: fbbf88b4ae7dcb9792caab39ffe12ab6fd80c5575f312ee77d57b4fc76ab0171
+      uri: https://huggingface.co/stduhpf/LongCat-Image-gguf/resolve/main/longcat_bfl_format-Q4_K_M.gguf
+
