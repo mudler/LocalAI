@@ -287,18 +287,20 @@ func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 		if config.IsModelURL() {
 			modelFileName := config.ModelFileName()
 			uri := downloader.URI(config.Model)
-			// check if file exists
-			if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
-				err := uri.DownloadFile(filepath.Join(modelPath, modelFileName), "", 0, 0, status)
-				if err != nil {
-					return err
+			if uri.ResolveURL() != config.Model {
+				// check if file exists
+				if _, err := os.Stat(filepath.Join(modelPath, modelFileName)); errors.Is(err, os.ErrNotExist) {
+					err := uri.DownloadFile(filepath.Join(modelPath, modelFileName), "", 0, 0, status)
+					if err != nil {
+						return err
+					}
 				}
-			}
 
-			cc := bcl.configs[i]
-			c := &cc
-			c.PredictionOptions.Model = modelFileName
-			bcl.configs[i] = *c
+				cc := bcl.configs[i]
+				c := &cc
+				c.PredictionOptions.Model = modelFileName
+				bcl.configs[i] = *c
+			}
 		}
 
 		if config.IsMMProjURL() {
