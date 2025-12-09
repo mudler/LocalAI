@@ -23139,3 +23139,32 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "soulbound-8b-v1.1"
+  urls:
+    - https://huggingface.co/Akashiurahara/Soulbound-8B-v1.1-GGUF
+  description: |
+    **Soulbound-8B v1.1**
+    A large language model optimized for **creative roleplay**, **fictional storytelling**, and **character-driven interactions**. Built on the Llama3.1 foundation, this model excels in immersive, narrative-focused scenarios. Fine-tuned for niche applications like roleplay, surreal storytelling, and fictional worldbuilding, it offers a unique blend of creativity and specificity. Designed for enthusiasts of surreal, character-driven, and imaginative interactions, it’s ideal for fans of *SillyTavern* and other creative AI experiences. NSFW content is supported.
+    *Base model: [Soulbound-8B](https://huggingface.co/Akashiurahara/Soulbound-8B)*.
+  overrides:
+    parameters:
+      model: llama-cpp/models/model_Q8_0.gguf
+    name: Soulbound-8B-v1.1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Akashiurahara/Soulbound-8B-v1.1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/model_Q8_0.gguf
+      sha256: 2a8e46b5438bc12eef7fda571303c0f7888cc93ece8a5bc9c9a1120ff8f7600e
+      uri: https://huggingface.co/Akashiurahara/Soulbound-8B-v1.1-GGUF/resolve/main/model_Q8_0.gguf
+
