@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "nilla-0.9b"
+  urls:
+    - https://huggingface.co/nebularesearchtrain/Nilla-0.9B-GGUF
+  description: |
+    AI model: nilla-0.9b
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nilla-0.9B.Q8_0.gguf
+    name: Nilla-0.9B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/nebularesearchtrain/Nilla-0.9B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Nilla-0.9B.Q8_0.gguf
+      sha256: 8220040383b4b00171812f287dfdb616e336e3df30b7da9227e867e33e494297
+      uri: https://huggingface.co/nebularesearchtrain/Nilla-0.9B-GGUF/resolve/main/Nilla-0.9B.Q8_0.gguf
+
