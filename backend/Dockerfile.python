@@ -12,7 +12,7 @@ ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
 ARG TARGETVARIANT
-ARG UBUNTU_VERSION=2204
+ARG UBUNTU_VERSION=2404
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
