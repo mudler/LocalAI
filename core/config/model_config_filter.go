@@ -22,7 +22,7 @@ func BuildNameFilterFn(filter string) (ModelConfigFilterFn, error) {
 	}, nil
 }
 
-func BuildUsecaseFilterFn(usecases ModelConfigUsecases) ModelConfigFilterFn {
+func BuildUsecaseFilterFn(usecases ModelConfigUsecase) ModelConfigFilterFn {
 	if usecases == FLAG_ANY {
 		return NoFilterFn
 	}
