@@ -124,6 +124,7 @@ RUN <<EOT bash
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils
         if [ "amd64" = "$TARGETARCH" ]; then
+            echo https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/x86_64/cuda-keyring_1.1-1_all.deb
             curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/x86_64/cuda-keyring_1.1-1_all.deb
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
