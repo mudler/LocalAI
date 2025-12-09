@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "educhat-1.8b-20251209"
+  urls:
+    - https://huggingface.co/Kerwin0113/EduChat-1.8B-20251209-GGUF
+  description: |
+    The **EduChat-1.8B** model is a large language model developed by ECNU (East China Normal University) for educational applications. Trained on a diverse dataset, it excels in tasks like answering questions, writing essays, and coding. With **1.8 billion parameters**, it balances performance and efficiency, making it suitable for both research and practical use. The original model is available on Hugging Face at [ecnu-icalk/educhat-sft-002-1.8b-qwen1.5](https://huggingface.co/ecnu-icalk/educhat-sft-002-1.8b-qwen1.5), while the quantized version (q4_k_m) is optimized for lower-memory inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/EduChat-1.8B-20251209-Q4_K_M.gguf
+    name: EduChat-1.8B-20251209-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Kerwin0113/EduChat-1.8B-20251209-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/EduChat-1.8B-20251209-Q4_K_M.gguf
+      sha256: 241b2b19fc543a6c3bef0ce0dc6b513d85770a8af75e010bf714e3b20bfa479e
+      uri: https://huggingface.co/Kerwin0113/EduChat-1.8B-20251209-GGUF/resolve/main/EduChat-1.8B-20251209-Q4_K_M.gguf
+
