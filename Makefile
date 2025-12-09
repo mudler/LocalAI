@@ -470,9 +470,6 @@ docker-save-neutts: backend-images
 docker-build-kokoro:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:kokoro -f backend/Dockerfile.python --build-arg BACKEND=kokoro .
 
-docker-build-vllm:
-	docker build --build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) --build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:vllm -f backend/Dockerfile.python --build-arg BACKEND=vllm ./backend
-
 docker-save-vllm: backend-images
 	docker save local-ai-backend:vllm -o backend-images/vllm.tar
 
