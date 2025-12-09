@@ -157,7 +157,7 @@ ENV PATH="/root/.cargo/bin:${PATH}"
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Install grpcio-tools
-RUN pip install --break-system-packages --user grpcio-tools==1.71.0 grpcio==1.71.0 torch diffusers transformers compel optimum.quanto accelerate gguf
+RUN pip install --break-system-packages --user grpcio-tools==1.71.0 grpcio==1.71.0
 
 COPY backend/python/${BACKEND} /${BACKEND}
 COPY backend/backend.proto /${BACKEND}/backend.proto
