@@ -1,0 +1,15 @@
+---
+name: "Z-Image-GGML"
+
+config_file: |
+  backend: stablediffusion-ggml
+  cfg_scale: 1
+  name: z-image-test
+  options:
+      - diffusion_model
+      - llm_path:Qwen3-4B.Q4_K_M.gguf
+      - vae_path:ae.safetensors
+      - offload_params_to_cpu:true
+  parameters:
+      model: z_image_turbo-Q4_K.gguf
+  step: 25

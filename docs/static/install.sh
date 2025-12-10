@@ -39,19 +39,26 @@ RED='\033[38;5;196m'
 BOLD='\033[1m'
 RESET='\033[0m'
 
+ECHO=`which echo || true`
+if [ -z "$ECHO" ]; then
+    ECHO=echo
+else
+    ECHO="$ECHO -e"
+fi
+
 info()
 {
-    echo -e "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
+    ${ECHO} "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
 }
 
 warn()
 {
-    echo -e "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
+    ${ECHO} "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
 }
 
 fatal()
 {
-    echo -e "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
+    ${ECHO} "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
     exit 1
 }
 
@@ -59,17 +66,17 @@ fatal()
 # like the logging functions, but with the -n flag to prevent the new line and keep the cursor in line for choices inputs like y/n
 choice_info()
 {
-    echo -e -n "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
+    ${ECHO} -n "${BOLD}${LIGHT_BLUE}" '[INFO] ' "$@" "${RESET}"
 }
 
 choice_warn()
 {
-    echo -e -n "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
+    ${ECHO} -n "${BOLD}${ORANGE}" '[WARN] ' "$@" "${RESET}" >&2
 }
 
 choice_fatal()
 {
-    echo -e -n "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
+    ${ECHO} -n "${BOLD}${RED}" '[ERROR] ' "$@" "${RESET}" >&2
     exit 1
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -45,7 +46,7 @@ func cleanTextContent(text string) string {
 	}
 	// Remove trailing empty lines from the result
 	result := strings.Join(cleanedLines, "\n")
-	return strings.TrimRight(result, "\n")
+	return stripThinkingTags(strings.TrimRight(result, "\n"))
 }
 
 // isModelExisting checks if a specific model ID exists in the gallery using text search
@@ -90,6 +91,16 @@ func getGalleryIndexPath() string {
 		return galleryIndexPath
 	}
 	return "gallery/index.yaml"
+}
+
+func stripThinkingTags(content string) string {
+	// Remove content between <thinking> and </thinking> (including multi-line)
+	content = regexp.MustCompile(`(?s)<thinking>.*?</thinking>`).ReplaceAllString(content, "")
+	// Remove content between <think> and </think> (including multi-line)
+	content = regexp.MustCompile(`(?s)<think>.*?</think>`).ReplaceAllString(content, "")
+	// Clean up any extra whitespace
+	content = strings.TrimSpace(content)
+	return content
 }
 
 func getRealReadme(ctx context.Context, repository string) (string, error) {

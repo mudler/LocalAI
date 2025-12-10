@@ -90,6 +90,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
 
+	e.Pre(middleware.RemoveTrailingSlash())
+
 	if application.ApplicationConfig().MachineTag != "" {
 		e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 			return func(c echo.Context) error {

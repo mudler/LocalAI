@@ -25,7 +25,7 @@ func runSyntheticMode() error {
 
 	// Generate YAML entries and append to gallery/index.yaml
 	fmt.Println("Generating YAML entries for synthetic models...")
-	err := generateYAMLForModels(context.Background(), models)
+	err := generateYAMLForModels(context.Background(), models, "Q4_K_M")
 	if err != nil {
 		return fmt.Errorf("error generating YAML entries: %w", err)
 	}

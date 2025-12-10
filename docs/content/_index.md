@@ -9,7 +9,7 @@ type = "home"
 **No cloud, no limits, no compromise.**
 
 {{% notice tip %}}
-**[⭐ Star us on GitHub](https://github.com/mudler/LocalAI)** - 33.3k+ stars and growing!
+**[⭐ Star us on GitHub](https://github.com/mudler/LocalAI)** - 40k+ stars and growing!
 
 **Drop-in replacement for OpenAI API** - modular suite of tools that work seamlessly together or independently. 
 
@@ -17,6 +17,8 @@ Start with **[LocalAI](https://localai.io)**'s OpenAI-compatible API, extend wit
 
 **Open Source** MIT Licensed.
 {{% /notice %}}
+
+<center><iframe width="560" height="315" src="https://www.youtube.com/embed/PDqYhB9nNHA?si=jUClTH7uuGMwMvFw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></center>
 
 ## Why Choose LocalAI?
 

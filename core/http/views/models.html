@@ -142,7 +142,7 @@
                             <span>Whisper</span>
                         </button>
                         <button @click="filterByTerm('object-detection')"
-                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-[var(--color-error)]/20 hover:bg-[var(--color-error)]/30 text-[var(--color-error)] border border-[var(--color-error-light)] transition-colors">
+                            class="flex items-center justify-center rounded-lg px-4 py-3 text-sm font-semibold bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition-colors">
                             <i class="fas fa-eye mr-2"></i>
                             <span>Vision</span>
                         </button>
@@ -286,28 +286,28 @@
                                     <td class="px-6 py-4">
                                         <div class="flex items-center justify-end gap-2">
                                             <!-- Info Button -->
-                                            <button @click="openModal(model)"
-                                                    class="btn-secondary text-xs px-3 py-1.5"
+                                            <button @click="openModal(model)" 
+                                                    class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#1E293B] hover:bg-[#38BDF8]/20 text-xs font-medium text-[#E5E7EB] transition duration-200 border border-[#38BDF8]/30"
                                                     title="View details">
                                                 <i class="fas fa-info-circle"></i>
                                             </button>
-
+                                            
                                             <!-- Installed State Actions -->
                                             <template x-if="!model.processing && model.installed">
                                                 <div class="flex gap-2">
-                                                    <button @click="reinstallModel(model.id)"
-                                                            class="btn-primary text-xs px-3 py-1.5"
+                                                    <button @click="reinstallModel(model.id)" 
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
                                                             title="Reinstall">
                                                         <i class="fa-solid fa-arrow-rotate-right"></i>
                                                     </button>
-                                                    <button @click="deleteModel(model.id)"
-                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[var(--color-error)] hover:bg-[var(--color-error)] text-xs font-medium text-white transition duration-200"
+                                                    <button @click="deleteModel(model.id)" 
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-xs font-medium text-white transition duration-200"
                                                             title="Delete">
                                                         <i class="fa-solid fa-trash"></i>
                                                     </button>
                                                 </div>
                                             </template>
-
+                                            
                                             <!-- Not Installed State Actions -->
                                             <template x-if="!model.processing && !model.installed">
                                                 <div class="flex gap-2">
@@ -316,8 +316,8 @@
                                                             title="Get config">
                                                         <i class="fa-solid fa-file-code"></i>
                                                     </button>
-                                                    <button @click="installModel(model.id)"
-                                                            class="btn-primary text-xs px-3 py-1.5"
+                                                    <button @click="installModel(model.id)" 
+                                                            class="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-xs font-medium text-white transition duration-200"
                                                             title="Install">
                                                         <i class="fa-solid fa-download"></i>
                                                     </button>

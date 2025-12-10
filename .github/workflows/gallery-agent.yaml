@@ -38,20 +38,33 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-
+      - name: Proto Dependencies
+        run: |
+          # Install protoc
+          curl -L -s https://github.com/protocolbuffers/protobuf/releases/download/v26.1/protoc-26.1-linux-x86_64.zip -o protoc.zip && \
+          unzip -j -d /usr/local/bin protoc.zip bin/protoc && \
+          rm protoc.zip
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          PATH="$PATH:$HOME/go/bin" make protogen-go
+      - uses: mudler/localai-github-action@v1.1
+        with:
+          model: 'qwen3-4b'
 
       - name: Run gallery agent
         env:
-          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          #OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          OPENAI_MODE: qwen3-4b
+          OPENAI_BASE_URL: "http://localhost:8080"
           OPENAI_KEY: ${{ secrets.OPENAI_KEY }}
-          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          #OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
           SEARCH_TERM: ${{ github.event.inputs.search_term || 'GGUF' }}
           LIMIT: ${{ github.event.inputs.limit || '15' }}
           QUANTIZATION: ${{ github.event.inputs.quantization || 'Q4_K_M' }}
           MAX_MODELS: ${{ github.event.inputs.max_models || '1' }}
         run: |
           export GALLERY_INDEX_PATH=$PWD/gallery/index.yaml
-          go run .github/gallery-agent
+          go run ./.github/gallery-agent
 
       - name: Check for changes
         id: check_changes
@@ -69,21 +82,21 @@ jobs:
         id: read_summary
         if: steps.check_changes.outputs.changes == 'true'
         run: |
-          if [ -f ".github/gallery-agent/gallery-agent-summary.json" ]; then
+          if [ -f "./gallery-agent-summary.json" ]; then
             echo "summary_exists=true" >> $GITHUB_OUTPUT
             # Extract summary data using jq
-            echo "search_term=$(jq -r '.search_term' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "total_found=$(jq -r '.total_found' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "models_added=$(jq -r '.models_added' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "quantization=$(jq -r '.quantization' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
-            echo "processing_time=$(jq -r '.processing_time' .github/gallery-agent/gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "search_term=$(jq -r '.search_term' ./gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "total_found=$(jq -r '.total_found' ./gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "models_added=$(jq -r '.models_added' ./gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "quantization=$(jq -r '.quantization' ./gallery-agent-summary.json)" >> $GITHUB_OUTPUT
+            echo "processing_time=$(jq -r '.processing_time' ./gallery-agent-summary.json)" >> $GITHUB_OUTPUT
             
             # Create a formatted list of added models with URLs
-            added_models=$(jq -r 'range(0; .added_model_ids | length) as $i | "- [\(.added_model_ids[$i])](\(.added_model_urls[$i]))"' .github/gallery-agent/gallery-agent-summary.json | tr '\n' '\n')
+            added_models=$(jq -r 'range(0; .added_model_ids | length) as $i | "- [\(.added_model_ids[$i])](\(.added_model_urls[$i]))"' ./gallery-agent-summary.json | tr '\n' '\n')
             echo "added_models<<EOF" >> $GITHUB_OUTPUT
             echo "$added_models" >> $GITHUB_OUTPUT
             echo "EOF" >> $GITHUB_OUTPUT
-            rm -f .github/gallery-agent/gallery-agent-summary.json
+            rm -f ./gallery-agent-summary.json
           else
             echo "summary_exists=false" >> $GITHUB_OUTPUT
           fi

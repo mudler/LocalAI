@@ -154,7 +154,7 @@ func main() {
 			addedModelURLs = append(addedModelURLs, modelURL)
 		}
 		fmt.Println("Generating YAML entries for selected models...")
-		err = generateYAMLForModels(context.Background(), models)
+		err = generateYAMLForModels(context.Background(), models, quantization)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error generating YAML entries: %v\n", err)
 			os.Exit(1)

@@ -22,7 +22,7 @@ type SDGGML struct {
 
 var (
 	LoadModel func(model, model_apth string, options []uintptr, threads int32, diff int) int
-	GenImage  func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []string, refImagesCount int) int
+	GenImage  func(params uintptr, steps int, dst string, cfgScale float32, srcImage string, strength float32, maskImage string, refImages []uintptr, refImagesCount int) int
 
 	TilingParamsSetEnabled       func(params uintptr, enabled bool)
 	TilingParamsSetTileSizes     func(params uintptr, tileSizeX int, tileSizeY int)
@@ -95,11 +95,11 @@ func (sd *SDGGML) Load(opts *pb.ModelOptions) error {
 	sd.cfgScale = opts.CFGScale
 
 	ret := LoadModel(modelFile, modelPathC, options, opts.Threads, diffusionModel)
+	runtime.KeepAlive(keepAlive)
+	fmt.Fprintf(os.Stderr, "LoadModel: %d\n", ret)
 	if ret != 0 {
 		return fmt.Errorf("could not load model")
 	}
-
-	runtime.KeepAlive(keepAlive)
 
 	return nil
 }
@@ -123,10 +123,15 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 		}
 	}
 
+	// At the time of writing Purego doesn't recurse into slices and convert Go strings to pointers so we need to do that
+	var keepAlive []any
 	refImagesCount := len(opts.RefImages)
-	refImages := make([]string, refImagesCount, refImagesCount+1)
-	copy(refImages, opts.RefImages)
-	*(*uintptr)(unsafe.Add(unsafe.Pointer(&refImages), refImagesCount)) = 0
+	refImages := make([]uintptr, refImagesCount, refImagesCount+1)
+	for i, ri := range opts.RefImages {
+		bytep := CString(ri)
+		refImages[i] = uintptr(unsafe.Pointer(bytep))
+		keepAlive = append(keepAlive, bytep)
+	}
 
 	// Default strength for img2img (0.75 is a good default)
 	strength := float32(0.75)
@@ -140,6 +145,8 @@ func (sd *SDGGML) GenerateImage(opts *pb.GenerateImageRequest) error {
 	TilingParamsSetEnabled(vaep, false)
 
 	ret := GenImage(p, int(opts.Step), dst, sd.cfgScale, srcImage, strength, maskImage, refImages, refImagesCount)
+	runtime.KeepAlive(keepAlive)
+	fmt.Fprintf(os.Stderr, "GenImage: %d\n", ret)
 	if ret != 0 {
 		return fmt.Errorf("inference failed")
 	}
