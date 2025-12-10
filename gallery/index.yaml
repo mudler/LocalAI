@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "shisa-v2.1-llama3.3-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/shisa-v2.1-llama3.3-70b-i1-GGUF
+  description: |
+    The model is a **70B-parameter Llama 3.3-based large language model** developed by Shisa AI, known as **Shisa V2.1**. It supports Japanese and English, making it versatile for multilingual tasks. While the current version is a **quantized variant** (e.g., IQ2, IQ3, Q4_K_M), it is derived from the original base model **shisa-ai/shisa-v2.1-llama3.3-70b**. The quantized versions offer trade-offs between size, speed, and quality, with options like **Q4_K_M** providing a balanced performance. This model is optimized for text generation, chat, and reasoning tasks, with high-quality imatrix quants available for advanced use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/shisa-v2.1-llama3.3-70b.i1-Q4_K_M.gguf
+    name: shisa-v2.1-llama3.3-70b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/shisa-v2.1-llama3.3-70b-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/shisa-v2.1-llama3.3-70b.i1-Q4_K_M.gguf
+      sha256: e3a5e3c21bc09de0d865324faeeda008f92d9daeb8102acad4023e031fd1632a
+      uri: https://huggingface.co/mradermacher/shisa-v2.1-llama3.3-70b-i1-GGUF/resolve/main/shisa-v2.1-llama3.3-70b.i1-Q4_K_M.gguf
+
