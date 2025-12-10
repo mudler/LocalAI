@@ -22,6 +22,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	nameSortFieldName       = "name"
+	repositorySortFieldName = "repository"
+	licenseSortFieldName    = "license"
+	statusSortFieldName     = "status"
+	ascSortOrder            = "asc"
+)
+
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application) {
 
@@ -188,6 +196,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// Get model statuses
 		processingModelsData, taskTypes := opcache.GetStatus()
+
+		// Apply sorting if requested
+		sortBy := c.QueryParam("sort")
+		sortOrder := c.QueryParam("order")
+		if sortOrder == "" {
+			sortOrder = ascSortOrder
+		}
+
+		switch sortBy {
+		case nameSortFieldName:
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByName(sortOrder)
+		case repositorySortFieldName:
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByRepository(sortOrder)
+		case licenseSortFieldName:
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByLicense(sortOrder)
+		case statusSortFieldName:
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByInstalled(sortOrder)
+		}
 
 		pageNum, err := strconv.Atoi(page)
 		if err != nil || pageNum < 1 {
@@ -492,6 +518,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// Get backend statuses
 		processingBackendsData, taskTypes := opcache.GetStatus()
+
+		// Apply sorting if requested
+		sortBy := c.QueryParam("sort")
+		sortOrder := c.QueryParam("order")
+		if sortOrder == "" {
+			sortOrder = ascSortOrder
+		}
+
+		switch sortBy {
+		case nameSortFieldName:
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByName(sortOrder)
+		case repositorySortFieldName:
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByRepository(sortOrder)
+		case licenseSortFieldName:
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByLicense(sortOrder)
+		case statusSortFieldName:
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByInstalled(sortOrder)
+		}
 
 		pageNum, err := strconv.Atoi(page)
 		if err != nil || pageNum < 1 {
