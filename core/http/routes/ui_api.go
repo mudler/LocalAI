@@ -189,6 +189,53 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		// Get model statuses
 		processingModelsData, taskTypes := opcache.GetStatus()
 
+		// Apply sorting if requested
+		sortBy := c.QueryParam("sort")
+		sortOrder := c.QueryParam("order")
+		if sortOrder == "" {
+			sortOrder = "asc"
+		}
+
+		if sortBy != "" {
+			modelsSlice := []*gallery.GalleryModel(models)
+			sort.Slice(modelsSlice, func(i, j int) bool {
+				var result bool
+				switch sortBy {
+				case "name":
+					result = strings.ToLower(modelsSlice[i].Name) < strings.ToLower(modelsSlice[j].Name)
+				case "repository":
+					result = strings.ToLower(modelsSlice[i].Gallery.Name) < strings.ToLower(modelsSlice[j].Gallery.Name)
+				case "license":
+					licenseI := modelsSlice[i].License
+					licenseJ := modelsSlice[j].License
+					if licenseI == "" && licenseJ != "" {
+						result = sortOrder == "desc"
+					} else if licenseI != "" && licenseJ == "" {
+						result = sortOrder == "asc"
+					} else if licenseI == "" && licenseJ == "" {
+						result = false
+					} else {
+						result = strings.ToLower(licenseI) < strings.ToLower(licenseJ)
+					}
+				case "status":
+					// Sort by installed status: installed items first (true > false)
+					if modelsSlice[i].Installed != modelsSlice[j].Installed {
+						result = modelsSlice[i].Installed
+					} else {
+						// If same status, sort by name as secondary
+						result = strings.ToLower(modelsSlice[i].Name) < strings.ToLower(modelsSlice[j].Name)
+					}
+				default:
+					return false
+				}
+				if sortOrder == "desc" {
+					return !result
+				}
+				return result
+			})
+			models = gallery.GalleryElements[*gallery.GalleryModel](modelsSlice)
+		}
+
 		pageNum, err := strconv.Atoi(page)
 		if err != nil || pageNum < 1 {
 			pageNum = 1
@@ -492,6 +539,53 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		// Get backend statuses
 		processingBackendsData, taskTypes := opcache.GetStatus()
+
+		// Apply sorting if requested
+		sortBy := c.QueryParam("sort")
+		sortOrder := c.QueryParam("order")
+		if sortOrder == "" {
+			sortOrder = "asc"
+		}
+
+		if sortBy != "" {
+			backendsSlice := []*gallery.GalleryBackend(backends)
+			sort.Slice(backendsSlice, func(i, j int) bool {
+				var result bool
+				switch sortBy {
+				case "name":
+					result = strings.ToLower(backendsSlice[i].Name) < strings.ToLower(backendsSlice[j].Name)
+				case "repository":
+					result = strings.ToLower(backendsSlice[i].Gallery.Name) < strings.ToLower(backendsSlice[j].Gallery.Name)
+				case "license":
+					licenseI := backendsSlice[i].License
+					licenseJ := backendsSlice[j].License
+					if licenseI == "" && licenseJ != "" {
+						result = sortOrder == "desc"
+					} else if licenseI != "" && licenseJ == "" {
+						result = sortOrder == "asc"
+					} else if licenseI == "" && licenseJ == "" {
+						result = false
+					} else {
+						result = strings.ToLower(licenseI) < strings.ToLower(licenseJ)
+					}
+				case "status":
+					// Sort by installed status: installed items first (true > false)
+					if backendsSlice[i].Installed != backendsSlice[j].Installed {
+						result = backendsSlice[i].Installed
+					} else {
+						// If same status, sort by name as secondary
+						result = strings.ToLower(backendsSlice[i].Name) < strings.ToLower(backendsSlice[j].Name)
+					}
+				default:
+					return false
+				}
+				if sortOrder == "desc" {
+					return !result
+				}
+				return result
+			})
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backendsSlice)
+		}
 
 		pageNum, err := strconv.Atoi(page)
 		if err != nil || pageNum < 1 {
