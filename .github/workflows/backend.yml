@@ -898,7 +898,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vibevoice'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'arc-runner-set'
             base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
             skip-drivers: 'false'
             backend: "vibevoice"

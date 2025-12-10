@@ -43,7 +43,7 @@ config_file: |-
       # Voices directory path
       # This explicitly sets where to look for voice preset files (.pt files)
       # Since we're downloading voices to voices/streaming_model/, we set it here
-      # 
+      #
       # Examples:
       #   - Relative path (relative to models directory): "voices/streaming_model"
       #   - Absolute path: "/custom/path/to/voices/streaming_model"
