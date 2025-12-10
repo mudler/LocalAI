@@ -390,6 +390,28 @@
     nvidia-cuda-12: "cuda12-chatterbox"
     nvidia-l4t-cuda-12: "nvidia-l4t-arm64-chatterbox"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-chatterbox"
+- &vibevoice
+  urls:
+    - https://github.com/microsoft/VibeVoice
+  description: |
+    VibeVoice-Realtime is a real-time text-to-speech model that generates natural-sounding speech.
+  tags:
+    - text-to-speech
+    - TTS
+  license: mit
+  name: "vibevoice"
+  alias: "vibevoice"
+  capabilities:
+    nvidia: "cuda12-vibevoice"
+    intel: "intel-vibevoice"
+    amd: "rocm-vibevoice"
+    nvidia-l4t: "nvidia-l4t-vibevoice"
+    default: "cpu-vibevoice"
+    nvidia-cuda-13: "cuda13-vibevoice"
+    nvidia-cuda-12: "cuda12-vibevoice"
+    nvidia-l4t-cuda-12: "nvidia-l4t-vibevoice"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vibevoice"
+  icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
 - &piper
   name: "piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
@@ -1571,3 +1593,86 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-chatterbox"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-chatterbox
+## vibevoice
+- !!merge <<: *vibevoice
+  name: "vibevoice-development"
+  capabilities:
+    nvidia: "cuda12-vibevoice-development"
+    intel: "intel-vibevoice-development"
+    amd: "rocm-vibevoice-development"
+    nvidia-l4t: "nvidia-l4t-vibevoice-development"
+    default: "cpu-vibevoice-development"
+    nvidia-cuda-13: "cuda13-vibevoice-development"
+    nvidia-cuda-12: "cuda12-vibevoice-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-vibevoice-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vibevoice-development"
+- !!merge <<: *vibevoice
+  name: "cpu-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-cpu-vibevoice
+- !!merge <<: *vibevoice
+  name: "cpu-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-cpu-vibevoice
+- !!merge <<: *vibevoice
+  name: "cuda12-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-vibevoice
+- !!merge <<: *vibevoice
+  name: "cuda12-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-vibevoice
+- !!merge <<: *vibevoice
+  name: "cuda13-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-vibevoice
+- !!merge <<: *vibevoice
+  name: "cuda13-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-vibevoice
+- !!merge <<: *vibevoice
+  name: "intel-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-vibevoice
+- !!merge <<: *vibevoice
+  name: "intel-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-vibevoice
+- !!merge <<: *vibevoice
+  name: "rocm-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-vibevoice
+- !!merge <<: *vibevoice
+  name: "rocm-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-vibevoice
+- !!merge <<: *vibevoice
+  name: "nvidia-l4t-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-vibevoice
+- !!merge <<: *vibevoice
+  name: "nvidia-l4t-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-vibevoice
+- !!merge <<: *vibevoice
+  name: "cuda13-nvidia-l4t-arm64-vibevoice"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-vibevoice"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-vibevoice
+- !!merge <<: *vibevoice
+  name: "cuda13-nvidia-l4t-arm64-vibevoice-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-vibevoice"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-vibevoice

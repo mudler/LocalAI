@@ -1,4 +1,32 @@
 ---
+- &vibevoice
+  url: "github:mudler/LocalAI/gallery/vibevoice.yaml@master"
+  icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
+  license: mit
+  tags:
+    - text-to-speech
+    - TTS
+  name: "vibevoice"
+  urls:
+    - https://github.com/microsoft/VibeVoice
+
+  # Download voice preset files
+  # Voice presets are downloaded to: {models_dir}/voices/streaming_model/
+  # The voices_dir option above tells the backend to look in this location
+  files:
+    # English voices
+    - filename: voices/streaming_model/en-Frank_man.pt
+      uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Frank_man.pt
+    - filename: voices/streaming_model/en-Grace_woman.pt
+      uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Grace_woman.pt
+    - filename: voices/streaming_model/en-Mike_man.pt
+      uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Mike_man.pt
+    - filename: voices/streaming_model/en-Emma_woman.pt
+      uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Emma_woman.pt
+    - filename: voices/streaming_model/en-Carter_man.pt
+      uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Carter_man.pt
+    - filename: voices/streaming_model/en-Davis_man.pt
+      uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Davis_man.pt
 - &qwen3vl
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
