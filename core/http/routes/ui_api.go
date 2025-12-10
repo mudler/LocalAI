@@ -22,6 +22,14 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
+const (
+	nameSortFieldName       = "name"
+	repositorySortFieldName = "repository"
+	licenseSortFieldName    = "license"
+	statusSortFieldName     = "status"
+	ascSortOrder            = "asc"
+)
+
 // RegisterUIAPIRoutes registers JSON API routes for the web UI
 func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, galleryService *services.GalleryService, opcache *services.OpCache, applicationInstance *application.Application) {
 
@@ -193,17 +201,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		sortBy := c.QueryParam("sort")
 		sortOrder := c.QueryParam("order")
 		if sortOrder == "" {
-			sortOrder = "asc"
+			sortOrder = ascSortOrder
 		}
 
 		switch sortBy {
-		case "name":
+		case nameSortFieldName:
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByName(sortOrder)
-		case "repository":
+		case repositorySortFieldName:
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByRepository(sortOrder)
-		case "license":
+		case licenseSortFieldName:
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByLicense(sortOrder)
-		case "status":
+		case statusSortFieldName:
 			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByInstalled(sortOrder)
 		}
 
@@ -515,17 +523,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		sortBy := c.QueryParam("sort")
 		sortOrder := c.QueryParam("order")
 		if sortOrder == "" {
-			sortOrder = "asc"
+			sortOrder = ascSortOrder
 		}
 
 		switch sortBy {
-		case "name":
+		case nameSortFieldName:
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByName(sortOrder)
-		case "repository":
+		case repositorySortFieldName:
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByRepository(sortOrder)
-		case "license":
+		case licenseSortFieldName:
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByLicense(sortOrder)
-		case "status":
+		case statusSortFieldName:
 			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByInstalled(sortOrder)
 		}
 
