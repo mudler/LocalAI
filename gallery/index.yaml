@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "tema_q-r4.2"
+  urls:
+    - https://huggingface.co/kawasumi/Tema_Q-R4.2-GGUF
+  description: |
+    **Tema_Q-R4.2** is an instruction-tuned, multilingual Large Language Model (LLM) built on Google's **Gemma 2 9B** base model. It supports Japanese, English, and Chinese, excelling in creative writing, complex programming, and knowledge-based tasks. With a high UGI score (2025 UGI Leaderboard), it offers reliable, unfiltered responses for diverse applications. Developed by KY, TY, HY, and KK, this model retains the performance of its base while being optimized for practical use across multiple languages. Note: This is a quantized version of the original Gemma 2 model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Tema_Q-R4.2-Q4_K_M.gguf
+    name: Tema_Q-R4.2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/kawasumi/Tema_Q-R4.2-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Tema_Q-R4.2-Q4_K_M.gguf
+      sha256: ce54578598c16706a977753441722d4649b0fa2dcb3a895406c05337c8bdc8cc
+      uri: https://huggingface.co/kawasumi/Tema_Q-R4.2-GGUF/resolve/main/Tema_Q-R4.2-Q4_K_M.gguf
+
