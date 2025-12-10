@@ -196,44 +196,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			sortOrder = "asc"
 		}
 
-		if sortBy != "" {
-			modelsSlice := []*gallery.GalleryModel(models)
-			sort.Slice(modelsSlice, func(i, j int) bool {
-				var result bool
-				switch sortBy {
-				case "name":
-					result = strings.ToLower(modelsSlice[i].Name) < strings.ToLower(modelsSlice[j].Name)
-				case "repository":
-					result = strings.ToLower(modelsSlice[i].Gallery.Name) < strings.ToLower(modelsSlice[j].Gallery.Name)
-				case "license":
-					licenseI := modelsSlice[i].License
-					licenseJ := modelsSlice[j].License
-					if licenseI == "" && licenseJ != "" {
-						result = sortOrder == "desc"
-					} else if licenseI != "" && licenseJ == "" {
-						result = sortOrder == "asc"
-					} else if licenseI == "" && licenseJ == "" {
-						result = false
-					} else {
-						result = strings.ToLower(licenseI) < strings.ToLower(licenseJ)
-					}
-				case "status":
-					// Sort by installed status: installed items first (true > false)
-					if modelsSlice[i].Installed != modelsSlice[j].Installed {
-						result = modelsSlice[i].Installed
-					} else {
-						// If same status, sort by name as secondary
-						result = strings.ToLower(modelsSlice[i].Name) < strings.ToLower(modelsSlice[j].Name)
-					}
-				default:
-					return false
-				}
-				if sortOrder == "desc" {
-					return !result
-				}
-				return result
-			})
-			models = gallery.GalleryElements[*gallery.GalleryModel](modelsSlice)
+		switch sortBy {
+		case "name":
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByName(sortOrder)
+		case "repository":
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByRepository(sortOrder)
+		case "license":
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByLicense(sortOrder)
+		case "status":
+			models = gallery.GalleryElements[*gallery.GalleryModel](models).SortByInstalled(sortOrder)
 		}
 
 		pageNum, err := strconv.Atoi(page)
@@ -547,44 +518,15 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			sortOrder = "asc"
 		}
 
-		if sortBy != "" {
-			backendsSlice := []*gallery.GalleryBackend(backends)
-			sort.Slice(backendsSlice, func(i, j int) bool {
-				var result bool
-				switch sortBy {
-				case "name":
-					result = strings.ToLower(backendsSlice[i].Name) < strings.ToLower(backendsSlice[j].Name)
-				case "repository":
-					result = strings.ToLower(backendsSlice[i].Gallery.Name) < strings.ToLower(backendsSlice[j].Gallery.Name)
-				case "license":
-					licenseI := backendsSlice[i].License
-					licenseJ := backendsSlice[j].License
-					if licenseI == "" && licenseJ != "" {
-						result = sortOrder == "desc"
-					} else if licenseI != "" && licenseJ == "" {
-						result = sortOrder == "asc"
-					} else if licenseI == "" && licenseJ == "" {
-						result = false
-					} else {
-						result = strings.ToLower(licenseI) < strings.ToLower(licenseJ)
-					}
-				case "status":
-					// Sort by installed status: installed items first (true > false)
-					if backendsSlice[i].Installed != backendsSlice[j].Installed {
-						result = backendsSlice[i].Installed
-					} else {
-						// If same status, sort by name as secondary
-						result = strings.ToLower(backendsSlice[i].Name) < strings.ToLower(backendsSlice[j].Name)
-					}
-				default:
-					return false
-				}
-				if sortOrder == "desc" {
-					return !result
-				}
-				return result
-			})
-			backends = gallery.GalleryElements[*gallery.GalleryBackend](backendsSlice)
+		switch sortBy {
+		case "name":
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByName(sortOrder)
+		case "repository":
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByRepository(sortOrder)
+		case "license":
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByLicense(sortOrder)
+		case "status":
+			backends = gallery.GalleryElements[*gallery.GalleryBackend](backends).SortByInstalled(sortOrder)
 		}
 
 		pageNum, err := strconv.Atoi(page)
