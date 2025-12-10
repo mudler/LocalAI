@@ -23139,3 +23139,33 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen-image-edit-rapid-aio"
+  urls:
+    - https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF
+  description: |
+    The model in question is a **quantized version** of the base model **Phr00t/Qwen-Image-Edit-Rapid-AIO**, optimized for efficiency. The base model is a large language model designed for image editing and rapid AI tasks, leveraging advanced capabilities in text-to-image generation and multi-modal reasoning. The quantized version (v11) was processed using tools like `ComfyUI-GGUF` and `convert`, making it suitable for deployment in resource-constrained environments while retaining core functionality. This version is derived from the original model but scaled down for faster inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen-Rapid-AIO-NSFW-v11.1_Q4_K_M.gguf
+    name: Qwen-Image-Edit-Rapid-AIO-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen-Rapid-AIO-NSFW-v11.1_Q4_K_M.gguf
+      sha256: c6cddb42f3e5a0227b767fd3d608a89acc113eee3aa97a4bcf2d41d28d2f5c65
+      uri: https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/v11.1/Qwen-Rapid-AIO-NSFW-v11.1_Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen-Rapid-AIO-SFW-v11_Q4_K_M.gguf
+      sha256: b2a20b9270f48f31dc3750c8ee84f75237aaabe9801930a0ef3f9b41c05803e3
+      uri: https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/v11/Qwen-Rapid-AIO-SFW-v11_Q4_K_M.gguf
+
