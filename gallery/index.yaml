@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *phi-2-chat
+  name: "phi-3.5-mini-instruct"
+  urls:
+    - https://huggingface.co/ss-lab/Phi-3.5-mini-instruct-GGUF
+  description: |
+    The model described in the base repository **unsloth/Phi-3.5-mini-instruct** is a compact yet capable large language model designed for efficient text generation. It is based on the Phi-3.5-mini-instruct architecture, optimized for performance on consumer-grade hardware through quantization. The model is trained on a diverse dataset, enabling it to handle tasks like dialogue, reasoning, and code generation. Its GGUF quantized version (ss-lab/Phi-3.5-mini-instruct-GGUF) reduces computational requirements while retaining key capabilities, making it accessible for inference on lower-end systems. Ideal for applications requiring speed and efficiency without sacrificing accuracy.
+  overrides:
+    parameters:
+      model: llama-cpp/models/phi-3.5-mini-instruct.Q4_K_M.gguf
+    name: Phi-3.5-mini-instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ss-lab/Phi-3.5-mini-instruct-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/phi-3.5-mini-instruct.Q4_K_M.gguf
+      sha256: 04145804a793a215212c8769d3e74bc3fff23b09e4b4be11ebf99a9413492a89
+      uri: https://huggingface.co/ss-lab/Phi-3.5-mini-instruct-GGUF/resolve/main/phi-3.5-mini-instruct.Q4_K_M.gguf
+
