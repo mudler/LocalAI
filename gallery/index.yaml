@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gptoss
+  name: "gpt-oss-20b-malaysian-reasoning-sft-v0.1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the original **Scicom-intl/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1** model. The base model is a **20 billion-parameter** large language model specifically trained on Malaysian reasoning datasets, optimized for tasks requiring logical and contextual understanding. The quantized version (GGUF format) is derived from this base model but uses compressed representations (e.g., Q4_K_S, Q2_K_S) to reduce size while retaining core capabilities. For a gallery description, the original model's key attributes—its size, training focus, and purpose—should be emphasized, while noting that the quantized version is a streamlined variant.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1.i1-Q4_K_M.gguf
+    name: gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1.i1-Q4_K_M.gguf
+      sha256: 5b07412489177d3b73b0bcc38654cb07b97b3f86f622b9bcc7708994354aa5c0
+      uri: https://huggingface.co/mradermacher/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1-i1-GGUF/resolve/main/gpt-oss-20b-Malaysian-Reasoning-SFT-v0.1.i1-Q4_K_M.gguf
+
