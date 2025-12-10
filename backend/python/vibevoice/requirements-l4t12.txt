@@ -1,7 +1,7 @@
 --extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu129/
 torch
 git+https://github.com/huggingface/diffusers
-transformers==4.51.3
+transformers==4.53.0
 accelerate
 compel
 peft
