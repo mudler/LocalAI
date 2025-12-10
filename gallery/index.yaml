@@ -23139,3 +23139,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "mistral-7b-instruct-sppo-iter2"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-7B-Instruct-SPPO-Iter2-GGUF
+  description: |
+    The **Mistral-7B-Instruct-SPPO-Iter2** model is a large language model (7 billion parameters) trained with reinforcement learning from human feedback (SPPO) to optimize dialogue and reasoning tasks. It is based on the original **Williampixel/Mistral-7B-Instruct-SPPO-Iter2** model, providing strong performance in instruction-following, code generation, and multi-turn conversations.
+
+    This model is available in multiple quantized formats (e.g., Q2_K, Q4_K_S, Q8_0) to balance speed, memory usage, and quality, making it suitable for diverse hardware setups. The quantized versions range from 2.8GB (Q2_K) to 14.6GB (f16), with higher-quality options like Q8_0 offering better performance.
+
+    Ideal for applications requiring efficient inference or specialized tasks, this model combines versatility with flexibility across different computational constraints.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-7B-Instruct-SPPO-Iter2.Q4_K_M.gguf
+    name: Mistral-7B-Instruct-SPPO-Iter2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-7B-Instruct-SPPO-Iter2-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Mistral-7B-Instruct-SPPO-Iter2.Q4_K_M.gguf
+      sha256: e8f49ea36debaad55a96da02bf011c086000da02cc5fdd65717c85ddaae95030
+      uri: https://huggingface.co/mradermacher/Mistral-7B-Instruct-SPPO-Iter2-GGUF/resolve/main/Mistral-7B-Instruct-SPPO-Iter2.Q4_K_M.gguf
+
