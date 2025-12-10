@@ -23139,3 +23139,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "sf-diogenes-v0.1"
+  urls:
+    - https://huggingface.co/mradermacher/sf-diogenes-v0.1-GGUF
+  description: |
+    The model **sf-diogenes-v0.1** is a large language model based on the **Salesforce Diogenes** series, optimized for instruction-following tasks. The base model, **tilman-d/sf-diogenes-v0.1**, is quantized into multiple versions (e.g., Q2_K, Q3_K_S, Q4_K_S, Q6_K) for efficiency, with sizes ranging from 29.2GB to 84.9GB. These quantized variants balance performance and memory usage, suitable for diverse applications. The model is licensed under the Apache-2.0 license and includes documentation for usage, quantization details, and comparisons of different quantization types. It is hosted on Hugging Face and optimized for workflows involving GGUF file formats.
+  overrides:
+    parameters:
+      model: llama-cpp/models/sf-diogenes-v0.1.Q4_K_M.gguf
+    name: sf-diogenes-v0.1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/sf-diogenes-v0.1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/sf-diogenes-v0.1.Q4_K_M.gguf
+      sha256: 0d423836483a9f27a2e00adade81538ef982680a36c2a840fe0e62d68618a4ca
+      uri: https://huggingface.co/mradermacher/sf-diogenes-v0.1-GGUF/resolve/main/sf-diogenes-v0.1.Q4_K_M.gguf
+
