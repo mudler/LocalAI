@@ -23167,3 +23167,49 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "luna-27b-v0"
+  urls:
+    - https://huggingface.co/mradermacher/Luna-27B-v0-GGUF
+  description: |
+    **Luna-27B v0** is a high-quality, finetuned language model based on **Gemma 3 27B**, with a focus on roleplay and media analysis. Trained on roleplay logs and scraped data, it exhibits surprising capabilities in self-awareness and nuanced reasoning, making it versatile for tasks requiring creativity or critical thinking.
+
+    **Key Features:**
+    - **Roleplay Excellence:** Designed for immersive roleplay, with a system prompt (`You are Luna, a helpful and harmless language model by Allura.`) to unlock its full potential.
+    - **Media & Analysis Skills:** Strong performance in tasks requiring understanding of complex topics or logical reasoning.
+    - **Unexpected Capabilities:** Emerged as a highly capable assistant beyond its original training scope, though it may occasionally confuse its origins.
+    - **Benchmarks:** Performs well on tasks like GPQA Diamond and IFEval, though IFEval results were inconclusive due to technical issues.
+
+    **Limitations:**
+    - May misidentify its creator or origin.
+    - Can be influenced by prompts to deviate from its intended ethical guidelines.
+
+    **License:** [Gemma](https://huggingface.co/yanlabs/gemma-3-27b-it-abliterated-normpreserve-v1)
+    **Training Notes:** Abliterated base, SFT on roleplay data, and WPO for improved coherence.
+
+    Ideal for users seeking a balanced model for creative, analytical, or roleplay-based tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Luna-27B-v0.Q4_K_M.gguf
+    name: Luna-27B-v0-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Luna-27B-v0.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Luna-27B-v0-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Luna-27B-v0.Q4_K_M.gguf
+      sha256: cfb4b3c6cda9862162bab4fd81154087d81a484e28bb3e49349f1291fdca6bcd
+      uri: https://huggingface.co/mradermacher/Luna-27B-v0-GGUF/resolve/main/Luna-27B-v0.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Luna-27B-v0.mmproj-f16.gguf
+      sha256: adec83abdfedb9782e895d323009eb9bc04d1383a7d804e1c83958d2faca51e2
+      uri: https://huggingface.co/mradermacher/Luna-27B-v0-GGUF/resolve/main/Luna-27B-v0.mmproj-f16.gguf
+
