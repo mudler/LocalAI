@@ -15,3 +15,9 @@ func allExcept(s string) GRPCProcessFilter {
 		return id != s
 	}
 }
+
+func only(s string) GRPCProcessFilter {
+	return func(id string, p *process.Process) bool {
+		return id == s
+	}
+}
