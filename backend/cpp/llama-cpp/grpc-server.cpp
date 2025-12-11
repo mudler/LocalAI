@@ -1099,6 +1099,11 @@ public:
                             if (msg["content"].is_null()) {
                                 SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) has NULL content - FIXING!\n", idx, role_str.c_str());
                                 msg["content"] = ""; // Fix null content
+                            } else if (role_str == "tool" && msg["content"].is_array()) {
+                                // Tool messages must have string content, not array
+                                // oaicompat_chat_params_parse expects tool messages to have string content
+                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=tool) has array content, converting to string\n", idx);
+                                msg["content"] = msg["content"].dump();
                             } else if (!msg["content"].is_string() && !msg["content"].is_array()) {
                                 // If content is object or other non-string type, convert to string for templates
                                 SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s) content is not string/array, converting\n", idx, role_str.c_str());
@@ -1829,6 +1834,11 @@ public:
                             if (msg["content"].is_null()) {
                                 SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) has NULL content - FIXING!\n", idx, role_str.c_str());
                                 msg["content"] = ""; // Fix null content
+                            } else if (role_str == "tool" && msg["content"].is_array()) {
+                                // Tool messages must have string content, not array
+                                // oaicompat_chat_params_parse expects tool messages to have string content
+                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=tool) has array content, converting to string\n", idx);
+                                msg["content"] = msg["content"].dump();
                             } else if (!msg["content"].is_string() && !msg["content"].is_array()) {
                                 // If content is object or other non-string type, convert to string for templates
                                 SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s) content is not string/array, converting\n", idx, role_str.c_str());
