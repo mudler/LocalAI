@@ -23167,3 +23167,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "mistral-7b-instruct-sppo-iter2-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-7B-Instruct-SPPO-Iter2-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the **Mistral-7B-Instruct-SPPO-Iter2** base model, originally developed by **Williampixel**. This quantized version (denoted as `i1-GGUF`) is optimized for efficient inference while retaining key performance characteristics of the original model. It is part of a series of quantized variants tailored for different use cases, balancing speed and quality through varied quantization strategies (e.g., IQ1, IQ2, IQ3, etc.).
+
+    The base model, **Mistral-7B-Instruct-SPPO-Iter2**, is a large language model trained using the **SPPO** (Skill-based Policy Optimization) method, making it suitable for instruction-following tasks. The quantized version provides multiple downloadable options, including high-quality "imatrix" files and lower-bit quantizations, catering to users seeking trade-offs between inference speed and model fidelity.
+
+    This model is ideal for applications requiring efficient large language model deployment, particularly in environments with memory or computational constraints.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-7B-Instruct-SPPO-Iter2.i1-Q4_K_M.gguf
+    name: Mistral-7B-Instruct-SPPO-Iter2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-7B-Instruct-SPPO-Iter2-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Mistral-7B-Instruct-SPPO-Iter2.i1-Q4_K_M.gguf
+      sha256: c826ecd5dbca0d95b73a99a93ecbe3f7c54c2f0a54a80850366dc7386ecc49dd
+      uri: https://huggingface.co/mradermacher/Mistral-7B-Instruct-SPPO-Iter2-i1-GGUF/resolve/main/Mistral-7B-Instruct-SPPO-Iter2.i1-Q4_K_M.gguf
+
