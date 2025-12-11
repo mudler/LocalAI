@@ -23167,3 +23167,42 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-8b-medical-extraction-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-8B-Medical-Extraction-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-8B-Medical-Extraction
+    **Type:** Vision-Language Model
+    **Purpose:** Medical document analysis and extraction of structured clinical information from images and text.
+    **Base Model:** Zaynoid/Qwen3-VL-8B-Medical-Extraction (8B parameters)
+    **Quantized Format:** GGUF (optimized for efficiency)
+    **Key Features:**
+    - Multimodal capabilities (text + image processing)
+    - Specialized for medical data, enabling extraction of critical patient details from scanned documents, radiology reports, and clinical notes
+    - Lightweight GGUF version available for fast inference
+    - Built on a large-scale language model with vision transformers for contextual understanding
+
+    **Use Case:** Healthcare providers and researchers for automated medical data analysis.
+    **Note:** The GGUF version is a quantized variant of the original model; the full-base version is available for deeper customization.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-8B-Medical-Extraction.i1-Q4_K_M.gguf
+    name: Qwen3-VL-8B-Medical-Extraction-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-8B-Medical-Extraction-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-8B-Medical-Extraction.i1-Q4_K_M.gguf
+      sha256: f2d1840b9c3ccda2cf9ac54bfa285a01b447b8445cd35706a7412c61149757a6
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-8B-Medical-Extraction-i1-GGUF/resolve/main/Qwen3-VL-8B-Medical-Extraction.i1-Q4_K_M.gguf
+
