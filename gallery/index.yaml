@@ -23167,3 +23167,42 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "mistralai.devstral-2-123b-instruct-2512"
+  urls:
+    - https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF
+  description: |
+    The model is a **quantized version** of the large language model **mistralai/Devstral-2-123B-Instruct-2512**, optimized for efficient inference. It retains the core capabilities of the original model for **text generation** tasks while requiring significantly less memory and computational resources. This makes it ideal for deployment in environments where the full-scale model cannot run efficiently. The quantization process preserves the model's performance while enabling broader accessibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00001-of-00005.gguf
+    name: mistralai.Devstral-2-123B-Instruct-2512-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00001-of-00005.gguf
+      sha256: 657a84a7491d583fa2bf4e464efd55a9f7f7c84a7c32b04a84258452f9dad684
+      uri: https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF/resolve/main/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00001-of-00005.gguf
+    - filename: llama-cpp/models/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00002-of-00005.gguf
+      sha256: 483eca9c5af18bec3723a0f92b6e1342076890134b436260cbcf5225418d0809
+      uri: https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF/resolve/main/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00002-of-00005.gguf
+    - filename: llama-cpp/models/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00003-of-00005.gguf
+      sha256: 2ef2dc8411f39aed9bfea27fc40166126bdbc4e54c322e2bfebc11252f4a7f13
+      uri: https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF/resolve/main/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00003-of-00005.gguf
+    - filename: llama-cpp/models/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00004-of-00005.gguf
+      sha256: af75d6a5b1d98d5eb6fe85283bf587d4d07dba975360b0cb3d011a7e65723178
+      uri: https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF/resolve/main/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00004-of-00005.gguf
+    - filename: llama-cpp/models/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00005-of-00005.gguf
+      sha256: 7b3881f05617b2aea55700e9014aaec799ce18c3804488a824bee7419a429a56
+      uri: https://huggingface.co/DevQuasar/mistralai.Devstral-2-123B-Instruct-2512-GGUF/resolve/main/mistralai.Devstral-2-123B-Instruct-2512.Q4_K_M-00005-of-00005.gguf
+
