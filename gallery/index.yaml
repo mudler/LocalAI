@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "msrsql-ts-qwen2.5-coder-7b-instruct"
+  urls:
+    - https://huggingface.co/mradermacher/MsrSQL-TS-Qwen2.5-Coder-7B-Instruct-GGUF
+  description: |
+    The model is a **7B-parameter instruction-following variant** of the Qwen2.5-Coder series, optimized for **SQL reasoning and code generation**. It is based on the base model **lifh980706/DsrSQL-TS-Qwen2.5-Coder-7B-Instruct**, tailored for tasks involving structured data (e.g., SQL queries) and programming. The quantized versions (e.g., Q4_K_S, Q8_0) are efficiency-focused adaptations, but the base model provides the original architecture. It is suitable for applications requiring precise code generation, database interaction, and logical reasoning.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MsrSQL-TS-Qwen2.5-Coder-7B-Instruct.Q4_K_M.gguf
+    name: MsrSQL-TS-Qwen2.5-Coder-7B-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MsrSQL-TS-Qwen2.5-Coder-7B-Instruct-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/MsrSQL-TS-Qwen2.5-Coder-7B-Instruct.Q4_K_M.gguf
+      sha256: 1798c8b2dc665df1d9ad7a9a9234abd1542a9bac7d2d7f45b18d8127a22942e2
+      uri: https://huggingface.co/mradermacher/MsrSQL-TS-Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/MsrSQL-TS-Qwen2.5-Coder-7B-Instruct.Q4_K_M.gguf
+
