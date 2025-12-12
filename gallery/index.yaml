@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "ganadero_qwen_3_8b_vl_gguf16"
+  urls:
+    - https://huggingface.co/hey-now-bots/ganadero_qwen_3_8B_vl_GGUF16
+  description: |
+    The **ganadero_qwen_3_8B_vl_GGUF16** model is a **GGUF-formatted vision-language model** based on Qwen3, fine-tuned for multimodal tasks. It features **8 billion parameters** and supports both text and image inputs, making it suitable for tasks requiring combined visual and linguistic understanding. The model is optimized for inference via the **llama-cli** or **llama-mtmd-cli** tools, with a quantized version (F16/BF16) ensuring efficient performance on compatible hardware. It includes a dedicated multimodal projection file for seamless vision-language integration.
+  overrides:
+    parameters:
+      model: llama-cpp/models/qwen3-vl-8b-instruct.F16.gguf
+    name: ganadero_qwen_3_8B_vl_GGUF16
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/qwen3-vl-8b-instruct.BF16-mmproj.gguf
+    description: Imported from https://huggingface.co/hey-now-bots/ganadero_qwen_3_8B_vl_GGUF16
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/mmproj/qwen3-vl-8b-instruct.BF16-mmproj.gguf
+      sha256: d3b83c2df6a851974bb724ddcfd99ddb889c9dece9d19322ba83eb6dd84cfbc2
+      uri: https://huggingface.co/hey-now-bots/ganadero_qwen_3_8B_vl_GGUF16/resolve/main/qwen3-vl-8b-instruct.BF16-mmproj.gguf
+    - filename: llama-cpp/models/qwen3-vl-8b-instruct.F16.gguf
+      sha256: 57a333359e0713115d49304143040060797fb0ab4088e98717757bfc9b9d25cc
+      uri: https://huggingface.co/hey-now-bots/ganadero_qwen_3_8B_vl_GGUF16/resolve/main/qwen3-vl-8b-instruct.F16.gguf
+
