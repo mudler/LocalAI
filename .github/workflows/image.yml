@@ -157,11 +157,11 @@ jobs:
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'true'
-            ubuntu-version: "2204"
+            ubuntu-version: "2404"
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
