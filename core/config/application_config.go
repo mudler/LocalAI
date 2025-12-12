@@ -52,7 +52,8 @@ type ApplicationConfig struct {
 
 	AutoloadGalleries, AutoloadBackendGalleries bool
 
-	SingleBackend           bool
+	SingleBackend           bool // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends       int  // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	ParallelBackendRequests bool
 
 	WatchDogIdle bool
@@ -186,8 +187,38 @@ func SetWatchDogIdleTimeout(t time.Duration) AppOption {
 	}
 }
 
+// EnableSingleBackend is deprecated: use SetMaxActiveBackends(1) instead.
+// This is kept for backward compatibility.
 var EnableSingleBackend = func(o *ApplicationConfig) {
 	o.SingleBackend = true
+	o.MaxActiveBackends = 1
+}
+
+// SetMaxActiveBackends sets the maximum number of active backends.
+// 0 = unlimited, 1 = single backend mode (replaces EnableSingleBackend)
+func SetMaxActiveBackends(n int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MaxActiveBackends = n
+		// For backward compatibility, also set SingleBackend if n == 1
+		if n == 1 {
+			o.SingleBackend = true
+		}
+	}
+}
+
+// GetEffectiveMaxActiveBackends returns the effective max active backends limit.
+// It considers both MaxActiveBackends and the deprecated SingleBackend setting.
+// If MaxActiveBackends is set (> 0), it takes precedence.
+// If SingleBackend is true and MaxActiveBackends is 0, returns 1.
+// Otherwise returns 0 (unlimited).
+func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
+	if o.MaxActiveBackends > 0 {
+		return o.MaxActiveBackends
+	}
+	if o.SingleBackend {
+		return 1
+	}
+	return 0
 }
 
 var EnableParallelBackendRequests = func(o *ApplicationConfig) {

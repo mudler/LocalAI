@@ -20,21 +20,29 @@ func (a *Application) StopWatchdog() error {
 func (a *Application) startWatchdog() error {
 	appConfig := a.ApplicationConfig()
 
-	// Create new watchdog if enabled
-	if appConfig.WatchDog {
+	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
+	lruLimit := appConfig.GetEffectiveMaxActiveBackends()
+
+	// Create watchdog if enabled OR if LRU limit is set
+	// LRU eviction requires watchdog infrastructure even without busy/idle checks
+	if appConfig.WatchDog || lruLimit > 0 {
 		wd := model.NewWatchDog(
 			a.modelLoader,
 			appConfig.WatchDogBusyTimeout,
 			appConfig.WatchDogIdleTimeout,
 			appConfig.WatchDogBusy,
-			appConfig.WatchDogIdle)
+			appConfig.WatchDogIdle,
+			lruLimit)
 		a.modelLoader.SetWatchDog(wd)
 
 		// Create new stop channel
 		a.watchdogStop = make(chan bool, 1)
 
-		// Start watchdog goroutine
-		go wd.Run()
+		// Start watchdog goroutine only if busy/idle checks are enabled
+		// LRU eviction doesn't need the Run() loop - it's triggered on model load
+		if appConfig.WatchDogBusy || appConfig.WatchDogIdle {
+			go wd.Run()
+		}
 
 		// Setup shutdown handler
 		go func() {
@@ -48,7 +56,7 @@ func (a *Application) startWatchdog() error {
 			}
 		}()
 
-		log.Info().Msg("Watchdog started with new settings")
+		log.Info().Int("lruLimit", lruLimit).Bool("busyCheck", appConfig.WatchDogBusy).Bool("idleCheck", appConfig.WatchDogIdle).Msg("Watchdog started with new settings")
 	} else {
 		log.Info().Msg("Watchdog disabled")
 	}

@@ -63,7 +63,7 @@ var _ = Describe("Integration tests for the stores backend(s) and internal APIs"
 			)
 			Expect(err).ToNot(HaveOccurred())
 
-			sl = model.NewModelLoader(systemState, false)
+			sl = model.NewModelLoader(systemState)
 			sc, err = sl.Load(storeOpts...)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sc).ToNot(BeNil())

@@ -29,7 +29,7 @@ type Application struct {
 func newApplication(appConfig *config.ApplicationConfig) *Application {
 	return &Application{
 		backendLoader:      config.NewModelConfigLoader(appConfig.SystemState.Model.ModelsPath),
-		modelLoader:        model.NewModelLoader(appConfig.SystemState, appConfig.SingleBackend),
+		modelLoader:        model.NewModelLoader(appConfig.SystemState),
 		applicationConfig:  appConfig,
 		templatesEvaluator: templates.NewEvaluator(appConfig.SystemState.Model.ModelsPath),
 	}

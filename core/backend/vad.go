@@ -19,7 +19,6 @@ func VAD(request *schema.VADRequest,
 	if err != nil {
 		return nil, err
 	}
-	defer ml.Close()
 
 	req := proto.VADRequest{
 		Audio: request.Audio,

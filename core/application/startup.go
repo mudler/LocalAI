@@ -224,7 +224,8 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
 		WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
 		WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
-		SingleBackend           *bool   `json:"single_backend,omitempty"`
+		SingleBackend           *bool   `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
+		MaxActiveBackends       *int    `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited)
 		ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
 		AgentJobRetentionDays   *int    `json:"agent_job_retention_days,omitempty"`
 	}
@@ -280,9 +281,21 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			}
 		}
 	}
-	if settings.SingleBackend != nil {
+	// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
+	if settings.MaxActiveBackends != nil {
+		// Only apply if current value is default (0), suggesting it wasn't set from env var
+		if options.MaxActiveBackends == 0 {
+			options.MaxActiveBackends = *settings.MaxActiveBackends
+			// For backward compatibility, also set SingleBackend if MaxActiveBackends == 1
+			options.SingleBackend = (*settings.MaxActiveBackends == 1)
+		}
+	} else if settings.SingleBackend != nil {
+		// Legacy: SingleBackend maps to MaxActiveBackends = 1
 		if !options.SingleBackend {
 			options.SingleBackend = *settings.SingleBackend
+			if *settings.SingleBackend {
+				options.MaxActiveBackends = 1
+			}
 		}
 	}
 	if settings.ParallelBackendRequests != nil {
@@ -307,15 +320,25 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 
 // initializeWatchdog initializes the watchdog with current ApplicationConfig settings
 func initializeWatchdog(application *Application, options *config.ApplicationConfig) {
-	if options.WatchDog {
+	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
+	lruLimit := options.GetEffectiveMaxActiveBackends()
+
+	// Create watchdog if enabled OR if LRU limit is set
+	if options.WatchDog || lruLimit > 0 {
 		wd := model.NewWatchDog(
 			application.ModelLoader(),
 			options.WatchDogBusyTimeout,
 			options.WatchDogIdleTimeout,
 			options.WatchDogBusy,
-			options.WatchDogIdle)
+			options.WatchDogIdle,
+			lruLimit)
 		application.ModelLoader().SetWatchDog(wd)
-		go wd.Run()
+
+		// Start watchdog goroutine only if busy/idle checks are enabled
+		if options.WatchDogBusy || options.WatchDogIdle {
+			go wd.Run()
+		}
+
 		go func() {
 			<-options.Context.Done()
 			log.Debug().Msgf("Context canceled, shutting down")
