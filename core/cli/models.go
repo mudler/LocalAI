@@ -80,7 +80,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	galleryService := services.NewGalleryService(&config.ApplicationConfig{}, model.NewModelLoader(systemState, true))
+	galleryService := services.NewGalleryService(&config.ApplicationConfig{}, model.NewModelLoader(systemState))
 	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath), systemState)
 	if err != nil {
 		return err
@@ -134,7 +134,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
 		}
 
-		modelLoader := model.NewModelLoader(systemState, true)
+		modelLoader := model.NewModelLoader(systemState)
 		err = startup.InstallModels(context.Background(), galleryService, galleries, backendGalleries, systemState, modelLoader, !mi.DisablePredownloadScan, mi.AutoloadBackendGalleries, progressCallback, modelName)
 		if err != nil {
 			return err

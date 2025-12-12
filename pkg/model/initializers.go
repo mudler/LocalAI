@@ -173,6 +173,10 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
+		err := ml.StopGRPC(only(o.modelID))
+		if err != nil {
+			log.Error().Err(err).Str("model", o.modelID).Msg("error stopping model")
+		}
 		log.Error().Str("modelID", o.modelID).Err(err).Msgf("Failed to load model %s with backend %s", o.modelID, o.backendString)
 		return nil, err
 	}
@@ -180,53 +184,48 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	return model.GRPC(o.parallelRequests, ml.wd), nil
 }
 
-func (ml *ModelLoader) stopActiveBackends(modelID string, singleActiveBackend bool) {
-	if !singleActiveBackend {
+// enforceLRULimit enforces the LRU limit before loading a new model.
+// This is called before loading a model to ensure we don't exceed the limit.
+// It accounts for models that are currently being loaded by other goroutines.
+func (ml *ModelLoader) enforceLRULimit() {
+	if ml.wd == nil {
 		return
 	}
-
-	// If we can have only one backend active, kill all the others (except external backends)
-
-	// Stop all backends except the one we are going to load
-	log.Debug().Msgf("Stopping all backends except '%s'", modelID)
-	err := ml.StopGRPC(allExcept(modelID))
-	if err != nil {
-		log.Error().Err(err).Str("keptModel", modelID).Msg("error while shutting down all backends except for the keptModel - greedyloader continuing")
-	}
+	// Get the count of models currently being loaded to account for concurrent requests
+	pendingLoads := ml.GetLoadingCount()
+	ml.wd.EnforceLRULimit(pendingLoads)
 }
 
-func (ml *ModelLoader) Close() {
-	if !ml.singletonMode {
+// updateModelLastUsed updates the last used time for a model (for LRU tracking)
+func (ml *ModelLoader) updateModelLastUsed(m *Model) {
+	if ml.wd == nil || m == nil {
 		return
 	}
-	ml.singletonLock.Unlock()
-}
-
-func (ml *ModelLoader) lockBackend() {
-	if !ml.singletonMode {
-		return
-	}
-	ml.singletonLock.Lock()
+	ml.wd.UpdateLastUsed(m.address)
 }
 
 func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
-	ml.lockBackend() // grab the singleton lock if needed
-
 	o := NewOptions(opts...)
 
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
 	if m := ml.CheckIsLoaded(o.modelID); m != nil {
 		log.Debug().Msgf("Model '%s' already loaded", o.modelID)
-
+		// Update last used time for LRU tracking
+		ml.updateModelLastUsed(m)
 		return m.GRPC(o.parallelRequests, ml.wd), nil
 	}
 
-	ml.stopActiveBackends(o.modelID, ml.singletonMode)
+	// Enforce LRU limit before loading a new model
+	ml.enforceLRULimit()
 
 	// if a backend is defined, return the loader directly
 	if o.backendString != "" {
-		return ml.backendLoader(opts...)
+		client, err := ml.backendLoader(opts...)
+		if err != nil {
+			return nil, err
+		}
+		return client, nil
 	}
 
 	// Otherwise scan for backends in the asset directory
@@ -267,8 +266,6 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
 		}
 	}
-
-	ml.Close() // make sure to release the lock in case of failure
 
 	return nil, fmt.Errorf("could not load model - all backends returned error: %s", err.Error())
 }

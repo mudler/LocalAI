@@ -24,7 +24,6 @@ func ModelTranscription(audio, language string, translate bool, diarize bool, ml
 	if err != nil {
 		return nil, err
 	}
-	defer ml.Close()
 
 	if transcriptionModel == nil {
 		return nil, fmt.Errorf("could not load transcription model")

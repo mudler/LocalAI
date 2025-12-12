@@ -45,6 +45,14 @@ func (backend *GalleryBackend) FindBestBackendFromMeta(systemState *system.Syste
 	return backends.FindByName(realBackend)
 }
 
+func (m *GalleryBackend) GetInstalled() bool {
+	return m.Installed
+}
+
+func (m *GalleryBackend) GetLicense() string {
+	return m.License
+}
+
 type GalleryBackends []*GalleryBackend
 
 func (m *GalleryBackend) SetGallery(gallery config.Gallery) {

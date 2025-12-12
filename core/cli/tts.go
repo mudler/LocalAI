@@ -48,7 +48,7 @@ func (t *TTSCMD) Run(ctx *cliContext.Context) error {
 		GeneratedContentDir: outputDir,
 	}
 
-	ml := model.NewModelLoader(systemState, opts.SingleBackend)
+	ml := model.NewModelLoader(systemState)
 
 	defer func() {
 		err := ml.StopAllGRPC()

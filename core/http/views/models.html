@@ -186,41 +186,77 @@
             </div>
 
             <!-- Table View -->
-            <div x-show="models.length > 0" class="card overflow-hidden">
+            <div x-show="models.length > 0" class="bg-[#1E293B] rounded-2xl border border-[#38BDF8]/20 overflow-hidden shadow-xl backdrop-blur-sm">
                 <div class="overflow-x-auto">
                     <table class="w-full">
                         <thead>
-                            <tr class="bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20 border-b border-[var(--color-primary-border)]/30">
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Icon</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Model Name</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Description</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Repository</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">License</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-4 text-right text-xs font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">Actions</th>
+                            <tr class="bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20 border-b border-[#38BDF8]/30">
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Icon</th>
+                                <th @click="setSort('name')" 
+                                    :class="sortBy === 'name' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>Model Name</span>
+                                        <i :class="sortBy === 'name' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'name' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Description</th>
+                                <th @click="setSort('repository')" 
+                                    :class="sortBy === 'repository' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>Repository</span>
+                                        <i :class="sortBy === 'repository' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'repository' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
+                                <th @click="setSort('license')" 
+                                    :class="sortBy === 'license' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>License</span>
+                                        <i :class="sortBy === 'license' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'license' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
+                                <th @click="setSort('status')" 
+                                    :class="sortBy === 'status' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>Status</span>
+                                        <i :class="sortBy === 'status' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'status' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
+                                <th class="px-6 py-4 text-right text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-[#38BDF8]/20">
                             <template x-for="model in models" :key="model.id">
-                                <tr class="hover:bg-[var(--color-primary)]/10 transition-colors duration-200">
+                                <tr class="hover:bg-[#38BDF8]/10 transition-colors duration-200">
                                     <!-- Icon -->
                                     <td class="px-6 py-4">
-                                        <div class="w-12 h-12 rounded-lg border border-[var(--color-primary-border)]/30 flex items-center justify-center bg-[var(--color-bg-primary)]">
+                                        <div class="w-12 h-12 rounded-lg border border-[#38BDF8]/30 flex items-center justify-center bg-[#101827]">
                                             <img x-show="model.icon"
                                                  :src="model.icon"
                                                  class="w-full h-full object-cover rounded-lg"
                                                  loading="lazy"
                                                  :alt="model.name">
-                                            <i x-show="!model.icon" class="fas fa-brain text-xl text-[var(--color-primary)]"></i>
+                                            <i x-show="!model.icon" class="fas fa-brain text-xl text-[#8B5CF6]"></i>
                                         </div>
                                     </td>
 
                                     <!-- Model Name -->
                                     <td class="px-6 py-4">
                                         <div class="flex flex-col">
-                                            <span class="text-sm font-semibold text-[var(--color-text-primary)]" x-text="model.name"></span>
+                                            <span class="text-sm font-semibold text-[#E5E7EB]" x-text="model.name"></span>
                                             <div x-show="model.trustRemoteCode" class="mt-1">
-                                                <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-error)]/20 text-[var(--color-error)] border border-[var(--color-error-light)]">
+                                                <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">
                                                     <i class="fa-solid fa-circle-exclamation mr-1"></i>
                                                     Trust Remote Code
                                                 </span>
@@ -230,12 +266,12 @@
 
                                     <!-- Description -->
                                     <td class="px-6 py-4">
-                                        <div class="text-sm text-[var(--color-text-secondary)] max-w-xs truncate" x-text="model.description" :title="model.description"></div>
+                                        <div class="text-sm text-[#94A3B8] max-w-xs truncate" x-text="model.description" :title="model.description"></div>
                                     </td>
 
                                     <!-- Repository -->
                                     <td class="px-6 py-4">
-                                        <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-primary)]/10 text-[var(--color-text-primary)] border border-[var(--color-primary-border)]/30">
+                                        <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#38BDF8]/10 text-[#E5E7EB] border border-[#38BDF8]/30">
                                             <i class="fa-brands fa-git-alt mr-1"></i>
                                             <span x-text="model.gallery"></span>
                                         </span>
@@ -243,21 +279,21 @@
 
                                     <!-- License -->
                                     <td class="px-6 py-4">
-                                        <span x-show="model.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[var(--color-accent)]/10 text-[var(--color-text-primary)] border border-[var(--color-accent-border)]/30">
+                                        <span x-show="model.license" class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#8B5CF6]/10 text-[#E5E7EB] border border-[#8B5CF6]/30">
                                             <i class="fas fa-book mr-1"></i>
                                             <span x-text="model.license"></span>
                                         </span>
-                                        <span x-show="!model.license" class="text-xs text-[var(--color-text-secondary)]">-</span>
+                                        <span x-show="!model.license" class="text-xs text-[#94A3B8]">-</span>
                                     </td>
 
                                     <!-- Status -->
                                     <td class="px-6 py-4">
                                         <!-- Processing State -->
                                         <div x-show="model.processing" class="min-w-[200px]">
-                                            <div class="text-xs font-medium text-[var(--color-text-primary)] mb-1">
+                                            <div class="text-xs font-medium text-[#E5E7EB] mb-1">
                                                 <span x-text="model.isDeletion ? 'Deleting...' : 'Installing...'"></span>
                                             </div>
-                                            <div x-show="(jobProgress[model.jobID] || 0) === 0" class="text-xs text-[var(--color-primary)]">
+                                            <div x-show="(jobProgress[model.jobID] || 0) === 0" class="text-xs text-[#38BDF8]">
                                                 <i class="fas fa-clock mr-1"></i>Queued
                                             </div>
                                             <div class="progress-table mt-1">
@@ -267,7 +303,7 @@
 
                                         <!-- Installed State -->
                                         <div x-show="!model.processing && model.installed">
-                                            <span class="badge badge-success">
+                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-green-500/20 text-green-300 border border-green-500/30">
                                                 <i class="fas fa-check-circle mr-1"></i>
                                                 Installed
                                             </span>
@@ -275,7 +311,7 @@
 
                                         <!-- Not Installed State -->
                                         <div x-show="!model.processing && !model.installed">
-                                            <span class="badge">
+                                            <span class="inline-flex items-center text-xs px-2 py-1 rounded bg-[#1E293B] text-[#94A3B8] border border-[#38BDF8]/30">
                                                 <i class="fas fa-circle mr-1"></i>
                                                 Not Installed
                                             </span>
@@ -566,6 +602,8 @@ function modelsGallery() {
         selectedModel: null,
         jobProgress: {},
         notifications: [],
+        sortBy: '',
+        sortOrder: 'asc',
 
         init() {
             this.fetchModels();
@@ -592,6 +630,10 @@ function modelsGallery() {
                     items: 21,
                     term: this.searchTerm
                 });
+                if (this.sortBy) {
+                    params.append('sort', this.sortBy);
+                    params.append('order', this.sortOrder);
+                }
                 const response = await fetch(`/api/models?${params}`);
                 const data = await response.json();
 
@@ -611,6 +653,19 @@ function modelsGallery() {
 
         filterByTerm(term) {
             this.searchTerm = term;
+            this.currentPage = 1;
+            this.fetchModels();
+        },
+
+        setSort(column) {
+            if (this.sortBy === column) {
+                // Toggle sort order if clicking the same column
+                this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Set new column and default to ascending
+                this.sortBy = column;
+                this.sortOrder = 'asc';
+            }
             this.currentPage = 1;
             this.fetchModels();
         },

@@ -37,7 +37,7 @@ func findLLamaCPPBackend(galleries string, systemState *system.SystemState) (str
 
 	backend, ok := backends.Get(llamaCPPGalleryName)
 	if !ok {
-		ml := model.NewModelLoader(systemState, true)
+		ml := model.NewModelLoader(systemState)
 		var gals []config.Gallery
 		if err := json.Unmarshal([]byte(galleries), &gals); err != nil {
 			log.Error().Err(err).Msg("failed loading galleries")

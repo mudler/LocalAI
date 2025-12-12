@@ -273,7 +273,7 @@ protoc:
 	  echo "Unsupported OS: $$OS_NAME"; exit 1; \
 	fi; \
 	URL=https://github.com/protocolbuffers/protobuf/releases/download/v31.1/$$FILE; \
-	curl -L -s $$URL -o protoc.zip && \
+	curl -L $$URL -o protoc.zip && \
 	unzip -j -d $(CURDIR) protoc.zip bin/protoc && rm protoc.zip
 
 .PHONY: protogen-go
@@ -292,12 +292,14 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/diffusers
 	$(MAKE) -C backend/python/chatterbox
 	$(MAKE) -C backend/python/vllm
+	$(MAKE) -C backend/python/vibevoice
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
 	$(MAKE) -C backend/python/diffusers test
 	$(MAKE) -C backend/python/chatterbox test
 	$(MAKE) -C backend/python/vllm test
+	$(MAKE) -C backend/python/vibevoice test
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
@@ -397,6 +399,9 @@ backends/neutts: docker-build-neutts docker-save-neutts build
 backends/vllm: docker-build-vllm docker-save-vllm build
 	./local-ai backends install "ocifile://$(abspath ./backend-images/vllm.tar)"
 
+backends/vibevoice: docker-build-vibevoice docker-save-vibevoice build
+	./local-ai backends install "ocifile://$(abspath ./backend-images/vibevoice.tar)"
+
 build-darwin-python-backend: build
 	bash ./scripts/build/python-darwin.sh
 
@@ -453,6 +458,9 @@ docker-save-kitten-tts: backend-images
 docker-save-chatterbox: backend-images
 	docker save local-ai-backend:chatterbox -o backend-images/chatterbox.tar
 
+docker-save-vibevoice: backend-images
+	docker save local-ai-backend:vibevoice -o backend-images/vibevoice.tar
+
 docker-build-neutts:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:neutts -f backend/Dockerfile.python --build-arg BACKEND=neutts .
 
@@ -493,7 +501,7 @@ docker-save-bark-cpp: backend-images
 	docker save local-ai-backend:bark-cpp -o backend-images/bark-cpp.tar
 
 docker-build-stablediffusion-ggml:
-	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:stablediffusion-ggml -f backend/Dockerfile.golang --build-arg BACKEND=stablediffusion-ggml .
+	docker build --progress=plain --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) --build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) -t local-ai-backend:stablediffusion-ggml -f backend/Dockerfile.golang --build-arg BACKEND=stablediffusion-ggml .
 
 docker-save-stablediffusion-ggml: backend-images
 	docker save local-ai-backend:stablediffusion-ggml -o backend-images/stablediffusion-ggml.tar
@@ -534,10 +542,13 @@ docker-build-bark:
 docker-build-chatterbox:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:chatterbox -f backend/Dockerfile.python --build-arg BACKEND=chatterbox .
 
+docker-build-vibevoice:
+	docker build --progress=plain --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) -t local-ai-backend:vibevoice -f backend/Dockerfile.python --build-arg BACKEND=vibevoice ./backend
+
 docker-build-exllama2:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) --build-arg BASE_IMAGE=$(BASE_IMAGE) --build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} --build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} -t local-ai-backend:exllama2 -f backend/Dockerfile.python --build-arg BACKEND=exllama2 .
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-exllama2
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2
 
 ########################################################
 ### END Backends

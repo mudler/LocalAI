@@ -29,7 +29,6 @@ func SoundGeneration(
 	if err != nil {
 		return "", nil, err
 	}
-	defer loader.Close()
 
 	if soundGenModel == nil {
 		return "", nil, fmt.Errorf("could not load sound generation model")

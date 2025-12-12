@@ -1,0 +1,22 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+git+https://github.com/huggingface/diffusers
+opencv-python
+transformers==4.51.3
+torchvision==0.22.1
+accelerate
+compel
+peft
+sentencepiece
+torch==2.7.1
+optimum-quanto
+ftfy
+llvmlite>=0.40.0
+numba>=0.57.0
+tqdm
+numpy
+scipy
+librosa
+ml-collections
+absl-py
+gradio
+av

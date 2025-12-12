@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -67,6 +68,8 @@ type GalleryElement interface {
 	GetName() string
 	GetDescription() string
 	GetTags() []string
+	GetInstalled() bool
+	GetLicense() string
 	GetGallery() config.Gallery
 }
 
@@ -87,6 +90,69 @@ func (gm GalleryElements[T]) Search(term string) GalleryElements[T] {
 	}
 
 	return filteredModels
+}
+
+func (gm GalleryElements[T]) SortByName(sortOrder string) GalleryElements[T] {
+	sort.Slice(gm, func(i, j int) bool {
+		if sortOrder == "asc" {
+			return strings.ToLower(gm[i].GetName()) < strings.ToLower(gm[j].GetName())
+		} else {
+			return strings.ToLower(gm[i].GetName()) > strings.ToLower(gm[j].GetName())
+		}
+	})
+	return gm
+}
+
+func (gm GalleryElements[T]) SortByRepository(sortOrder string) GalleryElements[T] {
+	sort.Slice(gm, func(i, j int) bool {
+		if sortOrder == "asc" {
+			return strings.ToLower(gm[i].GetGallery().Name) < strings.ToLower(gm[j].GetGallery().Name)
+		} else {
+			return strings.ToLower(gm[i].GetGallery().Name) > strings.ToLower(gm[j].GetGallery().Name)
+		}
+	})
+	return gm
+}
+
+func (gm GalleryElements[T]) SortByLicense(sortOrder string) GalleryElements[T] {
+	sort.Slice(gm, func(i, j int) bool {
+		licenseI := gm[i].GetLicense()
+		licenseJ := gm[j].GetLicense()
+		var result bool
+		if licenseI == "" && licenseJ != "" {
+			return sortOrder == "desc"
+		} else if licenseI != "" && licenseJ == "" {
+			return sortOrder == "asc"
+		} else if licenseI == "" && licenseJ == "" {
+			return false
+		} else {
+			result = strings.ToLower(licenseI) < strings.ToLower(licenseJ)
+		}
+		if sortOrder == "desc" {
+			return !result
+		} else {
+			return result
+		}
+	})
+	return gm
+}
+
+func (gm GalleryElements[T]) SortByInstalled(sortOrder string) GalleryElements[T] {
+	sort.Slice(gm, func(i, j int) bool {
+		var result bool
+		// Sort by installed status: installed items first (true > false)
+		if gm[i].GetInstalled() != gm[j].GetInstalled() {
+			result = gm[i].GetInstalled()
+		} else {
+			result = strings.ToLower(gm[i].GetName()) < strings.ToLower(gm[j].GetName())
+		}
+		if sortOrder == "desc" {
+			return !result
+		} else {
+			return result
+		}
+	})
+	return gm
 }
 
 func (gm GalleryElements[T]) FindByName(name string) T {

@@ -27,8 +27,10 @@ Changes to watchdog settings are applied immediately by restarting the watchdog 
 
 ### Backend Configuration
 
-- **Single Backend**: Allow only one backend to run at a time
+- **Max Active Backends**: Maximum number of active backends (loaded models). When exceeded, the least recently used model is automatically evicted. Set to `0` for unlimited, `1` for single-backend mode
 - **Parallel Backend Requests**: Enable backends to handle multiple requests in parallel if supported
+
+> **Note:** The "Single Backend" setting is deprecated. Use "Max Active Backends" set to `1` for single-backend behavior.
 
 ### Performance Settings
 
@@ -90,7 +92,7 @@ The `runtime_settings.json` file follows this structure:
   "watchdog_busy_enabled": false,
   "watchdog_idle_timeout": "15m",
   "watchdog_busy_timeout": "5m",
-  "single_backend": false,
+  "max_active_backends": 0,
   "parallel_backend_requests": true,
   "threads": 8,
   "context_size": 2048,

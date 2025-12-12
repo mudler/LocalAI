@@ -5,7 +5,10 @@ weight = 22
 url = '/advanced/vram-management'
 +++
 
-When running multiple models in LocalAI, especially on systems with limited GPU memory (VRAM), you may encounter situations where loading a new model fails because there isn't enough available VRAM. LocalAI provides two mechanisms to automatically manage model memory allocation and prevent VRAM exhaustion.
+When running multiple models in LocalAI, especially on systems with limited GPU memory (VRAM), you may encounter situations where loading a new model fails because there isn't enough available VRAM. LocalAI provides several mechanisms to automatically manage model memory allocation and prevent VRAM exhaustion:
+
+1. **Max Active Backends (LRU Eviction)**: Limit the number of loaded models, evicting the least recently used when the limit is reached
+2. **Watchdog Mechanisms**: Automatically unload idle or stuck models based on configurable timeouts
 
 ## The Problem
 
@@ -16,33 +19,79 @@ By default, LocalAI keeps models loaded in memory once they're first used. This 
 
 This is a common issue when working with GPU-accelerated models, as VRAM is typically more limited than system RAM. For more context, see issues [#6068](https://github.com/mudler/LocalAI/issues/6068), [#7269](https://github.com/mudler/LocalAI/issues/7269), and [#5352](https://github.com/mudler/LocalAI/issues/5352).
 
-## Solution 1: Single Active Backend
+## Solution 1: Max Active Backends (LRU Eviction)
 
-The simplest approach is to ensure only one model is loaded at a time. When a new model is requested, LocalAI will automatically unload the currently active model before loading the new one.
+LocalAI supports limiting the maximum number of active backends (loaded models) using LRU (Least Recently Used) eviction. When the limit is reached and a new model needs to be loaded, the least recently used model is automatically unloaded to make room.
 
 ### Configuration
 
-```bash
-./local-ai --single-active-backend
+Set the maximum number of active backends using CLI flags or environment variables:
 
-LOCALAI_SINGLE_ACTIVE_BACKEND=true ./local-ai
+```bash
+# Allow up to 3 models loaded simultaneously
+./local-ai --max-active-backends=3
+
+# Using environment variables
+LOCALAI_MAX_ACTIVE_BACKENDS=3 ./local-ai
+MAX_ACTIVE_BACKENDS=3 ./local-ai
 ```
+
+Setting the limit to `1` is equivalent to single active backend mode (see below). Setting to `0` disables the limit (unlimited backends).
 
 ### Use cases
 
-- Single GPU systems with limited VRAM
-- When you only need one model active at a time
-- Simple deployments where model switching is acceptable
+- Systems with limited VRAM that can handle a few models simultaneously
+- Multi-model deployments where you want to keep frequently-used models loaded
+- Balancing between memory usage and model reload times
+- Production environments requiring predictable memory consumption
+
+### How it works
+
+1. When a model is requested, its "last used" timestamp is updated
+2. When a new model needs to be loaded and the limit is reached, LocalAI identifies the least recently used model(s)
+3. The LRU model(s) are automatically unloaded to make room for the new model
+4. Concurrent requests for loading different models are handled safely - the system accounts for models currently being loaded when calculating evictions
 
 ### Example
 
 ```bash
-LOCALAI_SINGLE_ACTIVE_BACKEND=true ./local-ai
+# Allow 2 active backends
+LOCALAI_MAX_ACTIVE_BACKENDS=2 ./local-ai
 
+# First request - model-a is loaded (1 active)
 curl http://localhost:8080/v1/chat/completions -d '{"model": "model-a", ...}'
 
+# Second request - model-b is loaded (2 active, at limit)
+curl http://localhost:8080/v1/chat/completions -d '{"model": "model-b", ...}'
+
+# Third request - model-a is evicted (LRU), model-c is loaded
+curl http://localhost:8080/v1/chat/completions -d '{"model": "model-c", ...}'
+
+# Request for model-b updates its "last used" time
 curl http://localhost:8080/v1/chat/completions -d '{"model": "model-b", ...}'
 ```
+
+### Single Active Backend Mode
+
+The simplest approach is to ensure only one model is loaded at a time. This is now implemented as `--max-active-backends=1`. When a new model is requested, LocalAI will automatically unload the currently active model before loading the new one.
+
+```bash
+# These are equivalent:
+./local-ai --max-active-backends=1
+./local-ai --single-active-backend
+
+# Using environment variables
+LOCALAI_MAX_ACTIVE_BACKENDS=1 ./local-ai
+LOCALAI_SINGLE_ACTIVE_BACKEND=true ./local-ai
+```
+
+> **Note:** The `--single-active-backend` flag is deprecated but still supported for backward compatibility. It is recommended to use `--max-active-backends=1` instead.
+
+#### Single backend use cases
+
+- Single GPU systems with very limited VRAM
+- When you only need one model active at a time
+- Simple deployments where model switching is acceptable
 
 ## Solution 2: Watchdog Mechanisms
 
@@ -133,6 +182,31 @@ Timeouts can be specified using Go's duration format:
 - `30s` - 30 seconds
 - `2h30m` - 2 hours and 30 minutes
 
+## Combining LRU and Watchdog
+
+You can combine Max Active Backends (LRU eviction) with the watchdog mechanisms for comprehensive memory management:
+
+```bash
+# Allow up to 3 active backends with idle watchdog
+LOCALAI_MAX_ACTIVE_BACKENDS=3 \
+LOCALAI_WATCHDOG_IDLE=true \
+LOCALAI_WATCHDOG_IDLE_TIMEOUT=15m \
+./local-ai
+```
+
+Or using command line flags:
+
+```bash
+./local-ai \
+  --max-active-backends=3 \
+  --enable-watchdog-idle --watchdog-idle-timeout=15m
+```
+
+This configuration:
+- Ensures no more than 3 models are loaded at once (LRU eviction kicks in when exceeded)
+- Automatically unloads any model that hasn't been used for 15 minutes
+- Provides both hard limits and time-based cleanup
+
 ## Limitations and Considerations
 
 ### VRAM Usage Estimation
@@ -157,10 +231,11 @@ To stop all models, you'll need to call the endpoint for each loaded model indiv
 ### Best Practices
 
 1. **Monitor VRAM usage**: Use `nvidia-smi` (for NVIDIA GPUs) or similar tools to monitor actual VRAM usage
-2. **Start with single active backend**: For single-GPU systems, `--single-active-backend` is often the simplest solution
-3. **Tune watchdog timeouts**: Adjust timeouts based on your usage patterns - shorter timeouts free memory faster but may cause more frequent reloads
-4. **Consider model size**: Ensure your VRAM can accommodate at least one of your largest models
-5. **Use quantization**: Smaller quantized models use less VRAM and allow more flexibility
+2. **Set an appropriate backend limit**: For single-GPU systems, `--max-active-backends=1` is often the simplest solution. For systems with more VRAM, you can increase the limit to keep more models loaded
+3. **Combine LRU with watchdog**: Use `--max-active-backends` to limit the number of loaded models, and enable idle watchdog to unload models that haven't been used recently
+4. **Tune watchdog timeouts**: Adjust timeouts based on your usage patterns - shorter timeouts free memory faster but may cause more frequent reloads
+5. **Consider model size**: Ensure your VRAM can accommodate at least one of your largest models
+6. **Use quantization**: Smaller quantized models use less VRAM and allow more flexibility
 
 ## Related Documentation
 

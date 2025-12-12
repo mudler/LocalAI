@@ -17,7 +17,6 @@ func ModelTokenize(s string, loader *model.ModelLoader, modelConfig config.Model
 	if err != nil {
 		return schema.TokenizeResponse{}, err
 	}
-	defer loader.Close()
 
 	predictOptions := gRPCPredictOpts(modelConfig, loader.ModelPath)
 	predictOptions.Prompt = s

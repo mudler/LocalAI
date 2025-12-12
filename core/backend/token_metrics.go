@@ -20,7 +20,6 @@ func TokenMetrics(
 	if err != nil {
 		return nil, err
 	}
-	defer loader.Close()
 
 	if model == nil {
 		return nil, fmt.Errorf("could not loadmodel model")

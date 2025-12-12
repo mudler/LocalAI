@@ -138,17 +138,15 @@
                 </p>
 
                 <div class="space-y-4">
-                    <!-- Single Backend Mode -->
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Single Backend Mode</label>
-                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Allow only one backend to be active at a time</p>
-                        </div>
-                        <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.single_backend" 
-                                   class="sr-only peer">
-                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
-                        </label>
+                    <!-- Max Active Backends -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Max Active Backends</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of models to keep loaded at once (0 = unlimited, 1 = single backend mode). Least recently used models are evicted when limit is reached.</p>
+                        <input type="number" x-model="settings.max_active_backends" 
+                               min="0"
+                               placeholder="0"
+                               @change="updateMaxActiveBackends()"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-light)]">
                     </div>
 
                     <!-- Parallel Backend Requests -->
@@ -462,7 +460,7 @@ function settingsDashboard() {
             watchdog_busy_enabled: false,
             watchdog_idle_timeout: '15m',
             watchdog_busy_timeout: '5m',
-            single_backend: false,
+            max_active_backends: 0,
             parallel_backend_requests: false,
             threads: 0,
             context_size: 0,
@@ -500,7 +498,7 @@ function settingsDashboard() {
                         watchdog_busy_enabled: data.watchdog_busy_enabled,
                         watchdog_idle_timeout: data.watchdog_idle_timeout || '15m',
                         watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
-                        single_backend: data.single_backend,
+                        max_active_backends: data.max_active_backends || 0,
                         parallel_backend_requests: data.parallel_backend_requests,
                         threads: data.threads || 0,
                         context_size: data.context_size || 0,
@@ -536,6 +534,12 @@ function settingsDashboard() {
             }
         },
         
+        updateMaxActiveBackends() {
+            // Ensure max_active_backends is a non-negative integer
+            const value = parseInt(this.settings.max_active_backends) || 0;
+            this.settings.max_active_backends = Math.max(0, value);
+        },
+        
         async saveSettings() {
             if (this.saving) return;
             
@@ -560,8 +564,8 @@ function settingsDashboard() {
                 if (this.settings.watchdog_busy_timeout) {
                     payload.watchdog_busy_timeout = this.settings.watchdog_busy_timeout;
                 }
-                if (this.settings.single_backend !== undefined) {
-                    payload.single_backend = this.settings.single_backend;
+                if (this.settings.max_active_backends !== undefined) {
+                    payload.max_active_backends = parseInt(this.settings.max_active_backends) || 0;
                 }
                 if (this.settings.parallel_backend_requests !== undefined) {
                     payload.parallel_backend_requests = this.settings.parallel_backend_requests;

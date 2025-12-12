@@ -17,6 +17,14 @@ type GalleryModel struct {
 	Overrides map[string]interface{} `json:"overrides,omitempty" yaml:"overrides,omitempty"`
 }
 
+func (m *GalleryModel) GetInstalled() bool {
+	return m.Installed
+}
+
+func (m *GalleryModel) GetLicense() string {
+	return m.License
+}
+
 func (m *GalleryModel) SetGallery(gallery config.Gallery) {
 	m.Gallery = gallery
 }

@@ -153,11 +153,47 @@
                         <thead>
                             <tr class="bg-gradient-to-r from-[#38BDF8]/20 to-[#8B5CF6]/20 border-b border-[#38BDF8]/30">
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Icon</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Backend Name</th>
+                                <th @click="setSort('name')" 
+                                    :class="sortBy === 'name' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>Backend Name</span>
+                                        <i :class="sortBy === 'name' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'name' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Description</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Repository</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">License</th>
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Status</th>
+                                <th @click="setSort('repository')" 
+                                    :class="sortBy === 'repository' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>Repository</span>
+                                        <i :class="sortBy === 'repository' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'repository' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
+                                <th @click="setSort('license')" 
+                                    :class="sortBy === 'license' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>License</span>
+                                        <i :class="sortBy === 'license' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'license' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
+                                <th @click="setSort('status')" 
+                                    :class="sortBy === 'status' ? 'bg-[#38BDF8]/20' : ''"
+                                    class="px-6 py-4 text-left text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider cursor-pointer hover:bg-[#38BDF8]/10 transition-colors">
+                                    <div class="flex items-center gap-2">
+                                        <span>Status</span>
+                                        <i :class="sortBy === 'status' ? (sortOrder === 'asc' ? 'fas fa-sort-up' : 'fas fa-sort-down') : 'fas fa-sort'" 
+                                           :class="sortBy === 'status' ? 'text-[#38BDF8]' : 'text-[#94A3B8]'"
+                                           class="text-xs"></i>
+                                    </div>
+                                </th>
                                 <th class="px-6 py-4 text-right text-xs font-semibold text-[#E5E7EB] uppercase tracking-wider">Actions</th>
                             </tr>
                         </thead>
@@ -495,6 +531,8 @@ function backendsGallery() {
         selectedBackend: null,
         jobProgress: {},
         notifications: [],
+        sortBy: '',
+        sortOrder: 'asc',
         
         init() {
             this.fetchBackends();
@@ -521,6 +559,10 @@ function backendsGallery() {
                     items: 21,
                     term: this.searchTerm
                 });
+                if (this.sortBy) {
+                    params.append('sort', this.sortBy);
+                    params.append('order', this.sortOrder);
+                }
                 const response = await fetch(`/api/backends?${params}`);
                 const data = await response.json();
                 
@@ -540,6 +582,19 @@ function backendsGallery() {
         
         filterByTerm(term) {
             this.searchTerm = term;
+            this.currentPage = 1;
+            this.fetchBackends();
+        },
+        
+        setSort(column) {
+            if (this.sortBy === column) {
+                // Toggle sort order if clicking the same column
+                this.sortOrder = this.sortOrder === 'asc' ? 'desc' : 'asc';
+            } else {
+                // Set new column and default to ascending
+                this.sortBy = column;
+                this.sortOrder = 'asc';
+            }
             this.currentPage = 1;
             this.fetchBackends();
         },

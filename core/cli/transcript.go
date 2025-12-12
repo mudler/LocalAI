@@ -38,7 +38,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 	}
 
 	cl := config.NewModelConfigLoader(t.ModelsPath)
-	ml := model.NewModelLoader(systemState, opts.SingleBackend)
+	ml := model.NewModelLoader(systemState)
 	if err := cl.LoadModelConfigsFromPath(t.ModelsPath); err != nil {
 		return err
 	}

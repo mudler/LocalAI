@@ -30,7 +30,7 @@ var _ = Describe("Preload test", func() {
 		Expect(err).ToNot(HaveOccurred())
 		systemState, err = system.GetSystemState(system.WithModelPath(tmpdir))
 		Expect(err).ToNot(HaveOccurred())
-		ml = model.NewModelLoader(systemState, true)
+		ml = model.NewModelLoader(systemState)
 	})
 
 	AfterEach(func() {
