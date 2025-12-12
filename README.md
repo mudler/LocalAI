@@ -33,7 +33,7 @@
 <img src="https://img.shields.io/badge/X-%23000000.svg?style=for-the-badge&logo=X&logoColor=white&label=LocalAI_API" alt="Follow LocalAI_API"/>
 </a>
 <a href="https://discord.gg/uJAeKSAGDy" target="blank">
-<img src="https://img.shields.io/discord/1096914990004457512?logo=discord" alt="Join LocalAI Discord Community"/>
+<img src="https://img.shields.io/badge/dynamic/json?color=blue&label=Discord&style=for-the-badge&query=approximate_member_count&url=https%3A%2F%2Fdiscordapp.com%2Fapi%2Finvites%2FuJAeKSAGDy%3Fwith_counts%3Dtrue&logo=discord" alt="Join LocalAI Discord Community"/>
 </a>
 </p>
 
