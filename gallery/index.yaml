@@ -9,7 +9,6 @@
   name: "vibevoice"
   urls:
     - https://github.com/microsoft/VibeVoice
-
   # Download voice preset files
   # Voice presets are downloaded to: {models_dir}/voices/streaming_model/
   # The voices_dir option above tells the backend to look in this location
@@ -17,16 +16,22 @@
     # English voices
     - filename: voices/streaming_model/en-Frank_man.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Frank_man.pt
+      sha256: acaa8f1a4f46a79f8f5660cfb7a3af06ef473389319df7debc07376fdc840e47
     - filename: voices/streaming_model/en-Grace_woman.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Grace_woman.pt
+      sha256: 5f0ef02a3f3cace04cf721608b65273879466bb15fe4044e46ec6842190f6bb1
     - filename: voices/streaming_model/en-Mike_man.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Mike_man.pt
+      sha256: afb64b580fbc6fab09af04572bbbd2b3906ff8ed35a28731a90b8681e47bdc89
     - filename: voices/streaming_model/en-Emma_woman.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Emma_woman.pt
+      sha256: 75b15c481e0d848991f1789620aa9929c583ec2c5f701f8152362cf74498bbf8
     - filename: voices/streaming_model/en-Carter_man.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Carter_man.pt
+      sha256: a7bfdf1cd4939c22469bcfc6f427ae9c4467b3df46c2c14303a39c294cfc6897
     - filename: voices/streaming_model/en-Davis_man.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Davis_man.pt
+      sha256: 67561d63bfa2153616e4c02fd967007c182593fc53738a6ad94bf5f84e8832ac
 - &qwen3vl
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
