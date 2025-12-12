@@ -157,7 +157,8 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
 # Install uv as a system package
 RUN curl -LsSf https://astral.sh/uv/install.sh | UV_INSTALL_DIR=/usr/bin sh
 ENV PATH="/root/.cargo/bin:${PATH}"
-
+# Increase timeout for uv installs behind slow networks
+ENV UV_HTTP_TIMEOUT=180
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
 # Install grpcio-tools (the version in 22.04 is too old)
