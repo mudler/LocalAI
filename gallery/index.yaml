@@ -23167,3 +23167,48 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "looptool-32b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/LoopTool-32B-i1-GGUF
+  description: |
+    **LoopTool-32B** is a large language model developed by SJTU and Xiaohongshu, derived from iterative fine-tuning of the Qwen3-32B base model. Specialized for enhancing **tool invocation capabilities**, it excels in tasks requiring precise interactions with external tools, as demonstrated in benchmarks like BFCL-v3 and ACEBench. The model achieves state-of-the-art performance, outperforming its base model across multiple metrics, including multi-turn conversations and live task execution.
+
+    **Key Features:**
+    - **Developed by:** Shanghai Jiao Tong University, Xiaohongshu
+    - **Model Type:** Causal Language Model
+    - **Base Model:** Qwen3-32B
+    - **Repository:** [GitHub](https://github.com/Rednote-ExperienceAI-Lab/LoopTool)
+    - **Paper:** [arXiv](https://arxiv.org/abs/2511.09148)
+
+    **Citation:**
+    @misc{zhang2025looptool,
+      title={LoopTool: Closing the Data-Training Loop for Robust LLM Tool Calls},
+      author={Kangning Zhang and Wenxiang Jiao and Kounianhua Du and Yuan Lu and Weiwen Liu and Weinan Zhang and Lei Zhang and Yong Yu},
+      year={2025},
+      eprint={2511.09148},
+      archivePrefix={arXiv},
+      primaryClass={cs.CL},
+      url={https://arxiv.org/abs/2511.09148}
+    }
+  overrides:
+    parameters:
+      model: llama-cpp/models/LoopTool-32B.i1-Q4_K_M.gguf
+    name: LoopTool-32B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/LoopTool-32B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/LoopTool-32B.i1-Q4_K_M.gguf
+      sha256: cbe34ccf60424f13b44ae6d06fe5a34c14e042aab10509bbcc7f3a6ba690ba45
+      uri: https://huggingface.co/mradermacher/LoopTool-32B-i1-GGUF/resolve/main/LoopTool-32B.i1-Q4_K_M.gguf
+
