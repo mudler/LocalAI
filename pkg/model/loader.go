@@ -212,7 +212,7 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 		return nil, fmt.Errorf("loader didn't return a model")
 	}
 
-	// Add to models map (need lock for this)
+	// Add to models map
 	ml.mu.Lock()
 	ml.models[modelID] = model
 	ml.mu.Unlock()
