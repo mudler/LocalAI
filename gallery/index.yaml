@@ -23172,3 +23172,35 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "hyperllama-180m-multilingual-1x"
+  urls:
+    - https://huggingface.co/mradermacher/hyperllama-180m-multilingual-1x-GGUF
+  description: |
+    The **hyperllama-180m-multilingual-1x** model is a 180 million-parameter base model trained on educational datasets, featuring a multilingual tokenizer (Llama 3.3, 128K vocabulary). It supports multiple languages, including Finnish, Swedish, Icelandic, etc., and is adapted via three strategies:
+    - **1×**: Direct pretraining on target language data.
+    - **1× (cloned)**: Hypercloned from a 572M base model, then fine-tuned.
+    - **2×**: Trained on the 572M base model.
+
+    Designed for efficient language adaptation, it’s optimized for tasks like text generation. Note: This is a **base model**, not instruction-tuned, and requires additional alignment for specialized use cases. Licensed under Apache 2.0.
+  overrides:
+    parameters:
+      model: llama-cpp/models/hyperllama-180m-multilingual-1x.Q4_K_M.gguf
+    name: hyperllama-180m-multilingual-1x-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/hyperllama-180m-multilingual-1x-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/hyperllama-180m-multilingual-1x.Q4_K_M.gguf
+      sha256: 656c83412012e9a8dd8dda2992aecc1ca9209517833cdbb429039ee0501edc0b
+      uri: https://huggingface.co/mradermacher/hyperllama-180m-multilingual-1x-GGUF/resolve/main/hyperllama-180m-multilingual-1x.Q4_K_M.gguf
+
