@@ -23172,3 +23172,32 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "l3.3-70b-magnum-v4-se-cirrus-x1-slerp"
+  urls:
+    - https://huggingface.co/mradermacher/L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP-GGUF
+  description: |
+    The **L3.3-70B-Magnum-v4-SE-Cirrus-x1** model is a high-performance language model developed as a **SLERP-merged** combination of two foundational models: **Sao10K/70B-L3.3-Cirrus-x1** and **Doctor-Shotgun/L3.3-70B-Magnum-v4-SE**. It uses a **bfloat16** dtype with a merge parameter `t=0.5`, balancing the strengths of its base models.
+
+    Available in multiple **quantized formats** (e.g., Q4_K_S, Q4_K_M, Q6_K), this model is optimized for efficiency and performance, with sizes ranging from 40GB to 58GB. It is ideal for tasks requiring large-scale language understanding and generation, with fast inference speeds and high-quality outputs in higher-bit quantizations.
+  overrides:
+    parameters:
+      model: llama-cpp/models/L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP.Q4_K_M.gguf
+    name: L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP.Q4_K_M.gguf
+      sha256: ac782773db4b460cda18ed0f58c352e556bde22c063b8fbcac71b45c8191c010
+      uri: https://huggingface.co/mradermacher/L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP-GGUF/resolve/main/L3.3-70B-Magnum-v4-SE-Cirrus-x1-SLERP.Q4_K_M.gguf
+
