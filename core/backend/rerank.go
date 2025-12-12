@@ -15,7 +15,6 @@ func Rerank(request *proto.RerankRequest, loader *model.ModelLoader, appConfig *
 	if err != nil {
 		return nil, err
 	}
-	defer loader.Close()
 
 	if rerankModel == nil {
 		return nil, fmt.Errorf("could not load rerank model")

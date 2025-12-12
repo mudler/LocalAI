@@ -16,7 +16,6 @@ func VideoGeneration(height, width int32, prompt, negativePrompt, startImage, en
 	if err != nil {
 		return nil, err
 	}
-	defer loader.Close()
 
 	fn := func() error {
 		_, err := inferenceModel.GenerateVideo(

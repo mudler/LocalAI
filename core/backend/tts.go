@@ -26,7 +26,6 @@ func ModelTTS(
 	if err != nil {
 		return "", nil, err
 	}
-	defer loader.Close()
 
 	if ttsModel == nil {
 		return "", nil, fmt.Errorf("could not load tts model %q", modelConfig.Model)

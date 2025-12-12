@@ -22,22 +22,30 @@ import (
 type ModelLoader struct {
 	ModelPath        string
 	mu               sync.Mutex
-	singletonLock    sync.Mutex
-	singletonMode    bool
 	models           map[string]*Model
+	loading          map[string]chan struct{} // tracks models currently being loaded
 	wd               *WatchDog
 	externalBackends map[string]string
 }
 
-func NewModelLoader(system *system.SystemState, singleActiveBackend bool) *ModelLoader {
+// NewModelLoader creates a new ModelLoader instance.
+// LRU eviction is now managed through the WatchDog component.
+func NewModelLoader(system *system.SystemState) *ModelLoader {
 	nml := &ModelLoader{
 		ModelPath:        system.Model.ModelsPath,
 		models:           make(map[string]*Model),
-		singletonMode:    singleActiveBackend,
+		loading:          make(map[string]chan struct{}),
 		externalBackends: make(map[string]string),
 	}
 
 	return nml
+}
+
+// GetLoadingCount returns the number of models currently being loaded
+func (ml *ModelLoader) GetLoadingCount() int {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	return len(ml.loading)
 }
 
 func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
@@ -154,14 +162,44 @@ func (ml *ModelLoader) ListLoadedModels() []*Model {
 
 func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, string, string) (*Model, error)) (*Model, error) {
 	ml.mu.Lock()
-	defer ml.mu.Unlock()
 
 	// Check if we already have a loaded model
 	if model := ml.checkIsLoaded(modelID); model != nil {
+		ml.mu.Unlock()
 		return model, nil
 	}
 
-	// Load the model and keep it in memory for later use
+	// Check if another goroutine is already loading this model
+	if loadingChan, isLoading := ml.loading[modelID]; isLoading {
+		ml.mu.Unlock()
+		// Wait for the other goroutine to finish loading
+		log.Debug().Str("modelID", modelID).Msg("Waiting for model to be loaded by another request")
+		<-loadingChan
+		// Now check if the model is loaded
+		ml.mu.Lock()
+		model := ml.checkIsLoaded(modelID)
+		ml.mu.Unlock()
+		if model != nil {
+			return model, nil
+		}
+		// If still not loaded, the other goroutine failed - we'll try again
+		return ml.LoadModel(modelID, modelName, loader)
+	}
+
+	// Mark this model as loading (create a channel that will be closed when done)
+	loadingChan := make(chan struct{})
+	ml.loading[modelID] = loadingChan
+	ml.mu.Unlock()
+
+	// Ensure we clean up the loading state when done
+	defer func() {
+		ml.mu.Lock()
+		delete(ml.loading, modelID)
+		close(loadingChan)
+		ml.mu.Unlock()
+	}()
+
+	// Load the model (this can take a long time, no lock held)
 	modelFile := filepath.Join(ml.ModelPath, modelName)
 	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
 
@@ -174,7 +212,10 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 		return nil, fmt.Errorf("loader didn't return a model")
 	}
 
+	// Add to models map (need lock for this)
+	ml.mu.Lock()
 	ml.models[modelID] = model
+	ml.mu.Unlock()
 
 	return model, nil
 }

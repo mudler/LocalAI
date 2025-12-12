@@ -307,15 +307,25 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 
 // initializeWatchdog initializes the watchdog with current ApplicationConfig settings
 func initializeWatchdog(application *Application, options *config.ApplicationConfig) {
-	if options.WatchDog {
+	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
+	lruLimit := options.GetEffectiveMaxActiveBackends()
+
+	// Create watchdog if enabled OR if LRU limit is set
+	if options.WatchDog || lruLimit > 0 {
 		wd := model.NewWatchDog(
 			application.ModelLoader(),
 			options.WatchDogBusyTimeout,
 			options.WatchDogIdleTimeout,
 			options.WatchDogBusy,
-			options.WatchDogIdle)
+			options.WatchDogIdle,
+			lruLimit)
 		application.ModelLoader().SetWatchDog(wd)
-		go wd.Run()
+
+		// Start watchdog goroutine only if busy/idle checks are enabled
+		if options.WatchDogBusy || options.WatchDogIdle {
+			go wd.Run()
+		}
+
 		go func() {
 			<-options.Context.Done()
 			log.Debug().Msgf("Context canceled, shutting down")

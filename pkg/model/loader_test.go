@@ -27,7 +27,7 @@ var _ = Describe("ModelLoader", func() {
 			system.WithModelPath(modelPath),
 		)
 		Expect(err).ToNot(HaveOccurred())
-		modelLoader = model.NewModelLoader(systemState, false)
+		modelLoader = model.NewModelLoader(systemState)
 	})
 
 	AfterEach(func() {
