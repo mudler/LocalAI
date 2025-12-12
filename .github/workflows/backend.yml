@@ -46,7 +46,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-diffusers'
             runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
@@ -740,7 +740,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-kokoro'
             runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
@@ -860,7 +860,7 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -939,7 +939,7 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-stablediffusion-ggml'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
@@ -1005,7 +1005,7 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-whisper'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
@@ -1100,7 +1100,7 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-rfdetr'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
@@ -1153,7 +1153,7 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-chatterbox'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
