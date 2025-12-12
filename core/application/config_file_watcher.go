@@ -191,7 +191,8 @@ type runtimeSettings struct {
 	WatchdogBusyEnabled      *bool             `json:"watchdog_busy_enabled,omitempty"`
 	WatchdogIdleTimeout      *string           `json:"watchdog_idle_timeout,omitempty"`
 	WatchdogBusyTimeout      *string           `json:"watchdog_busy_timeout,omitempty"`
-	SingleBackend            *bool             `json:"single_backend,omitempty"`
+	SingleBackend            *bool             `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
+	MaxActiveBackends        *int              `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
 	ParallelBackendRequests  *bool             `json:"parallel_backend_requests,omitempty"`
 	Threads                  *int              `json:"threads,omitempty"`
 	ContextSize              *int              `json:"context_size,omitempty"`
@@ -224,6 +225,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envWatchdogIdleTimeout := appConfig.WatchDogIdleTimeout == startupAppConfig.WatchDogIdleTimeout
 		envWatchdogBusyTimeout := appConfig.WatchDogBusyTimeout == startupAppConfig.WatchDogBusyTimeout
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
+		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
 		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests
 		envThreads := appConfig.Threads == startupAppConfig.Threads
 		envContextSize := appConfig.ContextSize == startupAppConfig.ContextSize
@@ -275,8 +277,19 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 					log.Warn().Err(err).Str("timeout", *settings.WatchdogBusyTimeout).Msg("invalid watchdog busy timeout in runtime_settings.json")
 				}
 			}
-			if settings.SingleBackend != nil && !envSingleBackend {
+			// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
+			if settings.MaxActiveBackends != nil && !envMaxActiveBackends {
+				appConfig.MaxActiveBackends = *settings.MaxActiveBackends
+				// For backward compatibility, also set SingleBackend if MaxActiveBackends == 1
+				appConfig.SingleBackend = (*settings.MaxActiveBackends == 1)
+			} else if settings.SingleBackend != nil && !envSingleBackend {
+				// Legacy: SingleBackend maps to MaxActiveBackends = 1
 				appConfig.SingleBackend = *settings.SingleBackend
+				if *settings.SingleBackend {
+					appConfig.MaxActiveBackends = 1
+				} else {
+					appConfig.MaxActiveBackends = 0
+				}
 			}
 			if settings.ParallelBackendRequests != nil && !envParallelRequests {
 				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
