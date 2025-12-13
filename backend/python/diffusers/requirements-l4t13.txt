@@ -10,3 +10,4 @@ numpy<2
 sentencepiece
 torchvision
 ftfy
+chardet
