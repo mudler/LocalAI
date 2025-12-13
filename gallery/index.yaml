@@ -23172,3 +23172,39 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "qwen3-4b-instruct-2507-heretic-imatrix"
+  urls:
+    - https://huggingface.co/ZuzeTt/Qwen3-4B-Instruct-2507-heretic-Imatrix-GGUF
+  description: |
+    **Qwen3-4B-Instruct-Heretic-Abliterated**
+    A highly optimized, uncensored large language model derived from the **TeichAI/Qwen3-4B-Instruct-2507-Polaris-Alpha-Distill** base model. Through the **Heretic Method** (v1.0.1), this model has been "abliterated" to remove censorship, achieving a **refusal rate of 8/100** and a **KL divergence of 0.06** (near-perfect stability). It supports **256k context length** and is designed for unrestricted, high-quality text generation.
+
+    Key features:
+    - **Freedom of expression**: No hesitation or filtering in responses.
+    - **Dense MoE architecture**: High detail and flexibility.
+    - **Optimized for use**: Requires "smoothing_factor" (e.g., 1.5) for peak performance in tools like KoboldCpp or text-generation-webui.
+    - **Part of the Qwen3-24B series**: Scales to larger models for even greater power.
+
+    Ideal for creative, unrestricted, or niche use cases. **Original model**: [DavidAU/Qwen3-4B-Instruct-2507-Polaris-Alpha-Distill](https://huggingface.co/DavidAU/Qwen3-4B-Instruct-2507-Polaris-Alpha-Distill-Heretic-Abliterated).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-4B-Instruct-2507-Polaris-Alpha-Distill-Heretic-Abliterated-Q4_K_M-imatrix.gguf
+    name: Qwen3-4B-Instruct-2507-heretic-Imatrix-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ZuzeTt/Qwen3-4B-Instruct-2507-heretic-Imatrix-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3-4B-Instruct-2507-Polaris-Alpha-Distill-Heretic-Abliterated-Q4_K_M-imatrix.gguf
+      sha256: b7f8eb1c1453f8ef63bff6396566bf223f8ef838097907e95aacc81b722a05d2
+      uri: https://huggingface.co/ZuzeTt/Qwen3-4B-Instruct-2507-heretic-Imatrix-GGUF/resolve/main/Qwen3-4B-Instruct-2507-Polaris-Alpha-Distill-Heretic-Abliterated-Q4_K_M-imatrix.gguf
+
