@@ -7,11 +7,11 @@ import (
 
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/gallery"
+	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
-	"github.com/mudler/LocalAI/core/gallery"
-	"github.com/mudler/LocalAI/core/startup"
 	"github.com/rs/zerolog/log"
 	"github.com/schollz/progressbar/v3"
 )
@@ -103,7 +103,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 	}
 
 	modelLoader := model.NewModelLoader(systemState)
-	err = startup.InstallExternalBackends(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
+	err = services.InstallExternalBackend(context.Background(), galleries, systemState, modelLoader, progressCallback, bi.BackendArgs, bi.Name, bi.Alias)
 	if err != nil {
 		return err
 	}

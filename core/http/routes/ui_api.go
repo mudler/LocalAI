@@ -81,13 +81,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 
 			// Determine if it's a model or backend
-			isBackend := false
-			backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
-			for _, b := range backends {
-				backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
-				if backendID == galleryID || b.Name == galleryID {
-					isBackend = true
-					break
+			// First check if it was explicitly marked as a backend operation
+			isBackend := opcache.IsBackendOp(galleryID)
+			// If not explicitly marked, check if it matches a known backend from the gallery
+			if !isBackend {
+				backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+				for _, b := range backends {
+					backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
+					if backendID == galleryID || b.Name == galleryID {
+						isBackend = true
+						break
+					}
 				}
 			}
 
@@ -645,7 +649,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		uid := id.String()
-		opcache.Set(backendID, uid)
+		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{
@@ -664,6 +668,70 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		return c.JSON(200, map[string]interface{}{
 			"jobID":   uid,
 			"message": "Backend installation started",
+		})
+	})
+
+	// Install backend from external source (OCI image, URL, or path)
+	app.POST("/api/backends/install-external", func(c echo.Context) error {
+		// Request body structure
+		type ExternalBackendRequest struct {
+			URI   string `json:"uri"`
+			Name  string `json:"name"`
+			Alias string `json:"alias"`
+		}
+
+		var req ExternalBackendRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "invalid request body",
+			})
+		}
+
+		// Validate required fields
+		if req.URI == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "uri is required",
+			})
+		}
+
+		log.Debug().Str("uri", req.URI).Str("name", req.Name).Str("alias", req.Alias).Msg("API job submitted to install external backend")
+
+		id, err := uuid.NewUUID()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+
+		uid := id.String()
+
+		// Use URI as the key for opcache, or name if provided
+		cacheKey := req.URI
+		if req.Name != "" {
+			cacheKey = req.Name
+		}
+		opcache.SetBackend(cacheKey, uid)
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := services.GalleryOp[gallery.GalleryBackend, any]{
+			ID:                 uid,
+			GalleryElementName: req.Name, // May be empty, will be derived during installation
+			Galleries:          appConfig.BackendGalleries,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+			ExternalURI:        req.URI,
+			ExternalName:       req.Name,
+			ExternalAlias:      req.Alias,
+		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		return c.JSON(200, map[string]interface{}{
+			"jobID":   uid,
+			"message": "External backend installation started",
 		})
 	})
 
@@ -692,7 +760,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		uid := id.String()
 
-		opcache.Set(backendID, uid)
+		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{

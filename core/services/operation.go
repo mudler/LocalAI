@@ -23,6 +23,12 @@ type GalleryOp[T any, E any] struct {
 	// Context for cancellation support
 	Context    context.Context
 	CancelFunc context.CancelFunc
+
+	// External backend installation parameters (for OCI/URL/path)
+	// These are used when installing backends from external sources rather than galleries
+	ExternalURI   string // The OCI image, URL, or path
+	ExternalName  string // Custom name for the backend
+	ExternalAlias string // Custom alias for the backend
 }
 
 type GalleryOpStatus struct {
@@ -41,18 +47,31 @@ type GalleryOpStatus struct {
 
 type OpCache struct {
 	status         *xsync.SyncedMap[string, string]
+	backendOps     *xsync.SyncedMap[string, bool] // Tracks which operations are backend operations
 	galleryService *GalleryService
 }
 
 func NewOpCache(galleryService *GalleryService) *OpCache {
 	return &OpCache{
 		status:         xsync.NewSyncedMap[string, string](),
+		backendOps:     xsync.NewSyncedMap[string, bool](),
 		galleryService: galleryService,
 	}
 }
 
 func (m *OpCache) Set(key string, value string) {
 	m.status.Set(key, value)
+}
+
+// SetBackend sets a key-value pair and marks it as a backend operation
+func (m *OpCache) SetBackend(key string, value string) {
+	m.status.Set(key, value)
+	m.backendOps.Set(key, true)
+}
+
+// IsBackendOp returns true if the given key is a backend operation
+func (m *OpCache) IsBackendOp(key string) bool {
+	return m.backendOps.Get(key)
 }
 
 func (m *OpCache) Get(key string) string {
@@ -63,6 +82,7 @@ func (m *OpCache) DeleteUUID(uuid string) {
 	for _, k := range m.status.Keys() {
 		if m.status.Get(k) == uuid {
 			m.status.Delete(k)
+			m.backendOps.Delete(k) // Also clean up the backend flag
 		}
 	}
 }

@@ -65,6 +65,66 @@
         
         {{template "views/partials/inprogress" .}}
 
+        <!-- Manual Backend Installation Form (Collapsible) -->
+        <div class="card p-6 mb-8">
+            <button 
+                @click="showManualInstall = !showManualInstall"
+                class="w-full flex items-center justify-between text-left"
+            >
+                <div class="flex items-center gap-2">
+                    <i class="fas fa-plus-circle text-[#38BDF8] text-lg"></i>
+                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Install Backend Manually</h3>
+                </div>
+                <i class="fas text-[#94A3B8] transition-transform duration-200" :class="showManualInstall ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+            </button>
+            
+            <div x-show="showManualInstall" x-collapse>
+                <p class="text-sm text-[#94A3B8] mt-4 mb-6">Install a backend from an OCI image, URL, or local path</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-[#94A3B8] mb-2">OCI Image / URL / Path *</label>
+                        <input 
+                            type="text" 
+                            x-model="externalBackend.uri"
+                            placeholder="e.g., oci://quay.io/example/backend:latest"
+                            class="w-full px-4 py-3 text-sm bg-[#101827] border border-[#38BDF8]/30 rounded-lg text-[#E5E7EB] placeholder-[#94A3B8]/50 focus:border-[#38BDF8] focus:outline-none focus:ring-1 focus:ring-[#38BDF8]"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-[#94A3B8] mb-2">Name (required for OCI)</label>
+                        <input 
+                            type="text" 
+                            x-model="externalBackend.name"
+                            placeholder="e.g., my-backend"
+                            class="w-full px-4 py-3 text-sm bg-[#101827] border border-[#38BDF8]/30 rounded-lg text-[#E5E7EB] placeholder-[#94A3B8]/50 focus:border-[#38BDF8] focus:outline-none focus:ring-1 focus:ring-[#38BDF8]"
+                        >
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-[#94A3B8] mb-2">Alias (optional)</label>
+                        <input 
+                            type="text" 
+                            x-model="externalBackend.alias"
+                            placeholder="e.g., backend-alias"
+                            class="w-full px-4 py-3 text-sm bg-[#101827] border border-[#38BDF8]/30 rounded-lg text-[#E5E7EB] placeholder-[#94A3B8]/50 focus:border-[#38BDF8] focus:outline-none focus:ring-1 focus:ring-[#38BDF8]"
+                        >
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-4">
+                    <button 
+                        @click="installExternalBackend()"
+                        :disabled="installingExternal || !externalBackend.uri"
+                        class="inline-flex items-center px-5 py-2.5 rounded-lg bg-[#38BDF8] hover:bg-[#38BDF8]/80 text-sm font-medium text-white transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <i class="mr-2" :class="installingExternal ? 'fas fa-spinner fa-spin' : 'fas fa-download'"></i>
+                        <span x-text="installingExternal ? 'Installing...' : 'Install Backend'"></span>
+                    </button>
+                    <span x-show="externalBackendProgress" class="text-sm text-[#94A3B8]" x-text="externalBackendProgress"></span>
+                </div>
+            </div>
+        </div>
+
         <!-- Search and Filter Section -->
         <div class="card p-8 mb-8">
             <div>
@@ -533,6 +593,16 @@ function backendsGallery() {
         notifications: [],
         sortBy: '',
         sortOrder: 'asc',
+        // External backend installation state
+        showManualInstall: false,
+        externalBackend: {
+            uri: '',
+            name: '',
+            alias: ''
+        },
+        installingExternal: false,
+        externalBackendJobID: null,
+        externalBackendProgress: '',
         
         init() {
             this.fetchBackends();
@@ -549,6 +619,46 @@ function backendsGallery() {
         
         dismissNotification(id) {
             this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        async installExternalBackend() {
+            if (this.installingExternal || !this.externalBackend.uri) {
+                return;
+            }
+            
+            try {
+                this.installingExternal = true;
+                this.externalBackendProgress = 'Starting installation...';
+                
+                const response = await fetch('/api/backends/install-external', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        uri: this.externalBackend.uri,
+                        name: this.externalBackend.name,
+                        alias: this.externalBackend.alias
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.jobID) {
+                    this.externalBackendJobID = data.jobID;
+                    const displayName = this.externalBackend.name || this.externalBackend.uri;
+                    this.addNotification(`Installing backend "${displayName}"...`, 'success');
+                } else {
+                    this.installingExternal = false;
+                    this.externalBackendProgress = '';
+                    this.addNotification(`Failed to start installation: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error installing external backend:', error);
+                this.installingExternal = false;
+                this.externalBackendProgress = '';
+                this.addNotification(`Failed to install backend: ${error.message}`, 'error');
+            }
         },
         
         async fetchBackends() {
@@ -713,6 +823,52 @@ function backendsGallery() {
                 } catch (error) {
                     console.error('Error polling job:', error);
                     // Don't show notification for every polling error, only if backend is stuck
+                }
+            }
+            
+            // Poll for external backend installation job
+            if (this.externalBackendJobID) {
+                try {
+                    const response = await fetch(`/api/backends/job/${this.externalBackendJobID}`);
+                    const jobData = await response.json();
+                    
+                    // Update progress message
+                    if (jobData.message && !jobData.processed) {
+                        this.externalBackendProgress = jobData.message;
+                        if (jobData.progress) {
+                            this.externalBackendProgress += ` (${Math.round(jobData.progress)}%)`;
+                        }
+                    }
+                    
+                    if (jobData.completed) {
+                        const displayName = this.externalBackend.name || this.externalBackend.uri;
+                        this.addNotification(`Backend "${displayName}" installed successfully!`, 'success');
+                        this.externalBackendJobID = null;
+                        this.installingExternal = false;
+                        this.externalBackendProgress = '';
+                        // Reset form
+                        this.externalBackend = { uri: '', name: '', alias: '' };
+                        // Refresh the backends list
+                        this.fetchBackends();
+                    }
+                    
+                    if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.message) {
+                            errorMessage = jobData.message;
+                        }
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.addNotification(`Error installing backend: ${errorMessage}`, 'error');
+                        this.externalBackendJobID = null;
+                        this.installingExternal = false;
+                        this.externalBackendProgress = '';
+                    }
+                } catch (error) {
+                    console.error('Error polling external backend job:', error);
                 }
             }
         },
