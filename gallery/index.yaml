@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen2.5-vl-3b-instruct-img2code"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-VL-3B-Instruct-Img2Code-GGUF
+  description: |
+    The model in question is a quantized version of the original Qwen2.5-VL-3B-Instruct-Img2Code, optimized for efficiency while retaining core capabilities. It is a 3-billion-parameter large language model designed for vision-language tasks and code generation. The quantization reduces memory usage and computational demands, making it suitable for deployment in resource-constrained environments. However, it is important to note that this version may not capture the full precision or training details of the original model. For a comprehensive description of the base model, the original repository (without the "-GGUF" suffix) should be referenced.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-VL-3B-Instruct-Img2Code.Q4_K_M.gguf
+    name: Qwen2.5-VL-3B-Instruct-Img2Code-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen2.5-VL-3B-Instruct-Img2Code.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-VL-3B-Instruct-Img2Code-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen2.5-VL-3B-Instruct-Img2Code.Q4_K_M.gguf
+      sha256: 046adde5d817137a1223bcf4c6b8b114661d28e519aee2429a005b2738d888ba
+      uri: https://huggingface.co/mradermacher/Qwen2.5-VL-3B-Instruct-Img2Code-GGUF/resolve/main/Qwen2.5-VL-3B-Instruct-Img2Code.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen2.5-VL-3B-Instruct-Img2Code.mmproj-f16.gguf
+      sha256: 7d7d14944494d02f430c0cd210f818690c843b40ae3daf2d8a8eb4a0d1d59bbe
+      uri: https://huggingface.co/mradermacher/Qwen2.5-VL-3B-Instruct-Img2Code-GGUF/resolve/main/Qwen2.5-VL-3B-Instruct-Img2Code.mmproj-f16.gguf
+
