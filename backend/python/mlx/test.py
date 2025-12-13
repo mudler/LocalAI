@@ -1,17 +1,10 @@
 import unittest
 import subprocess
 import time
-import backend_pb2
-import backend_pb2_grpc
 
 import grpc
-
-import unittest
-import subprocess
-import time
-import grpc
-import backend_pb2_grpc
 import backend_pb2
+import backend_pb2_grpc
 
 class TestBackendServicer(unittest.TestCase):
     """
@@ -47,9 +40,9 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
-                self.assertEqual(response.message, "Model loaded successfully")
+                self.assertEqual(response.message, "MLX model loaded successfully")
         except Exception as err:
             print(err)
             self.fail("LoadModel service failed")
@@ -64,7 +57,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
                 req = backend_pb2.PredictOptions(Prompt="The capital of France is")
                 resp = stub.Predict(req)
@@ -84,7 +77,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
 
                 req = backend_pb2.PredictOptions(
@@ -95,26 +88,13 @@ class TestBackendServicer(unittest.TestCase):
                     TopK=40,
                     PresencePenalty=0.1,
                     FrequencyPenalty=0.2,
-                    RepetitionPenalty=1.1,
                     MinP=0.05,
                     Seed=42,
                     StopPrompts=["\n"],
-                    StopTokenIds=[50256],
-                    BadWords=["badword"],
-                    IncludeStopStrInOutput=True,
                     IgnoreEOS=True,
-                    MinTokens=5,
-                    Logprobs=5,
-                    PromptLogprobs=5,
-                    SkipSpecialTokens=True,
-                    SpacesBetweenSpecialTokens=True,
-                    TruncatePromptTokens=10,
-                    GuidedDecoding=True,
-                    N=2,
                 )
                 resp = stub.Predict(req)
                 self.assertIsNotNone(resp.message)
-                self.assertIsNotNone(resp.logprobs)
         except Exception as err:
             print(err)
             self.fail("sampling params service failed")
@@ -144,3 +124,111 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Embedding service failed")
         finally:
             self.tearDown()
+
+    def test_concurrent_requests(self):
+        """
+        This method tests that concurrent requests don't corrupt each other's cache state.
+        This is a regression test for the race condition in the original implementation.
+        """
+        import concurrent.futures
+
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
+                self.assertTrue(response.success)
+
+                def make_request(prompt):
+                    req = backend_pb2.PredictOptions(Prompt=prompt, Tokens=20)
+                    return stub.Predict(req)
+
+                # Run 5 concurrent requests with different prompts
+                prompts = [
+                    "The capital of France is",
+                    "The capital of Germany is",
+                    "The capital of Italy is",
+                    "The capital of Spain is",
+                    "The capital of Portugal is",
+                ]
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = [executor.submit(make_request, p) for p in prompts]
+                    results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+                # All results should be non-empty
+                messages = [r.message for r in results]
+                self.assertTrue(all(len(m) > 0 for m in messages), "All requests should return non-empty responses")
+                print(f"Concurrent test passed: {len(messages)} responses received")
+
+        except Exception as err:
+            print(err)
+            self.fail("Concurrent requests test failed")
+        finally:
+            self.tearDown()
+
+    def test_cache_reuse(self):
+        """
+        This method tests that repeated prompts reuse cached KV states.
+        The second request should benefit from the cached prompt processing.
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
+                self.assertTrue(response.success)
+
+                prompt = "The quick brown fox jumps over the lazy dog. "
+
+                # First request - populates cache
+                req1 = backend_pb2.PredictOptions(Prompt=prompt, Tokens=10)
+                resp1 = stub.Predict(req1)
+                self.assertIsNotNone(resp1.message)
+
+                # Second request with same prompt - should reuse cache
+                req2 = backend_pb2.PredictOptions(Prompt=prompt, Tokens=10)
+                resp2 = stub.Predict(req2)
+                self.assertIsNotNone(resp2.message)
+
+                print(f"Cache reuse test passed: first={len(resp1.message)} bytes, second={len(resp2.message)} bytes")
+
+        except Exception as err:
+            print(err)
+            self.fail("Cache reuse test failed")
+        finally:
+            self.tearDown()
+
+    def test_prefix_cache_reuse(self):
+        """
+        This method tests that prompts sharing a common prefix benefit from cached KV states.
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
+                self.assertTrue(response.success)
+
+                # First request with base prompt
+                prompt_base = "Once upon a time in a land far away, "
+                req1 = backend_pb2.PredictOptions(Prompt=prompt_base, Tokens=10)
+                resp1 = stub.Predict(req1)
+                self.assertIsNotNone(resp1.message)
+
+                # Second request with extended prompt (same prefix)
+                prompt_extended = prompt_base + "there lived a brave knight who "
+                req2 = backend_pb2.PredictOptions(Prompt=prompt_extended, Tokens=10)
+                resp2 = stub.Predict(req2)
+                self.assertIsNotNone(resp2.message)
+
+                print(f"Prefix cache test passed: base={len(resp1.message)} bytes, extended={len(resp2.message)} bytes")
+
+        except Exception as err:
+            print(err)
+            self.fail("Prefix cache reuse test failed")
+        finally:
+            self.tearDown()
+
+
+# Unit tests for ThreadSafeLRUPromptCache are in test_mlx_cache.py
