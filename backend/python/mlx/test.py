@@ -49,7 +49,7 @@ class TestBackendServicer(unittest.TestCase):
                 stub = backend_pb2_grpc.BackendStub(channel)
                 response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
-                self.assertEqual(response.message, "Model loaded successfully")
+                self.assertEqual(response.message, "MLX model loaded successfully")
         except Exception as err:
             print(err)
             self.fail("LoadModel service failed")
@@ -245,9 +245,6 @@ class TestThreadSafeLRUPromptCache(unittest.TestCase):
     """
 
     def setUp(self):
-        import sys
-        import os
-        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
         from mlx_cache import ThreadSafeLRUPromptCache
         self.cache = ThreadSafeLRUPromptCache(max_size=3)
 

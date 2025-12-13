@@ -19,8 +19,6 @@ import mlx.core as mx
 import base64
 import io
 
-# Add common module to path for shared cache
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
 from mlx_cache import ThreadSafeLRUPromptCache
 
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
