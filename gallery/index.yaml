@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "noir"
+  urls:
+    - https://huggingface.co/muverqqw/Noir-GGUF
+  description: |
+    AI model: noir
+  overrides:
+    parameters:
+      model: llama-cpp/models/Noir-Q4_K_M.gguf
+    name: Noir-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/muverqqw/Noir-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Noir-Q4_K_M.gguf
+      sha256: 6925eeb62731f27068177bc18735cbe8eec52a0e0eb0a612ec47e2092ebfb6be
+      uri: https://huggingface.co/muverqqw/Noir-GGUF/resolve/main/Noir-Q4_K_M.gguf
+
