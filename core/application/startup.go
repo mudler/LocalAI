@@ -11,9 +11,9 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/services"
+	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/internal"
 
-	coreStartup "github.com/mudler/LocalAI/core/startup"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
@@ -75,7 +75,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	for _, backend := range options.ExternalBackends {
-		if err := coreStartup.InstallExternalBackends(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
+		if err := services.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
 			log.Error().Err(err).Msg("error installing external backend")
 		}
 	}

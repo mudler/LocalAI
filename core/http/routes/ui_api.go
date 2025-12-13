@@ -667,6 +667,70 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	})
 
+	// Install backend from external source (OCI image, URL, or path)
+	app.POST("/api/backends/install-external", func(c echo.Context) error {
+		// Request body structure
+		type ExternalBackendRequest struct {
+			URI   string `json:"uri"`
+			Name  string `json:"name"`
+			Alias string `json:"alias"`
+		}
+
+		var req ExternalBackendRequest
+		if err := c.Bind(&req); err != nil {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "invalid request body",
+			})
+		}
+
+		// Validate required fields
+		if req.URI == "" {
+			return c.JSON(http.StatusBadRequest, map[string]interface{}{
+				"error": "uri is required",
+			})
+		}
+
+		log.Debug().Str("uri", req.URI).Str("name", req.Name).Str("alias", req.Alias).Msg("API job submitted to install external backend")
+
+		id, err := uuid.NewUUID()
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
+
+		uid := id.String()
+
+		// Use URI as the key for opcache, or name if provided
+		cacheKey := req.URI
+		if req.Name != "" {
+			cacheKey = req.Name
+		}
+		opcache.Set(cacheKey, uid)
+
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		op := services.GalleryOp[gallery.GalleryBackend, any]{
+			ID:                 uid,
+			GalleryElementName: req.Name, // May be empty, will be derived during installation
+			Galleries:          appConfig.BackendGalleries,
+			Context:            ctx,
+			CancelFunc:         cancelFunc,
+			ExternalURI:        req.URI,
+			ExternalName:       req.Name,
+			ExternalAlias:      req.Alias,
+		}
+		// Store cancellation function immediately so queued operations can be cancelled
+		galleryService.StoreCancellation(uid, cancelFunc)
+		go func() {
+			galleryService.BackendGalleryChannel <- op
+		}()
+
+		return c.JSON(200, map[string]interface{}{
+			"jobID":   uid,
+			"message": "External backend installation started",
+		})
+	})
+
 	app.POST("/api/backends/delete/:id", func(c echo.Context) error {
 		backendID := c.Param("id")
 		// URL decode the backend ID

@@ -23,6 +23,12 @@ type GalleryOp[T any, E any] struct {
 	// Context for cancellation support
 	Context    context.Context
 	CancelFunc context.CancelFunc
+
+	// External backend installation parameters (for OCI/URL/path)
+	// These are used when installing backends from external sources rather than galleries
+	ExternalURI   string // The OCI image, URL, or path
+	ExternalName  string // Custom name for the backend
+	ExternalAlias string // Custom alias for the backend
 }
 
 type GalleryOpStatus struct {
