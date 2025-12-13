@@ -1445,7 +1445,7 @@ jobs:
       tag-suffix: ${{ matrix.tag-suffix }}
       lang: ${{ matrix.lang || 'python' }}
       use-pip: ${{ matrix.backend == 'diffusers' }}
-      runs-on: "macOS-14"
+      runs-on: "macos-latest"
     secrets:
       dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
       dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
