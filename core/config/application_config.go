@@ -6,7 +6,6 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/mudler/LocalAI/core/http/utils"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
