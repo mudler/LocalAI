@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "tupi-2b4-sft"
+  urls:
+    - https://huggingface.co/mradermacher/Tupi-2b4-sft-GGUF
+  description: |
+    The **Tupi-2b4-sft** model is a large language model fine-tuned for specific tasks, derived from the base model **wsabreu/Tupi-2b4-sft**. It offers multiple quantized versions (e.g., Q2_K, Q4_K_S, Q8_0) catering to different trade-offs between speed, memory efficiency, and quality. The Q8_0 variant, at 2.7GB, provides high-quality performance, making it suitable for applications requiring both efficiency and accuracy. Quantized versions are optimized for deployment on hardware with limited resources, while the full-precision version (5.0GB) is ideal for research or high-demand scenarios. This model is designed for tasks like text generation, reasoning, and dialogue, with flexible quantization options to suit diverse use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Tupi-2b4-sft.Q4_K_M.gguf
+    name: Tupi-2b4-sft-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Tupi-2b4-sft-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Tupi-2b4-sft.Q4_K_M.gguf
+      sha256: 556d2b55f57dcf6abe5ad0394d6509609c5881f9f3a87b8315b60bba037b4c49
+      uri: https://huggingface.co/mradermacher/Tupi-2b4-sft-GGUF/resolve/main/Tupi-2b4-sft.Q4_K_M.gguf
+
