@@ -23172,3 +23172,39 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *granite4
+  name: "babylaya"
+  urls:
+    - https://huggingface.co/mradermacher/BabyLaya-GGUF
+  description: |
+    **BabyLaya** is a **Small Language Model (SLM)** designed to generate whimsical, childlike, and absurd text in French. Built on the **Aricate v4** architecture (GRU + Additive Attention), it mimics the creative, nonsensical style of a young child, producing grammatically coherent but semantically playful responses.
+
+    **Key Features:**
+    - **Purpose:** Creative generation of imaginative, humorous, or surreal content.
+    - **Language:** French, using whole words for a childlike vocabulary.
+    - **Architecture:** Lightweight and efficient, optimized for quick inference.
+    - **Licensing:** Proprietary; commercial use requires prior approval from the original developer.
+    - **Ethics:** Intended for entertainment only; not for harmful or inappropriate content.
+
+    Perfect for playful, artistic, or surreal text generation. 🌟
+  overrides:
+    parameters:
+      model: llama-cpp/models/BabyLaya.Q4_K_M.gguf
+    name: BabyLaya-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/BabyLaya-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/BabyLaya.Q4_K_M.gguf
+      sha256: 4a45284e588f7aefd19ccbe60448240ae74cfdd8637a0ecdf9fffd905be39804
+      uri: https://huggingface.co/mradermacher/BabyLaya-GGUF/resolve/main/BabyLaya.Q4_K_M.gguf
+
