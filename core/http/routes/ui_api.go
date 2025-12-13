@@ -81,13 +81,17 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			}
 
 			// Determine if it's a model or backend
-			isBackend := false
-			backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
-			for _, b := range backends {
-				backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
-				if backendID == galleryID || b.Name == galleryID {
-					isBackend = true
-					break
+			// First check if it was explicitly marked as a backend operation
+			isBackend := opcache.IsBackendOp(galleryID)
+			// If not explicitly marked, check if it matches a known backend from the gallery
+			if !isBackend {
+				backends, _ := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
+				for _, b := range backends {
+					backendID := fmt.Sprintf("%s@%s", b.Gallery.Name, b.Name)
+					if backendID == galleryID || b.Name == galleryID {
+						isBackend = true
+						break
+					}
 				}
 			}
 
@@ -645,7 +649,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		}
 
 		uid := id.String()
-		opcache.Set(backendID, uid)
+		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{
@@ -706,7 +710,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		if req.Name != "" {
 			cacheKey = req.Name
 		}
-		opcache.Set(cacheKey, uid)
+		opcache.SetBackend(cacheKey, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{
@@ -756,7 +760,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		uid := id.String()
 
-		opcache.Set(backendID, uid)
+		opcache.SetBackend(backendID, uid)
 
 		ctx, cancelFunc := context.WithCancel(context.Background())
 		op := services.GalleryOp[gallery.GalleryBackend, any]{
