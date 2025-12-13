@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "llama-3.2-1b-instruct"
+  urls:
+    - https://huggingface.co/ss-lab/Llama-3.2-1B-Instruct-GGUF
+  description: |
+    The model in question is a **quantized version** of the original Meta Llama 3.2-1B-Instruct base model, formatted in the **GGUF** (Generic GPT-Uniform Format) for efficient inference. It is fine-tuned on the **Alpaca-cleaned** dataset and optimized for **text generation** tasks. While the GGUF format reduces computational requirements, the underlying architecture retains the original 1B-parameter Llama 3.2 instruction-following capabilities. Licensed under MIT, this model is compatible with tools like **llama.cpp** and **unsloth** for deployment and customization. It is well-suited for applications requiring lightweight, efficient large language model inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.2-1B-Instruct-Q8_0.gguf
+    name: Llama-3.2-1B-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ss-lab/Llama-3.2-1B-Instruct-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Llama-3.2-1B-Instruct-Q8_0.gguf
+      sha256: 57509b8e23ceea808f3d3ef5951c2a379d3512ca95688d63be64967a8c27772f
+      uri: https://huggingface.co/ss-lab/Llama-3.2-1B-Instruct-GGUF/resolve/main/Llama-3.2-1B-Instruct-Q8_0.gguf
+
