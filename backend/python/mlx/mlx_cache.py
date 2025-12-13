@@ -99,6 +99,10 @@ class ThreadSafeLRUPromptCache:
             return SearchResult(model, tuple(tokens), None, None, 0)
 
         # Find the shorter cache (a prefix that has a cache)
+        # Note: Uses > 0 (not >= 0) to match upstream mlx_lm/server.py behavior.
+        # Single-token prefixes are not matched, which allows longer cached
+        # sequences to be preferred for trimming. This is acceptable because
+        # real prompts with chat templates are always many tokens.
         shorter = None
         if last_cache_index > 0:
             shorter = tuple(tokens[: last_cache_index + 1])

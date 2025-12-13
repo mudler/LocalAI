@@ -1,17 +1,10 @@
 import unittest
 import subprocess
 import time
-import backend_pb2
-import backend_pb2_grpc
 
 import grpc
-
-import unittest
-import subprocess
-import time
-import grpc
-import backend_pb2_grpc
 import backend_pb2
+import backend_pb2_grpc
 
 class TestBackendServicer(unittest.TestCase):
     """
@@ -238,86 +231,4 @@ class TestBackendServicer(unittest.TestCase):
             self.tearDown()
 
 
-class TestThreadSafeLRUPromptCache(unittest.TestCase):
-    """
-    Unit tests for the ThreadSafeLRUPromptCache class.
-    These tests don't require the gRPC server.
-    """
-
-    def setUp(self):
-        from mlx_cache import ThreadSafeLRUPromptCache
-        self.cache = ThreadSafeLRUPromptCache(max_size=3)
-
-    def test_insert_and_fetch_exact(self):
-        """Test inserting and fetching an exact match."""
-        tokens = [1, 2, 3, 4, 5]
-        mock_cache = ["mock_kv_cache"]
-
-        self.cache.insert_cache("model1", tokens, mock_cache)
-        result_cache, remaining = self.cache.fetch_nearest_cache("model1", tokens)
-
-        self.assertEqual(result_cache, mock_cache)
-        self.assertEqual(remaining, [])
-
-    def test_fetch_shorter_prefix(self):
-        """Test fetching a shorter prefix match."""
-        # Insert a short sequence
-        short_tokens = [1, 2, 3]
-        mock_cache = ["mock_kv_cache"]
-        self.cache.insert_cache("model1", short_tokens, mock_cache)
-
-        # Fetch with a longer sequence
-        long_tokens = [1, 2, 3, 4, 5]
-        result_cache, remaining = self.cache.fetch_nearest_cache("model1", long_tokens)
-
-        self.assertEqual(result_cache, mock_cache)
-        self.assertEqual(remaining, [4, 5])
-
-    def test_lru_eviction(self):
-        """Test that LRU eviction works when max_size is exceeded."""
-        # Insert 3 entries (max_size)
-        self.cache.insert_cache("model1", [1], ["cache1"])
-        self.cache.insert_cache("model1", [2], ["cache2"])
-        self.cache.insert_cache("model1", [3], ["cache3"])
-
-        self.assertEqual(len(self.cache), 3)
-
-        # Insert a 4th entry - should evict the oldest (tokens=[1])
-        self.cache.insert_cache("model1", [4], ["cache4"])
-
-        self.assertEqual(len(self.cache), 3)
-
-        # The first entry should be evicted
-        result_cache, remaining = self.cache.fetch_nearest_cache("model1", [1])
-        self.assertIsNone(result_cache)
-        self.assertEqual(remaining, [1])
-
-    def test_thread_safety(self):
-        """Test that concurrent access doesn't cause errors."""
-        import concurrent.futures
-        import random
-
-        def random_operation(op_id):
-            tokens = [random.randint(1, 100) for _ in range(random.randint(1, 10))]
-            if random.random() < 0.5:
-                self.cache.insert_cache(f"model{op_id % 3}", tokens, [f"cache_{op_id}"])
-            else:
-                self.cache.fetch_nearest_cache(f"model{op_id % 3}", tokens)
-            return op_id
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            futures = [executor.submit(random_operation, i) for i in range(100)]
-            results = [f.result() for f in concurrent.futures.as_completed(futures)]
-
-        self.assertEqual(len(results), 100)
-
-    def test_clear(self):
-        """Test that clear() removes all entries."""
-        self.cache.insert_cache("model1", [1, 2, 3], ["cache1"])
-        self.cache.insert_cache("model2", [4, 5, 6], ["cache2"])
-
-        self.assertEqual(len(self.cache), 2)
-
-        self.cache.clear()
-
-        self.assertEqual(len(self.cache), 0)
+# Unit tests for ThreadSafeLRUPromptCache are in test_mlx_cache.py
