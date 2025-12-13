@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "asclepio-8b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Asclepio-8B-i1-GGUF
+  description: |
+    The **Asclepio-8B** model is a large language model fine-tuned for **medical reasoning** and **clinical decision-making**, developed by Aquiles-ai. It is designed for healthcare applications, including diagnostic analysis, treatment planning, and medical knowledge retrieval. The base model is a 8B-parameter variant, originally released by Aquiles-ai, and is optimized for tasks requiring deep domain expertise in medicine.
+
+    The repository **mradermacher/Asclepio-8B-i1-GGUF** provides quantized versions of the model (e.g., IQ4_K_M, Q4_K_M) for efficient inference on lower-end hardware. These quantized versions maintain high performance while reducing memory requirements, making the model accessible for a broader range of applications. The model is MIT-licensed and supports multilingual reasoning, with a focus on clinical and healthcare domains.
+
+    This quantized version is a derivative of the original model, optimized for deployment in resource-constrained environments while preserving the core capabilities of the base model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Asclepio-8B.i1-Q4_K_M.gguf
+    name: Asclepio-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Asclepio-8B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Asclepio-8B.i1-Q4_K_M.gguf
+      sha256: 611dc84d85d87ffa57a51d3d440b694fe7a8c4b595a3e3d5602de7cd320b555f
+      uri: https://huggingface.co/mradermacher/Asclepio-8B-i1-GGUF/resolve/main/Asclepio-8B.i1-Q4_K_M.gguf
+
