@@ -351,11 +351,19 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
         top_p = getattr(request, 'TopP', 0.0)
         if top_p == 0.0:
             top_p = 1.0  # Default top_p
-        
+
+        min_p = getattr(request, 'MinP', 0.0)
+        # min_p default of 0.0 means disabled (no filtering)
+
+        top_k = getattr(request, 'TopK', 0)
+        # top_k default of 0 means disabled (no filtering)
+
         # Initialize sampler parameters
         sampler_params = {
             'temp': temp,
             'top_p': top_p,
+            'min_p': min_p,
+            'top_k': top_k,
             'xtc_threshold': 0.0,
             'xtc_probability': 0.0,
         }
@@ -375,7 +383,9 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             sampler_option_mapping = {
                 'temp': 'temp',
                 'temperature': 'temp',  # alias
-                'top_p': 'top_p', 
+                'top_p': 'top_p',
+                'min_p': 'min_p',
+                'top_k': 'top_k',
                 'xtc_threshold': 'xtc_threshold',
                 'xtc_probability': 'xtc_probability',
             }

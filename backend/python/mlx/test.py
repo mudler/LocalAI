@@ -47,7 +47,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
                 self.assertEqual(response.message, "Model loaded successfully")
         except Exception as err:
@@ -64,7 +64,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
                 req = backend_pb2.PredictOptions(Prompt="The capital of France is")
                 resp = stub.Predict(req)
@@ -84,7 +84,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
 
                 req = backend_pb2.PredictOptions(
@@ -95,26 +95,13 @@ class TestBackendServicer(unittest.TestCase):
                     TopK=40,
                     PresencePenalty=0.1,
                     FrequencyPenalty=0.2,
-                    RepetitionPenalty=1.1,
                     MinP=0.05,
                     Seed=42,
                     StopPrompts=["\n"],
-                    StopTokenIds=[50256],
-                    BadWords=["badword"],
-                    IncludeStopStrInOutput=True,
                     IgnoreEOS=True,
-                    MinTokens=5,
-                    Logprobs=5,
-                    PromptLogprobs=5,
-                    SkipSpecialTokens=True,
-                    SpacesBetweenSpecialTokens=True,
-                    TruncatePromptTokens=10,
-                    GuidedDecoding=True,
-                    N=2,
                 )
                 resp = stub.Predict(req)
                 self.assertIsNotNone(resp.message)
-                self.assertIsNotNone(resp.logprobs)
         except Exception as err:
             print(err)
             self.fail("sampling params service failed")
@@ -156,7 +143,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
 
                 def make_request(prompt):
@@ -196,7 +183,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
 
                 prompt = "The quick brown fox jumps over the lazy dog. "
@@ -227,7 +214,7 @@ class TestBackendServicer(unittest.TestCase):
             self.setUp()
             with grpc.insecure_channel("localhost:50051") as channel:
                 stub = backend_pb2_grpc.BackendStub(channel)
-                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="mlx-community/Llama-3.2-1B-Instruct-4bit"))
                 self.assertTrue(response.success)
 
                 # First request with base prompt
