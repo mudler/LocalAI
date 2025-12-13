@@ -327,7 +327,7 @@ static std::string get_all_kv_cache_types() {
 }
 
 // Adds an RPC server
-// https://github.com/ggerganov/llama.cpp/compare/4dbc8b9cb71876e005724f4e8f73a3544646bcf5..3edfa7d3753c29e44b964c0ff424d2ea8d5fdee6
+// Description here: https://github.com/ggml-org/llama.cpp/blob/master/tools/rpc/README.md
 static void add_rpc_devices(std::string servers) {
     auto rpc_servers = string_split<std::string>(servers, ',');
     if (rpc_servers.empty()) {
@@ -337,18 +337,14 @@ static void add_rpc_devices(std::string servers) {
     if (!rpc_reg) {
         throw std::invalid_argument("failed to find RPC backend");
     }
-    typedef ggml_backend_dev_t (*ggml_backend_rpc_add_device_t)(const char * endpoint);
-    ggml_backend_rpc_add_device_t ggml_backend_rpc_add_device_fn = (ggml_backend_rpc_add_device_t) ggml_backend_reg_get_proc_address(rpc_reg, "ggml_backend_rpc_add_device");
-    if (!ggml_backend_rpc_add_device_fn) {
-        throw std::invalid_argument("failed to find RPC device add function");
+    typedef ggml_backend_reg_t (*ggml_backend_rpc_add_server_t)(const char * endpoint);
+    ggml_backend_rpc_add_server_t ggml_backend_rpc_add_server_fn = (ggml_backend_rpc_add_server_t) ggml_backend_reg_get_proc_address(rpc_reg, "ggml_backend_rpc_add_server");
+    if (!ggml_backend_rpc_add_server_fn) {
+        throw std::invalid_argument("failed to find RPC add server function");
     }
     for (const auto & server : rpc_servers) {
-        ggml_backend_dev_t dev = ggml_backend_rpc_add_device_fn(server.c_str());
-        if (dev) {
-            ggml_backend_device_register(dev);
-        } else {
-            throw std::invalid_argument("failed to register RPC device");
-        }
+        ggml_backend_reg_t reg = ggml_backend_rpc_add_server_fn(server.c_str());
+        ggml_backend_register(reg);
     }
 }
 
