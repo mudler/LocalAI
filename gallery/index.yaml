@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "synthia-v1.5-limarpv3-70b"
+  urls:
+    - https://huggingface.co/mradermacher/SynthIA-v1.5-limarpv3-70B-GGUF
+  description: |
+    The model **SynthIA-v1.5-limarpv3-70B** is a large language model developed by DS-Archive, featuring **70 billion parameters**. It is designed for high-quality text generation and synthetic intelligence tasks. While the repository you accessed contains quantized versions of this model (e.g., Q2_K, IQ3_XS, Q4_K_M), the original base model serves as the foundation for these optimized variants. Quantized versions offer trade-offs between computational efficiency and performance, making them suitable for different use cases. This model is ideal for applications requiring robust text generation, with the original 70B parameter version providing the highest quality and flexibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SynthIA-v1.5-limarpv3-70B.Q4_K_M.gguf
+    name: SynthIA-v1.5-limarpv3-70B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SynthIA-v1.5-limarpv3-70B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/SynthIA-v1.5-limarpv3-70B.Q4_K_M.gguf
+      sha256: de52543a2d68f7b5a5ac86485de0151c4d984ddcc73c3830d14dde06045565a6
+      uri: https://huggingface.co/mradermacher/SynthIA-v1.5-limarpv3-70B-GGUF/resolve/main/SynthIA-v1.5-limarpv3-70B.Q4_K_M.gguf
+
