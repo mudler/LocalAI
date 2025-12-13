@@ -330,6 +330,12 @@ static std::string get_all_kv_cache_types() {
 // Description here: https://github.com/ggml-org/llama.cpp/blob/master/tools/rpc/README.md
 static void add_rpc_devices(std::string servers) {
     auto rpc_servers = string_split<std::string>(servers, ',');
+    // Trim whitespace to allow more flexible configurations, such as having entries on separate lines.
+    for (std::string & server : rpc_servers)
+    {
+        server.erase(0, server.find_first_not_of(" \t\n\r"));
+        server.erase(server.find_last_not_of(" \t\n\r") + 1);
+    }
     if (rpc_servers.empty()) {
         throw std::invalid_argument("no RPC servers specified");
     }
