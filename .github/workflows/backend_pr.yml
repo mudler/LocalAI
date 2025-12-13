@@ -70,7 +70,7 @@ jobs:
       tag-suffix: ${{ matrix.tag-suffix }}
       lang: ${{ matrix.lang || 'python' }}
       use-pip: ${{ matrix.backend == 'diffusers' }}
-      runs-on: "macOS-14"
+      runs-on: "macos-latest"
     secrets:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
