@@ -1,8 +1,8 @@
-torch==2.7.1
+torch==2.7.1+cpu
 torchvision==0.22.1
 git+https://github.com/huggingface/diffusers
 opencv-python
-transformers==4.51.3
+transformers==4.53.0
 accelerate
 compel
 peft

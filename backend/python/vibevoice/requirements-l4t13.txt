@@ -1,7 +1,7 @@
 --extra-index-url https://download.pytorch.org/whl/cu130
 torch
 git+https://github.com/huggingface/diffusers
-transformers==4.51.3
+transformers==4.53.0
 accelerate
 compel
 peft

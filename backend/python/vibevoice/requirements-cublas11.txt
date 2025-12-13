@@ -1,13 +1,13 @@
 --extra-index-url https://download.pytorch.org/whl/cu118
 git+https://github.com/huggingface/diffusers
 opencv-python
-transformers==4.51.3
+transformers==4.53.0
 torchvision==0.22.1
 accelerate
 compel
 peft
 sentencepiece
-torch==2.7.1
+torch==2.7.1+cpu
 optimum-quanto
 ftfy
 llvmlite>=0.40.0
