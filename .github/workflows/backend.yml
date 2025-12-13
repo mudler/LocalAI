@@ -86,12 +86,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vibevoice'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -308,12 +308,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-vibevoice'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -378,7 +378,7 @@ jobs:
             ubuntu-version: '2404'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
+            context: "./"
           - build-type: 'l4t'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -596,12 +596,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vibevoice'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -727,12 +727,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-vibevoice'
             runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -784,8 +784,8 @@ jobs:
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
