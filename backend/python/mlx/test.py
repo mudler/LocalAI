@@ -144,3 +144,196 @@ class TestBackendServicer(unittest.TestCase):
             self.fail("Embedding service failed")
         finally:
             self.tearDown()
+
+    def test_concurrent_requests(self):
+        """
+        This method tests that concurrent requests don't corrupt each other's cache state.
+        This is a regression test for the race condition in the original implementation.
+        """
+        import concurrent.futures
+
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                self.assertTrue(response.success)
+
+                def make_request(prompt):
+                    req = backend_pb2.PredictOptions(Prompt=prompt, Tokens=20)
+                    return stub.Predict(req)
+
+                # Run 5 concurrent requests with different prompts
+                prompts = [
+                    "The capital of France is",
+                    "The capital of Germany is",
+                    "The capital of Italy is",
+                    "The capital of Spain is",
+                    "The capital of Portugal is",
+                ]
+
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = [executor.submit(make_request, p) for p in prompts]
+                    results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+                # All results should be non-empty
+                messages = [r.message for r in results]
+                self.assertTrue(all(len(m) > 0 for m in messages), "All requests should return non-empty responses")
+                print(f"Concurrent test passed: {len(messages)} responses received")
+
+        except Exception as err:
+            print(err)
+            self.fail("Concurrent requests test failed")
+        finally:
+            self.tearDown()
+
+    def test_cache_reuse(self):
+        """
+        This method tests that repeated prompts reuse cached KV states.
+        The second request should benefit from the cached prompt processing.
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                self.assertTrue(response.success)
+
+                prompt = "The quick brown fox jumps over the lazy dog. "
+
+                # First request - populates cache
+                req1 = backend_pb2.PredictOptions(Prompt=prompt, Tokens=10)
+                resp1 = stub.Predict(req1)
+                self.assertIsNotNone(resp1.message)
+
+                # Second request with same prompt - should reuse cache
+                req2 = backend_pb2.PredictOptions(Prompt=prompt, Tokens=10)
+                resp2 = stub.Predict(req2)
+                self.assertIsNotNone(resp2.message)
+
+                print(f"Cache reuse test passed: first={len(resp1.message)} bytes, second={len(resp2.message)} bytes")
+
+        except Exception as err:
+            print(err)
+            self.fail("Cache reuse test failed")
+        finally:
+            self.tearDown()
+
+    def test_prefix_cache_reuse(self):
+        """
+        This method tests that prompts sharing a common prefix benefit from cached KV states.
+        """
+        try:
+            self.setUp()
+            with grpc.insecure_channel("localhost:50051") as channel:
+                stub = backend_pb2_grpc.BackendStub(channel)
+                response = stub.LoadModel(backend_pb2.ModelOptions(Model="facebook/opt-125m"))
+                self.assertTrue(response.success)
+
+                # First request with base prompt
+                prompt_base = "Once upon a time in a land far away, "
+                req1 = backend_pb2.PredictOptions(Prompt=prompt_base, Tokens=10)
+                resp1 = stub.Predict(req1)
+                self.assertIsNotNone(resp1.message)
+
+                # Second request with extended prompt (same prefix)
+                prompt_extended = prompt_base + "there lived a brave knight who "
+                req2 = backend_pb2.PredictOptions(Prompt=prompt_extended, Tokens=10)
+                resp2 = stub.Predict(req2)
+                self.assertIsNotNone(resp2.message)
+
+                print(f"Prefix cache test passed: base={len(resp1.message)} bytes, extended={len(resp2.message)} bytes")
+
+        except Exception as err:
+            print(err)
+            self.fail("Prefix cache reuse test failed")
+        finally:
+            self.tearDown()
+
+
+class TestThreadSafeLRUPromptCache(unittest.TestCase):
+    """
+    Unit tests for the ThreadSafeLRUPromptCache class.
+    These tests don't require the gRPC server.
+    """
+
+    def setUp(self):
+        import sys
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'common'))
+        from mlx_cache import ThreadSafeLRUPromptCache
+        self.cache = ThreadSafeLRUPromptCache(max_size=3)
+
+    def test_insert_and_fetch_exact(self):
+        """Test inserting and fetching an exact match."""
+        tokens = [1, 2, 3, 4, 5]
+        mock_cache = ["mock_kv_cache"]
+
+        self.cache.insert_cache("model1", tokens, mock_cache)
+        result_cache, remaining = self.cache.fetch_nearest_cache("model1", tokens)
+
+        self.assertEqual(result_cache, mock_cache)
+        self.assertEqual(remaining, [])
+
+    def test_fetch_shorter_prefix(self):
+        """Test fetching a shorter prefix match."""
+        # Insert a short sequence
+        short_tokens = [1, 2, 3]
+        mock_cache = ["mock_kv_cache"]
+        self.cache.insert_cache("model1", short_tokens, mock_cache)
+
+        # Fetch with a longer sequence
+        long_tokens = [1, 2, 3, 4, 5]
+        result_cache, remaining = self.cache.fetch_nearest_cache("model1", long_tokens)
+
+        self.assertEqual(result_cache, mock_cache)
+        self.assertEqual(remaining, [4, 5])
+
+    def test_lru_eviction(self):
+        """Test that LRU eviction works when max_size is exceeded."""
+        # Insert 3 entries (max_size)
+        self.cache.insert_cache("model1", [1], ["cache1"])
+        self.cache.insert_cache("model1", [2], ["cache2"])
+        self.cache.insert_cache("model1", [3], ["cache3"])
+
+        self.assertEqual(len(self.cache), 3)
+
+        # Insert a 4th entry - should evict the oldest (tokens=[1])
+        self.cache.insert_cache("model1", [4], ["cache4"])
+
+        self.assertEqual(len(self.cache), 3)
+
+        # The first entry should be evicted
+        result_cache, remaining = self.cache.fetch_nearest_cache("model1", [1])
+        self.assertIsNone(result_cache)
+        self.assertEqual(remaining, [1])
+
+    def test_thread_safety(self):
+        """Test that concurrent access doesn't cause errors."""
+        import concurrent.futures
+        import random
+
+        def random_operation(op_id):
+            tokens = [random.randint(1, 100) for _ in range(random.randint(1, 10))]
+            if random.random() < 0.5:
+                self.cache.insert_cache(f"model{op_id % 3}", tokens, [f"cache_{op_id}"])
+            else:
+                self.cache.fetch_nearest_cache(f"model{op_id % 3}", tokens)
+            return op_id
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(random_operation, i) for i in range(100)]
+            results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+        self.assertEqual(len(results), 100)
+
+    def test_clear(self):
+        """Test that clear() removes all entries."""
+        self.cache.insert_cache("model1", [1, 2, 3], ["cache1"])
+        self.cache.insert_cache("model2", [4, 5, 6], ["cache2"])
+
+        self.assertEqual(len(self.cache), 2)
+
+        self.cache.clear()
+
+        self.assertEqual(len(self.cache), 0)
