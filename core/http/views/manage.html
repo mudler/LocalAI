@@ -210,7 +210,7 @@
                                 <div class="flex flex-wrap gap-1">
                                     {{ range .KnownUsecaseStrings }}
                                     {{ if eq . "FLAG_CHAT" }}
-                                    <a href="chat/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Chat">
+                                    <a href="chat/{{$backendCfg.Name}}" onclick="sessionStorage.setItem('localai_create_new_chat', 'true');" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Chat">
                                         <i class="fas fa-comment-alt text-[8px] mr-1"></i>Chat
                                     </a>
                                     {{ end }}

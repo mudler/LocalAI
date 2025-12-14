@@ -41,6 +41,16 @@ SOFTWARE.
     __chatContextSize = {{ .ContextSize }};
     {{ end }}
 
+    // Store gallery configs for header icon display
+    window.__galleryConfigs = {};
+    {{ $allGalleryConfigs:=.GalleryConfig }}
+    {{ range $modelName, $galleryConfig := $allGalleryConfigs }}
+    window.__galleryConfigs["{{$modelName}}"] = {};
+    {{ if $galleryConfig.Icon }}
+    window.__galleryConfigs["{{$modelName}}"].Icon = "{{$galleryConfig.Icon}}";
+    {{ end }}
+    {{ end }}
+
     // Function to initialize store
     function __initChatStore() {
       if (!window.Alpine) return;
@@ -501,6 +511,21 @@ SOFTWARE.
         }
       }
       
+      // Update model selector to reflect the change (ensure it stays in sync)
+      const modelSelector = document.getElementById('modelSelector');
+      if (modelSelector) {
+        // Find and select the option matching the model
+        const optionValue = 'chat/' + modelName;
+        for (let i = 0; i < modelSelector.options.length; i++) {
+          if (modelSelector.options[i].value === optionValue) {
+            modelSelector.selectedIndex = i;
+            break;
+          }
+        }
+        // Trigger Alpine reactivity by dispatching change event
+        modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      
       // Trigger MCP availability check in Alpine component
       // The MCP toggle component will reactively check the data-has-mcp attribute
       
@@ -512,14 +537,6 @@ SOFTWARE.
       // Update UI - this will refresh the statistics display
       if (typeof updateUIForActiveChat === 'function') {
         updateUIForActiveChat();
-      }
-      
-      // Trigger MCP availability check in Alpine component
-      // Dispatch a custom event that the MCP toggle component can listen to
-      const modelSelector = document.getElementById('modelSelector');
-      if (modelSelector) {
-        // Trigger Alpine reactivity by dispatching change event
-        modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
   </script>
@@ -559,29 +576,31 @@ SOFTWARE.
         <div class="p-3 space-y-3">
           <!-- Model selection - Compact -->
           <div class="space-y-1.5">
-            <div class="flex items-center justify-between">
-              <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">Model</label>
-              {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
-              <button 
-                data-twe-ripple-init 
-                data-twe-ripple-color="light" 
-                class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1" 
-                data-modal-target="model-info-modal" 
-                data-modal-toggle="model-info-modal"
-                title="Model Information">
-                <i class="fas fa-info-circle"></i>
-              </button>
-              {{ end }}
-              {{ end }}
-              {{ if $model }}
-              <a href="/models/edit/{{$model}}" 
-                 class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1" 
-                 title="Edit Model Configuration">
-                <i class="fas fa-edit"></i>
-              </a>
-              {{ end }}
+            <div class="flex items-center justify-between gap-2">
+              <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                {{ if $model }}
+                {{ $galleryConfig:= index $allGalleryConfigs $model}}
+                {{ if $galleryConfig }}
+                <button 
+                  data-twe-ripple-init 
+                  data-twe-ripple-color="light" 
+                  class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                  data-modal-target="model-info-modal" 
+                  data-modal-toggle="model-info-modal"
+                  title="Model Information">
+                  <i class="fas fa-info-circle"></i>
+                </button>
+                {{ end }}
+                {{ end }}
+                {{ if $model }}
+                <a href="/models/edit/{{$model}}" 
+                   class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                   title="Edit Model Configuration">
+                  <i class="fas fa-edit"></i>
+                </a>
+                {{ end }}
+              </div>
             </div>
             <select
               id="modelSelector"
@@ -1030,14 +1049,22 @@ SOFTWARE.
 
             <div class="flex items-center">
               <i class="fa-solid fa-comments mr-2 text-[var(--color-primary)]"></i>
-              {{ if $model }}
-              {{ $galleryConfig:= index $allGalleryConfigs $model}}
-              {{ if $galleryConfig }}
-              {{ if $galleryConfig.Icon }}<img src="{{$galleryConfig.Icon}}" class="rounded-lg w-8 h-8 mr-2">{{end}}
-              {{ end }}
-              {{ end }}
+              <!-- Model icon - reactive to active chat -->
+              <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model] && window.__galleryConfigs[$store.chat.activeChat().model].Icon">
+                <img :src="window.__galleryConfigs[$store.chat.activeChat().model].Icon" class="rounded-lg w-8 h-8 mr-2">
+              </template>
+              <!-- Fallback icon for initial model from server (when no active chat yet) -->
+              <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}'] && window.__galleryConfigs['{{$model}}'].Icon">
+                <img :src="window.__galleryConfigs['{{$model}}'].Icon" class="rounded-lg w-8 h-8 mr-2">
+              </template>
               <h1 class="text-lg font-semibold text-[var(--color-text-primary)]">
-                Chat {{ if .Model }} with {{.Model}} {{ end }}
+                Chat
+                <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
+                  <span x-text="' with ' + $store.chat.activeChat().model"></span>
+                </template>
+                <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
+                  {{ if .Model }}<span> with {{.Model}}</span>{{ end }}
+                </template>
               </h1>
               <!-- Loading indicator next to model name -->
               <div id="header-loading-indicator" class="ml-3 text-[var(--color-primary)]" style="display: none;">
@@ -1697,6 +1724,42 @@ SOFTWARE.
         document.addEventListener('DOMContentLoaded', initMarkdownProcessing);
       } else {
         initMarkdownProcessing();
+      }
+
+      // Sync model selector with initial model from server on page load
+      // This ensures the selector is correct when navigating from manage.html or index.html
+      function syncModelSelectorOnLoad() {
+        const modelInput = document.getElementById("chat-model");
+        const modelSelector = document.getElementById("modelSelector");
+        
+        if (modelInput && modelSelector && modelInput.value) {
+          const modelName = modelInput.value;
+          const optionValue = 'chat/' + modelName;
+          
+          // Find and select the option matching the model
+          for (let i = 0; i < modelSelector.options.length; i++) {
+            if (modelSelector.options[i].value === optionValue) {
+              modelSelector.selectedIndex = i;
+              break;
+            }
+          }
+        }
+      }
+
+      // Run sync after DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', syncModelSelectorOnLoad);
+      } else {
+        syncModelSelectorOnLoad();
+      }
+
+      // Also sync after Alpine initializes (in case it runs after DOMContentLoaded)
+      if (window.Alpine) {
+        Alpine.nextTick(syncModelSelectorOnLoad);
+      } else {
+        document.addEventListener('alpine:init', () => {
+          Alpine.nextTick(syncModelSelectorOnLoad);
+        });
       }
     </script>
 

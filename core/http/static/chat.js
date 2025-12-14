@@ -2473,23 +2473,53 @@ document.addEventListener('DOMContentLoaded', function() {
           localStorage.removeItem(SYSTEM_PROMPT_STORAGE_KEY);
         }
       } else {
-        // Existing chats loaded - check URL parameter for MCP mode
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('mcp') === 'true') {
-          const activeChat = chatStore.activeChat();
-          if (activeChat) {
-            activeChat.mcpMode = true;
-            saveChatsToStorage();
+        // Existing chats loaded - check if we need to create a new chat for the model in URL
+        const urlModel = document.getElementById("chat-model")?.value || "";
+        const activeChat = chatStore.activeChat();
+        const shouldCreateNewChat = sessionStorage.getItem('localai_create_new_chat') === 'true';
+        
+        // Clear the flag after reading it
+        if (shouldCreateNewChat) {
+          sessionStorage.removeItem('localai_create_new_chat');
+        }
+        
+        // If we should create a new chat (from manage.html) or URL model doesn't match active chat, create new chat
+        // This handles navigation from manage.html or direct links to /chat/MODEL_NAME
+        if (urlModel && urlModel.trim() && (shouldCreateNewChat || (activeChat && activeChat.model !== urlModel) || !activeChat)) {
+          // Create a new chat with the model from URL
+          const urlParams = new URLSearchParams(window.location.search);
+          const mcpFromUrl = urlParams.get('mcp') === 'true';
+          const newChat = chatStore.createChat(urlModel, "", mcpFromUrl);
+          
+          // Update context size from template if available
+          const contextSizeInput = document.getElementById("chat-model");
+          if (contextSizeInput && contextSizeInput.dataset.contextSize) {
+            const contextSize = parseInt(contextSizeInput.dataset.contextSize);
+            if (!isNaN(contextSize)) {
+              newChat.contextSize = contextSize;
+            }
+          }
+          
+          saveChatsToStorage();
+          updateUIForActiveChat();
+        } else {
+          // Check URL parameter for MCP mode (update existing active chat)
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.get('mcp') === 'true') {
+            if (activeChat) {
+              activeChat.mcpMode = true;
+              saveChatsToStorage();
+            }
           }
         }
       }
       
-      // Update context size from template if available
+      // Update context size from template if available (for existing active chat)
       const contextSizeInput = document.getElementById("chat-model");
       if (contextSizeInput && contextSizeInput.dataset.contextSize) {
         const contextSize = parseInt(contextSizeInput.dataset.contextSize);
         const activeChat = chatStore.activeChat();
-        if (activeChat) {
+        if (activeChat && !activeChat.contextSize) {
           activeChat.contextSize = contextSize;
         }
       }
