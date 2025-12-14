@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "olmo-3.1-32b-instruct-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Olmo-3.1-32B-Instruct-i1-GGUF
+  description: |
+    The model described is **Olmo-3.1-32B-Instruct**, a large language model developed by AllenAI. It features **32 billion parameters** and is trained on the **Dolci-Instruct-RL dataset**, making it optimized for instruction-following tasks. The model is available in multiple quantized formats (e.g., IQ1, IQ2, IQ3, Q4, Q5, Q6) for efficient deployment, with the **i1-Q4_K_M** quantization (19.6GB) recommended for a balance of speed and quality. The base model is licensed under **Apache 2.0** and is compatible with the **transformers** library. Quantized versions are provided by the repository maintainer, mradermacher, and include options like the lightweight **imatrix** format (0.1GB) for custom quantization. This model is suitable for tasks requiring large-scale language understanding and generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Olmo-3.1-32B-Instruct.i1-Q4_K_M.gguf
+    name: Olmo-3.1-32B-Instruct-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Olmo-3.1-32B-Instruct-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Olmo-3.1-32B-Instruct.i1-Q4_K_M.gguf
+      sha256: a1d9fcdc6f428131ea71cab6685ead06f1dfd44fa3eaf0fe3d129498fb4a04ac
+      uri: https://huggingface.co/mradermacher/Olmo-3.1-32B-Instruct-i1-GGUF/resolve/main/Olmo-3.1-32B-Instruct.i1-Q4_K_M.gguf
+
