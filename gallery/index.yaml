@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "qwen3-14b-gemini-3-pro-preview-high-reasoning-distill"
+  urls:
+    - https://huggingface.co/TeichAI/Qwen3-14B-Gemini-3-Pro-Preview-High-Reasoning-Distill-GGUF
+  description: |
+    The model is a distilled version of the **Qwen3-14B** base model, optimized for efficiency and reasoning tasks. Trained on the **Gemini 3 Pro Preview** dataset with a focus on high-reasoning capabilities, it excels in coding and scientific applications. Quantized for faster inference, it maintains strong performance while being lightweight. Powered by **Unsloth** and Huggingface's TRL library, this model offers a balance of speed and accuracy, making it ideal for practical use cases. Key stats include 14B parameters, a $32.7 USD dataset cost, and 2.73M total tokens.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-14B-Gemini-3-Pro-Preview-Distill.q4_k_m.gguf
+    name: Qwen3-14B-Gemini-3-Pro-Preview-High-Reasoning-Distill-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/TeichAI/Qwen3-14B-Gemini-3-Pro-Preview-High-Reasoning-Distill-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3-14B-Gemini-3-Pro-Preview-Distill.q4_k_m.gguf
+      sha256: cc76f75c6e83b5dcfe1eaffca087297d5a5150e990da56d949de9cdc08b216dd
+      uri: https://huggingface.co/TeichAI/Qwen3-14B-Gemini-3-Pro-Preview-High-Reasoning-Distill-GGUF/resolve/main/Qwen3-14B-Gemini-3-Pro-Preview-Distill.q4_k_m.gguf
+
