@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "rwkv7-7.2b-g0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/rwkv7-7.2B-g0-i1-GGUF
+  description: |
+    The **RWKV7-7.2B-g0** model is a large-scale language model developed by the RWKV Project, designed for multilingual text generation. It features **7.2 billion parameters** and supports **English, Chinese, Japanese, Korean, French, Arabic, Spanish, and Portuguese**, making it versatile for diverse linguistic tasks. Licensed under the **Apache-2.0** license, this model leverages **flash-linear attention** for efficient training and inference.
+
+    To use it, install the `flash-linear-attention` library and the latest `transformers` version. It’s optimized for high-quality text generation and works seamlessly with Hugging Face’s ecosystem. The model’s base version (fla-hub/rwkv7-7.2B-g0) is the original, while the repository provided (mradermacher/rwkv7-7.2B-g0-i1-GGUF) offers quantized variants for reduced memory usage.
+
+    Ideal for researchers and developers needing a powerful, multilingual model with flexibility in deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/rwkv7-7.2B-g0.i1-Q4_K_M.gguf
+    name: rwkv7-7.2B-g0-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/rwkv7-7.2B-g0-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/rwkv7-7.2B-g0.i1-Q4_K_M.gguf
+      sha256: ab67d0700434a1e8209ee8bae2e6bf4341c957bf2a960fe462a04b22e0bd5bc0
+      uri: https://huggingface.co/mradermacher/rwkv7-7.2B-g0-i1-GGUF/resolve/main/rwkv7-7.2B-g0.i1-Q4_K_M.gguf
+
