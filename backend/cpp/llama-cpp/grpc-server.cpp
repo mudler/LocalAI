@@ -3,7 +3,7 @@
 // Ettore Di Giacinto <mudler@localai.io> and llama.cpp authors
 //
 // This is a gRPC server for llama.cpp compatible with the LocalAI proto
-// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP (https://github.com/ggerganov/llama.cpp/tree/master/examples/server), 
+// Note: this is a re-adaptation of the original llama.cpp example/server.cpp for HTTP (https://github.com/ggerganov/llama.cpp/tree/master/examples/server),
 // but modified to work with gRPC
 //
 
@@ -117,7 +117,7 @@ static void start_llama_server(server_context& ctx_server) {
 
 json parse_options(bool streaming, const backend::PredictOptions* predict, const common_params& params_base, llama_context* ctx)
 {
-    
+
     // Create now a json data from the prediction options instead
     //
     json data;
@@ -137,28 +137,28 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     data["mirostat_eta"] = predict->mirostateta();
     data["n_keep"] = predict->nkeep();
     data["seed"] = predict->seed();
-    
+
 
     std::string grammar_str = predict->grammar();
-    
- 
-    
+
+
+
     if (!grammar_str.empty()) {
         data["grammar"] = grammar_str;
         SRV_INF("Using grammar: %s\n", grammar_str.c_str());
     }
-    
+
     // Only set prompt if UseTokenizerTemplate is false or if no Messages are provided
     // When UseTokenizerTemplate is true and Messages are provided, prompt will be set via chat templates in Predict/PredictStream
     if (!predict->usetokenizertemplate() || predict->messages_size() == 0) {
         data["prompt"] = predict->prompt();
     }
-    
+
     // Extract tools and tool_choice from proto and add to data JSON
-    SRV_INF("[TOOLS DEBUG] parse_options: Checking for tools in proto, tools().empty()=%d, tools().size()=%zu\n", 
+    SRV_INF("[TOOLS DEBUG] parse_options: Checking for tools in proto, tools().empty()=%d, tools().size()=%zu\n",
             predict->tools().empty() ? 1 : 0, predict->tools().size());
     if (!predict->tools().empty()) {
-        SRV_INF("[TOOLS DEBUG] parse_options: Tools string from proto (first 500 chars): %s\n", 
+        SRV_INF("[TOOLS DEBUG] parse_options: Tools string from proto (first 500 chars): %s\n",
                 predict->tools().substr(0, std::min<size_t>(500, predict->tools().size())).c_str());
         try {
             // Parse tools JSON string and add to data
@@ -185,10 +185,10 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     } else {
         SRV_INF("%s", "[TOOLS DEBUG] parse_options: No tools received from Go layer (predict->tools() is empty)\n");
     }
-    
+
     // Debug: Verify tools are in data after extraction
     if (data.contains("tools")) {
-        SRV_INF("[TOOLS DEBUG] parse_options: Tools successfully added to data, count: %zu\n", 
+        SRV_INF("[TOOLS DEBUG] parse_options: Tools successfully added to data, count: %zu\n",
                 data["tools"].is_array() ? data["tools"].size() : 0);
     } else {
         SRV_INF("%s", "[TOOLS DEBUG] parse_options: WARNING - Tools NOT in data after extraction!\n");
@@ -214,7 +214,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             SRV_INF("Extracted tool_choice as string: %s\n", predict->toolchoice().c_str());
         }
     }
-    
+
     // Extract logprobs and top_logprobs from proto and add to JSON data
     // Following server.cpp pattern: logprobs maps to n_probs when provided
     if (predict->logprobs() > 0) {
@@ -228,7 +228,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
         data["top_logprobs"] = predict->toplogprobs();
         SRV_INF("Using top_logprobs: %d\n", predict->toplogprobs());
     }
-    
+
     // Extract logit_bias from proto and add to JSON data
     if (!predict->logitbias().empty()) {
         try {
@@ -241,7 +241,7 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
             SRV_ERR("Failed to parse logit_bias JSON from proto: %s\n", e.what());
         }
     }
-    
+
     data["ignore_eos"] = predict->ignoreeos();
     data["embeddings"] = predict->embeddings();
 
@@ -327,9 +327,15 @@ static std::string get_all_kv_cache_types() {
 }
 
 // Adds an RPC server
-// https://github.com/ggerganov/llama.cpp/compare/4dbc8b9cb71876e005724f4e8f73a3544646bcf5..3edfa7d3753c29e44b964c0ff424d2ea8d5fdee6
+// Description here: https://github.com/ggml-org/llama.cpp/blob/master/tools/rpc/README.md
 static void add_rpc_devices(std::string servers) {
     auto rpc_servers = string_split<std::string>(servers, ',');
+    // Trim whitespace to allow more flexible configurations, such as having entries on separate lines.
+    for (std::string & server : rpc_servers)
+    {
+        server.erase(0, server.find_first_not_of(" \t\n\r"));
+        server.erase(server.find_last_not_of(" \t\n\r") + 1);
+    }
     if (rpc_servers.empty()) {
         throw std::invalid_argument("no RPC servers specified");
     }
@@ -337,24 +343,20 @@ static void add_rpc_devices(std::string servers) {
     if (!rpc_reg) {
         throw std::invalid_argument("failed to find RPC backend");
     }
-    typedef ggml_backend_dev_t (*ggml_backend_rpc_add_device_t)(const char * endpoint);
-    ggml_backend_rpc_add_device_t ggml_backend_rpc_add_device_fn = (ggml_backend_rpc_add_device_t) ggml_backend_reg_get_proc_address(rpc_reg, "ggml_backend_rpc_add_device");
-    if (!ggml_backend_rpc_add_device_fn) {
-        throw std::invalid_argument("failed to find RPC device add function");
+    typedef ggml_backend_reg_t (*ggml_backend_rpc_add_server_t)(const char * endpoint);
+    ggml_backend_rpc_add_server_t ggml_backend_rpc_add_server_fn = (ggml_backend_rpc_add_server_t) ggml_backend_reg_get_proc_address(rpc_reg, "ggml_backend_rpc_add_server");
+    if (!ggml_backend_rpc_add_server_fn) {
+        throw std::invalid_argument("failed to find RPC add server function");
     }
     for (const auto & server : rpc_servers) {
-        ggml_backend_dev_t dev = ggml_backend_rpc_add_device_fn(server.c_str());
-        if (dev) {
-            ggml_backend_device_register(dev);
-        } else {
-            throw std::invalid_argument("failed to register RPC device");
-        }
+        ggml_backend_reg_t reg = ggml_backend_rpc_add_server_fn(server.c_str());
+        ggml_backend_register(reg);
     }
 }
 
 static void params_parse(server_context& ctx_server, const backend::ModelOptions* request,
                                 common_params & params) {
-   
+
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
 
     params.model.path = request->modelfile();
@@ -380,7 +382,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     // Enable all debug logs by setting verbosity threshold to maximum
     //common_log_set_verbosity_thold(INT_MAX);
     params.n_ubatch = request->nbatch(); // fixes issue with reranking models being limited to 512 tokens (the default n_ubatch size); allows for setting the maximum input amount of tokens thereby avoiding this error "input is too large to process. increase the physical batch size"
-    
+
     // Initialize ctx_shift to false by default (can be overridden by options)
     params.ctx_shift = false;
     // Initialize cache_ram_mib to -1 by default (no limit, can be overridden by options)
@@ -436,7 +438,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
             }
         }
     }
-    
+
     // Set params.n_parallel from environment variable if not set via options (fallback)
     if (params.n_parallel == 1) {
         const char *env_parallel = std::getenv("LLAMACPP_PARALLEL");
@@ -531,7 +533,7 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
         params.pooling_type = LLAMA_POOLING_TYPE_RANK;
     }
 
-    
+
     if (request->ropescaling() == "none")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_NONE; }
     else if (request->ropescaling() == "yarn")   { params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_YARN; }
     else if (request->ropescaling() == "linear")   {  params.rope_scaling_type = LLAMA_ROPE_SCALING_TYPE_LINEAR; }
@@ -655,9 +657,9 @@ public:
     // Helper function to extract logprobs from JSON response
     static json extract_logprobs_from_json(const json& res_json) {
         json logprobs_json = json::object();
-        
+
         // Check for OAI-compatible format: choices[0].logprobs
-        if (res_json.contains("choices") && res_json["choices"].is_array() && 
+        if (res_json.contains("choices") && res_json["choices"].is_array() &&
             res_json["choices"].size() > 0 && res_json["choices"][0].contains("logprobs")) {
             logprobs_json = res_json["choices"][0]["logprobs"];
         }
@@ -670,7 +672,7 @@ public:
         else if (res_json.contains("logprobs")) {
             logprobs_json = res_json["logprobs"];
         }
-        
+
         return logprobs_json;
     }
 
@@ -700,7 +702,7 @@ public:
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
-                
+
                 // Find the last user message index to attach images/audio to
                 int last_user_msg_idx = -1;
                 for (int i = request->messages_size() - 1; i >= 0; i--) {
@@ -709,15 +711,15 @@ public:
                         break;
                     }
                 }
-                
+
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
-                    
+
                     bool is_last_user_msg = (i == last_user_msg_idx);
                     bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
-                    
+
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
                     if (!msg.content().empty()) {
@@ -733,12 +735,12 @@ public:
                             // Not JSON, treat as plain string
                             content_val = msg.content();
                         }
-                        
+
                         // If content is an object (e.g., from tool call failures), convert to string
                         if (content_val.is_object()) {
                             content_val = content_val.dump();
                         }
-                        
+
                         // If content is a string and this is the last user message with images/audio, combine them
                         if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
                             json content_array = json::array();
@@ -810,14 +812,14 @@ public:
                             msg_json["content"] = "";
                             SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): empty content, set to empty string\n", i);
                         } else {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): content exists: %s\n", 
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): content exists: %s\n",
                                     i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
                             // Content exists, parse and ensure it's a string
                             json content_val;
                             try {
                                 content_val = json::parse(msg.content());
-                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): parsed JSON, type=%s\n", 
-                                        i, content_val.is_null() ? "null" : 
+                                SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): parsed JSON, type=%s\n",
+                                        i, content_val.is_null() ? "null" :
                                            content_val.is_object() ? "object" :
                                            content_val.is_string() ? "string" :
                                            content_val.is_array() ? "array" : "other");
@@ -828,7 +830,7 @@ public:
                                 } else if (content_val.is_object()) {
                                     // If content is an object (e.g., from tool call failures/errors), convert to string
                                     msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): object content, converted to string: %s\n", 
+                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): object content, converted to string: %s\n",
                                             i, content_val.dump().substr(0, std::min<size_t>(200, content_val.dump().size())).c_str());
                                 } else if (content_val.is_string()) {
                                     msg_json["content"] = content_val.get<std::string>();
@@ -836,7 +838,7 @@ public:
                                 } else {
                                     // For arrays or other types, convert to string
                                     msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): %s content, converted to string\n", 
+                                    SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (tool): %s content, converted to string\n",
                                             i, content_val.is_array() ? "array" : "other type");
                                 }
                             } catch (const json::parse_error&) {
@@ -849,12 +851,12 @@ public:
                         // Ensure all messages have content set (fallback for any unhandled cases)
                         // Jinja templates expect content to be present, default to empty string if not set
                         if (!msg_json.contains("content")) {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (role=%s): no content field, adding empty string\n", 
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d (role=%s): no content field, adding empty string\n",
                                     i, msg.role().c_str());
                             msg_json["content"] = "";
                         }
                     }
-                    
+
                     // Add optional fields for OpenAI-compatible message format
                     if (!msg.name().empty()) {
                         msg_json["name"] = msg.name();
@@ -891,19 +893,19 @@ public:
                                             tool_name = func["name"].get<std::string>();
                                         }
                                         if (func.contains("arguments")) {
-                                            tool_args = func["arguments"].is_string() ? 
-                                                func["arguments"].get<std::string>() : 
+                                            tool_args = func["arguments"].is_string() ?
+                                                func["arguments"].get<std::string>() :
                                                 func["arguments"].dump();
                                         }
                                     } else if (tc.contains("name")) {
                                         tool_name = tc["name"].get<std::string>();
                                         if (tc.contains("arguments")) {
-                                            tool_args = tc["arguments"].is_string() ? 
-                                                tc["arguments"].get<std::string>() : 
+                                            tool_args = tc["arguments"].is_string() ?
+                                                tc["arguments"].get<std::string>() :
                                                 tc["arguments"].dump();
                                         }
                                     }
-                                    SRV_INF("[TOOL CALLS DEBUG] PredictStream: Message %d, tool_call %zu: name=%s, arguments=%s\n", 
+                                    SRV_INF("[TOOL CALLS DEBUG] PredictStream: Message %d, tool_call %zu: name=%s, arguments=%s\n",
                                             i, tc_idx, tool_name.c_str(), tool_args.c_str());
                                 }
                             }
@@ -911,13 +913,13 @@ public:
                             SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
                         }
                     }
-                    
+
                     // Debug: Log final content state before adding to array
                     if (msg_json.contains("content")) {
                         if (msg_json["content"].is_null()) {
                             SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content is NULL - THIS WILL CAUSE ERROR!\n", i);
                         } else {
-                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content type=%s, has_value=%d\n", 
+                            SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: content type=%s, has_value=%d\n",
                                     i, msg_json["content"].is_string() ? "string" :
                                        msg_json["content"].is_array() ? "array" :
                                        msg_json["content"].is_object() ? "object" : "other",
@@ -926,7 +928,7 @@ public:
                     } else {
                         SRV_INF("[CONTENT DEBUG] PredictStream: Message %d FINAL STATE: NO CONTENT FIELD - THIS WILL CAUSE ERROR!\n", i);
                     }
-                    
+
                     messages_json.push_back(msg_json);
                 }
 
@@ -941,7 +943,7 @@ public:
                         SRV_INF("[CONTENT DEBUG] PredictStream: Safety check found message %zu without content field, adding empty string\n", idx);
                         msg["content"] = "";
                     } else {
-                        SRV_INF("[CONTENT DEBUG] PredictStream: Safety check message %zu: content OK, type=%s\n", 
+                        SRV_INF("[CONTENT DEBUG] PredictStream: Safety check message %zu: content OK, type=%s\n",
                                 idx, msg["content"].is_string() ? "string" :
                                     msg["content"].is_array() ? "array" :
                                     msg["content"].is_object() ? "object" : "other");
@@ -962,14 +964,14 @@ public:
 
                 body_json["messages"] = messages_json;
                 body_json["stream"] = true; // PredictStream is always streaming
-                
+
                 // Check if grammar is provided from Go layer (NoGrammar=false)
                 // If grammar is provided, we must use it and NOT let template generate grammar from tools
                 // oaicompat_chat_params_parse throws an error if both grammar and tools are provided
-                bool has_grammar_from_go = data.contains("grammar") && 
-                    data["grammar"].is_string() && 
+                bool has_grammar_from_go = data.contains("grammar") &&
+                    data["grammar"].is_string() &&
                     !data["grammar"].get<std::string>().empty();
-                
+
                 SRV_INF("[TOOLS DEBUG] PredictStream: has_grammar_from_go=%d, data.contains(\"tools\")=%d, data.contains(\"grammar\")=%d\n",
                         has_grammar_from_go ? 1 : 0,
                         data.contains("tools") ? 1 : 0,
@@ -979,7 +981,7 @@ public:
                             data["grammar"].is_string() ? "string" : "other",
                             data["grammar"].is_string() && data["grammar"].get<std::string>().empty() ? 1 : 0);
                 }
-                
+
                 // Copy other relevant fields from data that oaicompat_chat_params_parse expects
                 // Tools and tool_choice are only passed when NoGrammar is true (grammar not provided)
                 // When grammar is provided from Go layer, we use it instead of template-generated grammar
@@ -1002,17 +1004,17 @@ public:
                                         tool_name = func["name"].get<std::string>();
                                     }
                                     if (func.contains("description")) {
-                                        tool_desc = func["description"].is_string() ? 
+                                        tool_desc = func["description"].is_string() ?
                                             func["description"].get<std::string>() : "";
                                     }
                                 } else if (tool.contains("name")) {
                                     tool_name = tool["name"].get<std::string>();
                                     if (tool.contains("description")) {
-                                        tool_desc = tool["description"].is_string() ? 
+                                        tool_desc = tool["description"].is_string() ?
                                             tool["description"].get<std::string>() : "";
                                     }
                                 }
-                                SRV_INF("[TOOLS DEBUG] PredictStream: Tool %zu: name=%s, description=%s\n", 
+                                SRV_INF("[TOOLS DEBUG] PredictStream: Tool %zu: name=%s, description=%s\n",
                                         t_idx, tool_name.c_str(), tool_desc.substr(0, 100).c_str());
                             }
                         }
@@ -1045,7 +1047,7 @@ public:
                     SRV_INF("%s", "Grammar provided from Go layer - using it instead of template-generated grammar\n");
                     // Grammar will be copied from data after parsing (it's already in data)
                 }
-                
+
                 if (data.contains("json_schema")) {
                     body_json["json_schema"] = data["json_schema"];
                 }
@@ -1081,13 +1083,13 @@ public:
                 // Update allow_image and allow_audio based on current mctx state
                 parser_opt.allow_image = ctx_server.impl->mctx ? mtmd_support_vision(ctx_server.impl->mctx) : false;
                 parser_opt.allow_audio = ctx_server.impl->mctx ? mtmd_support_audio(ctx_server.impl->mctx) : false;
-                
+
                 // Debug: Log tools before template processing
                 if (body_json.contains("tools")) {
-                    SRV_DBG("[TOOLS DEBUG] PredictStream: Before oaicompat_chat_params_parse - tools count: %zu\n", 
+                    SRV_DBG("[TOOLS DEBUG] PredictStream: Before oaicompat_chat_params_parse - tools count: %zu\n",
                             body_json["tools"].is_array() ? body_json["tools"].size() : 0);
                 }
-                
+
                 // Debug: Verify messages content before template processing
                 // Also ensure ALL messages have content set to string (not null) - templates expect strings
                 if (body_json.contains("messages") && body_json["messages"].is_array()) {
@@ -1113,7 +1115,7 @@ public:
                                     msg["content"] = "";
                                 }
                             } else {
-                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n", 
+                                SRV_INF("[CONTENT DEBUG] PredictStream: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n",
                                         idx, role_str.c_str(),
                                         msg["content"].is_string() ? "string" :
                                         msg["content"].is_array() ? "array" :
@@ -1125,9 +1127,9 @@ public:
                         }
                     }
                 }
-                
+
                 json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
-                
+
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
                     SRV_DBG("[TOOLS DEBUG] PredictStream: After oaicompat_chat_params_parse - tools count: %zu\n",
@@ -1135,17 +1137,17 @@ public:
                 } else {
                     SRV_DBG("%s", "[TOOLS DEBUG] PredictStream: After oaicompat_chat_params_parse - no tools in parsed_data\n");
                 }
-                
+
                 // Extract the prompt from parsed data
                 prompt_str = parsed_data.at("prompt").get<std::string>();
-                
+
                 // Preserve grammar from Go layer if it was provided (NoGrammar=false)
                 // Otherwise, use grammar from parsed_data (template-generated when NoGrammar=true)
                 json preserved_grammar;
                 if (has_grammar_from_go && data.contains("grammar")) {
                     preserved_grammar = data["grammar"];
                 }
-                
+
                 // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, parse_tool_calls, etc.)
                 // This ensures all template-generated fields are included
                 // parse_tool_calls is set by oaicompat_chat_params_parse when tools are present
@@ -1159,7 +1161,7 @@ public:
                         }
                     }
                 }
-                
+
                 // Debug: Log parse_tool_calls if present (set by oaicompat_chat_params_parse when tools are present)
                 if (data.contains("parse_tool_calls")) {
                     SRV_DBG("[TOOLS DEBUG] PredictStream: parse_tool_calls=%s\n", data["parse_tool_calls"].get<bool>() ? "true" : "false");
@@ -1410,7 +1412,7 @@ public:
                 // Convert proto Messages to JSON format compatible with oaicompat_chat_params_parse
                 json body_json;
                 json messages_json = json::array();
-                
+
                 // Find the last user message index to attach images/audio to
                 int last_user_msg_idx = -1;
                 for (int i = request->messages_size() - 1; i >= 0; i--) {
@@ -1419,23 +1421,23 @@ public:
                         break;
                     }
                 }
-                
+
                 SRV_INF("[CONTENT DEBUG] Predict: Processing %d messages\n", request->messages_size());
                 for (int i = 0; i < request->messages_size(); i++) {
                     const auto& msg = request->messages(i);
                     json msg_json;
                     msg_json["role"] = msg.role();
-                    
-                    SRV_INF("[CONTENT DEBUG] Predict: Message %d: role=%s, content_empty=%d, content_length=%zu\n", 
+
+                    SRV_INF("[CONTENT DEBUG] Predict: Message %d: role=%s, content_empty=%d, content_length=%zu\n",
                             i, msg.role().c_str(), msg.content().empty() ? 1 : 0, msg.content().size());
                     if (!msg.content().empty()) {
-                        SRV_INF("[CONTENT DEBUG] Predict: Message %d content (first 200 chars): %s\n", 
+                        SRV_INF("[CONTENT DEBUG] Predict: Message %d content (first 200 chars): %s\n",
                                 i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
                     }
-                    
+
                     bool is_last_user_msg = (i == last_user_msg_idx);
                     bool has_images_or_audio = (request->images_size() > 0 || request->audios_size() > 0);
-                    
+
                     // Handle content - can be string, null, or array
                     // For multimodal content, we'll embed images/audio from separate fields
                     if (!msg.content().empty()) {
@@ -1452,13 +1454,13 @@ public:
                             // Not JSON, treat as plain string
                             content_val = msg.content();
                         }
-                        
+
                         // If content is an object (e.g., from tool call failures), convert to string
                         if (content_val.is_object()) {
                             SRV_INF("[CONTENT DEBUG] Predict: Message %d content is object, converting to string\n", i);
                             content_val = content_val.dump();
                         }
-                        
+
                         // If content is a string and this is the last user message with images/audio, combine them
                         if (content_val.is_string() && is_last_user_msg && has_images_or_audio) {
                             json content_array = json::array();
@@ -1496,9 +1498,9 @@ public:
                                 msg_json["content"] = "";
                             } else {
                                 msg_json["content"] = content_val;
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d content set, type=%s\n", 
-                                        i, content_val.is_string() ? "string" : 
-                                           content_val.is_array() ? "array" : 
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d content set, type=%s\n",
+                                        i, content_val.is_string() ? "string" :
+                                           content_val.is_array() ? "array" :
                                            content_val.is_object() ? "object" : "other");
                             }
                         }
@@ -1543,14 +1545,14 @@ public:
                             msg_json["content"] = "";
                             SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): empty content, set to empty string\n", i);
                         } else {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): content exists: %s\n", 
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): content exists: %s\n",
                                     i, msg.content().substr(0, std::min<size_t>(200, msg.content().size())).c_str());
                             // Content exists, parse and ensure it's a string
                             json content_val;
                             try {
                                 content_val = json::parse(msg.content());
-                                SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): parsed JSON, type=%s\n", 
-                                        i, content_val.is_null() ? "null" : 
+                                SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): parsed JSON, type=%s\n",
+                                        i, content_val.is_null() ? "null" :
                                            content_val.is_object() ? "object" :
                                            content_val.is_string() ? "string" :
                                            content_val.is_array() ? "array" : "other");
@@ -1561,7 +1563,7 @@ public:
                                 } else if (content_val.is_object()) {
                                     // If content is an object (e.g., from tool call failures/errors), convert to string
                                     msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): object content, converted to string: %s\n", 
+                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): object content, converted to string: %s\n",
                                             i, content_val.dump().substr(0, std::min<size_t>(200, content_val.dump().size())).c_str());
                                 } else if (content_val.is_string()) {
                                     msg_json["content"] = content_val.get<std::string>();
@@ -1569,7 +1571,7 @@ public:
                                 } else {
                                     // For arrays or other types, convert to string
                                     msg_json["content"] = content_val.dump();
-                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): %s content, converted to string\n", 
+                                    SRV_INF("[CONTENT DEBUG] Predict: Message %d (tool): %s content, converted to string\n",
                                             i, content_val.is_array() ? "array" : "other type");
                                 }
                             } catch (const json::parse_error&) {
@@ -1582,12 +1584,12 @@ public:
                         // Ensure all messages have content set (fallback for any unhandled cases)
                         // Jinja templates expect content to be present, default to empty string if not set
                         if (!msg_json.contains("content")) {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (role=%s): no content field, adding empty string\n", 
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d (role=%s): no content field, adding empty string\n",
                                     i, msg.role().c_str());
                             msg_json["content"] = "";
                         }
                     }
-                    
+
                     // Add optional fields for OpenAI-compatible message format
                     if (!msg.name().empty()) {
                         msg_json["name"] = msg.name();
@@ -1624,19 +1626,19 @@ public:
                                             tool_name = func["name"].get<std::string>();
                                         }
                                         if (func.contains("arguments")) {
-                                            tool_args = func["arguments"].is_string() ? 
-                                                func["arguments"].get<std::string>() : 
+                                            tool_args = func["arguments"].is_string() ?
+                                                func["arguments"].get<std::string>() :
                                                 func["arguments"].dump();
                                         }
                                     } else if (tc.contains("name")) {
                                         tool_name = tc["name"].get<std::string>();
                                         if (tc.contains("arguments")) {
-                                            tool_args = tc["arguments"].is_string() ? 
-                                                tc["arguments"].get<std::string>() : 
+                                            tool_args = tc["arguments"].is_string() ?
+                                                tc["arguments"].get<std::string>() :
                                                 tc["arguments"].dump();
                                         }
                                     }
-                                    SRV_INF("[TOOL CALLS DEBUG] Predict: Message %d, tool_call %zu: name=%s, arguments=%s\n", 
+                                    SRV_INF("[TOOL CALLS DEBUG] Predict: Message %d, tool_call %zu: name=%s, arguments=%s\n",
                                             i, tc_idx, tool_name.c_str(), tool_args.c_str());
                                 }
                             }
@@ -1644,13 +1646,13 @@ public:
                             SRV_WRN("Failed to parse tool_calls JSON: %s\n", e.what());
                         }
                     }
-                    
+
                     // Debug: Log final content state before adding to array
                     if (msg_json.contains("content")) {
                         if (msg_json["content"].is_null()) {
                             SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content is NULL - THIS WILL CAUSE ERROR!\n", i);
                         } else {
-                            SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content type=%s, has_value=%d\n", 
+                            SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: content type=%s, has_value=%d\n",
                                     i, msg_json["content"].is_string() ? "string" :
                                        msg_json["content"].is_array() ? "array" :
                                        msg_json["content"].is_object() ? "object" : "other",
@@ -1659,7 +1661,7 @@ public:
                     } else {
                         SRV_INF("[CONTENT DEBUG] Predict: Message %d FINAL STATE: NO CONTENT FIELD - THIS WILL CAUSE ERROR!\n", i);
                     }
-                    
+
                     messages_json.push_back(msg_json);
                 }
 
@@ -1675,7 +1677,7 @@ public:
                         SRV_INF("[CONTENT DEBUG] Predict: Safety check found message %zu (role=%s) without content field, adding empty string\n", idx, role_str.c_str());
                         msg["content"] = "";
                     } else {
-                        SRV_INF("[CONTENT DEBUG] Predict: Safety check message %zu (role=%s): content OK, type=%s\n", 
+                        SRV_INF("[CONTENT DEBUG] Predict: Safety check message %zu (role=%s): content OK, type=%s\n",
                                 idx, role_str.c_str(),
                                 msg["content"].is_string() ? "string" :
                                 msg["content"].is_array() ? "array" :
@@ -1697,14 +1699,14 @@ public:
 
                 body_json["messages"] = messages_json;
                 body_json["stream"] = false;
-                
+
                 // Check if grammar is provided from Go layer (NoGrammar=false)
                 // If grammar is provided, we must use it and NOT let template generate grammar from tools
                 // oaicompat_chat_params_parse throws an error if both grammar and tools are provided
-                bool has_grammar_from_go = data.contains("grammar") && 
-                    data["grammar"].is_string() && 
+                bool has_grammar_from_go = data.contains("grammar") &&
+                    data["grammar"].is_string() &&
                     !data["grammar"].get<std::string>().empty();
-                
+
                 SRV_INF("[TOOLS DEBUG] Predict: has_grammar_from_go=%d, data.contains(\"tools\")=%d, data.contains(\"grammar\")=%d\n",
                         has_grammar_from_go ? 1 : 0,
                         data.contains("tools") ? 1 : 0,
@@ -1714,7 +1716,7 @@ public:
                             data["grammar"].is_string() ? "string" : "other",
                             data["grammar"].is_string() && data["grammar"].get<std::string>().empty() ? 1 : 0);
                 }
-                
+
                 // Copy other relevant fields from data that oaicompat_chat_params_parse expects
                 // Tools and tool_choice are only passed when NoGrammar is true (grammar not provided)
                 // When grammar is provided from Go layer, we use it instead of template-generated grammar
@@ -1737,17 +1739,17 @@ public:
                                         tool_name = func["name"].get<std::string>();
                                     }
                                     if (func.contains("description")) {
-                                        tool_desc = func["description"].is_string() ? 
+                                        tool_desc = func["description"].is_string() ?
                                             func["description"].get<std::string>() : "";
                                     }
                                 } else if (tool.contains("name")) {
                                     tool_name = tool["name"].get<std::string>();
                                     if (tool.contains("description")) {
-                                        tool_desc = tool["description"].is_string() ? 
+                                        tool_desc = tool["description"].is_string() ?
                                             tool["description"].get<std::string>() : "";
                                     }
                                 }
-                                SRV_INF("[TOOLS DEBUG] Predict: Tool %zu: name=%s, description=%s\n", 
+                                SRV_INF("[TOOLS DEBUG] Predict: Tool %zu: name=%s, description=%s\n",
                                         t_idx, tool_name.c_str(), tool_desc.substr(0, 100).c_str());
                             }
                         }
@@ -1780,7 +1782,7 @@ public:
                     SRV_INF("%s", "Grammar provided from Go layer - using it instead of template-generated grammar\n");
                     // Grammar will be copied from data after parsing (it's already in data)
                 }
-                
+
                 if (data.contains("json_schema")) {
                     body_json["json_schema"] = data["json_schema"];
                 }
@@ -1816,13 +1818,13 @@ public:
                 // Update allow_image and allow_audio based on current mctx state
                 parser_opt.allow_image = ctx_server.impl->mctx ? mtmd_support_vision(ctx_server.impl->mctx) : false;
                 parser_opt.allow_audio = ctx_server.impl->mctx ? mtmd_support_audio(ctx_server.impl->mctx) : false;
-                
+
                 // Debug: Log tools before template processing
                 if (body_json.contains("tools")) {
-                    SRV_DBG("[TOOLS DEBUG] Predict: Before oaicompat_chat_params_parse - tools count: %zu\n", 
+                    SRV_DBG("[TOOLS DEBUG] Predict: Before oaicompat_chat_params_parse - tools count: %zu\n",
                             body_json["tools"].is_array() ? body_json["tools"].size() : 0);
                 }
-                
+
                 // Debug: Verify messages content before template processing
                 // Also ensure ALL messages have content set to string (not null) - templates expect strings
                 if (body_json.contains("messages") && body_json["messages"].is_array()) {
@@ -1848,7 +1850,7 @@ public:
                                     msg["content"] = "";
                                 }
                             } else {
-                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n", 
+                                SRV_INF("[CONTENT DEBUG] Predict: BEFORE TEMPLATE - Message %zu (role=%s): content type=%s\n",
                                         idx, role_str.c_str(),
                                         msg["content"].is_string() ? "string" :
                                         msg["content"].is_array() ? "array" :
@@ -1860,9 +1862,9 @@ public:
                         }
                     }
                 }
-                
+
                 json parsed_data = oaicompat_chat_params_parse(body_json, parser_opt, files);
-                
+
                 // Debug: Log tools after template processing
                 if (parsed_data.contains("tools")) {
                     SRV_DBG("[TOOLS DEBUG] Predict: After oaicompat_chat_params_parse - tools count: %zu\n",
@@ -1870,17 +1872,17 @@ public:
                 } else {
                     SRV_DBG("%s", "[TOOLS DEBUG] Predict: After oaicompat_chat_params_parse - no tools in parsed_data\n");
                 }
-                
+
                 // Extract the prompt from parsed data
                 prompt_str = parsed_data.at("prompt").get<std::string>();
-                
+
                 // Preserve grammar from Go layer if it was provided (NoGrammar=false)
                 // Otherwise, use grammar from parsed_data (template-generated when NoGrammar=true)
                 json preserved_grammar;
                 if (has_grammar_from_go && data.contains("grammar")) {
                     preserved_grammar = data["grammar"];
                 }
-                
+
                 // Merge all fields from parsed_data into data (grammar, grammar_triggers, preserved_tokens, parse_tool_calls, etc.)
                 // This ensures all template-generated fields are included
                 // parse_tool_calls is set by oaicompat_chat_params_parse when tools are present
@@ -1894,7 +1896,7 @@ public:
                         }
                     }
                 }
-                
+
                 // Debug: Log parse_tool_calls if present (set by oaicompat_chat_params_parse when tools are present)
                 if (data.contains("parse_tool_calls")) {
                     SRV_DBG("[TOOLS DEBUG] Predict: parse_tool_calls=%s\n", data["parse_tool_calls"].get<bool>() ? "true" : "false");
@@ -1980,10 +1982,10 @@ public:
 
 
         std::cout << "[DEBUG] Waiting for results..." << std::endl;
-        
+
         // Wait for all results
         auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
-        
+
         if (all_results.is_terminated) {
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (all_results.error) {
@@ -2026,7 +2028,7 @@ public:
                     GGML_ASSERT(dynamic_cast<server_task_result_cmpl_final*>(res.get()) != nullptr);
                     json res_json = res->to_json();
                     arr.push_back(res_json.value("content", ""));
-                    
+
                     // Extract logprobs for each result
                     json logprobs_json = extract_logprobs_from_json(res_json);
                     if (!logprobs_json.empty() && !logprobs_json.is_null()) {
@@ -2037,7 +2039,7 @@ public:
                     }
                 }
                 reply->set_message(arr);
-                
+
                 // Set logprobs if any result has them
                 if (has_logprobs) {
                     std::string logprobs_str = logprobs_arr.dump();
@@ -2045,7 +2047,7 @@ public:
                 }
             }
         }
-        
+
         std::cout << "[DEBUG] Predict request completed successfully" << std::endl;
 
         // Check if context was cancelled during processing
@@ -2104,7 +2106,7 @@ public:
 
         // Wait for all results
         auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
-        
+
         if (all_results.is_terminated) {
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (all_results.error) {
@@ -2119,13 +2121,13 @@ public:
         }
 
         std::cout << "[DEBUG] Responses size: " << responses.size() << std::endl;
-        
+
         // Process the responses and extract embeddings
         for (const auto & response_elem : responses) {
             // Check if the response has an "embedding" field
             if (response_elem.contains("embedding")) {
                 json embedding_data = json_value(response_elem, "embedding", json::array());
-                
+
                 if (embedding_data.is_array() && !embedding_data.empty()) {
                     for (const auto & embedding_vector : embedding_data) {
                         if (embedding_vector.is_array()) {
@@ -2146,7 +2148,7 @@ public:
         }
 
 
-    
+
 
         return grpc::Status::OK;
     }
@@ -2173,7 +2175,7 @@ public:
             for (int i = 0; i < request->documents_size(); i++) {
                 documents.push_back(request->documents(i));
             }
-            
+
             tasks.reserve(documents.size());
             for (size_t i = 0; i < documents.size(); i++) {
                 auto tmp = format_prompt_rerank(ctx_server.impl->model, ctx_server.impl->vocab, ctx_server.impl->mctx, request->query(), documents[i]);
@@ -2189,7 +2191,7 @@ public:
 
         // Wait for all results
         auto all_results = rd.wait_for_all([&context]() { return context->IsCancelled(); });
-        
+
         if (all_results.is_terminated) {
             return grpc::Status(grpc::StatusCode::CANCELLED, "Request cancelled by client");
         } else if (all_results.error) {
@@ -2223,7 +2225,7 @@ public:
             doc_result->set_index(response.value("index", 0));
             doc_result->set_text(request->documents(response.value("index", 0)));
             doc_result->set_relevance_score(response.value("score", 0.0f));
-            
+
             // Add tokens evaluated for this document
             int tokens_evaluated = response.value("tokens_evaluated", 0);
             total_tokens += tokens_evaluated;
@@ -2243,7 +2245,7 @@ public:
         }
         json body = parse_options(false, request, *params_base_ptr, ctx_server.get_llama_context());
         body["stream"] = false;
-        
+
         json tokens_response = json::array();
         if (body.count("prompt") != 0) {
             const bool add_special = json_value(body, "add_special", false);
@@ -2288,7 +2290,7 @@ public:
 
         // TODO: get rid of this dynamic_cast
         auto res_metrics = dynamic_cast<server_task_result_metrics*>(result.get());
-        GGML_ASSERT(res_metrics != nullptr);    
+        GGML_ASSERT(res_metrics != nullptr);
 
         // Populate the response with metrics
         response->set_slot_id(0);
@@ -2296,7 +2298,7 @@ public:
         response->set_tokens_per_second(res_metrics->n_prompt_tokens_processed ? 1.e3 / res_metrics->t_prompt_processing * res_metrics->n_prompt_tokens_processed : 0.);
         response->set_tokens_generated(res_metrics->n_tokens_predicted_total);
         response->set_prompt_tokens_processed(res_metrics->n_prompt_tokens_processed_total);
-        
+
 
         return grpc::Status::OK;
     }
@@ -2325,7 +2327,7 @@ int main(int argc, char** argv) {
         return 1;
     }
   }
-  
+
     server_context ctx_server;
     BackendServiceImpl service(ctx_server);
 
