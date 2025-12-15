@@ -23172,3 +23172,40 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "mythospice-limarp-70b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/mythospice-limarp-70b-i1-GGUF
+  description: |
+    The **mythospice-limarp-70b** model is a large language model based on Llama 2, created by merging three distinct models:
+    - **spicyboros-70b-2.2**
+    - **chronos-70b-v2**
+    - **Nous-Hermes-Llama2-70b**
+
+    A key component is the **LIMARP v2 adapter** (merged at 66% weight), enhancing its role-playing capabilities. Designed for niche, text-based interactions, it excels in creative, fictional scenarios but is **not intended for factual information or advice**. Its training reflects biases seen in online roleplay communities.
+
+    **Use case**: Role-playing in text-based conversations, with prompts structured to define characters and scenarios.
+    **Limitation**: Not suitable for factual queries or real-world decision-making.
+
+    This model is a fusion of multiple specialized models, offering a unique blend of capabilities for creative, non-factual tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/mythospice-limarp-70b.i1-Q4_K_M.gguf
+    name: mythospice-limarp-70b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/mythospice-limarp-70b-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/mythospice-limarp-70b.i1-Q4_K_M.gguf
+      sha256: ae67f987eb38f31c85102100501241af9f25514e1ecbbb9bac70ebcd17feddce
+      uri: https://huggingface.co/mradermacher/mythospice-limarp-70b-i1-GGUF/resolve/main/mythospice-limarp-70b.i1-Q4_K_M.gguf
+
