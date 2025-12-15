@@ -22,6 +22,15 @@ const (
 	VendorUnknown = "unknown"
 )
 
+// UnifiedMemoryDevices is a list of GPU device name patterns that use unified memory
+// (shared with system RAM). When these devices are detected and report N/A for VRAM,
+// we fall back to system RAM information.
+var UnifiedMemoryDevices = []string{
+	"NVIDIA GB10",
+	"GB10",
+	// Add more unified memory devices here as needed
+}
+
 // GPUMemoryInfo contains real-time GPU memory usage information
 type GPUMemoryInfo struct {
 	Index        int     `json:"index"`
@@ -93,6 +102,34 @@ func HasGPU(vendor string) bool {
 		}
 	}
 	return false
+}
+
+// isUnifiedMemoryDevice checks if the given GPU name matches any known unified memory device
+func isUnifiedMemoryDevice(gpuName string) bool {
+	gpuNameUpper := strings.ToUpper(gpuName)
+	for _, pattern := range UnifiedMemoryDevices {
+		if strings.Contains(gpuNameUpper, strings.ToUpper(pattern)) {
+			return true
+		}
+	}
+	return false
+}
+
+// getSystemRAM returns system RAM information using ghw
+func getSystemRAM() (total, used, free uint64, err error) {
+	memory, err := ghw.Memory()
+	if err != nil {
+		return 0, 0, 0, err
+	}
+
+	total = uint64(memory.TotalUsableBytes)
+	// ghw doesn't provide used/free directly, but we can estimate
+	// For unified memory GPUs, we report total system RAM as available VRAM
+	// since the GPU can potentially use all of it
+	free = total
+	used = 0
+
+	return total, used, free, nil
 }
 
 // GetGPUMemoryUsage returns real-time GPU memory usage for all detected GPUs.
@@ -212,18 +249,72 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 
 		idx, _ := strconv.Atoi(strings.TrimSpace(parts[0]))
 		name := strings.TrimSpace(parts[1])
-		totalMB, _ := strconv.ParseFloat(strings.TrimSpace(parts[2]), 64)
-		usedMB, _ := strconv.ParseFloat(strings.TrimSpace(parts[3]), 64)
-		freeMB, _ := strconv.ParseFloat(strings.TrimSpace(parts[4]), 64)
+		totalStr := strings.TrimSpace(parts[2])
+		usedStr := strings.TrimSpace(parts[3])
+		freeStr := strings.TrimSpace(parts[4])
 
-		// Convert MB to bytes
-		totalBytes := uint64(totalMB * 1024 * 1024)
-		usedBytes := uint64(usedMB * 1024 * 1024)
-		freeBytes := uint64(freeMB * 1024 * 1024)
+		var totalBytes, usedBytes, freeBytes uint64
+		var usagePercent float64
 
-		usagePercent := 0.0
-		if totalBytes > 0 {
-			usagePercent = float64(usedBytes) / float64(totalBytes) * 100
+		// Check if memory values are N/A (unified memory devices like GB10)
+		isNA := totalStr == "[N/A]" || usedStr == "[N/A]" || freeStr == "[N/A]"
+
+		if isNA && isUnifiedMemoryDevice(name) {
+			// Unified memory device - fall back to system RAM
+			sysTotal, sysUsed, sysFree, err := getSystemRAM()
+			if err != nil {
+				log.Debug().Err(err).Str("device", name).Msg("failed to get system RAM for unified memory device")
+				// Still add the GPU but with zero memory info
+				gpus = append(gpus, GPUMemoryInfo{
+					Index:        idx,
+					Name:         name,
+					Vendor:       VendorNVIDIA,
+					TotalVRAM:    0,
+					UsedVRAM:     0,
+					FreeVRAM:     0,
+					UsagePercent: 0,
+				})
+				continue
+			}
+
+			totalBytes = sysTotal
+			usedBytes = sysUsed
+			freeBytes = sysFree
+			if totalBytes > 0 {
+				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
+			}
+
+			log.Debug().
+				Str("device", name).
+				Uint64("system_ram_bytes", totalBytes).
+				Msg("using system RAM for unified memory GPU")
+		} else if isNA {
+			// Unknown device with N/A values - skip memory info
+			log.Debug().Str("device", name).Msg("nvidia-smi returned N/A for unknown device")
+			gpus = append(gpus, GPUMemoryInfo{
+				Index:        idx,
+				Name:         name,
+				Vendor:       VendorNVIDIA,
+				TotalVRAM:    0,
+				UsedVRAM:     0,
+				FreeVRAM:     0,
+				UsagePercent: 0,
+			})
+			continue
+		} else {
+			// Normal GPU with dedicated VRAM
+			totalMB, _ := strconv.ParseFloat(totalStr, 64)
+			usedMB, _ := strconv.ParseFloat(usedStr, 64)
+			freeMB, _ := strconv.ParseFloat(freeStr, 64)
+
+			// Convert MB to bytes
+			totalBytes = uint64(totalMB * 1024 * 1024)
+			usedBytes = uint64(usedMB * 1024 * 1024)
+			freeBytes = uint64(freeMB * 1024 * 1024)
+
+			if totalBytes > 0 {
+				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
+			}
 		}
 
 		gpus = append(gpus, GPUMemoryInfo{
