@@ -200,8 +200,8 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
 		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
 		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests
-		envGPUReclaimerEnabled := appConfig.GPUReclaimerEnabled == startupAppConfig.GPUReclaimerEnabled
-		envGPUReclaimerThreshold := appConfig.GPUReclaimerThreshold == startupAppConfig.GPUReclaimerThreshold
+		envMemoryReclaimerEnabled := appConfig.MemoryReclaimerEnabled == startupAppConfig.MemoryReclaimerEnabled
+		envMemoryReclaimerThreshold := appConfig.MemoryReclaimerThreshold == startupAppConfig.MemoryReclaimerThreshold
 		envThreads := appConfig.Threads == startupAppConfig.Threads
 		envContextSize := appConfig.ContextSize == startupAppConfig.ContextSize
 		envF16 := appConfig.F16 == startupAppConfig.F16
@@ -269,14 +269,14 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			if settings.ParallelBackendRequests != nil && !envParallelRequests {
 				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
 			}
-			if settings.GPUReclaimerEnabled != nil && !envGPUReclaimerEnabled {
-				appConfig.GPUReclaimerEnabled = *settings.GPUReclaimerEnabled
-				if appConfig.GPUReclaimerEnabled {
-					appConfig.WatchDog = true // GPU reclaimer requires watchdog
+			if settings.MemoryReclaimerEnabled != nil && !envMemoryReclaimerEnabled {
+				appConfig.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
+				if appConfig.MemoryReclaimerEnabled {
+					appConfig.WatchDog = true // Memory reclaimer requires watchdog
 				}
 			}
-			if settings.GPUReclaimerThreshold != nil && !envGPUReclaimerThreshold {
-				appConfig.GPUReclaimerThreshold = *settings.GPUReclaimerThreshold
+			if settings.MemoryReclaimerThreshold != nil && !envMemoryReclaimerThreshold {
+				appConfig.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 			}
 			if settings.Threads != nil && !envThreads {
 				appConfig.Threads = *settings.Threads

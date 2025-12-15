@@ -27,7 +27,7 @@ var _ = Describe("WatchDogOptions", func() {
 				model.WithBusyCheck(true),
 				model.WithIdleCheck(true),
 				model.WithLRULimit(5),
-				model.WithGPUReclaimer(true, 0.85),
+				model.WithMemoryReclaimer(true, 0.85),
 			)
 
 			Expect(opts).ToNot(BeNil())
@@ -105,31 +105,31 @@ var _ = Describe("WatchDogOptions", func() {
 			Expect(wd.GetLRULimit()).To(Equal(10))
 		})
 
-		It("WithGPUReclaimer should set both enabled and threshold", func() {
+		It("WithMemoryReclaimer should set both enabled and threshold", func() {
 			wd := model.NewWatchDog(
 				model.WithProcessManager(pm),
-				model.WithGPUReclaimer(true, 0.88),
+				model.WithMemoryReclaimer(true, 0.88),
 			)
-			enabled, threshold := wd.GetGPUReclaimerSettings()
+			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeTrue())
 			Expect(threshold).To(Equal(0.88))
 		})
 
-		It("WithGPUReclaimerEnabled should set enabled flag only", func() {
+		It("WithMemoryReclaimerEnabled should set enabled flag only", func() {
 			wd := model.NewWatchDog(
 				model.WithProcessManager(pm),
-				model.WithGPUReclaimerEnabled(true),
+				model.WithMemoryReclaimerEnabled(true),
 			)
-			enabled, _ := wd.GetGPUReclaimerSettings()
+			enabled, _ := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeTrue())
 		})
 
-		It("WithGPUReclaimerThreshold should set threshold only", func() {
+		It("WithMemoryReclaimerThreshold should set threshold only", func() {
 			wd := model.NewWatchDog(
 				model.WithProcessManager(pm),
-				model.WithGPUReclaimerThreshold(0.75),
+				model.WithMemoryReclaimerThreshold(0.75),
 			)
-			_, threshold := wd.GetGPUReclaimerSettings()
+			_, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(threshold).To(Equal(0.75))
 		})
 	})
@@ -144,14 +144,14 @@ var _ = Describe("WatchDogOptions", func() {
 				model.WithBusyCheck(true),
 				model.WithIdleCheck(true),
 				model.WithLRULimit(2),
-				model.WithGPUReclaimerEnabled(true),
-				model.WithGPUReclaimerThreshold(0.92),
+				model.WithMemoryReclaimerEnabled(true),
+				model.WithMemoryReclaimerThreshold(0.92),
 			)
 
 			Expect(wd).ToNot(BeNil())
 			Expect(wd.GetLRULimit()).To(Equal(2))
 
-			enabled, threshold := wd.GetGPUReclaimerSettings()
+			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeTrue())
 			Expect(threshold).To(Equal(0.92))
 		})
@@ -162,7 +162,7 @@ var _ = Describe("WatchDogOptions", func() {
 			Expect(wd).ToNot(BeNil())
 			Expect(wd.GetLRULimit()).To(Equal(0))
 
-			enabled, threshold := wd.GetGPUReclaimerSettings()
+			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeFalse())
 			Expect(threshold).To(Equal(0.95)) // default
 		})
@@ -177,8 +177,8 @@ var _ = Describe("WatchDogOptions", func() {
 			Expect(wd).ToNot(BeNil())
 			Expect(wd.GetLRULimit()).To(Equal(3))
 
-			// GPU reclaimer should use defaults
-			enabled, threshold := wd.GetGPUReclaimerSettings()
+			// Memory reclaimer should use defaults
+			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeFalse())
 			Expect(threshold).To(Equal(0.95))
 		})

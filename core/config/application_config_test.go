@@ -19,8 +19,8 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				SingleBackend:            false,
 				MaxActiveBackends:        5,
 				ParallelBackendRequests:  true,
-				GPUReclaimerEnabled:      true,
-				GPUReclaimerThreshold:    0.85,
+				MemoryReclaimerEnabled:   true,
+				MemoryReclaimerThreshold: 0.85,
 				Threads:                  8,
 				ContextSize:              4096,
 				F16:                      true,
@@ -65,11 +65,11 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(rs.ParallelBackendRequests).ToNot(BeNil())
 			Expect(*rs.ParallelBackendRequests).To(BeTrue())
 
-			Expect(rs.GPUReclaimerEnabled).ToNot(BeNil())
-			Expect(*rs.GPUReclaimerEnabled).To(BeTrue())
+			Expect(rs.MemoryReclaimerEnabled).ToNot(BeNil())
+			Expect(*rs.MemoryReclaimerEnabled).To(BeTrue())
 
-			Expect(rs.GPUReclaimerThreshold).ToNot(BeNil())
-			Expect(*rs.GPUReclaimerThreshold).To(Equal(0.85))
+			Expect(rs.MemoryReclaimerThreshold).ToNot(BeNil())
+			Expect(*rs.MemoryReclaimerThreshold).To(Equal(0.85))
 
 			Expect(rs.Threads).ToNot(BeNil())
 			Expect(*rs.Threads).To(Equal(8))
@@ -270,70 +270,70 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(appConfig.MaxActiveBackends).To(Equal(0))
 		})
 
-		It("should enable watchdog when GPU reclaimer is enabled", func() {
+		It("should enable watchdog when memory reclaimer is enabled", func() {
 			appConfig := &ApplicationConfig{WatchDog: false}
 
-			gpuEnabled := true
+			memoryEnabled := true
 			threshold := 0.90
 			rs := &RuntimeSettings{
-				GPUReclaimerEnabled:   &gpuEnabled,
-				GPUReclaimerThreshold: &threshold,
+				MemoryReclaimerEnabled:   &memoryEnabled,
+				MemoryReclaimerThreshold: &threshold,
 			}
 
 			changed := appConfig.ApplyRuntimeSettings(rs)
 
 			Expect(changed).To(BeTrue())
 			Expect(appConfig.WatchDog).To(BeTrue())
-			Expect(appConfig.GPUReclaimerEnabled).To(BeTrue())
-			Expect(appConfig.GPUReclaimerThreshold).To(Equal(0.90))
+			Expect(appConfig.MemoryReclaimerEnabled).To(BeTrue())
+			Expect(appConfig.MemoryReclaimerThreshold).To(Equal(0.90))
 		})
 
-		It("should reject invalid GPU threshold values", func() {
-			appConfig := &ApplicationConfig{GPUReclaimerThreshold: 0.50}
+		It("should reject invalid memory threshold values", func() {
+			appConfig := &ApplicationConfig{MemoryReclaimerThreshold: 0.50}
 
 			// Test threshold > 1.0
 			invalidThreshold := 1.5
 			rs := &RuntimeSettings{
-				GPUReclaimerThreshold: &invalidThreshold,
+				MemoryReclaimerThreshold: &invalidThreshold,
 			}
 			appConfig.ApplyRuntimeSettings(rs)
-			Expect(appConfig.GPUReclaimerThreshold).To(Equal(0.50)) // Should remain unchanged
+			Expect(appConfig.MemoryReclaimerThreshold).To(Equal(0.50)) // Should remain unchanged
 
 			// Test threshold <= 0
 			invalidThreshold = 0.0
 			rs = &RuntimeSettings{
-				GPUReclaimerThreshold: &invalidThreshold,
+				MemoryReclaimerThreshold: &invalidThreshold,
 			}
 			appConfig.ApplyRuntimeSettings(rs)
-			Expect(appConfig.GPUReclaimerThreshold).To(Equal(0.50)) // Should remain unchanged
+			Expect(appConfig.MemoryReclaimerThreshold).To(Equal(0.50)) // Should remain unchanged
 
 			// Test negative threshold
 			invalidThreshold = -0.5
 			rs = &RuntimeSettings{
-				GPUReclaimerThreshold: &invalidThreshold,
+				MemoryReclaimerThreshold: &invalidThreshold,
 			}
 			appConfig.ApplyRuntimeSettings(rs)
-			Expect(appConfig.GPUReclaimerThreshold).To(Equal(0.50)) // Should remain unchanged
+			Expect(appConfig.MemoryReclaimerThreshold).To(Equal(0.50)) // Should remain unchanged
 		})
 
-		It("should accept valid GPU threshold at boundary", func() {
+		It("should accept valid memory threshold at boundary", func() {
 			appConfig := &ApplicationConfig{}
 
 			// Test threshold = 1.0 (maximum valid)
 			threshold := 1.0
 			rs := &RuntimeSettings{
-				GPUReclaimerThreshold: &threshold,
+				MemoryReclaimerThreshold: &threshold,
 			}
 			appConfig.ApplyRuntimeSettings(rs)
-			Expect(appConfig.GPUReclaimerThreshold).To(Equal(1.0))
+			Expect(appConfig.MemoryReclaimerThreshold).To(Equal(1.0))
 
 			// Test threshold just above 0
 			threshold = 0.01
 			rs = &RuntimeSettings{
-				GPUReclaimerThreshold: &threshold,
+				MemoryReclaimerThreshold: &threshold,
 			}
 			appConfig.ApplyRuntimeSettings(rs)
-			Expect(appConfig.GPUReclaimerThreshold).To(Equal(0.01))
+			Expect(appConfig.MemoryReclaimerThreshold).To(Equal(0.01))
 		})
 
 		It("should apply performance settings without triggering watchdog change", func() {
@@ -456,8 +456,8 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 				SingleBackend:            false,
 				MaxActiveBackends:        3,
 				ParallelBackendRequests:  true,
-				GPUReclaimerEnabled:      true,
-				GPUReclaimerThreshold:    0.92,
+				MemoryReclaimerEnabled:   true,
+				MemoryReclaimerThreshold: 0.92,
 				Threads:                  12,
 				ContextSize:              6144,
 				F16:                      true,
@@ -488,8 +488,8 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(target.WatchDogBusyTimeout).To(Equal(original.WatchDogBusyTimeout))
 			Expect(target.MaxActiveBackends).To(Equal(original.MaxActiveBackends))
 			Expect(target.ParallelBackendRequests).To(Equal(original.ParallelBackendRequests))
-			Expect(target.GPUReclaimerEnabled).To(Equal(original.GPUReclaimerEnabled))
-			Expect(target.GPUReclaimerThreshold).To(Equal(original.GPUReclaimerThreshold))
+			Expect(target.MemoryReclaimerEnabled).To(Equal(original.MemoryReclaimerEnabled))
+			Expect(target.MemoryReclaimerThreshold).To(Equal(original.MemoryReclaimerThreshold))
 			Expect(target.Threads).To(Equal(original.Threads))
 			Expect(target.ContextSize).To(Equal(original.ContextSize))
 			Expect(target.F16).To(Equal(original.F16))
@@ -552,8 +552,8 @@ var _ = Describe("ApplicationConfig RuntimeSettings Conversion", func() {
 			Expect(rs.Threads).ToNot(BeNil())
 			Expect(*rs.Threads).To(Equal(0))
 
-			Expect(rs.GPUReclaimerThreshold).ToNot(BeNil())
-			Expect(*rs.GPUReclaimerThreshold).To(Equal(0.0))
+			Expect(rs.MemoryReclaimerThreshold).ToNot(BeNil())
+			Expect(*rs.MemoryReclaimerThreshold).To(Equal(0.0))
 		})
 
 		It("should prefer MaxActiveBackends over SingleBackend when both are set", func() {

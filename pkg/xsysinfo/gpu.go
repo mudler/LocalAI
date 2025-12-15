@@ -51,6 +51,33 @@ type GPUAggregateInfo struct {
 	GPUCount     int     `json:"gpu_count"`
 }
 
+// SystemRAMInfo contains system RAM usage information
+type SystemRAMInfo struct {
+	Total        uint64  `json:"total"`
+	Used         uint64  `json:"used"`
+	Free         uint64  `json:"free"`
+	Available    uint64  `json:"available"`
+	UsagePercent float64 `json:"usage_percent"`
+}
+
+// AggregateMemoryInfo contains aggregate memory information (unified for GPU/RAM)
+type AggregateMemoryInfo struct {
+	TotalMemory  uint64  `json:"total_memory"`
+	UsedMemory   uint64  `json:"used_memory"`
+	FreeMemory   uint64  `json:"free_memory"`
+	UsagePercent float64 `json:"usage_percent"`
+	GPUCount     int     `json:"gpu_count"`
+}
+
+// ResourceInfo represents unified memory resource information
+type ResourceInfo struct {
+	Type      string              `json:"type"` // "gpu" or "ram"
+	Available bool                `json:"available"`
+	GPUs      []GPUMemoryInfo     `json:"gpus,omitempty"`
+	RAM       *SystemRAMInfo      `json:"ram,omitempty"`
+	Aggregate AggregateMemoryInfo `json:"aggregate"`
+}
+
 var (
 	gpuCache     []*gpu.GraphicsCard
 	gpuCacheOnce sync.Once
@@ -194,24 +221,6 @@ func GetGPUAggregateInfo() GPUAggregateInfo {
 	}
 
 	return aggregate
-}
-
-// HasSufficientVRAM checks if any GPU has at least minBytes of VRAM
-func HasSufficientVRAM(minBytes uint64) bool {
-	gpus := GetGPUMemoryUsage()
-	for _, gpu := range gpus {
-		if gpu.TotalVRAM >= minBytes {
-			return true
-		}
-	}
-
-	// Fallback to static VRAM detection if no real-time tools available
-	totalVRAM, err := TotalAvailableVRAM()
-	if err == nil && totalVRAM >= minBytes {
-		return true
-	}
-
-	return false
 }
 
 // getNVIDIAGPUMemory queries NVIDIA GPUs using nvidia-smi
@@ -547,6 +556,136 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	// intel_gpu_top doesn't always provide memory info
 	// Return empty if we can't get useful data
 	return nil
+}
+
+// GetSystemRAMInfo returns real-time system RAM usage
+func GetSystemRAMInfo() (*SystemRAMInfo, error) {
+	memory, err := ghw.Memory()
+	if err != nil {
+		return nil, err
+	}
+
+	total := uint64(memory.TotalUsableBytes)
+
+	// Try to get more accurate memory info from /proc/meminfo on Linux
+	used, available, free := getDetailedMemoryInfo(total)
+
+	usagePercent := 0.0
+	if total > 0 {
+		usagePercent = float64(used) / float64(total) * 100
+	}
+
+	return &SystemRAMInfo{
+		Total:        total,
+		Used:         used,
+		Free:         free,
+		Available:    available,
+		UsagePercent: usagePercent,
+	}, nil
+}
+
+// getDetailedMemoryInfo tries to get detailed memory info from /proc/meminfo on Linux
+// Returns used, available, and free memory in bytes
+func getDetailedMemoryInfo(total uint64) (used, available, free uint64) {
+	// Try to read /proc/meminfo for more accurate data
+	cmd := exec.Command("cat", "/proc/meminfo")
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+
+	if err := cmd.Run(); err != nil {
+		// Fallback: assume all memory is available
+		return 0, total, total
+	}
+
+	lines := strings.Split(stdout.String(), "\n")
+	memInfo := make(map[string]uint64)
+
+	for _, line := range lines {
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			continue
+		}
+		key := strings.TrimSuffix(parts[0], ":")
+		value, err := strconv.ParseUint(parts[1], 10, 64)
+		if err != nil {
+			continue
+		}
+		// Values in /proc/meminfo are in kB
+		memInfo[key] = value * 1024
+	}
+
+	// Get MemAvailable if present (preferred), otherwise calculate from free + buffers + cached
+	if avail, ok := memInfo["MemAvailable"]; ok {
+		available = avail
+	} else {
+		available = memInfo["MemFree"] + memInfo["Buffers"] + memInfo["Cached"]
+	}
+
+	free = memInfo["MemFree"]
+
+	// Calculate used memory
+	if total > available {
+		used = total - available
+	} else {
+		used = 0
+	}
+
+	return used, available, free
+}
+
+// GetResourceInfo returns GPU info if available, otherwise system RAM info
+func GetResourceInfo() ResourceInfo {
+	gpus := GetGPUMemoryUsage()
+
+	if len(gpus) > 0 {
+		// GPU available - return GPU info
+		aggregate := GetGPUAggregateInfo()
+		return ResourceInfo{
+			Type:      "gpu",
+			Available: true,
+			GPUs:      gpus,
+			RAM:       nil,
+			Aggregate: AggregateMemoryInfo{
+				TotalMemory:  aggregate.TotalVRAM,
+				UsedMemory:   aggregate.UsedVRAM,
+				FreeMemory:   aggregate.FreeVRAM,
+				UsagePercent: aggregate.UsagePercent,
+				GPUCount:     aggregate.GPUCount,
+			},
+		}
+	}
+
+	// No GPU - fall back to system RAM
+	ramInfo, err := GetSystemRAMInfo()
+	if err != nil {
+		log.Debug().Err(err).Msg("failed to get system RAM info")
+		return ResourceInfo{
+			Type:      "ram",
+			Available: false,
+			Aggregate: AggregateMemoryInfo{},
+		}
+	}
+
+	return ResourceInfo{
+		Type:      "ram",
+		Available: true,
+		GPUs:      nil,
+		RAM:       ramInfo,
+		Aggregate: AggregateMemoryInfo{
+			TotalMemory:  ramInfo.Total,
+			UsedMemory:   ramInfo.Used,
+			FreeMemory:   ramInfo.Free,
+			UsagePercent: ramInfo.UsagePercent,
+			GPUCount:     0,
+		},
+	}
+}
+
+// GetResourceAggregateInfo returns aggregate memory info (GPU if available, otherwise RAM)
+// This is used by the memory reclaimer to check memory usage
+func GetResourceAggregateInfo() AggregateMemoryInfo {
+	resourceInfo := GetResourceInfo()
+	return resourceInfo.Aggregate
 }
 
 // getVulkanGPUMemory queries GPUs using vulkaninfo as a fallback

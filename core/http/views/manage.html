@@ -73,18 +73,23 @@
             </div>
         </div>
 
-        <!-- GPU Info Section -->
-        <div class="mt-8" x-data="gpuMonitor()" x-init="startPolling()">
-            <template x-if="gpuData && gpuData.available">
+        <!-- Memory Info Section (GPU or RAM) -->
+        <div class="mt-8" x-data="resourceMonitor()" x-init="startPolling()">
+            <template x-if="resourceData && resourceData.available">
                 <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-4 mb-6">
                     <div class="flex items-center justify-between mb-3">
                         <h2 class="h3 flex items-center">
-                            <i class="fas fa-microchip mr-2 text-[var(--color-primary)] text-sm"></i>
-                            GPU Status
+                            <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'" class="mr-2 text-[var(--color-primary)] text-sm"></i>
+                            <span x-text="resourceData.type === 'gpu' ? 'GPU Status' : 'Memory Status'"></span>
                         </h2>
                         <div class="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
-                            <span x-text="`${gpuData.aggregate.gpu_count} GPU${gpuData.aggregate.gpu_count > 1 ? 's' : ''}`"></span>
-                            <template x-if="gpuData.reclaimer_enabled">
+                            <template x-if="resourceData.type === 'gpu'">
+                                <span x-text="`${resourceData.aggregate.gpu_count} GPU${resourceData.aggregate.gpu_count > 1 ? 's' : ''}`"></span>
+                            </template>
+                            <template x-if="resourceData.type === 'ram'">
+                                <span>System RAM</span>
+                            </template>
+                            <template x-if="resourceData.reclaimer_enabled">
                                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
                                     <i class="fas fa-shield-alt text-[8px] mr-1"></i>Reclaimer Active
                                 </span>
@@ -92,46 +97,75 @@
                         </div>
                     </div>
                     
-                    <!-- Per-GPU Stats -->
-                    <div class="space-y-3">
-                        <template x-for="gpu in gpuData.gpus" :key="gpu.index">
-                            <div class="bg-[var(--color-bg-primary)] rounded p-3">
-                                <div class="flex items-center justify-between mb-2">
-                                    <div class="flex items-center gap-2">
-                                        <span class="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
-                                              :class="gpu.vendor === 'nvidia' ? 'bg-green-500/10 text-green-300' : 
-                                                      gpu.vendor === 'amd' ? 'bg-red-500/10 text-red-300' : 
-                                                      gpu.vendor === 'intel' ? 'bg-blue-500/10 text-blue-300' : 
-                                                      'bg-[var(--color-accent-light)] text-[var(--color-accent)]'"
-                                              x-text="gpu.vendor.toUpperCase()">
-                                        </span>
+                    <!-- Per-GPU Stats (when GPU available) -->
+                    <template x-if="resourceData.type === 'gpu' && resourceData.gpus">
+                        <div class="space-y-3">
+                            <template x-for="gpu in resourceData.gpus" :key="gpu.index">
+                                <div class="bg-[var(--color-bg-primary)] rounded p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                                  :class="gpu.vendor === 'nvidia' ? 'bg-green-500/10 text-green-300' : 
+                                                          gpu.vendor === 'amd' ? 'bg-red-500/10 text-red-300' : 
+                                                          gpu.vendor === 'intel' ? 'bg-blue-500/10 text-blue-300' : 
+                                                          'bg-[var(--color-accent-light)] text-[var(--color-accent)]'"
+                                                  x-text="gpu.vendor.toUpperCase()">
+                                            </span>
+                                        </div>
+                                        <span class="text-xs font-mono" 
+                                              :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                              x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
                                     </div>
-                                    <span class="text-xs font-mono" 
-                                          :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
-                                          x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
+                                    <!-- Progress Bar -->
+                                    <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-300"
+                                             :class="gpu.usage_percent > 90 ? 'bg-red-500' : gpu.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                             :style="`width: ${gpu.usage_percent}%`"></div>
+                                    </div>
+                                    <div class="flex justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                                        <span x-text="`Used: ${formatBytes(gpu.used_vram)}`"></span>
+                                        <span x-text="`Total: ${formatBytes(gpu.total_vram)}`"></span>
+                                    </div>
                                 </div>
-                                <!-- Progress Bar -->
-                                <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
-                                    <div class="h-full rounded-full transition-all duration-300"
-                                         :class="gpu.usage_percent > 90 ? 'bg-red-500' : gpu.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
-                                         :style="`width: ${gpu.usage_percent}%`"></div>
+                            </template>
+                        </div>
+                    </template>
+                    
+                    <!-- RAM Stats (when no GPU) -->
+                    <template x-if="resourceData.type === 'ram' && resourceData.ram">
+                        <div class="bg-[var(--color-bg-primary)] rounded p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-medium text-[var(--color-text-primary)]">System RAM</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)]">
+                                        RAM
+                                    </span>
                                 </div>
-                                <div class="flex justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
-                                    <span x-text="`Used: ${formatBytes(gpu.used_vram)}`"></span>
-                                    <span x-text="`Total: ${formatBytes(gpu.total_vram)}`"></span>
-                                </div>
+                                <span class="text-xs font-mono" 
+                                      :class="resourceData.ram.usage_percent > 90 ? 'text-red-400' : resourceData.ram.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                      x-text="`${resourceData.ram.usage_percent.toFixed(1)}%`"></span>
                             </div>
-                        </template>
-                    </div>
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-300"
+                                     :class="resourceData.ram.usage_percent > 90 ? 'bg-red-500' : resourceData.ram.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                     :style="`width: ${resourceData.ram.usage_percent}%`"></div>
+                            </div>
+                            <div class="flex justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                                <span x-text="`Used: ${formatBytes(resourceData.ram.used)}`"></span>
+                                <span x-text="`Total: ${formatBytes(resourceData.ram.total)}`"></span>
+                            </div>
+                        </div>
+                    </template>
                     
                     <!-- Aggregate Stats (if multiple GPUs) -->
-                    <template x-if="gpuData.aggregate.gpu_count > 1">
+                    <template x-if="resourceData.type === 'gpu' && resourceData.aggregate.gpu_count > 1">
                         <div class="mt-3 pt-3 border-t border-[var(--color-primary-border)]/20">
                             <div class="flex items-center justify-between text-xs">
                                 <span class="text-[var(--color-text-secondary)]">Total VRAM:</span>
                                 <span class="font-mono text-[var(--color-text-primary)]" 
-                                      x-text="`${formatBytes(gpuData.aggregate.used_vram)} / ${formatBytes(gpuData.aggregate.total_vram)} (${gpuData.aggregate.usage_percent.toFixed(1)}%)`"></span>
+                                      x-text="`${formatBytes(resourceData.aggregate.used_memory)} / ${formatBytes(resourceData.aggregate.total_memory)} (${resourceData.aggregate.usage_percent.toFixed(1)}%)`"></span>
                             </div>
                         </div>
                     </template>
@@ -492,28 +526,28 @@
 </div>
 
 <script>
-// GPU Monitor component
-function gpuMonitor() {
+// Resource Monitor component (GPU if available, otherwise RAM)
+function resourceMonitor() {
     return {
-        gpuData: null,
+        resourceData: null,
         pollInterval: null,
         
-        async fetchGPUData() {
+        async fetchResourceData() {
             try {
-                const response = await fetch('/api/gpu');
+                const response = await fetch('/api/resources');
                 if (response.ok) {
-                    this.gpuData = await response.json();
+                    this.resourceData = await response.json();
                 }
             } catch (error) {
-                console.error('Error fetching GPU data:', error);
+                console.error('Error fetching resource data:', error);
             }
         },
         
         startPolling() {
             // Initial fetch
-            this.fetchGPUData();
+            this.fetchResourceData();
             // Poll every 5 seconds
-            this.pollInterval = setInterval(() => this.fetchGPUData(), 5000);
+            this.pollInterval = setInterval(() => this.fetchResourceData(), 5000);
         },
         
         stopPolling() {

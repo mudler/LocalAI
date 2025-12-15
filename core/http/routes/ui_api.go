@@ -918,17 +918,25 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		})
 	})
 
-	// GPU API endpoint
-	app.GET("/api/gpu", func(c echo.Context) error {
-		gpus := xsysinfo.GetGPUMemoryUsage()
-		aggregate := xsysinfo.GetGPUAggregateInfo()
+	// Resources API endpoint - unified memory info (GPU if available, otherwise RAM)
+	app.GET("/api/resources", func(c echo.Context) error {
+		resourceInfo := xsysinfo.GetResourceInfo()
+
+		// Format watchdog interval
+		watchdogInterval := "2s" // default
+		if appConfig.WatchDogInterval > 0 {
+			watchdogInterval = appConfig.WatchDogInterval.String()
+		}
 
 		response := map[string]interface{}{
-			"available":           len(gpus) > 0,
-			"gpus":                gpus,
-			"aggregate":           aggregate,
-			"reclaimer_enabled":   appConfig.GPUReclaimerEnabled,
-			"reclaimer_threshold": appConfig.GPUReclaimerThreshold,
+			"type":                resourceInfo.Type, // "gpu" or "ram"
+			"available":           resourceInfo.Available,
+			"gpus":                resourceInfo.GPUs,
+			"ram":                 resourceInfo.RAM,
+			"aggregate":           resourceInfo.Aggregate,
+			"reclaimer_enabled":   appConfig.MemoryReclaimerEnabled,
+			"reclaimer_threshold": appConfig.MemoryReclaimerThreshold,
+			"watchdog_interval":   watchdogInterval,
 		}
 
 		return c.JSON(200, response)

@@ -9,8 +9,9 @@ type WatchDogOptions struct {
 	processManager ProcessManager
 
 	// Timeout settings
-	busyTimeout time.Duration
-	idleTimeout time.Duration
+	busyTimeout      time.Duration
+	idleTimeout      time.Duration
+	watchdogInterval time.Duration
 
 	// Check toggles
 	busyCheck bool
@@ -19,9 +20,9 @@ type WatchDogOptions struct {
 	// LRU settings
 	lruLimit int // Maximum number of active backends (0 = unlimited)
 
-	// GPU reclaimer settings
-	gpuReclaimerEnabled   bool    // Enable GPU memory threshold monitoring
-	gpuReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+	// Memory reclaimer settings (works with GPU if available, otherwise RAM)
+	memoryReclaimerEnabled   bool    // Enable memory threshold monitoring
+	memoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 }
 
 // WatchDogOption is a function that configures WatchDogOptions
@@ -48,6 +49,13 @@ func WithIdleTimeout(timeout time.Duration) WatchDogOption {
 	}
 }
 
+// WithWatchdogCheck sets the watchdog check duration
+func WithWatchdogInterval(interval time.Duration) WatchDogOption {
+	return func(o *WatchDogOptions) {
+		o.watchdogInterval = interval
+	}
+}
+
 // WithBusyCheck enables or disables busy checking
 func WithBusyCheck(enabled bool) WatchDogOption {
 	return func(o *WatchDogOptions) {
@@ -69,38 +77,40 @@ func WithLRULimit(limit int) WatchDogOption {
 	}
 }
 
-// WithGPUReclaimer enables GPU memory threshold monitoring with the specified threshold
-func WithGPUReclaimer(enabled bool, threshold float64) WatchDogOption {
+// WithMemoryReclaimer enables memory threshold monitoring with the specified threshold
+// Works with GPU VRAM if available, otherwise uses system RAM
+func WithMemoryReclaimer(enabled bool, threshold float64) WatchDogOption {
 	return func(o *WatchDogOptions) {
-		o.gpuReclaimerEnabled = enabled
-		o.gpuReclaimerThreshold = threshold
+		o.memoryReclaimerEnabled = enabled
+		o.memoryReclaimerThreshold = threshold
 	}
 }
 
-// WithGPUReclaimerEnabled enables or disables GPU memory threshold monitoring
-func WithGPUReclaimerEnabled(enabled bool) WatchDogOption {
+// WithMemoryReclaimerEnabled enables or disables memory threshold monitoring
+func WithMemoryReclaimerEnabled(enabled bool) WatchDogOption {
 	return func(o *WatchDogOptions) {
-		o.gpuReclaimerEnabled = enabled
+		o.memoryReclaimerEnabled = enabled
 	}
 }
 
-// WithGPUReclaimerThreshold sets the GPU memory threshold (0.0-1.0)
-func WithGPUReclaimerThreshold(threshold float64) WatchDogOption {
+// WithMemoryReclaimerThreshold sets the memory threshold (0.0-1.0)
+func WithMemoryReclaimerThreshold(threshold float64) WatchDogOption {
 	return func(o *WatchDogOptions) {
-		o.gpuReclaimerThreshold = threshold
+		o.memoryReclaimerThreshold = threshold
 	}
 }
 
 // DefaultWatchDogOptions returns default options for the watchdog
 func DefaultWatchDogOptions() *WatchDogOptions {
 	return &WatchDogOptions{
-		busyTimeout:           5 * time.Minute,
-		idleTimeout:           15 * time.Minute,
-		busyCheck:             false,
-		idleCheck:             false,
-		lruLimit:              0,
-		gpuReclaimerEnabled:   false,
-		gpuReclaimerThreshold: 0.95,
+		busyTimeout:              5 * time.Minute,
+		idleTimeout:              15 * time.Minute,
+		watchdogInterval:         2 * time.Second,
+		busyCheck:                false,
+		idleCheck:                false,
+		lruLimit:                 0,
+		memoryReclaimerEnabled:   false,
+		memoryReclaimerThreshold: 0.95,
 	}
 }
 

@@ -18,8 +18,9 @@ import (
 // force a reload of the model.
 // The watchdog also supports LRU (Least Recently Used) eviction when a maximum
 // number of active backends is configured.
-// The watchdog also supports GPU memory threshold monitoring - when GPU usage
-// exceeds the threshold, it will evict backends using the LRU strategy.
+// The watchdog also supports memory threshold monitoring - when memory usage
+// (GPU VRAM if available, otherwise system RAM) exceeds the threshold,
+// it will evict backends using the LRU strategy.
 // The watchdog runs as a separate go routine,
 // and the GRPC client talks to it via a channel to send status updates
 type WatchDog struct {
@@ -36,9 +37,10 @@ type WatchDog struct {
 	busyCheck, idleCheck bool
 	lruLimit             int // Maximum number of active backends (0 = unlimited)
 
-	// GPU reclaimer settings
-	gpuReclaimerEnabled   bool    // Enable GPU memory threshold monitoring
-	gpuReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+	// Memory reclaimer settings (works with GPU if available, otherwise RAM)
+	memoryReclaimerEnabled   bool    // Enable memory threshold monitoring
+	memoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+	watchdogInterval         time.Duration
 }
 
 type ProcessManager interface {
@@ -55,26 +57,27 @@ type ProcessManager interface {
 //	    WithBusyCheck(true),
 //	    WithIdleCheck(true),
 //	    WithLRULimit(3),
-//	    WithGPUReclaimer(true, 0.95),
+//	    WithMemoryReclaimer(true, 0.95),
 //	)
 func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 	o := NewWatchDogOptions(opts...)
 
 	return &WatchDog{
-		timeout:               o.busyTimeout,
-		idletimeout:           o.idleTimeout,
-		pm:                    o.processManager,
-		busyTime:              make(map[string]time.Time),
-		idleTime:              make(map[string]time.Time),
-		lastUsed:              make(map[string]time.Time),
-		addressMap:            make(map[string]*process.Process),
-		busyCheck:             o.busyCheck,
-		idleCheck:             o.idleCheck,
-		lruLimit:              o.lruLimit,
-		addressModelMap:       make(map[string]string),
-		stop:                  make(chan bool, 1),
-		gpuReclaimerEnabled:   o.gpuReclaimerEnabled,
-		gpuReclaimerThreshold: o.gpuReclaimerThreshold,
+		timeout:                  o.busyTimeout,
+		idletimeout:              o.idleTimeout,
+		pm:                       o.processManager,
+		busyTime:                 make(map[string]time.Time),
+		idleTime:                 make(map[string]time.Time),
+		lastUsed:                 make(map[string]time.Time),
+		addressMap:               make(map[string]*process.Process),
+		busyCheck:                o.busyCheck,
+		idleCheck:                o.idleCheck,
+		lruLimit:                 o.lruLimit,
+		addressModelMap:          make(map[string]string),
+		stop:                     make(chan bool, 1),
+		memoryReclaimerEnabled:   o.memoryReclaimerEnabled,
+		memoryReclaimerThreshold: o.memoryReclaimerThreshold,
+		watchdogInterval:         o.watchdogInterval,
 	}
 }
 
@@ -92,19 +95,19 @@ func (wd *WatchDog) GetLRULimit() int {
 	return wd.lruLimit
 }
 
-// SetGPUReclaimer updates the GPU reclaimer settings dynamically
-func (wd *WatchDog) SetGPUReclaimer(enabled bool, threshold float64) {
+// SetMemoryReclaimer updates the memory reclaimer settings dynamically
+func (wd *WatchDog) SetMemoryReclaimer(enabled bool, threshold float64) {
 	wd.Lock()
 	defer wd.Unlock()
-	wd.gpuReclaimerEnabled = enabled
-	wd.gpuReclaimerThreshold = threshold
+	wd.memoryReclaimerEnabled = enabled
+	wd.memoryReclaimerThreshold = threshold
 }
 
-// GetGPUReclaimerSettings returns the current GPU reclaimer settings
-func (wd *WatchDog) GetGPUReclaimerSettings() (enabled bool, threshold float64) {
+// GetMemoryReclaimerSettings returns the current memory reclaimer settings
+func (wd *WatchDog) GetMemoryReclaimerSettings() (enabled bool, threshold float64) {
 	wd.Lock()
 	defer wd.Unlock()
-	return wd.gpuReclaimerEnabled, wd.gpuReclaimerThreshold
+	return wd.memoryReclaimerEnabled, wd.memoryReclaimerThreshold
 }
 
 func (wd *WatchDog) Shutdown() {
@@ -240,15 +243,15 @@ func (wd *WatchDog) Run() {
 		case <-wd.stop:
 			log.Info().Msg("[WatchDog] Stopping watchdog")
 			return
-		case <-time.After(30 * time.Second):
+		case <-time.After(wd.watchdogInterval):
 			// Check if any monitoring is enabled
 			wd.Lock()
 			busyCheck := wd.busyCheck
 			idleCheck := wd.idleCheck
-			gpuCheck := wd.gpuReclaimerEnabled
+			memoryCheck := wd.memoryReclaimerEnabled
 			wd.Unlock()
 
-			if !busyCheck && !idleCheck && !gpuCheck {
+			if !busyCheck && !idleCheck && !memoryCheck {
 				log.Info().Msg("[WatchDog] No checks enabled, stopping watchdog")
 				return
 			}
@@ -258,8 +261,8 @@ func (wd *WatchDog) Run() {
 			if idleCheck {
 				wd.checkIdle()
 			}
-			if gpuCheck {
-				wd.checkGPU()
+			if memoryCheck {
+				wd.checkMemory()
 			}
 		}
 	}
@@ -326,11 +329,11 @@ func (wd *WatchDog) checkBusy() {
 	}
 }
 
-// checkGPU monitors GPU memory usage and evicts backends when usage exceeds threshold
-func (wd *WatchDog) checkGPU() {
+// checkMemory monitors memory usage (GPU VRAM if available, otherwise RAM) and evicts backends when usage exceeds threshold
+func (wd *WatchDog) checkMemory() {
 	wd.Lock()
-	threshold := wd.gpuReclaimerThreshold
-	enabled := wd.gpuReclaimerEnabled
+	threshold := wd.memoryReclaimerThreshold
+	enabled := wd.memoryReclaimerEnabled
 	modelCount := len(wd.addressModelMap)
 	wd.Unlock()
 
@@ -338,50 +341,38 @@ func (wd *WatchDog) checkGPU() {
 		return
 	}
 
-	// Get current GPU memory usage
-	aggregate := xsysinfo.GetGPUAggregateInfo()
-	if aggregate.GPUCount == 0 || aggregate.TotalVRAM == 0 {
-		log.Debug().Msg("[WatchDog] No GPU information available for GPU reclaimer")
+	// Get current memory usage (GPU if available, otherwise RAM)
+	aggregate := xsysinfo.GetResourceAggregateInfo()
+	if aggregate.TotalMemory == 0 {
+		log.Debug().Msg("[WatchDog] No memory information available for memory reclaimer")
 		return
 	}
 
 	// Convert threshold from 0.0-1.0 to percentage
 	thresholdPercent := threshold * 100
 
+	memoryType := "GPU"
+	if aggregate.GPUCount == 0 {
+		memoryType = "RAM"
+	}
+
 	log.Debug().
+		Str("type", memoryType).
 		Float64("usage_percent", aggregate.UsagePercent).
 		Float64("threshold_percent", thresholdPercent).
 		Int("loaded_models", modelCount).
-		Msg("[WatchDog] GPU memory check")
+		Msg("[WatchDog] Memory check")
 
 	// Check if usage exceeds threshold
 	if aggregate.UsagePercent > thresholdPercent {
 		log.Warn().
+			Str("type", memoryType).
 			Float64("usage_percent", aggregate.UsagePercent).
 			Float64("threshold_percent", thresholdPercent).
-			Msg("[WatchDog] GPU memory usage exceeds threshold, evicting LRU backend")
+			Msg("[WatchDog] Memory usage exceeds threshold, evicting LRU backend")
 
 		// Evict the least recently used model
 		wd.evictLRUModel()
-
-		// After eviction, check if we need to evict more
-		// Wait a bit for the model to fully unload before checking again
-		time.Sleep(2 * time.Second)
-
-		// Re-check GPU usage
-		newAggregate := xsysinfo.GetGPUAggregateInfo()
-		if newAggregate.UsagePercent > thresholdPercent {
-			wd.Lock()
-			remainingModels := len(wd.addressModelMap)
-			wd.Unlock()
-
-			if remainingModels > 0 {
-				log.Warn().
-					Float64("usage_percent", newAggregate.UsagePercent).
-					Int("remaining_models", remainingModels).
-					Msg("[WatchDog] GPU usage still high after eviction, will check again next cycle")
-			}
-		}
 	}
 }
 
@@ -423,7 +414,7 @@ func (wd *WatchDog) evictLRUModel() {
 	log.Info().
 		Str("model", lruModel.model).
 		Time("lastUsed", lruModel.lastUsed).
-		Msg("[WatchDog] GPU reclaimer evicting LRU model")
+		Msg("[WatchDog] Memory reclaimer evicting LRU model")
 
 	// Untrack the model
 	wd.untrack(lruModel.address)
@@ -431,9 +422,9 @@ func (wd *WatchDog) evictLRUModel() {
 
 	// Shutdown the model
 	if err := wd.pm.ShutdownModel(lruModel.model); err != nil {
-		log.Error().Err(err).Str("model", lruModel.model).Msg("[WatchDog] error shutting down model during GPU reclamation")
+		log.Error().Err(err).Str("model", lruModel.model).Msg("[WatchDog] error shutting down model during memory reclamation")
 	} else {
-		log.Info().Str("model", lruModel.model).Msg("[WatchDog] GPU reclaimer eviction complete")
+		log.Info().Str("model", lruModel.model).Msg("[WatchDog] Memory reclaimer eviction complete")
 	}
 }
 

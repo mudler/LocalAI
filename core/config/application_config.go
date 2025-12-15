@@ -60,13 +60,14 @@ type ApplicationConfig struct {
 	WatchDogBusy bool
 	WatchDog     bool
 
-	// GPU Reclaimer settings
-	GPUReclaimerEnabled   bool    // Enable GPU memory threshold monitoring
-	GPUReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
+	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
+	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+	WatchDogInterval                         time.Duration // Interval between watchdog checks
 
 	MachineTag string
 
@@ -191,34 +192,35 @@ func SetWatchDogIdleTimeout(t time.Duration) AppOption {
 	}
 }
 
-// EnableGPUReclaimer enables GPU memory threshold monitoring.
-// When enabled, the watchdog will evict backends if GPU usage exceeds the threshold.
-var EnableGPUReclaimer = func(o *ApplicationConfig) {
-	o.GPUReclaimerEnabled = true
-	o.WatchDog = true // GPU reclaimer requires watchdog infrastructure
+// EnableMemoryReclaimer enables memory threshold monitoring.
+// When enabled, the watchdog will evict backends if memory usage exceeds the threshold.
+// Works with GPU VRAM if available, otherwise uses system RAM.
+var EnableMemoryReclaimer = func(o *ApplicationConfig) {
+	o.MemoryReclaimerEnabled = true
+	o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
 }
 
-// SetGPUReclaimerThreshold sets the GPU memory usage threshold (0.0-1.0).
-// When GPU usage exceeds this threshold, backends will be evicted using LRU strategy.
-func SetGPUReclaimerThreshold(threshold float64) AppOption {
+// SetMemoryReclaimerThreshold sets the memory usage threshold (0.0-1.0).
+// When memory usage exceeds this threshold, backends will be evicted using LRU strategy.
+func SetMemoryReclaimerThreshold(threshold float64) AppOption {
 	return func(o *ApplicationConfig) {
 		if threshold > 0 && threshold <= 1.0 {
-			o.GPUReclaimerThreshold = threshold
-			o.GPUReclaimerEnabled = true
-			o.WatchDog = true // GPU reclaimer requires watchdog infrastructure
+			o.MemoryReclaimerThreshold = threshold
+			o.MemoryReclaimerEnabled = true
+			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
 		}
 	}
 }
 
-// WithGPUReclaimer configures the GPU reclaimer with the given settings
-func WithGPUReclaimer(enabled bool, threshold float64) AppOption {
+// WithMemoryReclaimer configures the memory reclaimer with the given settings
+func WithMemoryReclaimer(enabled bool, threshold float64) AppOption {
 	return func(o *ApplicationConfig) {
-		o.GPUReclaimerEnabled = enabled
+		o.MemoryReclaimerEnabled = enabled
 		if threshold > 0 && threshold <= 1.0 {
-			o.GPUReclaimerThreshold = threshold
+			o.MemoryReclaimerThreshold = threshold
 		}
 		if enabled {
-			o.WatchDog = true // GPU reclaimer requires watchdog infrastructure
+			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
 		}
 	}
 }
@@ -501,8 +503,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	singleBackend := o.SingleBackend
 	maxActiveBackends := o.MaxActiveBackends
 	parallelBackendRequests := o.ParallelBackendRequests
-	gpuReclaimerEnabled := o.GPUReclaimerEnabled
-	gpuReclaimerThreshold := o.GPUReclaimerThreshold
+	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
+	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	threads := o.Threads
 	contextSize := o.ContextSize
 	f16 := o.F16
@@ -521,7 +523,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	agentJobRetentionDays := o.AgentJobRetentionDays
 
 	// Format timeouts as strings
-	var idleTimeout, busyTimeout string
+	var idleTimeout, busyTimeout, watchdogInterval string
 	if o.WatchDogIdleTimeout > 0 {
 		idleTimeout = o.WatchDogIdleTimeout.String()
 	} else {
@@ -532,6 +534,11 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	} else {
 		busyTimeout = "5m" // default
 	}
+	if o.WatchDogInterval > 0 {
+		watchdogInterval = o.WatchDogInterval.String()
+	} else {
+		watchdogInterval = "2s" // default
+	}
 
 	return RuntimeSettings{
 		WatchdogEnabled:          &watchdogEnabled,
@@ -539,11 +546,12 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		WatchdogBusyEnabled:      &watchdogBusy,
 		WatchdogIdleTimeout:      &idleTimeout,
 		WatchdogBusyTimeout:      &busyTimeout,
+		WatchdogInterval:         &watchdogInterval,
 		SingleBackend:            &singleBackend,
 		MaxActiveBackends:        &maxActiveBackends,
 		ParallelBackendRequests:  &parallelBackendRequests,
-		GPUReclaimerEnabled:      &gpuReclaimerEnabled,
-		GPUReclaimerThreshold:    &gpuReclaimerThreshold,
+		MemoryReclaimerEnabled:   &memoryReclaimerEnabled,
+		MemoryReclaimerThreshold: &memoryReclaimerThreshold,
 		Threads:                  &threads,
 		ContextSize:              &contextSize,
 		F16:                      &f16,
@@ -601,6 +609,12 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 			requireRestart = true
 		}
 	}
+	if settings.WatchdogInterval != nil {
+		if dur, err := time.ParseDuration(*settings.WatchdogInterval); err == nil {
+			o.WatchDogInterval = dur
+			requireRestart = true
+		}
+	}
 	if settings.MaxActiveBackends != nil {
 		o.MaxActiveBackends = *settings.MaxActiveBackends
 		o.SingleBackend = (*settings.MaxActiveBackends == 1)
@@ -617,16 +631,16 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	if settings.ParallelBackendRequests != nil {
 		o.ParallelBackendRequests = *settings.ParallelBackendRequests
 	}
-	if settings.GPUReclaimerEnabled != nil {
-		o.GPUReclaimerEnabled = *settings.GPUReclaimerEnabled
-		if *settings.GPUReclaimerEnabled {
+	if settings.MemoryReclaimerEnabled != nil {
+		o.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
+		if *settings.MemoryReclaimerEnabled {
 			o.WatchDog = true
 		}
 		requireRestart = true
 	}
-	if settings.GPUReclaimerThreshold != nil {
-		if *settings.GPUReclaimerThreshold > 0 && *settings.GPUReclaimerThreshold <= 1.0 {
-			o.GPUReclaimerThreshold = *settings.GPUReclaimerThreshold
+	if settings.MemoryReclaimerThreshold != nil {
+		if *settings.MemoryReclaimerThreshold > 0 && *settings.MemoryReclaimerThreshold <= 1.0 {
+			o.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 			requireRestart = true
 		}
 	}

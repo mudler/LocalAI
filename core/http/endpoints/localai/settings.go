@@ -68,6 +68,14 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				})
 			}
 		}
+		if settings.WatchdogInterval != nil {
+			if _, err := time.ParseDuration(*settings.WatchdogInterval); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid watchdog_interval format: " + err.Error(),
+				})
+			}
+		}
 
 		// Save to file
 		if appConfig.DynamicConfigsDir == "" {

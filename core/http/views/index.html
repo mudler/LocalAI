@@ -462,21 +462,21 @@
                 </a>
             </div>
 
-            <!-- GPU Status Indicator -->
-            <div class="mb-4" x-data="gpuIndicator()" x-init="startPolling()">
-                <template x-if="gpuData && gpuData.available && gpuData.aggregate.gpu_count > 0">
+            <!-- Memory Status Indicator (GPU or RAM) -->
+            <div class="mb-4" x-data="resourceMonitor()" x-init="startPolling()">
+                <template x-if="resourceData && resourceData.available">
                     <div class="flex items-center justify-center gap-3 text-xs text-[var(--color-text-secondary)]">
                         <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20">
-                            <i class="fas fa-microchip" 
-                               :class="gpuData.aggregate.usage_percent > 90 ? 'text-red-400' : gpuData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"></i>
-                            <span class="text-[var(--color-text-secondary)]">GPU</span>
+                            <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'"
+                               :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"></i>
+                            <span class="text-[var(--color-text-secondary)]" x-text="resourceData.type === 'gpu' ? 'GPU' : 'RAM'"></span>
                             <span class="font-mono" 
-                                  :class="gpuData.aggregate.usage_percent > 90 ? 'text-red-400' : gpuData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
-                                  x-text="`${gpuData.aggregate.usage_percent.toFixed(0)}%`"></span>
+                                  :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                  x-text="`${resourceData.aggregate.usage_percent.toFixed(0)}%`"></span>
                             <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden">
                                 <div class="h-full rounded-full transition-all duration-300"
-                                     :class="gpuData.aggregate.usage_percent > 90 ? 'bg-red-500' : gpuData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
-                                     :style="`width: ${gpuData.aggregate.usage_percent}%`"></div>
+                                     :class="resourceData.aggregate.usage_percent > 90 ? 'bg-red-500' : resourceData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                     :style="`width: ${resourceData.aggregate.usage_percent}%`"></div>
                             </div>
                         </div>
                     </div>
@@ -709,28 +709,28 @@ async function stopAllModels(component) {
 window.stopModel = stopModel;
 window.stopAllModels = stopAllModels;
 
-// GPU Indicator component
-function gpuIndicator() {
+// Resource Monitor component (GPU if available, otherwise RAM)
+function resourceMonitor() {
     return {
-        gpuData: null,
+        resourceData: null,
         pollInterval: null,
         
-        async fetchGPUData() {
+        async fetchResourceData() {
             try {
-                const response = await fetch('/api/gpu');
+                const response = await fetch('/api/resources');
                 if (response.ok) {
-                    this.gpuData = await response.json();
+                    this.resourceData = await response.json();
                 }
             } catch (error) {
-                console.error('Error fetching GPU data:', error);
+                console.error('Error fetching resource data:', error);
             }
         },
         
         startPolling() {
             // Initial fetch
-            this.fetchGPUData();
+            this.fetchResourceData();
             // Poll every 5 seconds
-            this.pollInterval = setInterval(() => this.fetchGPUData(), 5000);
+            this.pollInterval = setInterval(() => this.fetchResourceData(), 5000);
         },
         
         stopPolling() {
