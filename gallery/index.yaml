@@ -23172,3 +23172,35 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-8b-instruct-abliterated-v1"
+  urls:
+    - https://huggingface.co/prithivMLmods/Qwen3-VL-8B-Instruct-abliterated-v1-GGUF
+  description: |
+    **Qwen3-VL-8B-Instruct-abliterated-v1**
+    A powerful, uncensored vision-language model built on Alibaba's Qwen3-VL-8B-Instruct architecture. This abliterated variant removes safety filters, enabling detailed, unfiltered captioning and reasoning across complex, sensitive, or abstract visual content. It supports diverse image resolutions, aspect ratios, and multilingual outputs, with a focus on high-fidelity, descriptive analysis. Ideal for creative generation, research, and unfiltered visual interpretation. Compatible with Transformers and vLLM for efficient inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-8B-Instruct-abliterated-v1.Q4_K_M.gguf
+    name: Qwen3-VL-8B-Instruct-abliterated-v1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-8B-Instruct-abliterated-v1.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/prithivMLmods/Qwen3-VL-8B-Instruct-abliterated-v1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-8B-Instruct-abliterated-v1.Q4_K_M.gguf
+      sha256: 6abde7124ee077622dbc9fc209fed61345c26519afd9496942d2239745964cc7
+      uri: https://huggingface.co/prithivMLmods/Qwen3-VL-8B-Instruct-abliterated-v1-GGUF/resolve/main/Qwen3-VL-8B-Instruct-abliterated-v1.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-8B-Instruct-abliterated-v1.mmproj-f16.gguf
+      sha256: 2e323dfaa1bf34c53b0c723fef56a8c9fbb854d2f83719e499cf299b6d987168
+      uri: https://huggingface.co/prithivMLmods/Qwen3-VL-8B-Instruct-abliterated-v1-GGUF/resolve/main/Qwen3-VL-8B-Instruct-abliterated-v1.mmproj-f16.gguf
+
