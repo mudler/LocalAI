@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *internvl35
+  name: "nyarin-4b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Nyarin-4B-i1-GGUF
+  description: |
+    The **Nyarin-4B** model is a large language model developed by **Kasugan0**, offering robust capabilities in multiple languages, including **Chinese** and **English**. It is part of the **transformers** library and released under the **Apache 2.0** license, making it accessible for research and development.
+
+    While the current repository provides quantized versions (e.g., Q4_K_M, IQ4_XS), the **base model** is optimized for performance and quality. The model supports a wide range of quantization types, with recommended options like **Q4_K_M** or **Q4_K_S** balancing speed and accuracy.
+
+    For users, this model is ideal for tasks requiring multilingual understanding, with additional resources available for fine-tuning or deployment via the [Hugging Face model page](https://hf.tst.eu/model#Nyarin-4B-i1-GGUF). The original author, **Kasugan0**, has also enabled community contributions through the model request page.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nyarin-4B.i1-Q4_K_M.gguf
+    name: Nyarin-4B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nyarin-4B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Nyarin-4B.i1-Q4_K_M.gguf
+      sha256: ef360aea8ed8d854fccb7ff32e4a492358fccbe920d4d8337d11051c95439652
+      uri: https://huggingface.co/mradermacher/Nyarin-4B-i1-GGUF/resolve/main/Nyarin-4B.i1-Q4_K_M.gguf
+
