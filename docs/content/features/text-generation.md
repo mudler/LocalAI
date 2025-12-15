@@ -149,6 +149,18 @@ The `llama.cpp` backend supports additional configuration options that can be sp
 | `cache_ram` | integer | Set the maximum RAM cache size in MiB for KV cache. Use `-1` for unlimited (default). | `cache_ram:2048` |
 | `parallel` or `n_parallel` | integer | Enable parallel request processing. When set to a value greater than 1, enables continuous batching for handling multiple requests concurrently. | `parallel:4` |
 | `grpc_servers` or `rpc_servers` | string | Comma-separated list of gRPC server addresses for distributed inference. Allows distributing workload across multiple llama.cpp workers. | `grpc_servers:localhost:50051,localhost:50052` |
+| `fit_params` or `fit` | boolean | Enable auto-adjustment of model/context parameters to fit available device memory. Default: `true`. | `fit_params:true` |
+| `fit_params_target` or `fit_target` | integer | Target margin per device in MiB when using fit_params. Default: `1024` (1GB). | `fit_target:2048` |
+| `fit_params_min_ctx` or `fit_ctx` | integer | Minimum context size that can be set by fit_params. Default: `4096`. | `fit_ctx:2048` |
+| `n_cache_reuse` or `cache_reuse` | integer | Minimum chunk size to attempt reusing from the cache via KV shifting. Default: `0` (disabled). | `cache_reuse:256` |
+| `slot_prompt_similarity` or `sps` | float | How much the prompt of a request must match the prompt of a slot to use that slot. Default: `0.1`. Set to `0` to disable. | `sps:0.5` |
+| `swa_full` | boolean | Use full-size SWA (Sliding Window Attention) cache. Default: `false`. | `swa_full:true` |
+| `cont_batching` or `continuous_batching` | boolean | Enable continuous batching for handling multiple sequences. Default: `true`. | `cont_batching:true` |
+| `check_tensors` | boolean | Validate tensor data for invalid values during model loading. Default: `false`. | `check_tensors:true` |
+| `warmup` | boolean | Enable warmup run after model loading. Default: `true`. | `warmup:false` |
+| `no_op_offload` | boolean | Disable offloading host tensor operations to device. Default: `false`. | `no_op_offload:true` |
+| `kv_unified` or `unified_kv` | boolean | Enable unified KV cache. Default: `false`. | `kv_unified:true` |
+| `n_ctx_checkpoints` or `ctx_checkpoints` | integer | Maximum number of context checkpoints per slot. Default: `8`. | `ctx_checkpoints:4` |
 
 **Example configuration with options:**
 
@@ -162,6 +174,9 @@ options:
   - context_shift:true
   - cache_ram:4096
   - parallel:2
+  - fit_params:true
+  - fit_target:1024
+  - slot_prompt_similarity:0.5
 ```
 
 **Note:** The `parallel` option can also be set via the `LLAMACPP_PARALLEL` environment variable, and `grpc_servers` can be set via the `LLAMACPP_GRPC_SERVERS` environment variable. Options specified in the YAML file take precedence over environment variables.

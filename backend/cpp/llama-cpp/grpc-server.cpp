@@ -392,6 +392,34 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
     // Initialize grpc_servers to empty (can be overridden by options)
     std::string grpc_servers_option = "";
 
+    // Initialize fit_params options (can be overridden by options)
+    // fit_params: whether to auto-adjust params to fit device memory (default: true as in llama.cpp)
+    params.fit_params = true;
+    // fit_params_target: target margin per device in bytes (default: 1GB)
+    params.fit_params_target = 1024 * 1024 * 1024;
+    // fit_params_min_ctx: minimum context size for fit (default: 4096)
+    params.fit_params_min_ctx = 4096;
+
+    // Initialize additional server options (can be overridden by options)
+    // n_cache_reuse: min chunk size for KV cache reuse via shifting (default: 0 = disabled)
+    params.n_cache_reuse = 0;
+    // slot_prompt_similarity: threshold for slot prompt matching (default: 0.1)
+    params.slot_prompt_similarity = 0.1f;
+    // swa_full: use full-size SWA cache (default: false)
+    params.swa_full = false;
+    // cont_batching: continuous batching (default: true, auto-enabled when n_parallel > 1)
+    params.cont_batching = true;
+    // check_tensors: validate tensor data (default: false)
+    params.check_tensors = false;
+    // warmup: enable warmup run (default: true)
+    params.warmup = true;
+    // no_op_offload: disable host tensor op offload (default: false)
+    params.no_op_offload = false;
+    // kv_unified: enable unified KV cache (default: false)
+    params.kv_unified = false;
+    // n_ctx_checkpoints: max context checkpoints per slot (default: 8)
+    params.n_ctx_checkpoints = 8;
+
      // decode options. Options are in form optname:optvale, or if booleans only optname.
     for (int i = 0; i < request->options_size(); i++) {
         std::string opt = request->options(i);
@@ -435,6 +463,89 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
         } else if (!strcmp(optname, "grpc_servers") || !strcmp(optname, "rpc_servers")) {
             if (optval != NULL) {
                 grpc_servers_option = optval_str;
+            }
+        } else if (!strcmp(optname, "fit_params") || !strcmp(optname, "fit")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.fit_params = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.fit_params = false;
+            }
+        } else if (!strcmp(optname, "fit_params_target") || !strcmp(optname, "fit_target")) {
+            if (optval != NULL) {
+                try {
+                    // Value is in MiB, convert to bytes
+                    params.fit_params_target = static_cast<size_t>(std::stoi(optval_str)) * 1024 * 1024;
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (1GB)
+                }
+            }
+        } else if (!strcmp(optname, "fit_params_min_ctx") || !strcmp(optname, "fit_ctx")) {
+            if (optval != NULL) {
+                try {
+                    params.fit_params_min_ctx = std::stoi(optval_str);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (4096)
+                }
+            }
+        } else if (!strcmp(optname, "n_cache_reuse") || !strcmp(optname, "cache_reuse")) {
+            if (optval != NULL) {
+                try {
+                    params.n_cache_reuse = std::stoi(optval_str);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (0)
+                }
+            }
+        } else if (!strcmp(optname, "slot_prompt_similarity") || !strcmp(optname, "sps")) {
+            if (optval != NULL) {
+                try {
+                    params.slot_prompt_similarity = std::stof(optval_str);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (0.1)
+                }
+            }
+        } else if (!strcmp(optname, "swa_full")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.swa_full = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.swa_full = false;
+            }
+        } else if (!strcmp(optname, "cont_batching") || !strcmp(optname, "continuous_batching")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.cont_batching = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.cont_batching = false;
+            }
+        } else if (!strcmp(optname, "check_tensors")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.check_tensors = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.check_tensors = false;
+            }
+        } else if (!strcmp(optname, "warmup")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.warmup = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.warmup = false;
+            }
+        } else if (!strcmp(optname, "no_op_offload")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.no_op_offload = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.no_op_offload = false;
+            }
+        } else if (!strcmp(optname, "kv_unified") || !strcmp(optname, "unified_kv")) {
+            if (optval_str == "true" || optval_str == "1" || optval_str == "yes" || optval_str == "on" || optval_str == "enabled") {
+                params.kv_unified = true;
+            } else if (optval_str == "false" || optval_str == "0" || optval_str == "no" || optval_str == "off" || optval_str == "disabled") {
+                params.kv_unified = false;
+            }
+        } else if (!strcmp(optname, "n_ctx_checkpoints") || !strcmp(optname, "ctx_checkpoints")) {
+            if (optval != NULL) {
+                try {
+                    params.n_ctx_checkpoints = std::stoi(optval_str);
+                } catch (const std::exception& e) {
+                    // If conversion fails, keep default value (8)
+                }
             }
         }
     }
