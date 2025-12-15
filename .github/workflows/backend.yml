@@ -1477,7 +1477,7 @@ jobs:
           make protogen-go
           make backends/llama-cpp-darwin
       - name: Upload llama-cpp.tar
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: llama-cpp-tar
           path: backend-images/llama-cpp.tar
@@ -1487,7 +1487,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download llama-cpp.tar
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: llama-cpp-tar
           path: .
@@ -1565,7 +1565,7 @@ jobs:
           export PLATFORMARCH=darwin/amd64
           make backends/llama-cpp-darwin
       - name: Upload llama-cpp.tar
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: llama-cpp-tar-x86
           path: backend-images/llama-cpp.tar
@@ -1575,7 +1575,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download llama-cpp.tar
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: llama-cpp-tar-x86
           path: .

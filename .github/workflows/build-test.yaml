@@ -37,7 +37,7 @@ jobs:
           make build-launcher-darwin
           ls -liah dist
       - name: Upload macOS launcher artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: launcher-macos
           path: dist/
@@ -60,7 +60,7 @@ jobs:
           sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
           make build-launcher-linux
       - name: Upload Linux launcher artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: launcher-linux
           path: local-ai-launcher-linux.tar.xz
