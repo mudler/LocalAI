@@ -1487,7 +1487,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download llama-cpp.tar
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: llama-cpp-tar
           path: .
@@ -1575,7 +1575,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download llama-cpp.tar
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: llama-cpp-tar-x86
           path: .
