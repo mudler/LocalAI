@@ -33,7 +33,7 @@ require (
 	github.com/mudler/cogito v0.6.0
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
-	github.com/onsi/ginkgo/v2 v2.27.2
+	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/otiai10/copy v1.14.1
 	github.com/otiai10/openaigo v1.7.0
