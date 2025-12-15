@@ -19,6 +19,7 @@ import (
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/rs/zerolog/log"
 )
 
@@ -915,6 +916,22 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"total":  len(federatedNodes),
 			},
 		})
+	})
+
+	// GPU API endpoint
+	app.GET("/api/gpu", func(c echo.Context) error {
+		gpus := xsysinfo.GetGPUMemoryUsage()
+		aggregate := xsysinfo.GetGPUAggregateInfo()
+
+		response := map[string]interface{}{
+			"available":           len(gpus) > 0,
+			"gpus":                gpus,
+			"aggregate":           aggregate,
+			"reclaimer_enabled":   appConfig.GPUReclaimerEnabled,
+			"reclaimer_threshold": appConfig.GPUReclaimerThreshold,
+		}
+
+		return c.JSON(200, response)
 	})
 
 	if !appConfig.DisableRuntimeSettings {

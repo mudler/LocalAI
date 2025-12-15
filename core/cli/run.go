@@ -72,6 +72,8 @@ type RunCMD struct {
 	WatchdogIdleTimeout                string   `env:"LOCALAI_WATCHDOG_IDLE_TIMEOUT,WATCHDOG_IDLE_TIMEOUT" default:"15m" help:"Threshold beyond which an idle backend should be stopped" group:"backends"`
 	EnableWatchdogBusy                 bool     `env:"LOCALAI_WATCHDOG_BUSY,WATCHDOG_BUSY" default:"false" help:"Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout" group:"backends"`
 	WatchdogBusyTimeout                string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
+	EnableGPUReclaimer                 bool     `env:"LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable GPU memory threshold monitoring to auto-evict backends when GPU memory usage exceeds threshold" group:"backends"`
+	GPUReclaimerThreshold              float64  `env:"LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"GPU memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
@@ -200,6 +202,12 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			opts = append(opts, config.SetWatchDogBusyTimeout(dur))
 		}
 	}
+
+	// Handle GPU reclaimer
+	if r.EnableGPUReclaimer {
+		opts = append(opts, config.WithGPUReclaimer(true, r.GPUReclaimerThreshold))
+	}
+
 	if r.ParallelRequests {
 		opts = append(opts, config.EnableParallelBackendRequests)
 	}

@@ -462,6 +462,27 @@
                 </a>
             </div>
 
+            <!-- GPU Status Indicator -->
+            <div class="mb-4" x-data="gpuIndicator()" x-init="startPolling()">
+                <template x-if="gpuData && gpuData.available && gpuData.aggregate.gpu_count > 0">
+                    <div class="flex items-center justify-center gap-3 text-xs text-[var(--color-text-secondary)]">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20">
+                            <i class="fas fa-microchip" 
+                               :class="gpuData.aggregate.usage_percent > 90 ? 'text-red-400' : gpuData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"></i>
+                            <span class="text-[var(--color-text-secondary)]">GPU</span>
+                            <span class="font-mono" 
+                                  :class="gpuData.aggregate.usage_percent > 90 ? 'text-red-400' : gpuData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                  x-text="`${gpuData.aggregate.usage_percent.toFixed(0)}%`"></span>
+                            <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-300"
+                                     :class="gpuData.aggregate.usage_percent > 90 ? 'bg-red-500' : gpuData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                     :style="`width: ${gpuData.aggregate.usage_percent}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
             <!-- Model Status Summary - Subtle -->
             {{ $loadedModels := .LoadedModels }}
             <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[var(--color-text-secondary)]" 
@@ -687,6 +708,38 @@ async function stopAllModels(component) {
 // Make functions available globally for Alpine.js
 window.stopModel = stopModel;
 window.stopAllModels = stopAllModels;
+
+// GPU Indicator component
+function gpuIndicator() {
+    return {
+        gpuData: null,
+        pollInterval: null,
+        
+        async fetchGPUData() {
+            try {
+                const response = await fetch('/api/gpu');
+                if (response.ok) {
+                    this.gpuData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching GPU data:', error);
+            }
+        },
+        
+        startPolling() {
+            // Initial fetch
+            this.fetchGPUData();
+            // Poll every 5 seconds
+            this.pollInterval = setInterval(() => this.fetchGPUData(), 5000);
+        },
+        
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
 </script>
 
 </body>

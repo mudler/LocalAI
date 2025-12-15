@@ -53,25 +53,82 @@ var _ = Describe("WatchDog", func() {
 
 	Context("LRU Limit", func() {
 		It("should create watchdog with LRU limit", func() {
-			wd = model.NewWatchDog(pm, 5*time.Minute, 15*time.Minute, false, false, 2)
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(5*time.Minute),
+				model.WithIdleTimeout(15*time.Minute),
+				model.WithLRULimit(2),
+			)
 			Expect(wd.GetLRULimit()).To(Equal(2))
 		})
 
 		It("should allow updating LRU limit dynamically", func() {
-			wd = model.NewWatchDog(pm, 5*time.Minute, 15*time.Minute, false, false, 2)
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithLRULimit(2),
+			)
 			wd.SetLRULimit(5)
 			Expect(wd.GetLRULimit()).To(Equal(5))
 		})
 
 		It("should return 0 for disabled LRU", func() {
-			wd = model.NewWatchDog(pm, 5*time.Minute, 15*time.Minute, false, false, 0)
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithLRULimit(0),
+			)
 			Expect(wd.GetLRULimit()).To(Equal(0))
+		})
+	})
+
+	Context("GPU Reclaimer Options", func() {
+		It("should create watchdog with GPU reclaimer settings", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithGPUReclaimer(true, 0.85),
+			)
+			enabled, threshold := wd.GetGPUReclaimerSettings()
+			Expect(enabled).To(BeTrue())
+			Expect(threshold).To(Equal(0.85))
+		})
+
+		It("should allow setting GPU reclaimer via separate options", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithGPUReclaimerEnabled(true),
+				model.WithGPUReclaimerThreshold(0.90),
+			)
+			enabled, threshold := wd.GetGPUReclaimerSettings()
+			Expect(enabled).To(BeTrue())
+			Expect(threshold).To(Equal(0.90))
+		})
+
+		It("should use default threshold when not specified", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+			)
+			_, threshold := wd.GetGPUReclaimerSettings()
+			Expect(threshold).To(Equal(0.95)) // default
+		})
+
+		It("should allow updating GPU reclaimer settings dynamically", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+			)
+			wd.SetGPUReclaimer(true, 0.80)
+			enabled, threshold := wd.GetGPUReclaimerSettings()
+			Expect(enabled).To(BeTrue())
+			Expect(threshold).To(Equal(0.80))
 		})
 	})
 
 	Context("Model Tracking", func() {
 		BeforeEach(func() {
-			wd = model.NewWatchDog(pm, 5*time.Minute, 15*time.Minute, false, false, 3)
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(5*time.Minute),
+				model.WithIdleTimeout(15*time.Minute),
+				model.WithLRULimit(3),
+			)
 		})
 
 		It("should track loaded models count", func() {
@@ -108,7 +165,12 @@ var _ = Describe("WatchDog", func() {
 
 	Context("EnforceLRULimit", func() {
 		BeforeEach(func() {
-			wd = model.NewWatchDog(pm, 5*time.Minute, 15*time.Minute, false, false, 2)
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(5*time.Minute),
+				model.WithIdleTimeout(15*time.Minute),
+				model.WithLRULimit(2),
+			)
 		})
 
 		It("should not evict when under limit", func() {
@@ -218,7 +280,12 @@ var _ = Describe("WatchDog", func() {
 
 	Context("Single Backend Mode (LRU=1)", func() {
 		BeforeEach(func() {
-			wd = model.NewWatchDog(pm, 5*time.Minute, 15*time.Minute, false, false, 1)
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(5*time.Minute),
+				model.WithIdleTimeout(15*time.Minute),
+				model.WithLRULimit(1),
+			)
 		})
 
 		It("should evict existing model when loading new one", func() {
@@ -239,6 +306,38 @@ var _ = Describe("WatchDog", func() {
 			}
 			// All previous models should have been evicted
 			Expect(len(pm.getShutdownCalls())).To(Equal(5))
+		})
+	})
+
+	Context("Functional Options", func() {
+		It("should use default options when none provided", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+			)
+			Expect(wd.GetLRULimit()).To(Equal(0))
+
+			enabled, threshold := wd.GetGPUReclaimerSettings()
+			Expect(enabled).To(BeFalse())
+			Expect(threshold).To(Equal(0.95))
+		})
+
+		It("should allow combining multiple options", func() {
+			wd = model.NewWatchDog(
+				model.WithProcessManager(pm),
+				model.WithBusyTimeout(10*time.Minute),
+				model.WithIdleTimeout(30*time.Minute),
+				model.WithBusyCheck(true),
+				model.WithIdleCheck(true),
+				model.WithLRULimit(5),
+				model.WithGPUReclaimerEnabled(true),
+				model.WithGPUReclaimerThreshold(0.80),
+			)
+
+			Expect(wd.GetLRULimit()).To(Equal(5))
+
+			enabled, threshold := wd.GetGPUReclaimerSettings()
+			Expect(enabled).To(BeTrue())
+			Expect(threshold).To(Equal(0.80))
 		})
 	})
 })

@@ -124,6 +124,71 @@
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_busy_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
+
+                    <!-- GPU Memory Reclaimer Subsection -->
+                    <div class="mt-6 pt-4 border-t border-[var(--color-primary-border)]/20">
+                        <h3 class="text-md font-medium text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-microchip mr-2 text-[var(--color-primary)] text-xs"></i>
+                            GPU Memory Reclaimer
+                        </h3>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                            Automatically evict backends when GPU memory usage exceeds a threshold. Uses LRU strategy.
+                        </p>
+
+                        <!-- GPU Status Preview -->
+                        <div x-data="gpuStatus()" x-init="fetchGPU()" class="p-3 bg-[var(--color-bg-primary)] rounded mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-[var(--color-text-secondary)]">Current GPU Status</span>
+                                <button @click="fetchGPU()" class="text-[10px] text-[var(--color-primary)] hover:underline">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                </button>
+                            </div>
+                            <template x-if="gpuData && gpuData.available">
+                                <div class="space-y-2">
+                                    <template x-for="gpu in gpuData.gpus" :key="gpu.index">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
+                                            <span class="font-mono" 
+                                                  :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                                  x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="!gpuData || !gpuData.available">
+                                <p class="text-xs text-[var(--color-text-secondary)]">No GPU detected or monitoring unavailable</p>
+                            </template>
+                        </div>
+
+                        <!-- Enable GPU Reclaimer -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable GPU Reclaimer</label>
+                                <p class="text-xs text-[var(--color-text-secondary)] mt-1">Evict backends when GPU memory exceeds threshold</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" x-model="settings.gpu_reclaimer_enabled" 
+                                       :disabled="!settings.watchdog_enabled"
+                                       class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                                <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            </label>
+                        </div>
+
+                        <!-- GPU Reclaimer Threshold -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Memory Threshold (%)</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mb-2">When GPU memory usage exceeds this, backends will be evicted (50-100%)</p>
+                            <div class="flex items-center gap-3">
+                                <input type="range" x-model="settings.gpu_reclaimer_threshold_percent" 
+                                       min="50" max="100" step="1"
+                                       :disabled="!settings.gpu_reclaimer_enabled || !settings.watchdog_enabled"
+                                       class="flex-1 h-2 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer"
+                                       :class="(!settings.gpu_reclaimer_enabled || !settings.watchdog_enabled) ? 'opacity-50' : ''">
+                                <span class="text-sm font-mono text-[var(--color-text-primary)] w-12 text-right" 
+                                      x-text="`${settings.gpu_reclaimer_threshold_percent}%`"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -462,6 +527,9 @@ function settingsDashboard() {
             watchdog_busy_timeout: '5m',
             max_active_backends: 0,
             parallel_backend_requests: false,
+            gpu_reclaimer_enabled: false,
+            gpu_reclaimer_threshold: 0.95,
+            gpu_reclaimer_threshold_percent: 95,
             threads: 0,
             context_size: 0,
             f16: false,
@@ -500,6 +568,9 @@ function settingsDashboard() {
                         watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
                         max_active_backends: data.max_active_backends || 0,
                         parallel_backend_requests: data.parallel_backend_requests,
+                        gpu_reclaimer_enabled: data.gpu_reclaimer_enabled || false,
+                        gpu_reclaimer_threshold: data.gpu_reclaimer_threshold || 0.95,
+                        gpu_reclaimer_threshold_percent: Math.round((data.gpu_reclaimer_threshold || 0.95) * 100),
                         threads: data.threads || 0,
                         context_size: data.context_size || 0,
                         f16: data.f16 || false,
@@ -531,6 +602,7 @@ function settingsDashboard() {
             if (!this.settings.watchdog_enabled) {
                 this.settings.watchdog_idle_enabled = false;
                 this.settings.watchdog_busy_enabled = false;
+                this.settings.gpu_reclaimer_enabled = false;
             }
         },
         
@@ -569,6 +641,13 @@ function settingsDashboard() {
                 }
                 if (this.settings.parallel_backend_requests !== undefined) {
                     payload.parallel_backend_requests = this.settings.parallel_backend_requests;
+                }
+                if (this.settings.gpu_reclaimer_enabled !== undefined) {
+                    payload.gpu_reclaimer_enabled = this.settings.gpu_reclaimer_enabled;
+                }
+                if (this.settings.gpu_reclaimer_threshold_percent !== undefined) {
+                    // Convert percent to decimal (0.0-1.0)
+                    payload.gpu_reclaimer_threshold = parseInt(this.settings.gpu_reclaimer_threshold_percent) / 100;
                 }
                 if (this.settings.threads !== undefined) {
                     payload.threads = parseInt(this.settings.threads) || 0;
@@ -675,6 +754,24 @@ function settingsDashboard() {
         
         dismissNotification(id) {
             this.notifications = this.notifications.filter(n => n.id !== id);
+        }
+    }
+}
+
+// GPU Status component for settings page
+function gpuStatus() {
+    return {
+        gpuData: null,
+        
+        async fetchGPU() {
+            try {
+                const response = await fetch('/api/gpu');
+                if (response.ok) {
+                    this.gpuData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching GPU data:', error);
+            }
         }
     }
 }

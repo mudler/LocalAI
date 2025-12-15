@@ -73,6 +73,72 @@
             </div>
         </div>
 
+        <!-- GPU Info Section -->
+        <div class="mt-8" x-data="gpuMonitor()" x-init="startPolling()">
+            <template x-if="gpuData && gpuData.available">
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="h3 flex items-center">
+                            <i class="fas fa-microchip mr-2 text-[var(--color-primary)] text-sm"></i>
+                            GPU Status
+                        </h2>
+                        <div class="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                            <span x-text="`${gpuData.aggregate.gpu_count} GPU${gpuData.aggregate.gpu_count > 1 ? 's' : ''}`"></span>
+                            <template x-if="gpuData.reclaimer_enabled">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                                    <i class="fas fa-shield-alt text-[8px] mr-1"></i>Reclaimer Active
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- Per-GPU Stats -->
+                    <div class="space-y-3">
+                        <template x-for="gpu in gpuData.gpus" :key="gpu.index">
+                            <div class="bg-[var(--color-bg-primary)] rounded p-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
+                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                              :class="gpu.vendor === 'nvidia' ? 'bg-green-500/10 text-green-300' : 
+                                                      gpu.vendor === 'amd' ? 'bg-red-500/10 text-red-300' : 
+                                                      gpu.vendor === 'intel' ? 'bg-blue-500/10 text-blue-300' : 
+                                                      'bg-[var(--color-accent-light)] text-[var(--color-accent)]'"
+                                              x-text="gpu.vendor.toUpperCase()">
+                                        </span>
+                                    </div>
+                                    <span class="text-xs font-mono" 
+                                          :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                          x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
+                                </div>
+                                <!-- Progress Bar -->
+                                <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
+                                    <div class="h-full rounded-full transition-all duration-300"
+                                         :class="gpu.usage_percent > 90 ? 'bg-red-500' : gpu.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                         :style="`width: ${gpu.usage_percent}%`"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                                    <span x-text="`Used: ${formatBytes(gpu.used_vram)}`"></span>
+                                    <span x-text="`Total: ${formatBytes(gpu.total_vram)}`"></span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    
+                    <!-- Aggregate Stats (if multiple GPUs) -->
+                    <template x-if="gpuData.aggregate.gpu_count > 1">
+                        <div class="mt-3 pt-3 border-t border-[var(--color-primary-border)]/20">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-[var(--color-text-secondary)]">Total VRAM:</span>
+                                <span class="font-mono text-[var(--color-text-primary)]" 
+                                      x-text="`${formatBytes(gpuData.aggregate.used_vram)} / ${formatBytes(gpuData.aggregate.total_vram)} (${gpuData.aggregate.usage_percent.toFixed(1)}%)`"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+
         <!-- Models Section -->
         <div class="models mt-8">
             {{template "views/partials/inprogress" .}}
@@ -426,6 +492,47 @@
 </div>
 
 <script>
+// GPU Monitor component
+function gpuMonitor() {
+    return {
+        gpuData: null,
+        pollInterval: null,
+        
+        async fetchGPUData() {
+            try {
+                const response = await fetch('/api/gpu');
+                if (response.ok) {
+                    this.gpuData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching GPU data:', error);
+            }
+        },
+        
+        startPolling() {
+            // Initial fetch
+            this.fetchGPUData();
+            // Poll every 5 seconds
+            this.pollInterval = setInterval(() => this.fetchGPUData(), 5000);
+        },
+        
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
+
+// Helper function to format bytes
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
 // Alpine.js component for index dashboard
 function indexDashboard() {
     return {

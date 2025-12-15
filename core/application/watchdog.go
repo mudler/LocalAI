@@ -23,24 +23,27 @@ func (a *Application) startWatchdog() error {
 	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
 	lruLimit := appConfig.GetEffectiveMaxActiveBackends()
 
-	// Create watchdog if enabled OR if LRU limit is set
+	// Create watchdog if enabled OR if LRU limit is set OR if GPU reclaimer is enabled
 	// LRU eviction requires watchdog infrastructure even without busy/idle checks
-	if appConfig.WatchDog || lruLimit > 0 {
+	if appConfig.WatchDog || lruLimit > 0 || appConfig.GPUReclaimerEnabled {
 		wd := model.NewWatchDog(
-			a.modelLoader,
-			appConfig.WatchDogBusyTimeout,
-			appConfig.WatchDogIdleTimeout,
-			appConfig.WatchDogBusy,
-			appConfig.WatchDogIdle,
-			lruLimit)
+			model.WithProcessManager(a.modelLoader),
+			model.WithBusyTimeout(appConfig.WatchDogBusyTimeout),
+			model.WithIdleTimeout(appConfig.WatchDogIdleTimeout),
+			model.WithBusyCheck(appConfig.WatchDogBusy),
+			model.WithIdleCheck(appConfig.WatchDogIdle),
+			model.WithLRULimit(lruLimit),
+			model.WithGPUReclaimer(appConfig.GPUReclaimerEnabled, appConfig.GPUReclaimerThreshold),
+		)
 		a.modelLoader.SetWatchDog(wd)
 
 		// Create new stop channel
 		a.watchdogStop = make(chan bool, 1)
 
-		// Start watchdog goroutine only if busy/idle checks are enabled
+		// Start watchdog goroutine if any periodic checks are enabled
 		// LRU eviction doesn't need the Run() loop - it's triggered on model load
-		if appConfig.WatchDogBusy || appConfig.WatchDogIdle {
+		// But GPU reclaimer needs the Run() loop for periodic checking
+		if appConfig.WatchDogBusy || appConfig.WatchDogIdle || appConfig.GPUReclaimerEnabled {
 			go wd.Run()
 		}
 
@@ -56,7 +59,13 @@ func (a *Application) startWatchdog() error {
 			}
 		}()
 
-		log.Info().Int("lruLimit", lruLimit).Bool("busyCheck", appConfig.WatchDogBusy).Bool("idleCheck", appConfig.WatchDogIdle).Msg("Watchdog started with new settings")
+		log.Info().
+			Int("lruLimit", lruLimit).
+			Bool("busyCheck", appConfig.WatchDogBusy).
+			Bool("idleCheck", appConfig.WatchDogIdle).
+			Bool("gpuReclaimer", appConfig.GPUReclaimerEnabled).
+			Float64("gpuThreshold", appConfig.GPUReclaimerThreshold).
+			Msg("Watchdog started with new settings")
 	} else {
 		log.Info().Msg("Watchdog disabled")
 	}
