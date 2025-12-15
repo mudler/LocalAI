@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "dclm-llama-1b-1x"
+  urls:
+    - https://huggingface.co/mradermacher/dclm-llama-1B-1x-GGUF
+  description: |
+    The **DCLM-LLaMA-1B-1x** is a 1 billion-parameter language model based on the LLaMA architecture, quantized into multiple efficient formats for different use cases. Available in various quantization types (e.g., Q2_K, Q3_K_S, Q8_0), the model ranges from **0.7GB to 2.8GB** in size, balancing speed and quality. The Q8_0 variant offers the best quality, while Q4_K_S and Q4_K_M are optimized for faster inference. This model is ideal for applications requiring compact, high-performance language understanding, with quantized versions suitable for resource-constrained environments. The base model was developed by [snoop2head](https://huggingface.co/snoop2head/dclm-llama-1B-1x), with quantized versions hosted by [mradermacher](https://huggingface.co/mradermacher).
+  overrides:
+    parameters:
+      model: llama-cpp/models/dclm-llama-1B-1x.Q4_K_M.gguf
+    name: dclm-llama-1B-1x-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/dclm-llama-1B-1x-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/dclm-llama-1B-1x.Q4_K_M.gguf
+      sha256: f63d3852b575d68d94689b03fb3dabfb9829ad3dd66d72b1905e4379ee73d18d
+      uri: https://huggingface.co/mradermacher/dclm-llama-1B-1x-GGUF/resolve/main/dclm-llama-1B-1x.Q4_K_M.gguf
+
