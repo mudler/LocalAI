@@ -158,7 +158,6 @@ message PredictOptions {
   string ToolChoice = 49;  // JSON string or object specifying tool choice behavior
   int32 Logprobs = 50;  // Number of top logprobs to return (maps to OpenAI logprobs parameter)
   int32 TopLogprobs = 51;  // Number of top logprobs to return per token (maps to OpenAI top_logprobs parameter)
-  float MinP = 52;  // Min-p sampling: minimum probability threshold scaled by top token probability
 }
 
 // The response message containing the result
