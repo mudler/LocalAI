@@ -21,7 +21,7 @@ require (
 	github.com/gpustack/gguf-parser-go v0.22.1
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
-	github.com/jaypipes/ghw v0.20.0
+	github.com/jaypipes/ghw v0.21.1
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/cpuid/v2 v2.3.0
 	github.com/labstack/echo/v4 v4.13.4
