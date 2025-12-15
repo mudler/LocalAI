@@ -74,7 +74,7 @@ jobs:
           BACKEND=${{ inputs.backend }} BUILD_TYPE=${{ inputs.build-type }} USE_PIP=${{ inputs.use-pip }} make build-darwin-${{ inputs.lang }}-backend
 
       - name: Upload ${{ inputs.backend }}.tar
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ inputs.backend }}-tar
           path: backend-images/${{ inputs.backend }}.tar
