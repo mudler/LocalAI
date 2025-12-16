@@ -19,6 +19,7 @@ type ApplicationConfig struct {
 	UploadLimitMB, Threads, ContextSize int
 	F16                                 bool
 	Debug                               bool
+	EnableTracing                       bool
 	GeneratedContentDir                 string
 
 	UploadDir string
@@ -163,6 +164,10 @@ func WithP2PToken(s string) AppOption {
 
 var EnableWatchDog = func(o *ApplicationConfig) {
 	o.WatchDog = true
+}
+
+var EnableTracing = func(o *ApplicationConfig) {
+	o.EnableTracing = true
 }
 
 var EnableWatchDogIdleCheck = func(o *ApplicationConfig) {
