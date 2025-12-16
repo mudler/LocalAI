@@ -278,6 +278,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 				options.WatchDogInterval = dur
 			} else {
 				log.Warn().Err(err).Str("interval", *settings.WatchdogInterval).Msg("invalid watchdog interval in runtime_settings.json")
+				options.WatchDogInterval = 10 * time.Second
 			}
 		}
 	}
