@@ -22,6 +22,9 @@ builds:
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
 archives:
   - formats: [ 'binary' ] # this removes the tar of the archives, leaving the binaries alone
     name_template: local-ai-{{ .Tag }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}

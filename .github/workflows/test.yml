@@ -190,7 +190,7 @@ jobs:
           limit-access-to-actor: true
 
   tests-apple:
-    runs-on: macOS-14
+    runs-on: macos-latest
     strategy:
       matrix:
         go-version: ['1.25.x']
