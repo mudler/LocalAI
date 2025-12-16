@@ -1,7 +1,7 @@
 package xsysinfo
 
 import (
-	sigar "github.com/cloudfoundry/gosigar"
+	"github.com/mudler/memory"
 	"github.com/rs/zerolog/log"
 )
 
@@ -16,10 +16,10 @@ type SystemRAMInfo struct {
 
 // GetSystemRAMInfo returns real-time system RAM usage
 func GetSystemRAMInfo() (*SystemRAMInfo, error) {
-	total, used, free, err := getSystemRAM()
-	if err != nil {
-		return nil, err
-	}
+	total := memory.TotalMemory()
+	free := memory.AvailableMemory()
+
+	used := total - free
 
 	usagePercent := 0.0
 	if total > 0 {
@@ -33,15 +33,4 @@ func GetSystemRAMInfo() (*SystemRAMInfo, error) {
 		Available:    total - used,
 		UsagePercent: usagePercent,
 	}, nil
-}
-
-// getSystemRAM returns system RAM information using ghw
-func getSystemRAM() (total, used, free uint64, err error) {
-	mem := sigar.Mem{}
-
-	if err := mem.GetIgnoringCGroups(); err != nil {
-		return 0, 0, 0, err
-	}
-
-	return mem.Total, mem.ActualUsed, mem.ActualFree, nil
 }
