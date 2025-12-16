@@ -4,6 +4,8 @@ import (
 	"time"
 )
 
+const DefaultWatchdogInterval = 500 * time.Millisecond
+
 // WatchDogOptions contains all configuration for the WatchDog
 type WatchDogOptions struct {
 	processManager ProcessManager
@@ -105,12 +107,12 @@ func DefaultWatchDogOptions() *WatchDogOptions {
 	return &WatchDogOptions{
 		busyTimeout:              5 * time.Minute,
 		idleTimeout:              15 * time.Minute,
-		watchdogInterval:         2 * time.Second,
+		watchdogInterval:         DefaultWatchdogInterval,
 		busyCheck:                false,
 		idleCheck:                false,
 		lruLimit:                 0,
 		memoryReclaimerEnabled:   false,
-		memoryReclaimerThreshold: 0.95,
+		memoryReclaimerThreshold: 0.80,
 	}
 }
 
