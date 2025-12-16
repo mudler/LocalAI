@@ -164,7 +164,7 @@ var _ = Describe("WatchDogOptions", func() {
 
 			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeFalse())
-			Expect(threshold).To(Equal(0.95)) // default
+			Expect(threshold).To(Equal(model.DefaultMemoryReclaimerThreshold)) // default
 		})
 
 		It("should allow partial configuration", func() {
@@ -180,8 +180,7 @@ var _ = Describe("WatchDogOptions", func() {
 			// Memory reclaimer should use defaults
 			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeFalse())
-			Expect(threshold).To(Equal(0.95))
+			Expect(threshold).To(Equal(model.DefaultMemoryReclaimerThreshold))
 		})
 	})
 })
-
