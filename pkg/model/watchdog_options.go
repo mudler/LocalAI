@@ -4,7 +4,10 @@ import (
 	"time"
 )
 
-const DefaultWatchdogInterval = 500 * time.Millisecond
+const (
+	DefaultWatchdogInterval         = 500 * time.Millisecond
+	DefaultMemoryReclaimerThreshold = 0.80
+)
 
 // WatchDogOptions contains all configuration for the WatchDog
 type WatchDogOptions struct {
@@ -112,7 +115,7 @@ func DefaultWatchDogOptions() *WatchDogOptions {
 		idleCheck:                false,
 		lruLimit:                 0,
 		memoryReclaimerEnabled:   false,
-		memoryReclaimerThreshold: 0.80,
+		memoryReclaimerThreshold: DefaultMemoryReclaimerThreshold,
 	}
 }
 

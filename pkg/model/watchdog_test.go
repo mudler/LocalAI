@@ -107,7 +107,7 @@ var _ = Describe("WatchDog", func() {
 				model.WithProcessManager(pm),
 			)
 			_, threshold := wd.GetMemoryReclaimerSettings()
-			Expect(threshold).To(Equal(0.95)) // default
+			Expect(threshold).To(Equal(model.DefaultMemoryReclaimerThreshold))
 		})
 
 		It("should allow updating memory reclaimer settings dynamically", func() {
@@ -318,7 +318,7 @@ var _ = Describe("WatchDog", func() {
 
 			enabled, threshold := wd.GetMemoryReclaimerSettings()
 			Expect(enabled).To(BeFalse())
-			Expect(threshold).To(Equal(0.95))
+			Expect(threshold).To(Equal(model.DefaultMemoryReclaimerThreshold))
 		})
 
 		It("should allow combining multiple options", func() {
