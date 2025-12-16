@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-8b"
+  urls:
+    - https://huggingface.co/EnlistedGhost/Qwen3-8B-GGUF
+  description: |
+    The model in this repository is a quantized version of the original **Qwen3-8B** large language model, optimized for efficiency and inference speed. While the current README indicates the model card is still being finalized, the base model (Qwen3-8B) is a 8-billion-parameter variant of the Qwen series, designed for general-purpose language understanding and generation. This GGUF format version prioritizes reduced memory usage while maintaining core capabilities. For full specifications, the original model's documentation is being developed.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-8B-Q4_K_M.gguf
+    name: Qwen3-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/EnlistedGhost/Qwen3-8B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3-8B-Q4_K_M.gguf
+      sha256: 97eec8bc08954714c0ac8f94306c3b11c7487b7cd8a1231b60c79bd3a8bc1df4
+      uri: https://huggingface.co/EnlistedGhost/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf
+
