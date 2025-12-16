@@ -185,33 +185,6 @@ func readExternalBackendsJson(startupAppConfig config.ApplicationConfig) fileHan
 	return handler
 }
 
-type runtimeSettings struct {
-	WatchdogEnabled          *bool             `json:"watchdog_enabled,omitempty"`
-	WatchdogIdleEnabled      *bool             `json:"watchdog_idle_enabled,omitempty"`
-	WatchdogBusyEnabled      *bool             `json:"watchdog_busy_enabled,omitempty"`
-	WatchdogIdleTimeout      *string           `json:"watchdog_idle_timeout,omitempty"`
-	WatchdogBusyTimeout      *string           `json:"watchdog_busy_timeout,omitempty"`
-	SingleBackend            *bool             `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
-	MaxActiveBackends        *int              `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited, 1 = single backend mode)
-	ParallelBackendRequests  *bool             `json:"parallel_backend_requests,omitempty"`
-	Threads                  *int              `json:"threads,omitempty"`
-	ContextSize              *int              `json:"context_size,omitempty"`
-	F16                      *bool             `json:"f16,omitempty"`
-	Debug                    *bool             `json:"debug,omitempty"`
-	CORS                     *bool             `json:"cors,omitempty"`
-	CSRF                     *bool             `json:"csrf,omitempty"`
-	CORSAllowOrigins         *string           `json:"cors_allow_origins,omitempty"`
-	P2PToken                 *string           `json:"p2p_token,omitempty"`
-	P2PNetworkID             *string           `json:"p2p_network_id,omitempty"`
-	Federated                *bool             `json:"federated,omitempty"`
-	Galleries                *[]config.Gallery `json:"galleries,omitempty"`
-	BackendGalleries         *[]config.Gallery `json:"backend_galleries,omitempty"`
-	AutoloadGalleries        *bool             `json:"autoload_galleries,omitempty"`
-	AutoloadBackendGalleries *bool             `json:"autoload_backend_galleries,omitempty"`
-	ApiKeys                  *[]string         `json:"api_keys,omitempty"`
-	AgentJobRetentionDays    *int              `json:"agent_job_retention_days,omitempty"`
-}
-
 func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHandler {
 	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
 		log.Debug().Msg("processing runtime_settings.json")
@@ -227,6 +200,8 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envSingleBackend := appConfig.SingleBackend == startupAppConfig.SingleBackend
 		envMaxActiveBackends := appConfig.MaxActiveBackends == startupAppConfig.MaxActiveBackends
 		envParallelRequests := appConfig.ParallelBackendRequests == startupAppConfig.ParallelBackendRequests
+		envMemoryReclaimerEnabled := appConfig.MemoryReclaimerEnabled == startupAppConfig.MemoryReclaimerEnabled
+		envMemoryReclaimerThreshold := appConfig.MemoryReclaimerThreshold == startupAppConfig.MemoryReclaimerThreshold
 		envThreads := appConfig.Threads == startupAppConfig.Threads
 		envContextSize := appConfig.ContextSize == startupAppConfig.ContextSize
 		envF16 := appConfig.F16 == startupAppConfig.F16
@@ -242,7 +217,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envAgentJobRetentionDays := appConfig.AgentJobRetentionDays == startupAppConfig.AgentJobRetentionDays
 
 		if len(fileContent) > 0 {
-			var settings runtimeSettings
+			var settings config.RuntimeSettings
 			err := json.Unmarshal(fileContent, &settings)
 			if err != nil {
 				return err
@@ -293,6 +268,15 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.ParallelBackendRequests != nil && !envParallelRequests {
 				appConfig.ParallelBackendRequests = *settings.ParallelBackendRequests
+			}
+			if settings.MemoryReclaimerEnabled != nil && !envMemoryReclaimerEnabled {
+				appConfig.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
+				if appConfig.MemoryReclaimerEnabled {
+					appConfig.WatchDog = true // Memory reclaimer requires watchdog
+				}
+			}
+			if settings.MemoryReclaimerThreshold != nil && !envMemoryReclaimerThreshold {
+				appConfig.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 			}
 			if settings.Threads != nil && !envThreads {
 				appConfig.Threads = *settings.Threads

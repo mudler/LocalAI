@@ -218,17 +218,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		return
 	}
 
-	var settings struct {
-		WatchdogEnabled         *bool   `json:"watchdog_enabled,omitempty"`
-		WatchdogIdleEnabled     *bool   `json:"watchdog_idle_enabled,omitempty"`
-		WatchdogBusyEnabled     *bool   `json:"watchdog_busy_enabled,omitempty"`
-		WatchdogIdleTimeout     *string `json:"watchdog_idle_timeout,omitempty"`
-		WatchdogBusyTimeout     *string `json:"watchdog_busy_timeout,omitempty"`
-		SingleBackend           *bool   `json:"single_backend,omitempty"`      // Deprecated: use MaxActiveBackends = 1 instead
-		MaxActiveBackends       *int    `json:"max_active_backends,omitempty"` // Maximum number of active backends (0 = unlimited)
-		ParallelBackendRequests *bool   `json:"parallel_backend_requests,omitempty"`
-		AgentJobRetentionDays   *int    `json:"agent_job_retention_days,omitempty"`
-	}
+	var settings config.RuntimeSettings
 
 	if err := json.Unmarshal(fileContent, &settings); err != nil {
 		log.Warn().Err(err).Msg("failed to parse runtime_settings.json")
@@ -281,6 +271,16 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			}
 		}
 	}
+	if settings.WatchdogInterval != nil {
+		if options.WatchDogInterval == 0 {
+			dur, err := time.ParseDuration(*settings.WatchdogInterval)
+			if err == nil {
+				options.WatchDogInterval = dur
+			} else {
+				log.Warn().Err(err).Str("interval", *settings.WatchdogInterval).Msg("invalid watchdog interval in runtime_settings.json")
+			}
+		}
+	}
 	// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
 	if settings.MaxActiveBackends != nil {
 		// Only apply if current value is default (0), suggesting it wasn't set from env var
@@ -303,6 +303,21 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			options.ParallelBackendRequests = *settings.ParallelBackendRequests
 		}
 	}
+	if settings.MemoryReclaimerEnabled != nil {
+		// Only apply if current value is default (false), suggesting it wasn't set from env var
+		if !options.MemoryReclaimerEnabled {
+			options.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
+			if options.MemoryReclaimerEnabled {
+				options.WatchDog = true // Memory reclaimer requires watchdog
+			}
+		}
+	}
+	if settings.MemoryReclaimerThreshold != nil {
+		// Only apply if current value is default (0), suggesting it wasn't set from env var
+		if options.MemoryReclaimerThreshold == 0 {
+			options.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
+		}
+	}
 	if settings.AgentJobRetentionDays != nil {
 		// Only apply if current value is default (0), suggesting it wasn't set from env var
 		if options.AgentJobRetentionDays == 0 {
@@ -323,19 +338,24 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
 	lruLimit := options.GetEffectiveMaxActiveBackends()
 
-	// Create watchdog if enabled OR if LRU limit is set
-	if options.WatchDog || lruLimit > 0 {
+	// Create watchdog if enabled OR if LRU limit is set OR if memory reclaimer is enabled
+	if options.WatchDog || lruLimit > 0 || options.MemoryReclaimerEnabled {
 		wd := model.NewWatchDog(
-			application.ModelLoader(),
-			options.WatchDogBusyTimeout,
-			options.WatchDogIdleTimeout,
-			options.WatchDogBusy,
-			options.WatchDogIdle,
-			lruLimit)
+			model.WithProcessManager(application.ModelLoader()),
+			model.WithBusyTimeout(options.WatchDogBusyTimeout),
+			model.WithIdleTimeout(options.WatchDogIdleTimeout),
+			model.WithWatchdogInterval(options.WatchDogInterval),
+			model.WithBusyCheck(options.WatchDogBusy),
+			model.WithIdleCheck(options.WatchDogIdle),
+			model.WithLRULimit(lruLimit),
+			model.WithMemoryReclaimer(options.MemoryReclaimerEnabled, options.MemoryReclaimerThreshold),
+		)
 		application.ModelLoader().SetWatchDog(wd)
 
-		// Start watchdog goroutine only if busy/idle checks are enabled
-		if options.WatchDogBusy || options.WatchDogIdle {
+		// Start watchdog goroutine if any periodic checks are enabled
+		// LRU eviction doesn't need the Run() loop - it's triggered on model load
+		// But memory reclaimer needs the Run() loop for periodic checking
+		if options.WatchDogBusy || options.WatchDogIdle || options.MemoryReclaimerEnabled {
 			go wd.Run()
 		}
 

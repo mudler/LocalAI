@@ -124,6 +124,90 @@
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
                                :class="!settings.watchdog_busy_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
+
+                    <!-- Watchdog Check Interval -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Check Interval</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">How often the watchdog checks backends and memory usage (e.g., 2s, 30s)</p>
+                        <input type="text" x-model="settings.watchdog_interval" 
+                               :disabled="!settings.watchdog_enabled"
+                               placeholder="2s"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
+                               :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- Memory Reclaimer Subsection -->
+                    <div class="mt-6 pt-4 border-t border-[var(--color-primary-border)]/20">
+                        <h3 class="text-md font-medium text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-memory mr-2 text-[var(--color-primary)] text-xs"></i>
+                            Memory Reclaimer
+                        </h3>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                            Automatically evict backends when memory usage exceeds a threshold. Uses GPU VRAM if available, otherwise system RAM. Uses LRU strategy.
+                        </p>
+
+                        <!-- Memory Status Preview -->
+                        <div x-data="resourceStatus()" x-init="fetchResource()" class="p-3 bg-[var(--color-bg-primary)] rounded mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-[var(--color-text-secondary)]" x-text="resourceData && resourceData.type === 'gpu' ? 'Current GPU Status' : 'Current Memory Status'">Current Memory Status</span>
+                                <button @click="fetchResource()" class="text-[10px] text-[var(--color-primary)] hover:underline">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                </button>
+                            </div>
+                            <template x-if="resourceData && resourceData.available && resourceData.type === 'gpu'">
+                                <div class="space-y-2">
+                                    <template x-for="gpu in resourceData.gpus" :key="gpu.index">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
+                                            <span class="font-mono" 
+                                                  :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                                  x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="resourceData && resourceData.available && resourceData.type === 'ram'">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-[var(--color-text-primary)]">System RAM</span>
+                                    <span class="font-mono" 
+                                          :class="resourceData.ram.usage_percent > 90 ? 'text-red-400' : resourceData.ram.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                          x-text="`${resourceData.ram.usage_percent.toFixed(1)}%`"></span>
+                                </div>
+                            </template>
+                            <template x-if="!resourceData || !resourceData.available">
+                                <p class="text-xs text-[var(--color-text-secondary)]">Memory monitoring unavailable</p>
+                            </template>
+                        </div>
+
+                        <!-- Enable Memory Reclaimer -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Memory Reclaimer</label>
+                                <p class="text-xs text-[var(--color-text-secondary)] mt-1">Evict backends when memory usage exceeds threshold</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" x-model="settings.memory_reclaimer_enabled" 
+                                       :disabled="!settings.watchdog_enabled"
+                                       class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                                <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            </label>
+                        </div>
+
+                        <!-- Memory Reclaimer Threshold -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Memory Threshold (%)</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mb-2">When memory usage exceeds this, backends will be evicted (50-100%)</p>
+                            <div class="flex items-center gap-3">
+                                <input type="range" x-model="settings.memory_reclaimer_threshold_percent" 
+                                       min="50" max="100" step="1"
+                                       :disabled="!settings.memory_reclaimer_enabled || !settings.watchdog_enabled"
+                                       class="flex-1 h-2 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer"
+                                       :class="(!settings.memory_reclaimer_enabled || !settings.watchdog_enabled) ? 'opacity-50' : ''">
+                                <span class="text-sm font-mono text-[var(--color-text-primary)] w-12 text-right" 
+                                      x-text="`${settings.memory_reclaimer_threshold_percent}%`"></span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -460,8 +544,12 @@ function settingsDashboard() {
             watchdog_busy_enabled: false,
             watchdog_idle_timeout: '15m',
             watchdog_busy_timeout: '5m',
+            watchdog_interval: '2s',
             max_active_backends: 0,
             parallel_backend_requests: false,
+            memory_reclaimer_enabled: false,
+            memory_reclaimer_threshold: 0.95,
+            memory_reclaimer_threshold_percent: 95,
             threads: 0,
             context_size: 0,
             f16: false,
@@ -498,8 +586,12 @@ function settingsDashboard() {
                         watchdog_busy_enabled: data.watchdog_busy_enabled,
                         watchdog_idle_timeout: data.watchdog_idle_timeout || '15m',
                         watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
+                        watchdog_interval: data.watchdog_interval || '2s',
                         max_active_backends: data.max_active_backends || 0,
                         parallel_backend_requests: data.parallel_backend_requests,
+                        memory_reclaimer_enabled: data.memory_reclaimer_enabled || false,
+                        memory_reclaimer_threshold: data.memory_reclaimer_threshold || 0.95,
+                        memory_reclaimer_threshold_percent: Math.round((data.memory_reclaimer_threshold || 0.95) * 100),
                         threads: data.threads || 0,
                         context_size: data.context_size || 0,
                         f16: data.f16 || false,
@@ -531,6 +623,7 @@ function settingsDashboard() {
             if (!this.settings.watchdog_enabled) {
                 this.settings.watchdog_idle_enabled = false;
                 this.settings.watchdog_busy_enabled = false;
+                this.settings.memory_reclaimer_enabled = false;
             }
         },
         
@@ -564,11 +657,21 @@ function settingsDashboard() {
                 if (this.settings.watchdog_busy_timeout) {
                     payload.watchdog_busy_timeout = this.settings.watchdog_busy_timeout;
                 }
+                if (this.settings.watchdog_interval) {
+                    payload.watchdog_interval = this.settings.watchdog_interval;
+                }
                 if (this.settings.max_active_backends !== undefined) {
                     payload.max_active_backends = parseInt(this.settings.max_active_backends) || 0;
                 }
                 if (this.settings.parallel_backend_requests !== undefined) {
                     payload.parallel_backend_requests = this.settings.parallel_backend_requests;
+                }
+                if (this.settings.memory_reclaimer_enabled !== undefined) {
+                    payload.memory_reclaimer_enabled = this.settings.memory_reclaimer_enabled;
+                }
+                if (this.settings.memory_reclaimer_threshold_percent !== undefined) {
+                    // Convert percent to decimal (0.0-1.0)
+                    payload.memory_reclaimer_threshold = parseInt(this.settings.memory_reclaimer_threshold_percent) / 100;
                 }
                 if (this.settings.threads !== undefined) {
                     payload.threads = parseInt(this.settings.threads) || 0;
@@ -675,6 +778,24 @@ function settingsDashboard() {
         
         dismissNotification(id) {
             this.notifications = this.notifications.filter(n => n.id !== id);
+        }
+    }
+}
+
+// Resource Status component for settings page (GPU if available, otherwise RAM)
+function resourceStatus() {
+    return {
+        resourceData: null,
+        
+        async fetchResource() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    this.resourceData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching resource data:', error);
+            }
         }
     }
 }

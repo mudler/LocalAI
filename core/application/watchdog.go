@@ -23,24 +23,28 @@ func (a *Application) startWatchdog() error {
 	// Get effective max active backends (considers both MaxActiveBackends and deprecated SingleBackend)
 	lruLimit := appConfig.GetEffectiveMaxActiveBackends()
 
-	// Create watchdog if enabled OR if LRU limit is set
+	// Create watchdog if enabled OR if LRU limit is set OR if memory reclaimer is enabled
 	// LRU eviction requires watchdog infrastructure even without busy/idle checks
-	if appConfig.WatchDog || lruLimit > 0 {
+	if appConfig.WatchDog || lruLimit > 0 || appConfig.MemoryReclaimerEnabled {
 		wd := model.NewWatchDog(
-			a.modelLoader,
-			appConfig.WatchDogBusyTimeout,
-			appConfig.WatchDogIdleTimeout,
-			appConfig.WatchDogBusy,
-			appConfig.WatchDogIdle,
-			lruLimit)
+			model.WithProcessManager(a.modelLoader),
+			model.WithBusyTimeout(appConfig.WatchDogBusyTimeout),
+			model.WithIdleTimeout(appConfig.WatchDogIdleTimeout),
+			model.WithWatchdogInterval(appConfig.WatchDogInterval),
+			model.WithBusyCheck(appConfig.WatchDogBusy),
+			model.WithIdleCheck(appConfig.WatchDogIdle),
+			model.WithLRULimit(lruLimit),
+			model.WithMemoryReclaimer(appConfig.MemoryReclaimerEnabled, appConfig.MemoryReclaimerThreshold),
+		)
 		a.modelLoader.SetWatchDog(wd)
 
 		// Create new stop channel
 		a.watchdogStop = make(chan bool, 1)
 
-		// Start watchdog goroutine only if busy/idle checks are enabled
+		// Start watchdog goroutine if any periodic checks are enabled
 		// LRU eviction doesn't need the Run() loop - it's triggered on model load
-		if appConfig.WatchDogBusy || appConfig.WatchDogIdle {
+		// But memory reclaimer needs the Run() loop for periodic checking
+		if appConfig.WatchDogBusy || appConfig.WatchDogIdle || appConfig.MemoryReclaimerEnabled {
 			go wd.Run()
 		}
 
@@ -56,7 +60,14 @@ func (a *Application) startWatchdog() error {
 			}
 		}()
 
-		log.Info().Int("lruLimit", lruLimit).Bool("busyCheck", appConfig.WatchDogBusy).Bool("idleCheck", appConfig.WatchDogIdle).Msg("Watchdog started with new settings")
+		log.Info().
+			Int("lruLimit", lruLimit).
+			Bool("busyCheck", appConfig.WatchDogBusy).
+			Bool("idleCheck", appConfig.WatchDogIdle).
+			Bool("memoryReclaimer", appConfig.MemoryReclaimerEnabled).
+			Float64("memoryThreshold", appConfig.MemoryReclaimerThreshold).
+			Dur("interval", appConfig.WatchDogInterval).
+			Msg("Watchdog started with new settings")
 	} else {
 		log.Info().Msg("Watchdog disabled")
 	}

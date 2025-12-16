@@ -163,3 +163,10 @@ type ImportModelRequest struct {
 	URI         string          `json:"uri"`
 	Preferences json.RawMessage `json:"preferences,omitempty"`
 }
+
+// SettingsResponse is the response type for settings API operations
+type SettingsResponse struct {
+	Success bool   `json:"success"`
+	Error   string `json:"error,omitempty"`
+	Message string `json:"message,omitempty"`
+}

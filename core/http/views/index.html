@@ -462,6 +462,27 @@
                 </a>
             </div>
 
+            <!-- Memory Status Indicator (GPU or RAM) -->
+            <div class="mb-4" x-data="resourceMonitor()" x-init="startPolling()">
+                <template x-if="resourceData && resourceData.available">
+                    <div class="flex items-center justify-center gap-3 text-xs text-[var(--color-text-secondary)]">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20">
+                            <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'"
+                               :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"></i>
+                            <span class="text-[var(--color-text-secondary)]" x-text="resourceData.type === 'gpu' ? 'GPU' : 'RAM'"></span>
+                            <span class="font-mono" 
+                                  :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                  x-text="`${resourceData.aggregate.usage_percent.toFixed(0)}%`"></span>
+                            <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-300"
+                                     :class="resourceData.aggregate.usage_percent > 90 ? 'bg-red-500' : resourceData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                     :style="`width: ${resourceData.aggregate.usage_percent}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
             <!-- Model Status Summary - Subtle -->
             {{ $loadedModels := .LoadedModels }}
             <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[var(--color-text-secondary)]" 
@@ -687,6 +708,38 @@ async function stopAllModels(component) {
 // Make functions available globally for Alpine.js
 window.stopModel = stopModel;
 window.stopAllModels = stopAllModels;
+
+// Resource Monitor component (GPU if available, otherwise RAM)
+function resourceMonitor() {
+    return {
+        resourceData: null,
+        pollInterval: null,
+        
+        async fetchResourceData() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    this.resourceData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching resource data:', error);
+            }
+        },
+        
+        startPolling() {
+            // Initial fetch
+            this.fetchResourceData();
+            // Poll every 5 seconds
+            this.pollInterval = setInterval(() => this.fetchResourceData(), 5000);
+        },
+        
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
 </script>
 
 </body>

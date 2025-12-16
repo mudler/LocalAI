@@ -60,9 +60,14 @@ type ApplicationConfig struct {
 	WatchDogBusy bool
 	WatchDog     bool
 
+	// Memory Reclaimer settings (works with GPU if available, otherwise RAM)
+	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
+	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
+	WatchDogInterval                         time.Duration // Interval between watchdog checks
 
 	MachineTag string
 
@@ -184,6 +189,39 @@ func SetWatchDogBusyTimeout(t time.Duration) AppOption {
 func SetWatchDogIdleTimeout(t time.Duration) AppOption {
 	return func(o *ApplicationConfig) {
 		o.WatchDogIdleTimeout = t
+	}
+}
+
+// EnableMemoryReclaimer enables memory threshold monitoring.
+// When enabled, the watchdog will evict backends if memory usage exceeds the threshold.
+// Works with GPU VRAM if available, otherwise uses system RAM.
+var EnableMemoryReclaimer = func(o *ApplicationConfig) {
+	o.MemoryReclaimerEnabled = true
+	o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
+}
+
+// SetMemoryReclaimerThreshold sets the memory usage threshold (0.0-1.0).
+// When memory usage exceeds this threshold, backends will be evicted using LRU strategy.
+func SetMemoryReclaimerThreshold(threshold float64) AppOption {
+	return func(o *ApplicationConfig) {
+		if threshold > 0 && threshold <= 1.0 {
+			o.MemoryReclaimerThreshold = threshold
+			o.MemoryReclaimerEnabled = true
+			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
+		}
+	}
+}
+
+// WithMemoryReclaimer configures the memory reclaimer with the given settings
+func WithMemoryReclaimer(enabled bool, threshold float64) AppOption {
+	return func(o *ApplicationConfig) {
+		o.MemoryReclaimerEnabled = enabled
+		if threshold > 0 && threshold <= 1.0 {
+			o.MemoryReclaimerThreshold = threshold
+		}
+		if enabled {
+			o.WatchDog = true // Memory reclaimer requires watchdog infrastructure
+		}
 	}
 }
 
@@ -452,6 +490,208 @@ func (o *ApplicationConfig) ToConfigLoaderOptions() []ConfigLoaderOption {
 		LoadOptionThreads(o.Threads),
 		ModelPath(o.SystemState.Model.ModelsPath),
 	}
+}
+
+// ToRuntimeSettings converts ApplicationConfig to RuntimeSettings for API responses and JSON serialization.
+// This provides a single source of truth - ApplicationConfig holds the live values,
+// and this method creates a RuntimeSettings snapshot for external consumption.
+func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
+	// Create local copies for pointer fields
+	watchdogEnabled := o.WatchDog
+	watchdogIdle := o.WatchDogIdle
+	watchdogBusy := o.WatchDogBusy
+	singleBackend := o.SingleBackend
+	maxActiveBackends := o.MaxActiveBackends
+	parallelBackendRequests := o.ParallelBackendRequests
+	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
+	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
+	threads := o.Threads
+	contextSize := o.ContextSize
+	f16 := o.F16
+	debug := o.Debug
+	cors := o.CORS
+	csrf := o.CSRF
+	corsAllowOrigins := o.CORSAllowOrigins
+	p2pToken := o.P2PToken
+	p2pNetworkID := o.P2PNetworkID
+	federated := o.Federated
+	galleries := o.Galleries
+	backendGalleries := o.BackendGalleries
+	autoloadGalleries := o.AutoloadGalleries
+	autoloadBackendGalleries := o.AutoloadBackendGalleries
+	apiKeys := o.ApiKeys
+	agentJobRetentionDays := o.AgentJobRetentionDays
+
+	// Format timeouts as strings
+	var idleTimeout, busyTimeout, watchdogInterval string
+	if o.WatchDogIdleTimeout > 0 {
+		idleTimeout = o.WatchDogIdleTimeout.String()
+	} else {
+		idleTimeout = "15m" // default
+	}
+	if o.WatchDogBusyTimeout > 0 {
+		busyTimeout = o.WatchDogBusyTimeout.String()
+	} else {
+		busyTimeout = "5m" // default
+	}
+	if o.WatchDogInterval > 0 {
+		watchdogInterval = o.WatchDogInterval.String()
+	} else {
+		watchdogInterval = "2s" // default
+	}
+
+	return RuntimeSettings{
+		WatchdogEnabled:          &watchdogEnabled,
+		WatchdogIdleEnabled:      &watchdogIdle,
+		WatchdogBusyEnabled:      &watchdogBusy,
+		WatchdogIdleTimeout:      &idleTimeout,
+		WatchdogBusyTimeout:      &busyTimeout,
+		WatchdogInterval:         &watchdogInterval,
+		SingleBackend:            &singleBackend,
+		MaxActiveBackends:        &maxActiveBackends,
+		ParallelBackendRequests:  &parallelBackendRequests,
+		MemoryReclaimerEnabled:   &memoryReclaimerEnabled,
+		MemoryReclaimerThreshold: &memoryReclaimerThreshold,
+		Threads:                  &threads,
+		ContextSize:              &contextSize,
+		F16:                      &f16,
+		Debug:                    &debug,
+		CORS:                     &cors,
+		CSRF:                     &csrf,
+		CORSAllowOrigins:         &corsAllowOrigins,
+		P2PToken:                 &p2pToken,
+		P2PNetworkID:             &p2pNetworkID,
+		Federated:                &federated,
+		Galleries:                &galleries,
+		BackendGalleries:         &backendGalleries,
+		AutoloadGalleries:        &autoloadGalleries,
+		AutoloadBackendGalleries: &autoloadBackendGalleries,
+		ApiKeys:                  &apiKeys,
+		AgentJobRetentionDays:    &agentJobRetentionDays,
+	}
+}
+
+// ApplyRuntimeSettings applies RuntimeSettings to ApplicationConfig.
+// Only non-nil fields in RuntimeSettings are applied.
+// Returns true if watchdog-related settings changed (requiring restart).
+func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (requireRestart bool) {
+	if settings == nil {
+		return false
+	}
+
+	if settings.WatchdogEnabled != nil {
+		o.WatchDog = *settings.WatchdogEnabled
+		requireRestart = true
+	}
+	if settings.WatchdogIdleEnabled != nil {
+		o.WatchDogIdle = *settings.WatchdogIdleEnabled
+		if o.WatchDogIdle {
+			o.WatchDog = true
+		}
+		requireRestart = true
+	}
+	if settings.WatchdogBusyEnabled != nil {
+		o.WatchDogBusy = *settings.WatchdogBusyEnabled
+		if o.WatchDogBusy {
+			o.WatchDog = true
+		}
+		requireRestart = true
+	}
+	if settings.WatchdogIdleTimeout != nil {
+		if dur, err := time.ParseDuration(*settings.WatchdogIdleTimeout); err == nil {
+			o.WatchDogIdleTimeout = dur
+			requireRestart = true
+		}
+	}
+	if settings.WatchdogBusyTimeout != nil {
+		if dur, err := time.ParseDuration(*settings.WatchdogBusyTimeout); err == nil {
+			o.WatchDogBusyTimeout = dur
+			requireRestart = true
+		}
+	}
+	if settings.WatchdogInterval != nil {
+		if dur, err := time.ParseDuration(*settings.WatchdogInterval); err == nil {
+			o.WatchDogInterval = dur
+			requireRestart = true
+		}
+	}
+	if settings.MaxActiveBackends != nil {
+		o.MaxActiveBackends = *settings.MaxActiveBackends
+		o.SingleBackend = (*settings.MaxActiveBackends == 1)
+		requireRestart = true
+	} else if settings.SingleBackend != nil {
+		o.SingleBackend = *settings.SingleBackend
+		if *settings.SingleBackend {
+			o.MaxActiveBackends = 1
+		} else {
+			o.MaxActiveBackends = 0
+		}
+		requireRestart = true
+	}
+	if settings.ParallelBackendRequests != nil {
+		o.ParallelBackendRequests = *settings.ParallelBackendRequests
+	}
+	if settings.MemoryReclaimerEnabled != nil {
+		o.MemoryReclaimerEnabled = *settings.MemoryReclaimerEnabled
+		if *settings.MemoryReclaimerEnabled {
+			o.WatchDog = true
+		}
+		requireRestart = true
+	}
+	if settings.MemoryReclaimerThreshold != nil {
+		if *settings.MemoryReclaimerThreshold > 0 && *settings.MemoryReclaimerThreshold <= 1.0 {
+			o.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
+			requireRestart = true
+		}
+	}
+	if settings.Threads != nil {
+		o.Threads = *settings.Threads
+	}
+	if settings.ContextSize != nil {
+		o.ContextSize = *settings.ContextSize
+	}
+	if settings.F16 != nil {
+		o.F16 = *settings.F16
+	}
+	if settings.Debug != nil {
+		o.Debug = *settings.Debug
+	}
+	if settings.CORS != nil {
+		o.CORS = *settings.CORS
+	}
+	if settings.CSRF != nil {
+		o.CSRF = *settings.CSRF
+	}
+	if settings.CORSAllowOrigins != nil {
+		o.CORSAllowOrigins = *settings.CORSAllowOrigins
+	}
+	if settings.P2PToken != nil {
+		o.P2PToken = *settings.P2PToken
+	}
+	if settings.P2PNetworkID != nil {
+		o.P2PNetworkID = *settings.P2PNetworkID
+	}
+	if settings.Federated != nil {
+		o.Federated = *settings.Federated
+	}
+	if settings.Galleries != nil {
+		o.Galleries = *settings.Galleries
+	}
+	if settings.BackendGalleries != nil {
+		o.BackendGalleries = *settings.BackendGalleries
+	}
+	if settings.AutoloadGalleries != nil {
+		o.AutoloadGalleries = *settings.AutoloadGalleries
+	}
+	if settings.AutoloadBackendGalleries != nil {
+		o.AutoloadBackendGalleries = *settings.AutoloadBackendGalleries
+	}
+	if settings.AgentJobRetentionDays != nil {
+		o.AgentJobRetentionDays = *settings.AgentJobRetentionDays
+	}
+	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller
+
+	return requireRestart
 }
 
 // func WithMetrics(meter *metrics.Metrics) AppOption {
