@@ -244,7 +244,7 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 
 		if isNA && isUnifiedMemoryDevice(name) {
 			// Unified memory device - fall back to system RAM
-			sysTotal, sysUsed, sysFree, err := getSystemRAM()
+			sysInfo, err := GetSystemRAMInfo()
 			if err != nil {
 				log.Debug().Err(err).Str("device", name).Msg("failed to get system RAM for unified memory device")
 				// Still add the GPU but with zero memory info
@@ -260,9 +260,9 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 				continue
 			}
 
-			totalBytes = sysTotal
-			usedBytes = sysUsed
-			freeBytes = sysFree
+			totalBytes = sysInfo.Total
+			usedBytes = sysInfo.Used
+			freeBytes = sysInfo.Free
 			if totalBytes > 0 {
 				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
 			}
