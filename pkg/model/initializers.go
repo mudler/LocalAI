@@ -173,9 +173,8 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
-		err := ml.StopGRPC(only(o.modelID))
-		if err != nil {
-			log.Error().Err(err).Str("model", o.modelID).Msg("error stopping model")
+		if stopErr := ml.StopGRPC(only(o.modelID));stopErr != nil {
+			log.Error().Err(stopErr).Str("model", o.modelID).Msg("error stopping model")
 		}
 		log.Error().Str("modelID", o.modelID).Err(err).Msgf("Failed to load model %s with backend %s", o.modelID, o.backendString)
 		return nil, err
