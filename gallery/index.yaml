@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *granite4
+  name: "olmo-3-7b-instruct-heretic-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Olmo-3-7B-Instruct-Heretic-i1-GGUF
+  description: |
+    The model in question is a **3.7B parameter instruction-following language model** developed by the original author, with a notable trait of generating **heretical responses**. The base model (before quantization) likely has a larger parameter count and is hosted at [ChiKoi7/Olmo-3-7B-Instruct-Heretic](https://huggingface.co/ChiKoi7/Olmo-3-7B-Instruct-Heretic). The current version (mradermacher/Olmo-3-7B-Instruct-Heretic-i1-GGUF) is a **quantized variant** in GGUF format, optimized for efficiency while retaining the core capabilities of the original model. It is designed for tasks requiring complex reasoning and creative, unconventional outputs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Olmo-3-7B-Instruct-Heretic.i1-Q4_K_M.gguf
+    name: Olmo-3-7B-Instruct-Heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Olmo-3-7B-Instruct-Heretic-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Olmo-3-7B-Instruct-Heretic.i1-Q4_K_M.gguf
+      sha256: 6ab1d72525977cb4705bdfa8e5ec408e44de5249a98a1f5371fa925b2e469c2e
+      uri: https://huggingface.co/mradermacher/Olmo-3-7B-Instruct-Heretic-i1-GGUF/resolve/main/Olmo-3-7B-Instruct-Heretic.i1-Q4_K_M.gguf
+
