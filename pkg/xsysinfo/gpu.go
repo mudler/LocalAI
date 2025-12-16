@@ -3,13 +3,11 @@ package xsysinfo
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 
-	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
 	"github.com/rs/zerolog/log"
@@ -51,15 +49,6 @@ type GPUAggregateInfo struct {
 	FreeVRAM     uint64  `json:"free_vram"`
 	UsagePercent float64 `json:"usage_percent"`
 	GPUCount     int     `json:"gpu_count"`
-}
-
-// SystemRAMInfo contains system RAM usage information
-type SystemRAMInfo struct {
-	Total        uint64  `json:"total"`
-	Used         uint64  `json:"used"`
-	Free         uint64  `json:"free"`
-	Available    uint64  `json:"available"`
-	UsagePercent float64 `json:"usage_percent"`
 }
 
 // AggregateMemoryInfo contains aggregate memory information (unified for GPU/RAM)
@@ -142,21 +131,6 @@ func isUnifiedMemoryDevice(gpuName string) bool {
 		}
 	}
 	return false
-}
-
-// getSystemRAM returns system RAM information using ghw
-func getSystemRAM() (total, used, free uint64, err error) {
-	mem := sigar.Mem{}
-	//swap := sigar.Swap{}
-
-	mem.Get() //nolint:errcheck
-	//swap.Get() //nolint:errcheck
-
-	total = mem.Total
-	free = mem.ActualFree
-	used = mem.ActualUsed
-
-	return total, used, free, nil
 }
 
 // GetGPUMemoryUsage returns real-time GPU memory usage for all detected GPUs.
@@ -556,29 +530,6 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	// intel_gpu_top doesn't always provide memory info
 	// Return empty if we can't get useful data
 	return nil
-}
-
-// GetSystemRAMInfo returns real-time system RAM usage
-func GetSystemRAMInfo() (*SystemRAMInfo, error) {
-	total, used, free, err := getSystemRAM()
-	if err != nil {
-		return nil, err
-	}
-
-	usagePercent := 0.0
-	if total > 0 {
-		usagePercent = float64(used) / float64(total) * 100
-	}
-
-	fmt.Println("total", total, "used", used, "free", free)
-
-	return &SystemRAMInfo{
-		Total:        total,
-		Used:         used,
-		Free:         free,
-		Available:    total - used,
-		UsagePercent: usagePercent,
-	}, nil
 }
 
 // GetResourceInfo returns GPU info if available, otherwise system RAM info
