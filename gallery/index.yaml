@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "servicenow-ai.apriel-1.6-15b-thinker"
+  urls:
+    - https://huggingface.co/DevQuasar/ServiceNow-AI.Apriel-1.6-15b-Thinker-GGUF
+  description: |
+    The model described here is a **quantized version** of the original **ServiceNow-AI/Apriel-1.6-15b-Thinker** (15B parameters), a large language model designed for advanced text generation, reasoning, and problem-solving tasks. While this quantized version is optimized for efficiency, the base model offers robust capabilities in natural language understanding and dialogue, making it suitable for applications like Q&A, code generation, and multi-turn conversations. The "Thinker" variant emphasizes its ability to produce coherent, context-aware responses. For production use, the original model is recommended.
+  overrides:
+    parameters:
+      model: llama-cpp/models/ServiceNow-AI.Apriel-1.6-15b-Thinker.Q4_K_M.gguf
+    name: ServiceNow-AI.Apriel-1.6-15b-Thinker-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-ServiceNow-AI.Apriel-1.6-15b-Thinker.f16.gguf
+    description: Imported from https://huggingface.co/DevQuasar/ServiceNow-AI.Apriel-1.6-15b-Thinker-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/ServiceNow-AI.Apriel-1.6-15b-Thinker.Q4_K_M.gguf
+      sha256: d98e599387f7876cc54e000d4863872db3f17b61c2c960648f0f703a7593e097
+      uri: https://huggingface.co/DevQuasar/ServiceNow-AI.Apriel-1.6-15b-Thinker-GGUF/resolve/main/ServiceNow-AI.Apriel-1.6-15b-Thinker.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-ServiceNow-AI.Apriel-1.6-15b-Thinker.f16.gguf
+      sha256: e807fc70d0e72622abf5af0375716eb5d303223abf08712a993bc0459ec5fd30
+      uri: https://huggingface.co/DevQuasar/ServiceNow-AI.Apriel-1.6-15b-Thinker-GGUF/resolve/main/mmproj-ServiceNow-AI.Apriel-1.6-15b-Thinker.f16.gguf
+
