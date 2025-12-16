@@ -23172,3 +23172,34 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *vibevoice
+  name: "mira-v1.19.2-27b"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-v1.19.2-27B-GGUF
+  description: |
+    **Mira-v1.19.2-27B** is a large language model based on the **Lambent/Mira-v1.19.2-27B** base model, featuring **27 billion parameters**. It is optimized for efficiency through multiple quantization formats (e.g., Q2_K, Q3_K_S, Q4_K_S, Q6_K, Q8_0), catering to diverse use cases ranging from text generation to multilingual tasks. The model is licensed under the **Gemma** license and available in GGUF format, enabling compatibility with tools like LLMRunner and TheBloke’s frameworks. Quantized versions balance performance and resource requirements, with higher-quality options (e.g., Q6_K, Q8_0) offering trade-offs between speed and accuracy. Ideal for research, inference, and deployment scenarios where model size and computational constraints matter.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mira-v1.19.2-27B.Q4_K_M.gguf
+    name: Mira-v1.19.2-27B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Mira-v1.19.2-27B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Mira-v1.19.2-27B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Mira-v1.19.2-27B.Q4_K_M.gguf
+      sha256: d71ddfcc27f3a6b9570d28aa574e8b59bd573b98b6300764b0e0a0eba12dc836
+      uri: https://huggingface.co/mradermacher/Mira-v1.19.2-27B-GGUF/resolve/main/Mira-v1.19.2-27B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Mira-v1.19.2-27B.mmproj-f16.gguf
+      sha256: 6cecdf5398fd7aa4cc0334ffe0586161134dff5d9776a1db6657b90f38279437
+      uri: https://huggingface.co/mradermacher/Mira-v1.19.2-27B-GGUF/resolve/main/Mira-v1.19.2-27B.mmproj-f16.gguf
+
