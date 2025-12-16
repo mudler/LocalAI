@@ -857,7 +857,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "9"
             platforms: 'linux/arm64'
-            skip-drivers: 'true'
+            skip-drivers: 'false'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
             base-image: "ubuntu:24.04"
@@ -936,7 +936,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "9"
             platforms: 'linux/arm64'
-            skip-drivers: 'true'
+            skip-drivers: 'false'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-stablediffusion-ggml'
             base-image: "ubuntu:24.04"
@@ -1002,7 +1002,7 @@ jobs:
             cuda-major-version: "12"
             cuda-minor-version: "9"
             platforms: 'linux/arm64'
-            skip-drivers: 'true'
+            skip-drivers: 'false'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-whisper'
             base-image: "ubuntu:24.04"
@@ -1237,7 +1237,7 @@ jobs:
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
+            context: "./"
             ubuntu-version: '2404'
   backend-jobs-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
