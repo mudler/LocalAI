@@ -3,11 +3,13 @@ package xsysinfo
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 
+	sigar "github.com/cloudfoundry/gosigar"
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
 	"github.com/rs/zerolog/log"
@@ -144,17 +146,15 @@ func isUnifiedMemoryDevice(gpuName string) bool {
 
 // getSystemRAM returns system RAM information using ghw
 func getSystemRAM() (total, used, free uint64, err error) {
-	memory, err := ghw.Memory()
-	if err != nil {
-		return 0, 0, 0, err
-	}
+	mem := sigar.Mem{}
+	//swap := sigar.Swap{}
 
-	total = uint64(memory.TotalUsableBytes)
-	// ghw doesn't provide used/free directly, but we can estimate
-	// For unified memory GPUs, we report total system RAM as available VRAM
-	// since the GPU can potentially use all of it
-	free = total
-	used = 0
+	mem.Get() //nolint:errcheck
+	//swap.Get() //nolint:errcheck
+
+	total = mem.Total
+	free = mem.ActualFree
+	used = mem.ActualUsed
 
 	return total, used, free, nil
 }
@@ -560,77 +560,25 @@ func getIntelGPUTop() []GPUMemoryInfo {
 
 // GetSystemRAMInfo returns real-time system RAM usage
 func GetSystemRAMInfo() (*SystemRAMInfo, error) {
-	memory, err := ghw.Memory()
+	total, used, free, err := getSystemRAM()
 	if err != nil {
 		return nil, err
 	}
-
-	total := uint64(memory.TotalUsableBytes)
-
-	// Try to get more accurate memory info from /proc/meminfo on Linux
-	used, available, free := getDetailedMemoryInfo(total)
 
 	usagePercent := 0.0
 	if total > 0 {
 		usagePercent = float64(used) / float64(total) * 100
 	}
 
+	fmt.Println("total", total, "used", used, "free", free)
+
 	return &SystemRAMInfo{
 		Total:        total,
 		Used:         used,
 		Free:         free,
-		Available:    available,
+		Available:    total - used,
 		UsagePercent: usagePercent,
 	}, nil
-}
-
-// getDetailedMemoryInfo tries to get detailed memory info from /proc/meminfo on Linux
-// Returns used, available, and free memory in bytes
-func getDetailedMemoryInfo(total uint64) (used, available, free uint64) {
-	// Try to read /proc/meminfo for more accurate data
-	cmd := exec.Command("cat", "/proc/meminfo")
-	var stdout bytes.Buffer
-	cmd.Stdout = &stdout
-
-	if err := cmd.Run(); err != nil {
-		// Fallback: assume all memory is available
-		return 0, total, total
-	}
-
-	lines := strings.Split(stdout.String(), "\n")
-	memInfo := make(map[string]uint64)
-
-	for _, line := range lines {
-		parts := strings.Fields(line)
-		if len(parts) < 2 {
-			continue
-		}
-		key := strings.TrimSuffix(parts[0], ":")
-		value, err := strconv.ParseUint(parts[1], 10, 64)
-		if err != nil {
-			continue
-		}
-		// Values in /proc/meminfo are in kB
-		memInfo[key] = value * 1024
-	}
-
-	// Get MemAvailable if present (preferred), otherwise calculate from free + buffers + cached
-	if avail, ok := memInfo["MemAvailable"]; ok {
-		available = avail
-	} else {
-		available = memInfo["MemFree"] + memInfo["Buffers"] + memInfo["Cached"]
-	}
-
-	free = memInfo["MemFree"]
-
-	// Calculate used memory
-	if total > available {
-		used = total - available
-	} else {
-		used = 0
-	}
-
-	return used, available, free
 }
 
 // GetResourceInfo returns GPU info if available, otherwise system RAM info
