@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "eurollm-22b-instruct-2512-i1"
+  urls:
+    - https://huggingface.co/mradermacher/EuroLLM-22B-Instruct-2512-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the original **EuroLLM-22B-Instruct** (22 billion parameters), a large language model developed by the **utter-project** team. The quantized version (quantize_version: 2) is optimized for efficiency, enabling deployment on hardware with limited memory. It retains the core capabilities of the original model, including instruction-following and multilingual support, but is tailored for performance in resource-constrained environments. The quantization types listed (e.g., Q4_K_S, IQ2_M) indicate it is designed for reduced inference latency and lower memory usage. This version is derived from the base model hosted at [utter-project/EuroLLM-22B-Instruct-2512](https://huggingface.co/utter-project/EuroLLM-22B-Instruct-2512).
+  overrides:
+    parameters:
+      model: llama-cpp/models/EuroLLM-22B-Instruct-2512.i1-Q4_K_M.gguf
+    name: EuroLLM-22B-Instruct-2512-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/EuroLLM-22B-Instruct-2512-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/EuroLLM-22B-Instruct-2512.i1-Q4_K_M.gguf
+      sha256: 2a56b2e8141aa5e4ee9657779a4adc8878a0cc1ac37c664130cdf8a2186d3945
+      uri: https://huggingface.co/mradermacher/EuroLLM-22B-Instruct-2512-i1-GGUF/resolve/main/EuroLLM-22B-Instruct-2512.i1-Q4_K_M.gguf
+
