@@ -23172,3 +23172,43 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "deepdatademon-8b"
+  urls:
+    - https://huggingface.co/SleepyReLU/DeepDataDemon-8B-GGUF
+  description: |
+    **DeepDataDemon-8B GGUF v0.2**
+    An experimental, quantized version of the Llama-3 8B base model, finetuned for dark sci-fi and horror roleplay. Designed to generate eerie, immersive narratives, this model emphasizes psychological tension and unconventional storytelling.
+
+    **Key Features:**
+    - **Format:** GGUF (single-file, lightweight for deployment)
+    - **Quantization Options:** Q4_K_M (~4.5GB), Q8_0 (~8.5GB), F16 (~16GB)
+    - **Use Case:** Sci-fi/RP scenarios with a focus on eerie, unsettling themes
+    - **Warning:** Not fully tested for safety; may produce harmful outputs outside roleplay contexts
+
+    **Best For:**
+    - Users seeking a model for creative, horror-themed roleplay
+    - Developers needing a compact, deployable LLM variant
+
+    **Note:** Experimental and unfinished—suitable for exploration but not production-ready.
+  overrides:
+    parameters:
+      model: llama-cpp/models/model-q8.gguf
+    name: DeepDataDemon-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/SleepyReLU/DeepDataDemon-8B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/model-q8.gguf
+      sha256: fa70c0c9cb7d35c1b986599ffad74f856b0a08affe1a064fd00c8ba9a7598b93
+      uri: https://huggingface.co/SleepyReLU/DeepDataDemon-8B-GGUF/resolve/main/model-q8.gguf
+
