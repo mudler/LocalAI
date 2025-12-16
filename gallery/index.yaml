@@ -23172,3 +23172,37 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "nxcode-safecoder-30b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/NxCode-SafeCoder-30B-i1-GGUF
+  description: |
+    The model described here is a **quantized version** of the **NxCode-SafeCoder-30B** base model, originally developed by NxcodeOfficial. This quantized variant is optimized for efficiency while retaining the core capabilities of the original 30B-parameter model. It supports multiple languages, including English and programming languages like C, C++, PHP, and others, and is designed for tasks such as **code repair**, **security analysis**, and **chain-of-thought reasoning**.
+
+    Key features include:
+    - **Quantization types**: i1-Q2_K, i1-IQ3_M, and others, balancing performance and memory usage.
+    - **Use cases**: Code generation, code debugging, and multi-language NLP tasks.
+    - **Tags**: `security`, `code-repair`, `moe`, `chain-of-thought`, and `NLP`.
+
+    This model is ideal for applications requiring large-scale language understanding and code-related workflows, with a focus on safety and reliability. The original model (NxCode-SafeCoder-30B) is available on Hugging Face under the Apache-2.0 license.
+  overrides:
+    parameters:
+      model: llama-cpp/models/NxCode-SafeCoder-30B.imatrix.gguf
+    name: NxCode-SafeCoder-30B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/NxCode-SafeCoder-30B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/NxCode-SafeCoder-30B.imatrix.gguf
+      sha256: 3cafa48d7a98e63ae79f18a86324ba1961ed9441d0eb0424deda76c275ab5bd5
+      uri: https://huggingface.co/mradermacher/NxCode-SafeCoder-30B-i1-GGUF/resolve/main/NxCode-SafeCoder-30B.imatrix.gguf
+
