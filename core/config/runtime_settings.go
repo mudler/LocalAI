@@ -32,10 +32,12 @@ type RuntimeSettings struct {
 	LRUEvictionRetryInterval   *string `json:"lru_eviction_retry_interval,omitempty"`   // Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)
 
 	// Performance settings
-	Threads     *int  `json:"threads,omitempty"`
-	ContextSize *int  `json:"context_size,omitempty"`
-	F16         *bool `json:"f16,omitempty"`
-	Debug       *bool `json:"debug,omitempty"`
+	Threads         *int  `json:"threads,omitempty"`
+	ContextSize     *int  `json:"context_size,omitempty"`
+	F16             *bool `json:"f16,omitempty"`
+	Debug           *bool `json:"debug,omitempty"`
+	EnableTracing   *bool `json:"enable_tracing,omitempty"`
+	TracingMaxItems *int  `json:"tracing_max_items,omitempty"`
 
 	// Security/CORS settings
 	CORS             *bool   `json:"cors,omitempty"`

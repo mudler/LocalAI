@@ -9,22 +9,17 @@ require (
 	fyne.io/fyne/v2 v2.7.1
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.13.0
-	github.com/census-instrumentation/opencensus-proto v0.2.1
 	github.com/charmbracelet/glamour v0.10.0
-	github.com/cncf/xds/go v0.0.0-20251022180443-0feb69152e9f
 	github.com/containerd/containerd v1.7.30
 	github.com/ebitengine/purego v0.9.1
+	github.com/emirpasic/gods/v2 v2.0.0-alpha
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-audio/wav v1.1.0
 	github.com/go-skynet/go-llama.cpp v0.0.0-20240314183750-6a8041ef6b46
-	github.com/gofiber/fiber/v2 v2.52.10
-	github.com/gofiber/websocket/v2 v2.2.1
 	github.com/gofrs/flock v0.13.0
-	github.com/golang/protobuf v1.5.4
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
 	github.com/gpustack/gguf-parser-go v0.22.1
-	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.21.2
@@ -62,7 +57,6 @@ require (
 	go.opentelemetry.io/otel/exporters/prometheus v0.61.0
 	go.opentelemetry.io/otel/metric v1.39.0
 	go.opentelemetry.io/otel/sdk/metric v1.39.0
-	google.golang.org/api v0.218.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v2 v2.4.0
@@ -71,24 +65,10 @@ require (
 )
 
 require (
-	cel.dev/expr v0.24.0 // indirect
-	cloud.google.com/go/auth v0.14.0 // indirect
-	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
-	cloud.google.com/go/compute/metadata v0.9.0 // indirect
-	github.com/envoyproxy/protoc-gen-validate v1.2.1 // indirect
-	github.com/fasthttp/websocket v1.5.3 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
-	github.com/google/s2a-go v0.1.9 // indirect
-	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
-	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
-	github.com/savsgio/gotils v0.0.0-20230208104028-c358bd845dee // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
-	github.com/valyala/fasthttp v1.51.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
-	github.com/valyala/tcplisten v1.0.0 // indirect
-	google.golang.org/genproto v0.0.0-20241118233622-e639e219e697 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20251022142026-3a174f9686a8 // indirect
 )
 
 require (

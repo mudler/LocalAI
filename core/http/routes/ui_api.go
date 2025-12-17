@@ -956,14 +956,14 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "Tracing disabled",
 				})
 		}
-		logs := middleware.GetAPILogs()
+		traces := middleware.GetTraces()
 		return c.JSON(200, map[string]interface{}{
-			"logs": logs,
+			"traces": traces,
 		})
 	})
 
 	app.POST("/api/traces/clear", func(c echo.Context) error {
-		middleware.ClearAPILogs()
+		middleware.ClearTraces()
 		return c.JSON(200, map[string]interface{}{
 			"message": "Traces cleared",
 		})

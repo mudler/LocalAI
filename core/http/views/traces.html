@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="flex flex-col min-h-screen" x-data="tracesApp()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+
+        <!-- Hero Header -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    API Traces
+                </h1>
+                <p class="hero-subtitle">View logged API requests and responses</p>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <button @click="clearTraces()" class="btn-secondary text-sm py-1.5 px-3">
+                        <i class="fas fa-trash mr-1.5 text-[10px]"></i>
+                        <span>Clear Traces</span>
+                    </button>
+                    <a href="/api/traces" download="traces.json" class="btn-secondary text-sm py-1.5 px-3">
+                        <i class="fas fa-download mr-1.5 text-[10px]"></i>
+                        <span>Export Traces</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tracing Settings -->
+        <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-lg p-6 mb-8">
+            <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                <i class="fas fa-bug mr-2 text-[var(--color-primary)] text-sm"></i>
+                Tracing Settings
+            </h2>
+            <p class="text-xs text-[var(--color-text-secondary)] mb-4">Configure API tracing</p>
+
+            <div class="space-y-4">
+                <!-- Enable Tracing -->
+                <div class="flex items-center justify-between">
+                    <div>
+                        <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Tracing</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable tracing of requests and responses</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" x-model="settings.enable_tracing"
+                               @change="updateTracingEnabled()"
+                               class="sr-only peer">
+                        <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                    </label>
+                </div>
+
+                <!-- Tracing Max Items -->
+                <div>
+                    <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Tracing Max Items</label>
+                    <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of tracing items to keep (0 = unlimited)</p>
+                    <input type="number" x-model="settings.tracing_max_items"
+                           min="0"
+                           placeholder="1000"
+                           :disabled="!settings.enable_tracing"
+                           class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
+                           :class="!settings.enable_tracing ? 'opacity-50 cursor-not-allowed' : ''">
+                </div>
+
+                <!-- Save Button -->
+                <div class="flex justify-end pt-2">
+                    <button @click="saveTracingSettings()"
+                            :disabled="saving"
+                            class="btn-primary px-4 py-2 text-sm">
+                        <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
+                        <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Traces Table -->
+        <div class="mt-8">
+            <div class="overflow-x-auto">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Method</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Path</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Status</th>
+                            <th class="text-right p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template x-for="(trace, index) in traces" :key="index">
+                            <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
+                                <td class="p-2" x-text="trace.request.method"></td>
+                                <td class="p-2" x-text="trace.request.path"></td>
+                                <td class="p-2" x-text="trace.response.status"></td>
+                                <td class="p-2 text-right">
+                                    <button @click="showDetails(index)" class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded p-1 transition-colors">
+                                        <i class="fas fa-eye text-xs"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Details Modal -->
+        <div x-show="selectedTrace !== null" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" @click="selectedTrace = null">
+            <div class="bg-[var(--color-bg-secondary)] rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-auto" @click.stop>
+                <div class="flex justify-between mb-4">
+                    <h2 class="h3">Trace Details</h2>
+                    <button @click="selectedTrace = null" class="text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Request Body</h3>
+                        <div id="requestEditor" class="h-96 border border-[var(--color-primary-border)]/20"></div>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-2">Response Body</h3>
+                        <div id="responseEditor" class="h-96 border border-[var(--color-primary-border)]/20"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    {{template "views/partials/footer" .}}
+
+</div>
+
+<!-- CodeMirror -->
+<link rel="stylesheet" href="static/assets/codemirror.min.css">
+<script src="static/assets/codemirror.min.js"></script>
+<script src="static/assets/javascript.min.js"></script>
+
+<!-- Styles from model-editor -->
+<style>
+.CodeMirror {
+    height: 100% !important;
+    font-family: monospace;
+}
+</style>
+
+<script>
+function tracesApp() {
+    return {
+        traces: [],
+        selectedTrace: null,
+        requestEditor: null,
+        responseEditor: null,
+        notifications: [],
+        settings: {
+            enable_tracing: false,
+            tracing_max_items: 0
+        },
+        saving: false,
+
+        init() {
+            this.loadTracingSettings();
+            this.fetchTraces();
+            setInterval(() => this.fetchTraces(), 5000);
+        },
+
+        async loadTracingSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.settings.enable_tracing = data.enable_tracing || false;
+                    this.settings.tracing_max_items = data.tracing_max_items || 0;
+                } else {
+                    this.addNotification('Failed to load tracing settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error loading tracing settings:', error);
+                this.addNotification('Failed to load tracing settings: ' + error.message, 'error');
+            }
+        },
+
+        updateTracingEnabled() {
+            if (!this.settings.enable_tracing) {
+                this.settings.tracing_max_items = 0;
+            }
+        },
+
+        async saveTracingSettings() {
+            if (this.saving) return;
+
+            this.saving = true;
+
+            try {
+                const payload = {
+                    enable_tracing: this.settings.enable_tracing,
+                    tracing_max_items: parseInt(this.settings.tracing_max_items) || 0
+                };
+
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    this.addNotification('Tracing settings saved successfully!', 'success');
+                } else {
+                    this.addNotification('Failed to save tracing settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error saving tracing settings:', error);
+                this.addNotification('Failed to save tracing settings: ' + error.message, 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        addNotification(message, type = 'success') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            setTimeout(() => this.dismissNotification(id), 5000);
+        },
+
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+
+        async fetchTraces() {
+            const response = await fetch('/api/traces');
+            this.traces = await response.json();
+        },
+
+        async clearTraces() {
+            if (confirm('Clear all traces?')) {
+                await fetch('/api/traces/clear', { method: 'POST' });
+                this.traces = [];
+            }
+        },
+
+        showDetails(index) {
+            this.selectedTrace = index;
+            this.$nextTick(() => {
+                const trace = this.traces[index];
+
+                const decodeBase64 = (base64) => {
+                    const binaryString = atob(base64);
+                    const bytes = new Uint8Array(binaryString.length);
+                    for (let i = 0; i < binaryString.length; i++) {
+                        bytes[i] = binaryString.charCodeAt(i);
+                    }
+                    return new TextDecoder().decode(bytes);
+                };
+
+                const formatBody = (bodyText) => {
+                    try {
+                        const json = JSON.parse(bodyText);
+                        return JSON.stringify(json, null, 2);
+                    } catch {
+                        return bodyText;
+                    }
+                };
+
+                const reqBody = formatBody(decodeBase64(trace.request.body));
+                const resBody = formatBody(decodeBase64(trace.response.body));
+
+                if (!this.requestEditor) {
+                    this.requestEditor = CodeMirror(document.getElementById('requestEditor'), {
+                        value: reqBody,
+                        mode: 'javascript',
+                        json: true,
+                        theme: 'default',
+                        lineNumbers: true,
+                        readOnly: true,
+                        lineWrapping: true
+                    });
+                } else {
+                    this.requestEditor.setValue(reqBody);
+                }
+
+                if (!this.responseEditor) {
+                    this.responseEditor = CodeMirror(document.getElementById('responseEditor'), {
+                        value: resBody,
+                        mode: 'javascript',
+                        json: true,
+                        theme: 'default',
+                        lineNumbers: true,
+                        readOnly: true,
+                        lineWrapping: true
+                    });
+                } else {
+                    this.responseEditor.setValue(resBody);
+                }
+            });
+        }
+    }
+}
+</script>
+
+</body>
+</html>

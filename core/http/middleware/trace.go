@@ -2,43 +2,40 @@ package middleware
 
 import (
 	"bytes"
+	"github.com/emirpasic/gods/v2/queues/circularbuffer"
 	"io"
 	"net/http"
+	"sort"
 	"sync"
+	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
+type APIExchangeRequest struct {
+	Method  string       `json:"method"`
+	Path    string       `json:"path"`
+	Headers *http.Header `json:"headers"`
+	Body    *[]byte      `json:"body"`
+}
+
+type APIExchangeResponse struct {
+	Status  int          `json:"status"`
+	Headers *http.Header `json:"headers"`
+	Body    *[]byte      `json:"body"`
+}
+
 type APIExchange struct {
-	Request struct {
-		Method  string
-		Path    string
-		Headers http.Header
-		Body    []byte
-	}
-	Response struct {
-		Status  int
-		Headers http.Header
-		Body    []byte
-	}
+	Timestamp time.Time           `json:"timestamp"`
+	Request   APIExchangeRequest  `json:"request"`
+	Response  APIExchangeResponse `json:"response"`
 }
 
-var apiLogs []APIExchange
+var traceBuffer *circularbuffer.Queue[APIExchange]
 var mu sync.Mutex
-var logChan = make(chan APIExchange, 100) // Buffered channel for serialization
-
-func init() {
-	go func() {
-		for exchange := range logChan {
-			mu.Lock()
-			apiLogs = append(apiLogs, exchange)
-			mu.Unlock()
-			log.Debug().Msgf("Logged exchange: %s %s - Status: %d", exchange.Request.Method, exchange.Request.Path, exchange.Response.Status)
-		}
-	}()
-}
+var logChan = make(chan APIExchange, 100)
 
 type bodyWriter struct {
 	http.ResponseWriter
@@ -58,25 +55,38 @@ func (w *bodyWriter) Flush() {
 
 // TraceMiddleware intercepts and logs JSON API requests and responses
 func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
+	if app.ApplicationConfig().EnableTracing && traceBuffer == nil {
+		traceBuffer = circularbuffer.New[APIExchange](app.ApplicationConfig().TracingMaxItems)
+
+		go func() {
+			for exchange := range logChan {
+				mu.Lock()
+				traceBuffer.Enqueue(exchange)
+				mu.Unlock()
+			}
+		}()
+	}
+
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			if !app.ApplicationConfig().EnableTracing {
 				return next(c)
 			}
 
-			// Only log if Content-Type is application/json
 			if c.Request().Header.Get("Content-Type") != "application/json" {
 				return next(c)
 			}
 
 			body, err := io.ReadAll(c.Request().Body)
 			if err != nil {
-				log.Error().Err(err).Msg("Failed to read request body")
+				xlog.Error("Failed to read request body")
 				return err
 			}
 
 			// Restore the body for downstream handlers
 			c.Request().Body = io.NopCloser(bytes.NewBuffer(body))
+
+			startTime := time.Now()
 
 			// Wrap response writer to capture body
 			resBody := new(bytes.Buffer)
@@ -93,34 +103,31 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 			}
 
 			// Create exchange log
+			requestHeaders := c.Request().Header.Clone()
+			requestBody := make([]byte, len(body))
+			copy(requestBody, body)
+			responseHeaders := c.Response().Header().Clone()
+			responseBody := make([]byte, resBody.Len())
+			copy(responseBody, resBody.Bytes())
 			exchange := APIExchange{
-				Request: struct {
-					Method  string
-					Path    string
-					Headers http.Header
-					Body    []byte
-				}{
+				Timestamp: startTime,
+				Request: APIExchangeRequest{
 					Method:  c.Request().Method,
 					Path:    c.Path(),
-					Headers: c.Request().Header.Clone(),
-					Body:    body,
+					Headers: &requestHeaders,
+					Body:    &requestBody,
 				},
-				Response: struct {
-					Status  int
-					Headers http.Header
-					Body    []byte
-				}{
+				Response: APIExchangeResponse{
 					Status:  c.Response().Status,
-					Headers: c.Response().Header().Clone(),
-					Body:    resBody.Bytes(),
+					Headers: &responseHeaders,
+					Body:    &responseBody,
 				},
 			}
 
-			// Send to channel (non-blocking)
 			select {
 			case logChan <- exchange:
 			default:
-				log.Warn().Msg("API log channel full, dropping log")
+				xlog.Warn("Trace channel full, dropping trace")
 			}
 
 			return nil
@@ -128,16 +135,22 @@ func TraceMiddleware(app *application.Application) echo.MiddlewareFunc {
 	}
 }
 
-// GetAPILogs returns a copy of the logged API exchanges for display
-func GetAPILogs() []APIExchange {
+// GetTraces returns a copy of the logged API exchanges for display
+func GetTraces() []APIExchange {
 	mu.Lock()
-	defer mu.Unlock()
-	return append([]APIExchange{}, apiLogs...)
+	traces := traceBuffer.Values()
+	mu.Unlock()
+
+	sort.Slice(traces, func(i, j int) bool {
+		return traces[i].Timestamp.Before(traces[j].Timestamp)
+	})
+
+	return traces
 }
 
-// ClearAPILogs clears the in-memory logs
-func ClearAPILogs() {
+// ClearTraces clears the in-memory logs
+func ClearTraces() {
 	mu.Lock()
-	apiLogs = nil
+	traceBuffer.Clear()
 	mu.Unlock()
 }
