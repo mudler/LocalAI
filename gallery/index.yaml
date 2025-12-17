@@ -23172,3 +23172,37 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *vibevoice
+  name: "dasiwawan22i2v14b"
+  urls:
+    - https://huggingface.co/Bedovyy/dasiwaWAN22I2V14B-GGUF
+  description: |
+    The model in this repository is a **quantized version** of the original **dasiwaWAN22I2V14B** model, which is a large language model based on the **WAN2.2** architecture. The quantization process involved **FP8 dequantization** using the [Dequant-FP8-ComfyUI](https://github.com/Kickbub/Dequant-FP8-ComfyUI) tool and subsequent **GGUF conversion** via [ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF).
+
+    The original model (before quantization) is available on [Civitai](https://civit.ai/models/1981116) and is part of the **I2V** (Image-to-Voice) series, optimized for text generation and creative tasks. This quantized version retains the core capabilities of the base model but is optimized for lower memory usage and faster inference.
+
+    Available variants include branches like **MidnightFlirt**, **LureNoir**, and **RadiantCrush**, each tailored for specific creative applications. For the most accurate and original description, refer to the base model on Civitai.
+  overrides:
+    parameters:
+      model: llama-cpp/models/dasiwaWAN22I2V14B_midnightflirtHigh-Q4_K_M.gguf
+    name: dasiwaWAN22I2V14B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Bedovyy/dasiwaWAN22I2V14B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/dasiwaWAN22I2V14B_midnightflirtHigh-Q4_K_M.gguf
+      sha256: c858eaffd7ac41057afcafdb1a672c0af4556e7f4381b619d22614da11a00c8e
+      uri: https://huggingface.co/Bedovyy/dasiwaWAN22I2V14B-GGUF/resolve/main/HighNoise/dasiwaWAN22I2V14B_midnightflirtHigh-Q4_K_M.gguf
+    - filename: llama-cpp/models/dasiwaWAN22I2V14B_midnightflirtLow-Q4_K_M.gguf
+      sha256: 66e3fa587bcfb856f232f401a17123b313ab0aa62180030f99f65dca4050d8a5
+      uri: https://huggingface.co/Bedovyy/dasiwaWAN22I2V14B-GGUF/resolve/main/LowNoise/dasiwaWAN22I2V14B_midnightflirtLow-Q4_K_M.gguf
+
