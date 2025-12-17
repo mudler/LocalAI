@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "nanbeige4-3b-thinking-2511-claude-4.5-opus-high-reasoning-distill-v2-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2-i1-GGUF
+  description: |
+    **Nanbeige4-3B-Thinking** is a compact yet powerful language model distilled from a larger foundation, optimized for efficient reasoning and creative tasks. With 3 billion parameters, it excels in complex benchmarks like AIME, GPQA-Diamond, and BFCL-V4, achieving state-of-the-art results among models under 32B parameters. The model incorporates advanced knowledge distillation and reinforcement learning to enhance reasoning capabilities, making it suitable for tasks requiring logical deduction, multi-step reasoning, and high-quality text generation. Available in GGUF format for efficient inference, it balances performance with reduced computational demands, ideal for applications needing both speed and reliability.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2.i1-Q4_K_M.gguf
+    name: Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2.i1-Q4_K_M.gguf
+      sha256: 5cbc4855b68721d1c7922c0a031cbdc01d0b022911e3b17ead1e73a747151851
+      uri: https://huggingface.co/mradermacher/Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2-i1-GGUF/resolve/main/Nanbeige4-3B-Thinking-2511-Claude-4.5-Opus-High-Reasoning-Distill-V2.i1-Q4_K_M.gguf
+
