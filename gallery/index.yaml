@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama33
+  name: "rencoder-ministral-3-8b-instruct-2512-i1"
+  urls:
+    - https://huggingface.co/mradermacher/RenCoder-Ministral-3-8B-Instruct-2512-i1-GGUF
+  description: |
+    The **RenCoder-Ministral-3-8B-Instruct-2512** model is a large language model optimized for instruction-following tasks, based on the base model **pankajmathur/RenCoder-Ministral-3-8B-Instruct-2512**. It is quantized into multiple formats (e.g., IQ2_M, Q4_K_M, IQ4_XS) to balance performance and efficiency, with a focus on speed and resource optimization. The model supports 10 languages (English, French, German, Spanish, Italian, Portuguese, Chinese, Japanese, Russian, Korean) and is designed for vision tasks, with additional mmproj files available in a static repository. Licensed under Apache 2.0, it provides high-quality, lightweight variants suitable for inference on diverse hardware.
+  overrides:
+    parameters:
+      model: llama-cpp/models/RenCoder-Ministral-3-8B-Instruct-2512.i1-Q4_K_M.gguf
+    name: RenCoder-Ministral-3-8B-Instruct-2512-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/RenCoder-Ministral-3-8B-Instruct-2512-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/RenCoder-Ministral-3-8B-Instruct-2512.i1-Q4_K_M.gguf
+      sha256: aa5f8406517fcb4a0f00e615eab1d437ba681fec2dad84b59d1ff5408e420cb5
+      uri: https://huggingface.co/mradermacher/RenCoder-Ministral-3-8B-Instruct-2512-i1-GGUF/resolve/main/RenCoder-Ministral-3-8B-Instruct-2512.i1-Q4_K_M.gguf
+
