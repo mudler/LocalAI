@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "nemotron-super-49b-roleplay-sft"
+  urls:
+    - https://huggingface.co/mradermacher/Nemotron-Super-49B-Roleplay-SFT-GGUF
+  description: |
+    The **Nemotron-Super-49B-Roleplay-SFT** is a large language model with 49 billion parameters, designed for advanced roleplay and conversational tasks. Developed by **ConicCat**, it is part of the Nemotron series, known for its scalability and efficiency. The model is trained on extensive data to excel in natural language understanding and generation, making it suitable for applications requiring deep contextual awareness and interactive dialogue. It is optimized for performance on hardware with lower memory constraints, though the original unquantized version retains its full capacity for high-demand tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nemotron-Super-49B-Roleplay-SFT.Q4_K_M.gguf
+    name: Nemotron-Super-49B-Roleplay-SFT-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nemotron-Super-49B-Roleplay-SFT-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Nemotron-Super-49B-Roleplay-SFT.Q4_K_M.gguf
+      sha256: 6ddb25f40b0af4cf6cd2bca7faed367b1f152f013be78e2e1bb9820d20df087a
+      uri: https://huggingface.co/mradermacher/Nemotron-Super-49B-Roleplay-SFT-GGUF/resolve/main/Nemotron-Super-49B-Roleplay-SFT.Q4_K_M.gguf
+
