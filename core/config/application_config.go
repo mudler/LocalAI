@@ -20,6 +20,7 @@ type ApplicationConfig struct {
 	F16                                 bool
 	Debug                               bool
 	EnableTracing                       bool
+	TracingMaxItems                     int
 	GeneratedContentDir                 string
 
 	UploadDir string
@@ -98,6 +99,7 @@ func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 		AgentJobRetentionDays:    30,              // Default: 30 days
 		LRUEvictionMaxRetries:    30,              // Default: 30 retries
 		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
+		TracingMaxItems:       1024,
 		PathWithoutAuth: []string{
 			"/static/",
 			"/generated-audio/",
@@ -423,6 +425,12 @@ func WithDebug(debug bool) AppOption {
 	}
 }
 
+func WithTracingMaxItems(items int) AppOption {
+	return func(o *ApplicationConfig) {
+		o.TracingMaxItems = items
+	}
+}
+
 func WithGeneratedContentDir(generatedContentDir string) AppOption {
 	return func(o *ApplicationConfig) {
 		o.GeneratedContentDir = generatedContentDir
@@ -548,6 +556,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	contextSize := o.ContextSize
 	f16 := o.F16
 	debug := o.Debug
+	tracingMaxItems := o.TracingMaxItems
+	enableTracing := o.EnableTracing
 	cors := o.CORS
 	csrf := o.CSRF
 	corsAllowOrigins := o.CORSAllowOrigins
@@ -604,6 +614,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		ContextSize:              &contextSize,
 		F16:                      &f16,
 		Debug:                    &debug,
+		TracingMaxItems:          &tracingMaxItems,
+		EnableTracing:            &enableTracing,
 		CORS:                     &cors,
 		CSRF:                     &csrf,
 		CORSAllowOrigins:         &corsAllowOrigins,
@@ -717,6 +729,12 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.Debug != nil {
 		o.Debug = *settings.Debug
+	}
+	if settings.EnableTracing != nil {
+		o.EnableTracing = *settings.EnableTracing
+	}
+	if settings.TracingMaxItems != nil {
+		o.TracingMaxItems = *settings.TracingMaxItems
 	}
 	if settings.CORS != nil {
 		o.CORS = *settings.CORS
