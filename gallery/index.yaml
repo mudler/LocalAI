@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "spark-270m-fp16"
+  urls:
+    - https://huggingface.co/TitleOS/Spark-270M-FP16-Q4_K_M-GGUF
+  description: |
+    **Spark-270M** is a compact, utility-focused language model with **270 million parameters**, derived from Google’s Gemma 3 270M base architecture. Designed for efficiency and specificity, it excels at generating concise title summaries, search queries, and logical follow-up questions—making it ideal for edge devices, rapid prototyping, or as a specialized "utility node" in agentic systems. Trained on synthetic textbook data distilled from a larger model, Spark-270M balances creativity with precision, inheriting traits from its teacher model (Lightning-1.7B) while maintaining a lightweight footprint. Its 32k-token context window and parameter-efficient quantized variants (e.g., Q4_K_M) enable fast inference without sacrificing core capabilities. Perfect for tasks requiring dense, actionable outputs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/spark-270m-fp16-q4_k_m.gguf
+    name: Spark-270M-FP16-Q4_K_M-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/TitleOS/Spark-270M-FP16-Q4_K_M-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/spark-270m-fp16-q4_k_m.gguf
+      sha256: b60d185da6e7536fcb5155af65cfb8a2619504c56d369832d0ccfd7f0b8a2f0e
+      uri: https://huggingface.co/TitleOS/Spark-270M-FP16-Q4_K_M-GGUF/resolve/main/spark-270m-fp16-q4_k_m.gguf
+
