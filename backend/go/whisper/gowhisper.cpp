@@ -107,7 +107,7 @@ int vad(float pcmf32[], size_t pcmf32_len, float **segs_out,
 }
 
 int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
-               float pcmf32[], size_t pcmf32_len, size_t *segs_out_len) {
+               float pcmf32[], size_t pcmf32_len, size_t *segs_out_len, char *prompt) {
   whisper_full_params wparams =
       whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
 
@@ -122,8 +122,10 @@ int transcribe(uint32_t threads, char *lang, bool translate, bool tdrz,
   wparams.debug_mode = true;
   wparams.print_progress = true;
   wparams.tdrz_enable = tdrz;
+  wparams.initial_prompt = prompt;
 
   fprintf(stderr, "info: Enable tdrz: %d\n", tdrz);
+  fprintf(stderr, "info: Initial prompt: \"%s\"\n", prompt);
 
   if (whisper_full(ctx, wparams, pcmf32, pcmf32_len)) {
     fprintf(stderr, "error: transcription failed\n");

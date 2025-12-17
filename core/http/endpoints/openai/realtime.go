@@ -593,6 +593,11 @@ func updateTransSession(session *Session, update *types.ClientSession, cl *confi
 		session.ModelInterface = m
 	}
 
+	if trUpd != nil {
+		trCur.Language = trUpd.Language
+		trCur.Prompt = trUpd.Prompt
+	}
+
 	if update.TurnDetection != nil && update.TurnDetection.Type != "" {
 		session.TurnDetection.Type = types.ServerTurnDetectionType(update.TurnDetection.Type)
 		session.TurnDetection.TurnDetectionParams = update.TurnDetection.TurnDetectionParams
@@ -790,6 +795,7 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 			Language:  session.InputAudioTranscription.Language,
 			Translate: false,
 			Threads:   uint32(*cfg.Threads),
+			Prompt:    session.InputAudioTranscription.Prompt,
 		})
 		if err != nil {
 			sendError(c, "transcription_failed", err.Error(), "", "event_TODO")
