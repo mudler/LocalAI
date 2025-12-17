@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "gary-nemotron-8b-v2"
+  urls:
+    - https://huggingface.co/SMOK33Y3/gary-nemotron-8b-v2-gguf
+  description: |
+    The **gary-nemotron-8b-v2-gguf** model is a quantized version of the Llama-3.1-Nemotron-Nano-8B base model, optimized for efficient inference. It features two quantized variants (Q4_K_M and Q8_0) to balance performance and memory usage. Finetuned with **Unsloth**, this model is compatible with **llama.cpp** tools like `llama-cli` and `llama-mtmd-cli`, making it ideal for text generation and multimodal tasks. Its GGUF format ensures compatibility with a wide range of inference frameworks, while adjustments to the BOS token improve GGUF-specific stability. Perfect for users seeking a high-performance, lightweight alternative to the original Nemotron model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.1-Nemotron-Nano-8B-v1.Q4_K_M.gguf
+    name: gary-nemotron-8b-v2-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/SMOK33Y3/gary-nemotron-8b-v2-gguf
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Llama-3.1-Nemotron-Nano-8B-v1.Q4_K_M.gguf
+      sha256: a6f58d4671de0e1be3830731c2594e43a32683c741688688d899eb2e2810bd90
+      uri: https://huggingface.co/SMOK33Y3/gary-nemotron-8b-v2-gguf/resolve/main/Llama-3.1-Nemotron-Nano-8B-v1.Q4_K_M.gguf
+
