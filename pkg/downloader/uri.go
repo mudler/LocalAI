@@ -225,7 +225,7 @@ func (s URI) ResolveURL() string {
 		repo := repoPieces[1]
 
 		branch := "main"
-		filepath := repoPieces[2]
+		filepath := strings.Join(repoPieces[2:], "/")
 
 		if len(repoID) > 1 {
 			if strings.Contains(repo, "@") {
