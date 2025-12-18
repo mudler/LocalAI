@@ -23172,3 +23172,36 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "smollm3-full-after-full"
+  urls:
+    - https://huggingface.co/mradermacher/SmolLM3-FULL-After-FULL-GGUF
+  description: |
+    The **SmolLM3-FULL-After-FULL** model is a compact yet powerful large language model optimized for efficiency and performance. Quantized versions (e.g., Q4_K_S, Q8_0, f16) allow flexible deployment, balancing speed and quality. The base model, developed by PumpkinCat, is quantized by mradermacher, offering multiple trade-offs for inference and fine-tuning. Key features include:
+
+    - **Quantization Options**: Ranges from 1.4GB (Q2_K) to 6.3GB (f16), with Q4_K_S and Q8_0 recommended for speed, and Q6_K/Q8_0 for high quality.
+    - **Use Cases**: Suitable for lightweight inference, low-resource environments, and rapid experimentation.
+    - **Documentation**: Detailed README with quantization details, usage guidelines, and links to model requests.
+
+    Ideal for users seeking efficient, adaptable large language models without sacrificing performance. 🚀
+  overrides:
+    parameters:
+      model: llama-cpp/models/SmolLM3-FULL-After-FULL.Q4_K_M.gguf
+    name: SmolLM3-FULL-After-FULL-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SmolLM3-FULL-After-FULL-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/SmolLM3-FULL-After-FULL.Q4_K_M.gguf
+      sha256: 5e9eaecc99e1198c6e8eaa9e767cdbe29fc4ec24bd13d52b1bb2ed9eaa36e2d7
+      uri: https://huggingface.co/mradermacher/SmolLM3-FULL-After-FULL-GGUF/resolve/main/SmolLM3-FULL-After-FULL.Q4_K_M.gguf
+
