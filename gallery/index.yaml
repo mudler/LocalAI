@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen25coder
+  name: "lm-expert-qwen2.5-coder-14b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/LM-Expert-Qwen2.5-Coder-14B-i1-GGUF
+  description: |
+    The model **LM-Expert-Qwen2.5-Coder-14B** is a large language model based on the **Qwen2.5** foundation, optimized for coding and research tasks. It features **14 billion parameters** and is trained on the **DS-LLM-Research-Extended-GPT** dataset, making it suitable for text generation, code completion, and specialized research applications. The base model (theprint/LM-Expert-Qwen2.5-Coder-14B) is available under the **Apache-2.0** license and is compatible with the **transformers** library. Quantized versions (e.g., i1-Q4_K_M) provide efficient, optimized variants for deployment, while the base model retains the full parameter count and original training capabilities. Ideal for developers and researchers requiring high-performance language modeling.
+  overrides:
+    parameters:
+      model: llama-cpp/models/LM-Expert-Qwen2.5-Coder-14B.i1-Q4_K_M.gguf
+    name: LM-Expert-Qwen2.5-Coder-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/LM-Expert-Qwen2.5-Coder-14B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/LM-Expert-Qwen2.5-Coder-14B.i1-Q4_K_M.gguf
+      sha256: ba956948293ecd897bde889935805c5f5b1d1f77ff2d9761189558697cd1f80d
+      uri: https://huggingface.co/mradermacher/LM-Expert-Qwen2.5-Coder-14B-i1-GGUF/resolve/main/LM-Expert-Qwen2.5-Coder-14B.i1-Q4_K_M.gguf
+
