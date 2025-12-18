@@ -956,6 +956,9 @@ parameters:
 			Expect(len(models.Models)).To(Equal(7)) // If "config.yaml" should be included, this should be 8?
 		})
 		It("can generate completions via ggml", func() {
+			if runtime.GOOS != "linux" {
+				Skip("test supported only on linux")
+			}
 			resp, err := client.CreateCompletion(context.TODO(), openai.CompletionRequest{Model: "testmodel.ggml", Prompt: testPrompt})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
@@ -963,6 +966,9 @@ parameters:
 		})
 
 		It("can generate chat completions via ggml", func() {
+			if runtime.GOOS != "linux" {
+				Skip("test supported only on linux")
+			}
 			resp, err := client.CreateChatCompletion(context.TODO(), openai.ChatCompletionRequest{Model: "testmodel.ggml", Messages: []openai.ChatCompletionMessage{openai.ChatCompletionMessage{Role: "user", Content: testPrompt}}})
 			Expect(err).ToNot(HaveOccurred())
 			Expect(len(resp.Choices)).To(Equal(1))
