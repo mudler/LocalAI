@@ -162,15 +162,11 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         echo "Package: *" >> /etc/apt/preferences.d/rocm-pin-600 && \
         echo "Pin: release o=repo.radeon.com" >> /etc/apt/preferences.d/rocm-pin-600 && \
         echo "Pin-Priority: 600" >> /etc/apt/preferences.d/rocm-pin-600 && \
-        # End setup steps for specific ROCm version
+        # End setup steps for specific ROCm version - the packages below will be installed from the configured repositories
         apt-get update && \
         apt-get install -y --no-install-recommends \
-            # Build dependencies
-            rocm-developer-tools \
-            rocm-hip-runtime-dev \
-            rocm-hip-sdk \
-            # Metapackage for the ROCm runtime + client tools
-            rocm && \
+            rocblas-dev \
+            hipblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         echo "amd" > /run/localai/capability && \
