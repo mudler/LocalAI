@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smolvlm
+  name: "nemotron-cascade-14b-thinking-claude-4.5-opus-high-reasoning-distill-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill-i1-GGUF
+  description: |
+    The model in question is a **14B parameter distillation of the Nemotron-Cascade series**, optimized for **high reasoning** and **complex problem-solving**. It combines the strengths of the original Nemotron architecture with enhanced capabilities in logical deduction, multilingual understanding, and structured reasoning. While the current repository is a quantized version (likely derived from the TeichAI original), the base model retains the core functionality of the series, making it a powerful tool for tasks requiring deep analytical thinking and contextual comprehension. It is designed for applications such as code generation, multi-step reasoning, and high-precision language tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill.i1-Q4_K_M.gguf
+    name: Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill.i1-Q4_K_M.gguf
+      sha256: 31e6fa8ff6b330780e68c28a11dc460312390d6afbcf9cfec1a26fa1bcdf1ed4
+      uri: https://huggingface.co/mradermacher/Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill-i1-GGUF/resolve/main/Nemotron-Cascade-14B-Thinking-Claude-4.5-Opus-High-Reasoning-Distill.i1-Q4_K_M.gguf
+
