@@ -63,11 +63,13 @@ ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
 ARG CUDA_MAJOR_VERSION
 ARG CUDA_MINOR_VERSION
+ARG ROCM_MAJOR_VERSION
+ARG ROCM_MINOR_VERSION
 ARG SKIP_DRIVERS=false
 ENV CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION}
 ENV CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION}
-ARG ROCM_MAJOR_VERSION=7
-ARG ROCM_MINOR_VERSION=1.1 # ROCm version to append to the major version, in the format of their apt repo (https://repo.radeon.com/rocm/apt/). Like `0_alpha` or `3.4`.
+ENV ROCM_MAJOR_VERSION=${ROCM_MAJOR_VERSION}
+ENV ROCM_MINOR_VERSION=${ROCM_MINOR_VERSION}
 ENV DEBIAN_FRONTEND=noninteractive
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -223,9 +225,7 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
             # Build dependencies
             rocm-developer-tools \
             rocm-hip-runtime-dev \
-            rocm-hip-sdk \
-            # Metapackage for the ROCm runtime + client tools
-            rocm && \
+            rocm-hip-sdk && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
