@@ -23172,3 +23172,38 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-coder-30b-a3b-it-heretic-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Coder-30B-A3B-IT-Heretic-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the **Qwen3-Coder-30B-A3B-IT-Heretic** large language model, originally authored by **TitleOS**. This quantized version (by **mradermacher**) is optimized for efficiency while retaining core capabilities, with support for multiple quantization types (e.g., i1-Q2_K, i1-IQ3_M) to balance performance and resource requirements.
+
+    Key features:
+    - **Base model**: 30B-parameter Qwen3-Coder, designed for code generation and advanced language tasks.
+    - **Quantization**: GGUF format with variants like i1-Q2_K (11.4 GB) and i1-IQ3_M (13.6 GB), suitable for deployment on hardware with limited memory.
+    - **License**: Apache 2.0, allowing commercial use with proper attribution.
+    - **Specialty**: Focuses on coding, technical reasoning, and text generation, with a "Heretic" variant suggesting a modified or uncensored training approach.
+
+    This model is ideal for developers and researchers needing a large language model tailored to code tasks, with flexible quantization options for different computational constraints.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Coder-30B-A3B-IT-Heretic.i1-Q4_K_M.gguf
+    name: Qwen3-Coder-30B-A3B-IT-Heretic-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-Coder-30B-A3B-IT-Heretic-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3-Coder-30B-A3B-IT-Heretic.i1-Q4_K_M.gguf
+      sha256: dc987f85086b7d4fb8b3093ff0d952430ab798958e37c457c20ca2e148d55dda
+      uri: https://huggingface.co/mradermacher/Qwen3-Coder-30B-A3B-IT-Heretic-i1-GGUF/resolve/main/Qwen3-Coder-30B-A3B-IT-Heretic.i1-Q4_K_M.gguf
+
