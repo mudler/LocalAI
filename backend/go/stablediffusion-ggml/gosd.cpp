@@ -688,7 +688,6 @@ int load_model(const char *model, char *model_path, char* options[], int threads
     ctx_params.vae_path = vae_path;
     ctx_params.taesd_path = taesd_path;
     ctx_params.control_net_path = control_net_path;
-    ctx_params.lora_model_dir = lora_dir;
     if (lora_dir && strlen(lora_dir) > 0) {
         lora_dir_path = std::string(lora_dir);
         fprintf(stderr, "LoRA model directory set to: %s\n", lora_dir);
@@ -801,21 +800,18 @@ void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prom
     // Clear previous LoRA data
     lora_vec.clear();
     lora_strings.clear();
-    
+
     // Parse LoRAs from prompt
     std::string prompt_str = prompt ? prompt : "";
     std::string negative_prompt_str = negative_prompt ? negative_prompt : "";
-    
+
     // Get lora_dir from ctx_params if available, otherwise use stored path
-    const char* lora_dir_to_use = ctx_params.lora_model_dir;
-    if (!lora_dir_to_use || strlen(lora_dir_to_use) == 0) {
-        lora_dir_to_use = lora_dir_path.empty() ? nullptr : lora_dir_path.c_str();
-    }
-    
+    const char* lora_dir_to_use = lora_dir_path.empty() ? nullptr : lora_dir_path.c_str();
+
     auto [loras, cleaned_prompt] = parse_loras_from_prompt(prompt_str, lora_dir_to_use);
     lora_vec = loras;
     cleaned_prompt_storage = cleaned_prompt;
-    
+
     // Also check negative prompt for LoRAs (though this is less common)
     auto [neg_loras, cleaned_negative] = parse_loras_from_prompt(negative_prompt_str, lora_dir_to_use);
     // Merge negative prompt LoRAs (though typically not used)
