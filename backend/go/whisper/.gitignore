@@ -3,5 +3,5 @@ sources/
 build/
 package/
 whisper
-libgowhisper.so
-
+*.so
+compile_commands.json

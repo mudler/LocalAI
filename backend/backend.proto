@@ -282,6 +282,7 @@ message TranscriptRequest {
   uint32 threads = 4;
   bool translate = 5;
   bool diarize = 6;
+  string prompt = 7;
 }
 
 message TranscriptResult {

@@ -23,6 +23,7 @@ type TranscriptCMD struct {
 	Diarize    bool   `short:"d" help:"Mark speaker turns"`
 	Threads    int    `short:"t" default:"1" help:"Number of threads used for parallel computation"`
 	ModelsPath string `env:"LOCALAI_MODELS_PATH,MODELS_PATH" type:"path" default:"${basepath}/models" help:"Path containing models used for inferencing" group:"storage"`
+	Prompt     string `short:"p" help:"Previous transcribed text or words that hint at what the model should expect"`
 }
 
 func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
@@ -57,7 +58,7 @@ func (t *TranscriptCMD) Run(ctx *cliContext.Context) error {
 		}
 	}()
 
-	tr, err := backend.ModelTranscription(t.Filename, t.Language, t.Translate, t.Diarize, ml, c, opts)
+	tr, err := backend.ModelTranscription(t.Filename, t.Language, t.Translate, t.Diarize, t.Prompt, ml, c, opts)
 	if err != nil {
 		return err
 	}
