@@ -20,8 +20,8 @@ FROM requirements AS requirements-drivers
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
-ARG ROCM_MAJOR_VERSION=6
-ARG ROCM_MINOR_VERSION=1 # ROCm version to append to the major version, in the format of their apt repo (https://repo.radeon.com/rocm/apt/). Like `0_alpha` or `3.4`.
+ARG ROCM_MAJOR_VERSION=5
+ARG ROCM_MINOR_VERSION=5.1 # ROCm version to append to the major version, in the format of their apt repo (https://repo.radeon.com/rocm/apt/). Like `0_alpha` or `3.4`.
 ARG SKIP_DRIVERS=false
 ARG TARGETARCH
 ARG TARGETVARIANT
