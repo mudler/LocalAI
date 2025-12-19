@@ -23172,3 +23172,38 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "psychosis-14b-v0"
+  urls:
+    - https://huggingface.co/Naphula/Psychosis-14B-v0-GGUF
+  description: |
+    **Model Name:** Psychosis-14B-v0-GGUF
+    **Base Models:** DavidAU/Gemma-The-Writer-9B, sam-paech/Darkest-muse-v1, sam-paech/Delirium-v1
+    **License:** Gemma
+    **Size:** 14B parameters (quantized, based on original models)
+    **Capabilities:** Creative writing, fiction storytelling, plot generation, scene continuation, roleplaying, horror, romance, and all genres.
+    **Library:** Hugging Face Transformers
+    **Use Case:** Ideal for writers, storytellers, and AI enthusiasts seeking a versatile tool for narrative creativity.
+
+    This model blends the strengths of multiple foundational models to deliver rich, imaginative outputs tailored for fiction, dialogue, and immersive storytelling.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Psychosis-14B-v0a_SCF-Q6_K.gguf
+    name: Psychosis-14B-v0-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Naphula/Psychosis-14B-v0-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Psychosis-14B-v0a_SCF-Q6_K.gguf
+      sha256: 743ca640e44a46e3b486c93494c3741d9b0af809e59cd5a9550e4d52df82f097
+      uri: https://huggingface.co/Naphula/Psychosis-14B-v0-GGUF/resolve/main/unablated/Psychosis-14B-v0a_SCF-Q6_K.gguf
+
