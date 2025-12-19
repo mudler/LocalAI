@@ -8,6 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/mudler/LocalAI/core/cli"
 	"github.com/mudler/LocalAI/internal"
+	"github.com/mudler/cogito/pkg/xlog"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -46,16 +47,7 @@ func main() {
 		kong.Description(
 			`  LocalAI is a drop-in replacement OpenAI API for running LLM, GPT and genAI models locally on CPU, GPUs with consumer grade hardware.
 
-Some of the models compatible are:
-  - Vicuna
-  - Koala
-  - GPT4ALL
-  - GPT4ALL-J
-  - Cerebras
-  - Alpaca
-  - StableLM (ggml quantized)
-
-For a list of all available models for one-click install, check out: https://models.localai.io
+For a list of all available models run local-ai models list
 
 Copyright: Ettore Di Giacinto
 
@@ -83,6 +75,10 @@ Version: ${version}
 	if cli.CLI.LogLevel == nil {
 		cli.CLI.LogLevel = &logLevel
 	}
+
+	// Set cogito logger to the same level as our logger
+	// Leave an empty format type
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), ""))
 
 	switch *cli.CLI.LogLevel {
 	case "error":
