@@ -838,7 +838,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 			job.Traces = append(job.Traces, trace)
 			s.jobs.Set(job.ID, job)
 		}),
-		cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
+		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
 			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).
 				Str("tool", t.Name).Str("reasoning", t.Reasoning).Interface("arguments", t.Arguments).
 				Msg("Tool call")
@@ -856,7 +856,9 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 			}
 			job.Traces = append(job.Traces, trace)
 			s.jobs.Set(job.ID, job)
-			return true
+			return cogito.ToolCallDecision{
+				Approved: true,
+			}
 		}),
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).

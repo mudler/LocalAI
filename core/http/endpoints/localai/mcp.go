@@ -143,9 +143,11 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				cogito.WithReasoningCallback(func(s string) {
 					log.Debug().Msgf("[model agent] [model: %s] Reasoning: %s", config.Name, s)
 				}),
-				cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
+				cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
 					log.Debug().Str("model", config.Name).Str("tool", t.Name).Str("reasoning", t.Reasoning).Interface("arguments", t.Arguments).Msg("[model agent] Tool call")
-					return true
+					return cogito.ToolCallDecision{
+						Approved: true,
+					}
 				}),
 				cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 					log.Debug().Str("model", config.Name).Str("tool", t.Name).Str("result", t.Result).Interface("tool_arguments", t.ToolArguments).Msg("[model agent] Tool call result")
@@ -206,14 +208,16 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			}
 		}
 
-		toolCallCallback := func(t *cogito.ToolChoice) bool {
+		toolCallCallback := func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
 			events <- MCPToolCallEvent{
 				Type:      "tool_call",
 				Name:      t.Name,
 				Arguments: t.Arguments,
 				Reasoning: t.Reasoning,
 			}
-			return true
+			return cogito.ToolCallDecision{
+				Approved: true,
+			}
 		}
 
 		toolCallResultCallback := func(t cogito.ToolStatus) {
