@@ -23172,3 +23172,38 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "hemlock-qwen3-coder-reap-25b-a3b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Hemlock-Qwen3-Coder-REAP-25B-A3B-i1-GGUF
+  description: |
+    The **Hemlock-Qwen3-Coder-REAP-25B-A3B** model is a large language model fine-tuned on **The Hemlock Programming Language**, designed for coding tasks. Based on the Cerebras Qwen3-Coder base model, it combines the power of Qwen3-Coder with specialized training on Hemlock to enhance code generation and programming-related capabilities.
+
+    **Key Features:**
+    - **Training**: Supervised Fine-Tuning (SFT) on Hemlock code, with 2 epochs, batch size 1 (accumulated 16 times), and 2048-token max length.
+    - **Efficiency**: Quantized to 4-bit (NF4) for faster inference and lower memory usage.
+    - **Use Case**: Ideal for coding tasks, with strong performance in code completion, logic reasoning, and language understanding.
+    - **Performance**: Optimized for deployment, balancing speed and accuracy for practical applications.
+
+    This model excels in programming environments, leveraging its training on Hemlock to deliver precise, context-aware code outputs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Hemlock-Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_M.gguf
+    name: Hemlock-Qwen3-Coder-REAP-25B-A3B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Hemlock-Qwen3-Coder-REAP-25B-A3B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Hemlock-Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_M.gguf
+      sha256: c1c5cf08f6a4dea9be749d8577c5341ff87de1cf11743627d1196d3ef87e09f2
+      uri: https://huggingface.co/mradermacher/Hemlock-Qwen3-Coder-REAP-25B-A3B-i1-GGUF/resolve/main/Hemlock-Qwen3-Coder-REAP-25B-A3B.i1-Q4_K_M.gguf
+
