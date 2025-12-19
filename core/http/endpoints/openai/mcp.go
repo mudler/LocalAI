@@ -107,9 +107,11 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			cogito.WithReasoningCallback(func(s string) {
 				log.Debug().Msgf("[model agent] [model: %s] Reasoning: %s", config.Name, s)
 			}),
-			cogito.WithToolCallBack(func(t *cogito.ToolChoice) bool {
+			cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
 				log.Debug().Msgf("[model agent] [model: %s] Tool call: %s, reasoning: %s, arguments: %+v", config.Name, t.Name, t.Reasoning, t.Arguments)
-				return true
+				return cogito.ToolCallDecision{
+					Approved: true,
+				}
 			}),
 			cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
 				log.Debug().Msgf("[model agent] [model: %s] Tool call result: %s, result: %s, tool arguments: %+v", config.Name, t.Name, t.Result, t.ToolArguments)

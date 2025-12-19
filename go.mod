@@ -30,9 +30,10 @@ require (
 	github.com/mholt/archiver/v3 v3.5.1
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/modelcontextprotocol/go-sdk v1.1.0
-	github.com/mudler/cogito v0.6.0
+	github.com/mudler/cogito v0.7.1
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
+	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/otiai10/copy v1.14.1
@@ -65,7 +66,6 @@ require (
 require (
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/labstack/gommon v0.4.2 // indirect
-	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2 // indirect
 	github.com/swaggo/files/v2 v2.0.2 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 )
@@ -273,7 +273,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.2 // indirect
 	github.com/pkg/errors v0.9.1
