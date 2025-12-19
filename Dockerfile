@@ -165,9 +165,9 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
         # End setup steps for specific ROCm version - the packages below will be installed from the configured repositories
         apt-get update && \
         apt-get install -y --no-install-recommends \
-            rocm-hip-runtime # Gives libomp.so\
-            rocblas-dev # Give librocblas.so \
-            hipblas-dev # Gives libhipblas.so && \
+            rocm-hip-runtime \
+            rocblas-dev \
+            hipblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         echo "amd" > /run/localai/capability && \
