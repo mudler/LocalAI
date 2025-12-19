@@ -23172,3 +23172,45 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "deepseek-v3.2-mxfp4"
+  urls:
+    - https://huggingface.co/stevescot1979/DeepSeek-V3.2-MXFP4-GGUF
+  description: |
+    **DeepSeek-V3.2 (MXFP4 Quantized)**
+    A compact, high-performance variant of the original DeepSeek-V3.2 model, optimized for efficient inference on modern hardware. This 341 GB version (72% smaller than the 1.2 TB BF16 base) retains the model's 128K-token context length while leveraging MXFP4 quantization for faster computation on Apple Silicon, NVIDIA GPUs, and other supported hardware.
+
+    **Key Features:**
+    - **Quantization:** MXFP4_MOE (4-bit MoE layers) + Q8_0 (8-bit standard layers)
+    - **Speed:** 2-3x faster inference than Q4_K_M with hardware acceleration
+    - **Compatibility:** Optimized for Apple M1/M2/M3, CUDA-enabled GPUs, and MXFP4-supported systems
+    - **Reassembly:** Split into 18 chunks; recombine via simple commands for macOS, Windows, or Python
+    - **Licensing:** Apache 2.0 (inherits from original DeepSeek-V3.2)
+
+    **Ideal For:**
+    - Users seeking efficient large language models with high context length
+    - Hardware with MXFP4 support (e.g., Apple Silicon, NVIDIA GPUs)
+    - Applications requiring fast inference without sacrificing accuracy
+
+    This quantized version balances performance and accessibility, making it a versatile choice for research, development, and deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-V3.2-MXFP4-chunk-012-of-018.gguf
+    name: DeepSeek-V3.2-MXFP4-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/stevescot1979/DeepSeek-V3.2-MXFP4-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/DeepSeek-V3.2-MXFP4-chunk-012-of-018.gguf
+      sha256: c3fee4df9b5ab41bde64a381d33d0eff3e036c8ba8fc6f4aeebfa6319e54ed36
+      uri: https://huggingface.co/stevescot1979/DeepSeek-V3.2-MXFP4-GGUF/resolve/main/DeepSeek-V3.2-MXFP4-chunk-012-of-018.gguf
+
