@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *phi-2-chat
+  name: "phi-2-electrical-engineering-q4_0"
+  urls:
+    - https://huggingface.co/introvoyz041/phi-2-electrical-engineering-Q4_0-GGUF
+  description: |
+    The **phi-2-electrical-engineering** model is a 2.7B-parameter variant of Microsoft’s Phi-2, fine-tuned for electrical engineering tasks. Trained on datasets focused on general electrical engineering, Kicad (EDA) software, and Python scripting for Kicad, it excels in answering domain-specific questions and generating code. Available in standard and GPTQ formats, it supports inference via `chat.py` or `chat-GPTQ.py`, with LoRA adaptation on a 48GB A40 GPU. Ideal for engineers and developers working with hardware design and embedded systems.
+  overrides:
+    parameters:
+      model: llama-cpp/models/phi-2-electrical-engineering-q4_0.gguf
+    name: phi-2-electrical-engineering-Q4_0-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/introvoyz041/phi-2-electrical-engineering-Q4_0-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/phi-2-electrical-engineering-q4_0.gguf
+      sha256: 896930248d24167b14bf8d1d8f944f988509117661fd1740681b8329388398b2
+      uri: https://huggingface.co/introvoyz041/phi-2-electrical-engineering-Q4_0-GGUF/resolve/main/phi-2-electrical-engineering-q4_0.gguf
+
