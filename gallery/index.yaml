@@ -23172,3 +23172,48 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "autoglm-phone-9b"
+  urls:
+    - https://huggingface.co/BlcaCola/AutoGLM-Phone-9B-GGUF
+  description: |
+    **AutoGLM-Phone-9B** is a **multimodal vision-language model** optimized for **mobile automation tasks**, designed to understand smartphone screenshots and generate actionable instructions. Built on the GLM-4V-9B architecture, it combines vision and text capabilities for phone-specific workflows.
+
+    **Key Features**:
+    - **Quantized variants** (Q2_K to Q8_0) offer trade-offs between quality and efficiency, with **Q8_0** providing the best balance of speed and performance.
+    - Requires the **mmproj file** for visual projection to enable vision understanding.
+    - Ideal for **phone automation** tasks like screenshot analysis, UI interaction, and task execution.
+
+    **Use Case**:
+    Automate smartphone operations by interpreting visual inputs (e.g., screen captures) and generating precise commands for device interaction.
+
+    **License**: MIT
+    **Related Project**: [Open-AutoGLM](https://github.com/zai-org/Open-AutoGLM)
+    **Supported by**: llama.cpp for deployment.
+
+    This model is a powerful tool for developers working on mobile AI applications requiring visual and textual processing.
+  overrides:
+    parameters:
+      model: llama-cpp/models/AutoGLM-Phone-9B-Q4_K_M.gguf
+    name: AutoGLM-Phone-9B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/AutoGLM-Phone-9B-mmproj.gguf
+    description: Imported from https://huggingface.co/BlcaCola/AutoGLM-Phone-9B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/AutoGLM-Phone-9B-Q4_K_M.gguf
+      sha256: 1b4dfd1797a2c86bbefa4a855450b0506bc04e6632c6adffc072af737b2daca7
+      uri: https://huggingface.co/BlcaCola/AutoGLM-Phone-9B-GGUF/resolve/main/AutoGLM-Phone-9B-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/AutoGLM-Phone-9B-mmproj.gguf
+      sha256: 6b03572d6c76acc09feac921d2d69210d253bc9b3e9e0f171993d709f4b6a563
+      uri: https://huggingface.co/BlcaCola/AutoGLM-Phone-9B-GGUF/resolve/main/AutoGLM-Phone-9B-mmproj.gguf
+
