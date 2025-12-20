@@ -23172,3 +23172,38 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "huihui-qwen3-next-80b-a3b-instruct-abliterated"
+  urls:
+    - https://huggingface.co/mradermacher/Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated-GGUF
+  description: |
+    The **Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated** is a large language model based on the **Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated** base model, quantized for efficient inference. This version is optimized for chat tasks and features **uncensored** capabilities, making it suitable for diverse conversational applications.
+
+    Key highlights:
+    - **Quantization**: Available in Q2_K (29.2 GB) and Q4_K_S (45.6 GB), with Q4_K_S recommended for faster performance.
+    - **Base Model**: A 80B parameter model from Huihui AI, fine-tuned for instruction-following and chat.
+    - **Use Case**: Ideal for open-ended dialogue, multi-turn conversations, and tasks requiring large-scale language understanding.
+    - **License**: MIT-licensed for open use.
+
+    Perfect for users seeking a powerful, efficient, and uncensored chat model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated.Q4_K_M.gguf
+    name: Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated.Q4_K_M.gguf
+      sha256: fc21ad98215cafb548d0386439cbc6dfeadc540f3fec9333f70b596c2504cd5e
+      uri: https://huggingface.co/mradermacher/Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated-GGUF/resolve/main/Huihui-Qwen3-Next-80B-A3B-Instruct-abliterated.Q4_K_M.gguf
+
