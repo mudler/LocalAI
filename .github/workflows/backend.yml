@@ -634,7 +634,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-rerankers'
+            tag-suffix: '-gpu-amd-rocm-6-rerankers'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -643,13 +643,13 @@ jobs:
             context: "./backend"
             ubuntu-version: '2204'
           - build-type: 'hipblas'
-            cuda-major-version: ""
-            cuda-minor-version: ""
+            rocm-major-version: "6"
+            rocm-minor-version: "4.3"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
+            tag-suffix: '-gpu-amd-rocm-6-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "ubuntu:22.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -660,7 +660,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-vllm'
+            tag-suffix: '-gpu-amd-rocm-6-vllm'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -673,7 +673,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-transformers'
+            tag-suffix: '-gpu-amd-rocm-6-transformers'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -686,7 +686,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-diffusers'
+            tag-suffix: '-gpu-amd-rocm-6-diffusers'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -700,7 +700,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-kokoro'
+            tag-suffix: '-gpu-amd-rocm-6-kokoro'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -713,7 +713,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-vibevoice'
+            tag-suffix: '-gpu-amd-rocm-6-vibevoice'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -726,7 +726,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
+            tag-suffix: '-gpu-amd-rocm-6-faster-whisper'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -739,7 +739,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-coqui'
+            tag-suffix: '-gpu-amd-rocm-6-coqui'
             runs-on: 'ubuntu-latest'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -752,7 +752,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-bark'
+            tag-suffix: '-gpu-amd-rocm-6-bark'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
@@ -1161,7 +1161,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-whisper'
+            tag-suffix: '-gpu-amd-rocm-6-whisper'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
@@ -1376,7 +1376,7 @@ jobs:
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-rocm-hipblas-neutts'
+            tag-suffix: '-gpu-amd-rocm-6-neutts'
             runs-on: 'arc-runner-set'
             base-image: "rocm/dev-ubuntu-22.04:6.4.3"
             skip-drivers: 'false'
