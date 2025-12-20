@@ -23172,3 +23172,31 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "twitch-chat-tinyllama-1.1b"
+  urls:
+    - https://huggingface.co/Catmanjoe/twitch-chat-tinyllama-1.1b-gguf
+  description: |
+    **Twitch Chat TinyLlama 1.1B GGUF**
+    A fine-tuned version of the TinyLlama-1.1B-Chat-v1.0 model optimized for generating authentic Twitch chat messages. Trained on ~1.4M Twitch chat logs from popular streamers, this model produces natural, slang-filled responses with emotes and streamer-specific language. Quantized using QLoRA (4-bit) for efficiency, it’s ideal for low-resource environments. Licensed under Apache 2.0, it’s designed for real-time chat-like interactions and supports tools like llama-cpp-python. Perfect for applications requiring casual, conversational AI tailored to Twitch’s unique culture.
+  overrides:
+    parameters:
+      model: llama-cpp/models/model-q4_k_m.gguf
+    name: twitch-chat-tinyllama-1.1b-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Catmanjoe/twitch-chat-tinyllama-1.1b-gguf
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/model-q4_k_m.gguf
+      sha256: bca3981438ebfbcb2db6f139bcd65ad8679f144d5cc411b386ddb1b4bcd68b11
+      uri: https://huggingface.co/Catmanjoe/twitch-chat-tinyllama-1.1b-gguf/resolve/main/model-q4_k_m.gguf
+
