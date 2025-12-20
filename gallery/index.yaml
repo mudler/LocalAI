@@ -23172,3 +23172,37 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwenimage
+  name: "twinflow-qwen-image-v1.0-diffusers"
+  urls:
+    - https://huggingface.co/smthem/TwinFlow-Qwen-Image-v1.0-diffusers-gguf
+  description: |
+    The model in question appears to be a **quantized version** of a diffusion model integrated with Qwen's capabilities, likely optimized for image generation tasks. However, the provided README is minimal and does not include detailed specifications about the model's architecture, training data, or performance.
+
+    To describe it clearly for a model gallery, you would need to reference the **original base model** (e.g., the non-quantized version of TwinFlow-Qwen-Image) and note that this version is a compressed, quantized variant. The model likely combines vision-language capabilities (given the "Image" suffix) with diffusion-based image generation, but further details would require checking the original model's documentation or repository.
+
+    A concise gallery description might read:
+    **"A quantized diffusion model integrating Qwen's vision-language capabilities for image generation. Optimized for efficiency while retaining core performance."**
+
+    However, without access to the base model's documentation, this remains a general inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/TwinFlow-Qwen-Image-diffusers-Q8_0.gguf
+    name: TwinFlow-Qwen-Image-v1.0-diffusers-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/smthem/TwinFlow-Qwen-Image-v1.0-diffusers-gguf
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/TwinFlow-Qwen-Image-diffusers-Q8_0.gguf
+      sha256: 0f1d2336f0fa56c76ea44aad50b98313442a2de46750a1f4c6516a277fa53023
+      uri: https://huggingface.co/smthem/TwinFlow-Qwen-Image-v1.0-diffusers-gguf/resolve/main/TwinFlow-Qwen-Image-diffusers-Q8_0.gguf
+
