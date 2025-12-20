@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *vibevoice
+  name: "melinoe-next-80b-a3b-thinking-diluted-v0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Melinoe-Next-80B-A3B-Thinking-Diluted-v0-i1-GGUF
+  description: |
+    The **Melinoe-Next-80B-A3B-Thinking-Diluted-v0** model is a large language model based on the **bgg1996/Melinoe-Next-80B-A3B-Thinking-Diluted-v0** base model, optimized for reasoning and complex tasks. It features **80 billion parameters** and employs an **A3B architecture**, designed for high-performance language understanding and generation. The model is available in multiple quantized formats (e.g., IQ1, IQ2, IQ3, IQ4), allowing flexibility for different computational requirements. Its "Thinking-Diluted" variant emphasizes efficiency while maintaining strong reasoning capabilities, making it suitable for applications requiring both speed and intelligence. The model is hosted on Hugging Face and includes detailed documentation for usage and quantization options.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Melinoe-Next-80B-A3B-Thinking-Diluted-v0.i1-Q4_K_M.gguf
+    name: Melinoe-Next-80B-A3B-Thinking-Diluted-v0-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Melinoe-Next-80B-A3B-Thinking-Diluted-v0-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Melinoe-Next-80B-A3B-Thinking-Diluted-v0.i1-Q4_K_M.gguf
+      sha256: 478c90ea210d2b89970aff0c745dbf5821d50134b782b6aa0522d3e83f57bd38
+      uri: https://huggingface.co/mradermacher/Melinoe-Next-80B-A3B-Thinking-Diluted-v0-i1-GGUF/resolve/main/Melinoe-Next-80B-A3B-Thinking-Diluted-v0.i1-Q4_K_M.gguf
+
