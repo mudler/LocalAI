@@ -23172,3 +23172,31 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *granite4
+  name: "buer-3.2-1b"
+  urls:
+    - https://huggingface.co/mradermacher/Buer-3.2-1B-GGUF
+  description: |
+    The **Buer-3.2-1B** model is a 1.0 billion parameter language model developed by Buer, optimized for efficiency and performance. It is trained on a diverse dataset and excels in tasks like text generation, summarization, and conversation. The model supports multiple languages and is designed for fast inference while maintaining high accuracy. It serves as a versatile base model for applications requiring both speed and linguistic capability.
+    **Repository**: [Novaciano/Buer-3.2-1B](https://huggingface.co/Novaciano/Buer-3.2-1B)
+  overrides:
+    parameters:
+      model: llama-cpp/models/Buer-3.2-1B.Q4_K_M.gguf
+    name: Buer-3.2-1B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Buer-3.2-1B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Buer-3.2-1B.Q4_K_M.gguf
+      sha256: 188a720f14663156a6c1b6e7ba6f4ac0e73763357c366735181489e7c09a14d1
+      uri: https://huggingface.co/mradermacher/Buer-3.2-1B-GGUF/resolve/main/Buer-3.2-1B.Q4_K_M.gguf
+
