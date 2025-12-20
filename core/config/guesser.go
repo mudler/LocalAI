@@ -5,17 +5,17 @@ import (
 	"path/filepath"
 
 	gguf "github.com/gpustack/gguf-parser-go"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func guessDefaultsFromFile(cfg *ModelConfig, modelPath string, defaultCtx int) {
 	if os.Getenv("LOCALAI_DISABLE_GUESSING") == "true" {
-		log.Debug().Msgf("guessDefaultsFromFile: %s", "guessing disabled with LOCALAI_DISABLE_GUESSING")
+		xlog.Debug("guessDefaultsFromFile: guessing disabled with LOCALAI_DISABLE_GUESSING")
 		return
 	}
 
 	if modelPath == "" {
-		log.Debug().Msgf("guessDefaultsFromFile: %s", "modelPath is empty")
+		xlog.Debug("guessDefaultsFromFile: modelPath is empty")
 		return
 	}
 
@@ -24,7 +24,7 @@ func guessDefaultsFromFile(cfg *ModelConfig, modelPath string, defaultCtx int) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			log.Error().Msgf("guessDefaultsFromFile: %s", "panic while parsing gguf file")
+			xlog.Error("guessDefaultsFromFile: panic while parsing gguf file")
 		}
 	}()
 

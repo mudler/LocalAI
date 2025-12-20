@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // GetSettingsEndpoint returns current settings with precedence (env > file > defaults)
@@ -118,7 +118,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if watchdogChanged {
 			if settings.WatchdogEnabled != nil && !*settings.WatchdogEnabled {
 				if err := app.StopWatchdog(); err != nil {
-					log.Error().Err(err).Msg("Failed to stop watchdog")
+					xlog.Error("Failed to stop watchdog", "error", err)
 					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
 						Success: false,
 						Error:   "Settings saved but failed to stop watchdog: " + err.Error(),
@@ -126,7 +126,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				}
 			} else {
 				if err := app.RestartWatchdog(); err != nil {
-					log.Error().Err(err).Msg("Failed to restart watchdog")
+					xlog.Error("Failed to restart watchdog", "error", err)
 					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
 						Success: false,
 						Error:   "Settings saved but failed to restart watchdog: " + err.Error(),
@@ -138,7 +138,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		// Restart agent job service if retention days changed
 		if agentJobChanged {
 			if err := app.RestartAgentJobService(); err != nil {
-				log.Error().Err(err).Msg("Failed to restart agent job service")
+				xlog.Error("Failed to restart agent job service", "error", err)
 				return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
 					Success: false,
 					Error:   "Settings saved but failed to restart agent job service: " + err.Error(),
@@ -151,7 +151,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if p2pChanged {
 			if settings.P2PToken != nil && *settings.P2PToken == "" {
 				if err := app.StopP2P(); err != nil {
-					log.Error().Err(err).Msg("Failed to stop P2P")
+					xlog.Error("Failed to stop P2P", "error", err)
 					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
 						Success: false,
 						Error:   "Settings saved but failed to stop P2P: " + err.Error(),
@@ -164,7 +164,7 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 					appConfig.P2PToken = token
 				}
 				if err := app.RestartP2P(); err != nil {
-					log.Error().Err(err).Msg("Failed to restart P2P")
+					xlog.Error("Failed to restart P2P", "error", err)
 					return c.JSON(http.StatusInternalServerError, schema.SettingsResponse{
 						Success: false,
 						Error:   "Settings saved but failed to restart P2P: " + err.Error(),

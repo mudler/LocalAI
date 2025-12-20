@@ -4,11 +4,9 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 var (
@@ -16,7 +14,7 @@ var (
 )
 
 func main() {
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
 
 	flag.Parse()
 

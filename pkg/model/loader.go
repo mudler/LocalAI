@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // new idea: what if we declare a struct of these here, and use a loop to check?
@@ -173,7 +173,7 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 	if loadingChan, isLoading := ml.loading[modelID]; isLoading {
 		ml.mu.Unlock()
 		// Wait for the other goroutine to finish loading
-		log.Debug().Str("modelID", modelID).Msg("Waiting for model to be loaded by another request")
+		xlog.Debug("Waiting for model to be loaded by another request", "modelID", modelID)
 		<-loadingChan
 		// Now check if the model is loaded
 		ml.mu.Lock()
@@ -201,7 +201,7 @@ func (ml *ModelLoader) LoadModel(modelID, modelName string, loader func(string, 
 
 	// Load the model (this can take a long time, no lock held)
 	modelFile := filepath.Join(ml.ModelPath, modelName)
-	log.Debug().Msgf("Loading model in memory from file: %s", modelFile)
+	xlog.Debug("Loading model in memory from file", "file", modelFile)
 
 	model, err := loader(modelID, modelName, modelFile)
 	if err != nil {
@@ -239,28 +239,28 @@ func (ml *ModelLoader) checkIsLoaded(s string) *Model {
 		return nil
 	}
 
-	log.Debug().Msgf("Model already loaded in memory: %s", s)
+	xlog.Debug("Model already loaded in memory", "model", s)
 	client := m.GRPC(false, ml.wd)
 
-	log.Debug().Msgf("Checking model availability (%s)", s)
+	xlog.Debug("Checking model availability", "model", s)
 	cTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
 
 	alive, err := client.HealthCheck(cTimeout)
 	if !alive {
-		log.Warn().Msgf("GRPC Model not responding: %s", err.Error())
-		log.Warn().Msgf("Deleting the process in order to recreate it")
+		xlog.Warn("GRPC Model not responding", "error", err)
+		xlog.Warn("Deleting the process in order to recreate it")
 		process := m.Process()
 		if process == nil {
-			log.Error().Msgf("Process not found for '%s' and the model is not responding anymore !", s)
+			xlog.Error("Process not found and the model is not responding anymore", "model", s)
 			return m
 		}
 		if !process.IsAlive() {
-			log.Debug().Msgf("GRPC Process is not responding: %s", s)
+			xlog.Debug("GRPC Process is not responding", "model", s)
 			// stop and delete the process, this forces to re-load the model and re-create again the service
 			err := ml.deleteProcess(s)
 			if err != nil {
-				log.Error().Err(err).Str("process", s).Msg("error stopping process")
+				xlog.Error("error stopping process", "error", err, "process", s)
 			}
 			return nil
 		}

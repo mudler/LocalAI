@@ -3,7 +3,7 @@ package system
 import (
 	"github.com/jaypipes/ghw/pkg/gpu"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type Backend struct {
@@ -51,11 +51,11 @@ func GetSystemState(opts ...SystemStateOptions) (*SystemState, error) {
 
 	// Detection is best-effort here, we don't want to fail if it fails
 	state.gpus, _ = xsysinfo.GPUs()
-	log.Debug().Any("gpus", state.gpus).Msg("GPUs")
+	xlog.Debug("GPUs", "gpus", state.gpus)
 	state.GPUVendor, _ = detectGPUVendor(state.gpus)
-	log.Debug().Str("gpuVendor", state.GPUVendor).Msg("GPU vendor")
+	xlog.Debug("GPU vendor", "gpuVendor", state.GPUVendor)
 	state.VRAM, _ = xsysinfo.TotalAvailableVRAM()
-	log.Debug().Any("vram", state.VRAM).Msg("Total available VRAM")
+	xlog.Debug("Total available VRAM", "vram", state.VRAM)
 
 	return state, nil
 }

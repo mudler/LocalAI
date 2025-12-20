@@ -14,7 +14,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, any], systemState *system.SystemState) error {
@@ -62,7 +62,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 		g.modelLoader.DeleteExternalBackend(op.GalleryElementName)
 	} else if op.ExternalURI != "" {
 		// External backend installation (OCI image, URL, or path)
-		log.Info().Str("uri", op.ExternalURI).Str("name", op.ExternalName).Str("alias", op.ExternalAlias).Msg("Installing external backend")
+		xlog.Info("Installing external backend", "uri", op.ExternalURI, "name", op.ExternalName, "alias", op.ExternalAlias)
 		err = InstallExternalBackend(ctx, g.appConfig.BackendGalleries, systemState, g.modelLoader, progressCallback, op.ExternalURI, op.ExternalName, op.ExternalAlias)
 		// Update GalleryElementName for status tracking if a name was derived
 		if op.ExternalName != "" {
@@ -70,8 +70,8 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 		}
 	} else {
 		// Standard gallery installation
-		log.Warn().Msgf("installing backend %s", op.GalleryElementName)
-		log.Debug().Msgf("backend galleries: %v", g.appConfig.BackendGalleries)
+		xlog.Warn("installing backend", "backend", op.GalleryElementName)
+		xlog.Debug("backend galleries", "galleries", g.appConfig.BackendGalleries)
 		err = gallery.InstallBackendFromGallery(ctx, g.appConfig.BackendGalleries, systemState, g.modelLoader, op.GalleryElementName, progressCallback, true)
 	}
 	if err != nil {
@@ -85,7 +85,7 @@ func (g *GalleryService) backendHandler(op *GalleryOp[gallery.GalleryBackend, an
 			})
 			return err
 		}
-		log.Error().Err(err).Msgf("error installing backend %s", op.GalleryElementName)
+		xlog.Error("error installing backend", "error", err, "backend", op.GalleryElementName)
 		if !op.Delete {
 			// If we didn't install the backend, we need to make sure we don't have a leftover directory
 			gallery.DeleteBackendFromSystem(systemState, op.GalleryElementName)
@@ -114,7 +114,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 		if name == "" { // infer it from the path
 			name = filepath.Base(backend)
 		}
-		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from path")
+		xlog.Info("Installing backend from path", "backend", backend, "name", name)
 		if err := gallery.InstallBackend(ctx, systemState, modelLoader, &gallery.GalleryBackend{
 			Metadata: gallery.Metadata{
 				Name: name,
@@ -128,7 +128,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 		if name == "" {
 			return fmt.Errorf("specifying a name is required for OCI images")
 		}
-		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
+		xlog.Info("Installing backend from OCI image", "backend", backend, "name", name)
 		if err := gallery.InstallBackend(ctx, systemState, modelLoader, &gallery.GalleryBackend{
 			Metadata: gallery.Metadata{
 				Name: name,
@@ -150,7 +150,7 @@ func InstallExternalBackend(ctx context.Context, galleries []config.Gallery, sys
 			name = derivedName
 		}
 
-		log.Info().Str("backend", backend).Str("name", name).Msg("Installing backend from OCI image")
+		xlog.Info("Installing backend from OCI image", "backend", backend, "name", name)
 		if err := gallery.InstallBackend(ctx, systemState, modelLoader, &gallery.GalleryBackend{
 			Metadata: gallery.Metadata{
 				Name: name,

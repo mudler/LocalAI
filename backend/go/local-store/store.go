@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/base"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type Store struct {
@@ -135,7 +135,7 @@ func (s *Store) StoresSet(opts *pb.StoresSetOptions) error {
 			} else {
 				sample = k.Floats
 			}
-			log.Debug().Msgf("Key is not normalized: %v", sample)
+			xlog.Debug("Key is not normalized", "sample", sample)
 		}
 
 		kvs[i] = Pair{
@@ -238,7 +238,7 @@ func (s *Store) StoresDelete(opts *pb.StoresDeleteOptions) error {
 			assert(!hasKey(s.keys, k), fmt.Sprintf("Key exists, but was not found: t=%d, %v", len(tail_ks), k))
 		}
 
-		log.Debug().Msgf("Delete: found = %v, t = %d, j = %d, len(merge_ks) = %d, len(merge_vs) = %d", found, len(tail_ks), j, len(merge_ks), len(merge_vs))
+		xlog.Debug("Delete", "found", found, "tailLen", len(tail_ks), "j", j, "mergeKeysLen", len(merge_ks), "mergeValuesLen", len(merge_vs))
 	}
 
 	merge_ks = append(merge_ks, tail_ks...)
@@ -261,7 +261,7 @@ func (s *Store) StoresDelete(opts *pb.StoresDeleteOptions) error {
 	}(), "Keys to delete still present")
 
 	if len(s.keys) != l {
-		log.Debug().Msgf("Delete: Some keys not found: len(s.keys) = %d, l = %d", len(s.keys), l)
+		xlog.Debug("Delete: Some keys not found", "keysLen", len(s.keys), "expectedLen", l)
 	}
 
 	return nil
@@ -273,7 +273,7 @@ func (s *Store) StoresGet(opts *pb.StoresGetOptions) (pb.StoresGetResult, error)
 	ks := sortIntoKeySlicese(opts.Keys)
 
 	if len(s.keys) == 0 {
-		log.Debug().Msgf("Get: No keys in store")
+		xlog.Debug("Get: No keys in store")
 	}
 
 	if s.keyLen == -1 {
@@ -305,7 +305,7 @@ func (s *Store) StoresGet(opts *pb.StoresGetOptions) (pb.StoresGetResult, error)
 	}
 
 	if len(pbKeys) != len(opts.Keys) {
-		log.Debug().Msgf("Get: Some keys not found: len(pbKeys) = %d, len(opts.Keys) = %d, len(s.Keys) = %d", len(pbKeys), len(opts.Keys), len(s.keys))
+		xlog.Debug("Get: Some keys not found", "pbKeysLen", len(pbKeys), "optsKeysLen", len(opts.Keys), "storeKeysLen", len(s.keys))
 	}
 
 	return pb.StoresGetResult{
@@ -507,7 +507,7 @@ func (s *Store) StoresFind(opts *pb.StoresFindOptions) (pb.StoresFindResult, err
 			} else {
 				sample = tk
 			}
-			log.Debug().Msgf("Trying to compare non-normalized key with normalized keys: %v", sample)
+			xlog.Debug("Trying to compare non-normalized key with normalized keys", "sample", sample)
 		}
 
 		return s.StoresFindFallback(opts)

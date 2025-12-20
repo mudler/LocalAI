@@ -10,7 +10,7 @@ import (
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/phayes/freeport"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -50,7 +50,7 @@ const (
 func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string, string) (*Model, error) {
 	return func(modelID, modelName, modelFile string) (*Model, error) {
 
-		log.Debug().Msgf("Loading Model %s with gRPC (file: %s) (backend: %s): %+v", modelID, modelFile, backend, *o)
+		xlog.Debug("Loading Model with gRPC", "modelID", modelID, "file", modelFile, "backend", backend, "options", *o)
 
 		var client *Model
 
@@ -67,17 +67,17 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 			if os.Getenv(env) == "" {
 				err := os.Setenv(env, ml.ModelPath)
 				if err != nil {
-					log.Error().Err(err).Str("name", env).Str("modelPath", ml.ModelPath).Msg("unable to set environment variable to modelPath")
+					xlog.Error("unable to set environment variable to modelPath", "error", err, "name", env, "modelPath", ml.ModelPath)
 				}
 			}
 		}
 
 		// Check if the backend is provided as external
 		if uri, ok := ml.GetAllExternalBackends(o)[backend]; ok {
-			log.Debug().Msgf("Loading external backend: %s", uri)
+			xlog.Debug("Loading external backend", "uri", uri)
 			// check if uri is a file or a address
 			if fi, err := os.Stat(uri); err == nil {
-				log.Debug().Msgf("external backend is file: %+v", fi)
+				xlog.Debug("external backend is file", "file", fi)
 				serverAddress, err := getFreeAddress()
 				if err != nil {
 					return nil, fmt.Errorf("failed allocating free ports: %s", err.Error())
@@ -85,43 +85,43 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 				// Make sure the process is executable
 				process, err := ml.startProcess(uri, modelID, serverAddress)
 				if err != nil {
-					log.Error().Err(err).Str("path", uri).Msg("failed to launch ")
+					xlog.Error("failed to launch", "error", err, "path", uri)
 					return nil, err
 				}
 
-				log.Debug().Msgf("GRPC Service Started")
+				xlog.Debug("GRPC Service Started")
 
 				client = NewModel(modelID, serverAddress, process)
 			} else {
-				log.Debug().Msg("external backend is a uri")
+				xlog.Debug("external backend is a uri")
 				// address
 				client = NewModel(modelID, uri, nil)
 			}
 		} else {
-			log.Error().Msgf("Backend not found: %s", backend)
+			xlog.Error("Backend not found", "backend", backend)
 			return nil, fmt.Errorf("backend not found: %s", backend)
 		}
 
-		log.Debug().Msgf("Wait for the service to start up")
-		log.Debug().Msgf("Options: %+v", o.gRPCOptions)
+		xlog.Debug("Wait for the service to start up")
+		xlog.Debug("Options", "options", o.gRPCOptions)
 
 		// Wait for the service to start up
 		ready := false
 		for i := 0; i < o.grpcAttempts; i++ {
 			alive, err := client.GRPC(o.parallelRequests, ml.wd).HealthCheck(context.Background())
 			if alive {
-				log.Debug().Msgf("GRPC Service Ready")
+				xlog.Debug("GRPC Service Ready")
 				ready = true
 				break
 			}
 			if err != nil && i == o.grpcAttempts-1 {
-				log.Error().Err(err).Msg("failed starting/connecting to the gRPC service")
+				xlog.Error("failed starting/connecting to the gRPC service", "error", err)
 			}
 			time.Sleep(time.Duration(o.grpcAttemptsDelay) * time.Second)
 		}
 
 		if !ready {
-			log.Debug().Msgf("GRPC Service NOT ready")
+			xlog.Debug("GRPC Service NOT ready")
 			if process := client.Process(); process != nil {
 				process.Stop()
 			}
@@ -133,7 +133,7 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 		options.ModelFile = modelFile
 		options.ModelPath = ml.ModelPath
 
-		log.Debug().Msgf("GRPC: Loading model with options: %+v", options)
+		xlog.Debug("GRPC: Loading model with options", "options", options)
 
 		res, err := client.GRPC(o.parallelRequests, ml.wd).LoadModel(o.context, &options)
 		if err != nil {
@@ -156,16 +156,16 @@ func (ml *ModelLoader) grpcModel(backend string, o *Options) func(string, string
 func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err error) {
 	o := NewOptions(opts...)
 
-	log.Info().Str("modelID", o.modelID).Str("backend", o.backendString).Str("o.model", o.model).Msg("BackendLoader starting")
+	xlog.Info("BackendLoader starting", "modelID", o.modelID, "backend", o.backendString, "model", o.model)
 
 	backend := strings.ToLower(o.backendString)
 	if realBackend, exists := Aliases[backend]; exists {
 		typeAlias, exists := TypeAlias[backend]
 		if exists {
-			log.Debug().Msgf("'%s' is a type alias of '%s' (%s)", backend, realBackend, typeAlias)
+			xlog.Debug("alias is a type alias", "alias", backend, "realBackend", realBackend, "type", typeAlias)
 			o.gRPCOptions.Type = typeAlias
 		} else {
-			log.Debug().Msgf("'%s' is an alias of '%s'", backend, realBackend)
+			xlog.Debug("alias", "alias", backend, "realBackend", realBackend)
 		}
 
 		backend = realBackend
@@ -174,9 +174,9 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
 		if stopErr := ml.StopGRPC(only(o.modelID));stopErr != nil {
-			log.Error().Err(stopErr).Str("model", o.modelID).Msg("error stopping model")
+			xlog.Error("error stopping model", "error", stopErr, "model", o.modelID)
 		}
-		log.Error().Str("modelID", o.modelID).Err(err).Msgf("Failed to load model %s with backend %s", o.modelID, o.backendString)
+		xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
 		return nil, err
 	}
 
@@ -209,7 +209,7 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	// Return earlier if we have a model already loaded
 	// (avoid looping through all the backends)
 	if m := ml.CheckIsLoaded(o.modelID); m != nil {
-		log.Debug().Msgf("Model '%s' already loaded", o.modelID)
+		xlog.Debug("Model already loaded", "model", o.modelID)
 		// Update last used time for LRU tracking
 		ml.updateModelLastUsed(m)
 		return m.GRPC(o.parallelRequests, ml.wd), nil
@@ -239,30 +239,30 @@ func (ml *ModelLoader) Load(opts ...Option) (grpc.Backend, error) {
 	}
 
 	if len(autoLoadBackends) == 0 {
-		log.Error().Msg("No backends found")
+		xlog.Error("No backends found")
 		return nil, fmt.Errorf("no backends found")
 	}
 
-	log.Debug().Msgf("Loading from the following backends (in order): %+v", autoLoadBackends)
+	xlog.Debug("Loading from the following backends (in order)", "backends", autoLoadBackends)
 
-	log.Info().Msgf("Trying to load the model '%s' with the backend '%s'", o.modelID, autoLoadBackends)
+	xlog.Info("Trying to load the model", "modelID", o.modelID, "backends", autoLoadBackends)
 
 	for _, key := range autoLoadBackends {
-		log.Info().Msgf("[%s] Attempting to load", key)
+		xlog.Info("Attempting to load", "backend", key)
 		options := append(opts, []Option{
 			WithBackendString(key),
 		}...)
 
 		model, modelerr := ml.backendLoader(options...)
 		if modelerr == nil && model != nil {
-			log.Info().Msgf("[%s] Loads OK", key)
+			xlog.Info("Loads OK", "backend", key)
 			return model, nil
 		} else if modelerr != nil {
 			err = errors.Join(err, fmt.Errorf("[%s]: %w", key, modelerr))
-			log.Info().Msgf("[%s] Fails: %s", key, modelerr.Error())
+			xlog.Info("Fails", "backend", key, "error", modelerr.Error())
 		} else if model == nil {
 			err = errors.Join(err, fmt.Errorf("backend %s returned no usable model", key))
-			log.Info().Msgf("[%s] Fails: %s", key, "backend returned no usable model")
+			xlog.Info("Fails", "backend", key, "error", "backend returned no usable model")
 		}
 	}
 

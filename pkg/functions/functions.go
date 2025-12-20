@@ -3,7 +3,7 @@ package functions
 import (
 	"encoding/json"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -59,11 +59,11 @@ func (f Functions) ToJSONStructure(name, args string) JSONFunctionStructure {
 
 		err := json.Unmarshal(dat, &prop)
 		if err != nil {
-			log.Error().Err(err).Msg("error unmarshalling dat")
+			xlog.Error("error unmarshalling dat", "error", err)
 		}
 		err = json.Unmarshal(dat2, &defsD)
 		if err != nil {
-			log.Error().Err(err).Msg("error unmarshalling dat2")
+			xlog.Error("error unmarshalling dat2", "error", err)
 		}
 		if js.Defs == nil {
 			js.Defs = defsD

@@ -9,7 +9,7 @@ import (
 
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/edgevpn/pkg/node"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func (f *FederatedServer) Start(ctx context.Context) error {
@@ -23,7 +23,7 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 	}
 
 	if err := ServiceDiscoverer(ctx, n, f.p2ptoken, f.service, func(servicesID string, tunnel schema.NodeData) {
-		log.Debug().Msgf("Discovered node: %s", tunnel.ID)
+		xlog.Debug("Discovered node", "node", tunnel.ID)
 	}, false); err != nil {
 		return err
 	}
@@ -33,11 +33,11 @@ func (f *FederatedServer) Start(ctx context.Context) error {
 
 func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 
-	log.Info().Msgf("Allocating service '%s' on: %s", fs.service, fs.listenAddr)
+	xlog.Info("Allocating service", "service", fs.service, "address", fs.listenAddr)
 	// Open local port for listening
 	l, err := net.Listen("tcp", fs.listenAddr)
 	if err != nil {
-		log.Error().Err(err).Msg("Error listening")
+		xlog.Error("Error listening", "error", err)
 		return err
 	}
 
@@ -54,7 +54,7 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 		case <-ctx.Done():
 			return errors.New("context canceled")
 		default:
-			log.Debug().Msgf("New connection from %s", l.Addr().String())
+			xlog.Debug("New connection", "address", l.Addr().String())
 			// Listen for an incoming connection.
 			conn, err := l.Accept()
 			if err != nil {
@@ -68,11 +68,11 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 				if fs.workerTarget != "" {
 					workerID = fs.workerTarget
 				} else if fs.loadBalanced {
-					log.Debug().Msgf("Load balancing request")
+					xlog.Debug("Load balancing request")
 
 					workerID = fs.SelectLeastUsedServer()
 					if workerID == "" {
-						log.Debug().Msgf("Least used server not found, selecting random")
+						xlog.Debug("Least used server not found, selecting random")
 						workerID = fs.RandomServer()
 					}
 				} else {
@@ -80,15 +80,15 @@ func (fs *FederatedServer) proxy(ctx context.Context, node *node.Node) error {
 				}
 
 				if workerID == "" {
-					log.Error().Msg("No available nodes yet")
+					xlog.Error("No available nodes yet")
 					fs.sendHTMLResponse(conn, 503, "Sorry, waiting for nodes to connect")
 					return
 				}
 
-				log.Debug().Msgf("Selected node %s", workerID)
+				xlog.Debug("Selected node", "node", workerID)
 				nodeData, exists := GetNode(fs.service, workerID)
 				if !exists {
-					log.Error().Msgf("Node %s not found", workerID)
+					xlog.Error("Node not found", "node", workerID)
 					fs.sendHTMLResponse(conn, 404, "Node not found")
 					return
 				}
@@ -123,7 +123,7 @@ func (fs *FederatedServer) sendHTMLResponse(conn net.Conn, statusCode int, messa
 	// Write the response to the client connection.
 	_, writeErr := io.WriteString(conn, response)
 	if writeErr != nil {
-		log.Error().Err(writeErr).Msg("Error writing response to client")
+		xlog.Error("Error writing response to client", "error", writeErr)
 	}
 }
 

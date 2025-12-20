@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/labstack/echo/v4"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
@@ -48,7 +48,7 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		stepsStr := c.FormValue("steps")
 
 		if modelName == "" || prompt == "" {
-			log.Error().Msg("Inpainting Endpoint - missing model or prompt")
+			xlog.Error("Inpainting Endpoint - missing model or prompt")
 			return echo.ErrBadRequest
 		}
 
@@ -63,12 +63,12 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		// Get uploaded files
 		imageFile, err := c.FormFile("image")
 		if err != nil {
-			log.Error().Err(err).Msg("Inpainting Endpoint - missing image file")
+			xlog.Error("Inpainting Endpoint - missing image file", "error", err)
 			return echo.NewHTTPError(http.StatusBadRequest, "missing image file")
 		}
 		maskFile, err := c.FormFile("mask")
 		if err != nil {
-			log.Error().Err(err).Msg("Inpainting Endpoint - missing mask file")
+			xlog.Error("Inpainting Endpoint - missing mask file", "error", err)
 			return echo.NewHTTPError(http.StatusBadRequest, "missing mask file")
 		}
 
@@ -100,7 +100,7 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		// get model config from context (middleware set it)
 		cfg, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || cfg == nil {
-			log.Error().Msg("Inpainting Endpoint - model config not found in context")
+			xlog.Error("Inpainting Endpoint - model config not found in context")
 			return echo.ErrBadRequest
 		}
 
@@ -109,7 +109,7 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		tmpDir := appConfig.GeneratedContentDir
 		// Ensure the directory exists
 		if err := os.MkdirAll(tmpDir, 0750); err != nil {
-			log.Error().Err(err).Msgf("Inpainting Endpoint - failed to create generated content dir: %s", tmpDir)
+			xlog.Error("Inpainting Endpoint - failed to create generated content dir", "error", err, "dir", tmpDir)
 			return echo.NewHTTPError(http.StatusInternalServerError, "failed to prepare storage")
 		}
 		id := uuid.New().String()
@@ -132,32 +132,32 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 				// Best-effort cleanup; log any failures
 				if jf != nil {
 					if cerr := jf.Close(); cerr != nil {
-						log.Warn().Err(cerr).Msg("Inpainting Endpoint - failed to close temp json file in cleanup")
+						xlog.Warn("Inpainting Endpoint - failed to close temp json file in cleanup", "error", cerr)
 					}
 					if name := jf.Name(); name != "" {
 						if rerr := os.Remove(name); rerr != nil && !os.IsNotExist(rerr) {
-							log.Warn().Err(rerr).Msgf("Inpainting Endpoint - failed to remove temp json file %s in cleanup", name)
+							xlog.Warn("Inpainting Endpoint - failed to remove temp json file in cleanup", "error", rerr, "file", name)
 						}
 					}
 				}
 				if jsonPath != "" {
 					if rerr := os.Remove(jsonPath); rerr != nil && !os.IsNotExist(rerr) {
-						log.Warn().Err(rerr).Msgf("Inpainting Endpoint - failed to remove json file %s in cleanup", jsonPath)
+						xlog.Warn("Inpainting Endpoint - failed to remove json file in cleanup", "error", rerr, "file", jsonPath)
 					}
 				}
 				if dst != "" {
 					if rerr := os.Remove(dst); rerr != nil && !os.IsNotExist(rerr) {
-						log.Warn().Err(rerr).Msgf("Inpainting Endpoint - failed to remove dst file %s in cleanup", dst)
+						xlog.Warn("Inpainting Endpoint - failed to remove dst file in cleanup", "error", rerr, "file", dst)
 					}
 				}
 				if origRef != "" {
 					if rerr := os.Remove(origRef); rerr != nil && !os.IsNotExist(rerr) {
-						log.Warn().Err(rerr).Msgf("Inpainting Endpoint - failed to remove orig ref file %s in cleanup", origRef)
+						xlog.Warn("Inpainting Endpoint - failed to remove orig ref file in cleanup", "error", rerr, "file", origRef)
 					}
 				}
 				if maskRef != "" {
 					if rerr := os.Remove(maskRef); rerr != nil && !os.IsNotExist(rerr) {
-						log.Warn().Err(rerr).Msgf("Inpainting Endpoint - failed to remove mask ref file %s in cleanup", maskRef)
+						xlog.Warn("Inpainting Endpoint - failed to remove mask ref file in cleanup", "error", rerr, "file", maskRef)
 					}
 				}
 			}
@@ -175,7 +175,7 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 		if cerr := origTmp.Close(); cerr != nil {
-			log.Warn().Err(cerr).Msg("Inpainting Endpoint - failed to close orig temp file")
+			xlog.Warn("Inpainting Endpoint - failed to close orig temp file", "error", cerr)
 		}
 		origRef = origTmp.Name()
 
@@ -192,19 +192,19 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 		if cerr := maskTmp.Close(); cerr != nil {
-			log.Warn().Err(cerr).Msg("Inpainting Endpoint - failed to close mask temp file")
+			xlog.Warn("Inpainting Endpoint - failed to close mask temp file", "error", cerr)
 		}
 		maskRef = maskTmp.Name()
 		// write JSON
 		enc := json.NewEncoder(jf)
 		if err := enc.Encode(jsonFile); err != nil {
 			if cerr := jf.Close(); cerr != nil {
-				log.Warn().Err(cerr).Msg("Inpainting Endpoint - failed to close temp json file after encode error")
+				xlog.Warn("Inpainting Endpoint - failed to close temp json file after encode error", "error", cerr)
 			}
 			return err
 		}
 		if cerr := jf.Close(); cerr != nil {
-			log.Warn().Err(cerr).Msg("Inpainting Endpoint - failed to close temp json file")
+			xlog.Warn("Inpainting Endpoint - failed to close temp json file", "error", cerr)
 		}
 		// rename to desired name
 		if err := os.Rename(jf.Name(), jsonPath); err != nil {
@@ -216,7 +216,7 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return err
 		}
 		if cerr := outTmp.Close(); cerr != nil {
-			log.Warn().Err(cerr).Msg("Inpainting Endpoint - failed to close out temp file")
+			xlog.Warn("Inpainting Endpoint - failed to close out temp file", "error", cerr)
 		}
 		dst = outTmp.Name() + ".png"
 		if err := os.Rename(outTmp.Name(), dst); err != nil {

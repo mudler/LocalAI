@@ -3,7 +3,7 @@ package schema
 import (
 	"encoding/json"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 )
@@ -72,7 +72,7 @@ func (messages Messages) ToProto() []*proto.Message {
 		if len(message.ToolCalls) > 0 {
 			toolCallsJSON, err := json.Marshal(message.ToolCalls)
 			if err != nil {
-				log.Warn().Err(err).Msg("failed to marshal tool_calls to JSON")
+				xlog.Warn("failed to marshal tool_calls to JSON", "error", err)
 			} else {
 				protoMessages[i].ToolCalls = string(toolCallsJSON)
 			}

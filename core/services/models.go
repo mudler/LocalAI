@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v2"
 )
 
@@ -208,7 +208,7 @@ func processModelOperation(
 			return err
 		}
 		if automaticallyInstallBackend && installedModel.Backend != "" {
-			log.Debug().Msgf("Installing backend %q", installedModel.Backend)
+			xlog.Debug("Installing backend", "backend", installedModel.Backend)
 			if err := gallery.InstallBackendFromGallery(ctx, op.BackendGalleries, systemState, modelLoader, installedModel.Backend, progressCallback, false); err != nil {
 				return err
 			}

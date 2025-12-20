@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -49,7 +49,7 @@ type BackendsCMD struct {
 func (bl *BackendsList) Run(ctx *cliContext.Context) error {
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(bl.BackendGalleries), &galleries); err != nil {
-		log.Error().Err(err).Msg("unable to load galleries")
+		xlog.Error("unable to load galleries", "error", err)
 	}
 
 	systemState, err := system.GetSystemState(
@@ -77,7 +77,7 @@ func (bl *BackendsList) Run(ctx *cliContext.Context) error {
 func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(bi.BackendGalleries), &galleries); err != nil {
-		log.Error().Err(err).Msg("unable to load galleries")
+		xlog.Error("unable to load galleries", "error", err)
 	}
 
 	systemState, err := system.GetSystemState(
@@ -98,7 +98,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 		v := int(percentage * 10)
 		err := progressBar.Set(v)
 		if err != nil {
-			log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+			xlog.Error("error while updating progress bar", "error", err, "filename", fileName, "value", v)
 		}
 	}
 
@@ -113,7 +113,7 @@ func (bi *BackendsInstall) Run(ctx *cliContext.Context) error {
 
 func (bu *BackendsUninstall) Run(ctx *cliContext.Context) error {
 	for _, backendName := range bu.BackendArgs {
-		log.Info().Str("backend", backendName).Msg("uninstalling backend")
+		xlog.Info("uninstalling backend", "backend", backendName)
 
 		systemState, err := system.GetSystemState(
 			system.WithBackendSystemPath(bu.BackendsSystemPath),

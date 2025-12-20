@@ -27,7 +27,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -212,12 +212,12 @@ func registerRealtime(application *application.Application, model, intent string
 	return func(c *websocket.Conn) {
 
 		evaluator := application.TemplatesEvaluator()
-		log.Debug().Msgf("WebSocket connection established with '%s'", c.RemoteAddr().String())
+		xlog.Debug("WebSocket connection established", "address", c.RemoteAddr().String())
 		if intent != "transcription" {
 			sendNotImplemented(c, "Only transcription mode is supported which requires the intent=transcription parameter")
 		}
 
-		log.Debug().Msgf("Realtime params: model=%s, intent=%s", model, intent)
+		xlog.Debug("Realtime params", "model", model, "intent", intent)
 
 		sessionID := generateSessionID()
 		session := &Session{
@@ -265,7 +265,7 @@ func registerRealtime(application *application.Application, model, intent string
 			application.ApplicationConfig(),
 		)
 		if err != nil {
-			log.Error().Msgf("failed to load model: %s", err.Error())
+			xlog.Error("failed to load model", "error", err)
 			sendError(c, "model_load_error", "Failed to load model", "", "")
 			return
 		}
@@ -301,14 +301,14 @@ func registerRealtime(application *application.Application, model, intent string
 
 		for {
 			if _, msg, err = c.ReadMessage(); err != nil {
-				log.Error().Msgf("read: %s", err.Error())
+				xlog.Error("read error", "error", err)
 				break
 			}
 
 			// Parse the incoming message
 			var incomingMsg IncomingMessage
 			if err := json.Unmarshal(msg, &incomingMsg); err != nil {
-				log.Error().Msgf("invalid json: %s", err.Error())
+				xlog.Error("invalid json", "error", err)
 				sendError(c, "invalid_json", "Invalid JSON format", "", "")
 				continue
 			}
@@ -316,10 +316,10 @@ func registerRealtime(application *application.Application, model, intent string
 			var sessionUpdate types.ClientSession
 			switch incomingMsg.Type {
 			case types.ClientEventTypeTranscriptionSessionUpdate:
-				log.Debug().Msgf("recv: %s", msg)
+				xlog.Debug("recv", "message", string(msg))
 
 				if err := json.Unmarshal(incomingMsg.Session, &sessionUpdate); err != nil {
-					log.Error().Msgf("failed to unmarshal 'transcription_session.update': %s", err.Error())
+					xlog.Error("failed to unmarshal 'transcription_session.update'", "error", err)
 					sendError(c, "invalid_session_update", "Invalid session update format", "", "")
 					continue
 				}
@@ -330,7 +330,7 @@ func registerRealtime(application *application.Application, model, intent string
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 				); err != nil {
-					log.Error().Msgf("failed to update session: %s", err.Error())
+					xlog.Error("failed to update session", "error", err)
 					sendError(c, "session_update_error", "Failed to update session", "", "")
 					continue
 				}
@@ -344,11 +344,11 @@ func registerRealtime(application *application.Application, model, intent string
 				})
 
 			case types.ClientEventTypeSessionUpdate:
-				log.Debug().Msgf("recv: %s", msg)
+				xlog.Debug("recv", "message", string(msg))
 
 				// Update session configurations
 				if err := json.Unmarshal(incomingMsg.Session, &sessionUpdate); err != nil {
-					log.Error().Msgf("failed to unmarshal 'session.update': %s", err.Error())
+					xlog.Error("failed to unmarshal 'session.update'", "error", err)
 					sendError(c, "invalid_session_update", "Invalid session update format", "", "")
 					continue
 				}
@@ -359,7 +359,7 @@ func registerRealtime(application *application.Application, model, intent string
 					application.ModelLoader(),
 					application.ApplicationConfig(),
 				); err != nil {
-					log.Error().Msgf("failed to update session: %s", err.Error())
+					xlog.Error("failed to update session", "error", err)
 					sendError(c, "session_update_error", "Failed to update session", "", "")
 					continue
 				}
@@ -373,7 +373,7 @@ func registerRealtime(application *application.Application, model, intent string
 				})
 
 				if session.TurnDetection.Type == types.ServerTurnDetectionTypeServerVad && !vadServerStarted {
-					log.Debug().Msg("Starting VAD goroutine...")
+					xlog.Debug("Starting VAD goroutine...")
 					wg.Add(1)
 					go func() {
 						defer wg.Done()
@@ -382,7 +382,7 @@ func registerRealtime(application *application.Application, model, intent string
 					}()
 					vadServerStarted = true
 				} else if session.TurnDetection.Type != types.ServerTurnDetectionTypeServerVad && vadServerStarted {
-					log.Debug().Msg("Stopping VAD goroutine...")
+					xlog.Debug("Stopping VAD goroutine...")
 
 					wg.Add(-1)
 					go func() {
@@ -393,7 +393,7 @@ func registerRealtime(application *application.Application, model, intent string
 			case types.ClientEventTypeInputAudioBufferAppend:
 				// Handle 'input_audio_buffer.append'
 				if incomingMsg.Audio == "" {
-					log.Error().Msg("Audio data is missing in 'input_audio_buffer.append'")
+					xlog.Error("Audio data is missing in 'input_audio_buffer.append'")
 					sendError(c, "missing_audio_data", "Audio data is missing", "", "")
 					continue
 				}
@@ -401,7 +401,7 @@ func registerRealtime(application *application.Application, model, intent string
 				// Decode base64 audio data
 				decodedAudio, err := base64.StdEncoding.DecodeString(incomingMsg.Audio)
 				if err != nil {
-					log.Error().Msgf("failed to decode audio data: %s", err.Error())
+					xlog.Error("failed to decode audio data", "error", err)
 					sendError(c, "invalid_audio_data", "Failed to decode audio data", "", "")
 					continue
 				}
@@ -412,7 +412,7 @@ func registerRealtime(application *application.Application, model, intent string
 				session.AudioBufferLock.Unlock()
 
 			case types.ClientEventTypeInputAudioBufferCommit:
-				log.Debug().Msgf("recv: %s", msg)
+				xlog.Debug("recv", "message", string(msg))
 
 				// TODO: Trigger transcription.
 				// TODO: Ignore this if VAD enabled or interrupt VAD?
@@ -458,12 +458,12 @@ func registerRealtime(application *application.Application, model, intent string
 				})
 
 			case types.ClientEventTypeConversationItemCreate:
-				log.Debug().Msgf("recv: %s", msg)
+				xlog.Debug("recv", "message", string(msg))
 
 				// Handle creating new conversation items
 				var item types.ConversationItemCreateEvent
 				if err := json.Unmarshal(incomingMsg.Item, &item); err != nil {
-					log.Error().Msgf("failed to unmarshal 'conversation.item.create': %s", err.Error())
+					xlog.Error("failed to unmarshal 'conversation.item.create'", "error", err)
 					sendError(c, "invalid_item", "Invalid item format", "", "")
 					continue
 				}
@@ -494,7 +494,7 @@ func registerRealtime(application *application.Application, model, intent string
 				var responseCreate types.ResponseCreateEvent
 				if len(incomingMsg.Response) > 0 {
 					if err := json.Unmarshal(incomingMsg.Response, &responseCreate); err != nil {
-						log.Error().Msgf("failed to unmarshal 'response.create' response object: %s", err.Error())
+						xlog.Error("failed to unmarshal 'response.create' response object", "error", err)
 						sendError(c, "invalid_response_create", "Invalid response create format", "", "")
 						continue
 					}
@@ -515,14 +515,14 @@ func registerRealtime(application *application.Application, model, intent string
 				// }()
 
 			case types.ClientEventTypeResponseCancel:
-				log.Printf("recv: %s", msg)
+				xlog.Debug("recv", "message", string(msg))
 
 				// Handle cancellation of ongoing responses
 				// Implement cancellation logic as needed
 				sendNotImplemented(c, "response.cancel")
 
 			default:
-				log.Error().Msgf("unknown message type: %s", incomingMsg.Type)
+				xlog.Error("unknown message type", "type", incomingMsg.Type)
 				sendError(c, "unknown_message_type", fmt.Sprintf("Unknown message type: %s", incomingMsg.Type), "", "")
 			}
 		}
@@ -542,11 +542,11 @@ func registerRealtime(application *application.Application, model, intent string
 func sendEvent(c *websocket.Conn, event types.ServerEvent) {
 	eventBytes, err := json.Marshal(event)
 	if err != nil {
-		log.Error().Msgf("failed to marshal event: %s", err.Error())
+		xlog.Error("failed to marshal event", "error", err)
 		return
 	}
 	if err = c.WriteMessage(websocket.TextMessage, eventBytes); err != nil {
-		log.Error().Msgf("write: %s", err.Error())
+		xlog.Error("write error", "error", err)
 	}
 }
 
@@ -681,10 +681,10 @@ func handleVAD(cfg *config.ModelConfig, evaluator *templates.Evaluator, session 
 			segments, err := runVAD(vadContext, session, aints)
 			if err != nil {
 				if err.Error() == "unexpected speech end" {
-					log.Debug().Msg("VAD cancelled")
+					xlog.Debug("VAD cancelled")
 					continue
 				}
-				log.Error().Msgf("failed to process audio: %s", err.Error())
+				xlog.Error("failed to process audio", "error", err)
 				sendError(c, "processing_error", "Failed to process audio: "+err.Error(), "", "")
 				continue
 			}
@@ -697,7 +697,7 @@ func handleVAD(cfg *config.ModelConfig, evaluator *templates.Evaluator, session 
 				session.AudioBufferLock.Lock()
 				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
-				log.Debug().Msgf("Detected silence for a while, clearing audio buffer")
+				xlog.Debug("Detected silence for a while, clearing audio buffer")
 
 				sendEvent(c, types.InputAudioBufferClearedEvent{
 					ServerEventBase: types.ServerEventBase{
@@ -729,7 +729,7 @@ func handleVAD(cfg *config.ModelConfig, evaluator *templates.Evaluator, session 
 			}
 
 			if float32(audioLength)-segEndTime > float32(silenceThreshold) {
-				log.Debug().Msgf("Detected end of speech segment")
+				xlog.Debug("Detected end of speech segment")
 				session.AudioBufferLock.Lock()
 				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
@@ -769,21 +769,21 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 
 	f, err := os.CreateTemp("", "realtime-audio-chunk-*.wav")
 	if err != nil {
-		log.Error().Msgf("failed to create temp file: %s", err.Error())
+		xlog.Error("failed to create temp file", "error", err)
 		return
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	log.Debug().Msgf("Writing to %s\n", f.Name())
+	xlog.Debug("Writing to file", "file", f.Name())
 
 	hdr := laudio.NewWAVHeader(uint32(len(utt)))
 	if err := hdr.Write(f); err != nil {
-		log.Error().Msgf("Failed to write WAV header: %s", err.Error())
+		xlog.Error("Failed to write WAV header", "error", err)
 		return
 	}
 
 	if _, err := f.Write(utt); err != nil {
-		log.Error().Msgf("Failed to write audio data: %s", err.Error())
+		xlog.Error("Failed to write audio data", "error", err)
 		return
 	}
 
@@ -1106,14 +1106,14 @@ func processTextResponse(config *config.ModelConfig, session *Session, prompt st
 			textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
 			s = functions.CleanupLLMResult(s, config.FunctionsConfig)
 			results := functions.ParseFunctionCall(s, config.FunctionsConfig)
-			log.Debug().Msgf("Text content to return: %s", textContentToReturn)
+			xlog.Debug("Text content to return", "text", textContentToReturn)
 			noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 
 			switch {
 			case noActionsToRun:
 				result, err := handleQuestion(config, input, ml, startupOptions, results, s, predInput)
 				if err != nil {
-					log.Error().Err(err).Msg("error handling question")
+					xlog.Error("error handling question", "error", err)
 					return
 				}
 				*c = append(*c, schema.Choice{
@@ -1187,7 +1187,7 @@ func processTextResponse(config *config.ModelConfig, session *Session, prompt st
 			},
 		}
 		respData, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", respData)
+		xlog.Debug("Response", "response", string(respData))
 
 		// Return the prediction in the response body
 		return c.JSON(resp)

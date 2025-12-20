@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/http/routes"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func Explorer(db *explorer.Database) *echo.Echo {
@@ -37,7 +37,7 @@ func Explorer(db *explorer.Database) *echo.Echo {
 	staticFS, err := fs.Sub(embedDirStatic, "static")
 	if err != nil {
 		// Log error but continue - static files might not work
-		log.Error().Err(err).Msg("failed to create static filesystem")
+		xlog.Error("failed to create static filesystem", "error", err)
 	} else {
 		e.StaticFS("/static", staticFS)
 	}

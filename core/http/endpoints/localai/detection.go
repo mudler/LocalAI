@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // DetectionEndpoint is the LocalAI Detection endpoint https://localai.io/docs/api-reference/detection
@@ -29,7 +29,7 @@ func DetectionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appC
 			return echo.ErrBadRequest
 		}
 
-		log.Debug().Str("image", input.Image).Str("modelFile", "modelFile").Str("backend", cfg.Backend).Msg("Detection")
+		xlog.Debug("Detection", "image", input.Image, "modelFile", "modelFile", "backend", cfg.Backend)
 
 		image, err := utils.GetContentURIAsBase64(input.Image)
 		if err != nil {

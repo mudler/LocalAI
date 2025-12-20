@@ -20,7 +20,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/oci"
 	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/LocalAI/pkg/xio"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -70,7 +70,7 @@ func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath st
 		// Check if the local file is rooted in basePath
 		err = utils.InTrustedRoot(resolvedFile, resolvedBasePath)
 		if err != nil {
-			log.Debug().Str("resolvedFile", resolvedFile).Str("basePath", basePath).Msg("downloader.GetURI blocked an attempt to ready a file url outside of basePath")
+			xlog.Debug("downloader.GetURI blocked an attempt to ready a file url outside of basePath", "resolvedFile", resolvedFile, "basePath", basePath)
 			return err
 		}
 		// Read the response body
@@ -245,11 +245,11 @@ func (s URI) ResolveURL() string {
 func removePartialFile(tmpFilePath string) error {
 	_, err := os.Stat(tmpFilePath)
 	if err == nil {
-		log.Debug().Msgf("Removing temporary file %s", tmpFilePath)
+		xlog.Debug("Removing temporary file", "file", tmpFilePath)
 		err = os.Remove(tmpFilePath)
 		if err != nil {
 			err1 := fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
-			log.Warn().Msg(err1.Error())
+			xlog.Warn("failed to remove temporary download file", "error", err1)
 			return err1
 		}
 	}
@@ -333,7 +333,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 	// Check if the file already exists
 	_, err := os.Stat(filePath)
 	if err == nil {
-		log.Debug().Str("filePath", filePath).Msg("[downloader] File already exists")
+		xlog.Debug("[downloader] File already exists", "filePath", filePath)
 		// File exists, check SHA
 		if sha != "" {
 			// Verify SHA
@@ -343,7 +343,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			}
 			if calculatedSHA == sha {
 				// SHA matches, skip downloading
-				log.Debug().Msgf("File %q already exists and matches the SHA. Skipping download", filePath)
+				xlog.Debug("File already exists and matches the SHA. Skipping download", "file", filePath)
 				return nil
 			}
 			// SHA doesn't match, delete the file and download again
@@ -351,11 +351,11 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 			if err != nil {
 				return fmt.Errorf("failed to remove existing file %q: %v", filePath, err)
 			}
-			log.Debug().Msgf("Removed %q (SHA doesn't match)", filePath)
+			xlog.Debug("Removed file (SHA doesn't match)", "file", filePath)
 
 		} else {
 			// SHA is missing, skip downloading
-			log.Debug().Msgf("File %q already exists. Skipping download", filePath)
+			xlog.Debug("File already exists. Skipping download", "file", filePath)
 			return nil
 		}
 	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
@@ -363,7 +363,7 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		return fmt.Errorf("file %s does not exist (%v) and %s does not look like an HTTP URL", filePath, err, url)
 	}
 
-	log.Info().Msgf("Downloading %s", url)
+	xlog.Info("Downloading", "url", url)
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -480,19 +480,19 @@ func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string
 		// Verify SHA
 		calculatedSHA := fmt.Sprintf("%x", progress.hash.Sum(nil))
 		if calculatedSHA != sha {
-			log.Debug().Msgf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha)
+			xlog.Debug("SHA mismatch for file", "file", filePath, "calculated", calculatedSHA, "metadata", sha)
 			return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha)
 		}
 	} else {
-		log.Debug().Msgf("SHA missing for %q. Skipping validation", filePath)
+		xlog.Debug("SHA missing. Skipping validation", "file", filePath)
 	}
 
-	log.Info().Msgf("File %q downloaded and verified", filePath)
+	xlog.Info("File downloaded and verified", "file", filePath)
 	if utils.IsArchive(filePath) {
 		basePath := filepath.Dir(filePath)
-		log.Info().Msgf("File %q is an archive, uncompressing to %s", filePath, basePath)
+		xlog.Info("File is an archive, uncompressing", "file", filePath, "basePath", basePath)
 		if err := utils.ExtractArchive(filePath, basePath); err != nil {
-			log.Debug().Msgf("Failed decompressing %q: %s", filePath, err.Error())
+			xlog.Debug("Failed decompressing", "file", filePath, "error", err)
 			return err
 		}
 	}

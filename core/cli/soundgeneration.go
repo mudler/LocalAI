@@ -13,7 +13,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type SoundGenerationCMD struct {
@@ -84,7 +84,7 @@ func (t *SoundGenerationCMD) Run(ctx *cliContext.Context) error {
 	defer func() {
 		err := ml.StopAllGRPC()
 		if err != nil {
-			log.Error().Err(err).Msg("unable to stop all grpc processes")
+			xlog.Error("unable to stop all grpc processes", "error", err)
 		}
 	}()
 

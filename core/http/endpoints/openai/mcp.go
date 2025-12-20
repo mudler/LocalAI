@@ -18,7 +18,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/cogito"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // MCPCompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
@@ -102,19 +102,19 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 			cogito.WithContext(ctxWithCancellation),
 			cogito.WithMCPs(sessions...),
 			cogito.WithStatusCallback(func(s string) {
-				log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
+				xlog.Debug("[model agent] Status", "model", config.Name, "status", s)
 			}),
 			cogito.WithReasoningCallback(func(s string) {
-				log.Debug().Msgf("[model agent] [model: %s] Reasoning: %s", config.Name, s)
+				xlog.Debug("[model agent] Reasoning", "model", config.Name, "reasoning", s)
 			}),
 			cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-				log.Debug().Msgf("[model agent] [model: %s] Tool call: %s, reasoning: %s, arguments: %+v", config.Name, t.Name, t.Reasoning, t.Arguments)
+				xlog.Debug("[model agent] Tool call", "model", config.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
 				return cogito.ToolCallDecision{
 					Approved: true,
 				}
 			}),
 			cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
-				log.Debug().Msgf("[model agent] [model: %s] Tool call result: %s, result: %s, tool arguments: %+v", config.Name, t.Name, t.Result, t.ToolArguments)
+				xlog.Debug("[model agent] Tool call result", "model", config.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments)
 			}),
 		)
 
@@ -140,7 +140,7 @@ func MCPCompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, 
 		}
 
 		jsonResult, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		xlog.Debug("Response", "response", string(jsonResult))
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

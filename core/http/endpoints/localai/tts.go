@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 
 	"github.com/mudler/LocalAI/core/schema"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/pkg/utils"
 )
@@ -36,7 +36,7 @@ func TTSEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig 
 			return echo.ErrBadRequest
 		}
 
-		log.Debug().Str("model", input.Model).Msg("LocalAI TTS Request received")
+		xlog.Debug("LocalAI TTS Request received", "model", input.Model)
 
 		if cfg.Backend == "" && input.Backend != "" {
 			cfg.Backend = input.Backend

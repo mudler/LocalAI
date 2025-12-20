@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // ChatEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/chat/create
@@ -78,7 +78,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
 		functionResults := functions.ParseFunctionCall(result, config.FunctionsConfig)
-		log.Debug().Msgf("Text content to return: %s", textContentToReturn)
+		xlog.Debug("Text content to return", "text", textContentToReturn)
 		noActionToRun := len(functionResults) > 0 && functionResults[0].Name == noAction || len(functionResults) == 0
 
 		switch {
@@ -94,7 +94,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 
 			result, err := handleQuestion(config, cl, req, ml, startupOptions, functionResults, result, prompt)
 			if err != nil {
-				log.Error().Err(err).Msg("error handling question")
+				xlog.Error("error handling question", "error", err)
 				return err
 			}
 			usage := schema.OpenAIUsage{
@@ -195,7 +195,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			return echo.ErrBadRequest
 		}
 
-		log.Debug().Msgf("Chat endpoint configuration read: %+v", config)
+		xlog.Debug("Chat endpoint configuration read", "config", config)
 
 		funcs := input.Functions
 		shouldUseFn := len(input.Functions) > 0 && config.ShouldUseFunctions()
@@ -252,7 +252,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				if err == nil {
 					input.Grammar = g
 				} else {
-					log.Error().Err(err).Msg("Failed generating grammar")
+					xlog.Error("Failed generating grammar", "error", err)
 				}
 			}
 		}
@@ -260,7 +260,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		config.Grammar = input.Grammar
 
 		if shouldUseFn {
-			log.Debug().Msgf("Response needs to process functions")
+			xlog.Debug("Response needs to process functions")
 		}
 
 		switch {
@@ -294,14 +294,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			if err == nil {
 				config.Grammar = g
 			} else {
-				log.Error().Err(err).Msg("Failed generating grammar")
+				xlog.Error("Failed generating grammar", "error", err)
 			}
 		case input.JSONFunctionGrammarObject != nil:
 			g, err := input.JSONFunctionGrammarObject.Grammar(config.FunctionsConfig.GrammarOptions()...)
 			if err == nil {
 				config.Grammar = g
 			} else {
-				log.Error().Err(err).Msg("Failed generating grammar")
+				xlog.Error("Failed generating grammar", "error", err)
 			}
 
 		default:
@@ -316,7 +316,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		// functions are not supported in stream mode (yet?)
 		toStream := input.Stream
 
-		log.Debug().Msgf("Parameters: %+v", config)
+		xlog.Debug("Parameters", "config", config)
 
 		var predInput string
 
@@ -325,16 +325,16 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if !config.TemplateConfig.UseTokenizerTemplate {
 			predInput = evaluator.TemplateMessages(*input, input.Messages, config, funcs, shouldUseFn)
 
-			log.Debug().Msgf("Prompt (after templating): %s", predInput)
+			xlog.Debug("Prompt (after templating)", "prompt", predInput)
 			if config.Grammar != "" {
-				log.Debug().Msgf("Grammar: %+v", config.Grammar)
+				xlog.Debug("Grammar", "grammar", config.Grammar)
 			}
 		}
 
 		switch {
 		case toStream:
 
-			log.Debug().Msgf("Stream request received")
+			xlog.Debug("Stream request received")
 			c.Response().Header().Set("Content-Type", "text/event-stream")
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
@@ -359,12 +359,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				select {
 				case <-input.Context.Done():
 					// Context was cancelled (client disconnected or request cancelled)
-					log.Debug().Msgf("Request context cancelled, stopping stream")
+					xlog.Debug("Request context cancelled, stopping stream")
 					input.Cancel()
 					break LOOP
 				case ev := <-responses:
 					if len(ev.Choices) == 0 {
-						log.Debug().Msgf("No choices in the response, skipping")
+						xlog.Debug("No choices in the response, skipping")
 						continue
 					}
 					usage = &ev.Usage // Copy a pointer to the latest usage chunk so that the stop message can reference it
@@ -373,14 +373,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 					respData, err := json.Marshal(ev)
 					if err != nil {
-						log.Debug().Msgf("Failed to marshal response: %v", err)
+						xlog.Debug("Failed to marshal response", "error", err)
 						input.Cancel()
 						continue
 					}
-					log.Debug().Msgf("Sending chunk: %s", string(respData))
+					xlog.Debug("Sending chunk", "chunk", string(respData))
 					_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
 					if err != nil {
-						log.Debug().Msgf("Sending chunk failed: %v", err)
+						xlog.Debug("Sending chunk failed", "error", err)
 						input.Cancel()
 						return err
 					}
@@ -389,7 +389,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					if err == nil {
 						break LOOP
 					}
-					log.Error().Msgf("Stream ended with error: %v", err)
+					xlog.Error("Stream ended with error", "error", err)
 
 					stopReason := FinishReasonStop
 					resp := &schema.OpenAIResponse{
@@ -407,7 +407,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 					respData, marshalErr := json.Marshal(resp)
 					if marshalErr != nil {
-						log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+						xlog.Error("Failed to marshal error response", "error", marshalErr)
 						// Send a simple error message as fallback
 						fmt.Fprintf(c.Response().Writer, "data: {\"error\":\"Internal error\"}\n\n")
 					} else {
@@ -445,7 +445,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			fmt.Fprintf(c.Response().Writer, "data: %s\n\n", respData)
 			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
 			c.Response().Flush()
-			log.Debug().Msgf("Stream ended")
+			xlog.Debug("Stream ended")
 			return nil
 
 		// no streaming mode
@@ -462,14 +462,14 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
 				s = functions.CleanupLLMResult(s, config.FunctionsConfig)
 				results := functions.ParseFunctionCall(s, config.FunctionsConfig)
-				log.Debug().Msgf("Text content to return: %s", textContentToReturn)
+				xlog.Debug("Text content to return", "text", textContentToReturn)
 				noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
 
 				switch {
 				case noActionsToRun:
 					result, err := handleQuestion(config, cl, input, ml, startupOptions, results, s, predInput)
 					if err != nil {
-						log.Error().Err(err).Msg("error handling question")
+						xlog.Error("error handling question", "error", err)
 						return
 					}
 
@@ -562,7 +562,7 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				Usage:   usage,
 			}
 			respData, _ := json.Marshal(resp)
-			log.Debug().Msgf("Response: %s", respData)
+			xlog.Debug("Response", "response", string(respData))
 
 			// Return the prediction in the response body
 			return c.JSON(200, resp)
@@ -573,12 +573,12 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, input *schema.OpenAIRequest, ml *model.ModelLoader, o *config.ApplicationConfig, funcResults []functions.FuncCallResults, result, prompt string) (string, error) {
 
 	if len(funcResults) == 0 && result != "" {
-		log.Debug().Msgf("nothing function results but we had a message from the LLM")
+		xlog.Debug("nothing function results but we had a message from the LLM")
 
 		return result, nil
 	}
 
-	log.Debug().Msgf("nothing to do, computing a reply")
+	xlog.Debug("nothing to do, computing a reply")
 	arg := ""
 	if len(funcResults) > 0 {
 		arg = funcResults[0].Arguments
@@ -586,23 +586,23 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 	// If there is a message that the LLM already sends as part of the JSON reply, use it
 	arguments := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(arg), &arguments); err != nil {
-		log.Debug().Msg("handleQuestion: function result did not contain a valid JSON object")
+		xlog.Debug("handleQuestion: function result did not contain a valid JSON object")
 	}
 	m, exists := arguments["message"]
 	if exists {
 		switch message := m.(type) {
 		case string:
 			if message != "" {
-				log.Debug().Msgf("Reply received from LLM: %s", message)
+				xlog.Debug("Reply received from LLM", "message", message)
 				message = backend.Finetune(*config, prompt, message)
-				log.Debug().Msgf("Reply received from LLM(finetuned): %s", message)
+				xlog.Debug("Reply received from LLM(finetuned)", "message", message)
 
 				return message, nil
 			}
 		}
 	}
 
-	log.Debug().Msgf("No action received from LLM, without a message, computing a reply")
+	xlog.Debug("No action received from LLM, without a message, computing a reply")
 	// Otherwise ask the LLM to understand the JSON output and the context, and return a message
 	// Note: This costs (in term of CPU/GPU) another computation
 	config.Grammar = ""
@@ -662,13 +662,13 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 
 	predFunc, err := backend.ModelInference(input.Context, prompt, input.Messages, images, videos, audios, ml, config, cl, o, nil, toolsJSON, toolChoiceJSON, logprobs, topLogprobs, logitBias)
 	if err != nil {
-		log.Error().Err(err).Msg("model inference failed")
+		xlog.Error("model inference failed", "error", err)
 		return "", err
 	}
 
 	prediction, err := predFunc()
 	if err != nil {
-		log.Error().Err(err).Msg("prediction failed")
+		xlog.Error("prediction failed", "error", err)
 		return "", err
 	}
 	return backend.Finetune(*config, prompt, prediction.Response), nil

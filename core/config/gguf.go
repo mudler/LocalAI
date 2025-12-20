@@ -2,7 +2,7 @@ package config
 
 import (
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	gguf "github.com/gpustack/gguf-parser-go"
 )
@@ -35,22 +35,22 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 	// vram estimation
 	vram, err := xsysinfo.TotalAvailableVRAM()
 	if err != nil {
-		log.Error().Msgf("guessDefaultsFromFile(TotalAvailableVRAM): %s", err)
+		xlog.Error("guessDefaultsFromFile(TotalAvailableVRAM)", "error", err)
 	} else if vram > 0 {
 		estimate, err := xsysinfo.EstimateGGUFVRAMUsage(f, vram)
 		if err != nil {
-			log.Error().Msgf("guessDefaultsFromFile(EstimateGGUFVRAMUsage): %s", err)
+			xlog.Error("guessDefaultsFromFile(EstimateGGUFVRAMUsage)", "error", err)
 		} else {
 			if estimate.IsFullOffload {
-				log.Warn().Msgf("guessDefaultsFromFile: %s", "full offload is recommended")
+				xlog.Warn("guessDefaultsFromFile: full offload is recommended")
 			}
 
 			if estimate.EstimatedVRAM > vram {
-				log.Warn().Msgf("guessDefaultsFromFile: %s", "estimated VRAM usage is greater than available VRAM")
+				xlog.Warn("guessDefaultsFromFile: estimated VRAM usage is greater than available VRAM")
 			}
 
 			if cfg.NGPULayers == nil && estimate.EstimatedLayers > 0 {
-				log.Debug().Msgf("guessDefaultsFromFile: %d layers estimated", estimate.EstimatedLayers)
+				xlog.Debug("guessDefaultsFromFile: layers estimated", "layers", estimate.EstimatedLayers)
 				cfg.NGPULayers = &estimate.EstimatedLayers
 			}
 		}
@@ -62,20 +62,16 @@ func guessGGUFFromFile(cfg *ModelConfig, f *gguf.GGUFFile, defaultCtx int) {
 		cfg.NGPULayers = &defaultHigh
 	}
 
-	log.Debug().Any("NGPULayers", cfg.NGPULayers).Msgf("guessDefaultsFromFile: %s", "NGPULayers set")
+	xlog.Debug("guessDefaultsFromFile: NGPULayers set", "NGPULayers", cfg.NGPULayers)
 
 	// template estimations
 	if cfg.HasTemplate() {
 		// nothing to guess here
-		log.Debug().Any("name", cfg.Name).Msgf("guessDefaultsFromFile: %s", "template already set")
+		xlog.Debug("guessDefaultsFromFile: template already set", "name", cfg.Name)
 		return
 	}
 
-	log.Debug().
-		Any("eosTokenID", f.Tokenizer().EOSTokenID).
-		Any("bosTokenID", f.Tokenizer().BOSTokenID).
-		Any("modelName", f.Metadata().Name).
-		Any("architecture", f.Architecture().Architecture).Msgf("Model file loaded: %s", cfg.ModelFileName())
+	xlog.Debug("Model file loaded", "file", cfg.ModelFileName(), "eosTokenID", f.Tokenizer().EOSTokenID, "bosTokenID", f.Tokenizer().BOSTokenID, "modelName", f.Metadata().Name, "architecture", f.Architecture().Architecture)
 
 	// guess the name
 	if cfg.Name == "" {

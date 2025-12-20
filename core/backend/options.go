@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	pb "github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...model.Option) []model.Option {
@@ -208,7 +208,7 @@ func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions 
 		if err == nil {
 			promptCachePath = p
 		} else {
-			log.Error().Err(err).Str("promptCachePath", promptCachePath).Msg("error creating prompt cache folder")
+			xlog.Error("error creating prompt cache folder", "error", err, "promptCachePath", promptCachePath)
 		}
 	}
 

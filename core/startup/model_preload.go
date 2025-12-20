@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -32,10 +32,10 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 		// Check if it's a model gallery, or print a warning
 		e, found := installModel(ctx, galleries, backendGalleries, url, systemState, modelLoader, downloadStatus, enforceScan, autoloadBackendGalleries)
 		if e != nil && found {
-			log.Error().Err(err).Msgf("[startup] failed installing model '%s'", url)
+			xlog.Error("[startup] failed installing model", "error", err, "model", url)
 			err = errors.Join(err, e)
 		} else if !found {
-			log.Debug().Msgf("[startup] model not found in the gallery '%s'", url)
+			xlog.Debug("[startup] model not found in the gallery", "model", url)
 
 			if galleryService == nil {
 				return fmt.Errorf("cannot start autoimporter, not sure how to handle this uri")
@@ -44,7 +44,7 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 			// TODO: we should just use the discoverModelConfig here and default to this.
 			modelConfig, discoverErr := importers.DiscoverModelConfig(url, json.RawMessage{})
 			if discoverErr != nil {
-				log.Error().Err(discoverErr).Msgf("[startup] failed to discover model config '%s'", url)
+				xlog.Error("[startup] failed to discover model config", "error", discoverErr, "model", url)
 				err = errors.Join(discoverErr, fmt.Errorf("failed to discover model config: %w", err))
 				continue
 			}
@@ -76,11 +76,11 @@ func InstallModels(ctx context.Context, galleryService *services.GalleryService,
 			}
 
 			if status.Error != nil {
-				log.Error().Err(status.Error).Msgf("[startup] failed to import model '%s' from '%s'", modelConfig.Name, url)
+				xlog.Error("[startup] failed to import model", "error", status.Error, "model", modelConfig.Name, "url", url)
 				return status.Error
 			}
 
-			log.Info().Msgf("[startup] imported model '%s' from '%s'", modelConfig.Name, url)
+			xlog.Info("[startup] imported model", "model", modelConfig.Name, "url", url)
 		}
 	}
 	return err
@@ -101,7 +101,7 @@ func installModel(ctx context.Context, galleries, backendGalleries []config.Gall
 		downloadStatus = utils.DisplayDownloadFunction
 	}
 
-	log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
+	xlog.Info("installing model", "model", modelName, "license", model.License)
 	err = gallery.InstallModelFromGallery(ctx, galleries, backendGalleries, systemState, modelLoader, modelName, gallery.GalleryModel{}, downloadStatus, enforceScan, autoloadBackendGalleries)
 	if err != nil {
 		return err, true

@@ -21,7 +21,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // Embed a directory
@@ -101,18 +101,13 @@ func API(application *application.Application) (*echo.Echo, error) {
 		})
 	}
 
-	// Custom logger middleware using zerolog
+	// Custom logger middleware using xlog
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
 			res := c.Response()
-			start := log.Logger.Info()
 			err := next(c)
-			start.
-				Str("method", req.Method).
-				Str("path", req.URL.Path).
-				Int("status", res.Status).
-				Msg("HTTP request")
+			xlog.Info("HTTP request", "method", req.Method, "path", req.URL.Path, "status", res.Status)
 			return err
 		}
 	})
@@ -193,7 +188,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// CSRF middleware
 	if application.ApplicationConfig().CSRF {
-		log.Debug().Msg("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
+		xlog.Debug("Enabling CSRF middleware. Tokens are now required for state-modifying requests")
 		e.Use(middleware.CSRF())
 	}
 
@@ -219,7 +214,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Log startup message
 	e.Server.RegisterOnShutdown(func() {
-		log.Info().Msg("LocalAI API server shutting down")
+		xlog.Info("LocalAI API server shutting down")
 	})
 
 	return e, nil

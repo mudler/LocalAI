@@ -3,7 +3,7 @@ package utils
 import (
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 var lastProgress time.Time = time.Now()
@@ -29,9 +29,9 @@ func DisplayDownloadFunction(fileName string, current string, total string, perc
 		}
 
 		if total != "" {
-			log.Info().Msgf("Downloading %s: %s/%s (%.2f%%) ETA: %s", fileName, current, total, percentage, eta)
+			xlog.Info("Downloading", "fileName", fileName, "current", current, "total", total, "percentage", percentage, "eta", eta)
 		} else {
-			log.Info().Msgf("Downloading: %s", current)
+			xlog.Info("Downloading", "current", current)
 		}
 	}
 }

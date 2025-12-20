@@ -11,7 +11,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/functions"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"go.yaml.in/yaml/v2"
 )
 
@@ -22,7 +22,7 @@ type LlamaCPPImporter struct{}
 func (i *LlamaCPPImporter) Match(details Details) bool {
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to marshal preferences")
+		xlog.Error("failed to marshal preferences", "error", err)
 		return false
 	}
 
@@ -31,7 +31,7 @@ func (i *LlamaCPPImporter) Match(details Details) bool {
 	if len(preferences) > 0 {
 		err = json.Unmarshal(preferences, &preferencesMap)
 		if err != nil {
-			log.Error().Err(err).Msg("failed to unmarshal preferences")
+			xlog.Error("failed to unmarshal preferences", "error", err)
 			return false
 		}
 	}
@@ -63,7 +63,7 @@ func (i *LlamaCPPImporter) Match(details Details) bool {
 
 func (i *LlamaCPPImporter) Import(details Details) (gallery.ModelConfig, error) {
 
-	log.Debug().Str("uri", details.URI).Msg("llama.cpp importer matched")
+	xlog.Debug("llama.cpp importer matched", "uri", details.URI)
 
 	preferences, err := details.Preferences.MarshalJSON()
 	if err != nil {

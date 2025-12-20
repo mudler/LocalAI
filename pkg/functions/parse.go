@@ -10,7 +10,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/functions/grammars"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // @Description GrammarConfig contains configuration for grammar parsing
@@ -150,22 +150,22 @@ func (g FunctionsConfig) GrammarOptions() []func(o *grammars.GrammarOption) {
 }
 
 func CleanupLLMResult(llmresult string, functionConfig FunctionsConfig) string {
-	log.Debug().Msgf("LLM result: %s", llmresult)
+	xlog.Debug("LLM result", "result", llmresult)
 
 	for _, item := range functionConfig.ReplaceLLMResult {
 		k, v := item.Key, item.Value
-		log.Debug().Msgf("Replacing %s with %s", k, v)
+		xlog.Debug("Replacing", "key", k, "value", v)
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	log.Debug().Msgf("LLM result(processed): %s", llmresult)
+	xlog.Debug("LLM result(processed)", "result", llmresult)
 
 	return llmresult
 }
 
 func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
-	log.Debug().Msgf("ParseTextContent: %s", llmresult)
-	log.Debug().Msgf("CaptureLLMResult: %s", functionConfig.CaptureLLMResult)
+	xlog.Debug("ParseTextContent", "result", llmresult)
+	xlog.Debug("CaptureLLMResult", "config", functionConfig.CaptureLLMResult)
 
 	for _, r := range functionConfig.CaptureLLMResult {
 		// We use a regex to extract the JSON object from the response
@@ -223,15 +223,15 @@ func ParseJSON(s string) ([]map[string]any, error) {
 
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
 
-	log.Debug().Msgf("LLM result: %s", llmresult)
+	xlog.Debug("LLM result", "result", llmresult)
 
 	for _, item := range functionConfig.ReplaceFunctionResults {
 		k, v := item.Key, item.Value
-		log.Debug().Msgf("Replacing %s with %s", k, v)
+		xlog.Debug("Replacing", "key", k, "value", v)
 		re := regexp.MustCompile(k)
 		llmresult = re.ReplaceAllString(llmresult, v)
 	}
-	log.Debug().Msgf("LLM result(function cleanup): %s", llmresult)
+	xlog.Debug("LLM result(function cleanup)", "result", llmresult)
 
 	functionNameKey := defaultFunctionNameKey
 	functionArgumentsKey := defaultFunctionArgumentsKey
@@ -256,10 +256,10 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 			ss, err := ParseJSON(s)
 			//err := json.Unmarshal([]byte(s), &ss)
 			if err != nil {
-				log.Debug().Err(err).Str("escapedLLMResult", s).Msg("unable to unmarshal llm result in a single object or an array of JSON objects")
+				xlog.Debug("unable to unmarshal llm result in a single object or an array of JSON objects", "error", err, "escapedLLMResult", s)
 			}
 
-			log.Debug().Msgf("Function return: %s %+v", s, ss)
+			xlog.Debug("Function return", "result", s, "parsed", ss)
 
 			for _, s := range ss {
 				// The grammar defines the function name as "function", while OpenAI returns "name"
