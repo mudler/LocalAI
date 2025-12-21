@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "huihui-qwen3-vl-8b-instruct-creative-v0.4-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4-i1-GGUF
+  description: |
+    The model described is a quantized version of the **Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4** base model, optimized for efficiency. The original model, developed by WarlordHermes, is an 8B-parameter large language model with vision capabilities (VL), designed for instruction-following and creative tasks. It belongs to the Qwen series, known for its multilingual support, advanced reasoning, and ability to handle complex tasks. The quantized version retains the core capabilities of the base model but is adapted for lower memory usage, making it suitable for deployment in resource-constrained environments. Key features include support for text and vision inputs, strong instruction compliance, and creative generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4.i1-Q4_K_M.gguf
+    name: Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4.i1-Q4_K_M.gguf
+      sha256: b759655d4bc4eb9c2459921f5580848391d95b6d1cd522d8c294883a29fe069a
+      uri: https://huggingface.co/mradermacher/Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4-i1-GGUF/resolve/main/Huihui-Qwen3-VL-8B-Instruct-Creative-v0.4.i1-Q4_K_M.gguf
+
