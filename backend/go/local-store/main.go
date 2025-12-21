@@ -4,6 +4,7 @@ package main
 
 import (
 	"flag"
+	"os"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/xlog"
@@ -14,7 +15,7 @@ var (
 )
 
 func main() {
-	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(os.Getenv("LOCALAI_LOG_LEVEL")), os.Getenv("LOCALAI_LOG_FORMAT")))
 
 	flag.Parse()
 
