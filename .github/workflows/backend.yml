@@ -21,6 +21,8 @@ jobs:
       build-type: ${{ matrix.build-type }}
       cuda-major-version: ${{ matrix.cuda-major-version }}
       cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      rocm-major-version: ${{ matrix.rocm-major-version }}
+      rocm-minor-version: ${{ matrix.rocm-minor-version }}
       platforms: ${{ matrix.platforms }}
       runs-on: ${{ matrix.runs-on }}
       base-image: ${{ matrix.base-image }}
