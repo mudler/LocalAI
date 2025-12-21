@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "deepseek-v3.2"
+  urls:
+    - https://huggingface.co/cturan/DeepSeek-V3.2-GGUF
+  description: |
+    The model in question is **DeepSeek-V3.2**, a large language model developed as part of the DeepSeek series. It is optimized for specific inference scenarios and requires compilation from source due to its specialized architecture. While the GGUF format suggests it is a quantized or tailored version, the base model likely retains the core capabilities of the DeepSeek-V3.2 series, including advanced natural language understanding and generation. However, it is important to note that this variant is experimental and not compatible with standard tools like llama.cpp without custom compilation. For a model gallery, this description highlights its specialized nature, compatibility with advanced inference setups, and its role in the DeepSeek family of models.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-V3.2-Q3_K_S-06-of-06.gguf
+    name: DeepSeek-V3.2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/cturan/DeepSeek-V3.2-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/DeepSeek-V3.2-Q3_K_S-06-of-06.gguf
+      sha256: 7be112e2652f77b5a64d14491b86739e17e3dc14bc351e9d45bb922128d1167d
+      uri: https://huggingface.co/cturan/DeepSeek-V3.2-GGUF/resolve/main/Q3_K_S/DeepSeek-V3.2-Q3_K_S-06-of-06.gguf
+
