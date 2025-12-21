@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *smollm3
+  name: "coldbrew-nemo-12b-arcane-fusion-rpthink0"
+  urls:
+    - https://huggingface.co/mradermacher/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0-GGUF
+  description: |
+    The **ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0** model is a quantized version of the base model **SvalTek/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0**, optimized for efficient inference. It supports GGUF format and offers multiple quantization options (Q2_K, Q3_K_M, Q4_K_S), with **Q4_K_S** recommended for speed. The model is designed for text generation and is compatible with libraries like `transformers` and `unsloth`. Quantized versions are available in sizes ranging from 4.9GB to 7.2GB, balancing performance and resource usage. Licensed under Apache 2.0, it’s ideal for applications requiring fast, lightweight large language model inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0.Q4_K_M.gguf
+    name: ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0.Q4_K_M.gguf
+      sha256: da9973e6282026bce5220d9d2422cfb5eb1110155d5c92dc886d12b5f38013e0
+      uri: https://huggingface.co/mradermacher/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0-GGUF/resolve/main/ColdBrew-Nemo-12B-Arcane-Fusion-RPThink0.Q4_K_M.gguf
+
