@@ -14,7 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	model "github.com/mudler/LocalAI/pkg/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // TranscriptEndpoint is the OpenAI Whisper API endpoint https://platform.openai.com/docs/api-reference/audio/create
@@ -64,18 +64,18 @@ func TranscriptEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		if _, err := io.Copy(dstFile, f); err != nil {
-			log.Debug().Msgf("Audio file copying error %+v - %+v - err %+v", file.Filename, dst, err)
+			xlog.Debug("Audio file copying error", "filename", file.Filename, "dst", dst, "error", err)
 			return err
 		}
 
-		log.Debug().Msgf("Audio file copied to: %+v", dst)
+		xlog.Debug("Audio file copied", "dst", dst)
 
 		tr, err := backend.ModelTranscription(dst, input.Language, input.Translate, diarize, prompt, ml, *config, appConfig)
 		if err != nil {
 			return err
 		}
 
-		log.Debug().Msgf("Trascribed: %+v", tr)
+		xlog.Debug("Transcribed", "transcription", tr)
 		// TODO: handle different outputs here
 		return c.JSON(http.StatusOK, tr)
 	}

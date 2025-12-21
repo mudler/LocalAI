@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/utils"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -131,9 +131,9 @@ func InstallModelFromGallery(
 		if err != nil {
 			return err
 		}
-		log.Debug().Msgf("Installed model %q", installedModel.Name)
+		xlog.Debug("Installed model", "model", installedModel.Name)
 		if automaticallyInstallBackend && installedModel.Backend != "" {
-			log.Debug().Msgf("Installing backend %q", installedModel.Backend)
+			xlog.Debug("Installing backend", "backend", installedModel.Backend)
 
 			if err := InstallBackendFromGallery(ctx, backendGalleries, systemState, modelLoader, installedModel.Backend, downloadStatus, false); err != nil {
 				return err
@@ -165,7 +165,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 	}
 
 	if len(configOverrides) > 0 {
-		log.Debug().Msgf("Config overrides %+v", configOverrides)
+		xlog.Debug("Config overrides", "overrides", configOverrides)
 	}
 
 	// Download files and verify their SHA
@@ -177,7 +177,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		default:
 		}
 
-		log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+		xlog.Debug("Checking file exists and matches SHA", "filename", file.Filename)
 
 		if err := utils.VerifyPath(file.Filename, basePath); err != nil {
 			return nil, err
@@ -189,7 +189,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		if enforceScan {
 			scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
 			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
-				log.Error().Str("model", config.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
+				xlog.Error("Contains unsafe file(s)!", "model", config.Name, "clamAV", scanResults.ClamAVInfectedFiles, "pickles", scanResults.DangerousPickles)
 				return nil, err
 			}
 		}
@@ -218,7 +218,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to write prompt template %q: %v", template.Name, err)
 		}
 
-		log.Debug().Msgf("Prompt template %q written", template.Name)
+		xlog.Debug("Prompt template written", "template", template.Name)
 	}
 
 	name := config.Name
@@ -269,7 +269,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 			return nil, fmt.Errorf("failed to write updated config file: %v", err)
 		}
 
-		log.Debug().Msgf("Written config file %s", configFilePath)
+		xlog.Debug("Written config file", "file", configFilePath)
 	}
 
 	// Save the model gallery file for further reference
@@ -279,7 +279,7 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 		return nil, err
 	}
 
-	log.Debug().Msgf("Written gallery file %s", modelFile)
+	xlog.Debug("Written gallery file", "file", modelFile)
 
 	return &modelConfig, os.WriteFile(modelFile, data, 0600)
 }
@@ -341,7 +341,7 @@ func listModelFiles(systemState *system.SystemState, name string) ([]string, err
 			allFiles = append(allFiles, fullPath)
 		}
 	} else {
-		log.Error().Err(err).Msgf("failed to read gallery file %s", configFile)
+		xlog.Error("failed to read gallery file", "error", err, "file", configFile)
 	}
 
 	for _, f := range additionalFiles {
@@ -391,26 +391,26 @@ func DeleteModelFromSystem(systemState *system.SystemState, name string) error {
 		name := strings.TrimSuffix(f.Name(), ".yaml")
 		name = strings.TrimSuffix(name, ".yml")
 
-		log.Debug().Msgf("Checking file %s", f.Name())
+		xlog.Debug("Checking file", "file", f.Name())
 		files, err := listModelFiles(systemState, name)
 		if err != nil {
-			log.Debug().Err(err).Msgf("failed to list files for model %s", f.Name())
+			xlog.Debug("failed to list files for model", "error", err, "model", f.Name())
 			continue
 		}
 		allOtherFiles = append(allOtherFiles, files...)
 	}
 
-	log.Debug().Msgf("Files to remove: %+v", filesToRemove)
-	log.Debug().Msgf("All other files: %+v", allOtherFiles)
+	xlog.Debug("Files to remove", "files", filesToRemove)
+	xlog.Debug("All other files", "files", allOtherFiles)
 
 	// Removing files
 	for _, f := range filesToRemove {
 		if slices.Contains(allOtherFiles, f) {
-			log.Debug().Msgf("Skipping file %s because it is part of another model", f)
+			xlog.Debug("Skipping file because it is part of another model", "file", f)
 			continue
 		}
 		if e := os.Remove(f); e != nil {
-			log.Error().Err(e).Msgf("failed to remove file %s", f)
+			xlog.Error("failed to remove file", "error", e, "file", f)
 		}
 	}
 
@@ -436,7 +436,7 @@ func SafetyScanGalleryModel(galleryModel *GalleryModel) error {
 	for _, file := range galleryModel.AdditionalFiles {
 		scanResults, err := downloader.HuggingFaceScan(downloader.URI(file.URI))
 		if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
-			log.Error().Str("model", galleryModel.Name).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("Contains unsafe file(s)!")
+			xlog.Error("Contains unsafe file(s)!", "model", galleryModel.Name, "clamAV", scanResults.ClamAVInfectedFiles, "pickles", scanResults.DangerousPickles)
 			return err
 		}
 	}

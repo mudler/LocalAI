@@ -17,7 +17,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type correlationIDKeyType string
@@ -82,7 +82,7 @@ func (re *RequestExtractor) BuildConstantDefaultModelNameMiddleware(defaultModel
 			localModelName, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 			if !ok || localModelName == "" {
 				c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, defaultModelName)
-				log.Debug().Str("defaultModelName", defaultModelName).Msg("context local model name not found, setting to default")
+				xlog.Debug("context local model name not found, setting to default", "defaultModelName", defaultModelName)
 			}
 			return next(c)
 		}
@@ -100,19 +100,19 @@ func (re *RequestExtractor) BuildFilteredFirstAvailableDefaultModel(filterFn con
 
 			modelNames, err := services.ListModels(re.modelConfigLoader, re.modelLoader, filterFn, services.SKIP_IF_CONFIGURED)
 			if err != nil {
-				log.Error().Err(err).Msg("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()")
+				xlog.Error("non-fatal error calling ListModels during SetDefaultModelNameToFirstAvailable()", "error", err)
 				return next(c)
 			}
 
 			if len(modelNames) == 0 {
-				log.Warn().Msg("SetDefaultModelNameToFirstAvailable used with no matching models installed")
+				xlog.Warn("SetDefaultModelNameToFirstAvailable used with no matching models installed")
 				// This is non-fatal - making it so was breaking the case of direct installation of raw models
 				// return errors.New("this endpoint requires at least one model to be installed")
 				return next(c)
 			}
 
 			c.Set(CONTEXT_LOCALS_KEY_MODEL_NAME, modelNames[0])
-			log.Debug().Str("first model name", modelNames[0]).Msg("context local model name not found, setting to the first model")
+			xlog.Debug("context local model name not found, setting to the first model", "first model name", modelNames[0])
 			return next(c)
 		}
 	}
@@ -135,7 +135,7 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			if input.ModelName(nil) == "" {
 				localModelName, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_NAME).(string)
 				if ok && localModelName != "" {
-					log.Debug().Str("context localModelName", localModelName).Msg("overriding empty model name in request body with value found earlier in middleware chain")
+					xlog.Debug("overriding empty model name in request body with value found earlier in middleware chain", "context localModelName", localModelName)
 					input.ModelName(&localModelName)
 				}
 			}
@@ -143,10 +143,9 @@ func (re *RequestExtractor) SetModelAndConfig(initializer func() schema.LocalAIR
 			cfg, err := re.modelConfigLoader.LoadModelConfigFileByNameDefaultOptions(input.ModelName(nil), re.applicationConfig)
 
 			if err != nil {
-				log.Err(err)
-				log.Warn().Msgf("Model Configuration File not found for %q", input.ModelName(nil))
+				xlog.Warn("Model Configuration File not found", "model", input.ModelName(nil), "error", err)
 			} else if cfg.Model == "" && input.ModelName(nil) != "" {
-				log.Debug().Str("input.ModelName", input.ModelName(nil)).Msg("config does not include model, using input")
+				xlog.Debug("config does not include model, using input", "input.ModelName", input.ModelName(nil))
 				cfg.Model = input.ModelName(nil)
 			}
 
@@ -203,7 +202,7 @@ func (re *RequestExtractor) SetOpenAIRequest(c echo.Context) error {
 	}
 
 	if cfg.Model == "" {
-		log.Debug().Str("input.Model", input.Model).Msg("replacing empty cfg.Model with input value")
+		xlog.Debug("replacing empty cfg.Model with input value", "input.Model", input.Model)
 		cfg.Model = input.Model
 	}
 
@@ -331,7 +330,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.VideoURL.URL)
 					if err != nil {
-						log.Error().Msgf("Failed encoding video: %s", err)
+						xlog.Error("Failed encoding video", "error", err)
 						continue CONTENT
 					}
 					input.Messages[i].StringVideos = append(input.Messages[i].StringVideos, base64) // TODO: make sure that we only return base64 stuff
@@ -341,7 +340,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.AudioURL.URL)
 					if err != nil {
-						log.Error().Msgf("Failed encoding audio: %s", err)
+						xlog.Error("Failed encoding audio", "error", err)
 						continue CONTENT
 					}
 					input.Messages[i].StringAudios = append(input.Messages[i].StringAudios, base64) // TODO: make sure that we only return base64 stuff
@@ -356,7 +355,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 					// Decode content as base64 either if it's an URL or base64 text
 					base64, err := utils.GetContentURIAsBase64(pp.ImageURL.URL)
 					if err != nil {
-						log.Error().Msgf("Failed encoding image: %s", err)
+						xlog.Error("Failed encoding image", "error", err)
 						continue CONTENT
 					}
 
@@ -410,7 +409,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 		config.TypicalP = input.TypicalP
 	}
 
-	log.Debug().Str("input.Input", fmt.Sprintf("%+v", input.Input))
+	xlog.Debug("input.Input", "input", fmt.Sprintf("%+v", input.Input))
 
 	switch inputs := input.Input.(type) {
 	case string:
@@ -434,7 +433,7 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 					case string:
 						inputStrings = append(inputStrings, ii)
 					default:
-						log.Error().Msgf("Unknown input type: %T", ii)
+						xlog.Error("Unknown input type", "type", fmt.Sprintf("%T", ii))
 					}
 				}
 				config.InputToken = append(config.InputToken, tokens)

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/mholt/archiver/v3"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	gguf "github.com/gpustack/gguf-parser-go"
 	cliContext "github.com/mudler/LocalAI/core/cli/context"
@@ -51,7 +51,7 @@ type CreateOCIImageCMD struct {
 }
 
 func (u *CreateOCIImageCMD) Run(ctx *cliContext.Context) error {
-	log.Info().Msg("Creating OCI image from input")
+	xlog.Info("Creating OCI image from input")
 
 	dir, err := os.MkdirTemp("", "localai")
 	if err != nil {
@@ -62,7 +62,7 @@ func (u *CreateOCIImageCMD) Run(ctx *cliContext.Context) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Msgf("Creating '%s' as '%s' from %v", u.Output, u.Input, u.Input)
+	xlog.Info("Creating OCI image", "output", u.Output, "input", u.Input)
 
 	platform := strings.Split(u.Platform, "/")
 	if len(platform) != 2 {
@@ -80,27 +80,23 @@ func (u *GGUFInfoCMD) Run(ctx *cliContext.Context) error {
 	f, err := gguf.ParseGGUFFile(u.Args[0])
 	if err != nil {
 		// Only valid for gguf files
-		log.Error().Msgf("guessDefaultsFromFile: %s", "not a GGUF file")
+		xlog.Error("guessDefaultsFromFile: not a GGUF file")
 		return err
 	}
 
-	log.Info().
-		Any("eosTokenID", f.Tokenizer().EOSTokenID).
-		Any("bosTokenID", f.Tokenizer().BOSTokenID).
-		Any("modelName", f.Metadata().Name).
-		Any("architecture", f.Architecture().Architecture).Msgf("GGUF file loaded: %s", u.Args[0])
+	xlog.Info("GGUF file loaded", "file", u.Args[0], "eosTokenID", f.Tokenizer().EOSTokenID, "bosTokenID", f.Tokenizer().BOSTokenID, "modelName", f.Metadata().Name, "architecture", f.Architecture().Architecture)
 
-	log.Info().Any("tokenizer", fmt.Sprintf("%+v", f.Tokenizer())).Msg("Tokenizer")
-	log.Info().Any("architecture", fmt.Sprintf("%+v", f.Architecture())).Msg("Architecture")
+	xlog.Info("Tokenizer", "tokenizer", fmt.Sprintf("%+v", f.Tokenizer()))
+	xlog.Info("Architecture", "architecture", fmt.Sprintf("%+v", f.Architecture()))
 
 	v, exists := f.Header.MetadataKV.Get("tokenizer.chat_template")
 	if exists {
-		log.Info().Msgf("chat_template: %s", v.ValueString())
+		xlog.Info("chat_template", "template", v.ValueString())
 	}
 
 	if u.Header {
 		for _, metadata := range f.Header.MetadataKV {
-			log.Info().Msgf("%s: %+v", metadata.Key, metadata.Value)
+			xlog.Info("metadata", "key", metadata.Key, "value", metadata.Value)
 		}
 		//	log.Info().Any("header", fmt.Sprintf("%+v", f.Header)).Msg("Header")
 	}
@@ -117,63 +113,63 @@ func (hfscmd *HFScanCMD) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	log.Info().Msg("LocalAI Security Scanner - This is BEST EFFORT functionality! Currently limited to huggingface models!")
+	xlog.Info("LocalAI Security Scanner - This is BEST EFFORT functionality! Currently limited to huggingface models!")
 	if len(hfscmd.ToScan) == 0 {
-		log.Info().Msg("Checking all installed models against galleries")
+		xlog.Info("Checking all installed models against galleries")
 		var galleries []config.Gallery
 		if err := json.Unmarshal([]byte(hfscmd.Galleries), &galleries); err != nil {
-			log.Error().Err(err).Msg("unable to load galleries")
+			xlog.Error("unable to load galleries", "error", err)
 		}
 
 		err := gallery.SafetyScanGalleryModels(galleries, systemState)
 		if err == nil {
-			log.Info().Msg("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
+			xlog.Info("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
 		} else {
-			log.Error().Err(err).Msg("! WARNING ! A known-vulnerable model is installed!")
+			xlog.Error("! WARNING ! A known-vulnerable model is installed!", "error", err)
 		}
 		return err
 	} else {
 		var errs error = nil
 		for _, uri := range hfscmd.ToScan {
-			log.Info().Str("uri", uri).Msg("scanning specific uri")
+			xlog.Info("scanning specific uri", "uri", uri)
 			scanResults, err := downloader.HuggingFaceScan(downloader.URI(uri))
 			if err != nil && errors.Is(err, downloader.ErrUnsafeFilesFound) {
-				log.Error().Err(err).Strs("clamAV", scanResults.ClamAVInfectedFiles).Strs("pickles", scanResults.DangerousPickles).Msg("! WARNING ! A known-vulnerable model is included in this repo!")
+				xlog.Error("! WARNING ! A known-vulnerable model is included in this repo!", "error", err, "clamAV", scanResults.ClamAVInfectedFiles, "pickles", scanResults.DangerousPickles)
 				errs = errors.Join(errs, err)
 			}
 		}
 		if errs != nil {
 			return errs
 		}
-		log.Info().Msg("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
+		xlog.Info("No security warnings were detected for your installed models. Please note that this is a BEST EFFORT tool, and all issues may not be detected.")
 		return nil
 	}
 }
 
 func (uhcmd *UsecaseHeuristicCMD) Run(ctx *cliContext.Context) error {
 	if len(uhcmd.ConfigName) == 0 {
-		log.Error().Msg("ConfigName is a required parameter")
+		xlog.Error("ConfigName is a required parameter")
 		return fmt.Errorf("config name is a required parameter")
 	}
 	if len(uhcmd.ModelsPath) == 0 {
-		log.Error().Msg("ModelsPath is a required parameter")
+		xlog.Error("ModelsPath is a required parameter")
 		return fmt.Errorf("model path is a required parameter")
 	}
 	bcl := config.NewModelConfigLoader(uhcmd.ModelsPath)
 	err := bcl.ReadModelConfig(uhcmd.ConfigName)
 	if err != nil {
-		log.Error().Err(err).Str("ConfigName", uhcmd.ConfigName).Msg("error while loading backend")
+		xlog.Error("error while loading backend", "error", err, "ConfigName", uhcmd.ConfigName)
 		return err
 	}
 	bc, exists := bcl.GetModelConfig(uhcmd.ConfigName)
 	if !exists {
-		log.Error().Str("ConfigName", uhcmd.ConfigName).Msg("ConfigName not found")
+		xlog.Error("ConfigName not found", "ConfigName", uhcmd.ConfigName)
 	}
 	for name, uc := range config.GetAllModelConfigUsecases() {
 		if bc.HasUsecases(uc) {
-			log.Info().Str("Usecase", name)
+			xlog.Info("Usecase", "usecase", name)
 		}
 	}
-	log.Info().Msg("---")
+	xlog.Info("---")
 	return nil
 }

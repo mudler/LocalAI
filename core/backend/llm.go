@@ -9,7 +9,7 @@ import (
 	"sync"
 	"unicode/utf8"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
@@ -49,7 +49,7 @@ func ModelInference(ctx context.Context, s string, messages schema.Messages, ima
 			// if we failed to load the model, we try to download it
 			err := gallery.InstallModelFromGallery(ctx, o.Galleries, o.BackendGalleries, o.SystemState, loader, c.Name, gallery.GalleryModel{}, utils.DisplayDownloadFunction, o.EnforcePredownloadScans, o.AutoloadBackendGalleries)
 			if err != nil {
-				log.Error().Err(err).Msgf("failed to install model %q from gallery", modelFile)
+				xlog.Error("failed to install model from gallery", "error", err, "model", modelFile)
 				//return nil, err
 			}
 		}
@@ -225,7 +225,7 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			r, err := regexp.Compile(c)
 			if err != nil {
-				log.Fatal().Err(err).Msg("failed to compile regex")
+				xlog.Fatal("failed to compile regex", "error", err)
 			}
 			cutstrings[c] = r
 			reg = cutstrings[c]
@@ -242,7 +242,7 @@ func Finetune(config config.ModelConfig, input, prediction string) string {
 		if !ok {
 			regex, err := regexp.Compile(r)
 			if err != nil {
-				log.Fatal().Err(err).Msg("failed to compile regex")
+				xlog.Fatal("failed to compile regex", "error", err)
 			}
 			cutstrings[r] = regex
 			reg = regex

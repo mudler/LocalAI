@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 var base64DownloadClient http.Client = http.Client{
@@ -43,7 +43,7 @@ func GetContentURIAsBase64(s string) (string, error) {
 
 	// Match any data URI prefix pattern
 	if match := dataURIPattern.FindString(s); match != "" {
-		log.Debug().Msgf("Found data URI prefix: %s", match)
+		xlog.Debug("Found data URI prefix", "prefix", match)
 		return strings.Replace(s, match, "", 1), nil
 	}
 

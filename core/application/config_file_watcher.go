@@ -11,7 +11,7 @@ import (
 	"dario.cat/mergo"
 	"github.com/fsnotify/fsnotify"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type fileHandler func(fileContent []byte, appConfig *config.ApplicationConfig) error
@@ -33,15 +33,15 @@ func newConfigFileHandler(appConfig *config.ApplicationConfig) configFileHandler
 	}
 	err := c.Register("api_keys.json", readApiKeysJson(*appConfig), true)
 	if err != nil {
-		log.Error().Err(err).Str("file", "api_keys.json").Msg("unable to register config file handler")
+		xlog.Error("unable to register config file handler", "error", err, "file", "api_keys.json")
 	}
 	err = c.Register("external_backends.json", readExternalBackendsJson(*appConfig), true)
 	if err != nil {
-		log.Error().Err(err).Str("file", "external_backends.json").Msg("unable to register config file handler")
+		xlog.Error("unable to register config file handler", "error", err, "file", "external_backends.json")
 	}
 	err = c.Register("runtime_settings.json", readRuntimeSettingsJson(*appConfig), true)
 	if err != nil {
-		log.Error().Err(err).Str("file", "runtime_settings.json").Msg("unable to register config file handler")
+		xlog.Error("unable to register config file handler", "error", err, "file", "runtime_settings.json")
 	}
 	// Note: agent_tasks.json and agent_jobs.json are handled by AgentJobService directly
 	// The service watches and reloads these files internally
@@ -62,14 +62,14 @@ func (c *configFileHandler) Register(filename string, handler fileHandler, runNo
 
 func (c *configFileHandler) callHandler(filename string, handler fileHandler) {
 	rootedFilePath := filepath.Join(c.appConfig.DynamicConfigsDir, filepath.Clean(filename))
-	log.Trace().Str("filename", rootedFilePath).Msg("reading file for dynamic config update")
+	xlog.Debug("reading file for dynamic config update", "filename", rootedFilePath)
 	fileContent, err := os.ReadFile(rootedFilePath)
 	if err != nil && !os.IsNotExist(err) {
-		log.Error().Err(err).Str("filename", rootedFilePath).Msg("could not read file")
+		xlog.Error("could not read file", "error", err, "filename", rootedFilePath)
 	}
 
 	if err = handler(fileContent, c.appConfig); err != nil {
-		log.Error().Err(err).Msg("WatchConfigDirectory goroutine failed to update options")
+		xlog.Error("WatchConfigDirectory goroutine failed to update options", "error", err)
 	}
 }
 
@@ -81,13 +81,13 @@ func (c *configFileHandler) Watch() error {
 	}
 
 	if c.appConfig.DynamicConfigsDirPollInterval > 0 {
-		log.Debug().Msg("Poll interval set, falling back to polling for configuration changes")
+		xlog.Debug("Poll interval set, falling back to polling for configuration changes")
 		ticker := time.NewTicker(c.appConfig.DynamicConfigsDirPollInterval)
 		go func() {
 			for {
 				<-ticker.C
 				for file, handler := range c.handlers {
-					log.Debug().Str("file", file).Msg("polling config file")
+					xlog.Debug("polling config file", "file", file)
 					c.callHandler(file, handler)
 				}
 			}
@@ -111,7 +111,7 @@ func (c *configFileHandler) Watch() error {
 					c.callHandler(filepath.Base(event.Name), handler)
 				}
 			case err, ok := <-c.watcher.Errors:
-				log.Error().Err(err).Msg("config watcher error received")
+				xlog.Error("config watcher error received", "error", err)
 				if !ok {
 					return
 				}
@@ -135,8 +135,7 @@ func (c *configFileHandler) Stop() error {
 
 func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
-		log.Debug().Msg("processing api keys runtime update")
-		log.Trace().Int("numKeys", len(startupAppConfig.ApiKeys)).Msg("api keys provided at startup")
+		xlog.Debug("processing api keys runtime update", "numKeys", len(startupAppConfig.ApiKeys))
 
 		if len(fileContent) > 0 {
 			// Parse JSON content from the file
@@ -146,14 +145,14 @@ func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 				return err
 			}
 
-			log.Trace().Int("numKeys", len(fileKeys)).Msg("discovered API keys from api keys dynamic config dile")
+			xlog.Debug("discovered API keys from api keys dynamic config file", "numKeys", len(fileKeys))
 
 			appConfig.ApiKeys = append(startupAppConfig.ApiKeys, fileKeys...)
 		} else {
-			log.Trace().Msg("no API keys discovered from dynamic config file")
+			xlog.Debug("no API keys discovered from dynamic config file")
 			appConfig.ApiKeys = startupAppConfig.ApiKeys
 		}
-		log.Trace().Int("numKeys", len(appConfig.ApiKeys)).Msg("total api keys after processing")
+		xlog.Debug("total api keys after processing", "numKeys", len(appConfig.ApiKeys))
 		return nil
 	}
 
@@ -162,7 +161,7 @@ func readApiKeysJson(startupAppConfig config.ApplicationConfig) fileHandler {
 
 func readExternalBackendsJson(startupAppConfig config.ApplicationConfig) fileHandler {
 	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
-		log.Debug().Msg("processing external_backends.json")
+		xlog.Debug("processing external_backends.json")
 
 		if len(fileContent) > 0 {
 			// Parse JSON content from the file
@@ -179,7 +178,7 @@ func readExternalBackendsJson(startupAppConfig config.ApplicationConfig) fileHan
 		} else {
 			appConfig.ExternalGRPCBackends = startupAppConfig.ExternalGRPCBackends
 		}
-		log.Debug().Msg("external backends loaded from external_backends.json")
+		xlog.Debug("external backends loaded from external_backends.json")
 		return nil
 	}
 	return handler
@@ -187,7 +186,7 @@ func readExternalBackendsJson(startupAppConfig config.ApplicationConfig) fileHan
 
 func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHandler {
 	handler := func(fileContent []byte, appConfig *config.ApplicationConfig) error {
-		log.Debug().Msg("processing runtime_settings.json")
+		xlog.Debug("processing runtime_settings.json")
 
 		// Determine if settings came from env vars by comparing with startup config
 		// startupAppConfig contains the original values set from env vars at startup.
@@ -241,7 +240,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				if err == nil {
 					appConfig.WatchDogIdleTimeout = dur
 				} else {
-					log.Warn().Err(err).Str("timeout", *settings.WatchdogIdleTimeout).Msg("invalid watchdog idle timeout in runtime_settings.json")
+					xlog.Warn("invalid watchdog idle timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogIdleTimeout)
 				}
 			}
 			if settings.WatchdogBusyTimeout != nil && !envWatchdogBusyTimeout {
@@ -249,7 +248,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				if err == nil {
 					appConfig.WatchDogBusyTimeout = dur
 				} else {
-					log.Warn().Err(err).Str("timeout", *settings.WatchdogBusyTimeout).Msg("invalid watchdog busy timeout in runtime_settings.json")
+					xlog.Warn("invalid watchdog busy timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogBusyTimeout)
 				}
 			}
 			// Handle MaxActiveBackends (new) and SingleBackend (deprecated)
@@ -340,7 +339,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 				}
 			}
 		}
-		log.Debug().Msg("runtime settings loaded from runtime_settings.json")
+		xlog.Debug("runtime settings loaded from runtime_settings.json")
 		return nil
 	}
 	return handler

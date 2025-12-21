@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func (a *Application) StopWatchdog() error {
@@ -52,24 +52,17 @@ func (a *Application) startWatchdog() error {
 		go func() {
 			select {
 			case <-a.watchdogStop:
-				log.Debug().Msg("Watchdog stop signal received")
+				xlog.Debug("Watchdog stop signal received")
 				wd.Shutdown()
 			case <-appConfig.Context.Done():
-				log.Debug().Msg("Context canceled, shutting down watchdog")
+				xlog.Debug("Context canceled, shutting down watchdog")
 				wd.Shutdown()
 			}
 		}()
 
-		log.Info().
-			Int("lruLimit", lruLimit).
-			Bool("busyCheck", appConfig.WatchDogBusy).
-			Bool("idleCheck", appConfig.WatchDogIdle).
-			Bool("memoryReclaimer", appConfig.MemoryReclaimerEnabled).
-			Float64("memoryThreshold", appConfig.MemoryReclaimerThreshold).
-			Dur("interval", appConfig.WatchDogInterval).
-			Msg("Watchdog started with new settings")
+		xlog.Info("Watchdog started with new settings", "lruLimit", lruLimit, "busyCheck", appConfig.WatchDogBusy, "idleCheck", appConfig.WatchDogIdle, "memoryReclaimer", appConfig.MemoryReclaimerEnabled, "memoryThreshold", appConfig.MemoryReclaimerThreshold, "interval", appConfig.WatchDogInterval)
 	} else {
-		log.Info().Msg("Watchdog disabled")
+		xlog.Info("Watchdog disabled")
 	}
 
 	return nil

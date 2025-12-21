@@ -5,7 +5,7 @@ import (
 	"math/rand/v2"
 	"sync"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const FederatedID = "federated"
@@ -43,7 +43,7 @@ func (fs *FederatedServer) RandomServer() string {
 			tunnelAddresses = append(tunnelAddresses, v.ID)
 		} else {
 			delete(fs.requestTable, v.ID) // make sure it's not tracked
-			log.Info().Msgf("Node %s is offline", v.ID)
+			xlog.Info("Node is offline", "node", v.ID)
 		}
 	}
 
@@ -80,7 +80,7 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 	fs.Lock()
 	defer fs.Unlock()
 
-	log.Debug().Any("request_table", fs.requestTable).Msgf("SelectLeastUsedServer()")
+	xlog.Debug("SelectLeastUsedServer()", "request_table", fs.requestTable)
 
 	// cycle over requestTable and find the entry with the lower number
 	// if there are multiple entries with the same number, select one randomly
@@ -93,7 +93,7 @@ func (fs *FederatedServer) SelectLeastUsedServer() string {
 			minKey = k
 		}
 	}
-	log.Debug().Any("requests_served", min).Any("request_table", fs.requestTable).Msgf("Selected tunnel %s", minKey)
+	xlog.Debug("Selected tunnel", "tunnel", minKey, "requests_served", min, "request_table", fs.requestTable)
 
 	return minKey
 }
@@ -104,7 +104,7 @@ func (fs *FederatedServer) RecordRequest(nodeID string) {
 	// increment the counter for the nodeID in the requestTable
 	fs.requestTable[nodeID]++
 
-	log.Debug().Any("request_table", fs.requestTable).Any("request", nodeID).Msgf("Recording request")
+	xlog.Debug("Recording request", "request_table", fs.requestTable, "request", nodeID)
 }
 
 func (fs *FederatedServer) ensureRecordExist(nodeID string) {
@@ -114,5 +114,5 @@ func (fs *FederatedServer) ensureRecordExist(nodeID string) {
 		fs.requestTable[nodeID] = 0
 	}
 
-	log.Debug().Any("request_table", fs.requestTable).Any("request", nodeID).Msgf("Ensure record exists")
+	xlog.Debug("Ensure record exists", "request_table", fs.requestTable, "request", nodeID)
 }

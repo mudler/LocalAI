@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/labstack/echo/v4"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type ModelGalleryEndpointService struct {
@@ -121,11 +121,11 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState
 
 		models, err := gallery.AvailableGalleryModels(mgs.galleries, systemState)
 		if err != nil {
-			log.Error().Err(err).Msg("could not list models from galleries")
+			xlog.Error("could not list models from galleries", "error", err)
 			return err
 		}
 
-		log.Debug().Msgf("Available %d models from %d galleries\n", len(models), len(mgs.galleries))
+		xlog.Debug("Available models from galleries", "modelCount", len(models), "galleryCount", len(mgs.galleries))
 
 		m := []gallery.Metadata{}
 
@@ -133,7 +133,7 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState
 			m = append(m, mm.Metadata)
 		}
 
-		log.Debug().Msgf("Models %#v", m)
+		xlog.Debug("Models", "models", m)
 
 		dat, err := json.Marshal(m)
 		if err != nil {
@@ -150,7 +150,7 @@ func (mgs *ModelGalleryEndpointService) ListModelFromGalleryEndpoint(systemState
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
 func (mgs *ModelGalleryEndpointService) ListModelGalleriesEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		log.Debug().Msgf("Listing model galleries %+v", mgs.galleries)
+		xlog.Debug("Listing model galleries", "galleries", mgs.galleries)
 		dat, err := json.Marshal(mgs.galleries)
 		if err != nil {
 			return err

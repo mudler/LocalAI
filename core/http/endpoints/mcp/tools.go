@@ -12,7 +12,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/signals"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type sessionCache struct {
@@ -47,7 +47,7 @@ func SessionsFromMCPConfig(
 
 	// Get the list of all the tools that the Agent will be esposed to
 	for _, server := range remote.Servers {
-		log.Debug().Msgf("[MCP remote server] Configuration : %+v", server)
+		xlog.Debug("[MCP remote server] Configuration", "server", server)
 		// Create HTTP client with custom roundtripper for bearer token injection
 		httpClient := &http.Client{
 			Timeout:   360 * time.Second,
@@ -57,16 +57,16 @@ func SessionsFromMCPConfig(
 		transport := &mcp.StreamableClientTransport{Endpoint: server.URL, HTTPClient: httpClient}
 		mcpSession, err := client.Connect(ctx, transport, nil)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to connect to MCP server %s", server.URL)
+			xlog.Error("Failed to connect to MCP server", "error", err, "url", server.URL)
 			continue
 		}
-		log.Debug().Msgf("[MCP remote server] Connected to MCP server %s", server.URL)
+		xlog.Debug("[MCP remote server] Connected to MCP server", "url", server.URL)
 		cache.cache[name] = append(cache.cache[name], mcpSession)
 		allSessions = append(allSessions, mcpSession)
 	}
 
 	for _, server := range stdio.Servers {
-		log.Debug().Msgf("[MCP stdio server] Configuration : %+v", server)
+		xlog.Debug("[MCP stdio server] Configuration", "server", server)
 		command := exec.Command(server.Command, server.Args...)
 		command.Env = os.Environ()
 		for key, value := range server.Env {
@@ -75,10 +75,10 @@ func SessionsFromMCPConfig(
 		transport := &mcp.CommandTransport{Command: command}
 		mcpSession, err := client.Connect(ctx, transport, nil)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to start MCP server %s", command)
+			xlog.Error("Failed to start MCP server", "error", err, "command", command)
 			continue
 		}
-		log.Debug().Msgf("[MCP stdio server] Connected to MCP server %s", command)
+		xlog.Debug("[MCP stdio server] Connected to MCP server", "command", command)
 		cache.cache[name] = append(cache.cache[name], mcpSession)
 		allSessions = append(allSessions, mcpSession)
 	}

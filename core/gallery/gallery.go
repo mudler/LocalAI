@@ -14,7 +14,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsync"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	"gopkg.in/yaml.v2"
 )
@@ -26,7 +26,7 @@ func GetGalleryConfigFromURL[T any](url string, basePath string) (T, error) {
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
-		log.Error().Err(err).Str("url", url).Msg("failed to get gallery config for url")
+		xlog.Error("failed to get gallery config for url", "error", err, "url", url)
 		return config, err
 	}
 	return config, nil
@@ -39,7 +39,7 @@ func GetGalleryConfigFromURLWithContext[T any](ctx context.Context, url string, 
 		return yaml.Unmarshal(d, &config)
 	})
 	if err != nil {
-		log.Error().Err(err).Str("url", url).Msg("failed to get gallery config for url")
+		xlog.Error("failed to get gallery config for url", "error", err, "url", url)
 		return config, err
 	}
 	return config, nil
@@ -310,7 +310,7 @@ func getGalleryElements[T GalleryElement](gallery config.Gallery, basePath strin
 		})
 		if err != nil {
 			if yamlErr, ok := err.(*yaml.TypeError); ok {
-				log.Debug().Msgf("YAML errors: %s\n\nwreckage of models: %+v", strings.Join(yamlErr.Errors, "\n"), models)
+				xlog.Debug("YAML errors", "errors", strings.Join(yamlErr.Errors, "\n"), "models", models)
 			}
 			return models, fmt.Errorf("failed to read gallery elements: %w", err)
 		}

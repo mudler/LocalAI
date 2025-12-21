@@ -4,15 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/labstack/echo/v4"
 	"github.com/google/uuid"
+	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type BackendEndpointService struct {
@@ -131,7 +131,7 @@ func (mgs *BackendEndpointService) ListBackendsEndpoint(systemState *system.Syst
 // NOTE: This is different (and much simpler!) than above! This JUST lists the model galleries that have been loaded, not their contents!
 func (mgs *BackendEndpointService) ListBackendGalleriesEndpoint() echo.HandlerFunc {
 	return func(c echo.Context) error {
-		log.Debug().Msgf("Listing backend galleries %+v", mgs.galleries)
+		xlog.Debug("Listing backend galleries", "galleries", mgs.galleries)
 		dat, err := json.Marshal(mgs.galleries)
 		if err != nil {
 			return err

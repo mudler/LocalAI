@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/explorer"
 	"github.com/mudler/LocalAI/core/http"
 	"github.com/mudler/LocalAI/pkg/signals"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type ExplorerCMD struct {
@@ -51,7 +51,7 @@ func (e *ExplorerCMD) Run(ctx *cliContext.Context) error {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		if err := appHTTP.Shutdown(ctx); err != nil {
-			log.Error().Err(err).Msg("error during shutdown")
+			xlog.Error("error during shutdown", "error", err)
 		}
 	})
 

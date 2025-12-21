@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"github.com/schollz/progressbar/v3"
 )
 
@@ -46,7 +46,7 @@ type ModelsCMD struct {
 func (ml *ModelsList) Run(ctx *cliContext.Context) error {
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(ml.Galleries), &galleries); err != nil {
-		log.Error().Err(err).Msg("unable to load galleries")
+		xlog.Error("unable to load galleries", "error", err)
 	}
 
 	systemState, err := system.GetSystemState(
@@ -88,12 +88,12 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 
 	var galleries []config.Gallery
 	if err := json.Unmarshal([]byte(mi.Galleries), &galleries); err != nil {
-		log.Error().Err(err).Msg("unable to load galleries")
+		xlog.Error("unable to load galleries", "error", err)
 	}
 
 	var backendGalleries []config.Gallery
 	if err := json.Unmarshal([]byte(mi.BackendGalleries), &backendGalleries); err != nil {
-		log.Error().Err(err).Msg("unable to load backend galleries")
+		xlog.Error("unable to load backend galleries", "error", err)
 	}
 
 	for _, modelName := range mi.ModelArgs {
@@ -108,7 +108,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			v := int(percentage * 10)
 			err := progressBar.Set(v)
 			if err != nil {
-				log.Error().Err(err).Str("filename", fileName).Int("value", v).Msg("error while updating progress bar")
+				xlog.Error("error while updating progress bar", "error", err, "filename", fileName, "value", v)
 			}
 		}
 		//startup.InstallModels()
@@ -122,7 +122,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		if !modelURI.LooksLikeOCI() {
 			model := gallery.FindGalleryElement(models, modelName)
 			if model == nil {
-				log.Error().Str("model", modelName).Msg("model not found")
+				xlog.Error("model not found", "model", modelName)
 				return err
 			}
 
@@ -131,7 +131,7 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 				return err
 			}
 
-			log.Info().Str("model", modelName).Str("license", model.License).Msg("installing model")
+			xlog.Info("installing model", "model", modelName, "license", model.License)
 		}
 
 		modelLoader := model.NewModelLoader(systemState)

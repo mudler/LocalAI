@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/mudler/LocalAI/core/services"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // RestartAgentJobService restarts the agent job service with current ApplicationConfig settings
@@ -15,7 +15,7 @@ func (a *Application) RestartAgentJobService() error {
 	// Stop existing service if running
 	if a.agentJobService != nil {
 		if err := a.agentJobService.Stop(); err != nil {
-			log.Warn().Err(err).Msg("Error stopping agent job service")
+			xlog.Warn("Error stopping agent job service", "error", err)
 		}
 		// Wait a bit for shutdown to complete
 		time.Sleep(200 * time.Millisecond)
@@ -32,12 +32,11 @@ func (a *Application) RestartAgentJobService() error {
 	// Start the service
 	err := agentJobService.Start(a.ApplicationConfig().Context)
 	if err != nil {
-		log.Error().Err(err).Msg("Failed to start agent job service")
+		xlog.Error("Failed to start agent job service", "error", err)
 		return err
 	}
 
 	a.agentJobService = agentJobService
-	log.Info().Msg("Agent job service restarted")
+	xlog.Info("Agent job service restarted")
 	return nil
 }
-

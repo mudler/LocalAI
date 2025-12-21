@@ -15,8 +15,7 @@ import (
 	"github.com/mudler/LocalAI/internal"
 	"github.com/mudler/LocalAI/pkg/signals"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type RunCMD struct {
@@ -108,7 +107,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 		config.WithYAMLConfigPreload(r.PreloadModelsConfig),
 		config.WithSystemState(systemState),
 		config.WithContextSize(r.ContextSize),
-		config.WithDebug(zerolog.GlobalLevel() <= zerolog.DebugLevel),
+		config.WithDebug(ctx.Debug || (ctx.LogLevel != nil && *ctx.LogLevel == "debug")),
 		config.WithGeneratedContentDir(r.GeneratedContentPath),
 		config.WithUploadDir(r.UploadPath),
 		config.WithDynamicConfigDir(r.LocalaiConfigDir),
@@ -138,7 +137,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			tunnelEnvVar := strings.Join(tunnels, ",")
 			// TODO: this is very specific to llama.cpp, we should have a more generic way to set the environment variable
 			os.Setenv("LLAMACPP_GRPC_SERVERS", tunnelEnvVar)
-			log.Debug().Msgf("setting LLAMACPP_GRPC_SERVERS to %s", tunnelEnvVar)
+			xlog.Debug("setting LLAMACPP_GRPC_SERVERS", "value", tunnelEnvVar)
 		}),
 	}
 
@@ -152,17 +151,17 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	token := ""
 	if r.Peer2Peer || r.Peer2PeerToken != "" {
-		log.Info().Msg("P2P mode enabled")
+		xlog.Info("P2P mode enabled")
 		token = r.Peer2PeerToken
 		if token == "" {
 			// IF no token is provided, and p2p is enabled,
 			// we generate one and wait for the user to pick up the token (this is for interactive)
-			log.Info().Msg("No token provided, generating one")
+			xlog.Info("No token provided, generating one")
 			token = p2p.GenerateToken(r.Peer2PeerDHTInterval, r.Peer2PeerOTPInterval)
-			log.Info().Msg("Generated Token:")
+			xlog.Info("Generated Token:")
 			fmt.Println(token)
 
-			log.Info().Msg("To use the token, you can run the following command in another node or terminal:")
+			xlog.Info("To use the token, you can run the following command in another node or terminal:")
 			fmt.Printf("export TOKEN=\"%s\"\nlocal-ai worker p2p-llama-cpp-rpc\n", token)
 		}
 		opts = append(opts, config.WithP2PToken(token))
@@ -248,7 +247,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	appHTTP, err := http.API(app)
 	if err != nil {
-		log.Error().Err(err).Msg("error during HTTP App construction")
+		xlog.Error("error during HTTP App construction", "error", err)
 		return err
 	}
 
@@ -260,7 +259,7 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 
 	signals.RegisterGracefulTerminationHandler(func() {
 		if err := app.ModelLoader().StopAllGRPC(); err != nil {
-			log.Error().Err(err).Msg("error while stopping all grpc backends")
+			xlog.Error("error while stopping all grpc backends", "error", err)
 		}
 	})
 
