@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/cogito"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // MCP SSE Event Types
@@ -138,19 +138,19 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			cogitoOpts = append(
 				cogitoOpts,
 				cogito.WithStatusCallback(func(s string) {
-					log.Debug().Msgf("[model agent] [model: %s] Status: %s", config.Name, s)
+					xlog.Debug("[model agent] Status", "model", config.Name, "status", s)
 				}),
 				cogito.WithReasoningCallback(func(s string) {
-					log.Debug().Msgf("[model agent] [model: %s] Reasoning: %s", config.Name, s)
+					xlog.Debug("[model agent] Reasoning", "model", config.Name, "reasoning", s)
 				}),
 				cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-					log.Debug().Str("model", config.Name).Str("tool", t.Name).Str("reasoning", t.Reasoning).Interface("arguments", t.Arguments).Msg("[model agent] Tool call")
+					xlog.Debug("[model agent] Tool call", "model", config.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
 					return cogito.ToolCallDecision{
 						Approved: true,
 					}
 				}),
 				cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
-					log.Debug().Str("model", config.Name).Str("tool", t.Name).Str("result", t.Result).Interface("tool_arguments", t.ToolArguments).Msg("[model agent] Tool call result")
+					xlog.Debug("[model agent] Tool call result", "model", config.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments)
 				}),
 			)
 
@@ -176,7 +176,7 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			}
 
 			jsonResult, _ := json.Marshal(resp)
-			log.Debug().Msgf("Response: %s", jsonResult)
+			xlog.Debug("Response", "response", string(jsonResult))
 
 			// Return the prediction in the response body
 			return c.JSON(200, resp)
@@ -279,7 +279,7 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			select {
 			case <-ctx.Done():
 				// Context was cancelled (client disconnected or request cancelled)
-				log.Debug().Msgf("Request context cancelled, stopping stream")
+				xlog.Debug("Request context cancelled, stopping stream")
 				cancel()
 				break LOOP
 			case event := <-events:
@@ -289,13 +289,13 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 				}
 				eventData, err := json.Marshal(event)
 				if err != nil {
-					log.Debug().Msgf("Failed to marshal event: %v", err)
+					xlog.Debug("Failed to marshal event", "error", err)
 					continue
 				}
-				log.Debug().Msgf("Sending event: %s", string(eventData))
+				xlog.Debug("Sending event", "event", string(eventData))
 				_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(eventData))
 				if err != nil {
-					log.Debug().Msgf("Sending event failed: %v", err)
+					xlog.Debug("Sending event failed", "error", err)
 					cancel()
 					return err
 				}
@@ -307,7 +307,7 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 					c.Response().Flush()
 					break LOOP
 				}
-				log.Error().Msgf("Stream ended with error: %v", err)
+				xlog.Error("Stream ended with error", "error", err)
 				errorEvent := MCPErrorEvent{
 					Type:    "error",
 					Message: err.Error(),
@@ -324,7 +324,7 @@ func MCPStreamEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			}
 		}
 
-		log.Debug().Msgf("Stream ended")
+		xlog.Debug("Stream ended")
 		return nil
 	}
 }

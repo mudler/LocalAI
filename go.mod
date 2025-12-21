@@ -34,6 +34,7 @@ require (
 	github.com/mudler/edgevpn v0.31.1
 	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
+	github.com/mudler/xlog v0.0.3
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/otiai10/copy v1.14.1
@@ -41,7 +42,6 @@ require (
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
 	github.com/prometheus/client_golang v1.23.2
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rs/zerolog v1.34.0
 	github.com/russross/blackfriday v1.6.0
 	github.com/sashabaranov/go-openai v1.41.2
 	github.com/schollz/progressbar/v3 v3.18.0

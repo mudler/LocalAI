@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // EditEndpoint is the OpenAI edit API endpoint
@@ -39,8 +39,8 @@ func EditEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			return echo.ErrBadRequest
 		}
 
-		log.Debug().Msgf("Edit Endpoint Input : %+v", input)
-		log.Debug().Msgf("Edit Endpoint Config: %+v", *config)
+		xlog.Debug("Edit Endpoint Input", "input", input)
+		xlog.Debug("Edit Endpoint Config", "config", *config)
 
 		var result []schema.Choice
 		totalTokenUsage := backend.TokenUsage{}
@@ -55,7 +55,7 @@ func EditEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			})
 			if err == nil {
 				i = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", i)
+				xlog.Debug("Template found, input modified", "input", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(input, i, config, cl, appConfig, ml, func(s string, c *[]schema.Choice) {
@@ -95,7 +95,7 @@ func EditEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		}
 
 		jsonResult, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		xlog.Debug("Response", "response", string(jsonResult))
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

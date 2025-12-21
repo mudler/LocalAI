@@ -10,7 +10,7 @@ import (
 
 	"github.com/jaypipes/ghw"
 	"github.com/jaypipes/ghw/pkg/gpu"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // GPU vendor constants
@@ -213,7 +213,7 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Debug().Err(err).Str("stderr", stderr.String()).Msg("nvidia-smi failed")
+		xlog.Debug("nvidia-smi failed", "error", err, "stderr", stderr.String())
 		return nil
 	}
 
@@ -246,7 +246,7 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 			// Unified memory device - fall back to system RAM
 			sysInfo, err := GetSystemRAMInfo()
 			if err != nil {
-				log.Debug().Err(err).Str("device", name).Msg("failed to get system RAM for unified memory device")
+				xlog.Debug("failed to get system RAM for unified memory device", "error", err, "device", name)
 				// Still add the GPU but with zero memory info
 				gpus = append(gpus, GPUMemoryInfo{
 					Index:        idx,
@@ -267,13 +267,10 @@ func getNVIDIAGPUMemory() []GPUMemoryInfo {
 				usagePercent = float64(usedBytes) / float64(totalBytes) * 100
 			}
 
-			log.Debug().
-				Str("device", name).
-				Uint64("system_ram_bytes", totalBytes).
-				Msg("using system RAM for unified memory GPU")
+			xlog.Debug("using system RAM for unified memory GPU", "device", name, "system_ram_bytes", totalBytes)
 		} else if isNA {
 			// Unknown device with N/A values - skip memory info
-			log.Debug().Str("device", name).Msg("nvidia-smi returned N/A for unknown device")
+			xlog.Debug("nvidia-smi returned N/A for unknown device", "device", name)
 			gpus = append(gpus, GPUMemoryInfo{
 				Index:        idx,
 				Name:         name,
@@ -329,7 +326,7 @@ func getAMDGPUMemory() []GPUMemoryInfo {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Debug().Err(err).Str("stderr", stderr.String()).Msg("rocm-smi failed")
+		xlog.Debug("rocm-smi failed", "error", err, "stderr", stderr.String())
 		return nil
 	}
 
@@ -416,7 +413,7 @@ func getIntelXPUSMI() []GPUMemoryInfo {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Debug().Err(err).Str("stderr", stderr.String()).Msg("xpu-smi discovery failed")
+		xlog.Debug("xpu-smi discovery failed", "error", err, "stderr", stderr.String())
 		return nil
 	}
 
@@ -431,7 +428,7 @@ func getIntelXPUSMI() []GPUMemoryInfo {
 	}
 
 	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-		log.Debug().Err(err).Msg("failed to parse xpu-smi discovery output")
+		xlog.Debug("failed to parse xpu-smi discovery output", "error", err)
 		return nil
 	}
 
@@ -494,7 +491,7 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Debug().Err(err).Str("stderr", stderr.String()).Msg("intel_gpu_top failed")
+		xlog.Debug("intel_gpu_top failed", "error", err, "stderr", stderr.String())
 		return nil
 	}
 
@@ -523,7 +520,7 @@ func getIntelGPUTop() []GPUMemoryInfo {
 	}
 
 	if err := json.Unmarshal([]byte(lastJSON), &result); err != nil {
-		log.Debug().Err(err).Msg("failed to parse intel_gpu_top output")
+		xlog.Debug("failed to parse intel_gpu_top output", "error", err)
 		return nil
 	}
 
@@ -557,7 +554,7 @@ func GetResourceInfo() ResourceInfo {
 	// No GPU - fall back to system RAM
 	ramInfo, err := GetSystemRAMInfo()
 	if err != nil {
-		log.Debug().Err(err).Msg("failed to get system RAM info")
+		xlog.Debug("failed to get system RAM info", "error", err)
 		return ResourceInfo{
 			Type:      "ram",
 			Available: false,
@@ -601,7 +598,7 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
-		log.Debug().Err(err).Str("stderr", stderr.String()).Msg("vulkaninfo failed")
+		xlog.Debug("vulkaninfo failed", "error", err, "stderr", stderr.String())
 		return nil
 	}
 
@@ -620,7 +617,7 @@ func getVulkanGPUMemory() []GPUMemoryInfo {
 	}
 
 	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil {
-		log.Debug().Err(err).Msg("failed to parse vulkaninfo output")
+		xlog.Debug("failed to parse vulkaninfo output", "error", err)
 		return nil
 	}
 

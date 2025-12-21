@@ -13,7 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/mudler/LocalAI/core/schema"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // EmbeddingsEndpoint is the OpenAI Embeddings API endpoint https://platform.openai.com/docs/api-reference/embeddings
@@ -33,7 +33,7 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			return echo.ErrBadRequest
 		}
 
-		log.Debug().Msgf("Parameter Config: %+v", config)
+		xlog.Debug("Parameter Config", "config", config)
 		items := []schema.Item{}
 
 		for i, s := range config.InputToken {
@@ -75,7 +75,7 @@ func EmbeddingsEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		jsonResult, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		xlog.Debug("Response", "response", string(jsonResult))
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

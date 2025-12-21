@@ -16,7 +16,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func New(opts ...config.AppOption) (*Application, error) {
@@ -28,8 +28,8 @@ func New(opts ...config.AppOption) (*Application, error) {
 	application := newApplication(options)
 	application.startupConfig = &startupConfigCopy
 
-	log.Info().Msgf("Starting LocalAI using %d threads, with models path: %s", options.Threads, options.SystemState.Model.ModelsPath)
-	log.Info().Msgf("LocalAI version: %s", internal.PrintableVersion())
+	xlog.Info("Starting LocalAI", "threads", options.Threads, "modelsPath", options.SystemState.Model.ModelsPath)
+	xlog.Info("LocalAI version", "version", internal.PrintableVersion())
 
 	if err := application.start(); err != nil {
 		return nil, err
@@ -37,14 +37,14 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	caps, err := xsysinfo.CPUCapabilities()
 	if err == nil {
-		log.Debug().Msgf("CPU capabilities: %v", caps)
+		xlog.Debug("CPU capabilities", "capabilities", caps)
 
 	}
 	gpus, err := xsysinfo.GPUs()
 	if err == nil {
-		log.Debug().Msgf("GPU count: %d", len(gpus))
+		xlog.Debug("GPU count", "count", len(gpus))
 		for _, gpu := range gpus {
-			log.Debug().Msgf("GPU: %s", gpu.String())
+			xlog.Debug("GPU", "gpu", gpu.String())
 		}
 	}
 
@@ -71,33 +71,33 @@ func New(opts ...config.AppOption) (*Application, error) {
 	}
 
 	if err := coreStartup.InstallModels(options.Context, application.GalleryService(), options.Galleries, options.BackendGalleries, options.SystemState, application.ModelLoader(), options.EnforcePredownloadScans, options.AutoloadBackendGalleries, nil, options.ModelsURL...); err != nil {
-		log.Error().Err(err).Msg("error installing models")
+		xlog.Error("error installing models", "error", err)
 	}
 
 	for _, backend := range options.ExternalBackends {
 		if err := services.InstallExternalBackend(options.Context, options.BackendGalleries, options.SystemState, application.ModelLoader(), nil, backend, "", ""); err != nil {
-			log.Error().Err(err).Msg("error installing external backend")
+			xlog.Error("error installing external backend", "error", err)
 		}
 	}
 
 	configLoaderOpts := options.ToConfigLoaderOptions()
 
 	if err := application.ModelConfigLoader().LoadModelConfigsFromPath(options.SystemState.Model.ModelsPath, configLoaderOpts...); err != nil {
-		log.Error().Err(err).Msg("error loading config files")
+		xlog.Error("error loading config files", "error", err)
 	}
 
 	if err := gallery.RegisterBackends(options.SystemState, application.ModelLoader()); err != nil {
-		log.Error().Err(err).Msg("error registering external backends")
+		xlog.Error("error registering external backends", "error", err)
 	}
 
 	if options.ConfigFile != "" {
 		if err := application.ModelConfigLoader().LoadMultipleModelConfigsSingleFile(options.ConfigFile, configLoaderOpts...); err != nil {
-			log.Error().Err(err).Msg("error loading config file")
+			xlog.Error("error loading config file", "error", err)
 		}
 	}
 
 	if err := application.ModelConfigLoader().Preload(options.SystemState.Model.ModelsPath); err != nil {
-		log.Error().Err(err).Msg("error downloading models")
+		xlog.Error("error downloading models", "error", err)
 	}
 
 	if options.PreloadJSONModels != "" {
@@ -114,7 +114,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 
 	if options.Debug {
 		for _, v := range application.ModelConfigLoader().GetAllModelsConfigs() {
-			log.Debug().Msgf("Model: %s (config: %+v)", v.Name, v)
+			xlog.Debug("Model", "name", v.Name, "config", v)
 		}
 	}
 
@@ -128,10 +128,10 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// turn off any process that was started by GRPC if the context is canceled
 	go func() {
 		<-options.Context.Done()
-		log.Debug().Msgf("Context canceled, shutting down")
+		xlog.Debug("Context canceled, shutting down")
 		err := application.ModelLoader().StopAllGRPC()
 		if err != nil {
-			log.Error().Err(err).Msg("error while stopping all grpc backends")
+			xlog.Error("error while stopping all grpc backends", "error", err)
 		}
 	}()
 
@@ -145,7 +145,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 				return nil, err
 			}
 
-			log.Debug().Msgf("Auto loading model %s into memory from file: %s", m, cfg.Model)
+			xlog.Debug("Auto loading model into memory from file", "model", m, "file", cfg.Model)
 
 			o := backend.ModelOptions(*cfg, options)
 
@@ -160,7 +160,7 @@ func New(opts ...config.AppOption) (*Application, error) {
 	// Watch the configuration directory
 	startWatcher(options)
 
-	log.Info().Msg("core/startup process completed!")
+	xlog.Info("core/startup process completed!")
 	return application, nil
 }
 
@@ -174,18 +174,18 @@ func startWatcher(options *config.ApplicationConfig) {
 		if os.IsNotExist(err) {
 			// We try to create the directory if it does not exist and was specified
 			if err := os.MkdirAll(options.DynamicConfigsDir, 0700); err != nil {
-				log.Error().Err(err).Msg("failed creating DynamicConfigsDir")
+				xlog.Error("failed creating DynamicConfigsDir", "error", err)
 			}
 		} else {
 			// something else happened, we log the error and don't start the watcher
-			log.Error().Err(err).Msg("failed to read DynamicConfigsDir, watcher will not be started")
+			xlog.Error("failed to read DynamicConfigsDir, watcher will not be started", "error", err)
 			return
 		}
 	}
 
 	configHandler := newConfigFileHandler(options)
 	if err := configHandler.Watch(); err != nil {
-		log.Error().Err(err).Msg("failed creating watcher")
+		xlog.Error("failed creating watcher", "error", err)
 	}
 }
 
@@ -211,17 +211,17 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 	fileContent, err := os.ReadFile(settingsFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			log.Debug().Msg("runtime_settings.json not found, using defaults")
+			xlog.Debug("runtime_settings.json not found, using defaults")
 			return
 		}
-		log.Warn().Err(err).Msg("failed to read runtime_settings.json")
+		xlog.Warn("failed to read runtime_settings.json", "error", err)
 		return
 	}
 
 	var settings config.RuntimeSettings
 
 	if err := json.Unmarshal(fileContent, &settings); err != nil {
-		log.Warn().Err(err).Msg("failed to parse runtime_settings.json")
+		xlog.Warn("failed to parse runtime_settings.json", "error", err)
 		return
 	}
 
@@ -257,7 +257,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			if err == nil {
 				options.WatchDogIdleTimeout = dur
 			} else {
-				log.Warn().Err(err).Str("timeout", *settings.WatchdogIdleTimeout).Msg("invalid watchdog idle timeout in runtime_settings.json")
+				xlog.Warn("invalid watchdog idle timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogIdleTimeout)
 			}
 		}
 	}
@@ -267,7 +267,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			if err == nil {
 				options.WatchDogBusyTimeout = dur
 			} else {
-				log.Warn().Err(err).Str("timeout", *settings.WatchdogBusyTimeout).Msg("invalid watchdog busy timeout in runtime_settings.json")
+				xlog.Warn("invalid watchdog busy timeout in runtime_settings.json", "error", err, "timeout", *settings.WatchdogBusyTimeout)
 			}
 		}
 	}
@@ -277,7 +277,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 			if err == nil {
 				options.WatchDogInterval = dur
 			} else {
-				log.Warn().Err(err).Str("interval", *settings.WatchdogInterval).Msg("invalid watchdog interval in runtime_settings.json")
+				xlog.Warn("invalid watchdog interval in runtime_settings.json", "error", err, "interval", *settings.WatchdogInterval)
 				options.WatchDogInterval = model.DefaultWatchdogInterval
 			}
 		}
@@ -331,7 +331,7 @@ func loadRuntimeSettingsFromFile(options *config.ApplicationConfig) {
 		}
 	}
 
-	log.Debug().Msg("Runtime settings loaded from runtime_settings.json")
+	xlog.Debug("Runtime settings loaded from runtime_settings.json")
 }
 
 // initializeWatchdog initializes the watchdog with current ApplicationConfig settings
@@ -362,7 +362,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 
 		go func() {
 			<-options.Context.Done()
-			log.Debug().Msgf("Context canceled, shutting down")
+			xlog.Debug("Context canceled, shutting down")
 			wd.Shutdown()
 		}()
 	}

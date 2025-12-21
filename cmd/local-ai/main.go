@@ -8,10 +8,7 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/mudler/LocalAI/core/cli"
 	"github.com/mudler/LocalAI/internal"
-	"github.com/mudler/cogito/pkg/xlog"
-
-	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	_ "github.com/mudler/LocalAI/swagger"
 )
@@ -19,9 +16,8 @@ import (
 func main() {
 	var err error
 
-	// Initialize zerolog at a level of INFO, we will set the desired level after we parse the CLI options
-	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
-	zerolog.SetGlobalLevel(zerolog.InfoLevel)
+	// Initialize xlog at a level of INFO, we will set the desired level after we parse the CLI options
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel("info"), "text"))
 
 	// handle loading environment variables from .env files
 	envFiles := []string{".env", "localai.env"}
@@ -33,10 +29,10 @@ func main() {
 
 	for _, envFile := range envFiles {
 		if _, err := os.Stat(envFile); err == nil {
-			log.Debug().Str("envFile", envFile).Msg("env file found, loading environment variables from file")
+			xlog.Debug("env file found, loading environment variables from file", "envFile", envFile)
 			err = godotenv.Load(envFile)
 			if err != nil {
-				log.Error().Err(err).Str("envFile", envFile).Msg("failed to load environment variables from file")
+				xlog.Error("failed to load environment variables from file", "error", err, "envFile", envFile)
 				continue
 			}
 		}
@@ -68,7 +64,6 @@ Version: ${version}
 	logLevel := "info"
 	if cli.CLI.Debug && cli.CLI.LogLevel == nil {
 		logLevel = "debug"
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
 		cli.CLI.LogLevel = &logLevel
 	}
 
@@ -76,31 +71,12 @@ Version: ${version}
 		cli.CLI.LogLevel = &logLevel
 	}
 
-	// Set cogito logger to the same level as our logger
-	// Leave an empty format type
-	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), ""))
-
-	switch *cli.CLI.LogLevel {
-	case "error":
-		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
-		log.Debug().Msg("Setting logging to error")
-	case "warn":
-		zerolog.SetGlobalLevel(zerolog.WarnLevel)
-		log.Debug().Msg("Setting logging to warn")
-	case "info":
-		zerolog.SetGlobalLevel(zerolog.InfoLevel)
-		log.Debug().Msg("Setting logging to info")
-	case "debug":
-		zerolog.SetGlobalLevel(zerolog.DebugLevel)
-		log.Debug().Msg("Setting logging to debug")
-	case "trace":
-		zerolog.SetGlobalLevel(zerolog.TraceLevel)
-		log.Debug().Msg("Setting logging to trace")
-	}
+	// Set xlog logger with the desired level and text format
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), "text"))
 
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
 	if err != nil {
-		log.Fatal().Err(err).Msg("Error running the application")
+		xlog.Fatal("Error running the application", "error", err)
 	}
 }

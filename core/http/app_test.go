@@ -25,8 +25,8 @@ import (
 	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v3"
 
+	"github.com/mudler/xlog"
 	openaigo "github.com/otiai10/openaigo"
-	"github.com/rs/zerolog/log"
 	"github.com/sashabaranov/go-openai"
 	"github.com/sashabaranov/go-openai/jsonschema"
 )
@@ -378,7 +378,7 @@ var _ = Describe("API test", func() {
 
 			go func() {
 				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
-					log.Error().Err(err).Msg("server error")
+					xlog.Error("server error", "error", err)
 				}
 			}()
 
@@ -710,7 +710,7 @@ parameters:
 
 			go func() {
 				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
-					log.Error().Err(err).Msg("server error")
+					xlog.Error("server error", "error", err)
 				}
 			}()
 
@@ -924,7 +924,7 @@ parameters:
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
 				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
-					log.Error().Err(err).Msg("server error")
+					xlog.Error("server error", "error", err)
 				}
 			}()
 
@@ -1405,7 +1405,7 @@ parameters:
 
 			go func() {
 				if err := app.Start("127.0.0.1:9090"); err != nil && err != http.ErrServerClosed {
-					log.Error().Err(err).Msg("server error")
+					xlog.Error("server error", "error", err)
 				}
 			}()
 

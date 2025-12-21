@@ -16,8 +16,8 @@ import (
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
+	"github.com/mudler/xlog"
 	cp "github.com/otiai10/copy"
-	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -86,7 +86,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 		return fmt.Errorf("backend name is empty")
 	}
 
-	log.Debug().Interface("galleries", galleries).Str("name", name).Msg("Installing backend from gallery")
+	xlog.Debug("Installing backend from gallery", "galleries", galleries, "name", name)
 
 	backends, err := AvailableBackends(galleries, systemState)
 	if err != nil {
@@ -99,7 +99,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 	}
 
 	if backend.IsMeta() {
-		log.Debug().Interface("systemState", systemState).Str("name", name).Msg("Backend is a meta backend")
+		xlog.Debug("Backend is a meta backend", "systemState", systemState, "name", name)
 
 		// Then, let's try to find the best backend based on the capabilities map
 		bestBackend := backend.FindBestBackendFromMeta(systemState, backends)
@@ -107,7 +107,7 @@ func InstallBackendFromGallery(ctx context.Context, galleries []config.Gallery, 
 			return fmt.Errorf("no backend found with capabilities %q", backend.CapabilitiesMap)
 		}
 
-		log.Debug().Str("name", name).Str("bestBackend", bestBackend.Name).Msg("Installing backend from meta backend")
+		xlog.Debug("Installing backend from meta backend", "name", name, "bestBackend", bestBackend.Name)
 
 		// Then, let's install the best backend
 		if err := InstallBackend(ctx, systemState, modelLoader, bestBackend, downloadStatus); err != nil {
@@ -164,7 +164,7 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 			return fmt.Errorf("failed copying: %w", err)
 		}
 	} else {
-		log.Debug().Str("uri", config.URI).Str("backendPath", backendPath).Msg("Downloading backend")
+		xlog.Debug("Downloading backend", "uri", config.URI, "backendPath", backendPath)
 		if err := uri.DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err != nil {
 			success := false
 			// Try to download from mirrors
@@ -177,24 +177,24 @@ func InstallBackend(ctx context.Context, systemState *system.SystemState, modelL
 				}
 				if err := downloader.URI(mirror).DownloadFileWithContext(ctx, backendPath, "", 1, 1, downloadStatus); err == nil {
 					success = true
-					log.Debug().Str("uri", config.URI).Str("backendPath", backendPath).Msg("Downloaded backend")
+					xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
 					break
 				}
 			}
 
 			if !success {
-				log.Error().Str("uri", config.URI).Str("backendPath", backendPath).Err(err).Msg("Failed to download backend")
+				xlog.Error("Failed to download backend", "uri", config.URI, "backendPath", backendPath, "error", err)
 				return fmt.Errorf("failed to download backend %q: %v", config.URI, err)
 			}
 		} else {
-			log.Debug().Str("uri", config.URI).Str("backendPath", backendPath).Msg("Downloaded backend")
+			xlog.Debug("Downloaded backend", "uri", config.URI, "backendPath", backendPath)
 		}
 	}
 
 	// sanity check - check if runfile is present
 	runFile := filepath.Join(backendPath, runFile)
 	if _, err := os.Stat(runFile); os.IsNotExist(err) {
-		log.Error().Str("runFile", runFile).Msg("Run file not found")
+		xlog.Error("Run file not found", "runFile", runFile)
 		return fmt.Errorf("not a valid backend: run file not found %q", runFile)
 	}
 
@@ -271,7 +271,7 @@ func DeleteBackendFromSystem(systemState *system.SystemState, name string) error
 
 	if metadata != nil && metadata.MetaBackendFor != "" {
 		metaBackendDirectory := filepath.Join(systemState.Backend.BackendsPath, metadata.MetaBackendFor)
-		log.Debug().Str("backendDirectory", metaBackendDirectory).Msg("Deleting meta backend")
+		xlog.Debug("Deleting meta backend", "backendDirectory", metaBackendDirectory)
 		if _, err := os.Stat(metaBackendDirectory); os.IsNotExist(err) {
 			return fmt.Errorf("meta backend %q not found", metadata.MetaBackendFor)
 		}
@@ -330,9 +330,9 @@ func ListSystemBackends(systemState *system.SystemState) (SystemBackends, error)
 			}
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
-		log.Warn().Err(err).Msg("Failed to read system backends, proceeding with user-managed backends")
+		xlog.Warn("Failed to read system backends, proceeding with user-managed backends", "error", err)
 	} else if errors.Is(err, os.ErrNotExist) {
-		log.Debug().Msg("No system backends found")
+		xlog.Debug("No system backends found")
 	}
 
 	// User-managed backends and alias collection
@@ -442,7 +442,7 @@ func RegisterBackends(systemState *system.SystemState, modelLoader *model.ModelL
 	}
 
 	for _, backend := range backends {
-		log.Debug().Str("name", backend.Name).Str("runFile", backend.RunFile).Msg("Registering backend")
+		xlog.Debug("Registering backend", "name", backend.Name, "runFile", backend.RunFile)
 		modelLoader.SetExternalBackend(backend.Name, backend.RunFile)
 	}
 

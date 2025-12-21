@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/prometheus"
 	"go.opentelemetry.io/otel/metric"
@@ -49,6 +49,6 @@ func (lams LocalAIMetricsService) Shutdown() error {
 	//// setupOTelSDK bootstraps the OpenTelemetry pipeline.
 	//// If it does not return an error, make sure to call shutdown for proper cleanup.
 
-	log.Warn().Msgf("LocalAIMetricsService Shutdown called, but OTelSDK proper shutdown not yet implemented?")
+	xlog.Warn("LocalAIMetricsService Shutdown called, but OTelSDK proper shutdown not yet implemented?")
 	return nil
 }

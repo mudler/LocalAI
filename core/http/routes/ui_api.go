@@ -20,7 +20,7 @@ import (
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -143,11 +143,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 	// Cancel operation endpoint
 	app.POST("/api/operations/:jobID/cancel", func(c echo.Context) error {
 		jobID := c.Param("jobID")
-		log.Debug().Msgf("API request to cancel operation: %s", jobID)
+		xlog.Debug("API request to cancel operation", "jobID", jobID)
 
 		err := galleryService.CancelOperation(jobID)
 		if err != nil {
-			log.Error().Err(err).Msgf("Failed to cancel operation: %s", jobID)
+			xlog.Error("Failed to cancel operation", "error", err, "jobID", jobID)
 			return c.JSON(http.StatusBadRequest, map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -176,7 +176,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
-			log.Error().Err(err).Msg("could not list models from galleries")
+			xlog.Error("could not list models from galleries", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -246,7 +246,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			// Skip duplicate IDs to prevent Alpine.js x-for errors
 			if seenIDs[modelID] {
-				log.Debug().Msgf("Skipping duplicate model ID: %s", modelID)
+				xlog.Debug("Skipping duplicate model ID", "modelID", modelID)
 				continue
 			}
 			seenIDs[modelID] = true
@@ -320,7 +320,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid model ID",
 			})
 		}
-		log.Debug().Msgf("API job submitted to install: %+v\n", galleryID)
+		xlog.Debug("API job submitted to install", "galleryID", galleryID)
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -362,7 +362,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid model ID",
 			})
 		}
-		log.Debug().Msgf("API job submitted to delete: %+v\n", galleryID)
+		xlog.Debug("API job submitted to delete", "galleryID", galleryID)
 
 		var galleryName = galleryID
 		if strings.Contains(galleryID, "@") {
@@ -412,7 +412,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid model ID",
 			})
 		}
-		log.Debug().Msgf("API job submitted to get config for: %+v\n", galleryID)
+		xlog.Debug("API job submitted to get config", "galleryID", galleryID)
 
 		models, err := gallery.AvailableGalleryModels(appConfig.Galleries, appConfig.SystemState)
 		if err != nil {
@@ -498,7 +498,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 		backends, err := gallery.AvailableBackends(appConfig.BackendGalleries, appConfig.SystemState)
 		if err != nil {
-			log.Error().Err(err).Msg("could not list backends from galleries")
+			xlog.Error("could not list backends from galleries", "error", err)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": err.Error(),
 			})
@@ -568,7 +568,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 
 			// Skip duplicate IDs to prevent Alpine.js x-for errors
 			if seenBackendIDs[backendID] {
-				log.Debug().Msgf("Skipping duplicate backend ID: %s", backendID)
+				xlog.Debug("Skipping duplicate backend ID", "backendID", backendID)
 				continue
 			}
 			seenBackendIDs[backendID] = true
@@ -640,7 +640,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid backend ID",
 			})
 		}
-		log.Debug().Msgf("API job submitted to install backend: %+v\n", backendID)
+		xlog.Debug("API job submitted to install backend", "backendID", backendID)
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -695,7 +695,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			})
 		}
 
-		log.Debug().Str("uri", req.URI).Str("name", req.Name).Str("alias", req.Alias).Msg("API job submitted to install external backend")
+		xlog.Debug("API job submitted to install external backend", "uri", req.URI, "name", req.Name, "alias", req.Alias)
 
 		id, err := uuid.NewUUID()
 		if err != nil {
@@ -745,7 +745,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid backend ID",
 			})
 		}
-		log.Debug().Msgf("API job submitted to delete backend: %+v\n", backendID)
+		xlog.Debug("API job submitted to delete backend", "backendID", backendID)
 
 		var backendName = backendID
 		if strings.Contains(backendID, "@") {
@@ -831,11 +831,11 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 				"error": "invalid backend name",
 			})
 		}
-		log.Debug().Msgf("API request to delete system backend: %+v\n", backendName)
+		xlog.Debug("API request to delete system backend", "backendName", backendName)
 
 		// Use the gallery package to delete the backend
 		if err := gallery.DeleteBackendFromSystem(appConfig.SystemState, backendName); err != nil {
-			log.Error().Err(err).Msgf("Failed to delete backend: %s", backendName)
+			xlog.Error("Failed to delete backend", "error", err, "backendName", backendName)
 			return c.JSON(http.StatusInternalServerError, map[string]interface{}{
 				"error": err.Error(),
 			})

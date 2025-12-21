@@ -14,7 +14,7 @@ import (
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/downloader"
 	"github.com/mudler/LocalAI/pkg/utils"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 )
 
@@ -250,7 +250,7 @@ func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 		utils.DisplayDownloadFunction(fileName, current, total, percent)
 	}
 
-	log.Info().Msgf("Preloading models from %s", modelPath)
+	xlog.Info("Preloading models", "path", modelPath)
 
 	renderMode := "dark"
 	if os.Getenv("COLOR") != "" {
@@ -270,7 +270,7 @@ func (bcl *ModelConfigLoader) Preload(modelPath string) error {
 
 		// Download files and verify their SHA
 		for i, file := range config.DownloadFiles {
-			log.Debug().Msgf("Checking %q exists and matches SHA", file.Filename)
+			xlog.Debug("Checking file exists and matches SHA", "filename", file.Filename)
 
 			if err := utils.VerifyPath(file.Filename, modelPath); err != nil {
 				return err
@@ -361,13 +361,13 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 		}
 		c, err := readModelConfigFromFile(filepath.Join(path, file.Name()), opts...)
 		if err != nil {
-			log.Error().Err(err).Str("File Name", file.Name()).Msgf("LoadModelConfigsFromPath cannot read config file")
+			xlog.Error("LoadModelConfigsFromPath cannot read config file", "error", err, "File Name", file.Name())
 			continue
 		}
 		if valid, _ := c.Validate(); valid {
 			bcl.configs[c.Name] = *c
 		} else {
-			log.Error().Err(err).Str("Name", c.Name).Msgf("config is not valid")
+			xlog.Error("config is not valid", "error", err, "Name", c.Name)
 		}
 	}
 

@@ -16,7 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/templates"
 	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/model"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // CompletionEndpoint is the OpenAI Completion API endpoint https://platform.openai.com/docs/api-reference/completions
@@ -52,7 +52,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				Object: "text_completion",
 				Usage:  usage,
 			}
-			log.Debug().Msgf("Sending goroutine: %s", s)
+			xlog.Debug("Sending goroutine", "text", s)
 
 			responses <- resp
 			return true
@@ -94,10 +94,10 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 
 		config.Grammar = input.Grammar
 
-		log.Debug().Msgf("Parameter Config: %+v", config)
+		xlog.Debug("Parameter Config", "config", config)
 
 		if input.Stream {
-			log.Debug().Msgf("Stream request received")
+			xlog.Debug("Stream request received")
 			c.Response().Header().Set("Content-Type", "text/event-stream")
 			c.Response().Header().Set("Cache-Control", "no-cache")
 			c.Response().Header().Set("Connection", "keep-alive")
@@ -116,7 +116,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			})
 			if err == nil {
 				predInput = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", predInput)
+				xlog.Debug("Template found, input modified", "input", predInput)
 			}
 
 			responses := make(chan schema.OpenAIResponse)
@@ -131,16 +131,16 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 				select {
 				case ev := <-responses:
 					if len(ev.Choices) == 0 {
-						log.Debug().Msgf("No choices in the response, skipping")
+						xlog.Debug("No choices in the response, skipping")
 						continue
 					}
 					respData, err := json.Marshal(ev)
 					if err != nil {
-						log.Debug().Msgf("Failed to marshal response: %v", err)
+						xlog.Debug("Failed to marshal response", "error", err)
 						continue
 					}
 
-					log.Debug().Msgf("Sending chunk: %s", string(respData))
+					xlog.Debug("Sending chunk", "chunk", string(respData))
 					_, err = fmt.Fprintf(c.Response().Writer, "data: %s\n\n", string(respData))
 					if err != nil {
 						return err
@@ -150,7 +150,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					if err == nil {
 						break LOOP
 					}
-					log.Error().Msgf("Stream ended with error: %v", err)
+					xlog.Error("Stream ended with error", "error", err)
 
 					stopReason := FinishReasonStop
 					errorResp := schema.OpenAIResponse{
@@ -168,7 +168,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 					}
 					errorData, marshalErr := json.Marshal(errorResp)
 					if marshalErr != nil {
-						log.Error().Msgf("Failed to marshal error response: %v", marshalErr)
+						xlog.Error("Failed to marshal error response", "error", marshalErr)
 						// Send a simple error message as fallback
 						fmt.Fprintf(c.Response().Writer, "data: {\"error\":\"Internal error\"}\n\n")
 					} else {
@@ -213,7 +213,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 			})
 			if err == nil {
 				i = templatedInput
-				log.Debug().Msgf("Template found, input modified to: %s", i)
+				xlog.Debug("Template found, input modified", "input", i)
 			}
 
 			r, tokenUsage, err := ComputeChoices(
@@ -250,7 +250,7 @@ func CompletionEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eva
 		}
 
 		jsonResult, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		xlog.Debug("Response", "response", string(jsonResult))
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

@@ -28,7 +28,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/xsync"
 	"github.com/mudler/cogito"
 	"github.com/robfig/cron/v3"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // AgentJobService manages agent tasks and job execution
@@ -126,7 +126,7 @@ func (s *AgentJobService) LoadTasksFromFile() error {
 	defer s.fileMutex.Unlock()
 
 	if _, err := os.Stat(s.tasksFile); os.IsNotExist(err) {
-		log.Debug().Msg("agent_tasks.json not found, starting with empty tasks")
+		xlog.Debug("agent_tasks.json not found, starting with empty tasks")
 		return nil
 	}
 
@@ -145,12 +145,12 @@ func (s *AgentJobService) LoadTasksFromFile() error {
 		// Schedule cron if enabled and has cron expression
 		if task.Enabled && task.Cron != "" {
 			if err := s.ScheduleCronTask(task); err != nil {
-				log.Warn().Err(err).Str("task_id", task.ID).Msg("Failed to schedule cron task on load")
+				xlog.Warn("Failed to schedule cron task on load", "error", err, "task_id", task.ID)
 			}
 		}
 	}
 
-	log.Info().Int("count", len(tasksFile.Tasks)).Msg("Loaded tasks from file")
+	xlog.Info("Loaded tasks from file", "count", len(tasksFile.Tasks))
 
 	return nil
 }
@@ -190,7 +190,7 @@ func (s *AgentJobService) LoadJobsFromFile() error {
 	defer s.fileMutex.Unlock()
 
 	if _, err := os.Stat(s.jobsFile); os.IsNotExist(err) {
-		log.Debug().Msg("agent_jobs.json not found, starting with empty jobs")
+		xlog.Debug("agent_jobs.json not found, starting with empty jobs")
 		return nil
 	}
 
@@ -209,7 +209,7 @@ func (s *AgentJobService) LoadJobsFromFile() error {
 		s.jobs.Set(job.ID, job)
 	}
 
-	log.Info().Int("count", len(jobsFile.Jobs)).Msg("Loaded jobs from file")
+	xlog.Info("Loaded jobs from file", "count", len(jobsFile.Jobs))
 	return nil
 }
 
@@ -267,14 +267,14 @@ func (s *AgentJobService) CreateTask(task schema.Task) (string, error) {
 	// Schedule cron if enabled and has cron expression
 	if task.Enabled && task.Cron != "" {
 		if err := s.ScheduleCronTask(task); err != nil {
-			log.Warn().Err(err).Str("task_id", id).Msg("Failed to schedule cron task")
+			xlog.Warn("Failed to schedule cron task", "error", err, "task_id", id)
 			// Don't fail task creation if cron scheduling fails
 		}
 	}
 
 	// Save to file
 	if err := s.SaveTasksToFile(); err != nil {
-		log.Error().Err(err).Msg("Failed to save tasks to file")
+		xlog.Error("Failed to save tasks to file", "error", err)
 		// Don't fail task creation if file save fails
 	}
 
@@ -304,13 +304,13 @@ func (s *AgentJobService) UpdateTask(id string, task schema.Task) error {
 	// Schedule new cron if enabled and has cron expression
 	if task.Enabled && task.Cron != "" {
 		if err := s.ScheduleCronTask(task); err != nil {
-			log.Warn().Err(err).Str("task_id", id).Msg("Failed to schedule cron task")
+			xlog.Warn("Failed to schedule cron task", "error", err, "task_id", id)
 		}
 	}
 
 	// Save to file
 	if err := s.SaveTasksToFile(); err != nil {
-		log.Error().Err(err).Msg("Failed to save tasks to file")
+		xlog.Error("Failed to save tasks to file", "error", err)
 	}
 
 	return nil
@@ -330,7 +330,7 @@ func (s *AgentJobService) DeleteTask(id string) error {
 
 	// Save to file
 	if err := s.SaveTasksToFile(); err != nil {
-		log.Error().Err(err).Msg("Failed to save tasks to file")
+		xlog.Error("Failed to save tasks to file", "error", err)
 	}
 
 	return nil
@@ -409,7 +409,7 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 			// Fetch content from URL with custom headers
 			dataURI, err := s.fetchMultimediaFromURL(source.URL, source.Headers, source.Type)
 			if err != nil {
-				log.Warn().Err(err).Str("url", source.URL).Str("type", source.Type).Msg("Failed to fetch multimedia from task source")
+				xlog.Warn("Failed to fetch multimedia from task source", "error", err, "url", source.URL, "type", source.Type)
 				continue
 			}
 
@@ -449,7 +449,7 @@ func (s *AgentJobService) ExecuteJob(taskID string, params map[string]string, tr
 	// Save to file (async, don't block)
 	go func() {
 		if err := s.SaveJobsToFile(); err != nil {
-			log.Error().Err(err).Msg("Failed to save jobs to file")
+			xlog.Error("Failed to save jobs to file", "error", err)
 		}
 	}()
 
@@ -544,7 +544,7 @@ func (s *AgentJobService) CancelJob(id string) error {
 	// Save to file (async)
 	go func() {
 		if err := s.SaveJobsToFile(); err != nil {
-			log.Error().Err(err).Msg("Failed to save jobs to file")
+			xlog.Error("Failed to save jobs to file", "error", err)
 		}
 	}()
 
@@ -561,7 +561,7 @@ func (s *AgentJobService) DeleteJob(id string) error {
 
 	// Save to file
 	if err := s.SaveJobsToFile(); err != nil {
-		log.Error().Err(err).Msg("Failed to save jobs to file")
+		xlog.Error("Failed to save jobs to file", "error", err)
 	}
 
 	return nil
@@ -750,7 +750,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	if len(job.Images) > 0 {
 		images, err := s.convertToMultimediaContent(job.Images, JobImageType)
 		if err != nil {
-			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert images")
+			xlog.Warn("Failed to convert images", "error", err, "job_id", job.ID)
 		} else {
 			multimediaItems = append(multimediaItems, images...)
 		}
@@ -760,7 +760,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	if len(job.Videos) > 0 {
 		videos, err := s.convertToMultimediaContent(job.Videos, JobVideoType)
 		if err != nil {
-			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert videos")
+			xlog.Warn("Failed to convert videos", "error", err, "job_id", job.ID)
 		} else {
 			multimediaItems = append(multimediaItems, videos...)
 		}
@@ -770,7 +770,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	if len(job.Audios) > 0 {
 		audios, err := s.convertToMultimediaContent(job.Audios, JobAudioType)
 		if err != nil {
-			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert audios")
+			xlog.Warn("Failed to convert audios", "error", err, "job_id", job.ID)
 		} else {
 			multimediaItems = append(multimediaItems, audios...)
 		}
@@ -780,7 +780,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	if len(job.Files) > 0 {
 		files, err := s.convertToMultimediaContent(job.Files, JobFileType)
 		if err != nil {
-			log.Warn().Err(err).Str("job_id", job.ID).Msg("Failed to convert files")
+			xlog.Warn("Failed to convert files", "error", err, "job_id", job.ID)
 		} else {
 			multimediaItems = append(multimediaItems, files...)
 		}
@@ -817,7 +817,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 		cogito.WithContext(ctx),
 		cogito.WithMCPs(sessions...),
 		cogito.WithStatusCallback(func(status string) {
-			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).Msgf("Status: %s", status)
+			xlog.Debug("Status", "job_id", job.ID, "model", modelConfig.Name, "status", status)
 			// Store trace
 			trace := schema.JobTrace{
 				Type:      "status",
@@ -828,7 +828,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 			s.jobs.Set(job.ID, job)
 		}),
 		cogito.WithReasoningCallback(func(reasoning string) {
-			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).Msgf("Reasoning: %s", reasoning)
+			xlog.Debug("Reasoning", "job_id", job.ID, "model", modelConfig.Name, "reasoning", reasoning)
 			// Store trace
 			trace := schema.JobTrace{
 				Type:      "reasoning",
@@ -839,9 +839,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 			s.jobs.Set(job.ID, job)
 		}),
 		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
-			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).
-				Str("tool", t.Name).Str("reasoning", t.Reasoning).Interface("arguments", t.Arguments).
-				Msg("Tool call")
+			xlog.Debug("Tool call", "job_id", job.ID, "model", modelConfig.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments)
 			// Store trace
 			arguments := make(map[string]interface{})
 			if t.Arguments != nil {
@@ -861,9 +859,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 			}
 		}),
 		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
-			log.Debug().Str("job_id", job.ID).Str("model", modelConfig.Name).
-				Str("tool", t.Name).Str("result", t.Result).Interface("tool_arguments", t.ToolArguments).
-				Msg("Tool call result")
+			xlog.Debug("Tool call result", "job_id", job.ID, "model", modelConfig.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments)
 			// Store trace
 			arguments := make(map[string]interface{})
 			// Convert ToolArguments to map via JSON marshaling
@@ -988,7 +984,7 @@ func (s *AgentJobService) executeJobInternal(job schema.Job, task schema.Task, c
 	// Save to file (async)
 	go func() {
 		if err := s.SaveJobsToFile(); err != nil {
-			log.Error().Err(err).Msg("Failed to save jobs to file")
+			xlog.Error("Failed to save jobs to file", "error", err)
 		}
 	}()
 
@@ -1023,7 +1019,7 @@ func (s *AgentJobService) worker(ctx context.Context) {
 			// Execute job
 			err := s.executeJobInternal(exec.Job, exec.Task, exec.Ctx)
 			if err != nil {
-				log.Error().Err(err).Str("job_id", exec.Job.ID).Msg("Job execution failed")
+				xlog.Error("Job execution failed", "error", err, "job_id", exec.Job.ID)
 			}
 
 			// Clean up cancellation
@@ -1051,7 +1047,7 @@ func (s *AgentJobService) ScheduleCronTask(task schema.Task) error {
 		// Multimedia will be fetched from task sources in ExecuteJob
 		_, err := s.ExecuteJob(task.ID, cronParams, "cron", nil)
 		if err != nil {
-			log.Error().Err(err).Str("task_id", task.ID).Msg("Failed to execute cron job")
+			xlog.Error("Failed to execute cron job", "error", err, "task_id", task.ID)
 		}
 	})
 	if err != nil {
@@ -1059,7 +1055,7 @@ func (s *AgentJobService) ScheduleCronTask(task schema.Task) error {
 	}
 
 	s.cronEntries.Set(task.ID, entryID)
-	log.Info().Str("task_id", task.ID).Str("cron", cronExpr).Msg("Scheduled cron task")
+	xlog.Info("Scheduled cron task", "task_id", task.ID, "cron", cronExpr)
 	return nil
 }
 
@@ -1069,7 +1065,7 @@ func (s *AgentJobService) UnscheduleCronTask(taskID string) {
 		entryID := s.cronEntries.Get(taskID)
 		s.cronScheduler.Remove(entryID)
 		s.cronEntries.Delete(taskID)
-		log.Info().Str("task_id", taskID).Msg("Unscheduled cron task")
+		xlog.Info("Unscheduled cron task", "task_id", taskID)
 	}
 }
 
@@ -1082,7 +1078,7 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 		return // No webhooks configured
 	}
 
-	log.Info().Str("job_id", job.ID).Int("webhook_count", len(webhookConfigs)).Msg("Sending webhooks")
+	xlog.Info("Sending webhooks", "job_id", job.ID, "webhook_count", len(webhookConfigs))
 
 	// Send all webhooks concurrently and track results
 	var wg sync.WaitGroup
@@ -1140,7 +1136,7 @@ func (s *AgentJobService) sendWebhooks(job schema.Job, task schema.Task) {
 	// Save to file (async)
 	go func() {
 		if err := s.SaveJobsToFile(); err != nil {
-			log.Error().Err(err).Msg("Failed to save jobs to file")
+			xlog.Error("Failed to save jobs to file", "error", err)
 		}
 	}()
 }
@@ -1157,11 +1153,11 @@ func (s *AgentJobService) sendWebhook(job schema.Job, task schema.Task, webhookC
 	// Build payload
 	payload, err := s.buildWebhookPayload(job, task, webhookConfig)
 	if err != nil {
-		log.Error().Err(err).Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Failed to build webhook payload")
+		xlog.Error("Failed to build webhook payload", "error", err, "job_id", job.ID, "webhook_url", webhookConfig.URL)
 		return fmt.Errorf("failed to build payload: %w", err)
 	}
 
-	log.Debug().Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Str("payload", string(payload)).Msg("Sending webhook")
+	xlog.Debug("Sending webhook", "job_id", job.ID, "webhook_url", webhookConfig.URL, "payload", string(payload))
 
 	// Determine HTTP method (default to POST)
 	method := webhookConfig.Method
@@ -1172,7 +1168,7 @@ func (s *AgentJobService) sendWebhook(job schema.Job, task schema.Task, webhookC
 	// Create HTTP request
 	req, err := http.NewRequest(method, webhookConfig.URL, bytes.NewBuffer(payload))
 	if err != nil {
-		log.Error().Err(err).Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Failed to create webhook request")
+		xlog.Error("Failed to create webhook request", "error", err, "job_id", job.ID, "webhook_url", webhookConfig.URL)
 		return fmt.Errorf("failed to create request: %w", err)
 	}
 
@@ -1186,11 +1182,11 @@ func (s *AgentJobService) sendWebhook(job schema.Job, task schema.Task, webhookC
 	client := &http.Client{Timeout: 30 * time.Second}
 	err = s.executeWithRetry(client, req)
 	if err != nil {
-		log.Error().Err(err).Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Webhook delivery failed")
+		xlog.Error("Webhook delivery failed", "error", err, "job_id", job.ID, "webhook_url", webhookConfig.URL)
 		return fmt.Errorf("webhook delivery failed: %w", err)
 	}
 
-	log.Info().Str("job_id", job.ID).Str("webhook_url", webhookConfig.URL).Msg("Webhook delivered successfully")
+	xlog.Info("Webhook delivered successfully", "job_id", job.ID, "webhook_url", webhookConfig.URL)
 	return nil
 }
 
@@ -1303,10 +1299,10 @@ func (s *AgentJobService) CleanupOldJobs() error {
 	}
 
 	if removed > 0 {
-		log.Info().Int("removed", removed).Int("retention_days", s.retentionDays).Msg("Cleaned up old jobs")
+		xlog.Info("Cleaned up old jobs", "removed", removed, "retention_days", s.retentionDays)
 		// Save to file
 		if err := s.SaveJobsToFile(); err != nil {
-			log.Error().Err(err).Msg("Failed to save jobs to file after cleanup")
+			xlog.Error("Failed to save jobs to file after cleanup", "error", err)
 		}
 	}
 
@@ -1327,10 +1323,10 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 
 	// Load tasks and jobs from files
 	if err := s.LoadTasksFromFile(); err != nil {
-		log.Warn().Err(err).Msg("Failed to load tasks from file")
+		xlog.Warn("Failed to load tasks from file", "error", err)
 	}
 	if err := s.LoadJobsFromFile(); err != nil {
-		log.Warn().Err(err).Msg("Failed to load jobs from file")
+		xlog.Warn("Failed to load jobs from file", "error", err)
 	}
 
 	// Start cron scheduler
@@ -1345,19 +1341,19 @@ func (s *AgentJobService) Start(ctx context.Context) error {
 	// Schedule daily cleanup at midnight
 	_, err := s.cronScheduler.AddFunc("0 0 * * *", func() {
 		if err := s.CleanupOldJobs(); err != nil {
-			log.Error().Err(err).Msg("Failed to cleanup old jobs")
+			xlog.Error("Failed to cleanup old jobs", "error", err)
 		}
 	})
 	if err != nil {
-		log.Warn().Err(err).Msg("Failed to schedule daily cleanup")
+		xlog.Warn("Failed to schedule daily cleanup", "error", err)
 	}
 
 	// Run initial cleanup
 	if err := s.CleanupOldJobs(); err != nil {
-		log.Warn().Err(err).Msg("Failed to run initial cleanup")
+		xlog.Warn("Failed to run initial cleanup", "error", err)
 	}
 
-	log.Info().Int("retention_days", s.retentionDays).Msg("AgentJobService started")
+	xlog.Info("AgentJobService started", "retention_days", s.retentionDays)
 	return nil
 }
 
@@ -1370,7 +1366,7 @@ func (s *AgentJobService) Stop() error {
 	if s.cronScheduler != nil {
 		s.cronScheduler.Stop()
 	}
-	log.Info().Msg("AgentJobService stopped")
+	xlog.Info("AgentJobService stopped")
 	return nil
 }
 
@@ -1380,5 +1376,5 @@ func (s *AgentJobService) UpdateRetentionDays(days int) {
 	if days == 0 {
 		s.retentionDays = 30 // Default
 	}
-	log.Info().Int("retention_days", s.retentionDays).Msg("Updated agent job retention days")
+	xlog.Info("Updated agent job retention days", "retention_days", s.retentionDays)
 }

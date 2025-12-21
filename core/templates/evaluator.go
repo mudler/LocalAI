@@ -8,7 +8,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/LocalAI/pkg/functions"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 // Rather than pass an interface{} to the prompt template:
@@ -133,13 +133,13 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 			}
 			templatedChatMessage, err := e.evaluateTemplateForChatMessage(config.TemplateConfig.ChatMessage, chatMessageData)
 			if err != nil {
-				log.Error().Err(err).Interface("message", chatMessageData).Str("template", config.TemplateConfig.ChatMessage).Msg("error processing message with template, skipping")
+				xlog.Error("error processing message with template, skipping", "error", err, "message", chatMessageData, "template", config.TemplateConfig.ChatMessage)
 			} else {
 				if templatedChatMessage == "" {
-					log.Warn().Msgf("template \"%s\" produced blank output for %+v. Skipping!", config.TemplateConfig.ChatMessage, chatMessageData)
+					xlog.Warn("template produced blank output, skipping", "template", config.TemplateConfig.ChatMessage, "message", chatMessageData)
 					continue // TODO: This continue is here intentionally to skip over the line `mess = append(mess, content)` below, and to prevent the sprintf
 				}
-				log.Debug().Msgf("templated message for chat: %s", templatedChatMessage)
+				xlog.Debug("templated message for chat", "message", templatedChatMessage)
 				content = templatedChatMessage
 			}
 		}
@@ -203,7 +203,7 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 	}
 
 	predInput = strings.Join(mess, joinCharacter)
-	log.Debug().Msgf("Prompt (before templating): %s", predInput)
+	xlog.Debug("Prompt (before templating)", "prompt", predInput)
 
 	promptTemplate := ChatPromptTemplate
 
@@ -221,9 +221,9 @@ func (e *Evaluator) TemplateMessages(input schema.OpenAIRequest, messages []sche
 	})
 	if err == nil {
 		predInput = templatedInput
-		log.Debug().Msgf("Template found, input modified to: %s", predInput)
+		xlog.Debug("Template found, input modified", "input", predInput)
 	} else {
-		log.Debug().Msgf("Template failed loading: %s", err.Error())
+		xlog.Debug("Template failed loading", "error", err)
 	}
 
 	return predInput

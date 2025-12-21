@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/jaypipes/ghw/pkg/gpu"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 const (
@@ -49,11 +49,11 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 
 	// Check if the reported capability is in the map
 	if _, exists := capMap[reportedCapability]; exists {
-		log.Debug().Str("reportedCapability", reportedCapability).Any("capMap", capMap).Msg("Using reported capability")
+		xlog.Debug("Using reported capability", "reportedCapability", reportedCapability, "capMap", capMap)
 		return reportedCapability
 	}
 
-	log.Debug().Str("reportedCapability", reportedCapability).Any("capMap", capMap).Msg("The requested capability was not found, using default capability")
+	xlog.Debug("The requested capability was not found, using default capability", "reportedCapability", reportedCapability, "capMap", capMap)
 	// Otherwise, return the default capability (catch-all)
 	return defaultCapability
 }
@@ -61,7 +61,7 @@ func (s *SystemState) Capability(capMap map[string]string) string {
 func (s *SystemState) getSystemCapabilities() string {
 	capability := os.Getenv(capabilityEnv)
 	if capability != "" {
-		log.Info().Str("capability", capability).Msgf("Using forced capability from environment variable (%s)", capabilityEnv)
+		xlog.Info("Using forced capability from environment variable", "capability", capability, "env", capabilityEnv)
 		return capability
 	}
 
@@ -77,27 +77,27 @@ func (s *SystemState) getSystemCapabilities() string {
 	if _, err := os.Stat(capabilityRunFile); err == nil {
 		capability, err := os.ReadFile(capabilityRunFile)
 		if err == nil {
-			log.Info().Str("capabilityRunFile", capabilityRunFile).Str("capability", string(capability)).Msgf("Using forced capability run file (%s)", capabilityRunFileEnv)
+			xlog.Info("Using forced capability run file", "capabilityRunFile", capabilityRunFile, "capability", string(capability), "env", capabilityRunFileEnv)
 			return strings.Trim(strings.TrimSpace(string(capability)), "\n")
 		}
 	}
 
 	// If we are on mac and arm64, we will return metal
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
-		log.Info().Msgf("Using metal capability (arm64 on mac), set %s to override", capabilityEnv)
+		xlog.Info("Using metal capability (arm64 on mac)", "env", capabilityEnv)
 		return metal
 	}
 
 	// If we are on mac and x86, we will return darwin-x86
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "amd64" {
-		log.Info().Msgf("Using darwin-x86 capability (amd64 on mac), set %s to override", capabilityEnv)
+		xlog.Info("Using darwin-x86 capability (amd64 on mac)", "env", capabilityEnv)
 		return darwinX86
 	}
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
 		if s.GPUVendor == nvidia {
-			log.Info().Msgf("Using nvidia-l4t capability (arm64 on linux), set %s to override", capabilityEnv)
+			xlog.Info("Using nvidia-l4t capability (arm64 on linux)", "env", capabilityEnv)
 			if cuda13DirExists {
 				return nvidiaL4TCuda13
 			}
@@ -117,14 +117,14 @@ func (s *SystemState) getSystemCapabilities() string {
 	}
 
 	if s.GPUVendor == "" {
-		log.Info().Msgf("Default capability (no GPU detected), set %s to override", capabilityEnv)
+		xlog.Info("Default capability (no GPU detected)", "env", capabilityEnv)
 		return defaultCapability
 	}
 
-	log.Info().Str("Capability", s.GPUVendor).Msgf("Capability automatically detected, set %s to override", capabilityEnv)
+	xlog.Info("Capability automatically detected", "capability", s.GPUVendor, "env", capabilityEnv)
 	// If vram is less than 4GB, let's default to CPU but warn the user that they can override that via env
 	if s.VRAM <= 4*1024*1024*1024 {
-		log.Warn().Msgf("VRAM is less than 4GB, defaulting to CPU. Set %s to override", capabilityEnv)
+		xlog.Warn("VRAM is less than 4GB, defaulting to CPU", "env", capabilityEnv)
 		return defaultCapability
 	}
 

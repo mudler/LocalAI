@@ -22,7 +22,7 @@ import (
 	"github.com/mudler/LocalAI/core/backend"
 
 	model "github.com/mudler/LocalAI/pkg/model"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 func downloadFile(url string) (string, error) {
@@ -69,13 +69,13 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 	return func(c echo.Context) error {
 		input, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.VideoRequest)
 		if !ok || input.Model == "" {
-			log.Error().Msg("Video Endpoint - Invalid Input")
+			xlog.Error("Video Endpoint - Invalid Input")
 			return echo.ErrBadRequest
 		}
 
 		config, ok := c.Get(middleware.CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
 		if !ok || config == nil {
-			log.Error().Msg("Video Endpoint - Invalid Config")
+			xlog.Error("Video Endpoint - Invalid Config")
 			return echo.ErrBadRequest
 		}
 
@@ -124,7 +124,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			defer os.RemoveAll(src)
 		}
 
-		log.Debug().Msgf("Parameter Config: %+v", config)
+		xlog.Debug("Parameter Config", "config", config)
 
 		switch config.Backend {
 		case "stablediffusion":
@@ -217,7 +217,7 @@ func VideoEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 		}
 
 		jsonResult, _ := json.Marshal(resp)
-		log.Debug().Msgf("Response: %s", jsonResult)
+		xlog.Debug("Response", "response", string(jsonResult))
 
 		// Return the prediction in the response body
 		return c.JSON(200, resp)

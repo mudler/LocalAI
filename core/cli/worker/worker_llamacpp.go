@@ -15,7 +15,7 @@ import (
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/pkg/model"
 	"github.com/mudler/LocalAI/pkg/system"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type LLamaCPP struct {
@@ -30,22 +30,22 @@ const (
 func findLLamaCPPBackend(galleries string, systemState *system.SystemState) (string, error) {
 	backends, err := gallery.ListSystemBackends(systemState)
 	if err != nil {
-		log.Warn().Msgf("Failed listing system backends: %s", err)
+		xlog.Warn("Failed listing system backends", "error", err)
 		return "", err
 	}
-	log.Debug().Msgf("System backends: %v", backends)
+	xlog.Debug("System backends", "backends", backends)
 
 	backend, ok := backends.Get(llamaCPPGalleryName)
 	if !ok {
 		ml := model.NewModelLoader(systemState)
 		var gals []config.Gallery
 		if err := json.Unmarshal([]byte(galleries), &gals); err != nil {
-			log.Error().Err(err).Msg("failed loading galleries")
+			xlog.Error("failed loading galleries", "error", err)
 			return "", err
 		}
 		err := gallery.InstallBackendFromGallery(context.Background(), gals, systemState, ml, llamaCPPGalleryName, nil, true)
 		if err != nil {
-			log.Error().Err(err).Msg("llama-cpp backend not found, failed to install it")
+			xlog.Error("llama-cpp backend not found, failed to install it", "error", err)
 			return "", err
 		}
 	}

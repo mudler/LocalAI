@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 	"gopkg.in/yaml.v3"
 
 	"github.com/mudler/LocalAI/core/config"
@@ -52,10 +52,10 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 	if err != nil {
 		// maybe not a HF repository
 		// TODO: maybe we can check if the URI is a valid HF repository
-		log.Debug().Str("uri", uri).Str("hfrepoID", hfrepoID).Msg("Failed to get model details, maybe not a HF repository")
+		xlog.Debug("Failed to get model details, maybe not a HF repository", "uri", uri, "hfrepoID", hfrepoID)
 	} else {
-		log.Debug().Str("uri", uri).Msg("Got model details")
-		log.Debug().Any("details", hfDetails).Msg("Model details")
+		xlog.Debug("Got model details", "uri", uri)
+		xlog.Debug("Model details", "details", hfDetails)
 	}
 
 	// handle local config files ("/my-model.yaml" or "file://my-model.yaml")
@@ -73,13 +73,13 @@ func DiscoverModelConfig(uri string, preferences json.RawMessage) (gallery.Model
 				return nil
 			})
 			if err != nil {
-				log.Error().Err(err).Str("filepath", localURI).Msg("error reading model definition")
+				xlog.Error("error reading model definition", "error", err, "filepath", localURI)
 				return gallery.ModelConfig{}, err
 			}
 		} else {
 			modelYAML, err = os.ReadFile(localURI)
 			if err != nil {
-				log.Error().Err(err).Str("filepath", localURI).Msg("error reading model definition")
+				xlog.Error("error reading model definition", "error", err, "filepath", localURI)
 				return gallery.ModelConfig{}, err
 			}
 		}

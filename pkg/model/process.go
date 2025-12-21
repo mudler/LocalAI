@@ -12,7 +12,7 @@ import (
 	"github.com/hpcloud/tail"
 	"github.com/mudler/LocalAI/pkg/signals"
 	process "github.com/mudler/go-processmanager"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "true"
@@ -20,7 +20,7 @@ var forceBackendShutdown bool = os.Getenv("LOCALAI_FORCE_BACKEND_SHUTDOWN") == "
 func (ml *ModelLoader) deleteProcess(s string) error {
 	model, ok := ml.models[s]
 	if !ok {
-		log.Debug().Msgf("Model %s not found", s)
+		xlog.Debug("Model not found", "model", s)
 		return fmt.Errorf("model %s not found", s)
 	}
 
@@ -28,7 +28,7 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 
 	retries := 1
 	for model.GRPC(false, ml.wd).IsBusy() {
-		log.Debug().Msgf("%s busy. Waiting.", s)
+		xlog.Debug("Model busy. Waiting.", "model", s)
 		dur := time.Duration(retries*2) * time.Second
 		if dur > retryTimeout {
 			dur = retryTimeout
@@ -37,23 +37,23 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 		retries++
 
 		if retries > 10 && forceBackendShutdown {
-			log.Warn().Msgf("Model %s is still busy after %d retries. Forcing shutdown.", s, retries)
+			xlog.Warn("Model is still busy after retries. Forcing shutdown.", "model", s, "retries", retries)
 			break
 		}
 	}
 
-	log.Debug().Msgf("Deleting process %s", s)
+	xlog.Debug("Deleting process", "model", s)
 
 	process := model.Process()
 	if process == nil {
-		log.Error().Msgf("No process for %s", s)
+		xlog.Error("No process", "model", s)
 		// Nothing to do as there is no process
 		return nil
 	}
 
 	err := process.Stop()
 	if err != nil {
-		log.Error().Err(err).Msgf("(deleteProcess) error while deleting process %s", s)
+		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
 	}
 
 	return err
@@ -95,16 +95,16 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 	// Check first if it has executable permissions
 	if fi, err := os.Stat(grpcProcess); err == nil {
 		if fi.Mode()&0111 == 0 {
-			log.Debug().Msgf("Process %s is not executable. Making it executable.", grpcProcess)
+			xlog.Debug("Process is not executable. Making it executable.", "process", grpcProcess)
 			if err := os.Chmod(grpcProcess, 0700); err != nil {
 				return nil, err
 			}
 		}
 	}
 
-	log.Debug().Msgf("Loading GRPC Process: %s", grpcProcess)
+	xlog.Debug("Loading GRPC Process", "process", grpcProcess)
 
-	log.Debug().Msgf("GRPC Service for %s will be running at: '%s'", id, serverAddress)
+	xlog.Debug("GRPC Service will be running", "id", id, "address", serverAddress)
 
 	workDir, err := filepath.Abs(filepath.Dir(grpcProcess))
 	if err != nil {
@@ -128,31 +128,31 @@ func (ml *ModelLoader) startProcess(grpcProcess, id string, serverAddress string
 		return grpcControlProcess, err
 	}
 
-	log.Debug().Msgf("GRPC Service state dir: %s", grpcControlProcess.StateDir())
+	xlog.Debug("GRPC Service state dir", "dir", grpcControlProcess.StateDir())
 
 	signals.RegisterGracefulTerminationHandler(func() {
 		err := grpcControlProcess.Stop()
 		if err != nil {
-			log.Error().Err(err).Msg("error while shutting down grpc process")
+			xlog.Error("error while shutting down grpc process", "error", err)
 		}
 	})
 
 	go func() {
 		t, err := tail.TailFile(grpcControlProcess.StderrPath(), tail.Config{Follow: true})
 		if err != nil {
-			log.Debug().Msgf("Could not tail stderr")
+			xlog.Debug("Could not tail stderr")
 		}
 		for line := range t.Lines {
-			log.Debug().Msgf("GRPC(%s): stderr %s", strings.Join([]string{id, serverAddress}, "-"), line.Text)
+			xlog.Debug("GRPC stderr", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
 		}
 	}()
 	go func() {
 		t, err := tail.TailFile(grpcControlProcess.StdoutPath(), tail.Config{Follow: true})
 		if err != nil {
-			log.Debug().Msgf("Could not tail stdout")
+			xlog.Debug("Could not tail stdout")
 		}
 		for line := range t.Lines {
-			log.Debug().Msgf("GRPC(%s): stdout %s", strings.Join([]string{id, serverAddress}, "-"), line.Text)
+			xlog.Debug("GRPC stdout", "id", strings.Join([]string{id, serverAddress}, "-"), "line", line.Text)
 		}
 	}()
 

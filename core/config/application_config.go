@@ -8,7 +8,7 @@ import (
 
 	"github.com/mudler/LocalAI/pkg/system"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 )
 
 type ApplicationConfig struct {
@@ -298,7 +298,7 @@ func WithStringGalleries(galls string) AppOption {
 		}
 		var galleries []Gallery
 		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
-			log.Error().Err(err).Msg("failed loading galleries")
+			xlog.Error("failed loading galleries", "error", err)
 		}
 		o.Galleries = append(o.Galleries, galleries...)
 	}
@@ -312,7 +312,7 @@ func WithBackendGalleries(galls string) AppOption {
 		}
 		var galleries []Gallery
 		if err := json.Unmarshal([]byte(galls), &galleries); err != nil {
-			log.Error().Err(err).Msg("failed loading galleries")
+			xlog.Error("failed loading galleries", "error", err)
 		}
 		o.BackendGalleries = append(o.BackendGalleries, galleries...)
 	}
@@ -470,7 +470,7 @@ func WithHttpGetExemptedEndpoints(endpoints []string) AppOption {
 			if err == nil && r != nil {
 				o.HttpGetExemptedEndpoints = append(o.HttpGetExemptedEndpoints, r)
 			} else {
-				log.Warn().Err(err).Str("regex", epr).Msg("Error while compiling HTTP Get Exemption regex, skipping this entry.")
+				xlog.Warn("Error while compiling HTTP Get Exemption regex, skipping this entry.", "error", err, "regex", epr)
 			}
 		}
 	}

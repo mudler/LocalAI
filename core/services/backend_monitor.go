@@ -10,7 +10,7 @@ import (
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	"github.com/mudler/LocalAI/pkg/model"
 
-	"github.com/rs/zerolog/log"
+	"github.com/mudler/xlog"
 
 	gopsutil "github.com/shirou/gopsutil/v3/process"
 )
@@ -46,7 +46,7 @@ func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*sche
 	pid, err := bms.modelLoader.GetGRPCPID(backend)
 
 	if err != nil {
-		log.Error().Err(err).Str("model", model).Msg("failed to find GRPC pid")
+		xlog.Error("failed to find GRPC pid", "error", err, "model", model)
 		return nil, err
 	}
 
@@ -54,26 +54,26 @@ func (bms *BackendMonitorService) SampleLocalBackendProcess(model string) (*sche
 	backendProcess, err := gopsutil.NewProcess(int32(pid))
 
 	if err != nil {
-		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting process info")
+		xlog.Error("error getting process info", "error", err, "model", model, "pid", pid)
 		return nil, err
 	}
 
 	memInfo, err := backendProcess.MemoryInfo()
 
 	if err != nil {
-		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting memory info")
+		xlog.Error("error getting memory info", "error", err, "model", model, "pid", pid)
 		return nil, err
 	}
 
 	memPercent, err := backendProcess.MemoryPercent()
 	if err != nil {
-		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting memory percent")
+		xlog.Error("error getting memory percent", "error", err, "model", model, "pid", pid)
 		return nil, err
 	}
 
 	cpuPercent, err := backendProcess.CPUPercent()
 	if err != nil {
-		log.Error().Err(err).Str("model", model).Int("pid", pid).Msg("error getting cpu percent")
+		xlog.Error("error getting cpu percent", "error", err, "model", model, "pid", pid)
 		return nil, err
 	}
 
@@ -92,7 +92,7 @@ func (bms BackendMonitorService) CheckAndSample(modelName string) (*proto.Status
 
 	status, rpcErr := modelAddr.GRPC(false, nil).Status(context.TODO())
 	if rpcErr != nil {
-		log.Warn().Msgf("backend %s experienced an error retrieving status info: %s", modelName, rpcErr.Error())
+		xlog.Warn("backend experienced an error retrieving status info", "backend", modelName, "error", rpcErr)
 		val, slbErr := bms.SampleLocalBackendProcess(modelName)
 		if slbErr != nil {
 			return nil, fmt.Errorf("backend %s experienced an error retrieving status info via rpc: %s, then failed local node process sample: %s", modelName, rpcErr.Error(), slbErr.Error())
