@@ -170,7 +170,7 @@ RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then 
             hipblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
-        echo "amd" > /run/localai/capability && \
+        echo "amd-rocm-${ROCM_MAJOR_VERSION}" > /run/localai/capability && \
         # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
         # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
         ldconfig \
