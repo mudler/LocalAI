@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "deepseek-r1-0528"
+  urls:
+    - https://huggingface.co/Doctor-Shotgun/DeepSeek-R1-0528-GGUF
+  description: |
+    AI model: deepseek-r1-0528
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-R1-0528-Q8_0-Q4_K-Q4_K-Q5_K-00010-of-00010.gguf
+    name: DeepSeek-R1-0528-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Doctor-Shotgun/DeepSeek-R1-0528-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/DeepSeek-R1-0528-Q8_0-Q4_K-Q4_K-Q5_K-00010-of-00010.gguf
+      sha256: 47602eed32880a800f8eabab0fd7c58c773e6006853fcaa93ede818e89e91684
+      uri: https://huggingface.co/Doctor-Shotgun/DeepSeek-R1-0528-GGUF/resolve/main/DeepSeek-R1-0528-Q8_0-Q4_K-Q4_K-Q5_K/DeepSeek-R1-0528-Q8_0-Q4_K-Q4_K-Q5_K-00010-of-00010.gguf
+
