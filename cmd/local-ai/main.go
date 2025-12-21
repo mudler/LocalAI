@@ -72,7 +72,7 @@ Version: ${version}
 	}
 
 	// Set xlog logger with the desired level and text format
-	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), "text"))
+	xlog.SetLogger(xlog.NewLogger(xlog.LogLevel(*cli.CLI.LogLevel), *cli.CLI.LogFormat))
 
 	// Run the thing!
 	err = ctx.Run(&cli.CLI.Context)
