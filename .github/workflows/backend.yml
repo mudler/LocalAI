@@ -1193,7 +1193,7 @@ jobs:
             platforms: 'linux/amd64'
             skip-drivers: 'true'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-hipblas-exllama2'
+            tag-suffix: '-gpu-amd-rocm-6-exllama2'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             runs-on: 'ubuntu-latest'
             backend: "exllama2"
@@ -1219,7 +1219,7 @@ jobs:
           #   cuda-minor-version: ""
           #   platforms: 'linux/amd64'
           #   tag-latest: 'auto'
-          #   tag-suffix: '-gpu-hipblas-rfdetr'
+          #   tag-suffix: '-gpu-amd-rocm-6-rfdetr'
           #   base-image: "rocm/dev-ubuntu-24.04:6.4.4"
           #   runs-on: 'ubuntu-latest'
           #   skip-drivers: 'false'

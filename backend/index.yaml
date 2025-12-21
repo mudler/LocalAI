@@ -993,9 +993,9 @@
     - localai/localai-backends:latest-gpu-intel-rfdetr
 # - !!merge <<: *rfdetr
 #   name: "rocm6-rfdetr"
-#   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-hipblas-rfdetr"
+#   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-amd-rocm-6-rfdetr"
 #   mirrors:
-#     - localai/localai-backends:latest-gpu-hipblas-rfdetr
+#     - localai/localai-backends:latest-gpu-amd-rocm-6-rfdetr
 - !!merge <<: *rfdetr
   name: "nvidia-l4t-arm64-rfdetr"
   uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-arm64-rfdetr"
@@ -1023,9 +1023,9 @@
     - localai/localai-backends:master-gpu-intel-rfdetr
 # - !!merge <<: *rfdetr
 #   name: "rocm6-rfdetr-development"
-#   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-hipblas-rfdetr"
+#   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-amd-rocm-6-rfdetr"
 #   mirrors:
-#     - localai/localai-backends:master-gpu-hipblas-rfdetr
+#     - localai/localai-backends:master-gpu-amd-rocm-6-rfdetr
 - !!merge <<: *rfdetr
   name: "cpu-rfdetr-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-cpu-rfdetr"
