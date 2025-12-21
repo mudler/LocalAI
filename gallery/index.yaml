@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "qwen3-vl-32b-instruct-heretic-v2-iq5ks"
+  urls:
+    - https://huggingface.co/Phr00t/Qwen3-VL-32B-Instruct-heretic-v2-iQ5KS-GGUF
+  description: |
+    The model is a quantized version of the **Qwen3-VL-32B-Instruct-heretic-v2** base model, optimized for efficiency while retaining core capabilities. It features a **Q5K_S quantization** approach, making it suitable for deployment in resource-constrained environments. The model is tagged as "uncensored," "heretic," and "qwen3," indicating its specialized training and use cases. A separate [mmproj](https://huggingface.co/n0kovo/Qwen3-VL-32B-Instruct-heretic-v2-Q4_K_M-GGUF/tree/main) is available for vision-text tasks, enhancing its versatility. Ideal for users seeking a balance between performance and efficiency.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3VL-32B-Instruct-Heretic-v2-q5ks.gguf
+    name: Qwen3-VL-32B-Instruct-heretic-v2-iQ5KS-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Phr00t/Qwen3-VL-32B-Instruct-heretic-v2-iQ5KS-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Qwen3VL-32B-Instruct-Heretic-v2-q5ks.gguf
+      sha256: 7e8c3957c3ed7475b652ae1c66848fb98265e3c1c31d127c927eb99532e0bdfa
+      uri: https://huggingface.co/Phr00t/Qwen3-VL-32B-Instruct-heretic-v2-iQ5KS-GGUF/resolve/main/Qwen3VL-32B-Instruct-Heretic-v2-q5ks.gguf
+
