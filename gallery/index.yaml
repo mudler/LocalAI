@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "melinoe-next-80b-a3b-thinking-v0-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Melinoe-Next-80B-A3B-Thinking-v0-i1-GGUF
+  description: |
+    **Melinoe-Next-80B-A3B-Thinking** is a large language model fine-tuned for empathetic, intellectually engaging, and playful conversations. Built on the foundation of `Qwen/Qwen3-Next-80B-A3B-Thinking`, it combines proactive empathy, deep curiosity, and a candid, playful communication style to foster meaningful interactions. Designed for mature audiences, it excels in companionship, creative exploration, and role-playing, while emphasizing emotional support and intellectual dialogue. Licensed under Apache 2.0, it’s optimized for conversational partners seeking thoughtful, engaging AI experiences.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Melinoe-Next-80B-A3B-Thinking-v0.i1-Q4_K_M.gguf
+    name: Melinoe-Next-80B-A3B-Thinking-v0-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Melinoe-Next-80B-A3B-Thinking-v0-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Melinoe-Next-80B-A3B-Thinking-v0.i1-Q4_K_M.gguf
+      sha256: 6e3c4ac9c6a1b5ce2becaad65714a4e95005d7bfb59b86dd9f3d38f94e316052
+      uri: https://huggingface.co/mradermacher/Melinoe-Next-80B-A3B-Thinking-v0-i1-GGUF/resolve/main/Melinoe-Next-80B-A3B-Thinking-v0.i1-Q4_K_M.gguf
+
