@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "ostrich-70b-llama3-251212-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Ostrich-70B-Llama3-251212-i1-GGUF
+  description: |
+    The **Ostrich-70B-Llama3** is a large language model fine-tuned to align more closely with human values and practical human needs. Built on the **Meta-Llama-3-70B-Instruct** base model, it emphasizes ethical considerations, health, nutrition, cryptocurrency, and personal freedom. The model was trained using **QLoRA 4-bit** with 6 RTX A6000 GPUs, optimized for efficiency and accessibility. It offers multiple GGUF quantized versions (e.g., 4-bit, 16-bit) for varied use cases, with a focus on practical, human-centric outputs. Available on Hugging Face, it’s designed to empower users with reliable, independent knowledge. [Model Page](https://hf.tst.eu/model#Ostrich-70B-Llama3-251212-i1-GGUF) | [Curation Article](https://huggingface.co/blog/etemiz/curation-is-all-you-need)
+  overrides:
+    parameters:
+      model: llama-cpp/models/Ostrich-70B-Llama3-251212.i1-Q4_K_M.gguf
+    name: Ostrich-70B-Llama3-251212-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Ostrich-70B-Llama3-251212-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Ostrich-70B-Llama3-251212.i1-Q4_K_M.gguf
+      sha256: 44597bedcc2f3b074388098c7ddb7015bd5eb3cbc942180545515be25f761aa0
+      uri: https://huggingface.co/mradermacher/Ostrich-70B-Llama3-251212-i1-GGUF/resolve/main/Ostrich-70B-Llama3-251212.i1-Q4_K_M.gguf
+
