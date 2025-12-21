@@ -31,5 +31,6 @@ The list below is a list of software that integrates with LocalAI.
 - [LLPhant](https://github.com/theodo-group/LLPhant) is a PHP library for interacting with LLMs and Vector Databases
 - [GPTLocalhost (Word Add-in)](https://gptlocalhost.com/demo#LocalAI) - run LocalAI in Microsoft Word locally
 - use LocalAI from Nextcloud with the [integration plugin](https://apps.nextcloud.com/apps/integration_openai) and [AI assistant](https://apps.nextcloud.com/apps/assistant)
+- [Langchain](https://docs.langchain.com/oss/python/integrations/providers/localai) integration package [pypi](https://pypi.org/project/langchain-localai/)
 
 Feel free to open up a Pull request (by clicking at the "Edit page" below) to get a page for your project made or if you see a error on one of the pages!
