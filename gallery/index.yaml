@@ -23172,3 +23172,36 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *llama4
+  name: "nemotron-cascade-8b"
+  urls:
+    - https://huggingface.co/mradermacher/Nemotron-Cascade-8B-GGUF
+  description: |
+    The model in question is a **quantized version** of the original **Nemotron-Cascade-8B** by NVIDIA. However, the base model (before quantization) is **nvidia/Nemotron-Cascade-8B**, a large language model designed for **reasoning, general-purpose tasks, and text generation**.
+
+    This repository provides multiple quantized variants (e.g., Q2_K, Q4_K_S, Q8_0) of the original 8B-parameter model, optimized for different trade-offs between speed, memory usage, and quality. The largest quantized version (f16) is **16.5 GB**, while smaller variants like Q4_K_S (4.9 GB) are lightweight and efficient for inference.
+
+    The model is licensed under the **NVIDIA Open Model License**, and the quantized versions are hosted here: [mradermacher/Nemotron-Cascade-8B-GGUF](https://huggingface.co/mradermacher/Nemotron-Cascade-8B-GGUF).
+
+    For the **original model**, it is a high-capacity language model with strong reasoning capabilities, suitable for complex tasks requiring large-scale language understanding. This quantized version is ideal for deployment in resource-constrained environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nemotron-Cascade-8B.Q4_K_M.gguf
+    name: Nemotron-Cascade-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nemotron-Cascade-8B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Nemotron-Cascade-8B.Q4_K_M.gguf
+      sha256: 7cf91e3653f06c113f7874446e0bed0cbc87652bae1938ffa07760388211d78c
+      uri: https://huggingface.co/mradermacher/Nemotron-Cascade-8B-GGUF/resolve/main/Nemotron-Cascade-8B.Q4_K_M.gguf
+
