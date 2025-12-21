@@ -22,6 +22,7 @@
     nvidia: "cuda12-llama-cpp"
     intel: "intel-sycl-f16-llama-cpp"
     amd-rocm-6: "rocm6-llama-cpp"
+    amd-rocm-7: "rocm7-llama-cpp"
     metal: "metal-llama-cpp"
     vulkan: "vulkan-llama-cpp"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp"
@@ -534,6 +535,7 @@
     nvidia: "cuda12-llama-cpp-development"
     intel: "intel-sycl-f16-llama-cpp-development"
     amd-rocm-6: "rocm6-llama-cpp-development"
+    amd-rocm-7: "rocm7-llama-cpp-development"
     metal: "metal-llama-cpp-development"
     vulkan: "vulkan-llama-cpp-development"
     nvidia-l4t: "nvidia-l4t-arm64-llama-cpp-development"
@@ -663,6 +665,11 @@
   mirrors:
     - localai/localai-backends:latest-gpu-amd-rocm-6-llama-cpp
 - !!merge <<: *llamacpp
+  name: "rocm7-llama-cpp"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-amd-rocm-7-llama-cpp"
+  mirrors:
+    - localai/localai-backends:latest-gpu-amd-rocm-7-llama-cpp
+- !!merge <<: *llamacpp
   name: "intel-sycl-f32-llama-cpp"
   uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-sycl-f32-llama-cpp"
   mirrors:
@@ -702,6 +709,11 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-amd-rocm-6-llama-cpp"
   mirrors:
     - localai/localai-backends:master-gpu-amd-rocm-6-llama-cpp
+- !!merge <<: *llamacpp
+  name: "rocm7-llama-cpp-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-amd-rocm-7-llama-cpp"
+  mirrors:
+    - localai/localai-backends:master-gpu-amd-rocm-7-llama-cpp
 - !!merge <<: *llamacpp
   name: "intel-sycl-f32-llama-cpp-development"
   uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-sycl-f32-llama-cpp"
