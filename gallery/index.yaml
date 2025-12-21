@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "deepseek-v3.1-nex-n1-i1"
+  urls:
+    - https://huggingface.co/mradermacher/DeepSeek-V3.1-Nex-N1-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the base model **DeepSeek-V3.1-Nex-N1** from the Nex-AGI team. The base model is a large language model (LLM) designed for advanced natural language understanding and generation. This quantized version (GGUF format) is optimized for lower hardware requirements, making it accessible for use on less powerful systems. It includes multiple quantization variants (e.g., IQ3_XXS, Q4_K_S) to balance performance and efficiency. While useful for deployment, the original full-precision version of the model can be found in the base repository, offering higher accuracy and computational power. This quantized version is ideal for scenarios where resource constraints are a factor.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-V3.1-Nex-N1.imatrix.gguf
+    name: DeepSeek-V3.1-Nex-N1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/DeepSeek-V3.1-Nex-N1-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/DeepSeek-V3.1-Nex-N1.imatrix.gguf
+      sha256: 29cee75b88b1645fa33db8d47cd368a4be11ee1af8e0a9fb456c02b97e34800c
+      uri: https://huggingface.co/mradermacher/DeepSeek-V3.1-Nex-N1-i1-GGUF/resolve/main/DeepSeek-V3.1-Nex-N1.imatrix.gguf
+
