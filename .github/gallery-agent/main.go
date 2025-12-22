@@ -34,6 +34,9 @@ type ProcessedModel struct {
 	ReadmeContentPreview    string               `json:"readme_content_preview,omitempty"`
 	QuantizationPreferences []string             `json:"quantization_preferences"`
 	ProcessingError         string               `json:"processing_error,omitempty"`
+	Tags                    []string             `json:"tags,omitempty"`
+	License                 string               `json:"license,omitempty"`
+	Icon                    string               `json:"icon,omitempty"`
 }
 
 // SearchResult represents the complete result of searching and processing models
@@ -315,6 +318,25 @@ func searchAndProcessModels(searchTerm string, limit int, quantization string) (
 				continue
 			}
 			fmt.Println("Real readme got", readmeContent)
+
+			// Extract metadata (tags, license) from README using LLM
+			fmt.Println("Extracting metadata for", model.ModelID, "waiting...")
+			tags, license, err := extractModelMetadata(context.Background(), processedModel)
+			if err == nil {
+				processedModel.Tags = tags
+				processedModel.License = license
+				outputBuilder.WriteString(fmt.Sprintf("   Tags: %v\n", tags))
+				outputBuilder.WriteString(fmt.Sprintf("   License: %s\n", license))
+			} else {
+				fmt.Printf("   Warning: Failed to extract metadata: %v\n", err)
+			}
+
+			// Extract icon from README or use HuggingFace avatar
+			icon := extractModelIcon(processedModel)
+			if icon != "" {
+				processedModel.Icon = icon
+				outputBuilder.WriteString(fmt.Sprintf("   Icon: %s\n", icon))
+			}
 			// Get README content
 			// readmeContent, err := client.GetReadmeContent(model.ModelID, details.ReadmeFile.Path)
 			// if err == nil {
