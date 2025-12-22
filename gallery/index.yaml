@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "ucsb-surfi.vulnllm-r-7b"
+  urls:
+    - https://huggingface.co/DevQuasar/UCSB-SURFI.VulnLLM-R-7B-GGUF
+  description: |
+    The model in question is a **quantized version** of the base model **UCSB-SURFI/VulnLLM-R-7B**, a 7B-parameter large language model designed for text generation. While this quantized version optimizes efficiency for deployment, the original model (UCSB-SURFI/VulnLLM-R-7B) is the foundation, offering robust capabilities for natural language processing tasks. Its purpose aligns with the goal of "making knowledge free for everyone," emphasizing accessibility and widespread utility. This model is ideal for applications requiring efficient, scalable language understanding and generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/UCSB-SURFI.VulnLLM-R-7B.Q4_K_M.gguf
+    name: UCSB-SURFI.VulnLLM-R-7B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/UCSB-SURFI.VulnLLM-R-7B-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/UCSB-SURFI.VulnLLM-R-7B.Q4_K_M.gguf
+      sha256: 7f6f026a90882f27b82cb29a9e967c96e17455db416a5138d736a8d9eb59f865
+      uri: https://huggingface.co/DevQuasar/UCSB-SURFI.VulnLLM-R-7B-GGUF/resolve/main/UCSB-SURFI.VulnLLM-R-7B.Q4_K_M.gguf
+
