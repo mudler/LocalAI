@@ -12,15 +12,36 @@ import (
 )
 
 func formatTextContent(text string) string {
+	return formatTextContentWithIndent(text, 4, 6)
+}
+
+// formatTextContentWithIndent formats text content with specified base and list item indentation
+func formatTextContentWithIndent(text string, baseIndent int, listItemIndent int) string {
 	var formattedLines []string
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
+		trimmed := strings.TrimRight(line, " \t\r")
+		if trimmed == "" {
 			// Keep empty lines as empty (no indentation)
 			formattedLines = append(formattedLines, "")
 		} else {
-			// Add indentation to non-empty lines
-			formattedLines = append(formattedLines, "    "+line)
+			// Preserve relative indentation from yaml.Marshal output
+			// Count existing leading spaces to preserve relative structure
+			leadingSpaces := len(trimmed) - len(strings.TrimLeft(trimmed, " \t"))
+			trimmedStripped := strings.TrimLeft(trimmed, " \t")
+
+			var totalIndent int
+			if strings.HasPrefix(trimmedStripped, "-") {
+				// List items: use listItemIndent (ignore existing leading spaces)
+				totalIndent = listItemIndent
+			} else {
+				// Regular lines: use baseIndent + preserve relative indentation
+				// This handles both top-level keys (leadingSpaces=0) and nested properties (leadingSpaces>0)
+				totalIndent = baseIndent + leadingSpaces
+			}
+
+			indentStr := strings.Repeat(" ", totalIndent)
+			formattedLines = append(formattedLines, indentStr+trimmedStripped)
 		}
 	}
 	formattedText := strings.Join(formattedLines, "\n")
@@ -62,7 +83,8 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string, quantization s
 
 	filesYAML, _ := yaml.Marshal(modelConfig.Files)
 
-	files := formatTextContent(string(filesYAML))
+	// Files section: list items need 4 spaces (not 6), since files: is at 2 spaces
+	files := formatTextContentWithIndent(string(filesYAML), 4, 4)
 
 	yamlTemplate := ""
 	yamlTemplate = `- !!merge <<: *%s
@@ -75,6 +97,10 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string, quantization s
 %s
   files:
 %s`
+	// Trim trailing newlines from formatted sections to prevent extra blank lines
+	formattedDescription = strings.TrimRight(formattedDescription, "\n")
+	configFile = strings.TrimRight(configFile, "\n")
+	files = strings.TrimRight(files, "\n")
 	return fmt.Sprintf(yamlTemplate,
 		familyAnchor,
 		modelName,
@@ -170,6 +196,7 @@ func generateYAMLForModels(ctx context.Context, models []ProcessedModel, quantiz
 		// Remove trailing whitespace from existing content and join entries without extra newlines
 		existingContent := strings.TrimRight(string(content), " \t\n\r")
 		yamlBlock := strings.Join(yamlEntries, "\n")
+		// Ensure exactly one newline between existing content and new entries, and one at the end
 		newContent := existingContent + "\n" + yamlBlock + "\n"
 
 		// Write back to file
