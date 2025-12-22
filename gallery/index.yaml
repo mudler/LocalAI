@@ -23172,3 +23172,30 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3
+  name: "co-rewarding-iii-qwen3-8b-base-math"
+  urls:
+    - https://huggingface.co/mradermacher/Co-rewarding-III-Qwen3-8B-Base-MATH-GGUF
+  description: |
+    The **Co-rewarding-III-Qwen3-8B-Base-MATH** model is a large language model (LLM) derived from the Qwen3-8B-Base architecture, fine-tuned with the **Co-rewarding-III** framework to excel in mathematical reasoning. This self-supervised reinforcement learning method enhances reasoning stability by leveraging complementary supervision signals, outperforming prior self-rewarding and RLVR approaches. The model is trained on the MATH dataset, achieving strong performance on mathematical benchmarks, including a notable 7.49% improvement over baseline methods. Its stable training and high reasoning accuracy make it a valuable tool for tasks requiring logical inference. The model is licensed under MIT and available for research/development via the [GitHub repository](https://github.com/tmlr-group/Co-rewarding).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Co-rewarding-III-Qwen3-8B-Base-MATH.Q4_K_M.gguf
+    name: Co-rewarding-III-Qwen3-8B-Base-MATH-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Co-rewarding-III-Qwen3-8B-Base-MATH-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Co-rewarding-III-Qwen3-8B-Base-MATH.Q4_K_M.gguf
+      sha256: 377053b28f5888f93803603ce8a7893ddb58a0431ffdc83ddbb1ea653cfeec08
+      uri: https://huggingface.co/mradermacher/Co-rewarding-III-Qwen3-8B-Base-MATH-GGUF/resolve/main/Co-rewarding-III-Qwen3-8B-Base-MATH.Q4_K_M.gguf
+
