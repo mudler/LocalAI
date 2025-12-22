@@ -23172,3 +23172,32 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "big-tiger-gemma-27b-v3-heretic-v2-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Big-Tiger-Gemma-27B-v3-heretic-v2-i1-GGUF
+  description: |
+    The **Big-Tiger-Gemma-27B-v3-heretic** is a decensored, vision-capable version of the Gemma 3 27B model, modified using the **Heretic** tool to reduce positivity and improve steerability. It features a neutral tone, fewer markdown responses, and stronger control over sensitive topics. Based on TheDrummer's original Gemma 3 model, this quantized version balances performance with a more restrained, text-oriented output. It supports vision tasks and is optimized for efficiency via GGUF/IMatrix formats. Ideal for users seeking a balanced, less positive, and more controllable large language model.
+    **Original model**: [TheDrummer/Big-Tiger-Gemma-27B-v3](https://huggingface.co/TheDrummer/Big-Tiger-Gemma-27B-v3)
+    **GGUF version**: [mradermacher/Big-Tiger-Gemma-27B-v3-heretic-v2-i1-GGUF](https://huggingface.co/mradermacher/Big-Tiger-Gemma-27B-v3-heretic-v2-i1-GGUF)
+  overrides:
+    parameters:
+      model: llama-cpp/models/Big-Tiger-Gemma-27B-v3-heretic-v2.i1-Q4_K_M.gguf
+    name: Big-Tiger-Gemma-27B-v3-heretic-v2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Big-Tiger-Gemma-27B-v3-heretic-v2-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Big-Tiger-Gemma-27B-v3-heretic-v2.i1-Q4_K_M.gguf
+      sha256: 217df5712f032abf72a62ccb6a9cf8cce67eef36d36fd00ad8d3d655553196ed
+      uri: https://huggingface.co/mradermacher/Big-Tiger-Gemma-27B-v3-heretic-v2-i1-GGUF/resolve/main/Big-Tiger-Gemma-27B-v3-heretic-v2.i1-Q4_K_M.gguf
+
