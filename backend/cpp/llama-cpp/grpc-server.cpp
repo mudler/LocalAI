@@ -78,9 +78,6 @@ static void start_llama_server(server_context& ctx_server) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
-    ctx_server.init();
-    //state.store(SERVER_STATE_READY);
-
     LOG_INF("%s: model loaded\n", __func__);
 
     // print sample chat example to make it clear which template is used
