@@ -10,7 +10,7 @@ require (
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.13.0
 	github.com/charmbracelet/glamour v0.10.0
-	github.com/containerd/containerd v1.7.29
+	github.com/containerd/containerd v1.7.30
 	github.com/ebitengine/purego v0.9.1
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/go-audio/wav v1.1.0
