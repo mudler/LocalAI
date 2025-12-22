@@ -23172,3 +23172,31 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *gemma3
+  name: "firepaintedcydonia-24b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/FirePaintedCydonia-24B-i1-GGUF
+  description: |
+    **FirePaintedCydonia-24B**
+    A large language model created by merging three distinct bases: *Cydonia-24B-v4.3*, *MS3.2-PaintedFantasy-v3-24B*, and *Hearthfire-24B*. This 24B-parameter model combines strengths from each source, offering versatility in text generation, roleplay, and mergekit tasks. Quantized in i1-Q2_K format, it balances performance and efficiency. Licensed under Apache 2.0, it’s optimized for English language tasks and designed for users seeking a robust, multi-source merged model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/FirePaintedCydonia-24B.i1-Q4_K_M.gguf
+    name: FirePaintedCydonia-24B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/FirePaintedCydonia-24B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/FirePaintedCydonia-24B.i1-Q4_K_M.gguf
+      sha256: d11a791d8fd135d01f4c0d4c5cd223b3ff260e2ae2536da0c31a4fb0fb05f1fa
+      uri: https://huggingface.co/mradermacher/FirePaintedCydonia-24B-i1-GGUF/resolve/main/FirePaintedCydonia-24B.i1-Q4_K_M.gguf
+
