@@ -23172,3 +23172,35 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *internvl35
+  name: "monika-49b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Monika-49B-i1-GGUF
+  description: |
+    **Model Name:** Monika-49B (Quantized)
+    **Base Model:** Green-eyedDevil/Monika-49B
+    **License:** Apache-2.0
+    **Use Case:** Roleplay, Custom Code Generation
+
+    This is a quantized version of the **Monika-49B** model, derived from the original **Green-eyedDevil/Monika-49B** base model. Designed for roleplay and custom code tasks, it leverages a 49B-parameter foundation fine-tuned from the **Valkyrie-49B-v2** model. Trained on a Blackwell Pro 6000 Max-Q system with 32 rank, 64 alpha, and 2 epochs, it requires ~90 minutes of training time and carries an estimated $0.15 environmental impact. Ideal for Monika-related interactions, it balances performance with efficiency for text generation tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Monika-49B.i1-Q4_K_M.gguf
+    name: Monika-49B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Monika-49B-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/Monika-49B.i1-Q4_K_M.gguf
+      sha256: 7c49b660b913b33d6c6afcdc76de6003fcc85fd4f2781967deb30080d21cd698
+      uri: https://huggingface.co/mradermacher/Monika-49B-i1-GGUF/resolve/main/Monika-49B.i1-Q4_K_M.gguf
+
