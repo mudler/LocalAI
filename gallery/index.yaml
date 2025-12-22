@@ -23172,3 +23172,37 @@
     - filename: Maenad-70B.i1-Q4_K_M.gguf
       sha256: dd5615ba1ab4ce2a3614afd547e0457fc14c7182de0d2e5f80d84323ee53ec1f
       uri: huggingface://mradermacher/Maenad-70B-i1-GGUF/Maenad-70B.i1-Q4_K_M.gguf
+- !!merge <<: *qwen3vl
+  name: "glm-4.6-reap-268b-a32b-derestricted-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.6-REAP-268B-A32B-Derestricted-i1-GGUF
+  description: |
+    The model **GLM-4.6-REAP-268B-A32B-Derestricted** is a quantized version of the **ArliAI/GLM-4.6-REAP-268B-A32B-Derestricted** base model, optimized for efficiency while retaining high performance. It is available in **GGUF format**, a compact and efficient storage format for large language models. Key features include:
+
+    - **Unrestricted Use**: Designed for unlimited, uncensored text generation and tasks requiring broad linguistic flexibility.
+    - **Quantized Efficiency**: A lightweight (0.6 GB) version of the original model, suitable for deployment on resource-constrained systems.
+    - **Imatrix Support**: Includes an imatrix file for custom quantization, enabling users to tailor the model for specific applications.
+    - **Derestricted Capabilities**: Removes limitations present in the original model, allowing for extended text generation and diverse use cases.
+
+    This model is ideal for developers and researchers needing a high-capability, optimized version of a large language model with minimal overhead.
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.6-REAP-268B-A32B-Derestricted.i1-Q4_K_M.gguf
+    name: GLM-4.6-REAP-268B-A32B-Derestricted-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+    - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GLM-4.6-REAP-268B-A32B-Derestricted-i1-GGUF
+    options:
+    - use_jinja:true
+
+  files:
+    - filename: llama-cpp/models/GLM-4.6-REAP-268B-A32B-Derestricted.i1-Q4_K_M.gguf
+      sha256: a249a4db274aac6b4166352975a2261873834c1307a400904996e32c69bd98cb
+      uri: https://huggingface.co/mradermacher/GLM-4.6-REAP-268B-A32B-Derestricted-i1-GGUF/resolve/main/GLM-4.6-REAP-268B-A32B-Derestricted.i1-Q4_K_M.gguf
+
