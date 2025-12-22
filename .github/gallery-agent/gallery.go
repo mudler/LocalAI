@@ -12,15 +12,36 @@ import (
 )
 
 func formatTextContent(text string) string {
+	return formatTextContentWithIndent(text, 4, 6)
+}
+
+// formatTextContentWithIndent formats text content with specified base and list item indentation
+func formatTextContentWithIndent(text string, baseIndent int, listItemIndent int) string {
 	var formattedLines []string
 	lines := strings.Split(text, "\n")
 	for _, line := range lines {
-		if strings.TrimSpace(line) == "" {
+		trimmed := strings.TrimRight(line, " \t\r")
+		if trimmed == "" {
 			// Keep empty lines as empty (no indentation)
 			formattedLines = append(formattedLines, "")
 		} else {
-			// Add indentation to non-empty lines
-			formattedLines = append(formattedLines, "    "+line)
+			// Preserve relative indentation from yaml.Marshal output
+			// Count existing leading spaces to preserve relative structure
+			leadingSpaces := len(trimmed) - len(strings.TrimLeft(trimmed, " \t"))
+			trimmedStripped := strings.TrimLeft(trimmed, " \t")
+
+			var totalIndent int
+			if strings.HasPrefix(trimmedStripped, "-") {
+				// List items: use listItemIndent (ignore existing leading spaces)
+				totalIndent = listItemIndent
+			} else {
+				// Regular lines: use baseIndent + preserve relative indentation
+				// This handles both top-level keys (leadingSpaces=0) and nested properties (leadingSpaces>0)
+				totalIndent = baseIndent + leadingSpaces
+			}
+
+			indentStr := strings.Repeat(" ", totalIndent)
+			formattedLines = append(formattedLines, indentStr+trimmedStripped)
 		}
 	}
 	formattedText := strings.Join(formattedLines, "\n")
@@ -30,7 +51,7 @@ func formatTextContent(text string) string {
 }
 
 // generateYAMLEntry generates a YAML entry for a model using the specified anchor
-func generateYAMLEntry(model ProcessedModel, familyAnchor string, quantization string) string {
+func generateYAMLEntry(model ProcessedModel, quantization string) string {
 	modelConfig, err := importers.DiscoverModelConfig("https://huggingface.co/"+model.ModelID, json.RawMessage(`{ "quantization": "`+quantization+`"}`))
 	if err != nil {
 		panic(err)
@@ -62,103 +83,81 @@ func generateYAMLEntry(model ProcessedModel, familyAnchor string, quantization s
 
 	filesYAML, _ := yaml.Marshal(modelConfig.Files)
 
-	files := formatTextContent(string(filesYAML))
+	// Files section: list items need 4 spaces (not 6), since files: is at 2 spaces
+	files := formatTextContentWithIndent(string(filesYAML), 4, 4)
+
+	// Build metadata sections
+	var metadataSections []string
+
+	// Add license if present
+	if model.License != "" {
+		metadataSections = append(metadataSections, fmt.Sprintf(`  license: "%s"`, model.License))
+	}
+
+	// Add tags if present
+	if len(model.Tags) > 0 {
+		tagsYAML, _ := yaml.Marshal(model.Tags)
+		tagsFormatted := formatTextContentWithIndent(string(tagsYAML), 4, 4)
+		tagsFormatted = strings.TrimRight(tagsFormatted, "\n")
+		metadataSections = append(metadataSections, fmt.Sprintf("  tags:\n%s", tagsFormatted))
+	}
+
+	// Add icon if present
+	if model.Icon != "" {
+		metadataSections = append(metadataSections, fmt.Sprintf(`  icon: %s`, model.Icon))
+	}
+
+	// Build the metadata block
+	metadataBlock := ""
+	if len(metadataSections) > 0 {
+		metadataBlock = strings.Join(metadataSections, "\n") + "\n"
+	}
 
 	yamlTemplate := ""
-	yamlTemplate = `- !!merge <<: *%s
-  name: "%s"
+	yamlTemplate = `- name: "%s"
   urls:
     - https://huggingface.co/%s
   description: |
-%s
+%s%s
   overrides:
 %s
   files:
 %s`
+	// Trim trailing newlines from formatted sections to prevent extra blank lines
+	formattedDescription = strings.TrimRight(formattedDescription, "\n")
+	configFile = strings.TrimRight(configFile, "\n")
+	files = strings.TrimRight(files, "\n")
+	// Add newline before metadata block if present
+	if metadataBlock != "" {
+		metadataBlock = "\n" + strings.TrimRight(metadataBlock, "\n")
+	}
 	return fmt.Sprintf(yamlTemplate,
-		familyAnchor,
 		modelName,
 		model.ModelID,
 		formattedDescription,
+		metadataBlock,
 		configFile,
 		files,
 	)
 }
 
-// extractModelFamilies extracts all YAML anchors from the gallery index.yaml file
-func extractModelFamilies() ([]ModelFamily, error) {
-	// Read the index.yaml file
-	indexPath := getGalleryIndexPath()
-	content, err := os.ReadFile(indexPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read %s: %w", indexPath, err)
-	}
-
-	lines := strings.Split(string(content), "\n")
-	var families []ModelFamily
-
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		// Look for YAML anchors (lines starting with "- &")
-		if strings.HasPrefix(line, "- &") {
-			// Extract the anchor name (everything after "- &")
-			anchor := strings.TrimPrefix(line, "- &")
-			// Remove any trailing colon or other characters
-			anchor = strings.Split(anchor, ":")[0]
-			anchor = strings.Split(anchor, " ")[0]
-
-			if anchor != "" {
-				families = append(families, ModelFamily{
-					Anchor: anchor,
-					Name:   anchor, // Use anchor as name for now
-				})
-			}
-		}
-	}
-
-	return families, nil
-}
-
 // generateYAMLForModels generates YAML entries for selected models and appends to index.yaml
 func generateYAMLForModels(ctx context.Context, models []ProcessedModel, quantization string) error {
-	// Extract available model families
-	families, err := extractModelFamilies()
-	if err != nil {
-		return fmt.Errorf("failed to extract model families: %w", err)
-	}
-
-	fmt.Printf("Found %d model families: %v\n", len(families),
-		func() []string {
-			var names []string
-			for _, f := range families {
-				names = append(names, f.Anchor)
-			}
-			return names
-		}())
 
 	// Generate YAML entries for each model
 	var yamlEntries []string
 	for _, model := range models {
-		fmt.Printf("Selecting family for model: %s\n", model.ModelID)
-
-		// Select appropriate family for this model
-		familyAnchor, err := selectModelFamily(ctx, model, families)
-		if err != nil {
-			fmt.Printf("Error selecting family for %s: %v, using default\n", model.ModelID, err)
-			familyAnchor = "llama3" // Default fallback
-		}
-
-		fmt.Printf("Selected family '%s' for model %s\n", familyAnchor, model.ModelID)
+		fmt.Printf("Generating YAML entry for model: %s\n", model.ModelID)
 
 		// Generate YAML entry
-		yamlEntry := generateYAMLEntry(model, familyAnchor, quantization)
+		yamlEntry := generateYAMLEntry(model, quantization)
 		yamlEntries = append(yamlEntries, yamlEntry)
 	}
 
-	// Append to index.yaml
+	// Prepend to index.yaml (write at the top)
 	if len(yamlEntries) > 0 {
 		indexPath := getGalleryIndexPath()
-		fmt.Printf("Appending YAML entries to %s...\n", indexPath)
+		fmt.Printf("Prepending YAML entries to %s...\n", indexPath)
 
 		// Read current content
 		content, err := os.ReadFile(indexPath)
@@ -166,11 +165,26 @@ func generateYAMLForModels(ctx context.Context, models []ProcessedModel, quantiz
 			return fmt.Errorf("failed to read %s: %w", indexPath, err)
 		}
 
-		// Append new entries
-		// Remove trailing whitespace from existing content and join entries without extra newlines
-		existingContent := strings.TrimRight(string(content), " \t\n\r")
+		existingContent := string(content)
 		yamlBlock := strings.Join(yamlEntries, "\n")
-		newContent := existingContent + "\n" + yamlBlock + "\n"
+
+		// Check if file starts with "---"
+		var newContent string
+		if strings.HasPrefix(existingContent, "---\n") {
+			// File starts with "---", prepend new entries after it
+			restOfContent := strings.TrimPrefix(existingContent, "---\n")
+			// Ensure proper spacing: "---\n" + new entries + "\n" + rest of content
+			newContent = "---\n" + yamlBlock + "\n" + restOfContent
+		} else if strings.HasPrefix(existingContent, "---") {
+			// File starts with "---" but no newline after
+			restOfContent := strings.TrimPrefix(existingContent, "---")
+			newContent = "---\n" + yamlBlock + "\n" + strings.TrimPrefix(restOfContent, "\n")
+		} else {
+			// No "---" at start, prepend new entries at the very beginning
+			// Trim leading whitespace from existing content
+			existingContent = strings.TrimLeft(existingContent, " \t\n\r")
+			newContent = yamlBlock + "\n" + existingContent
+		}
 
 		// Write back to file
 		err = os.WriteFile(indexPath, []byte(newContent), 0644)
@@ -178,7 +192,7 @@ func generateYAMLForModels(ctx context.Context, models []ProcessedModel, quantiz
 			return fmt.Errorf("failed to write %s: %w", indexPath, err)
 		}
 
-		fmt.Printf("Successfully added %d models to %s\n", len(yamlEntries), indexPath)
+		fmt.Printf("Successfully prepended %d models to %s\n", len(yamlEntries), indexPath)
 	}
 
 	return nil

@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"slices"
@@ -229,71 +232,192 @@ Return your analysis and selection reasoning.`)
 	return filteredModels, nil
 }
 
-// ModelFamily represents a YAML anchor/family
-type ModelFamily struct {
-	Anchor string `json:"anchor"`
-	Name   string `json:"name"`
+// ModelMetadata represents extracted metadata from a model
+type ModelMetadata struct {
+	Tags    []string `json:"tags"`
+	License string   `json:"license"`
 }
 
-// selectModelFamily selects the appropriate model family/anchor for a given model
-func selectModelFamily(ctx context.Context, model ProcessedModel, availableFamilies []ModelFamily) (string, error) {
+// extractModelMetadata extracts tags and license from model README and documentation
+func extractModelMetadata(ctx context.Context, model ProcessedModel) ([]string, string, error) {
 	// Create a conversation fragment
 	fragment := cogito.NewEmptyFragment().
 		AddMessage("user",
-			`Your task is to select the most appropriate model family/anchor for a given AI model. You will be provided with:
-1. Information about the model (name, description, etc.)
-2. A list of available model families/anchors
+			`Your task is to extract metadata from an AI model's README and documentation. You will be provided with:
+1. Model information (ID, author, description)
+2. README content
 
-You need to select the family that best matches the model's architecture, capabilities, or characteristics. Consider:
-- Model architecture (e.g., Llama, Qwen, Mistral, etc.)
-- Model capabilities (e.g., vision, coding, chat, etc.)
-- Model size/type (e.g., small, medium, large)
-- Model purpose (e.g., general purpose, specialized, etc.)
+You need to extract:
+1. **Tags**: An array of relevant tags that describe the model. Use common tags from the gallery such as:
+   - llm, gguf, gpu, cpu, multimodal, image-to-text, text-to-text, text-to-speech, tts
+   - thinking, reasoning, chat, instruction-tuned, code, vision
+   - Model family names (e.g., llama, qwen, mistral, gemma) if applicable
+   - Any other relevant descriptive tags
+   Select 3-8 most relevant tags.
 
-Return the anchor name that best fits the model.`)
+2. **License**: The license identifier (e.g., "apache-2.0", "mit", "llama2", "gpl-3.0", "bsd", "cc-by-4.0").
+   If no license is found, return an empty string.
+
+Return the extracted metadata in a structured format.`)
 
 	// Add model information
 	modelInfo := "Model Information:\n"
 	modelInfo += fmt.Sprintf("  ID: %s\n", model.ModelID)
 	modelInfo += fmt.Sprintf("  Author: %s\n", model.Author)
 	modelInfo += fmt.Sprintf("  Downloads: %d\n", model.Downloads)
-	modelInfo += fmt.Sprintf("  Description: %s\n", model.ReadmeContentPreview)
-
-	fragment = fragment.AddMessage("user", modelInfo)
-
-	// Add available families
-	familiesInfo := "Available Model Families:\n"
-	for _, family := range availableFamilies {
-		familiesInfo += fmt.Sprintf("  - %s (%s)\n", family.Anchor, family.Name)
+	if model.ReadmeContent != "" {
+		modelInfo += fmt.Sprintf("  README Content:\n%s\n", model.ReadmeContent)
+	} else if model.ReadmeContentPreview != "" {
+		modelInfo += fmt.Sprintf("  README Preview: %s\n", model.ReadmeContentPreview)
 	}
 
-	fragment = fragment.AddMessage("user", familiesInfo)
-	fragment = fragment.AddMessage("user", "Select the most appropriate family anchor for this model. Return just the anchor name.")
+	fragment = fragment.AddMessage("user", modelInfo)
+	fragment = fragment.AddMessage("user", "Extract the tags and license from the model information. Return the metadata as a JSON object with 'tags' (array of strings) and 'license' (string).")
 
 	// Get a response
 	newFragment, err := llm.Ask(ctx, fragment)
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 
-	// Extract the selected family
-	selectedFamily := strings.TrimSpace(newFragment.LastMessage().Content)
+	// Extract structured metadata
+	metadata := ModelMetadata{}
 
-	// Validate that the selected family exists in our list
-	for _, family := range availableFamilies {
-		if family.Anchor == selectedFamily {
-			return selectedFamily, nil
+	s := structures.Structure{
+		Schema: jsonschema.Definition{
+			Type:                 jsonschema.Object,
+			AdditionalProperties: false,
+			Properties: map[string]jsonschema.Definition{
+				"tags": {
+					Type:        jsonschema.Array,
+					Items:       &jsonschema.Definition{Type: jsonschema.String},
+					Description: "Array of relevant tags describing the model",
+				},
+				"license": {
+					Type:        jsonschema.String,
+					Description: "License identifier (e.g., apache-2.0, mit, llama2). Empty string if not found.",
+				},
+			},
+			Required: []string{"tags", "license"},
+		},
+		Object: &metadata,
+	}
+
+	err = newFragment.ExtractStructure(ctx, llm, s)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return metadata.Tags, metadata.License, nil
+}
+
+// extractIconFromReadme scans the README content for image URLs and returns the first suitable icon URL found
+func extractIconFromReadme(readmeContent string) string {
+	if readmeContent == "" {
+		return ""
+	}
+
+	// Regular expressions to match image URLs in various formats (case-insensitive)
+	// Match markdown image syntax: ![alt](url) - case insensitive extensions
+	markdownImageRegex := regexp.MustCompile(`(?i)!\[[^\]]*\]\(([^)]+\.(png|jpg|jpeg|svg|webp|gif))\)`)
+	// Match HTML img tags: <img src="url">
+	htmlImageRegex := regexp.MustCompile(`(?i)<img[^>]+src=["']([^"']+\.(png|jpg|jpeg|svg|webp|gif))["']`)
+	// Match plain URLs ending with image extensions
+	plainImageRegex := regexp.MustCompile(`(?i)https?://[^\s<>"']+\.(png|jpg|jpeg|svg|webp|gif)`)
+
+	// Try markdown format first
+	matches := markdownImageRegex.FindStringSubmatch(readmeContent)
+	if len(matches) > 1 && matches[1] != "" {
+		url := strings.TrimSpace(matches[1])
+		// Prefer HuggingFace CDN URLs or absolute URLs
+		if strings.HasPrefix(strings.ToLower(url), "http") {
+			return url
 		}
 	}
 
-	// If no exact match, try to find a close match
-	for _, family := range availableFamilies {
-		if strings.Contains(strings.ToLower(family.Anchor), strings.ToLower(selectedFamily)) ||
-			strings.Contains(strings.ToLower(selectedFamily), strings.ToLower(family.Anchor)) {
-			return family.Anchor, nil
+	// Try HTML img tags
+	matches = htmlImageRegex.FindStringSubmatch(readmeContent)
+	if len(matches) > 1 && matches[1] != "" {
+		url := strings.TrimSpace(matches[1])
+		if strings.HasPrefix(strings.ToLower(url), "http") {
+			return url
 		}
 	}
 
-	// Default fallback
-	return "llama3", nil
+	// Try plain URLs
+	matches = plainImageRegex.FindStringSubmatch(readmeContent)
+	if len(matches) > 0 {
+		url := strings.TrimSpace(matches[0])
+		if strings.HasPrefix(strings.ToLower(url), "http") {
+			return url
+		}
+	}
+
+	return ""
+}
+
+// getHuggingFaceAvatarURL attempts to get the HuggingFace avatar URL for a user
+func getHuggingFaceAvatarURL(author string) string {
+	if author == "" {
+		return ""
+	}
+
+	// Try to fetch user info from HuggingFace API
+	// HuggingFace API endpoint: https://huggingface.co/api/users/{username}
+	baseURL := "https://huggingface.co"
+	userURL := fmt.Sprintf("%s/api/users/%s", baseURL, author)
+
+	req, err := http.NewRequest("GET", userURL, nil)
+	if err != nil {
+		return ""
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+
+	// Parse the response to get avatar URL
+	var userInfo map[string]interface{}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return ""
+	}
+
+	if err := json.Unmarshal(body, &userInfo); err != nil {
+		return ""
+	}
+
+	// Try to extract avatar URL from response
+	if avatar, ok := userInfo["avatarUrl"].(string); ok && avatar != "" {
+		return avatar
+	}
+	if avatar, ok := userInfo["avatar"].(string); ok && avatar != "" {
+		return avatar
+	}
+
+	return ""
+}
+
+// extractModelIcon extracts icon URL from README or falls back to HuggingFace avatar
+func extractModelIcon(model ProcessedModel) string {
+	// First, try to extract icon from README
+	if icon := extractIconFromReadme(model.ReadmeContent); icon != "" {
+		return icon
+	}
+
+	// Fallback: Try to get HuggingFace user avatar
+	if model.Author != "" {
+		if avatar := getHuggingFaceAvatarURL(model.Author); avatar != "" {
+			return avatar
+		}
+	}
+
+	return ""
 }

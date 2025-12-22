@@ -138,6 +138,25 @@ func (g *SyntheticDataGenerator) GenerateProcessedModel() ProcessedModel {
 
 	readmeContent := g.generateReadmeContent(modelName, author)
 
+	// Generate sample metadata
+	licenses := []string{"apache-2.0", "mit", "llama2", "gpl-3.0", "bsd", ""}
+	license := licenses[g.rand.Intn(len(licenses))]
+
+	sampleTags := []string{"llm", "gguf", "gpu", "cpu", "text-to-text", "chat", "instruction-tuned"}
+	numTags := g.rand.Intn(4) + 3 // 3-6 tags
+	tags := make([]string, numTags)
+	for i := 0; i < numTags; i++ {
+		tags[i] = sampleTags[g.rand.Intn(len(sampleTags))]
+	}
+	// Remove duplicates
+	tags = g.removeDuplicates(tags)
+
+	// Optionally include icon (50% chance)
+	icon := ""
+	if g.rand.Intn(2) == 0 {
+		icon = fmt.Sprintf("https://cdn-avatars.huggingface.co/v1/production/uploads/%s.png", g.randomString(24))
+	}
+
 	return ProcessedModel{
 		ModelID:                 modelID,
 		Author:                  author,
@@ -150,6 +169,9 @@ func (g *SyntheticDataGenerator) GenerateProcessedModel() ProcessedModel {
 		ReadmeContentPreview:    truncateString(readmeContent, 200),
 		QuantizationPreferences: []string{"Q4_K_M", "Q4_K_S", "Q3_K_M", "Q2_K"},
 		ProcessingError:         "",
+		Tags:                    tags,
+		License:                 license,
+		Icon:                    icon,
 	}
 }
 
@@ -177,6 +199,18 @@ func (g *SyntheticDataGenerator) randomDate() string {
 	daysAgo := g.rand.Intn(365) // Random date within last year
 	pastDate := now.AddDate(0, 0, -daysAgo)
 	return pastDate.Format("2006-01-02T15:04:05.000Z")
+}
+
+func (g *SyntheticDataGenerator) removeDuplicates(slice []string) []string {
+	keys := make(map[string]bool)
+	result := []string{}
+	for _, item := range slice {
+		if !keys[item] {
+			keys[item] = true
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 func (g *SyntheticDataGenerator) generateReadmeContent(modelName, author string) string {
