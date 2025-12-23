@@ -1,4 +1,32 @@
 ---
+- name: "gheya-63m"
+  urls:
+    - https://huggingface.co/mradermacher/Gheya-63M-GGUF
+  description: |
+    **Gheya-63M** is a foundational small language model (SLM) trained from scratch by Clemylia, featuring **63.77M parameters** and a **Transformer-Decoder architecture**. Trained on ~1.5M tokens, it serves as a stable base for future specialized models (e.g., *Charlotte* or *Iris*). While suitable for basic sequence completion tasks, it is **not optimized for general-purpose use** or complex reasoning. This model emphasizes architectural validation and serves as a starting point for fine-tuning tailored applications.
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Gheya-63M.Q4_K_M.gguf
+    name: Gheya-63M-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Gheya-63M-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Gheya-63M.Q4_K_M.gguf
+      sha256: 1c9f10253a26e94204750879ac543d2a1be9cd04d4737224aaefe5fffc320f80
+      uri: https://huggingface.co/mradermacher/Gheya-63M-GGUF/resolve/main/Gheya-63M.Q4_K_M.gguf
 - name: "glm-4.5v-i1"
   urls:
     - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
