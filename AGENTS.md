@@ -45,3 +45,35 @@ trim_trailing_whitespace = false
 # Logging
 
 Use `github.com/mudler/xlog` for logging which has the same API as slog.
+
+# llama.cpp Backend
+
+The llama.cpp backend (`backend/cpp/llama-cpp/grpc-server.cpp`) is a gRPC adaptation of the upstream HTTP server (`llama.cpp/tools/server/server.cpp`). It uses the same underlying server infrastructure from `llama.cpp/tools/server/server-context.cpp`.
+
+## Building and Testing
+
+- Test llama.cpp backend compilation: `make backends/llama-cpp`
+- The backend is built as part of the main build process
+- Check `backend/cpp/llama-cpp/Makefile` for build configuration
+
+## Architecture
+
+- **grpc-server.cpp**: gRPC server implementation, adapts HTTP server patterns to gRPC
+- Uses shared server infrastructure: `server-context.cpp`, `server-task.cpp`, `server-queue.cpp`, `server-common.cpp`
+- The gRPC server mirrors the HTTP server's functionality but uses gRPC instead of HTTP
+
+## Common Issues When Updating llama.cpp
+
+When fixing compilation errors after upstream changes:
+1. Check how `server.cpp` (HTTP server) handles the same change
+2. Look for new public APIs or getter methods
+3. Store copies of needed data instead of accessing private members
+4. Update function calls to match new signatures
+5. Test with `make backends/llama-cpp`
+
+## Key Differences from HTTP Server
+
+- gRPC uses `BackendServiceImpl` class with gRPC service methods
+- HTTP server uses `server_routes` with HTTP handlers
+- Both use the same `server_context` and task queue infrastructure
+- gRPC methods: `LoadModel`, `Predict`, `PredictStream`, `Embedding`, `Rerank`, `TokenizeString`, `GetMetrics`, `Health`
