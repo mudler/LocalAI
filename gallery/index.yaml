@@ -1,4 +1,35 @@
 ---
+- name: "john1604-bible-xpert-korean-version-3.0"
+  urls:
+    - https://huggingface.co/John1604/John1604-Bible-Xpert-Korean-version-3.0-gguf
+  description: |
+    The **John1604 Bible Xpert Korean version 3** is a specialized large language model trained for religious text understanding, focusing on Korean Bible content. It offers high-quality performance with quantization options (e.g., Q6_K for near-FP16 accuracy) to balance speed and precision. The model is compatible with Ollama and LM Studio, making it accessible for developers and users seeking tools for Bible-related queries or text generation in Korean. Its architecture prioritizes accuracy in religious contexts, with clear documentation for deployment across platforms.
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - religious
+    - bible
+    - korean
+  overrides:
+    parameters:
+      model: llama-cpp/models/John1604-Bible-Xpert-Korean-version-3.0-q4_k_m.gguf
+    name: John1604-Bible-Xpert-Korean-version-3.0-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/John1604/John1604-Bible-Xpert-Korean-version-3.0-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/John1604-Bible-Xpert-Korean-version-3.0-q4_k_m.gguf
+      sha256: dda73313f86e0cb38a8b7cf5333b186be6c57e099514c5f03ff471401a75031c
+      uri: https://huggingface.co/John1604/John1604-Bible-Xpert-Korean-version-3.0-gguf/resolve/main/John1604-Bible-Xpert-Korean-version-3.0-q4_k_m.gguf
 - &vibevoice
   url: "github:mudler/LocalAI/gallery/vibevoice.yaml@master"
   icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
