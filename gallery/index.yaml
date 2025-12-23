@@ -1,4 +1,36 @@
 ---
+- name: "qwen3-4b-thinking-2507-claude-haiku-4.5-high-reasoning-distill"
+  urls:
+    - https://huggingface.co/TeichAI/Qwen3-4B-Thinking-2507-Claude-Haiku-4.5-High-Reasoning-Distill-GGUF
+  description: |
+    The model is a **fine-tuned, distilled version of Qwen3-4B-Thinking**, optimized for high reasoning and Claude-Haiku-4.5 tasks. Trained 2x faster using **Unsloth** and Huggingface's TRL, it delivers efficient inference via the **GGUF format**. Licensed under Apache 2.0, it balances performance with reduced size, ideal for applications requiring fast, reasoning-driven text generation. Perfect for model galleries seeking a compact yet powerful distillation of large language models.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - thinking
+    - qwen
+    - distill
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-4B-Thinking-Claude-Haiku-4.5-Distill.q4_k_m.gguf
+    name: Qwen3-4B-Thinking-2507-Claude-Haiku-4.5-High-Reasoning-Distill-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/TeichAI/Qwen3-4B-Thinking-2507-Claude-Haiku-4.5-High-Reasoning-Distill-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-4B-Thinking-Claude-Haiku-4.5-Distill.q4_k_m.gguf
+      sha256: 99b5a58ba2c9aa2094df18abac451ea02205d75146fd065484af5021d67e1345
+      uri: https://huggingface.co/TeichAI/Qwen3-4B-Thinking-2507-Claude-Haiku-4.5-High-Reasoning-Distill-GGUF/resolve/main/Qwen3-4B-Thinking-Claude-Haiku-4.5-Distill.q4_k_m.gguf
 - &vibevoice
   url: "github:mudler/LocalAI/gallery/vibevoice.yaml@master"
   icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
