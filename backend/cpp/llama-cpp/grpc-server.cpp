@@ -351,7 +351,7 @@ static void add_rpc_devices(std::string servers) {
     }
 }
 
-static void params_parse(server_context& ctx_server, const backend::ModelOptions* request,
+static void params_parse(server_context& /*ctx_server*/, const backend::ModelOptions* request,
                                 common_params & params) {
 
     // this is comparable to: https://github.com/ggerganov/llama.cpp/blob/d9b33fe95bd257b36c84ee5769cc048230067d6f/examples/server/server.cpp#L1809
@@ -683,18 +683,18 @@ static void params_parse(server_context& ctx_server, const backend::ModelOptions
 class BackendServiceImpl final : public backend::Backend::Service {
 private:
     server_context& ctx_server;
-    const common_params* params_base_ptr; // Store pointer to params_base, set after model load
+    common_params params_base; // Store copy of params_base, set after model load
 
 public:
-    BackendServiceImpl(server_context& ctx) : ctx_server(ctx), params_base_ptr(nullptr) {}
+    BackendServiceImpl(server_context& ctx) : ctx_server(ctx) {}
 
-    grpc::Status Health(ServerContext* context, const backend::HealthMessage* request, backend::Reply* reply) {
+    grpc::Status Health(ServerContext* /*context*/, const backend::HealthMessage* /*request*/, backend::Reply* reply) {
         // Implement Health RPC
         reply->set_message("OK");
         return Status::OK;
     }
 
-    grpc::Status LoadModel(ServerContext* context, const backend::ModelOptions* request, backend::Result* result) {
+    grpc::Status LoadModel(ServerContext* /*context*/, const backend::ModelOptions* request, backend::Result* result) {
         // Implement LoadModel RPC
         common_params params;
         params_parse(ctx_server, request, params);
@@ -745,19 +745,16 @@ public:
                     processed_triggers.push_back(trigger);
                 }
             }
-            // Update the grammar triggers in params_base
-            ctx_server.impl->params_base.sampling.grammar_triggers = std::move(processed_triggers);
-            // Also update preserved_tokens in params_base
-            ctx_server.impl->params_base.sampling.preserved_tokens = params.sampling.preserved_tokens;
+            // Update the grammar triggers in params
+            params.sampling.grammar_triggers = std::move(processed_triggers);
         }
 
         //ctx_server.init();
         result->set_message("Loading succeeded");
         result->set_success(true);
         loaded_model = true;
-        ctx_server.impl->slot_prompt_similarity = params.slot_prompt_similarity;
-        // Store pointer to params_base for use in parse_options
-        params_base_ptr = &ctx_server.impl->params_base;
+        // Store copy of params_base for use in parse_options and other methods
+        params_base = params;
 
         return Status::OK;
     }
@@ -785,14 +782,14 @@ public:
     }
 
     grpc::Status PredictStream(grpc::ServerContext* context, const backend::PredictOptions* request, grpc::ServerWriter<backend::Reply>* writer) override {
-        if (!params_base_ptr) {
+        if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        json data = parse_options(true, request, *params_base_ptr, ctx_server.get_llama_context());
+        json data = parse_options(true, request, params_base, ctx_server.get_llama_context());
 
 
         //Raise error if embeddings is set to true
-        if (ctx_server.impl->params_base.embedding) {
+        if (params_base.embedding) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Embedding is not supported in streaming mode");
         }
 
@@ -1332,8 +1329,9 @@ public:
 
                 task.tokens    = std::move(inputs[i]);
                 task.params           = server_task::params_from_json_cmpl(
-                        ctx_server.get_llama_context(),
-                        ctx_server.impl->params_base,
+                        ctx_server.impl->vocab,
+                        params_base,
+                        ctx_server.get_meta().slot_n_ctx,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -1497,14 +1495,14 @@ public:
     }
 
     grpc::Status Predict(ServerContext* context, const backend::PredictOptions* request, backend::Reply* reply) {
-         if (!params_base_ptr) {
+         if (params_base.model.path.empty()) {
              return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
          }
-         json data = parse_options(true, request, *params_base_ptr, ctx_server.get_llama_context());
+         json data = parse_options(true, request, params_base, ctx_server.get_llama_context());
 
         data["stream"] = false;
         //Raise error if embeddings is set to true
-        if (ctx_server.impl->params_base.embedding) {
+        if (params_base.embedding) {
             return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT, "Embedding is not supported in Predict mode");
         }
         std::cout << "[PREDICT] Received result: " << data.dump(2) << std::endl;
@@ -2070,8 +2068,9 @@ public:
 
                 task.tokens    = std::move(inputs[i]);
                 task.params           = server_task::params_from_json_cmpl(
-                        ctx_server.get_llama_context(),
-                        ctx_server.impl->params_base,
+                        ctx_server.impl->vocab,
+                        params_base,
+                        ctx_server.get_meta().slot_n_ctx,
                         data);
                 task.id_slot = json_value(data, "id_slot", -1);
 
@@ -2167,10 +2166,10 @@ public:
     }
 
     grpc::Status Embedding(ServerContext* context, const backend::PredictOptions* request, backend::EmbeddingResult* embeddingResult) {
-        if (!params_base_ptr) {
+        if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        json body = parse_options(false, request, *params_base_ptr, ctx_server.get_llama_context());
+        json body = parse_options(false, request, params_base, ctx_server.get_llama_context());
 
         body["stream"] = false;
 
@@ -2262,7 +2261,7 @@ public:
     }
 
     grpc::Status Rerank(ServerContext* context, const backend::RerankRequest* request, backend::RerankResult* rerankResult) {
-        if (!ctx_server.impl->params_base.embedding || ctx_server.impl->params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
+        if (!params_base.embedding || params_base.pooling_type != LLAMA_POOLING_TYPE_RANK) {
             return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "This server does not support reranking. Start it with `--reranking` and without `--embedding`");
         }
 
@@ -2347,11 +2346,11 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status TokenizeString(ServerContext* context, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
-        if (!params_base_ptr) {
+    grpc::Status TokenizeString(ServerContext* /*context*/, const backend::PredictOptions* request, backend::TokenizationResponse* response) {
+        if (params_base.model.path.empty()) {
             return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION, "Model not loaded");
         }
-        json body = parse_options(false, request, *params_base_ptr, ctx_server.get_llama_context());
+        json body = parse_options(false, request, params_base, ctx_server.get_llama_context());
         body["stream"] = false;
 
         json tokens_response = json::array();
@@ -2370,7 +2369,7 @@ public:
         return grpc::Status::OK;
     }
 
-    grpc::Status GetMetrics(ServerContext* context, const backend::MetricsRequest* request, backend::MetricsResponse* response) {
+    grpc::Status GetMetrics(ServerContext* /*context*/, const backend::MetricsRequest* /*request*/, backend::MetricsResponse* response) {
 
 // request slots data using task queue
         auto rd = ctx_server.get_response_reader();
