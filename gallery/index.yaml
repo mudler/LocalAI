@@ -1,4 +1,37 @@
 ---
+- name: "ablated-qwen-2.5-7b-i1"
+  urls:
+    - https://huggingface.co/mradermacher/ablated-qwen-2.5-7b-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the **Qwen-2.5-7B** base model, optimized for efficiency. It is hosted under the repository `mradermacher/ablated-qwen-2.5-7b-i1-GGUF` and uses the **GGUF** format, a compact storage format for large language models. This version is derived from the base model `tux/ablated-qwen-2.5-7b` and includes quantization techniques (e.g., IQ2, IQ3, Q4) to reduce computational requirements while retaining key performance characteristics. It is designed for natural language processing tasks and is suitable for deployment in resource-constrained environments. The model is part of a series of optimized versions, with the original base model offering higher precision.
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - text-to-text
+    - instruction-tuned
+    - cpu
+    - gpu
+    - efficiency
+  overrides:
+    parameters:
+      model: llama-cpp/models/ablated-qwen-2.5-7b.i1-Q4_K_M.gguf
+    name: ablated-qwen-2.5-7b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/ablated-qwen-2.5-7b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/ablated-qwen-2.5-7b.i1-Q4_K_M.gguf
+      sha256: eb1bc67f67271de1af60a745da9da2e26430e4c848928f5f75ceaa431de024f3
+      uri: https://huggingface.co/mradermacher/ablated-qwen-2.5-7b-i1-GGUF/resolve/main/ablated-qwen-2.5-7b.i1-Q4_K_M.gguf
 - name: "glm-4.5v-i1"
   urls:
     - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
