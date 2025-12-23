@@ -1,4 +1,41 @@
 ---
+- name: "barcenas-nemotron-qwen3-4b-instruct"
+  urls:
+    - https://huggingface.co/mradermacher/Barcenas-Nemotron-Qwen3-4B-Instruct-GGUF
+  description: |
+    The model in question is a **quantized version** of the **Barcenas-Nemotron-Qwen3-4B-Instruct** base model, originally authored by **Danielbrdz**. It is based on the **Qwen3-4B-Instruct** series, a 4-billion-parameter large language model optimized for instruction-following tasks. The quantized versions (e.g., Q2_K, Q3_K_S, Q8_0) allow for efficient deployment on systems with limited memory, offering trade-offs between speed and quality.
+
+    The model is trained on the **Nemotron-Instruction-Following-Chat-v1** dataset and supports multiple quantization formats, including **IQ4_XS** (low memory usage) and **Q8_0** (high quality). It is suitable for applications requiring compact, fast inference, with quantized versions ranging from **1.8GB to 8.2GB** in size.
+
+    This model is ideal for users needing a lightweight yet effective large language model for chat, reasoning, or task-based interactions.
+  tags:
+    - llm
+    - gguf
+    - quantized
+    - instruction-tuned
+    - chat
+    - reasoning
+    - qwen3
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Barcenas-Nemotron-Qwen3-4B-Instruct.Q4_K_M.gguf
+    name: Barcenas-Nemotron-Qwen3-4B-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Barcenas-Nemotron-Qwen3-4B-Instruct-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Barcenas-Nemotron-Qwen3-4B-Instruct.Q4_K_M.gguf
+      sha256: fb1e8fad30a566c5a4a35ea0961da9a765282ecfc30c8737711e2a6728d806a8
+      uri: https://huggingface.co/mradermacher/Barcenas-Nemotron-Qwen3-4B-Instruct-GGUF/resolve/main/Barcenas-Nemotron-Qwen3-4B-Instruct.Q4_K_M.gguf
 - name: "glm-4.5v-i1"
   urls:
     - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
