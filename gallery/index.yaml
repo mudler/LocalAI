@@ -1,4 +1,45 @@
 ---
+- name: "glm-4.5v-i1"
+  urls:
+    - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
+  description: |
+    The model in question is a **quantized version** of the **GLM-4.5V** large language model, originally developed by **zai-org**. This repository provides multiple quantized variants of the model, optimized for different trade-offs between size, speed, and quality. The base model, **GLM-4.5V**, is a multilingual (Chinese/English) large language model, and this quantized version is designed for efficient inference on hardware with limited memory.
+
+    Key features include:
+      - **Quantization options**: IQ2_M, Q2_K, Q4_K_M, IQ3_M, IQ4_XS, etc., with sizes ranging from 43 GB to 96 GB.
+      - **Performance**: Optimized for inference, with some variants (e.g., Q4_K_M) balancing speed and quality.
+      - **Vision support**: The model is a vision model, with mmproj files available in the static repository.
+      - **License**: MIT-licensed.
+
+    This quantized version is ideal for applications requiring compact, efficient models while retaining most of the original capabilities of the base GLM-4.5V.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - multimodal
+    - vision
+    - image-to-text
+    - text-to-text
+    - glm
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.5V.i1-Q4_K_M.gguf
+    name: GLM-4.5V-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.5V.i1-Q4_K_M.gguf
+      sha256: 0d5786b78b73997f46c11ba2cc11d0f5a36644db0c248caa82fad3fb6f30be1a
+      uri: https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF/resolve/main/GLM-4.5V.i1-Q4_K_M.gguf
 - &vibevoice
   url: "github:mudler/LocalAI/gallery/vibevoice.yaml@master"
   icon: https://github.com/microsoft/VibeVoice/raw/main/Figures/VibeVoice_logo_white.png
