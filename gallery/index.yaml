@@ -1,4 +1,60 @@
 ---
+- name: "exubria-strix-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Exubria-Strix-i1-GGUF
+  description: |
+    **Model Name:** Exubria-Strix
+    **Base Model:** ClaudioItaly/Exubria-Strix
+    **Language:** English
+    **Model Type:** Large Language Model (LLM)
+    **Architecture:** Transformer-based
+
+    Exubria-Strix is a high-quality large language model optimized for text generation and reasoning. It is derived from the original model by ClaudioItaly and is available in multiple quantized variants (e.g., IQ1, IQ2, Q4, Q5, Q6) for efficiency and performance tuning. The base model is designed for versatility, supporting a wide range of tasks including dialogue, coding, and creative writing.
+
+    **Key Features:**
+      - **Quantized Variants:** Available in multiple formats (IQ1, IQ2, Q4, etc.) to balance speed, memory usage, and accuracy.
+      - **Imatrix Support:** Includes an imatrix quantized version for advanced users seeking high-quality, custom quantizations.
+      - **Efficiency:** Optimized for deployment on hardware with limited resources, making it accessible for research and practical use.
+      - **Community-Driven:** Developed with contributions from the Hugging Face community, including tools for model requests and quantization.
+
+    **Use Cases:**
+      - Text generation and reasoning
+      - Code completion and debugging
+      - Multilingual tasks (supported via training data)
+      - Low-resource environments via quantized versions
+
+    **Original Model Link:** [ClaudioItaly/Exubria-Strix](https://huggingface.co/ClaudioItaly/Exubria-Strix)
+    **Quantized Variants:** [mradermacher/Exubria-Strix-i1-GGUF](https://huggingface.co/mradermacher/Exubria-Strix-i1-GGUF)
+
+    This model is ideal for users seeking a reliable, efficient, and adaptable LLM with a strong community backing.
+  tags:
+    - llm
+    - gguf
+    - reasoning
+    - code
+    - transformer
+    - quantized
+    - efficiency
+  overrides:
+    parameters:
+      model: llama-cpp/models/Exubria-Strix.i1-Q4_K_M.gguf
+    name: Exubria-Strix-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Exubria-Strix-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Exubria-Strix.i1-Q4_K_M.gguf
+      sha256: 4e2aeabf485ffb77bc91a4d972b7ac2432f2da83834301e3b8639f5bc0749f5e
+      uri: https://huggingface.co/mradermacher/Exubria-Strix-i1-GGUF/resolve/main/Exubria-Strix.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
