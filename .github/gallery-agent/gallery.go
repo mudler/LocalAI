@@ -115,6 +115,7 @@ func generateYAMLEntry(model ProcessedModel, quantization string) string {
 
 	yamlTemplate := ""
 	yamlTemplate = `- name: "%s"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/%s
   description: |

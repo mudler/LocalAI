@@ -1,5 +1,6 @@
 ---
 - name: "qwen3-coder-30b-a3b-instruct-rtpurbo-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mradermacher/Qwen3-Coder-30B-A3B-Instruct-RTPurbo-i1-GGUF
   description: |
@@ -31,6 +32,7 @@
       sha256: a25f1817a557da703ab685e6b98550cd7ed87e4a74573b5057e6e2f26b21140e
       uri: https://huggingface.co/mradermacher/Qwen3-Coder-30B-A3B-Instruct-RTPurbo-i1-GGUF/resolve/main/Qwen3-Coder-30B-A3B-Instruct-RTPurbo.i1-Q4_K_M.gguf
 - name: "glm-4.5v-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
     - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
   description: |
