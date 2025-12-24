@@ -130,8 +130,6 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 			if err != nil && !errors.Is(err, downloader.ErrNonHuggingFaceFile) {
 				return err
 			}
-
-			xlog.Info("installing model", "model", modelName, "license", model.License)
 		}
 
 		modelLoader := model.NewModelLoader(systemState)
