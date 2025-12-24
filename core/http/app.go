@@ -86,6 +86,7 @@ func API(application *application.Application) (*echo.Echo, error) {
 
 	// Hide banner
 	e.HideBanner = true
+	e.HidePort = true
 
 	// Middleware - StripPathPrefix must be registered early as it uses Rewrite which runs before routing
 	e.Pre(httpMiddleware.StripPathPrefix())
