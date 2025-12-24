@@ -1,4 +1,34 @@
 ---
+- name: "qwen-image-edit-2511-diffuser"
+  urls:
+    - https://huggingface.co/smthem/Qwen-Image-Edit-2511-diffuser-gguf
+  description: |
+    The model in question is a **diffusion-based image editing model** derived from the Qwen series, as detailed in the 2025 technical report by Wu et al. (arXiv:2508.02324). It is designed for image modification tasks, leveraging diffusion modeling techniques to generate or refine images. While the repository provided is a quantized version (GGUF format), the original model description is rooted in the research outlined in the cited paper, which details its architecture, training methodology, and capabilities for image editing. This model is suitable for applications requiring high-quality image generation and refinement.
+  tags:
+    - diffusion
+    - image-editing
+    - gguf
+    - qwen
+    - vision
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen-Image-Edit-2511-diffuser-Q8_0.gguf
+    name: Qwen-Image-Edit-2511-diffuser-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/smthem/Qwen-Image-Edit-2511-diffuser-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen-Image-Edit-2511-diffuser-Q8_0.gguf
+      sha256: ccf9851369566fe84c39d47d2d25720ba2effb30e4e104114108466cc28f92e3
+      uri: https://huggingface.co/smthem/Qwen-Image-Edit-2511-diffuser-gguf/resolve/main/Qwen-Image-Edit-2511-diffuser-Q8_0.gguf
 - name: "glm-4.5v-i1"
   urls:
     - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
