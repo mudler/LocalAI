@@ -1,4 +1,53 @@
 ---
+- name: "exubria-strix"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Exubria-Strix-GGUF
+  description: |
+    **Model Name:** Exubria-Strix
+    **Base Model:** ClaudioItaly/Vangelus-Secundus
+    **Merge Method:** TIES (Tensor-based Infinite Expansion)
+    **Description:**
+    A large language model created by merging multiple pre-trained models using the TIES merge method. It combines the strengths of several models, including **sam-paech/Darkest-muse-v1**, **sam-paech/Quill-v1**, **ClaudioItaly/Pullulation-2-9B**, **ClaudioItaly/Exurbia-Delta9**, **sam-paech/Delirium-v1**, and **Naphula/Jungle-Oasis-BRF-MPOA-9B**, with weighted contributions to achieve a diverse and powerful language understanding capability.
+
+    **Key Features:**
+      - **Configuration:**
+      - Max position embeddings: 32,768
+      - Rope scaling: Yarn (factor: 4.0)
+      - Bfloat16 precision
+      - **Quantized Versions:**
+      - **Q2_K** (3.9 GB): Fast and lightweight for basic tasks.
+      - **Q4_K_S** (5.6 GB): Recommended for balanced performance.
+      - **Q8_0** (9.9 GB): High-quality with faster inference.
+
+    **Use Case:**
+    Designed for tasks requiring broad linguistic understanding, with optimized performance across different quantization levels. Ideal for applications needing flexibility and efficiency.
+
+    **Note:** The model is available in GGUF format, with detailed documentation on quantization options and merge parameters.
+  tags:
+    - llm
+    - gguf
+    - quantized
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Exubria-Strix.Q4_K_M.gguf
+    name: Exubria-Strix-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Exubria-Strix-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Exubria-Strix.Q4_K_M.gguf
+      sha256: 42b33e3151d8311d9636bd5d4ff84456199b0be65d84403e87c5849c9edbf8d0
+      uri: https://huggingface.co/mradermacher/Exubria-Strix-GGUF/resolve/main/Exubria-Strix.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
