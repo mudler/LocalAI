@@ -1,4 +1,58 @@
 ---
+- name: "huihui-glm-4.6v-flash-abliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/huihui-ai/Huihui-GLM-4.6V-Flash-abliterated-GGUF
+  description: |
+    **Huihui-GLM-4.6V-Flash (Abliterated)**
+    A text-based large language model derived from the **zai-org/GLM-4.6V-Flash** base model, featuring reduced safety filters and uncensored capabilities. Designed for text generation, it supports conversational tasks but excludes image processing.
+
+    **Key Features:**
+      - **Base Model**: GLM-4.6V-Flash (original author: zai-org)
+      - **Quantized Format**: GGUF (optimized for efficiency).
+      - **No Image Support**: Only text-based interactions are enabled.
+      - **Custom Training**: Abliterated to remove restrictive outputs, prioritizing openness over safety.
+
+    **Important Notes:**
+      - **Risk of Sensitive Content**: Reduced filtering may generate inappropriate or controversial outputs.
+      - **Ethical Use**: Suitable for research or controlled environments; not recommended for public or commercial deployment without caution.
+      - **Legal Responsibility**: Users must ensure compliance with local laws and ethical guidelines.
+
+    **Use Cases:**
+      - Experimental text generation.
+      - Controlled research environments.
+      - Testing safety filtering mechanisms.
+
+    *Note: This model is not suitable for production or public-facing applications without thorough review.*
+  tags:
+    - llm
+    - gguf
+    - glm
+    - text-to-text
+    - instruction-tuned
+  overrides:
+    parameters:
+      model: llama-cpp/models/ggml-model-Q4_K_M.gguf
+    name: Huihui-GLM-4.6V-Flash-abliterated-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-model-f16.gguf
+    description: Imported from https://huggingface.co/huihui-ai/Huihui-GLM-4.6V-Flash-abliterated-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/ggml-model-Q4_K_M.gguf
+      sha256: 14145c3c95a21c7251362ac80d9bde72a3c6e129ca834ac3c57efe2277409699
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-4.6V-Flash-abliterated-GGUF/resolve/main/ggml-model-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-model-f16.gguf
+      sha256: 1044beaf5cb799d309b1252ac149a985b69f1cf0391f7c8c54e7aed267bc98a9
+      uri: https://huggingface.co/huihui-ai/Huihui-GLM-4.6V-Flash-abliterated-GGUF/resolve/main/mmproj-model-f16.gguf
 - name: "qwen3-coder-30b-a3b-instruct-rtpurbo-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
