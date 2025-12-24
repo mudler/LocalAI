@@ -1,4 +1,49 @@
 ---
+- name: "llama3.1-superhawk-8b-heretic-v2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama3.1-SuperHawk-8B-Heretic-v2-i1-GGUF
+  description: |
+    The **Llama3.1-SuperHawk-8B-Heretic-v2** is a modified large language model derived from a merge of two base models: **ChiKoi7/Llama-3.1-SuperNova-8B-Lite_TIES_with_Base-Heretic** and **ChiKoi7/Llama-3.1-Hawkish-8B-Heretic**. The model underwent a "Heretic" process to adjust its behavior, resulting in a version with a reduced refusal rate (16/100) compared to its predecessor. It retains the core capabilities of the original SuperHawk model but with a slight tweak in output alignment, as indicated by a KL divergence of 0.0493.
+
+    Performance metrics show it achieves an average score of **31.14** across benchmarks, with strong results on tasks like IFEval (79.86), BBH (31.97), and MMLU-PRO (32.73). Licensed under the **Llama3.1** license, this model is suitable for applications requiring a balance of adaptability and controlled output behavior.
+
+    **Key Features:**
+      - **Merge Method:** Slerp (0.3 weight) of two base models.
+      - **Precision:** bfloat16.
+      - **Tags:** `merge`, `mergekit`, `Uncensored`, `Heretic`.
+      - **Use Case:** Text generation with adjusted alignment behavior.
+
+    Ideal for users seeking a refined version of the SuperHawk model with improved control over output conformity.
+  license: "llama3.1"
+  tags:
+    - llm
+    - llama3.1
+    - gguf
+    - heretic
+    - merge
+    - mergekit
+    - text-to-text
+    - uncensored
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama3.1-SuperHawk-8B-Heretic-v2.imatrix.gguf
+    name: Llama3.1-SuperHawk-8B-Heretic-v2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama3.1-SuperHawk-8B-Heretic-v2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama3.1-SuperHawk-8B-Heretic-v2.imatrix.gguf
+      sha256: dee16ba55e8522a0fbb2aa24d1a6972721b3cb08a7151403c5fa1053d5f847e0
+      uri: https://huggingface.co/mradermacher/Llama3.1-SuperHawk-8B-Heretic-v2-i1-GGUF/resolve/main/Llama3.1-SuperHawk-8B-Heretic-v2.imatrix.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
