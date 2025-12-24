@@ -1,4 +1,38 @@
 ---
+- name: "impish_bloodmoon_12b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Impish_Bloodmoon_12B-i1-GGUF
+  description: |
+    The **Impish_Bloodmoon_12B** model is a large language model based on the **SicariusSicariiStuff/Impish_Bloodmoon_12B** base model, quantized for efficiency. It is optimized for text generation and supports multiple tasks, including dialogue, coding, and creative writing. The quantized versions (e.g., Q2_K, IQ3_XXS) are designed for different performance trade-offs, with options ranging from lightweight to high-quality variants. The model is compatible with GGUF format, making it accessible for use with tools like LLMs and inference engines. While the quantized version is smaller, the base model retains the original 12B parameter scale, ensuring strong performance for complex tasks. Ideal for applications requiring balance between speed and accuracy.
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - code
+    - quantized
+    - efficiency
+    - performance
+    - chat
+  overrides:
+    parameters:
+      model: llama-cpp/models/Impish_Bloodmoon_12B.i1-Q4_K_M.gguf
+    name: Impish_Bloodmoon_12B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Impish_Bloodmoon_12B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Impish_Bloodmoon_12B.i1-Q4_K_M.gguf
+      sha256: 10c6facde21e6059e13d8fa06ea8d9dd6afd455ba102fc3021eff7911ad22892
+      uri: https://huggingface.co/mradermacher/Impish_Bloodmoon_12B-i1-GGUF/resolve/main/Impish_Bloodmoon_12B.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
