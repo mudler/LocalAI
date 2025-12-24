@@ -1,4 +1,33 @@
 ---
+- name: "mira-demeter-i1"
+  urls:
+    - https://huggingface.co/mradermacher/Mira-Demeter-i1-GGUF
+  description: |
+    The **Mira-Demeter** model is a large language model with **27B parameters**, part of the Mira series developed by **Lambent**. It is a **fusion of multiple pre-trained models** using advanced merging techniques like **MagStock**, **MagVar**, and **CABS**, resulting in a highly efficient and versatile language model. The model is optimized for performance and is available in the **GGUF format**, enabling efficient inference and quantized versions for reduced resource usage. Its base model is **Lambent/Mira-v1.21-27B-rlvr**, with additional components merged to enhance capabilities. The model is designed for diverse tasks, leveraging a union tokenizer and mixed-precision training for optimal speed and quality.
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - mira
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mira-Demeter.i1-Q4_K_M.gguf
+    name: Mira-Demeter-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mira-Demeter-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mira-Demeter.i1-Q4_K_M.gguf
+      sha256: 55daa20aed0368cc8373fae4f17859462d0f4e22011cf5b1d45196d39f51eb8a
+      uri: https://huggingface.co/mradermacher/Mira-Demeter-i1-GGUF/resolve/main/Mira-Demeter.i1-Q4_K_M.gguf
 - name: "glm-4.5v-i1"
   urls:
     - https://huggingface.co/mradermacher/GLM-4.5V-i1-GGUF
