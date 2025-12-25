@@ -1,4 +1,64 @@
 ---
+- name: "gelab-zero-4b-preview"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mungert/GELab-Zero-4B-preview-GGUF
+  description: |
+    **GELab-Zero-4B (GGUF)**
+    A **4B-parameter GUI Agent model** optimized for local deployment on consumer-grade hardware, balancing low latency with privacy. Built on the **Qwen3-VL-4B-Instruct** base model, this quantized version leverages the **GGUF format** for efficient inference.
+
+    **Key Features:**
+      - **Local Execution**: Runs on standard hardware for privacy-sensitive tasks.
+      - **GUI Navigation**: Detects and interacts with UI elements (click, type, slide, etc.) via visual cues.
+      - **Complex Task Handling**: Executes multi-step, long-horizon tasks across apps (food, transport, shopping, etc.).
+      - **Open-World Generalization**: Zero-shot capability across unseen applications and dynamic interfaces.
+      - **Quantization Optimization**: Uses selective layer precision boosting for improved performance at lower bit depths.
+
+    **Use Cases:**
+      - Local AI-powered automation.
+      - Android device control (via GELab-Zero).
+      - Privacy-focused inference workflows.
+
+    **Compatibility:**
+      - Supports **Ollama** and **Hugging Face Inference API**.
+      - Designed for **quantum-safe security checks** and network monitoring.
+
+    **Citation:**
+    @software{gelab_zero_2025, title={GELab-Zero: An Advanced Mobile Agent Inference System}, author={GELab Team}, year={2025}, url={https://github.com/stepfun-ai/gelab-zero}}
+
+    **Model Size:** 4B parameters | **Format:** GGUF | **Base Model:** Qwen3-VL-4B-Instruct
+  tags:
+    - llm
+    - gguf
+    - gui
+    - multimodal
+    - qwen
+    - local
+    - automation
+    - privacy
+  overrides:
+    parameters:
+      model: llama-cpp/models/GELab-Zero-4B-preview-q4_k_m.gguf
+    name: GELab-Zero-4B-preview-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/GELab-Zero-4B-preview-q8_0.mmproj
+    description: Imported from https://huggingface.co/Mungert/GELab-Zero-4B-preview-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GELab-Zero-4B-preview-q4_k_m.gguf
+      sha256: 2f7b62003045b76630855d6c48d5292e6bf26c7c906006f62140eed0c9a64011
+      uri: https://huggingface.co/Mungert/GELab-Zero-4B-preview-GGUF/resolve/main/GELab-Zero-4B-preview-q4_k_m.gguf
+    - filename: llama-cpp/mmproj/GELab-Zero-4B-preview-q8_0.mmproj
+      sha256: 7df023d5c8029117eadeb581a574ba16554ca2795a698df3c5c6b0a8a7620e02
+      uri: https://huggingface.co/Mungert/GELab-Zero-4B-preview-GGUF/resolve/main/GELab-Zero-4B-preview-q8_0.mmproj
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
