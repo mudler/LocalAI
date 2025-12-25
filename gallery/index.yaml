@@ -1,4 +1,42 @@
 ---
+- name: "deepcaption-vla-v2.0-7b-aio"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/prithivMLmods/DeepCaption-VLA-V2.0-7B-AIO-GGUF
+  description: |
+    The **DeepCaption-VLA-V2.0-7B** is a 7B-parameter vision-language model fine-tuned from **Qwen2.5-VL-7B-Instruct**, designed for high-quality image captioning and Vision-Language Attribution (VLA). It supports multilingual inference across English, Chinese (Zh), Thai (Th), and other languages, generating detailed, structured descriptions of visual content, including object attributes, scene details, colors, and environmental context. The model excels in producing attribute-rich outputs (e.g., `Caption:<description>`, `Attributes:<list>`) for diverse applications like research, dataset annotation, object detection, and creative tasks. Its refined training on curated datasets ensures semantic precision and flexibility in output formats, making it a versatile tool for vision-language understanding. The base model is available in multiple quantized versions for efficiency, though the original unquantized version retains full capacity.
+  tags:
+    - llm
+    - vision
+    - multimodal
+    - image-to-text
+    - text-to-text
+    - qwen
+    - attribute-rich
+    - vision-language
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepCaption-VLA-V2.0-7B.Q4_K_M.gguf
+    name: DeepCaption-VLA-V2.0-7B-AIO-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/DeepCaption-VLA-V2.0-7B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/prithivMLmods/DeepCaption-VLA-V2.0-7B-AIO-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DeepCaption-VLA-V2.0-7B.Q4_K_M.gguf
+      sha256: c1e678738f346093e1d913d874f1ea9a191b338d19b79f1bf2ea9a020d90014c
+      uri: https://huggingface.co/prithivMLmods/DeepCaption-VLA-V2.0-7B-AIO-GGUF/resolve/main/DeepCaption-VLA-V2.0-7B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/DeepCaption-VLA-V2.0-7B.mmproj-f16.gguf
+      sha256: 6bd75d43c9d374a55b62540266ce3e17cf391bd7bfaa2874769f4121ec3a65db
+      uri: https://huggingface.co/prithivMLmods/DeepCaption-VLA-V2.0-7B-AIO-GGUF/resolve/main/DeepCaption-VLA-V2.0-7B.mmproj-f16.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
