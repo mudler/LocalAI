@@ -1,4 +1,37 @@
 ---
+- name: "innospark-72b-1224-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/InnoSpark-72B-1224-i1-GGUF
+  description: |
+    The **InnoSpark-72B-1224** model is a large language model developed by **sii-research**, featuring 72 billion parameters. It is optimized for high-performance natural language understanding and generation. The version hosted at `mradermacher/InnoSpark-72B-1224-i1-GGUF` is a **quantized variant** of the base model, designed to reduce memory usage while retaining most of the original model's capabilities. This quantized version is ideal for efficient inference on hardware with limited resources, making it suitable for applications requiring fast, low-memory deployment. The model is compatible with GGUF format, enabling seamless integration with tools and frameworks that support this file type.
+  tags:
+    - llm
+    - gguf
+    - quantized
+    - reasoning
+    - chat
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/InnoSpark-72B-1224.i1-Q4_K_M.gguf
+    name: InnoSpark-72B-1224-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/InnoSpark-72B-1224-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/InnoSpark-72B-1224.i1-Q4_K_M.gguf
+      sha256: f0939e303430053984257f48fce70b5ab70c011c0f0f74303c9a0e1d85d098bf
+      uri: https://huggingface.co/mradermacher/InnoSpark-72B-1224-i1-GGUF/resolve/main/InnoSpark-72B-1224.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
