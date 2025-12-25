@@ -37,14 +37,26 @@ jobs:
       matrix:
         include:
           - build-type: 'hipblas'
+            rocm-major-version: "6"
+            rocm-minor-version: "4.3"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            tag-suffix: '-gpu-hipblas'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
-            grpc-base-image: "ubuntu:22.04"
+            tag-suffix: '-gpu-amd-rocm-6'
+            base-image: "ubuntu:22.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            aio: "-aio-gpu-hipblas"
+            aio: "-aio-gpu-amd-rocm-6"
+            ubuntu-version: '2204'
+          - build-type: 'hipblas'
+            rocm-major-version: "7"
+            rocm-minor-version: "1.1"
+            platforms: 'linux/amd64'
+            tag-latest: 'auto'
+            tag-suffix: '-gpu-amd-rocm-7'
+            base-image: "ubuntu:22.04"
+            runs-on: 'ubuntu-latest'
+            makeflags: "--jobs=3 --output-sync=target"
+            aio: "-aio-gpu-amd-rocm-7"
             ubuntu-version: '2204'
 
   core-image-build:
