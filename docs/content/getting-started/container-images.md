@@ -70,6 +70,16 @@ Standard container images do not have pre-installed models. Use these if you wan
 
 {{% /tab %}}
 
+{{% tab title="GPU Images CUDA 13" %}}
+
+| Description | Quay | Docker Hub                                                  |
+| --- | --- |-------------------------------------------------------------|
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-13` | `localai/localai:master-gpu-nvidia-cuda-13`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-13` | `localai/localai:latest-gpu-nvidia-cuda-13`                 |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-13` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-13`             |
+
+{{% /tab %}}
+
 {{% tab title="Intel GPU" %}}
 
 | Description | Quay | Docker Hub                                                  |
@@ -98,15 +108,27 @@ Standard container images do not have pre-installed models. Use these if you wan
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-vulkan` | `localai/localai:{{< version >}}-vulkan`             |
 {{% /tab %}}
 
-{{% tab title="Nvidia Linux for tegra" %}}
+{{% tab title="Nvidia Linux for tegra (CUDA 12)" %}}
 
-These images are compatible with Nvidia ARM64 devices, such as the Jetson Nano, Jetson Xavier NX, and Jetson AGX Xavier. For more information, see the [Nvidia L4T guide]({{%relref "reference/nvidia-l4t" %}}).
+These images are compatible with Nvidia ARM64 devices with CUDA 12, such as the Jetson Nano, Jetson Xavier NX, and Jetson AGX Orin. For more information, see the [Nvidia L4T guide]({{%relref "reference/nvidia-l4t" %}}).
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
 | Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64` | `localai/localai:master-nvidia-l4t-arm64`                      |
 | Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64` | `localai/localai:latest-nvidia-l4t-arm64`                 |
 | Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64` | `localai/localai:{{< version >}}-nvidia-l4t-arm64`             |
+
+{{% /tab %}}
+
+{{% tab title="Nvidia Linux for tegra (CUDA 13)" %}}
+
+These images are compatible with Nvidia ARM64 devices with CUDA 13, such as the Nvidia DGX Spark. For more information, see the [Nvidia L4T guide]({{%relref "reference/nvidia-l4t" %}}).
+
+| Description | Quay | Docker Hub                                                  |
+| --- | --- |-------------------------------------------------------------|
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-nvidia-l4t-arm64-cuda-13` | `localai/localai:master-nvidia-l4t-arm64-cuda-13`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-nvidia-l4t-arm64-cuda-13` | `localai/localai:latest-nvidia-l4t-arm64-cuda-13`                 |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-nvidia-l4t-arm64-cuda-13` | `localai/localai:{{< version >}}-nvidia-l4t-arm64-cuda-13`             |
 
 {{% /tab %}}
 
@@ -147,11 +169,13 @@ services:
     image: localai/localai:latest-aio-cpu
     # For a specific version:
     # image: localai/localai:{{< version >}}-aio-cpu
-    # For Nvidia GPUs decomment one of the following (cuda11 or cuda12):
+    # For Nvidia GPUs decomment one of the following (cuda11, cuda12, or cuda13):
     # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-11
     # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-12
+    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-13
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
+    # image: localai/localai:latest-aio-gpu-nvidia-cuda-13
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
       interval: 1m
@@ -203,6 +227,7 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/models localai/lo
 | Versioned image (e.g. for CPU) | `quay.io/go-skynet/local-ai:{{< version >}}-aio-cpu` | `localai/localai:{{< version >}}-aio-cpu`             |
 | Latest images for Nvidia GPU (CUDA11) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-11` | `localai/localai:latest-aio-gpu-nvidia-cuda-11`                      |
 | Latest images for Nvidia GPU (CUDA12) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12` | `localai/localai:latest-aio-gpu-nvidia-cuda-12`                      |
+| Latest images for Nvidia GPU (CUDA13) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-13` | `localai/localai:latest-aio-gpu-nvidia-cuda-13`                      |
 | Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-hipblas` | `localai/localai:latest-aio-gpu-hipblas`                      |
 | Latest images for Intel GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel` | `localai/localai:latest-aio-gpu-intel`                      |
 

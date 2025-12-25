@@ -146,6 +146,9 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ### NVIDIA GPU Images:
 
 ```bash
+# CUDA 13.0
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-13
+
 # CUDA 12.0
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 
@@ -153,7 +156,11 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gp
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
 
 # NVIDIA Jetson (L4T) ARM64
+# CUDA 12 (for Nvidia AGX Orin and similar platforms)
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64
+
+# CUDA 13 (for Nvidia DGX Spark)
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64-cuda-13
 ```
 
 ### AMD GPU Images (ROCm):
@@ -179,6 +186,9 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 ```bash
 # CPU version
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
+
+# NVIDIA CUDA 13 version
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-13
 
 # NVIDIA CUDA 12 version
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
@@ -269,39 +279,40 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 ### Text Generation & Language Models
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
-| **llama.cpp** | LLM inference in C/C++ | CUDA 11/12, ROCm, Intel SYCL, Vulkan, Metal, CPU |
-| **vLLM** | Fast LLM inference with PagedAttention | CUDA 12, ROCm, Intel |
-| **transformers** | HuggingFace transformers framework | CUDA 11/12, ROCm, Intel, CPU |
-| **exllama2** | GPTQ inference library | CUDA 12 |
+| **llama.cpp** | LLM inference in C/C++ | CUDA 11/12/13, ROCm, Intel SYCL, Vulkan, Metal, CPU |
+| **vLLM** | Fast LLM inference with PagedAttention | CUDA 12/13, ROCm, Intel |
+| **transformers** | HuggingFace transformers framework | CUDA 11/12/13, ROCm, Intel, CPU |
+| **exllama2** | GPTQ inference library | CUDA 12/13 |
 | **MLX** | Apple Silicon LLM inference | Metal (M1/M2/M3+) |
 | **MLX-VLM** | Apple Silicon Vision-Language Models | Metal (M1/M2/M3+) |
 
 ### Audio & Speech Processing
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
-| **whisper.cpp** | OpenAI Whisper in C/C++ | CUDA 12, ROCm, Intel SYCL, Vulkan, CPU |
-| **faster-whisper** | Fast Whisper with CTranslate2 | CUDA 12, ROCm, Intel, CPU |
-| **bark** | Text-to-audio generation | CUDA 12, ROCm, Intel |
+| **whisper.cpp** | OpenAI Whisper in C/C++ | CUDA 12/13, ROCm, Intel SYCL, Vulkan, CPU |
+| **faster-whisper** | Fast Whisper with CTranslate2 | CUDA 12/13, ROCm, Intel, CPU |
+| **bark** | Text-to-audio generation | CUDA 12/13, ROCm, Intel |
 | **bark-cpp** | C++ implementation of Bark | CUDA, Metal, CPU |
-| **coqui** | Advanced TTS with 1100+ languages | CUDA 12, ROCm, Intel, CPU |
-| **kokoro** | Lightweight TTS model | CUDA 12, ROCm, Intel, CPU |
-| **chatterbox** | Production-grade TTS | CUDA 11/12, CPU |
+| **coqui** | Advanced TTS with 1100+ languages | CUDA 12/13, ROCm, Intel, CPU |
+| **kokoro** | Lightweight TTS model | CUDA 12/13, ROCm, Intel, CPU |
+| **chatterbox** | Production-grade TTS | CUDA 11/12/13, CPU |
 | **piper** | Fast neural TTS system | CPU |
 | **kitten-tts** | Kitten TTS models | CPU |
 | **silero-vad** | Voice Activity Detection | CPU |
-| **neutts** | Text-to-speech with voice cloning | CUDA 12, ROCm, CPU |
+| **neutts** | Text-to-speech with voice cloning | CUDA 12/13, ROCm, CPU |
+| **vibevoice** | Real-time TTS with voice cloning | CUDA 12/13, ROCm, Intel, CPU |
 
 ### Image & Video Generation
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
-| **stablediffusion.cpp** | Stable Diffusion in C/C++ | CUDA 12, Intel SYCL, Vulkan, CPU |
-| **diffusers** | HuggingFace diffusion models | CUDA 11/12, ROCm, Intel, Metal, CPU |
+| **stablediffusion.cpp** | Stable Diffusion in C/C++ | CUDA 12/13, Intel SYCL, Vulkan, CPU |
+| **diffusers** | HuggingFace diffusion models | CUDA 11/12/13, ROCm, Intel, Metal, CPU |
 
 ### Specialized AI Tasks
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
-| **rfdetr** | Real-time object detection | CUDA 12, Intel, CPU |
-| **rerankers** | Document reranking API | CUDA 11/12, ROCm, Intel, CPU |
+| **rfdetr** | Real-time object detection | CUDA 12/13, Intel, CPU |
+| **rerankers** | Document reranking API | CUDA 11/12/13, ROCm, Intel, CPU |
 | **local-store** | Vector database | CPU |
 | **huggingface** | HuggingFace API integration | API-based |
 
@@ -311,11 +322,13 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 |-------------------|-------------------|------------------|
 | **NVIDIA CUDA 11** | llama.cpp, whisper, stablediffusion, diffusers, rerankers, bark, chatterbox | Nvidia hardware |
 | **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
-| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts | AMD Graphics |
-| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark | Intel Arc, Intel iGPUs |
+| **NVIDIA CUDA 13** | All CUDA-compatible backends | Nvidia hardware |
+| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice | AMD Graphics |
+| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark, vibevoice | Intel Arc, Intel iGPUs |
 | **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, bark-cpp | Apple M1/M2/M3+ |
 | **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
-| **NVIDIA Jetson** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI |
+| **NVIDIA Jetson (CUDA 12)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI (AGX Orin, etc.) |
+| **NVIDIA Jetson (CUDA 13)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI (DGX Spark) |
 | **CPU Optimized** | All backends | AVX/AVX2/AVX512, quantization support |
 
 ### 🔗 Community and integrations

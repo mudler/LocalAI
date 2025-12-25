@@ -58,6 +58,11 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 
 #### GPU Images
 
+**NVIDIA CUDA 13:**
+```bash
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-13
+```
+
 **NVIDIA CUDA 12:**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
@@ -84,8 +89,15 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 ```
 
 **NVIDIA Jetson (L4T ARM64):**
+
+CUDA 12 (for Nvidia AGX Orin and similar platforms):
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/localai:latest-nvidia-l4t-arm64
+```
+
+CUDA 13 (for Nvidia DGX Spark):
+```bash
+docker run -ti --name local-ai -p 8080:8080 --runtime nvidia --gpus all localai/localai:latest-nvidia-l4t-arm64-cuda-13
 ```
 
 ### All-in-One (AIO) Images
@@ -99,6 +111,11 @@ docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-cpu
 ```
 
 #### GPU Images
+
+**NVIDIA CUDA 13:**
+```bash
+docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-13
+```
 
 **NVIDIA CUDA 12:**
 ```bash
@@ -130,6 +147,7 @@ services:
   api:
     image: localai/localai:latest-aio-cpu
     # For GPU support, use one of:
+    # image: localai/localai:latest-aio-gpu-nvidia-cuda-13
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
     # image: localai/localai:latest-aio-gpu-hipblas

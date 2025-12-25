@@ -257,6 +257,7 @@ It might be handy to install packages before starting the container to setup the
 services:
   local-ai:
     image: localai/localai:latest
+    #image: localai/localai:latest-gpu-nvidia-cuda-13
     #image: localai/localai:latest-gpu-nvidia-cuda-12
     container_name: local-ai
     restart: always

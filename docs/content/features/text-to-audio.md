@@ -122,6 +122,48 @@ curl --request POST \
 
 Future versions of LocalAI will expose additional control over audio generation beyond the text prompt.
 
+### VibeVoice
+
+[VibeVoice-Realtime](https://github.com/microsoft/VibeVoice) is a real-time text-to-speech model that generates natural-sounding speech with voice cloning capabilities.
+
+#### Setup
+
+Install the `vibevoice` model in the Model gallery.
+
+#### Usage
+
+Use the tts endpoint by specifying the vibevoice backend:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "vibevoice",
+     "input":"Hello!"
+   }' | aplay
+```
+
+#### Voice cloning
+
+VibeVoice supports voice cloning through voice preset files. You can configure a model with a specific voice:
+
+```yaml
+name: vibevoice
+backend: vibevoice
+parameters:
+  model: microsoft/VibeVoice-Realtime-0.5B
+tts:
+  voice: "Frank"  # or use audio_path to specify a .pt file path
+  # Available English voices: Carter, Davis, Emma, Frank, Grace, Mike
+```
+
+Then you can use the model:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "vibevoice",
+     "input":"Hello!"
+   }' | aplay
+```
+
 ### Vall-E-X
 
 [VALL-E-X](https://github.com/Plachtaa/VALL-E-X) is an open source implementation of Microsoft's VALL-E X zero-shot TTS model.
