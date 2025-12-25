@@ -1,4 +1,42 @@
 ---
+- name: "lightonocr-1b-1025-ft-ja2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/aipib/LightOnOCR-1B-1025-ft-ja2-Q4_K_M-GGUF
+  description: |
+    The model is a fine-tuned version of the **LightOnOCR-1B-1025** base model, optimized for Japanese text recognition. Trained on the **aipib/japanese-text-image-retrieval-small2** dataset, it achieves a validation loss of **1.5539**, offering improved Japanese accuracy compared to the standard ft-ja version. The model is available in **GGUF format** (quantized with Q4_K_M), making it efficient for deployment on systems with limited resources. It is designed for OCR tasks involving Japanese text, with support for inference via **llama.cpp**.
+  tags:
+    - llm
+    - gguf
+    - image-to-text
+    - text-to-text
+    - ocr
+    - japanese
+    - lightonocr
+    - llama
+  overrides:
+    parameters:
+      model: llama-cpp/models/lightonocr-1b-1025-ft-ja2-q4_k_m.gguf
+    name: LightOnOCR-1B-1025-ft-ja2-Q4_K_M-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-LightOnOCR-ft-ja2-BF16.gguf
+    description: Imported from https://huggingface.co/aipib/LightOnOCR-1B-1025-ft-ja2-Q4_K_M-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/lightonocr-1b-1025-ft-ja2-q4_k_m.gguf
+      sha256: cb0ec91c357f8336fa816fe6d838dba3ab0d376643bcfec921b4bd7e5def3847
+      uri: https://huggingface.co/aipib/LightOnOCR-1B-1025-ft-ja2-Q4_K_M-GGUF/resolve/main/lightonocr-1b-1025-ft-ja2-q4_k_m.gguf
+    - filename: llama-cpp/mmproj/mmproj-LightOnOCR-ft-ja2-BF16.gguf
+      sha256: 823154daf826e766f5ee760c495a2bbb31e3810924d8a949e887c15838e63679
+      uri: https://huggingface.co/aipib/LightOnOCR-1B-1025-ft-ja2-Q4_K_M-GGUF/resolve/main/mmproj-LightOnOCR-ft-ja2-BF16.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
