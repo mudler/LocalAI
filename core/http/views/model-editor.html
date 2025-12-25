@@ -833,8 +833,24 @@ function importModel() {
                 });
                 
                 if (!response.ok) {
-                    const error = await response.json().catch(() => ({ error: 'Failed to start import' }));
-                    throw new Error(error.error || 'Failed to start import');
+                    const errorData = await response.json().catch(() => ({ message: 'Failed to start import' }));
+                    // Extract error message from various possible formats
+                    // Handle nested error object: {"error": {"message": "...", "code": 500}}
+                    let errorMessage = 'Failed to start import';
+                    if (errorData.error) {
+                        if (typeof errorData.error === 'object' && errorData.error.message) {
+                            errorMessage = errorData.error.message;
+                        } else if (typeof errorData.error === 'string') {
+                            errorMessage = errorData.error;
+                        }
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    } else if (errorData.Error) {
+                        errorMessage = errorData.Error;
+                    } else {
+                        errorMessage = JSON.stringify(errorData);
+                    }
+                    throw new Error(errorMessage);
                 }
                 
                 const result = await response.json();
@@ -1053,6 +1069,27 @@ parameters:
                     body: yamlContent
                 });
 
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'Failed to save configuration' }));
+                    // Extract error message from various possible formats
+                    // Handle nested error object: {"error": {"message": "...", "code": 500}}
+                    let errorMessage = 'Failed to save configuration';
+                    if (errorData.error) {
+                        if (typeof errorData.error === 'object' && errorData.error.message) {
+                            errorMessage = errorData.error.message;
+                        } else if (typeof errorData.error === 'string') {
+                            errorMessage = errorData.error;
+                        }
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    } else if (errorData.Error) {
+                        errorMessage = errorData.Error;
+                    } else {
+                        errorMessage = JSON.stringify(errorData);
+                    }
+                    throw new Error(errorMessage);
+                }
+
                 const result = await response.json();
                 
                 if (result.success) {
@@ -1063,7 +1100,8 @@ parameters:
                         }, 2000);
                     }
                 } else {
-                    this.showAlert('error', result.error || 'Failed to save configuration');
+                    const errorMessage = result.message || result.error || result.Error || 'Failed to save configuration';
+                    this.showAlert('error', errorMessage);
                 }
             } catch (error) {
                 this.showAlert('error', 'Failed to save: ' + error.message);
