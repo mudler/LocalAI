@@ -1,4 +1,47 @@
 ---
+- name: "td-halloumi-3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/TD-HallOumi-3B-GGUF
+  description: |
+    The **TD-HallOumi-3B** model is a large language model designed for **hallucination detection** and **claim verification**, part of the OUMI project. It is based on the **Teen-Different/TD-HallOumi-3B** base model, which is optimized for groundedness and factual consistency. The repository provides multiple **quantized versions** (e.g., Q2_K, Q4_K_S, Q8_0) of the model, ranging from 1.5GB to 6.5GB, catering to different performance-quality trade-offs.
+
+    Key features include:
+      - **Task-specific training** on datasets like ANLI, C2D-D2C, and synthetic claims for logical reasoning and factual accuracy.
+      - **Quantization options** (Q2_K to Q8_0, f16) for efficiency and precision.
+      - **Licensing**: Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0).
+      - **Use cases**: Hallucination detection, claim verification, and grounded language understanding.
+
+    This model is ideal for applications requiring robust factual consistency and reliability in large language models.
+  license: "cc-by-nc-4.0"
+  tags:
+    - llm
+    - gguf
+    - hallucination-detection
+    - claim-verification
+    - fact-checking
+    - groundedness
+    - reasoning
+    - quantized
+  overrides:
+    parameters:
+      model: llama-cpp/models/TD-HallOumi-3B.Q4_K_M.gguf
+    name: TD-HallOumi-3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/TD-HallOumi-3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/TD-HallOumi-3B.Q4_K_M.gguf
+      sha256: ebede375d19d7d0e9169b27111e2507bc3cecc65092a2b28e4368533db37f7aa
+      uri: https://huggingface.co/mradermacher/TD-HallOumi-3B-GGUF/resolve/main/TD-HallOumi-3B.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
