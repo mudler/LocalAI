@@ -73,6 +73,9 @@ type RunCMD struct {
 	WatchdogBusyTimeout                string   `env:"LOCALAI_WATCHDOG_BUSY_TIMEOUT,WATCHDOG_BUSY_TIMEOUT" default:"5m" help:"Threshold beyond which a busy backend should be stopped" group:"backends"`
 	EnableMemoryReclaimer              bool     `env:"LOCALAI_MEMORY_RECLAIMER,MEMORY_RECLAIMER,LOCALAI_GPU_RECLAIMER,GPU_RECLAIMER" default:"false" help:"Enable memory threshold monitoring to auto-evict backends when memory usage exceeds threshold (uses GPU VRAM if available, otherwise RAM)" group:"backends"`
 	MemoryReclaimerThreshold           float64  `env:"LOCALAI_MEMORY_RECLAIMER_THRESHOLD,MEMORY_RECLAIMER_THRESHOLD,LOCALAI_GPU_RECLAIMER_THRESHOLD,GPU_RECLAIMER_THRESHOLD" default:"0.95" help:"Memory usage threshold (0.0-1.0) that triggers backend eviction (default 0.95 = 95%%)" group:"backends"`
+	ForceEvictionWhenBusy              bool     `env:"LOCALAI_FORCE_EVICTION_WHEN_BUSY,FORCE_EVICTION_WHEN_BUSY" default:"false" help:"Force eviction even when models have active API calls (default: false for safety)" group:"backends"`
+	LRUEvictionMaxRetries              int      `env:"LOCALAI_LRU_EVICTION_MAX_RETRIES,LRU_EVICTION_MAX_RETRIES" default:"30" help:"Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)" group:"backends"`
+	LRUEvictionRetryInterval           string   `env:"LOCALAI_LRU_EVICTION_RETRY_INTERVAL,LRU_EVICTION_RETRY_INTERVAL" default:"1s" help:"Interval between retries when waiting for busy models to become idle (e.g., 1s, 2s) (default: 1s)" group:"backends"`
 	Federated                          bool     `env:"LOCALAI_FEDERATED,FEDERATED" help:"Enable federated instance" group:"federated"`
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
@@ -218,6 +221,21 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	} else if r.SingleActiveBackend {
 		// Backward compatibility: --single-active-backend is equivalent to --max-active-backends=1
 		opts = append(opts, config.EnableSingleBackend)
+	}
+
+	// Handle LRU eviction settings
+	if r.ForceEvictionWhenBusy {
+		opts = append(opts, config.WithForceEvictionWhenBusy(true))
+	}
+	if r.LRUEvictionMaxRetries > 0 {
+		opts = append(opts, config.WithLRUEvictionMaxRetries(r.LRUEvictionMaxRetries))
+	}
+	if r.LRUEvictionRetryInterval != "" {
+		dur, err := time.ParseDuration(r.LRUEvictionRetryInterval)
+		if err != nil {
+			return fmt.Errorf("invalid LRU eviction retry interval: %w", err)
+		}
+		opts = append(opts, config.WithLRUEvictionRetryInterval(dur))
 	}
 
 	// split ":" to get backend name and the uri

@@ -266,6 +266,31 @@ func (o *ApplicationConfig) GetEffectiveMaxActiveBackends() int {
 	return 0
 }
 
+// WithForceEvictionWhenBusy sets whether to force eviction even when models have active API calls
+func WithForceEvictionWhenBusy(enabled bool) AppOption {
+	return func(o *ApplicationConfig) {
+		o.ForceEvictionWhenBusy = enabled
+	}
+}
+
+// WithLRUEvictionMaxRetries sets the maximum number of retries when waiting for busy models to become idle
+func WithLRUEvictionMaxRetries(maxRetries int) AppOption {
+	return func(o *ApplicationConfig) {
+		if maxRetries > 0 {
+			o.LRUEvictionMaxRetries = maxRetries
+		}
+	}
+}
+
+// WithLRUEvictionRetryInterval sets the interval between retries when waiting for busy models
+func WithLRUEvictionRetryInterval(interval time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		if interval > 0 {
+			o.LRUEvictionRetryInterval = interval
+		}
+	}
+}
+
 var EnableParallelBackendRequests = func(o *ApplicationConfig) {
 	o.ParallelBackendRequests = true
 }
