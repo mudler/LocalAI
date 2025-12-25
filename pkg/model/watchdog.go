@@ -180,13 +180,19 @@ type modelUsageInfo struct {
 	lastUsed time.Time
 }
 
+// EnforceLRULimitResult contains the result of LRU enforcement
+type EnforceLRULimitResult struct {
+	EvictedCount int  // Number of models successfully evicted
+	NeedMore     bool // True if more evictions are needed but couldn't be done (e.g., all models are busy)
+}
+
 // EnforceLRULimit ensures we're under the LRU limit by evicting least recently used models.
 // This should be called before loading a new model.
 // pendingLoads is the number of models currently being loaded (to account for concurrent loads).
-// Returns the number of models evicted.
-func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
+// Returns the result containing evicted count and whether more evictions are needed.
+func (wd *WatchDog) EnforceLRULimit(pendingLoads int) EnforceLRULimitResult {
 	if wd.lruLimit <= 0 {
-		return 0 // LRU disabled
+		return EnforceLRULimitResult{EvictedCount: 0, NeedMore: false} // LRU disabled
 	}
 
 	wd.Lock()
@@ -200,7 +206,7 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 	forceEvictionWhenBusy := wd.forceEvictionWhenBusy
 	if modelsToEvict <= 0 {
 		wd.Unlock()
-		return 0
+		return EnforceLRULimitResult{EvictedCount: 0, NeedMore: false}
 	}
 
 	xlog.Debug("[WatchDog] LRU enforcement triggered", "current", currentCount, "pendingLoads", pendingLoads, "limit", wd.lruLimit, "toEvict", modelsToEvict)
@@ -228,6 +234,7 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 	// Collect models to evict (the oldest ones)
 	var modelsToShutdown []string
 	evictedCount := 0
+	skippedBusyCount := 0
 	for i := 0; evictedCount < modelsToEvict && i < len(models); i++ {
 		m := models[i]
 		// Check if model is busy
@@ -235,6 +242,7 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 		if isBusy && !forceEvictionWhenBusy {
 			// Skip eviction for busy models when forceEvictionWhenBusy is false
 			xlog.Warn("[WatchDog] Skipping LRU eviction for busy model", "model", m.model, "reason", "model has active API calls")
+			skippedBusyCount++
 			continue
 		}
 		xlog.Info("[WatchDog] LRU evicting model", "model", m.model, "lastUsed", m.lastUsed, "busy", isBusy)
@@ -243,6 +251,7 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 		wd.untrack(m.address)
 		evictedCount++
 	}
+	needMore := evictedCount < modelsToEvict && skippedBusyCount > 0
 	wd.Unlock()
 
 	// Now shutdown models without holding the watchdog lock to prevent deadlock
@@ -253,7 +262,14 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 		xlog.Debug("[WatchDog] LRU eviction complete", "model", model)
 	}
 
-	return len(modelsToShutdown)
+	if needMore {
+		xlog.Warn("[WatchDog] LRU eviction incomplete", "evicted", evictedCount, "needed", modelsToEvict, "skippedBusy", skippedBusyCount, "reason", "some models are busy with active API calls")
+	}
+
+	return EnforceLRULimitResult{
+		EvictedCount: len(modelsToShutdown),
+		NeedMore:     needMore,
+	}
 }
 
 func (wd *WatchDog) Run() {

@@ -354,6 +354,12 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 		)
 		application.ModelLoader().SetWatchDog(wd)
 
+		// Initialize ModelLoader LRU eviction retry settings
+		application.ModelLoader().SetLRUEvictionRetrySettings(
+			options.LRUEvictionMaxRetries,
+			options.LRUEvictionRetryInterval,
+		)
+
 		// Start watchdog goroutine if any periodic checks are enabled
 		// LRU eviction doesn't need the Run() loop - it's triggered on model load
 		// But memory reclaimer needs the Run() loop for periodic checking

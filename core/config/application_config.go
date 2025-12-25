@@ -65,7 +65,9 @@ type ApplicationConfig struct {
 	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
 	// Eviction settings
-	ForceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
+	ForceEvictionWhenBusy    bool          // Force eviction even when models have active API calls (default: false for safety)
+	LRUEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models to become idle (default: 30)
+	LRUEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models (default: 1s)
 
 	ModelsURL []string
 
@@ -89,10 +91,12 @@ type AppOption func(*ApplicationConfig)
 
 func NewApplicationConfig(o ...AppOption) *ApplicationConfig {
 	opt := &ApplicationConfig{
-		Context:               context.Background(),
-		UploadLimitMB:         15,
-		Debug:                 true,
-		AgentJobRetentionDays: 30, // Default: 30 days
+		Context:                  context.Background(),
+		UploadLimitMB:            15,
+		Debug:                    true,
+		AgentJobRetentionDays:    30,              // Default: 30 days
+		LRUEvictionMaxRetries:    30,              // Default: 30 retries
+		LRUEvictionRetryInterval: 1 * time.Second, // Default: 1 second
 		PathWithoutAuth: []string{
 			"/static/",
 			"/generated-audio/",
@@ -509,6 +513,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
 	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
+	lruEvictionMaxRetries := o.LRUEvictionMaxRetries
 	threads := o.Threads
 	contextSize := o.ContextSize
 	f16 := o.F16
@@ -543,6 +548,12 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	} else {
 		watchdogInterval = "2s" // default
 	}
+	var lruEvictionRetryInterval string
+	if o.LRUEvictionRetryInterval > 0 {
+		lruEvictionRetryInterval = o.LRUEvictionRetryInterval.String()
+	} else {
+		lruEvictionRetryInterval = "1s" // default
+	}
 
 	return RuntimeSettings{
 		WatchdogEnabled:          &watchdogEnabled,
@@ -557,6 +568,8 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		MemoryReclaimerEnabled:   &memoryReclaimerEnabled,
 		MemoryReclaimerThreshold: &memoryReclaimerThreshold,
 		ForceEvictionWhenBusy:    &forceEvictionWhenBusy,
+		LRUEvictionMaxRetries:    &lruEvictionMaxRetries,
+		LRUEvictionRetryInterval: &lruEvictionRetryInterval,
 		Threads:                  &threads,
 		ContextSize:              &contextSize,
 		F16:                      &f16,
@@ -652,6 +665,16 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	if settings.ForceEvictionWhenBusy != nil {
 		o.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 		// This setting doesn't require restart, can be updated dynamically
+	}
+	if settings.LRUEvictionMaxRetries != nil {
+		o.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
+		// This setting doesn't require restart, can be updated dynamically
+	}
+	if settings.LRUEvictionRetryInterval != nil {
+		if dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval); err == nil {
+			o.LRUEvictionRetryInterval = dur
+			// This setting doesn't require restart, can be updated dynamically
+		}
 	}
 	if settings.Threads != nil {
 		o.Threads = *settings.Threads

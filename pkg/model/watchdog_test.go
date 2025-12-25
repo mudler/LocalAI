@@ -177,8 +177,9 @@ var _ = Describe("WatchDog", func() {
 			wd.AddAddressModelMap("addr1", "model1")
 			wd.Mark("addr1")
 
-			evicted := wd.EnforceLRULimit(0)
-			Expect(evicted).To(Equal(0))
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(0))
+			Expect(result.NeedMore).To(BeFalse())
 			Expect(pm.getShutdownCalls()).To(BeEmpty())
 		})
 
@@ -192,8 +193,9 @@ var _ = Describe("WatchDog", func() {
 			wd.Mark("addr2")
 
 			// Enforce LRU with limit of 2 (need to make room for 1 new model)
-			evicted := wd.EnforceLRULimit(0)
-			Expect(evicted).To(Equal(1))
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(1))
+			Expect(result.NeedMore).To(BeFalse())
 			Expect(pm.getShutdownCalls()).To(ContainElement("model1")) // oldest should be evicted
 		})
 
@@ -212,8 +214,9 @@ var _ = Describe("WatchDog", func() {
 
 			// Set limit to 1, should evict 2 oldest + 1 for new = 3 evictions
 			wd.SetLRULimit(1)
-			evicted := wd.EnforceLRULimit(0)
-			Expect(evicted).To(Equal(3))
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(3))
+			Expect(result.NeedMore).To(BeFalse())
 			shutdowns := pm.getShutdownCalls()
 			Expect(shutdowns).To(ContainElement("model1"))
 			Expect(shutdowns).To(ContainElement("model2"))
@@ -231,8 +234,9 @@ var _ = Describe("WatchDog", func() {
 
 			// With 1 pending load, we need to evict 2 (current=2, pending=1, new=1, limit=2)
 			// total after = 2 + 1 + 1 = 4, need to evict 4 - 2 = 2
-			evicted := wd.EnforceLRULimit(1)
-			Expect(evicted).To(Equal(2))
+			result := wd.EnforceLRULimit(1)
+			Expect(result.EvictedCount).To(Equal(2))
+			Expect(result.NeedMore).To(BeFalse())
 		})
 
 		It("should not evict when LRU is disabled", func() {
@@ -242,8 +246,9 @@ var _ = Describe("WatchDog", func() {
 			wd.AddAddressModelMap("addr2", "model2")
 			wd.AddAddressModelMap("addr3", "model3")
 
-			evicted := wd.EnforceLRULimit(0)
-			Expect(evicted).To(Equal(0))
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(0))
+			Expect(result.NeedMore).To(BeFalse())
 			Expect(pm.getShutdownCalls()).To(BeEmpty())
 		})
 
@@ -267,8 +272,9 @@ var _ = Describe("WatchDog", func() {
 			wd.Mark("addr3")
 
 			// Now model2 is the oldest, should be evicted first
-			evicted := wd.EnforceLRULimit(0)
-			Expect(evicted).To(BeNumerically(">=", 1))
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(BeNumerically(">=", 1))
+			Expect(result.NeedMore).To(BeFalse())
 
 			shutdowns := pm.getShutdownCalls()
 			// model2 should be evicted first (it's the oldest)
@@ -293,8 +299,9 @@ var _ = Describe("WatchDog", func() {
 			wd.Mark("addr1")
 
 			// With limit=1, loading a new model should evict the existing one
-			evicted := wd.EnforceLRULimit(0)
-			Expect(evicted).To(Equal(1))
+			result := wd.EnforceLRULimit(0)
+			Expect(result.EvictedCount).To(Equal(1))
+			Expect(result.NeedMore).To(BeFalse())
 			Expect(pm.getShutdownCalls()).To(ContainElement("model1"))
 		})
 

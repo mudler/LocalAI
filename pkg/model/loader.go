@@ -20,22 +20,26 @@ import (
 
 // TODO: Split ModelLoader and TemplateLoader? Just to keep things more organized. Left together to share a mutex until I look into that. Would split if we separate directories for .bin/.yaml and .tmpl
 type ModelLoader struct {
-	ModelPath        string
-	mu               sync.Mutex
-	models           map[string]*Model
-	loading          map[string]chan struct{} // tracks models currently being loaded
-	wd               *WatchDog
-	externalBackends map[string]string
+	ModelPath                string
+	mu                       sync.Mutex
+	models                   map[string]*Model
+	loading                  map[string]chan struct{} // tracks models currently being loaded
+	wd                       *WatchDog
+	externalBackends         map[string]string
+	lruEvictionMaxRetries    int           // Maximum number of retries when waiting for busy models
+	lruEvictionRetryInterval time.Duration // Interval between retries when waiting for busy models
 }
 
 // NewModelLoader creates a new ModelLoader instance.
 // LRU eviction is now managed through the WatchDog component.
 func NewModelLoader(system *system.SystemState) *ModelLoader {
 	nml := &ModelLoader{
-		ModelPath:        system.Model.ModelsPath,
-		models:           make(map[string]*Model),
-		loading:          make(map[string]chan struct{}),
-		externalBackends: make(map[string]string),
+		ModelPath:                system.Model.ModelsPath,
+		models:                   make(map[string]*Model),
+		loading:                  make(map[string]chan struct{}),
+		externalBackends:         make(map[string]string),
+		lruEvictionMaxRetries:    30,              // Default: 30 retries
+		lruEvictionRetryInterval: 1 * time.Second, // Default: 1 second
 	}
 
 	return nml
@@ -54,6 +58,14 @@ func (ml *ModelLoader) SetWatchDog(wd *WatchDog) {
 
 func (ml *ModelLoader) GetWatchDog() *WatchDog {
 	return ml.wd
+}
+
+// SetLRUEvictionRetrySettings updates the LRU eviction retry settings
+func (ml *ModelLoader) SetLRUEvictionRetrySettings(maxRetries int, retryInterval time.Duration) {
+	ml.mu.Lock()
+	defer ml.mu.Unlock()
+	ml.lruEvictionMaxRetries = maxRetries
+	ml.lruEvictionRetryInterval = retryInterval
 }
 
 func (ml *ModelLoader) ExistsInModelPath(s string) bool {
