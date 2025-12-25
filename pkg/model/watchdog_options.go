@@ -28,6 +28,9 @@ type WatchDogOptions struct {
 	// Memory reclaimer settings (works with GPU if available, otherwise RAM)
 	memoryReclaimerEnabled   bool    // Enable memory threshold monitoring
 	memoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
+
+	// Eviction settings
+	forceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
 }
 
 // WatchDogOption is a function that configures WatchDogOptions
@@ -105,6 +108,14 @@ func WithMemoryReclaimerThreshold(threshold float64) WatchDogOption {
 	}
 }
 
+// WithForceEvictionWhenBusy sets whether to force eviction even when models have active API calls
+// Default: false (skip eviction when busy for safety)
+func WithForceEvictionWhenBusy(force bool) WatchDogOption {
+	return func(o *WatchDogOptions) {
+		o.forceEvictionWhenBusy = force
+	}
+}
+
 // DefaultWatchDogOptions returns default options for the watchdog
 func DefaultWatchDogOptions() *WatchDogOptions {
 	return &WatchDogOptions{
@@ -116,6 +127,7 @@ func DefaultWatchDogOptions() *WatchDogOptions {
 		lruLimit:                 0,
 		memoryReclaimerEnabled:   false,
 		memoryReclaimerThreshold: DefaultMemoryReclaimerThreshold,
+		forceEvictionWhenBusy:    false, // Default: skip eviction when busy for safety
 	}
 }
 

@@ -64,6 +64,9 @@ type ApplicationConfig struct {
 	MemoryReclaimerEnabled   bool    // Enable memory threshold monitoring
 	MemoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 
+	// Eviction settings
+	ForceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
+
 	ModelsURL []string
 
 	WatchDogBusyTimeout, WatchDogIdleTimeout time.Duration
@@ -505,6 +508,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	parallelBackendRequests := o.ParallelBackendRequests
 	memoryReclaimerEnabled := o.MemoryReclaimerEnabled
 	memoryReclaimerThreshold := o.MemoryReclaimerThreshold
+	forceEvictionWhenBusy := o.ForceEvictionWhenBusy
 	threads := o.Threads
 	contextSize := o.ContextSize
 	f16 := o.F16
@@ -552,6 +556,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		ParallelBackendRequests:  &parallelBackendRequests,
 		MemoryReclaimerEnabled:   &memoryReclaimerEnabled,
 		MemoryReclaimerThreshold: &memoryReclaimerThreshold,
+		ForceEvictionWhenBusy:    &forceEvictionWhenBusy,
 		Threads:                  &threads,
 		ContextSize:              &contextSize,
 		F16:                      &f16,
@@ -643,6 +648,10 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 			o.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
 			requireRestart = true
 		}
+	}
+	if settings.ForceEvictionWhenBusy != nil {
+		o.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
+		// This setting doesn't require restart, can be updated dynamically
 	}
 	if settings.Threads != nil {
 		o.Threads = *settings.Threads

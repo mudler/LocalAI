@@ -111,6 +111,15 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			appConfig.ApiKeys = append(envKeys, runtimeKeys...)
 		}
 
+		// Update watchdog dynamically for settings that don't require restart
+		if settings.ForceEvictionWhenBusy != nil {
+			currentWD := app.ModelLoader().GetWatchDog()
+			if currentWD != nil {
+				currentWD.SetForceEvictionWhenBusy(*settings.ForceEvictionWhenBusy)
+				xlog.Info("Updated watchdog force eviction when busy setting", "forceEvictionWhenBusy", *settings.ForceEvictionWhenBusy)
+			}
+		}
+
 		// Check if agent job retention changed
 		agentJobChanged := settings.AgentJobRetentionDays != nil
 

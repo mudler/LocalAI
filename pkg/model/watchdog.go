@@ -41,6 +41,9 @@ type WatchDog struct {
 	memoryReclaimerEnabled   bool    // Enable memory threshold monitoring
 	memoryReclaimerThreshold float64 // Threshold 0.0-1.0 (e.g., 0.95 = 95%)
 	watchdogInterval         time.Duration
+
+	// Eviction settings
+	forceEvictionWhenBusy bool // Force eviction even when models have active API calls (default: false for safety)
 }
 
 type ProcessManager interface {
@@ -78,6 +81,7 @@ func NewWatchDog(opts ...WatchDogOption) *WatchDog {
 		memoryReclaimerEnabled:   o.memoryReclaimerEnabled,
 		memoryReclaimerThreshold: o.memoryReclaimerThreshold,
 		watchdogInterval:         o.watchdogInterval,
+		forceEvictionWhenBusy:    o.forceEvictionWhenBusy,
 	}
 }
 
@@ -108,6 +112,13 @@ func (wd *WatchDog) GetMemoryReclaimerSettings() (enabled bool, threshold float6
 	wd.Lock()
 	defer wd.Unlock()
 	return wd.memoryReclaimerEnabled, wd.memoryReclaimerThreshold
+}
+
+// SetForceEvictionWhenBusy updates the force eviction when busy setting dynamically
+func (wd *WatchDog) SetForceEvictionWhenBusy(force bool) {
+	wd.Lock()
+	defer wd.Unlock()
+	wd.forceEvictionWhenBusy = force
 }
 
 func (wd *WatchDog) Shutdown() {
@@ -186,6 +197,7 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 	// We need: currentCount + pendingLoads + 1 <= lruLimit
 	// So evict: currentCount + pendingLoads + 1 - lruLimit = currentCount - lruLimit + pendingLoads + 1
 	modelsToEvict := currentCount - wd.lruLimit + pendingLoads + 1
+	forceEvictionWhenBusy := wd.forceEvictionWhenBusy
 	if modelsToEvict <= 0 {
 		wd.Unlock()
 		return 0
@@ -215,12 +227,21 @@ func (wd *WatchDog) EnforceLRULimit(pendingLoads int) int {
 
 	// Collect models to evict (the oldest ones)
 	var modelsToShutdown []string
-	for i := 0; i < modelsToEvict && i < len(models); i++ {
+	evictedCount := 0
+	for i := 0; evictedCount < modelsToEvict && i < len(models); i++ {
 		m := models[i]
-		xlog.Info("[WatchDog] LRU evicting model", "model", m.model, "lastUsed", m.lastUsed)
+		// Check if model is busy
+		_, isBusy := wd.busyTime[m.address]
+		if isBusy && !forceEvictionWhenBusy {
+			// Skip eviction for busy models when forceEvictionWhenBusy is false
+			xlog.Warn("[WatchDog] Skipping LRU eviction for busy model", "model", m.model, "reason", "model has active API calls")
+			continue
+		}
+		xlog.Info("[WatchDog] LRU evicting model", "model", m.model, "lastUsed", m.lastUsed, "busy", isBusy)
 		modelsToShutdown = append(modelsToShutdown, m.model)
 		// Clean up the maps while we have the lock
 		wd.untrack(m.address)
+		evictedCount++
 	}
 	wd.Unlock()
 
@@ -376,6 +397,8 @@ func (wd *WatchDog) evictLRUModel() {
 		return
 	}
 
+	forceEvictionWhenBusy := wd.forceEvictionWhenBusy
+
 	// Build a list of models sorted by last used time (oldest first)
 	var models []modelUsageInfo
 	for address, model := range wd.addressModelMap {
@@ -400,8 +423,27 @@ func (wd *WatchDog) evictLRUModel() {
 		return models[i].lastUsed.Before(models[j].lastUsed)
 	})
 
-	// Get the LRU model
-	lruModel := models[0]
+	// Find the first non-busy model (or first model if forceEvictionWhenBusy is true)
+	var lruModel *modelUsageInfo
+	for i := 0; i < len(models); i++ {
+		m := models[i]
+		_, isBusy := wd.busyTime[m.address]
+		if isBusy && !forceEvictionWhenBusy {
+			// Skip busy models when forceEvictionWhenBusy is false
+			xlog.Warn("[WatchDog] Skipping memory reclaimer eviction for busy model", "model", m.model, "reason", "model has active API calls")
+			continue
+		}
+		lruModel = &m
+		break
+	}
+
+	if lruModel == nil {
+		// All models are busy and forceEvictionWhenBusy is false
+		wd.Unlock()
+		xlog.Warn("[WatchDog] Memory reclaimer cannot evict: all models are busy with active API calls")
+		return
+	}
+
 	xlog.Info("[WatchDog] Memory reclaimer evicting LRU model", "model", lruModel.model, "lastUsed", lruModel.lastUsed)
 
 	// Untrack the model

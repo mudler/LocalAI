@@ -136,6 +136,20 @@
                                :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
                     </div>
 
+                    <!-- Force Eviction When Busy -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Force Eviction When Busy</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Allow evicting models even when they have active API calls (default: disabled for safety)</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.force_eviction_when_busy" 
+                                   :disabled="!settings.watchdog_enabled"
+                                   class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                        </label>
+                    </div>
+
                     <!-- Memory Reclaimer Subsection -->
                     <div class="mt-6 pt-4 border-t border-[var(--color-primary-border)]/20">
                         <h3 class="text-md font-medium text-[var(--color-text-primary)] mb-3 flex items-center">
@@ -545,6 +559,7 @@ function settingsDashboard() {
             watchdog_idle_timeout: '15m',
             watchdog_busy_timeout: '5m',
             watchdog_interval: '2s',
+            force_eviction_when_busy: false,
             max_active_backends: 0,
             parallel_backend_requests: false,
             memory_reclaimer_enabled: false,
@@ -587,6 +602,7 @@ function settingsDashboard() {
                         watchdog_idle_timeout: data.watchdog_idle_timeout || '15m',
                         watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
                         watchdog_interval: data.watchdog_interval || '2s',
+                        force_eviction_when_busy: data.force_eviction_when_busy || false,
                         max_active_backends: data.max_active_backends || 0,
                         parallel_backend_requests: data.parallel_backend_requests,
                         memory_reclaimer_enabled: data.memory_reclaimer_enabled || false,
@@ -659,6 +675,9 @@ function settingsDashboard() {
                 }
                 if (this.settings.watchdog_interval) {
                     payload.watchdog_interval = this.settings.watchdog_interval;
+                }
+                if (this.settings.force_eviction_when_busy !== undefined) {
+                    payload.force_eviction_when_busy = this.settings.force_eviction_when_busy;
                 }
                 if (this.settings.max_active_backends !== undefined) {
                     payload.max_active_backends = parseInt(this.settings.max_active_backends) || 0;

@@ -214,6 +214,7 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envAutoloadGalleries := appConfig.AutoloadGalleries == startupAppConfig.AutoloadGalleries
 		envAutoloadBackendGalleries := appConfig.AutoloadBackendGalleries == startupAppConfig.AutoloadBackendGalleries
 		envAgentJobRetentionDays := appConfig.AgentJobRetentionDays == startupAppConfig.AgentJobRetentionDays
+		envForceEvictionWhenBusy := appConfig.ForceEvictionWhenBusy == startupAppConfig.ForceEvictionWhenBusy
 
 		if len(fileContent) > 0 {
 			var settings config.RuntimeSettings
@@ -276,6 +277,9 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.MemoryReclaimerThreshold != nil && !envMemoryReclaimerThreshold {
 				appConfig.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
+			}
+			if settings.ForceEvictionWhenBusy != nil && !envForceEvictionWhenBusy {
+				appConfig.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
 			}
 			if settings.Threads != nil && !envThreads {
 				appConfig.Threads = *settings.Threads

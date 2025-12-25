@@ -350,6 +350,7 @@ func initializeWatchdog(application *Application, options *config.ApplicationCon
 			model.WithIdleCheck(options.WatchDogIdle),
 			model.WithLRULimit(lruLimit),
 			model.WithMemoryReclaimer(options.MemoryReclaimerEnabled, options.MemoryReclaimerThreshold),
+			model.WithForceEvictionWhenBusy(options.ForceEvictionWhenBusy),
 		)
 		application.ModelLoader().SetWatchDog(wd)
 
