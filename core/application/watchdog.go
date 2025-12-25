@@ -35,6 +35,7 @@ func (a *Application) startWatchdog() error {
 			model.WithIdleCheck(appConfig.WatchDogIdle),
 			model.WithLRULimit(lruLimit),
 			model.WithMemoryReclaimer(appConfig.MemoryReclaimerEnabled, appConfig.MemoryReclaimerThreshold),
+			model.WithForceEvictionWhenBusy(appConfig.ForceEvictionWhenBusy),
 		)
 		a.modelLoader.SetWatchDog(wd)
 

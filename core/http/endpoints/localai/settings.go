@@ -76,6 +76,14 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				})
 			}
 		}
+		if settings.LRUEvictionRetryInterval != nil {
+			if _, err := time.ParseDuration(*settings.LRUEvictionRetryInterval); err != nil {
+				return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+					Success: false,
+					Error:   "Invalid lru_eviction_retry_interval format: " + err.Error(),
+				})
+			}
+		}
 
 		// Save to file
 		if appConfig.DynamicConfigsDir == "" {
@@ -109,6 +117,31 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 			envKeys := startupConfig.ApiKeys
 			runtimeKeys := *settings.ApiKeys
 			appConfig.ApiKeys = append(envKeys, runtimeKeys...)
+		}
+
+		// Update watchdog dynamically for settings that don't require restart
+		if settings.ForceEvictionWhenBusy != nil {
+			currentWD := app.ModelLoader().GetWatchDog()
+			if currentWD != nil {
+				currentWD.SetForceEvictionWhenBusy(*settings.ForceEvictionWhenBusy)
+				xlog.Info("Updated watchdog force eviction when busy setting", "forceEvictionWhenBusy", *settings.ForceEvictionWhenBusy)
+			}
+		}
+
+		// Update ModelLoader LRU eviction retry settings dynamically
+		maxRetries := appConfig.LRUEvictionMaxRetries
+		retryInterval := appConfig.LRUEvictionRetryInterval
+		if settings.LRUEvictionMaxRetries != nil {
+			maxRetries = *settings.LRUEvictionMaxRetries
+		}
+		if settings.LRUEvictionRetryInterval != nil {
+			if dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval); err == nil {
+				retryInterval = dur
+			}
+		}
+		if settings.LRUEvictionMaxRetries != nil || settings.LRUEvictionRetryInterval != nil {
+			app.ModelLoader().SetLRUEvictionRetrySettings(maxRetries, retryInterval)
+			xlog.Info("Updated LRU eviction retry settings", "maxRetries", maxRetries, "retryInterval", retryInterval)
 		}
 
 		// Check if agent job retention changed

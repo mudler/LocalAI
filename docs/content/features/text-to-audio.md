@@ -128,7 +128,7 @@ Future versions of LocalAI will expose additional control over audio generation 
 
 #### Setup
 
-Install the `vibevoice` model in the Model gallery.
+Install the `vibevoice` model in the Model gallery or run `local-ai run models install vibevoice`.
 
 #### Usage
 

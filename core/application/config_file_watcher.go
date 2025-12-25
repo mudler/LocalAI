@@ -214,6 +214,9 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 		envAutoloadGalleries := appConfig.AutoloadGalleries == startupAppConfig.AutoloadGalleries
 		envAutoloadBackendGalleries := appConfig.AutoloadBackendGalleries == startupAppConfig.AutoloadBackendGalleries
 		envAgentJobRetentionDays := appConfig.AgentJobRetentionDays == startupAppConfig.AgentJobRetentionDays
+		envForceEvictionWhenBusy := appConfig.ForceEvictionWhenBusy == startupAppConfig.ForceEvictionWhenBusy
+		envLRUEvictionMaxRetries := appConfig.LRUEvictionMaxRetries == startupAppConfig.LRUEvictionMaxRetries
+		envLRUEvictionRetryInterval := appConfig.LRUEvictionRetryInterval == startupAppConfig.LRUEvictionRetryInterval
 
 		if len(fileContent) > 0 {
 			var settings config.RuntimeSettings
@@ -276,6 +279,20 @@ func readRuntimeSettingsJson(startupAppConfig config.ApplicationConfig) fileHand
 			}
 			if settings.MemoryReclaimerThreshold != nil && !envMemoryReclaimerThreshold {
 				appConfig.MemoryReclaimerThreshold = *settings.MemoryReclaimerThreshold
+			}
+			if settings.ForceEvictionWhenBusy != nil && !envForceEvictionWhenBusy {
+				appConfig.ForceEvictionWhenBusy = *settings.ForceEvictionWhenBusy
+			}
+			if settings.LRUEvictionMaxRetries != nil && !envLRUEvictionMaxRetries {
+				appConfig.LRUEvictionMaxRetries = *settings.LRUEvictionMaxRetries
+			}
+			if settings.LRUEvictionRetryInterval != nil && !envLRUEvictionRetryInterval {
+				dur, err := time.ParseDuration(*settings.LRUEvictionRetryInterval)
+				if err == nil {
+					appConfig.LRUEvictionRetryInterval = dur
+				} else {
+					xlog.Warn("invalid LRU eviction retry interval in runtime_settings.json", "error", err, "interval", *settings.LRUEvictionRetryInterval)
+				}
 			}
 			if settings.Threads != nil && !envThreads {
 				appConfig.Threads = *settings.Threads

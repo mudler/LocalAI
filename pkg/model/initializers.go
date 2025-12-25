@@ -9,8 +9,8 @@ import (
 	"time"
 
 	grpc "github.com/mudler/LocalAI/pkg/grpc"
-	"github.com/phayes/freeport"
 	"github.com/mudler/xlog"
+	"github.com/phayes/freeport"
 )
 
 const (
@@ -173,7 +173,7 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 
 	model, err := ml.LoadModel(o.modelID, o.model, ml.grpcModel(backend, o))
 	if err != nil {
-		if stopErr := ml.StopGRPC(only(o.modelID));stopErr != nil {
+		if stopErr := ml.StopGRPC(only(o.modelID)); stopErr != nil {
 			xlog.Error("error stopping model", "error", stopErr, "model", o.modelID)
 		}
 		xlog.Error("Failed to load model", "modelID", o.modelID, "error", err, "backend", o.backendString)
@@ -186,13 +186,47 @@ func (ml *ModelLoader) backendLoader(opts ...Option) (client grpc.Backend, err e
 // enforceLRULimit enforces the LRU limit before loading a new model.
 // This is called before loading a model to ensure we don't exceed the limit.
 // It accounts for models that are currently being loaded by other goroutines.
+// If models are busy and can't be evicted, it will wait and retry until space is available.
 func (ml *ModelLoader) enforceLRULimit() {
 	if ml.wd == nil {
 		return
 	}
+
 	// Get the count of models currently being loaded to account for concurrent requests
 	pendingLoads := ml.GetLoadingCount()
-	ml.wd.EnforceLRULimit(pendingLoads)
+
+	// Get retry settings from ModelLoader
+	ml.mu.Lock()
+	maxRetries := ml.lruEvictionMaxRetries
+	retryInterval := ml.lruEvictionRetryInterval
+	ml.mu.Unlock()
+
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		result := ml.wd.EnforceLRULimit(pendingLoads)
+
+		if !result.NeedMore {
+			// Successfully evicted enough models (or no eviction needed)
+			if result.EvictedCount > 0 {
+				xlog.Info("[ModelLoader] LRU enforcement complete", "evicted", result.EvictedCount)
+			}
+			return
+		}
+
+		// Need more evictions but models are busy - wait and retry
+		if attempt < maxRetries-1 {
+			xlog.Info("[ModelLoader] Waiting for busy models to become idle before eviction",
+				"evicted", result.EvictedCount,
+				"attempt", attempt+1,
+				"maxRetries", maxRetries,
+				"retryIn", retryInterval)
+			time.Sleep(retryInterval)
+		} else {
+			// Last attempt - log warning but proceed (might fail to load, but at least we tried)
+			xlog.Warn("[ModelLoader] LRU enforcement incomplete after max retries",
+				"evicted", result.EvictedCount,
+				"reason", "models are still busy with active API calls")
+		}
+	}
 }
 
 // updateModelLastUsed updates the last used time for a model (for LRU tracking)

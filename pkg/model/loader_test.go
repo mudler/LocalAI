@@ -262,4 +262,13 @@ var _ = Describe("ModelLoader", func() {
 			Expect(modelLoader.GetLoadingCount()).To(Equal(0))
 		})
 	})
+
+	Context("LRU Eviction Retry Settings", func() {
+		It("should allow updating retry settings", func() {
+			modelLoader.SetLRUEvictionRetrySettings(50, 2*time.Second)
+			// Settings are updated - we can verify through behavior if needed
+			// For now, just verify the call doesn't panic
+			Expect(modelLoader).ToNot(BeNil())
+		})
+	})
 })

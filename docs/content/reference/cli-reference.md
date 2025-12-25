@@ -46,6 +46,9 @@ Complete reference for all LocalAI command-line interface (CLI) parameters and e
 | `--watchdog-idle-timeout` | `15m` | Threshold beyond which an idle backend should be stopped | `$LOCALAI_WATCHDOG_IDLE_TIMEOUT`, `$WATCHDOG_IDLE_TIMEOUT` |
 | `--enable-watchdog-busy` | `false` | Enable watchdog for stopping backends that are busy longer than the watchdog-busy-timeout | `$LOCALAI_WATCHDOG_BUSY`, `$WATCHDOG_BUSY` |
 | `--watchdog-busy-timeout` | `5m` | Threshold beyond which a busy backend should be stopped | `$LOCALAI_WATCHDOG_BUSY_TIMEOUT`, `$WATCHDOG_BUSY_TIMEOUT` |
+| `--force-eviction-when-busy` | `false` | Force eviction even when models have active API calls (default: false for safety). **Warning:** Enabling this can interrupt active requests | `$LOCALAI_FORCE_EVICTION_WHEN_BUSY`, `$FORCE_EVICTION_WHEN_BUSY` |
+| `--lru-eviction-max-retries` | `30` | Maximum number of retries when waiting for busy models to become idle before eviction | `$LOCALAI_LRU_EVICTION_MAX_RETRIES`, `$LRU_EVICTION_MAX_RETRIES` |
+| `--lru-eviction-retry-interval` | `1s` | Interval between retries when waiting for busy models to become idle (e.g., `1s`, `2s`) | `$LOCALAI_LRU_EVICTION_RETRY_INTERVAL`, `$LRU_EVICTION_RETRY_INTERVAL` |
 
 For more information on VRAM management, see [VRAM and Memory Management]({{%relref "advanced/vram-management" %}}).
 
