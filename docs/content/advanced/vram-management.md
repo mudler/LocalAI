@@ -52,6 +52,49 @@ Setting the limit to `1` is equivalent to single active backend mode (see below)
 3. The LRU model(s) are automatically unloaded to make room for the new model
 4. Concurrent requests for loading different models are handled safely - the system accounts for models currently being loaded when calculating evictions
 
+### Eviction Behavior with Active Requests
+
+By default, LocalAI will **skip evicting models that have active API calls** to prevent interrupting ongoing requests. This means:
+
+- If all models are busy (have active requests), eviction will be skipped and the system will wait for models to become idle
+- The loading request will retry eviction with configurable retry settings
+- This ensures data integrity and prevents request failures
+
+You can configure this behavior via WebUI or using the following settings:
+
+#### Force Eviction When Busy
+
+To allow evicting models even when they have active API calls (not recommended for production):
+
+```bash
+# Via CLI
+./local-ai --force-eviction-when-busy
+
+# Via environment variable
+LOCALAI_FORCE_EVICTION_WHEN_BUSY=true ./local-ai
+```
+
+> **Warning:** Enabling force eviction can interrupt active requests and cause errors. Only use this if you understand the implications.
+
+#### LRU Eviction Retry Settings
+
+When models are busy and cannot be evicted, LocalAI will retry eviction with configurable settings:
+
+```bash
+# Configure maximum retries (default: 30)
+./local-ai --lru-eviction-max-retries=50
+
+# Configure retry interval (default: 1s)
+./local-ai --lru-eviction-retry-interval=2s
+
+# Using environment variables
+LOCALAI_LRU_EVICTION_MAX_RETRIES=50 \
+LOCALAI_LRU_EVICTION_RETRY_INTERVAL=2s \
+./local-ai
+```
+
+These settings control how long the system will wait for busy models to become idle before giving up. The retry mechanism allows busy models to complete their requests before being evicted, preventing request failures.
+
 ### Example
 
 ```bash
@@ -206,6 +249,33 @@ This configuration:
 - Ensures no more than 3 models are loaded at once (LRU eviction kicks in when exceeded)
 - Automatically unloads any model that hasn't been used for 15 minutes
 - Provides both hard limits and time-based cleanup
+
+### Example with Retry Settings
+
+You can also configure retry behavior when models are busy:
+
+```bash
+# Allow up to 2 active backends with custom retry settings
+LOCALAI_MAX_ACTIVE_BACKENDS=2 \
+LOCALAI_LRU_EVICTION_MAX_RETRIES=50 \
+LOCALAI_LRU_EVICTION_RETRY_INTERVAL=2s \
+./local-ai
+```
+
+Or using command line flags:
+
+```bash
+./local-ai \
+  --max-active-backends=2 \
+  --lru-eviction-max-retries=50 \
+  --lru-eviction-retry-interval=2s
+```
+
+This configuration:
+- Limits to 2 active backends
+- Will retry eviction up to 50 times if models are busy
+- Waits 2 seconds between retry attempts
+- Ensures busy models have time to complete their requests before eviction
 
 ## Limitations and Considerations
 

@@ -29,8 +29,22 @@ Changes to watchdog settings are applied immediately by restarting the watchdog 
 
 - **Max Active Backends**: Maximum number of active backends (loaded models). When exceeded, the least recently used model is automatically evicted. Set to `0` for unlimited, `1` for single-backend mode
 - **Parallel Backend Requests**: Enable backends to handle multiple requests in parallel if supported
+- **Force Eviction When Busy**: Allow evicting models even when they have active API calls (default: disabled for safety). **Warning:** Enabling this can interrupt active requests
+- **LRU Eviction Max Retries**: Maximum number of retries when waiting for busy models to become idle before eviction (default: 30)
+- **LRU Eviction Retry Interval**: Interval between retries when waiting for busy models (default: `1s`)
 
 > **Note:** The "Single Backend" setting is deprecated. Use "Max Active Backends" set to `1` for single-backend behavior.
+
+#### LRU Eviction Behavior
+
+By default, LocalAI will skip evicting models that have active API calls to prevent interrupting ongoing requests. When all models are busy and eviction is needed:
+
+1. The system will wait for models to become idle
+2. It will retry eviction up to the configured maximum number of retries
+3. The retry interval determines how long to wait between attempts
+4. If all retries are exhausted, the system will proceed (which may cause out-of-memory errors if resources are truly exhausted)
+
+You can configure these settings via the web UI or through environment variables. See [VRAM Management]({{%relref "advanced/vram-management" %}}) for more details.
 
 ### Performance Settings
 
@@ -94,6 +108,9 @@ The `runtime_settings.json` file follows this structure:
   "watchdog_busy_timeout": "5m",
   "max_active_backends": 0,
   "parallel_backend_requests": true,
+  "force_eviction_when_busy": false,
+  "lru_eviction_max_retries": 30,
+  "lru_eviction_retry_interval": "1s",
   "threads": 8,
   "context_size": 2048,
   "f16": false,
