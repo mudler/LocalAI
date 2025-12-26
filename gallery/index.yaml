@@ -1,4 +1,39 @@
 ---
+- name: "soulbound-8b-v1.2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Akashiurahara/Soulbound-8B-v1.2-GGUF
+  description: |
+    **Soulbound-8B v1.2**
+    A large language model fine-tuned for immersive roleplay, storytelling, and creative fiction. Based on Llama3.1, it excels in dynamic conversations, character-driven narratives, and interactive scenarios. Optimized for NSFW content via Sillytavern settings, this model balances versatility with a focus on engaging, surreal, and imaginative interactions. Perfect for experimental AI-driven creativity.
+  tags:
+    - llm
+    - gguf
+    - llama
+    - chat
+    - storytelling
+    - creative
+    - immersive
+    - nsfw
+  overrides:
+    parameters:
+      model: llama-cpp/models/model_Q8_0.gguf
+    name: Soulbound-8B-v1.2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Akashiurahara/Soulbound-8B-v1.2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/model_Q8_0.gguf
+      sha256: cfa29806973a54183d4ff11f3d1dd02f662e6b3bbece691ad6fb5c777934ac3d
+      uri: https://huggingface.co/Akashiurahara/Soulbound-8B-v1.2-GGUF/resolve/main/model_Q8_0.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
