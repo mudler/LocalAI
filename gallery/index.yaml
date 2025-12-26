@@ -1,4 +1,55 @@
 ---
+- name: "glm-4.5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-4.5-GGUF
+  description: |
+    The **GLM-4.5** series is a family of large language models designed for intelligent agents, offering exceptional reasoning, coding, and task-solving capabilities. The base model, **GLM-4.5**, features **355 billion total parameters** with **32 billion active parameters**, while its compact variant, **GLM-4.5-Air**, has **106 billion total parameters** and **12 billion active parameters**, balancing efficiency with performance. Both models support hybrid reasoning modes: a **thinking mode** for complex tasks and **non-thinking mode** for rapid responses.
+
+    GLM-4.5 achieves a benchmark score of **63.2** across 12 industry-standard tests, ranking in the top 3 among all proprietary and open-source models. The FP8 version further optimizes efficiency. Open-sourced under the MIT license, it is available for commercial use and secondary development, with implementations in frameworks like Hugging Face Transformers, vLLM, and SGLang.
+
+    The model is deployed via Z.ai’s global API platform and Zhipu AI’s mainland China platform, with a dedicated [technical blog](https://z.ai/blog/glm-4.5) for deeper insights. Ideal for applications requiring advanced reasoning, code generation, and multi-modal tasks.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - multimodal
+    - code
+    - reasoning
+    - thinking
+    - instruction-tuned
+    - glm
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.5-Q4_K_M-00001-of-00005.gguf
+    name: GLM-4.5-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/unsloth/GLM-4.5-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.5-Q4_K_M-00001-of-00005.gguf
+      sha256: af56d111e3e639af15e1e0740f994cf1179c8836d5b840da8d935206cfa33b1f
+      uri: https://huggingface.co/unsloth/GLM-4.5-GGUF/resolve/main/Q4_K_M/GLM-4.5-Q4_K_M-00001-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.5-Q4_K_M-00002-of-00005.gguf
+      sha256: 5a9ad08799ef59ef1e3e32857299f39f22b90c56c489462353e842915c872146
+      uri: https://huggingface.co/unsloth/GLM-4.5-GGUF/resolve/main/Q4_K_M/GLM-4.5-Q4_K_M-00002-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.5-Q4_K_M-00003-of-00005.gguf
+      sha256: 8892999a5fd118084e5353ea9889506c4f5da35ee05524d8dd576957726d9272
+      uri: https://huggingface.co/unsloth/GLM-4.5-GGUF/resolve/main/Q4_K_M/GLM-4.5-Q4_K_M-00003-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.5-Q4_K_M-00004-of-00005.gguf
+      sha256: aee51d4a55f8edfb4bfe0b8316500b92c49a4c2d678930fa4ee70b98ac3b9aaa
+      uri: https://huggingface.co/unsloth/GLM-4.5-GGUF/resolve/main/Q4_K_M/GLM-4.5-Q4_K_M-00004-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.5-Q4_K_M-00005-of-00005.gguf
+      sha256: 94bc61f761c84e681acf11c431abd0cf09fa43bc86ffb8a0fa063d8630b4815a
+      uri: https://huggingface.co/unsloth/GLM-4.5-GGUF/resolve/main/Q4_K_M/GLM-4.5-Q4_K_M-00005-of-00005.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
