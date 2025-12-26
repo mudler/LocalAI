@@ -1,4 +1,45 @@
 ---
+- name: "hermes-a1-20b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Hermes-A1-20B-GGUF
+  description: |
+    **Hermes-A1-20B** is a **20-billion-parameter multilingual large language model** built on the GPT-OSS-20B foundation, optimized for diverse language tasks. It supports **English, Spanish, French, German, Portuguese, Chinese, Japanese, Korean, Hindi, Arabic, Russian, and Turkish**, among others, with enhanced embeddings for high- and low-resource languages.
+
+    Key features:
+      - **Transformer-based architecture** with 64 attention layers (configurable).
+      - **Quantized variants** (Q3_K_S, Q4_K_S, Q6_K, etc.) for efficient inference, ranging from 12.2GB to 22.4GB.
+      - **Multilingual generation, translation, code completion, and reasoning**.
+      - Compatible with Hugging Face pipelines for easy integration.
+
+    Ideal for chatbots, text completion, cross-lingual tasks, and research. Available on [Hugging Face](https://huggingface.co/Spestly/Hermes-A1-20B).
+  tags:
+    - llm
+    - gguf
+    - multilingual
+    - code
+    - reasoning
+    - chat
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Hermes-A1-20B.Q4_K_M.gguf
+    name: Hermes-A1-20B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Hermes-A1-20B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Hermes-A1-20B.Q4_K_M.gguf
+      sha256: 668183448f682baff0615d3cff50d56356bf577fd02a602af445d337d31c1a29
+      uri: https://huggingface.co/mradermacher/Hermes-A1-20B-GGUF/resolve/main/Hermes-A1-20B.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
