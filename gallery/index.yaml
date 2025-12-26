@@ -1,4 +1,43 @@
 ---
+- name: "planoo-zirelum"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/PlanoO-Zirelum-GGUF
+  description: |
+    **PlanoO-Zirelum** is a large language model optimized for chat applications, derived from the **katanemo/Plano-Orchestrator-30B-A3B** base model. It features a **30B-parameter foundation**, fine-tuned with a custom dataset for conversational tasks, enabling strong reasoning, planning, and orchestration capabilities.
+
+    Available in multiple quantized formats (Q2_K to Q6_K), the model offers tradeoffs between speed, memory efficiency, and quality, with **Q4_K_S** and **Q4_K_M** recommended for balanced performance. It supports inference via **Transformers**, **vLLM**, **TensorRT-LLM**, and **MAX** frameworks, making it versatile for deployment across hardware.
+
+    Ideal for chatbots and interactive AI systems, this model prioritizes responsiveness and scalability while maintaining high-quality text generation. Licensed under **katanemo-research**, it’s a reliable choice for applications requiring robust conversational AI.
+  license: "katanemo-research"
+  tags:
+    - llm
+    - gguf
+    - chat
+    - instruction-tuned
+    - reasoning
+    - planning
+    - orchestration
+    - large
+  overrides:
+    parameters:
+      model: llama-cpp/models/PlanoO-Zirelum.Q4_K_M.gguf
+    name: PlanoO-Zirelum-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/PlanoO-Zirelum-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/PlanoO-Zirelum.Q4_K_M.gguf
+      sha256: 43ebaf408f1e655dbd4acc6b4a25a18c6b1cddf96912504b00b6a9126c37dc3e
+      uri: https://huggingface.co/mradermacher/PlanoO-Zirelum-GGUF/resolve/main/PlanoO-Zirelum.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
