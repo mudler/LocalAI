@@ -1,4 +1,38 @@
 ---
+- name: "agthinker-32b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/AgThinker-32B-i1-GGUF
+  description: |
+    The **AgThinker-32B** model is a large-scale language model based on the LLaMA architecture, featuring **32 billion parameters**. It is designed for high-performance tasks like text generation, reasoning, and code understanding. The model is originally hosted on Hugging Face as a base version (chegde/AgThinker-32B) and is available in multiple quantized formats (e.g., IQ1, IQ2, IQ3, Q4, etc.) for efficient deployment on diverse hardware. The quantized versions (e.g., i1-Q4_K_M) offer a balance of speed and quality, making it suitable for both research and practical applications. This model is part of the broader LLaMA family, known for its versatility and optimization across different computational resources.
+  tags:
+    - llm
+    - llama
+    - gguf
+    - text-to-text
+    - reasoning
+    - code
+    - gpu
+    - cpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/AgThinker-32B.i1-Q4_K_M.gguf
+    name: AgThinker-32B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/AgThinker-32B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/AgThinker-32B.i1-Q4_K_M.gguf
+      sha256: e4ff66f07a55f258eca6feacbd94aae174cf3bd7cb54288510cb44afdeeaf436
+      uri: https://huggingface.co/mradermacher/AgThinker-32B-i1-GGUF/resolve/main/AgThinker-32B.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
