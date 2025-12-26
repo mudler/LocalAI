@@ -1,4 +1,43 @@
 ---
+- name: "g3-heresy-mpoa-g-w99-d0.0199-r08-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/spikymoth/G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-GGUF
+  description: |
+    This model is an experimental variant of the Gemma-3-27B-it series, created through a specialized ablation process using the Heretic tool. It incorporates **Magnitude-Preserving Orthogonal Ablation (MPOA)** to refine the model's behavior, with key features including:
+
+      - **Global direction scope** for targeted parameter adjustments
+      - **99% winsorization** of residuals to stabilize training
+      - Enhanced refusal detection to avoid harmful outputs
+      - Iteratively optimized parameters for low-refusal performance
+
+    The model is designed for text generation with a focus on safety and alignment, and its name reflects its configuration (e.g., `MPOA` for the technique, `W` for winsorization, `R` for refusal handling). It is a base model (not quantized) and compatible with GGUF format. For comparison, the original Gemma-3-27B-it is available at [this link](https://huggingface.co/spikymoth/G3-Heresy-MPOA-G-W99-D0.0199-R08).
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - Gemma
+    - safety
+    - alignment
+  overrides:
+    parameters:
+      model: llama-cpp/models/G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-Q4_K_M.gguf
+    name: G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/spikymoth/G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-Q4_K_M.gguf
+      sha256: eb377128ac1e8e4b3e5e13e6d7370ab93d74921cde3335f737e6df3fa02fdb09
+      uri: https://huggingface.co/spikymoth/G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-GGUF/resolve/main/G3-Heresy-MPOA-G-W99-D0.0199-R08-i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
