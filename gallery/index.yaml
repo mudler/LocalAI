@@ -1,4 +1,41 @@
 ---
+- name: "doge-3b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/DoGe-3B-GGUF
+  description: |
+    The model in question is **DoGe-3B**, a large language model developed by the original author **odl-raiser**. It is a 3 billion parameter model, likely designed for general-purpose language understanding and generation. The model is released under the **Apache-2.0** license and supports the **English** language. While the repository provided (mradermacher/DoGe-3B-GGUF) contains quantized versions of the model for efficiency, the base model itself is the original 3B parameter version, offering higher fidelity and performance. It is optimized for tasks requiring robust language comprehension and is compatible with frameworks like Hugging Face's `transformers` library. For use cases prioritizing accuracy, the base model is recommended over its quantized variants.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - instruction-tuned
+    - text-to-text
+    - reasoning
+    - chat
+  overrides:
+    parameters:
+      model: llama-cpp/models/DoGe-3B.Q4_K_M.gguf
+    name: DoGe-3B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/DoGe-3B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/DoGe-3B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DoGe-3B.Q4_K_M.gguf
+      sha256: 55aa5f88b75ab460d5d3dd0188f7673bbea7ad0bcfa9b46ba2d5f9bc8e4c9024
+      uri: https://huggingface.co/mradermacher/DoGe-3B-GGUF/resolve/main/DoGe-3B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/DoGe-3B.mmproj-f16.gguf
+      sha256: 7fd537d713a75d3e357bacec08305fae53e2779f04be16b3c08bfff7ca889c5c
+      uri: https://huggingface.co/mradermacher/DoGe-3B-GGUF/resolve/main/DoGe-3B.mmproj-f16.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
