@@ -1,4 +1,38 @@
 ---
+- name: "planoo-zirelum-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/PlanoO-Zirelum-i1-GGUF
+  description: |
+    The model **PlanoO-Zirelum-i1-GGUF** is a quantized version of the base model **Daemontatox/PlanoO-Zirelum**, a large language model optimized for text generation, reasoning, and planning. It is based on the **Qwen3-MoE** architecture and is designed for efficient inference with multiple quantization options (e.g., IQ4_K_M, Q4_K_M, etc.), offering a balance of speed and quality. The base model is licensed under the **katanemo-research** license, and this quantized version provides access to a range of GGUF files tailored for different performance needs. It is suitable for applications requiring large-scale language understanding and task-specific reasoning.
+  license: "katanemo-research"
+  tags:
+    - llm
+    - gguf
+    - qwen3-moe
+    - reasoning
+    - planning
+    - text-generation
+    - efficient-inference
+  overrides:
+    parameters:
+      model: llama-cpp/models/PlanoO-Zirelum.i1-Q4_K_M.gguf
+    name: PlanoO-Zirelum-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/PlanoO-Zirelum-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/PlanoO-Zirelum.i1-Q4_K_M.gguf
+      sha256: 288d3348f0f470592f88dc56bccaeceffc63df8cd1708364434317ecd6fce769
+      uri: https://huggingface.co/mradermacher/PlanoO-Zirelum-i1-GGUF/resolve/main/PlanoO-Zirelum.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
