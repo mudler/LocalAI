@@ -1,4 +1,37 @@
 ---
+- name: "qwen2.5-3b-deconstruct-v2.4-merged-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2-GGUF
+  description: |
+    The **Qwen2.5-3B** model is a quantized version of the base model **RinKana/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2**, optimized for efficient inference. It offers multiple quantization options (e.g., Q2_K, Q3_K_S, Q4_K_S, Q8_0, and f16) with sizes ranging from 1.4GB to 6.3GB, balancing speed and quality. The model is designed for text generation and supports various use cases, with IQ4_XS and Q8_0 providing high-quality performance, while lower-quantization types prioritize faster inference. Licensed under Apache 2.0, it is ideal for researchers and developers seeking efficient, scalable language models. For detailed usage and quantization insights, refer to the [model page](https://hf.tst.eu/model#Qwen2.5-3B-Deconstruct-V2.4-Merged-v2-GGUF) or the [FAQ](https://huggingface.co/mradermacher/model_requests).
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - qwen
+    - cpu
+    - gpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2.Q4_K_M.gguf
+    name: Qwen2.5-3B-Deconstruct-V2.4-Merged-v2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2.Q4_K_M.gguf
+      sha256: 0d3252f7aa87ef292b799e3ccb089804891e0f3ce69563d3e5c8b9a95e4d1130
+      uri: https://huggingface.co/mradermacher/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2-GGUF/resolve/main/Qwen2.5-3B-Deconstruct-V2.4-Merged-v2.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
