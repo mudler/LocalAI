@@ -1,4 +1,50 @@
 ---
+- name: "llama-3.3-70b-joyous-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-70B-Joyous-i1-GGUF
+  description: |
+    **Joyous 70B** is a fine-tuned version of the Llama 3.3 70B base model, optimized for roleplay scenarios. While designed for conversational tasks, it unexpectedly excels at assistant-like functions, performing strongly in subjective evaluations beyond its base model.
+
+    **Key Features:**
+      - **Roleplay Focus:** Built for interactive, character-driven dialogue.
+      - **Unexpected Assistant Capabilities:** Outperforms the base model in assistant tasks.
+      - **System Prompt Recommendation:**
+      ```
+      You are Luna, a helpful and harmless language model by Allura.
+      ```
+      - **License:** Llama 3.3 (open-source).
+      - **Quantized Variants:** Available in multiple GGUF formats (e.g., Q4_K_M, IQ4_XS) for flexibility.
+
+    Ideal for users seeking a versatile model for both roleplay and general assistant tasks.
+  license: "llama3"
+  tags:
+    - llama
+    - gguf
+    - roleplay
+    - chat
+    - instruction-tuned
+    - assistant
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.3-70B-Joyous.i1-Q4_K_M.gguf
+    name: Llama-3.3-70B-Joyous-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.3-70B-Joyous-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.3-70B-Joyous.i1-Q4_K_M.gguf
+      sha256: be9f3a2d133a9204b536b1e6091042cc0ce05f6fd429dba8614e7ebb07bb0b81
+      uri: https://huggingface.co/mradermacher/Llama-3.3-70B-Joyous-i1-GGUF/resolve/main/Llama-3.3-70B-Joyous.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
