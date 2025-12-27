@@ -80,7 +80,9 @@ func (mi *ModelsInstall) Run(ctx *cliContext.Context) error {
 		return err
 	}
 
-	galleryService := services.NewGalleryService(&config.ApplicationConfig{}, model.NewModelLoader(systemState))
+	galleryService := services.NewGalleryService(&config.ApplicationConfig{
+		SystemState: systemState,
+	}, model.NewModelLoader(systemState))
 	err = galleryService.Start(context.Background(), config.NewModelConfigLoader(mi.ModelsPath), systemState)
 	if err != nil {
 		return err
