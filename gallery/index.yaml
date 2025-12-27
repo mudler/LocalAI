@@ -1,4 +1,37 @@
 ---
+- name: "smartsnap-llama3.1-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SmartSnap-LLaMA3.1-8B-i1-GGUF
+  description: |
+    The **SmartSnap-LLaMA3.1-8B** model is a quantized version of the original **yolay/SmartSnap-LLaMA3.1-8B** base model, optimized for efficiency and mobile/GUI applications. It uses the **GGUF** format, offering multiple quantization options (e.g., IQ4_K_M, Q4_K_M) to balance performance and memory usage. The model is designed for lightweight deployment, with a focus on low-latency inference and compatibility with tools like TheBloke's GGUF utilities. This variant provides high-quality, size-optimized versions for tasks requiring portability.
+  tags:
+    - llm
+    - gguf
+    - llama3.1
+    - quantized
+    - mobile
+    - gpu
+    - cpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/SmartSnap-LLaMA3.1-8B.i1-Q4_K_M.gguf
+    name: SmartSnap-LLaMA3.1-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SmartSnap-LLaMA3.1-8B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SmartSnap-LLaMA3.1-8B.i1-Q4_K_M.gguf
+      sha256: 6b11bb7c084b3eef7a9646928a2ceeb3a5c94f60969b2a31c242eed6cbe71aef
+      uri: https://huggingface.co/mradermacher/SmartSnap-LLaMA3.1-8B-i1-GGUF/resolve/main/SmartSnap-LLaMA3.1-8B.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
