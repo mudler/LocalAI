@@ -16,6 +16,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/services"
 	"github.com/mudler/LocalAI/pkg/model"
@@ -947,4 +948,24 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		app.GET("/api/settings", localai.GetSettingsEndpoint(applicationInstance))
 		app.POST("/api/settings", localai.UpdateSettingsEndpoint(applicationInstance))
 	}
+
+	// Logs API
+	app.GET("/api/traces", func(c echo.Context) error {
+		if !appConfig.EnableTracing {
+			return c.JSON(503, map[string]any{
+				"error": "Tracing disabled",
+				})
+		}
+		traces := middleware.GetTraces()
+		return c.JSON(200, map[string]interface{}{
+			"traces": traces,
+		})
+	})
+
+	app.POST("/api/traces/clear", func(c echo.Context) error {
+		middleware.ClearTraces()
+		return c.JSON(200, map[string]interface{}{
+			"message": "Traces cleared",
+		})
+	})
 }

@@ -317,4 +317,24 @@ func RegisterUIRoutes(app *echo.Echo,
 		// Render index
 		return c.Render(200, "views/tts", summary)
 	})
+
+	// Traces UI
+	app.GET("/traces", func(c echo.Context) error {
+		summary := map[string]interface{}{
+			"Title":   "LocalAI - Traces",
+			"BaseURL": middleware.BaseURL(c),
+			"Version": internal.PrintableVersion(),
+		}
+		return c.Render(200, "views/traces", summary)
+	})
+
+	app.GET("/api/traces", func(c echo.Context) error {
+		return c.JSON(200, middleware.GetTraces())
+	})
+
+	app.POST("/api/traces/clear", func(c echo.Context) error {
+		middleware.ClearTraces()
+		return c.NoContent(204)
+	})
+
 }

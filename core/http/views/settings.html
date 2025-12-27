@@ -10,7 +10,7 @@
     <!-- Notifications -->
     <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
         <template x-for="notification in notifications" :key="notification.id">
-            <div x-show="true" 
+            <div x-show="true"
                  x-transition:enter="transition ease-out duration-200"
                  x-transition:enter-start="opacity-0"
                  x-transition:enter-end="opacity-100"
@@ -39,7 +39,7 @@
                 <h1 class="h2">
                     Application Settings
                 </h1>
-                <a href="/manage" 
+                <a href="/manage"
                    class="inline-flex items-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
                     <i class="fas fa-arrow-left mr-2 text-sm"></i>
                     <span class="text-sm">Back to Manage</span>
@@ -68,7 +68,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable automatic monitoring of backend processes</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.watchdog_enabled" 
+                            <input type="checkbox" x-model="settings.watchdog_enabled"
                                    @change="updateWatchdogEnabled()"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
@@ -82,7 +82,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are idle for too long</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.watchdog_idle_enabled" 
+                            <input type="checkbox" x-model="settings.watchdog_idle_enabled"
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
@@ -93,7 +93,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Idle Timeout</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time before an idle backend is stopped (e.g., 15m, 1h)</p>
-                        <input type="text" x-model="settings.watchdog_idle_timeout" 
+                        <input type="text" x-model="settings.watchdog_idle_timeout"
                                :disabled="!settings.watchdog_idle_enabled"
                                placeholder="15m"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
@@ -107,7 +107,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are busy for too long (stuck processes)</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.watchdog_busy_enabled" 
+                            <input type="checkbox" x-model="settings.watchdog_busy_enabled"
                                    :disabled="!settings.watchdog_enabled"
                                    class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
@@ -118,7 +118,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Busy Timeout</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time before a busy backend is stopped (e.g., 5m, 30m)</p>
-                        <input type="text" x-model="settings.watchdog_busy_timeout" 
+                        <input type="text" x-model="settings.watchdog_busy_timeout"
                                :disabled="!settings.watchdog_busy_enabled"
                                placeholder="5m"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
@@ -129,7 +129,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Check Interval</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">How often the watchdog checks backends and memory usage (e.g., 2s, 30s)</p>
-                        <input type="text" x-model="settings.watchdog_interval" 
+                        <input type="text" x-model="settings.watchdog_interval"
                                :disabled="!settings.watchdog_enabled"
                                placeholder="2s"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
@@ -196,7 +196,7 @@
                                     <template x-for="gpu in resourceData.gpus" :key="gpu.index">
                                         <div class="flex items-center justify-between text-xs">
                                             <span class="text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
-                                            <span class="font-mono" 
+                                            <span class="font-mono"
                                                   :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
                                                   x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
                                         </div>
@@ -206,7 +206,7 @@
                             <template x-if="resourceData && resourceData.available && resourceData.type === 'ram'">
                                 <div class="flex items-center justify-between text-xs">
                                     <span class="text-[var(--color-text-primary)]">System RAM</span>
-                                    <span class="font-mono" 
+                                    <span class="font-mono"
                                           :class="resourceData.ram.usage_percent > 90 ? 'text-red-400' : resourceData.ram.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
                                           x-text="`${resourceData.ram.usage_percent.toFixed(1)}%`"></span>
                                 </div>
@@ -223,7 +223,7 @@
                                 <p class="text-xs text-[var(--color-text-secondary)] mt-1">Evict backends when memory usage exceeds threshold</p>
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" x-model="settings.memory_reclaimer_enabled" 
+                                <input type="checkbox" x-model="settings.memory_reclaimer_enabled"
                                        :disabled="!settings.watchdog_enabled"
                                        class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
                                 <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
@@ -235,12 +235,12 @@
                             <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Memory Threshold (%)</label>
                             <p class="text-xs text-[var(--color-text-secondary)] mb-2">When memory usage exceeds this, backends will be evicted (50-100%)</p>
                             <div class="flex items-center gap-3">
-                                <input type="range" x-model="settings.memory_reclaimer_threshold_percent" 
+                                <input type="range" x-model="settings.memory_reclaimer_threshold_percent"
                                        min="50" max="100" step="1"
                                        :disabled="!settings.memory_reclaimer_enabled || !settings.watchdog_enabled"
                                        class="flex-1 h-2 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer"
                                        :class="(!settings.memory_reclaimer_enabled || !settings.watchdog_enabled) ? 'opacity-50' : ''">
-                                <span class="text-sm font-mono text-[var(--color-text-primary)] w-12 text-right" 
+                                <span class="text-sm font-mono text-[var(--color-text-primary)] w-12 text-right"
                                       x-text="`${settings.memory_reclaimer_threshold_percent}%`"></span>
                             </div>
                         </div>
@@ -263,7 +263,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Max Active Backends</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of models to keep loaded at once (0 = unlimited, 1 = single backend mode). Least recently used models are evicted when limit is reached.</p>
-                        <input type="number" x-model="settings.max_active_backends" 
+                        <input type="number" x-model="settings.max_active_backends"
                                min="0"
                                placeholder="0"
                                @change="updateMaxActiveBackends()"
@@ -277,7 +277,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable backends to handle multiple requests in parallel (if supported)</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.parallel_backend_requests" 
+                            <input type="checkbox" x-model="settings.parallel_backend_requests"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
@@ -300,7 +300,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Default Threads</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Number of threads to use for model inference (0 = auto)</p>
-                        <input type="number" x-model="settings.threads" 
+                        <input type="number" x-model="settings.threads"
                                min="0"
                                placeholder="0"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
@@ -310,7 +310,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Default Context Size</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Default context window size for models</p>
-                        <input type="number" x-model="settings.context_size" 
+                        <input type="number" x-model="settings.context_size"
                                min="0"
                                placeholder="512"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
@@ -323,7 +323,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Use 16-bit floating point precision</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.f16" 
+                            <input type="checkbox" x-model="settings.f16"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
@@ -336,11 +336,37 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable debug logging</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.debug" 
+                            <input type="checkbox" x-model="settings.debug"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
                         </label>
                     </div>
+
+                    <!-- Enable Tracing -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Tracing</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable tracing of requests and responses</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.enable_tracing"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Tracing Max Items -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Tracing Max Items</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of tracing items to keep</p>
+                        <input type="number" x-model="settings.tracing_max_items"
+                               min="0"
+                               placeholder="0"
+                               :disabled="!settings.enable_tracing"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]"
+                               :class="!settings.enable_tracing ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
                 </div>
             </div>
 
@@ -362,7 +388,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Origin Resource Sharing</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.cors" 
+                            <input type="checkbox" x-model="settings.cors"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
                         </label>
@@ -372,7 +398,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">CORS Allow Origins</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Comma-separated list of allowed origins</p>
-                        <input type="text" x-model="settings.cors_allow_origins" 
+                        <input type="text" x-model="settings.cors_allow_origins"
                                placeholder="*"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-warning-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-warning-light)]">
                     </div>
@@ -384,7 +410,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Site Request Forgery protection</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.csrf" 
+                            <input type="checkbox" x-model="settings.csrf"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
                         </label>
@@ -407,7 +433,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">P2P Token</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Authentication token for P2P network (set to 0 to generate a new token)</p>
-                        <input type="text" x-model="settings.p2p_token" 
+                        <input type="text" x-model="settings.p2p_token"
                                placeholder=""
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
@@ -416,7 +442,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">P2P Network ID</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Network identifier for P2P connections</p>
-                        <input type="text" x-model="settings.p2p_network_id" 
+                        <input type="text" x-model="settings.p2p_network_id"
                                placeholder=""
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
                     </div>
@@ -428,7 +454,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable federated instance mode</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.federated" 
+                            <input type="checkbox" x-model="settings.federated"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
@@ -451,7 +477,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Job Retention Days</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Number of days to keep job history (default: 30)</p>
-                        <input type="number" x-model="settings.agent_job_retention_days" 
+                        <input type="number" x-model="settings.agent_job_retention_days"
                                min="0"
                                placeholder="30"
                                class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50">
@@ -474,7 +500,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">API Keys</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">List of API keys (one per line or comma-separated)</p>
-                        <textarea x-model="settings.api_keys_text" 
+                        <textarea x-model="settings.api_keys_text"
                                   rows="4"
                                   placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba"
                                   class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-error-light)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-error-light)]"></textarea>
@@ -501,7 +527,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load model galleries on startup</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.autoload_galleries" 
+                            <input type="checkbox" x-model="settings.autoload_galleries"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
@@ -514,7 +540,7 @@
                             <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load backend galleries on startup</p>
                         </div>
                         <label class="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" x-model="settings.autoload_backend_galleries" 
+                            <input type="checkbox" x-model="settings.autoload_backend_galleries"
                                    class="sr-only peer">
                             <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
                         </label>
@@ -524,7 +550,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Model Galleries (JSON)</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Array of gallery objects with 'url' and 'name' fields</p>
-                        <textarea x-model="settings.galleries_json" 
+                        <textarea x-model="settings.galleries_json"
                                   rows="4"
                                   placeholder='[{"url": "https://example.com", "name": "Example Gallery"}]'
                                   class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
@@ -534,7 +560,7 @@
                     <div>
                         <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Backend Galleries (JSON)</label>
                         <p class="text-xs text-[var(--color-text-secondary)] mb-2">Array of backend gallery objects with 'url' and 'name' fields</p>
-                        <textarea x-model="settings.backend_galleries_json" 
+                        <textarea x-model="settings.backend_galleries_json"
                                   rows="4"
                                   placeholder='[{"url": "https://example.com", "name": "Example Backend Gallery"}]'
                                   class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
@@ -558,7 +584,7 @@
 
             <!-- Save Button -->
             <div class="flex justify-end">
-                <button type="submit" 
+                <button type="submit"
                         :disabled="saving"
                         class="btn-primary">
                     <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
@@ -594,6 +620,8 @@ function settingsDashboard() {
             context_size: 0,
             f16: false,
             debug: false,
+            enable_tracing: false,
+            tracing_max_items: 0,
             cors: false,
             csrf: false,
             cors_allow_origins: '',
@@ -609,16 +637,16 @@ function settingsDashboard() {
         },
         sourceInfo: '',
         saving: false,
-        
+
         init() {
             this.loadSettings();
         },
-        
+
         async loadSettings() {
             try {
                 const response = await fetch('/api/settings');
                 const data = await response.json();
-                
+
                 if (response.ok) {
                     this.settings = {
                         watchdog_enabled: data.watchdog_enabled,
@@ -639,6 +667,8 @@ function settingsDashboard() {
                         context_size: data.context_size || 0,
                         f16: data.f16 || false,
                         debug: data.debug || false,
+                        enable_tracing: data.enable_tracing || false,
+                        tracing_max_items: data.tracing_max_items || 0,
                         cors: data.cors || false,
                         csrf: data.csrf || false,
                         cors_allow_origins: data.cors_allow_origins || '',
@@ -661,7 +691,7 @@ function settingsDashboard() {
                 this.addNotification('Failed to load settings: ' + error.message, 'error');
             }
         },
-        
+
         updateWatchdogEnabled() {
             if (!this.settings.watchdog_enabled) {
                 this.settings.watchdog_idle_enabled = false;
@@ -669,21 +699,27 @@ function settingsDashboard() {
                 this.settings.memory_reclaimer_enabled = false;
             }
         },
-        
+
         updateMaxActiveBackends() {
             // Ensure max_active_backends is a non-negative integer
             const value = parseInt(this.settings.max_active_backends) || 0;
             this.settings.max_active_backends = Math.max(0, value);
         },
-        
+
+        updateTracingEnabled() {
+            if (!this.settings.enable_tracing) {
+                this.settings.tracing_max_items = 0;
+            }
+        },
+
         async saveSettings() {
             if (this.saving) return;
-            
+
             this.saving = true;
-            
+
             try {
                 const payload = {};
-                
+
                 // Only include changed values
                 if (this.settings.watchdog_enabled !== undefined) {
                     payload.watchdog_enabled = this.settings.watchdog_enabled;
@@ -736,6 +772,12 @@ function settingsDashboard() {
                 }
                 if (this.settings.debug !== undefined) {
                     payload.debug = this.settings.debug;
+                }
+                if (this.settings.enable_tracing !== undefined) {
+                    payload.enable_tracing = this.settings.enable_tracing;
+                }
+                if (this.settings.tracing_max_items !== undefined) {
+                    payload.tracing_max_items = parseInt(this.settings.tracing_max_items) || 0;
                 }
                 if (this.settings.cors !== undefined) {
                     payload.cors = this.settings.cors;
@@ -796,7 +838,7 @@ function settingsDashboard() {
                 if (this.settings.agent_job_retention_days !== undefined) {
                     payload.agent_job_retention_days = parseInt(this.settings.agent_job_retention_days) || 30;
                 }
-                
+
                 const response = await fetch('/api/settings', {
                     method: 'POST',
                     headers: {
@@ -804,9 +846,9 @@ function settingsDashboard() {
                     },
                     body: JSON.stringify(payload)
                 });
-                
+
                 const data = await response.json();
-                
+
                 if (response.ok && data.success) {
                     this.addNotification('Settings saved successfully!', 'success');
                     // Reload settings to get updated source info
@@ -821,13 +863,13 @@ function settingsDashboard() {
                 this.saving = false;
             }
         },
-        
+
         addNotification(message, type = 'success') {
             const id = Date.now();
             this.notifications.push({ id, message, type });
             setTimeout(() => this.dismissNotification(id), 5000);
         },
-        
+
         dismissNotification(id) {
             this.notifications = this.notifications.filter(n => n.id !== id);
         }
@@ -838,7 +880,7 @@ function settingsDashboard() {
 function resourceStatus() {
     return {
         resourceData: null,
-        
+
         async fetchResource() {
             try {
                 const response = await fetch('/api/resources');
