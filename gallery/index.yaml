@@ -1,4 +1,29 @@
 ---
+- name: "qwen-coder-14b-vulrepair"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/XythicK/qwen-coder-14b-vulrepair-GGUF
+  description: |
+    AI model: qwen-coder-14b-vulrepair
+  overrides:
+    parameters:
+      model: llama-cpp/models/qwen-coder-14b-vulrepair-q4_k_m.gguf
+    name: qwen-coder-14b-vulrepair-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/XythicK/qwen-coder-14b-vulrepair-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/qwen-coder-14b-vulrepair-q4_k_m.gguf
+      sha256: 9a2fbda6fa2fbf4de0026e418df8819ba4904007aafcb39b51d84b6010e3e47a
+      uri: https://huggingface.co/XythicK/qwen-coder-14b-vulrepair-GGUF/resolve/main/qwen-coder-14b-vulrepair-q4_k_m.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
