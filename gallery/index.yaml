@@ -1,4 +1,48 @@
 ---
+- name: "glm-4.6"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-4.6-GGUF
+  description: |
+    The **GLM-4.6** model is a next-generation large language model with key advancements over its predecessor, GLM-4.5. It features a **200K-token context window**, enabling handling of complex agentic tasks. The model excels in **coding performance**, outperforming benchmarks and real-world applications like front-end development. It also improves **reasoning capabilities** and supports **tool use during inference**, making it stronger in reasoning and agent-based tasks. With refined writing and role-play performance, GLM-4.6 aligns better with human preferences. Evaluated against models like DeepSeek-V3.1-Terminus and Claude Sonnet 4, it demonstrates competitive advantages. For inference, recommended parameters include `temperature=1.0` and `top_p=0.95` for code tasks. Explore the [GitHub](https://github.com/zai-org/GLM-4.5) for details.
+  tags:
+    - llm
+    - gguf
+    - code
+    - reasoning
+    - tool-use
+    - large-language-model
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.6-Q4_K_M-00001-of-00005.gguf
+    name: GLM-4.6-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/unsloth/GLM-4.6-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.6-Q4_K_M-00001-of-00005.gguf
+      sha256: be232f022f8b6b8735dcb6bd77254b87354f87a0601a029b365a1db051f886a8
+      uri: https://huggingface.co/unsloth/GLM-4.6-GGUF/resolve/main/Q4_K_M/GLM-4.6-Q4_K_M-00001-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.6-Q4_K_M-00002-of-00005.gguf
+      sha256: fa74ec39ef7a0b163a84bdf714675f0d930880564a9680f85d279796624d72e7
+      uri: https://huggingface.co/unsloth/GLM-4.6-GGUF/resolve/main/Q4_K_M/GLM-4.6-Q4_K_M-00002-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.6-Q4_K_M-00003-of-00005.gguf
+      sha256: a1e4a10484209d73322c0de016081741c708014e41700a3397e4d8a48044ec8b
+      uri: https://huggingface.co/unsloth/GLM-4.6-GGUF/resolve/main/Q4_K_M/GLM-4.6-Q4_K_M-00003-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.6-Q4_K_M-00004-of-00005.gguf
+      sha256: c5cb19c79c745d02fe5db22d831460548a49647d906addfa23aad6b25351507c
+      uri: https://huggingface.co/unsloth/GLM-4.6-GGUF/resolve/main/Q4_K_M/GLM-4.6-Q4_K_M-00004-of-00005.gguf
+    - filename: llama-cpp/models/GLM-4.6-Q4_K_M-00005-of-00005.gguf
+      sha256: a153145b2ab8b7a94242acbff507fe025760f565d361c52ac95667bbe5da561a
+      uri: https://huggingface.co/unsloth/GLM-4.6-GGUF/resolve/main/Q4_K_M/GLM-4.6-Q4_K_M-00005-of-00005.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
