@@ -354,8 +354,8 @@ func getAMDGPUMemory() []GPUMemoryInfo {
 		}
 
 		// Parse memory values (in bytes or MB depending on rocm-smi version)
-		usedBytes, _ := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
-		totalBytes, _ := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 64)
+		usedBytes, _ := strconv.ParseUint(strings.TrimSpace(parts[2]), 10, 64)
+		totalBytes, _ := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 64)
 
 		// If values seem like MB, convert to bytes
 		if totalBytes < 1000000 {
