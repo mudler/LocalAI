@@ -1,4 +1,35 @@
 ---
+- name: "mistral-large-3-675b-base-2512-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-Large-3-675B-Base-2512-i1-GGUF
+  description: |
+    The model described is a **large language model** based on the **Mistral-Large-3-675B-Base-2512** base version, with **675 billion parameters**. It supports multiple languages including English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic, and more. The model is quantized using the **GGUF format** with **imatrix quantization**, offering a balance between performance and efficiency. It is designed for a wide range of natural language processing tasks and is available in a quantized version for optimized deployment. The original model is hosted on Hugging Face, while this version is a quantized variant tailored for specific use cases.
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - mistral
+    - large
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-Large-3-675B-Base-2512.imatrix.gguf
+    name: Mistral-Large-3-675B-Base-2512-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-Large-3-675B-Base-2512-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mistral-Large-3-675B-Base-2512.imatrix.gguf
+      sha256: 514849a1cc0d54b7c83b17c3f9b8631df7ac2260a33c258fe620fef8d9a27e92
+      uri: https://huggingface.co/mradermacher/Mistral-Large-3-675B-Base-2512-i1-GGUF/resolve/main/Mistral-Large-3-675B-Base-2512.imatrix.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
