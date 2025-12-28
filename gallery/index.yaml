@@ -1,4 +1,35 @@
 ---
+- name: "searchagent-8b-hq"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mexicanamerican/SearchAgent-8B-hq-Q4_K_M-GGUF
+  description: |
+    The **SearchAgent-8B-hq-Q4_K_M-GGUF** model is a quantized version (Q4_K_M) of the **SearchAgent-8B-hq** base model by [@aidenjhwu](https://huggingface.co/aidenjhwu). It is optimized for faster inference using the GGUF format, designed to work seamlessly with [llama.cpp](https://github.com/ggerganov/llama.cpp). This quantized version retains the core capabilities of the original model while reducing size and memory usage, making it ideal for deployment on systems with limited resources. For detailed specifications, refer to the [original model card](https://huggingface.co/aidenjhwu/SearchAgent-8B-hq).
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - inference
+    - cpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/searchagent-8b-hq-q4_k_m.gguf
+    name: SearchAgent-8B-hq-Q4_K_M-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mexicanamerican/SearchAgent-8B-hq-Q4_K_M-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/searchagent-8b-hq-q4_k_m.gguf
+      sha256: 30613b26c26be950724642e71fcad37457fbb02d3b4857fce62c18106ec663f6
+      uri: https://huggingface.co/mexicanamerican/SearchAgent-8B-hq-Q4_K_M-GGUF/resolve/main/searchagent-8b-hq-q4_k_m.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
