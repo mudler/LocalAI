@@ -1,4 +1,53 @@
 ---
+- name: "mistral-large-3-675b-base-2512"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-Large-3-675B-Base-2512-GGUF
+  description: |
+    Here's a concise description for the model gallery:
+
+    **Model Name:** Mistral-Large-3-675B-Base-2512 (Quantized)
+    **Base Model:** [Mistral AI's Mistral-Large-3-675B-Base-2512](https://huggingface.co/mistralai/Mistral-Large-3-675B-Base-2512)
+    **Quantization:** This is a quantized version of the original model, optimized for efficiency while retaining core capabilities.
+    **Languages Supported:** English, French, Spanish, German, Italian, Portuguese, Dutch, Chinese, Japanese, Korean, Arabic.
+    **Quantization Types:**
+      - **Q4_K_S** (381.3 GB): Fast and recommended for real-time use.
+      - **Q6_K** (552.8 GB): High-quality with excellent performance.
+      - **Q8_0** (715.8 GB): Best quality, ideal for precision tasks.
+    **License:** Apache 2.0
+    **Use Case:** Designed for large-scale language tasks, including text generation, translation, and reasoning.
+    **Developer:** [mradermacher](https://huggingface.co/mradermacher)
+
+    This quantized version balances performance and resource efficiency, making it suitable for deployment in diverse applications.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - quantized
+    - text-to-text
+    - reasoning
+    - chat
+    - instruction-tuned
+    - mistral
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-Large-3-675B-Base-2512.Q4_K_S.gguf
+    name: Mistral-Large-3-675B-Base-2512-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-Large-3-675B-Base-2512-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mistral-Large-3-675B-Base-2512.Q4_K_S.gguf
+      sha256: 2035d78754082415773377bf1172aa9a5c40d868a4d5968330997f6a3b92ed47
+      uri: https://huggingface.co/mradermacher/Mistral-Large-3-675B-Base-2512-GGUF/resolve/main/Mistral-Large-3-675B-Base-2512.Q4_K_S.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
