@@ -1,4 +1,36 @@
 ---
+- name: "docreward-3b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/DocReward-3B-i1-GGUF
+  description: |
+    The **DocReward-3B** model is a 3-billion-parameter language model optimized for efficiency through quantization, available in the **GGUF** format. It is based on the original base model **jeepliu/DocReward-3B** and is designed for document-related tasks, leveraging its vision capabilities for text and image understanding. The quantized version (e.g., **i1-Q4_K_M**, 2.2 GB) balances performance and resource efficiency, making it suitable for applications like document analysis, summarization, and multimodal reasoning. The model offers multiple quantization options, with the **i1-Q4_K_M** variant recommended for its optimal speed and quality.
+  tags:
+    - llm
+    - gguf
+    - multimodal
+    - vision
+    - text-to-text
+    - document
+  overrides:
+    parameters:
+      model: llama-cpp/models/DocReward-3B.i1-Q4_K_M.gguf
+    name: DocReward-3B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/DocReward-3B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DocReward-3B.i1-Q4_K_M.gguf
+      sha256: c332156694370f0b6afafe04cd26d8a1250709be90041715a384b56d9dbff8cf
+      uri: https://huggingface.co/mradermacher/DocReward-3B-i1-GGUF/resolve/main/DocReward-3B.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
