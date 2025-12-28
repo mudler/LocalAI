@@ -1,4 +1,39 @@
 ---
+- name: "mag-mell-r1-uncensored-21b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mag-Mell-R1-Uncensored-21B-GGUF
+  description: |
+    The **Mag-Mell-R1-Uncensored-21B** is a large language model derived from a merge of two prominent 12B-base models:
+      - **inflatebot/MN-12B-Mag-Mell-R1** (original 12B)
+      - **Naphula/MN-12B-Mag-Mell-R1-Uncensored** (norm-preserving biprojected variant)
+
+    Using a **passthrough merge**, this model scales to 21B parameters, retaining the uncensored, story-focused strengths of its predecessors while improving coherence and reducing errors in narrative details. It’s optimized for high-quality text generation, with recommended settings like `temperature=1.25` and `min_p=0.2` for optimal performance. The model is quantized but built on the original 21B base, ensuring robustness and efficiency for diverse applications.
+  tags:
+    - llm
+    - gguf
+    - text-to-text
+    - chat
+    - instruction-tuned
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mag-Mell-R1-Uncensored-21B.Q4_K_M.gguf
+    name: Mag-Mell-R1-Uncensored-21B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mag-Mell-R1-Uncensored-21B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mag-Mell-R1-Uncensored-21B.Q4_K_M.gguf
+      sha256: 6953a63b3605c26de4d84f4aee65dcab85b9334f2217431b24d688e013732f4c
+      uri: https://huggingface.co/mradermacher/Mag-Mell-R1-Uncensored-21B-GGUF/resolve/main/Mag-Mell-R1-Uncensored-21B.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
