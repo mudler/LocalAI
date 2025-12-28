@@ -1,4 +1,38 @@
 ---
+- name: "nova-24b-cybersec"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/nova-24b-cybersec-GGUF
+  description: |
+    The **Nova-24B Cybersec** model is a quantized version of the base model **pki/nova-24b-cybersec**, designed for cybersecurity, threat modeling, and incident response tasks. It is optimized for efficiency with quantization formats like **Q2_K** (9GB) and **Q4_K_S** (13.6GB), with the latter recommended for faster performance. The model leverages the Mistral family's architecture, offering robust capabilities for security-related workflows. Its quantized variants balance speed and quality, making it suitable for deployment in resource-constrained environments. Ideal for professionals in infosec, the model is available via Hugging Face's GGUF format, with a dedicated model page for easy access and downloads.
+  tags:
+    - llm
+    - gguf
+    - quantized
+    - mistral
+    - cybersecurity
+    - infosec
+    - threat-modeling
+    - incident-response
+  overrides:
+    parameters:
+      model: llama-cpp/models/nova-24b-cybersec.Q4_K_M.gguf
+    name: nova-24b-cybersec-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/nova-24b-cybersec-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/nova-24b-cybersec.Q4_K_M.gguf
+      sha256: 3da257b9f425f179c1bd020e14d9ce2ce9dee3b9734136ec2e455173edaff0ba
+      uri: https://huggingface.co/mradermacher/nova-24b-cybersec-GGUF/resolve/main/nova-24b-cybersec.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
