@@ -55,6 +55,7 @@ const char* schedulers[] = {
     "sgm_uniform",
     "simple",
     "smoothstep",
+    "kl_optimal",
     "lcm",
 };
 
@@ -147,26 +148,26 @@ static std::string lora_dir_path;
 static void build_embedding_vec(const char* embedding_dir) {
     embedding_vec.clear();
     embedding_strings.clear();
-    
+
     if (!embedding_dir || strlen(embedding_dir) == 0) {
         return;
     }
-    
+
     if (!std::filesystem::exists(embedding_dir) || !std::filesystem::is_directory(embedding_dir)) {
         fprintf(stderr, "Embedding directory does not exist or is not a directory: %s\n", embedding_dir);
         return;
     }
-    
+
     static const std::vector<std::string> valid_ext = {".pt", ".safetensors", ".gguf"};
-    
+
     for (const auto& entry : std::filesystem::directory_iterator(embedding_dir)) {
         if (!entry.is_regular_file()) {
             continue;
         }
-        
+
         auto path = entry.path();
         std::string ext = path.extension().string();
-        
+
         bool valid = false;
         for (const auto& e : valid_ext) {
             if (ext == e) {
@@ -177,51 +178,51 @@ static void build_embedding_vec(const char* embedding_dir) {
         if (!valid) {
             continue;
         }
-        
+
         std::string name = path.stem().string();
         std::string full_path = path.string();
-        
+
         // Store strings in persistent storage
         embedding_strings.push_back(name);
         embedding_strings.push_back(full_path);
-        
+
         sd_embedding_t item;
         item.name = embedding_strings[embedding_strings.size() - 2].c_str();
         item.path = embedding_strings[embedding_strings.size() - 1].c_str();
-        
+
         embedding_vec.push_back(item);
         fprintf(stderr, "Found embedding: %s -> %s\n", item.name, item.path);
     }
-    
+
     fprintf(stderr, "Loaded %zu embeddings from %s\n", embedding_vec.size(), embedding_dir);
 }
 
 // Discover LoRA files in directory and build a map of name -> path
 static std::map<std::string, std::string> discover_lora_files(const char* lora_dir) {
     std::map<std::string, std::string> lora_map;
-    
+
     if (!lora_dir || strlen(lora_dir) == 0) {
         fprintf(stderr, "LoRA directory not specified\n");
         return lora_map;
     }
-    
+
     if (!std::filesystem::exists(lora_dir) || !std::filesystem::is_directory(lora_dir)) {
         fprintf(stderr, "LoRA directory does not exist or is not a directory: %s\n", lora_dir);
         return lora_map;
     }
-    
+
     static const std::vector<std::string> valid_ext = {".safetensors", ".ckpt", ".pt", ".gguf"};
-    
+
     fprintf(stderr, "Discovering LoRA files in: %s\n", lora_dir);
-    
+
     for (const auto& entry : std::filesystem::directory_iterator(lora_dir)) {
         if (!entry.is_regular_file()) {
             continue;
         }
-        
+
         auto path = entry.path();
         std::string ext = path.extension().string();
-        
+
         bool valid = false;
         for (const auto& e : valid_ext) {
             if (ext == e) {
@@ -232,17 +233,17 @@ static std::map<std::string, std::string> discover_lora_files(const char* lora_d
         if (!valid) {
             continue;
         }
-        
+
         std::string name = path.stem().string();  // stem() already removes extension
         std::string full_path = path.string();
-        
+
         // Store the name (without extension) -> full path mapping
         // This allows users to specify just the name in <lora:name:strength>
         lora_map[name] = full_path;
-        
+
         fprintf(stderr, "Found LoRA file: %s -> %s\n", name.c_str(), full_path.c_str());
     }
-    
+
     fprintf(stderr, "Discovered %zu LoRA files in %s\n", lora_map.size(), lora_dir);
     return lora_map;
 }
@@ -264,31 +265,31 @@ static bool is_absolute_path(const std::string& p) {
 static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(const std::string& prompt, const char* lora_dir) {
     std::vector<sd_lora_t> loras;
     std::string cleaned_prompt = prompt;
-    
+
     if (!lora_dir || strlen(lora_dir) == 0) {
         fprintf(stderr, "LoRA directory not set, cannot parse LoRAs from prompt\n");
         return {loras, cleaned_prompt};
     }
-    
+
     // Discover LoRA files for name-based lookup
     std::map<std::string, std::string> discovered_lora_map = discover_lora_files(lora_dir);
-    
+
     // Map to accumulate multipliers for the same LoRA (matches upstream)
     std::map<std::string, float> lora_map;
     std::map<std::string, float> high_noise_lora_map;
-    
+
     static const std::regex re(R"(<lora:([^:>]+):([^>]+)>)");
     static const std::vector<std::string> valid_ext = {".pt", ".safetensors", ".gguf"};
     std::smatch m;
-    
+
     std::string tmp = prompt;
-    
+
     fprintf(stderr, "Parsing LoRAs from prompt: %s\n", prompt.c_str());
-    
+
     while (std::regex_search(tmp, m, re)) {
         std::string raw_path = m[1].str();
         const std::string raw_mul = m[2].str();
-        
+
         float mul = 0.f;
         try {
             mul = std::stof(raw_mul);
@@ -298,14 +299,14 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
             fprintf(stderr, "Invalid LoRA multiplier '%s', skipping\n", raw_mul.c_str());
             continue;
         }
-        
+
         bool is_high_noise = false;
         static const std::string prefix = "|high_noise|";
         if (raw_path.rfind(prefix, 0) == 0) {
             raw_path.erase(0, prefix.size());
             is_high_noise = true;
         }
-        
+
         std::filesystem::path final_path;
         if (is_absolute_path(raw_path)) {
             final_path = raw_path;
@@ -334,7 +335,7 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
                 }
             }
         }
-        
+
         // Try adding extensions if file doesn't exist
         if (!std::filesystem::exists(final_path)) {
             bool found = false;
@@ -354,24 +355,24 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
                 continue;
             }
         }
-        
+
         // Normalize path (matches upstream)
         const std::string key = final_path.lexically_normal().string();
-        
+
         // Accumulate multiplier if same LoRA appears multiple times (matches upstream)
         if (is_high_noise) {
             high_noise_lora_map[key] += mul;
         } else {
             lora_map[key] += mul;
         }
-        
-        fprintf(stderr, "Parsed LoRA: path='%s', multiplier=%.2f, is_high_noise=%s\n", 
+
+        fprintf(stderr, "Parsed LoRA: path='%s', multiplier=%.2f, is_high_noise=%s\n",
                 key.c_str(), mul, is_high_noise ? "true" : "false");
-        
+
         cleaned_prompt = std::regex_replace(cleaned_prompt, re, "", std::regex_constants::format_first_only);
         tmp = m.suffix().str();
     }
-    
+
     // Build final LoRA vector from accumulated maps (matches upstream)
     // Store all path strings first to ensure they persist
     for (const auto& kv : lora_map) {
@@ -380,7 +381,7 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
     for (const auto& kv : high_noise_lora_map) {
         lora_strings.push_back(kv.first);
     }
-    
+
     // Now build the LoRA vector with pointers to the stored strings
     size_t string_idx = 0;
     for (const auto& kv : lora_map) {
@@ -391,7 +392,7 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
         loras.push_back(item);
         string_idx++;
     }
-    
+
     for (const auto& kv : high_noise_lora_map) {
         sd_lora_t item;
         item.is_high_noise = true;
@@ -400,7 +401,7 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
         loras.push_back(item);
         string_idx++;
     }
-    
+
     // Clean up extra spaces
     std::regex space_regex(R"(\s+)");
     cleaned_prompt = std::regex_replace(cleaned_prompt, space_regex, " ");
@@ -413,9 +414,9 @@ static std::pair<std::vector<sd_lora_t>, std::string> parse_loras_from_prompt(co
     if (last != std::string::npos) {
         cleaned_prompt.erase(last + 1);
     }
-    
+
     fprintf(stderr, "Parsed %zu LoRA(s) from prompt. Cleaned prompt: %s\n", loras.size(), cleaned_prompt.c_str());
-    
+
     return {loras, cleaned_prompt};
 }
 
@@ -752,7 +753,7 @@ int load_model(const char *model, char *model_path, char* options[], int threads
         }
     }
     if (scheduler == SCHEDULER_COUNT) {
-      scheduler = sd_get_default_scheduler(sd_ctx);
+      scheduler = sd_get_default_scheduler(sd_ctx, sample_method);
       fprintf(stderr, "Invalid scheduler, using default: %s\n", schedulers[scheduler]);
     }
 
@@ -787,7 +788,7 @@ sd_img_gen_params_t* sd_img_gen_params_new(void) {
     sd_img_gen_params_t *params = (sd_img_gen_params_t *)std::malloc(sizeof(sd_img_gen_params_t));
     sd_img_gen_params_init(params);
     sd_sample_params_init(&params->sample_params);
-    sd_easycache_params_init(&params->easycache);
+    sd_cache_params_init(&params->cache);
     params->control_strength = 0.9f;
     return params;
 }
@@ -819,18 +820,18 @@ void sd_img_gen_params_set_prompts(sd_img_gen_params_t *params, const char *prom
         fprintf(stderr, "Note: Found %zu LoRAs in negative prompt (may not be supported)\n", neg_loras.size());
     }
     cleaned_negative_prompt_storage = cleaned_negative;
-    
+
     // Set the cleaned prompts
     params->prompt = cleaned_prompt_storage.c_str();
     params->negative_prompt = cleaned_negative_prompt_storage.c_str();
-    
+
     // Set LoRAs in params
     params->loras = lora_vec.empty() ? nullptr : lora_vec.data();
     params->lora_count = static_cast<uint32_t>(lora_vec.size());
-    
+
     fprintf(stderr, "Set prompts with %zu LoRAs. Original prompt: %s\n", lora_vec.size(), prompt ? prompt : "(null)");
     fprintf(stderr, "Cleaned prompt: %s\n", cleaned_prompt_storage.c_str());
-    
+
     // Debug: Verify LoRAs are set correctly
     if (params->loras && params->lora_count > 0) {
         fprintf(stderr, "DEBUG: LoRAs set in params structure:\n");
@@ -1042,7 +1043,7 @@ int gen_image(sd_img_gen_params_t *p, int steps, char *dst, float cfg_scale, cha
         fprintf(stderr, "Using %u LoRA(s) in generation:\n", p->lora_count);
         for (uint32_t i = 0; i < p->lora_count; i++) {
             fprintf(stderr, "  LoRA[%u]: path='%s', multiplier=%.2f, is_high_noise=%s\n",
-                    i, 
+                    i,
                     p->loras[i].path ? p->loras[i].path : "(null)",
                     p->loras[i].multiplier,
                     p->loras[i].is_high_noise ? "true" : "false");
