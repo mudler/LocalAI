@@ -53,7 +53,7 @@ jobs:
             BASE_IMAGE=${{ matrix.base-image }}
           context: .
           file: ./Dockerfile
-          tags: quay.io/go-skynet/intel-oneapi-base:latest
+          tags: quay.io/go-skynet/intel-oneapi-base:24.04
           push: true
           target: intel
           platforms: ${{ matrix.platforms }}
