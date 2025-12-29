@@ -1,4 +1,36 @@
 ---
+- name: "minimax-m2.1-hq4_k"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/anikifoss/MiniMax-M2.1-HQ4_K-GGUF
+  description: |
+    The **MiniMax-M2.1-HQ4_K** model is a high-quality quantized version of the **MiniMax-M2.1** base model (MiniMaxAI/MiniMax-M2.1), optimized for efficient inference without using imatrix. It employs **Q8_0** quantization with custom tensor types for different layers, enabling efficient execution on CPUs and specialized hardware like AMD GPUs. This model is designed for large-scale text generation and is compatible with tools like **llama.cpp**, supporting both CPU offloading and multi-GPU parallelism. Licensed under MIT, it is ideal for applications requiring compact, high-performance language models.
+  license: "mit"
+  tags:
+    - llm
+    - gguf
+    - cpu
+    - gpu
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.1-HQ4_K-00004-of-00004.gguf
+    name: MiniMax-M2.1-HQ4_K-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/anikifoss/MiniMax-M2.1-HQ4_K-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.1-HQ4_K-00004-of-00004.gguf
+      sha256: 96ab543b6f47f8b40b59cb626194fb9e61d0d257661cb502d12de75b7f0af790
+      uri: https://huggingface.co/anikifoss/MiniMax-M2.1-HQ4_K-GGUF/resolve/main/MiniMax-M2.1-HQ4_K-00004-of-00004.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
