@@ -1,4 +1,35 @@
 ---
+- name: "google.functiongemma-270m-it"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/google.functiongemma-270m-it-GGUF
+  description: |
+    The model described here is a **quantized version** of the original **FunctionGemma-270M** text generation model, optimized for efficiency and inferencing. While it is based on the base model `google/functiongemma-270m-it`, this version is tailored for faster performance on hardware with limited resources. It retains the core capabilities of the original model for tasks like text generation, while being compact and suitable for deployment in resource-constrained environments. The "Make knowledge free for everyone" philosophy underlines its purpose as a tool for accessible, scalable language understanding.
+  tags:
+    - llm
+    - functiongemma
+    - text-to-text
+    - gguf
+    - cpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/google.functiongemma-270m-it.Q4_K_M.gguf
+    name: google.functiongemma-270m-it-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/google.functiongemma-270m-it-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/google.functiongemma-270m-it.Q4_K_M.gguf
+      sha256: b8513560ef15e87a9b051a3197cd8ad83c31cc5c0d7c44312d2c8da310e98c7c
+      uri: https://huggingface.co/DevQuasar/google.functiongemma-270m-it-GGUF/resolve/main/google.functiongemma-270m-it.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
