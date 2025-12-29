@@ -151,6 +151,11 @@ func getRealReadme(ctx context.Context, repository string) (string, error) {
 }
 
 func selectMostInterestingModels(ctx context.Context, searchResult *SearchResult) ([]ProcessedModel, error) {
+
+	if len(searchResult.Models) == 1 {
+		return searchResult.Models, nil
+	}
+
 	// Create a conversation fragment
 	fragment := cogito.NewEmptyFragment().
 		AddMessage("user",
