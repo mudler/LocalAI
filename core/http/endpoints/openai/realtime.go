@@ -404,48 +404,23 @@ func registerRealtime(application *application.Application, model, intent string
 			case types.ClientEventTypeInputAudioBufferCommit:
 				xlog.Debug("recv", "message", string(msg))
 
-				// TODO: Trigger transcription.
-				// TODO: Ignore this if VAD enabled or interrupt VAD?
+				sessionLock.Lock()
+				td := session.TurnDetection.Type
+				sessionLock.Unlock()
 
-				if session.TranscriptionOnly {
+				// TODO: At the least need to check locking and timer state in the VAD Go routine before allowing this
+				if td == types.ServerTurnDetectionTypeServerVad {
+					sendNotImplemented(c, "input_audio_buffer.commit in conjunction with VAD")
 					continue
 				}
 
-				// Commit the audio buffer to the conversation as a new item
-				item := &types.MessageItem{
-					ID:     generateItemID(),
-					Type:   "message",
-					Status: "completed",
-					Role:   "user",
-					Content: []types.MessageContentPart{
-						{
-							Type:  "input_audio",
-							Audio: base64.StdEncoding.EncodeToString(session.InputAudioBuffer),
-						},
-					},
-				}
-
-				// Add item to conversation
-				conversation.Lock.Lock()
-				conversation.Items = append(conversation.Items, item)
-				conversation.Lock.Unlock()
-
-				// Reset InputAudioBuffer
 				session.AudioBufferLock.Lock()
+				allAudio := make([]byte, len(session.InputAudioBuffer))
+				copy(allAudio, session.InputAudioBuffer)
 				session.InputAudioBuffer = nil
 				session.AudioBufferLock.Unlock()
 
-				// Send item.created event
-				sendEvent(c, types.ConversationItemCreatedEvent{
-					ServerEventBase: types.ServerEventBase{
-						EventID: "event_TODO",
-						Type:    "conversation.item.created",
-					},
-					Item: types.ResponseMessageItem{
-						Object:      "realtime.item",
-						MessageItem: *item,
-					},
-				})
+				go commitUtterance(context.TODO(), allAudio, cfg, evaluator, session, conversation, c)
 
 			case types.ClientEventTypeConversationItemCreate:
 				xlog.Debug("recv", "message", string(msg))
@@ -569,6 +544,8 @@ func updateTransSession(session *Session, update *types.ClientSession, cl *confi
 	trUpd := update.InputAudioTranscription
 	trCur := session.InputAudioTranscription
 
+	session.TranscriptionOnly = true
+
 	if trUpd != nil && trUpd.Model != "" && trUpd.Model != trCur.Model {
 		pipeline := config.Pipeline{
 			VAD:           vadModel,
@@ -600,6 +577,8 @@ func updateTransSession(session *Session, update *types.ClientSession, cl *confi
 func updateSession(session *Session, update *types.ClientSession, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) error {
 	sessionLock.Lock()
 	defer sessionLock.Unlock()
+
+	session.TranscriptionOnly = false
 
 	if update.Model != "" {
 		pipeline := config.Pipeline{
@@ -808,34 +787,8 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 		// TODO: Update the prompt with transcription result?
 	}
 
-	// TODO: Commit the audio and/or transcribed text to the conversation
-	// Commit logic: create item, broadcast item.created, etc.
-	item := &types.MessageItem{
-		ID:     generateItemID(),
-		Type:   "message",
-		Status: "completed",
-		Role:   "user",
-		Content: []types.MessageContentPart{
-			{
-				Type:  types.MessageContentTypeInputAudio,
-				Audio: base64.StdEncoding.EncodeToString(utt),
-				Transcript: transcript,
-			},
-		},
-	}
-	conv.Lock.Lock()
-	conv.Items = append(conv.Items, item)
-	conv.Lock.Unlock()
-
-	sendEvent(c, types.ConversationItemAddedEvent{
-		ServerEventBase: types.ServerEventBase{
-			Type: types.ServerEventTypeConversationItemAdded,
-		},
-		Item: *item,
-	})
-
 	// trigger the response generation
-	generateResponse(cfg, evaluator, session, conv, ResponseCreate{}, c, websocket.TextMessage)
+	generateResponse(cfg, evaluator, session, transcript, conv, ResponseCreate{}, c, websocket.TextMessage)
 }
 
 func runVAD(ctx context.Context, session *Session, adata []int16) ([]*proto.VADSegment, error) {
@@ -859,15 +812,41 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]*proto.VADS
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator, session *Session, conversation *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
+func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator, session *Session, transcript string, conv *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
 
 	log.Debug().Msg("Generating realtime response...")
 
+	// TODO: Commit the audio and/or transcribed text to the conversation
+	// Commit logic: create item, broadcast item.created, etc.
+	item := &types.MessageItem{
+		ID:     generateItemID(),
+		Type:   "message",
+		Status: "completed",
+		Role:   "user",
+		Content: []types.MessageContentPart{
+			{
+				Type:       types.MessageContentTypeInputAudio,
+				Audio:      base64.StdEncoding.EncodeToString(utt),
+				Transcript: transcript,
+			},
+		},
+	}
+	conv.Lock.Lock()
+	conv.Items = append(conv.Items, item)
+	conv.Lock.Unlock()
+
+	sendEvent(c, types.ConversationItemAddedEvent{
+		ServerEventBase: types.ServerEventBase{
+			Type: types.ServerEventTypeConversationItemAdded,
+		},
+		Item: *item,
+	})
+
 	// Compile the conversation history
-	conversation.Lock.Lock()
+	conv.Lock.Lock()
 	var conversationHistory []schema.Message
 	var latestUserAudio string
-	for _, item := range conversation.Items {
+	for _, item := range conv.Items {
 		for _, content := range item.Content {
 			switch content.Type {
 			case types.MessageContentTypeInputText, types.MessageContentTypeText:
@@ -888,7 +867,7 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		}
 	}
 
-	conversation.Lock.Unlock()
+	conv.Lock.Unlock()
 
 	var generatedText string
 	var generatedAudio []byte
@@ -987,9 +966,9 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		}
 
 		// Add item to conversation
-		conversation.Lock.Lock()
-		conversation.Items = append(conversation.Items, item)
-		conversation.Lock.Unlock()
+		conv.Lock.Lock()
+		conv.Items = append(conv.Items, item)
+		conv.Lock.Unlock()
 
 		// Send item.created event
 		sendEvent(c, OutgoingMessage{
@@ -1058,9 +1037,9 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		}
 
 		// Add item to conversation
-		conversation.Lock.Lock()
-		conversation.Items = append(conversation.Items, item)
-		conversation.Lock.Unlock()
+		conv.Lock.Lock()
+		conv.Items = append(conv.Items, item)
+		conv.Lock.Unlock()
 
 		// Send item.created event
 		sendEvent(c, OutgoingMessage{
