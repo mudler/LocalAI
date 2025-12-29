@@ -80,6 +80,8 @@ type RunCMD struct {
 	DisableGalleryEndpoint             bool     `env:"LOCALAI_DISABLE_GALLERY_ENDPOINT,DISABLE_GALLERY_ENDPOINT" help:"Disable the gallery endpoints" group:"api"`
 	MachineTag                         string   `env:"LOCALAI_MACHINE_TAG,MACHINE_TAG" help:"Add Machine-Tag header to each response which is useful to track the machine in the P2P network" group:"api"`
 	LoadToMemory                       []string `env:"LOCALAI_LOAD_TO_MEMORY,LOAD_TO_MEMORY" help:"A list of models to load into memory at startup" group:"models"`
+	EnableTracing                      bool     `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
+	TracingMaxItems                    int      `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
 
 	Version bool
@@ -151,6 +153,15 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 	if r.DisableRuntimeSettings {
 		opts = append(opts, config.DisableRuntimeSettings)
 	}
+
+	if r.EnableTracing {
+		opts = append(opts, config.EnableTracing)
+	}
+
+	if r.EnableTracing {
+		opts = append(opts, config.EnableTracing)
+	}
+	opts = append(opts, config.WithTracingMaxItems(r.TracingMaxItems))
 
 	token := ""
 	if r.Peer2Peer || r.Peer2PeerToken != "" {
