@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ghodss/yaml"
 	hfapi "github.com/mudler/LocalAI/pkg/huggingface-api"
 	cogito "github.com/mudler/cogito"
 
@@ -52,6 +53,11 @@ func cleanTextContent(text string) string {
 	return stripThinkingTags(strings.TrimRight(result, "\n"))
 }
 
+type galleryModel struct {
+	Name string   `yaml:"name"`
+	Urls []string `yaml:"urls"`
+}
+
 // isModelExisting checks if a specific model ID exists in the gallery using text search
 func isModelExisting(modelID string) (bool, error) {
 	indexPath := getGalleryIndexPath()
@@ -60,9 +66,20 @@ func isModelExisting(modelID string) (bool, error) {
 		return false, fmt.Errorf("failed to read %s: %w", indexPath, err)
 	}
 
-	contentStr := string(content)
-	// Simple text search - if the model ID appears anywhere in the file, it exists
-	return strings.Contains(contentStr, modelID), nil
+	var galleryModels []galleryModel
+
+	err = yaml.Unmarshal(content, &galleryModels)
+	if err != nil {
+		return false, fmt.Errorf("failed to unmarshal %s: %w", indexPath, err)
+	}
+
+	for _, galleryModel := range galleryModels {
+		if slices.Contains(galleryModel.Urls, modelID) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 // filterExistingModels removes models that already exist in the gallery
