@@ -1,4 +1,36 @@
 ---
+- name: "bge-m3-q8_0"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/wp-airik/bge-m3-Q8_0-GGUF
+  description: |
+    The model described in the repository is a quantized version of the **BAAI/bge-m3** large language model, optimized for efficiency through the **Q8_0** quantization format. It is designed for **sentence similarity** and **text embedding** tasks, leveraging the original model's capabilities while reducing computational requirements. This version is compatible with **llama.cpp** and the **GGUF** format, enabling deployment on systems with limited resources. For detailed specifications of the original model, refer to the [BAAI/bge-m3](https://huggingface.co/BAAI/bge-m3) repository.
+  tags:
+    - llm
+    - gguf
+    - quantized
+    - text-embedding
+    - bge-m3
+    - sentence-similarity
+  overrides:
+    parameters:
+      model: llama-cpp/models/bge-m3-q8_0.gguf
+    name: bge-m3-Q8_0-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/wp-airik/bge-m3-Q8_0-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/bge-m3-q8_0.gguf
+      sha256: aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173
+      uri: https://huggingface.co/wp-airik/bge-m3-Q8_0-GGUF/resolve/main/bge-m3-q8_0.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
