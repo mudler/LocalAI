@@ -1,4 +1,42 @@
 ---
+- name: "qwen3-vl-8b-icarum-merged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-8B-Icarum-Merged-GGUF
+  description: |
+    The **Qwen3-VL-8B** model is a large language model optimized for text generation and multimodal tasks. Finetuned by Robertp423 using **Unsloth** and Huggingface's TRL library, it features efficient quantized versions (e.g., Q4_K_S, Q8_0) for faster inference on hardware with limited memory. The model supports both text and multi-modal inputs, making it versatile for applications like chatbots, content creation, and AI-assisted tasks. Its lightweight quantized variants (e.g., 4.5GB for Q3_K_L) enable deployment on edge devices while retaining high performance. Ideal for users seeking balance between speed, efficiency, and model capability.
+  tags:
+    - llm
+    - multimodal
+    - gguf
+    - qwen3
+    - image-to-text
+    - text-to-text
+    - chat
+    - vision
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-8B-Icarum-Merged.Q4_K_M.gguf
+    name: Qwen3-VL-8B-Icarum-Merged-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-8B-Icarum-Merged.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-8B-Icarum-Merged-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-8B-Icarum-Merged.Q4_K_M.gguf
+      sha256: 33a4c150195b79e1a5bece582703a3a2e8e2f477c1faa99d30ae155ecf0e45b2
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-8B-Icarum-Merged-GGUF/resolve/main/Qwen3-VL-8B-Icarum-Merged.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-8B-Icarum-Merged.mmproj-f16.gguf
+      sha256: 7a2e6471c4f5104a4d888b8d9fc9abbcab25de675504c865d86849080028f56b
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-8B-Icarum-Merged-GGUF/resolve/main/Qwen3-VL-8B-Icarum-Merged.mmproj-f16.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
