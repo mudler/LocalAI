@@ -649,7 +649,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
@@ -662,7 +662,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -675,7 +675,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
@@ -688,7 +688,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vllm'
             runs-on: 'arc-runner-set'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
@@ -701,7 +701,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
@@ -714,7 +714,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
@@ -754,7 +754,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
@@ -767,7 +767,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
@@ -780,7 +780,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vibevoice'
             runs-on: 'arc-runner-set'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
@@ -793,7 +793,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
@@ -806,7 +806,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
@@ -900,7 +900,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
@@ -913,7 +913,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
@@ -966,7 +966,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
@@ -979,7 +979,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
@@ -1087,7 +1087,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rfdetr'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
@@ -1127,7 +1127,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-exllama2'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"

@@ -44,7 +44,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
             makeflags: "--jobs=3 --output-sync=target"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -54,7 +54,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:22.04"
             makeflags: "--jobs=3 --output-sync=target"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -63,16 +63,16 @@ jobs:
             grpc-base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'sycl'
             platforms: 'linux/amd64'
             tag-latest: 'false'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             grpc-base-image: "ubuntu:24.04"
             tag-suffix: 'sycl'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'false'
@@ -80,7 +80,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             base-image: "ubuntu:24.04"
             makeflags: "--jobs=4 --output-sync=target"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"

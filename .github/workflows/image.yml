@@ -45,7 +45,7 @@ jobs:
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             aio: "-aio-gpu-hipblas"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
 
   core-image-build:
     uses: ./.github/workflows/image_build.yml
@@ -81,7 +81,7 @@ jobs:
             aio: "-aio-cpu"
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "9"
@@ -93,7 +93,7 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-12"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -105,7 +105,7 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-nvidia-cuda-13"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'vulkan'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
@@ -115,17 +115,17 @@ jobs:
             skip-drivers: 'false'
             makeflags: "--jobs=4 --output-sync=target"
             aio: "-aio-gpu-vulkan"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'intel'
             platforms: 'linux/amd64'
             tag-latest: 'auto'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             grpc-base-image: "ubuntu:24.04"
             tag-suffix: '-gpu-intel'
             runs-on: 'ubuntu-latest'
             makeflags: "--jobs=3 --output-sync=target"
             aio: "-aio-gpu-intel"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
 
   gh-runner:
     uses: ./.github/workflows/image_build.yml
