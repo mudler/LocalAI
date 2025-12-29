@@ -1,4 +1,35 @@
 ---
+- name: "qwen3-8b-base-paperbackwriter"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/brandtcormorant/Qwen3-8B-Base-paperbackwriter-GGUF
+  description: |
+    The **Qwen3-8B-Base** model is a large language model based on the Qwen3 architecture, optimized for efficiency through GGUF format quantization (Q4_K_M). Developed using the **Unsloth** framework, this base model balances performance and resource requirements, making it suitable for text-generation tasks. It supports both text-only and multimodal workflows, with lightweight deployment via tools like `llama-cli` or `llama-mtmd-cli`. Ideal for researchers and developers seeking a high-capacity, accessible LLM solution.
+  tags:
+    - llm
+    - gguf
+    - qwen3
+    - multimodal
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/qwen3-8b-base.Q4_K_M.gguf
+    name: Qwen3-8B-Base-paperbackwriter-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/brandtcormorant/Qwen3-8B-Base-paperbackwriter-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/qwen3-8b-base.Q4_K_M.gguf
+      sha256: 83eb52bb64d8017c7486878ffde2dca12e1ac5e974ebb6411f1485c461c9ef9c
+      uri: https://huggingface.co/brandtcormorant/Qwen3-8B-Base-paperbackwriter-GGUF/resolve/main/qwen3-8b-base.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
