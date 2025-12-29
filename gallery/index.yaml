@@ -1,4 +1,39 @@
 ---
+- name: "qwen-image-edit-rapid-aio"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF
+  description: |
+    The model in question is a **quantized version** of the base model **Phr00t/Qwen-Image-Edit-Rapid-AIO**, optimized for efficiency using the GGUF format. It is designed for **image-text-to-image** tasks, leveraging the original model's capabilities while reducing computational requirements. The quantization process was implemented with tools from [city96/ComfyUI-GGUF](https://github.com/city96/ComfyUI-GGUF) and later refined using [phil2sat/convert](https://github.com/phil2sat/convert). This version retains the original model's functionality but is tailored for faster inference and lower resource usage.
+  tags:
+    - qwen
+    - gguf
+    - multimodal
+    - vision
+    - text-to-image
+    - image-edit
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen-Rapid-AIO-NSFW-v11.1_Q4_K_M.gguf
+    name: Qwen-Image-Edit-Rapid-AIO-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen-Rapid-AIO-NSFW-v11.1_Q4_K_M.gguf
+      sha256: c6cddb42f3e5a0227b767fd3d608a89acc113eee3aa97a4bcf2d41d28d2f5c65
+      uri: https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/v11.1/Qwen-Rapid-AIO-NSFW-v11.1_Q4_K_M.gguf
+    - filename: llama-cpp/models/Qwen-Rapid-AIO-SFW-v11_Q4_K_M.gguf
+      sha256: b2a20b9270f48f31dc3750c8ee84f75237aaabe9801930a0ef3f9b41c05803e3
+      uri: https://huggingface.co/Arunk25/Qwen-Image-Edit-Rapid-AIO-GGUF/resolve/main/v11/Qwen-Rapid-AIO-SFW-v11_Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
