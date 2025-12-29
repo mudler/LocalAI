@@ -1,4 +1,59 @@
 ---
+- name: "mistral-helcyon-mercury-12b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/XeyonAI/Mistral-Helcyon-Mercury-12B-GGUF
+  description: |
+    **Model Name:** Helcyon-Mercury-12B-GGUF
+    **Base Model:** Mistral NEMO 12B (fully merged)
+    **Quantization Options:** Q4_K_M, Q5_K_M, Q6_K, Q8
+    **License:** Apache 2.0
+
+    **Description:**
+    Helcyon-Mercury is a finely tuned, 12B-parameter model designed to emulate the tone, rhythm, and presence of GPT-4o. It excels as a companion-style AI, offering emotionally intelligent conversations, dry humor, and a sovereign, unfiltered tone. Built for roleplay and conversational use, it prioritizes emotional mirroring, realism, and a human-like presence.
+
+    **Key Features:**
+      - **Companion-Style Interaction:** Encourages natural, unscripted dialogue with a focus on emotional connection.
+      - **Tone & Personality:** Emulates GPT-4o’s style—sassy, reflective, and unfiltered.
+      - **Quantized for Efficiency:** Available in multiple GGUF formats for different hardware setups.
+      - **No LoRA Required:** Fully merged model for direct use in local environments.
+
+    **Use Cases:**
+      - Roleplay and immersive conversations
+      - Emotional support and reflective dialogue
+      - Humor and witty banter
+      - Local AI deployment with minimal VRAM overhead
+
+    **Backend Compatibility:**
+      - llama.cpp, Text Generation WebUI, LM Studio, KoboldCpp
+
+    **Note:** Optimized for chat-style interaction; instruct-mode may disrupt tone and presence.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gguf
+    - mistral
+    - text-to-text
+    - chat
+  overrides:
+    parameters:
+      model: llama-cpp/models/helcyon_mercury_v1.0.1-Q4_K_M.gguf
+    name: Mistral-Helcyon-Mercury-12B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/XeyonAI/Mistral-Helcyon-Mercury-12B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/helcyon_mercury_v1.0.1-Q4_K_M.gguf
+      sha256: b21d4522f6ef9db89c3e5ba569aa7b5d9c49e7a4dee444039383d74dbc599dbd
+      uri: https://huggingface.co/XeyonAI/Mistral-Helcyon-Mercury-12B-GGUF/resolve/main/helcyon_mercury_v1.0.1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
