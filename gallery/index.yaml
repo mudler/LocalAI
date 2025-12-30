@@ -1,4 +1,38 @@
 ---
+- name: "meta-llama-3-8bee-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Meta-Llama-3-8Bee-i1-GGUF
+  description: |
+    The model **Meta-Llama-3-8Bee-i1-GGUF** is a quantized version of the base model **BEE-spoke-data/Meta-Llama-3-8Bee**, derived from Meta's Llama 3 series. It is optimized for efficiency, offering multiple quantization variants (e.g., IQ1_M, IQ2_XXS, Q4_K_M, Q6_K) to balance performance and resource usage. The GGUF format allows for flexible deployment, with higher-quality "imatrix" quants available for advanced use cases. This model is tagged for axolotl training and is licensed under the Llama3 license, making it suitable for research, inference, and custom applications requiring compact, high-quality language modeling.
+  license: "llama3"
+  tags:
+    - llm
+    - gguf
+    - llama3
+    - quantized
+    - text-to-text
+    - training
+    - inference
+  overrides:
+    parameters:
+      model: llama-cpp/models/Meta-Llama-3-8Bee.i1-Q4_K_M.gguf
+    name: Meta-Llama-3-8Bee-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Meta-Llama-3-8Bee-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Meta-Llama-3-8Bee.i1-Q4_K_M.gguf
+      sha256: 0ba5b28302a6392b2cfcdcea554bdaa5bfbf93806266ac85c5bac51e47060179
+      uri: https://huggingface.co/mradermacher/Meta-Llama-3-8Bee-i1-GGUF/resolve/main/Meta-Llama-3-8Bee.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
