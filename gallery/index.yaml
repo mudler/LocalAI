@@ -1,4 +1,46 @@
 ---
+- name: "hemlock-qwen2.5-coder-32b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Hemlock-Qwen2.5-Coder-32B-GGUF
+  description: |
+    The **Hemlock-Qwen2.5-Coder-32B** is a large language model optimized for coding tasks, based on the **Qwen2.5-Coder** foundation model. It is a **32B-parameter** variant designed for efficiency and performance in code generation and related tasks. The model is quantized into multiple formats (e.g., Q4_K_S, Q6_K) to balance speed and quality, making it suitable for deployment in resource-constrained environments.
+
+    Key features include:
+      - **Quantization options**: Includes Q2_K, Q3_K_S, Q4_K_S (recommended for speed), Q6_K (high quality), and others.
+      - **GGUF format**: A compact, efficient binary format for deployment.
+      - **Base model**: Derived from `nbeerbower/Hemlock-Qwen2.5-Coder-32B`, ensuring strong foundational capabilities.
+      - **Use case**: Ideal for code completion, documentation, and AI-assisted programming.
+
+    This model combines the power of Qwen2.5-Coder with quantization techniques to deliver a versatile tool for developers.
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - code
+    - quantization
+    - coder
+    - developer
+    - variant
+  overrides:
+    parameters:
+      model: llama-cpp/models/Hemlock-Qwen2.5-Coder-32B.Q4_K_M.gguf
+    name: Hemlock-Qwen2.5-Coder-32B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Hemlock-Qwen2.5-Coder-32B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Hemlock-Qwen2.5-Coder-32B.Q4_K_M.gguf
+      sha256: 6e90ee026a8c6a811bfffe6770cf5d70577d3e39f9f548fb330c94a689f7ed41
+      uri: https://huggingface.co/mradermacher/Hemlock-Qwen2.5-Coder-32B-GGUF/resolve/main/Hemlock-Qwen2.5-Coder-32B.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
