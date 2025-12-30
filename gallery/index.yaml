@@ -1,4 +1,37 @@
 ---
+- name: "huihui-nvidia-nemotron-nano-9b-v2-abliterated"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated-GGUF
+  description: |
+    The model is a **9 billion-parameter large language model** based on the **Nemotron Nano** series, specifically version 2. It is a quantized variant (GGUF format) of the original Hugging Face model **huihui-ai/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated**, optimized for efficiency. This version supports text generation and is designed for applications requiring high performance with reduced memory usage. The quantization (e.g., Q4_K_S, Q8_0) allows faster inference while retaining key capabilities of the base model.
+  tags:
+    - llm
+    - gguf
+    - nemotron
+    - quantized
+    - text-to-text
+    - high-performance
+    - reduced-memory
+  overrides:
+    parameters:
+      model: llama-cpp/models/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated.Q4_K_M.gguf
+    name: Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated.Q4_K_M.gguf
+      sha256: 6122daee357ac8ce326ab85dfd47078116b7dba84e59cebe8db3056dda179ceb
+      uri: https://huggingface.co/mradermacher/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated-GGUF/resolve/main/Huihui-NVIDIA-Nemotron-Nano-9B-v2-abliterated.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
