@@ -119,6 +119,7 @@ func main() {
 	}
 
 	fmt.Println(result.FormattedOutput)
+	var models []ProcessedModel
 
 	if len(result.Models) > 1 {
 		fmt.Println("More than one model found (", len(result.Models), "), using AI agent to select the most interesting models")
@@ -127,7 +128,7 @@ func main() {
 		}
 		// Use AI agent to select the most interesting models
 		fmt.Println("Using AI agent to select the most interesting models...")
-		models, err := selectMostInterestingModels(context.Background(), result)
+		models, err = selectMostInterestingModels(context.Background(), result)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error in model selection: %v\n", err)
 			// Continue with original result if selection fails
