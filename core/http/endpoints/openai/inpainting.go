@@ -252,9 +252,6 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 		}
 
 		created := int(time.Now().Unix())
-		// Create usage object with required fields for image generation API
-		inputTokens := 0
-		outputTokens := 0
 		resp := &schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
@@ -265,8 +262,8 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 				PromptTokens:     0,
 				CompletionTokens: 0,
 				TotalTokens:      0,
-				InputTokens:      &inputTokens,
-				OutputTokens:     &outputTokens,
+				InputTokens:      0,
+				OutputTokens:     0,
 				InputTokensDetails: &schema.InputTokensDetails{
 					TextTokens:  0,
 					ImageTokens: 0,

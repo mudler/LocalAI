@@ -28,8 +28,8 @@ type OpenAIUsage struct {
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
 	// Fields for image generation API compatibility
-	InputTokens        *int                `json:"input_tokens,omitempty"`
-	OutputTokens       *int                `json:"output_tokens,omitempty"`
+	InputTokens        int                 `json:"input_tokens,omitempty"`
+	OutputTokens       int                 `json:"output_tokens,omitempty"`
 	InputTokensDetails *InputTokensDetails `json:"input_tokens_details,omitempty"`
 	// Extra timing data, disabled by default as is't not a part of OpenAI specification
 	TimingPromptProcessing float64 `json:"timing_prompt_processing,omitempty"`
