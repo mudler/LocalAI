@@ -169,8 +169,10 @@ func (bcl *ModelConfigLoader) LoadMultipleModelConfigsSingleFile(file string, op
 	}
 
 	for _, cc := range c {
-		if valid, _ := cc.Validate(); valid {
+		if valid, err := cc.Validate(); valid {
 			bcl.configs[cc.Name] = *cc
+		} else {
+			xlog.Warn("skipping invalid model config", "name", cc.Name, "error", err)
 		}
 	}
 	return nil
@@ -184,9 +186,12 @@ func (bcl *ModelConfigLoader) ReadModelConfig(file string, opts ...ConfigLoaderO
 		return fmt.Errorf("ReadModelConfig cannot read config file %q: %w", file, err)
 	}
 
-	if valid, _ := c.Validate(); valid {
+	if valid, err := c.Validate(); valid {
 		bcl.configs[c.Name] = *c
 	} else {
+		if err != nil {
+			return fmt.Errorf("config is not valid: %w", err)
+		}
 		return fmt.Errorf("config is not valid")
 	}
 
@@ -364,10 +369,10 @@ func (bcl *ModelConfigLoader) LoadModelConfigsFromPath(path string, opts ...Conf
 			xlog.Error("LoadModelConfigsFromPath cannot read config file", "error", err, "File Name", file.Name())
 			continue
 		}
-		if valid, _ := c.Validate(); valid {
+		if valid, validationErr := c.Validate(); valid {
 			bcl.configs[c.Name] = *c
 		} else {
-			xlog.Error("config is not valid", "error", err, "Name", c.Name)
+			xlog.Error("config is not valid", "error", validationErr, "Name", c.Name)
 		}
 	}
 
