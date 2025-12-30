@@ -1,4 +1,38 @@
 ---
+- name: "qwen3-30b-a3b-architect5-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-30B-A3B-Architect5-i1-GGUF
+  description: |
+    The model described is **Qwen3-30B-A3B-Architect5**, a large language model with **30 billion parameters**. It is part of the Qwen series, featuring advanced architectural components (A3B, Architect5) optimized for high performance and efficiency. The base model is originally authored by **nightmedia**, with a quantized version available in GGUF format by **mradermacher**, offering multiple quantization options (e.g., i1-Q4_K_M, IQ3_M) for trade-offs between speed, memory usage, and quality. This makes it suitable for deployment in resource-constrained environments while retaining strong language generation capabilities.
+  tags:
+    - llm
+    - gguf
+    - qwen
+    - text-to-text
+    - instruction-tuned
+    - reasoning
+    - chat
+    - gpu
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-30B-A3B-Architect5.i1-Q4_K_M.gguf
+    name: Qwen3-30B-A3B-Architect5-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-30B-A3B-Architect5-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-30B-A3B-Architect5.i1-Q4_K_M.gguf
+      sha256: 607d557cdad512c0a9a0d64b60d0f72e787850a0c7685c56523cc0ac91f7bb90
+      uri: https://huggingface.co/mradermacher/Qwen3-30B-A3B-Architect5-i1-GGUF/resolve/main/Qwen3-30B-A3B-Architect5.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
