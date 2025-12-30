@@ -1,4 +1,36 @@
 ---
+- name: "xtragpt-1.5b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/XtraGPT-1.5B-GGUF
+  description: |
+    The **XtraGPT-1.5B** model is a large language model developed by Xtra-Computing, supporting over 15 languages including Chinese, English, French, Spanish, Portuguese, German, Italian, Russian, Japanese, Korean, Vietnamese, Thai, and Arabic. It is available in multiple quantized versions (e.g., Q2_K, Q4_K_S, Q8_0, and f16) to balance performance and efficiency for different use cases. The model is licensed under the custom **mg0-2.0** license and is optimized for chat and general-purpose tasks. Quantized versions are provided by mradermacher, offering trade-offs between speed, quality, and memory usage.
+  license: "mg0-2.0"
+  tags:
+    - llm
+    - gguf
+    - chat
+    - text-to-text
+    - general-purpose
+  overrides:
+    parameters:
+      model: llama-cpp/models/XtraGPT-1.5B.Q4_K_M.gguf
+    name: XtraGPT-1.5B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/XtraGPT-1.5B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/XtraGPT-1.5B.Q4_K_M.gguf
+      sha256: 93533ae8e1f80131a2e5c09d11e28be6d0dd617200911c521d5e5bd4d3ee6f35
+      uri: https://huggingface.co/mradermacher/XtraGPT-1.5B-GGUF/resolve/main/XtraGPT-1.5B.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
