@@ -258,6 +258,17 @@ func InpaintingEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, app
 			Data: []schema.Item{{
 				URL: imgPath,
 			}},
+			Usage: schema.OpenAIUsage{
+				PromptTokens:     0,
+				CompletionTokens: 0,
+				TotalTokens:      0,
+				InputTokens:      0,
+				OutputTokens:     0,
+				InputTokensDetails: &schema.InputTokensDetails{
+					TextTokens:  0,
+					ImageTokens: 0,
+				},
+			},
 		}
 
 		// mark success so defer cleanup will not remove output files

@@ -232,6 +232,17 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 			ID:      id,
 			Created: created,
 			Data:    result,
+			Usage: schema.OpenAIUsage{
+				PromptTokens:     0,
+				CompletionTokens: 0,
+				TotalTokens:      0,
+				InputTokens:      0,
+				OutputTokens:     0,
+				InputTokensDetails: &schema.InputTokensDetails{
+					TextTokens:  0,
+					ImageTokens: 0,
+				},
+			},
 		}
 
 		jsonResult, _ := json.Marshal(resp)

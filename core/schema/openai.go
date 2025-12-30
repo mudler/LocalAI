@@ -18,10 +18,19 @@ type ErrorResponse struct {
 	Error *APIError `json:"error,omitempty"`
 }
 
+type InputTokensDetails struct {
+	TextTokens  int `json:"text_tokens"`
+	ImageTokens int `json:"image_tokens"`
+}
+
 type OpenAIUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+	// Fields for image generation API compatibility
+	InputTokens        int                 `json:"input_tokens,omitempty"`
+	OutputTokens       int                 `json:"output_tokens,omitempty"`
+	InputTokensDetails *InputTokensDetails `json:"input_tokens_details,omitempty"`
 	// Extra timing data, disabled by default as is't not a part of OpenAI specification
 	TimingPromptProcessing float64 `json:"timing_prompt_processing,omitempty"`
 	TimingTokenGeneration  float64 `json:"timing_token_generation,omitempty"`
@@ -49,11 +58,11 @@ type OpenAIResponse struct {
 }
 
 type Choice struct {
-	Index        int      `json:"index"`
-	FinishReason *string  `json:"finish_reason"`
-	Message      *Message `json:"message,omitempty"`
-	Delta        *Message `json:"delta,omitempty"`
-	Text         string   `json:"text,omitempty"`
+	Index        int       `json:"index"`
+	FinishReason *string   `json:"finish_reason"`
+	Message      *Message  `json:"message,omitempty"`
+	Delta        *Message  `json:"delta,omitempty"`
+	Text         string    `json:"text,omitempty"`
 	Logprobs     *Logprobs `json:"logprobs,omitempty"`
 }
 
