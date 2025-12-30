@@ -1,4 +1,38 @@
 ---
+- name: "gpt-oss-20b-heretic-distilled-minimax-m2.1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-heretic-distilled-MiniMax-M2.1-i1-GGUF
+  description: |
+    This model is a distilled version of the **GPT-OSS-20B** large language model, derived from the **MiniMax-M2.1** base through SVD distillation. It is optimized for efficient inference while retaining core capabilities of the original model. Quantized versions are available for deployment, making it suitable for conversational tasks and low-resource environments. The model is Apache-2.0 licensed and designed for high-performance text generation.
+  license: "apache-2.0"
+  tags:
+    - llm
+    - gpt-oss
+    - minimax
+    - distilled
+    - text-to-text
+    - inference-optimized
+    - efficient-inference
+  overrides:
+    parameters:
+      model: llama-cpp/models/gpt-oss-20b-heretic-distilled-MiniMax-M2.1.i1-Q4_K_M.gguf
+    name: gpt-oss-20b-heretic-distilled-MiniMax-M2.1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gpt-oss-20b-heretic-distilled-MiniMax-M2.1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gpt-oss-20b-heretic-distilled-MiniMax-M2.1.i1-Q4_K_M.gguf
+      sha256: b4e3d559c9879ef6b6b23aae7ac403b2ed41bbe200b1d2b083f63a0dc96c92f1
+      uri: https://huggingface.co/mradermacher/gpt-oss-20b-heretic-distilled-MiniMax-M2.1-i1-GGUF/resolve/main/gpt-oss-20b-heretic-distilled-MiniMax-M2.1.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
