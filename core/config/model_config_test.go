@@ -166,4 +166,63 @@ parameters:
 		Expect(i.HasUsecases(FLAG_COMPLETION)).To(BeTrue())
 		Expect(i.HasUsecases(FLAG_CHAT)).To(BeTrue())
 	})
+	It("Test Validate with invalid MCP config", func() {
+		tmp, err := os.CreateTemp("", "config.yaml")
+		Expect(err).To(BeNil())
+		defer os.Remove(tmp.Name())
+		_, err = tmp.WriteString(
+			`name: test-mcp
+backend: "llama-cpp"
+mcp:
+  stdio: |
+    {
+      "mcpServers": {
+        "ddg": {
+          "command": "/docker/docker",
+          "args": ["run", "-i"]
+        }
+        "weather": {
+          "command": "/docker/docker",
+          "args": ["run", "-i"]
+        }
+      }
+    }`)
+		Expect(err).ToNot(HaveOccurred())
+		config, err := readModelConfigFromFile(tmp.Name())
+		Expect(err).To(BeNil())
+		Expect(config).ToNot(BeNil())
+		valid, err := config.Validate()
+		Expect(err).To(HaveOccurred())
+		Expect(valid).To(BeFalse())
+		Expect(err.Error()).To(ContainSubstring("invalid MCP configuration"))
+	})
+	It("Test Validate with valid MCP config", func() {
+		tmp, err := os.CreateTemp("", "config.yaml")
+		Expect(err).To(BeNil())
+		defer os.Remove(tmp.Name())
+		_, err = tmp.WriteString(
+			`name: test-mcp-valid
+backend: "llama-cpp"
+mcp:
+  stdio: |
+    {
+      "mcpServers": {
+        "ddg": {
+          "command": "/docker/docker",
+          "args": ["run", "-i"]
+        },
+        "weather": {
+          "command": "/docker/docker",
+          "args": ["run", "-i"]
+        }
+      }
+    }`)
+		Expect(err).ToNot(HaveOccurred())
+		config, err := readModelConfigFromFile(tmp.Name())
+		Expect(err).To(BeNil())
+		Expect(config).ToNot(BeNil())
+		valid, err := config.Validate()
+		Expect(err).To(BeNil())
+		Expect(valid).To(BeTrue())
+	})
 })

@@ -501,7 +501,13 @@ func (c *ModelConfig) Validate() (bool, error) {
 		if !re.MatchString(c.Backend) {
 			return false, fmt.Errorf("invalid backend name: %s", c.Backend)
 		}
-		return true, nil
+	}
+
+	// Validate MCP configuration if present
+	if c.MCP.Servers != "" || c.MCP.Stdio != "" {
+		if _, _, err := c.MCP.MCPConfigFromYAML(); err != nil {
+			return false, fmt.Errorf("invalid MCP configuration: %w", err)
+		}
 	}
 
 	return true, nil
