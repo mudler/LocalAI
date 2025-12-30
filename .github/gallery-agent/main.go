@@ -134,7 +134,7 @@ func main() {
 			// Continue with original result if selection fails
 			models = result.Models
 		}
-	} else {
+	} else if len(result.Models) == 1 {
 		models = result.Models
 		fmt.Println("Only one model found, using it directly")
 	}
@@ -325,7 +325,7 @@ func searchAndProcessModels(searchTerm string, limit int, quantization string) (
 				outputBuilder.WriteString(fmt.Sprintf("   README Content Preview: %s\n",
 					processedModel.ReadmeContentPreview))
 			} else {
-				continue
+				fmt.Printf("   Warning: Failed to get real readme: %v\n", err)
 			}
 			fmt.Println("Real readme got", readmeContent)
 
