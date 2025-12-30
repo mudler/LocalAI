@@ -1,4 +1,37 @@
 ---
+- name: "l3.3-70b-pippamaid-1.0-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/L3.3-70B-PippaMaid-1.0-i1-GGUF
+  description: |
+    The **L3.3-70B-PippaMaid-1.0** model is a large language model fine-tuned on the **Shifusen/LumimaidQAT** dataset, optimized for roleplay, uncensored, and NSFW content generation. Built on the **huihui-ai/Llama-3.3-70B-Instruct-abliterated** base model, it achieves a validation loss of **0.8259** after training with 8x RTX PRO 6000 Blackwell GPUs. Quantized using **i1-Q4_K_S** (4-bit), it balances speed and quality, with a focus on 8k-context support. Ideal for high-performance, multi-GPU deployments, this model excels in conversational tasks requiring creative or explicit content generation.
+  license: "llama2"
+  tags:
+    - llm
+    - gguf
+    - gpu
+    - instruction-tuned
+    - chat
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/L3.3-70B-PippaMaid-1.0.i1-Q4_K_M.gguf
+    name: L3.3-70B-PippaMaid-1.0-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/L3.3-70B-PippaMaid-1.0-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/L3.3-70B-PippaMaid-1.0.i1-Q4_K_M.gguf
+      sha256: 1a7eb66a20ddcbe8bf44f75c6649e433b7ae9255eb9387775430e85a355e5005
+      uri: https://huggingface.co/mradermacher/L3.3-70B-PippaMaid-1.0-i1-GGUF/resolve/main/L3.3-70B-PippaMaid-1.0.i1-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
