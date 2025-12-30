@@ -1,4 +1,43 @@
 ---
+- name: "allenai_olmo-3.1-32b-think"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/bartowski/allenai_Olmo-3.1-32B-Think-GGUF
+  description: |
+    The **Olmo-3.1-32B-Think** model is a large language model (LLM) optimized for efficient inference using quantized versions. It is a quantized version of the original **allenai/Olmo-3.1-32B-Think** model, developed by **bartowski** using the **imatrix** quantization method.
+
+    ### Key Features:
+      - **Base Model**: `allenai/Olmo-3.1-32B-Think` (unquantized version).
+      - **Quantized Versions**: Available in multiple formats (e.g., `Q6_K_L`, `Q4_1`, `bf16`) with varying precision (e.g., Q8_0, Q6_K_L, Q5_K_M). These are derived from the original model using the **imatrix calibration dataset**.
+      - **Performance**: Optimized for low-memory usage and efficient inference on GPUs/CPUs. Recommended quantization types include `Q6_K_L` (near-perfect quality) or `Q4_K_M` (default, balanced performance).
+      - **Downloads**: Available via Hugging Face CLI. Split into multiple files if needed for large models.
+      - **License**: Apache-2.0.
+
+    ### Recommended Quantization:
+      - Use `Q6_K_L` for highest quality (near-perfect performance).
+      - Use `Q4_K_M` for balanced performance and size.
+      - Avoid lower-quality options (e.g., `Q3_K_S`) unless specific hardware constraints apply.
+
+    This model is ideal for deploying on GPUs/CPUs with limited memory, leveraging efficient quantization for practical use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/allenai_Olmo-3.1-32B-Think-Q4_K_M.gguf
+    name: allenai_Olmo-3.1-32B-Think-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/bartowski/allenai_Olmo-3.1-32B-Think-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/allenai_Olmo-3.1-32B-Think-Q4_K_M.gguf
+      sha256: 09ca87494efb75f6658a0c047414cccc5fb29d26a49c650a90af7c8f0412fdac
+      uri: https://huggingface.co/bartowski/allenai_Olmo-3.1-32B-Think-GGUF/resolve/main/allenai_Olmo-3.1-32B-Think-Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
