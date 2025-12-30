@@ -184,6 +184,26 @@ var _ = Describe("Model test", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
+		It("handles nil configOverrides without panic", func() {
+			tempdir, err := os.MkdirTemp("", "test")
+			Expect(err).ToNot(HaveOccurred())
+			defer os.RemoveAll(tempdir)
+			c, err := ReadConfigFile[ModelConfig](filepath.Join(os.Getenv("FIXTURES"), "gallery_simple.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+
+			systemState, err := system.GetSystemState(
+				system.WithModelPath(tempdir),
+			)
+			Expect(err).ToNot(HaveOccurred())
+			_, err = InstallModel(context.TODO(), systemState, "test-model", c, nil, func(string, string, string, float64) {}, true)
+			Expect(err).ToNot(HaveOccurred())
+
+			for _, f := range []string{"cerebras", "cerebras-completion.tmpl", "cerebras-chat.tmpl", "test-model.yaml"} {
+				_, err = os.Stat(filepath.Join(tempdir, f))
+				Expect(err).ToNot(HaveOccurred())
+			}
+		})
+
 		It("does not delete shared model files when one config is deleted", func() {
 			tempdir, err := os.MkdirTemp("", "test")
 			Expect(err).ToNot(HaveOccurred())

@@ -123,8 +123,10 @@ func InstallModelFromGallery(
 		config.Files = append(config.Files, model.AdditionalFiles...)
 
 		// TODO model.Overrides could be merged with user overrides (not defined yet)
-		if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
-			return err
+		if req.Overrides != nil {
+			if err := mergo.Merge(&model.Overrides, req.Overrides, mergo.WithOverride); err != nil {
+				return err
+			}
 		}
 
 		installedModel, err := InstallModel(ctx, systemState, installName, &config, model.Overrides, downloadStatus, enforceScan)
@@ -245,8 +247,10 @@ func InstallModel(ctx context.Context, systemState *system.SystemState, nameOver
 
 		configMap["name"] = name
 
-		if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
-			return nil, err
+		if configOverrides != nil {
+			if err := mergo.Merge(&configMap, configOverrides, mergo.WithOverride); err != nil {
+				return nil, err
+			}
 		}
 
 		// Write updated config file
