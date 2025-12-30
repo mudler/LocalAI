@@ -214,18 +214,18 @@ func (rm *ReleaseManager) downloadFileWithRetry(url, filepath string, progressCa
 			lastErr = err
 			continue
 		}
-		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
 			lastErr = fmt.Errorf("bad status: %s", resp.Status)
 			continue
 		}
 
 		out, err := os.Create(filepath)
 		if err != nil {
+			resp.Body.Close()
 			return err
 		}
-		defer out.Close()
 
 		// Create a progress reader if callback is provided
 		var reader io.Reader = resp.Body
@@ -238,9 +238,11 @@ func (rm *ReleaseManager) downloadFileWithRetry(url, filepath string, progressCa
 		}
 
 		_, err = io.Copy(out, reader)
+		resp.Body.Close()
+		out.Close()
+
 		if err != nil {
 			lastErr = err
-			out.Close()
 			os.Remove(filepath)
 			continue
 		}
