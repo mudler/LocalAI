@@ -130,20 +130,22 @@ func (rm *ReleaseManager) DownloadRelease(version string, progressCallback func(
 		rm.GitHubOwner, rm.GitHubRepo, version, version)
 
 	checksumPath := filepath.Join(rm.BinaryPath, "checksums.txt")
+	manualChecksumPath := filepath.Join(rm.ChecksumsPath, fmt.Sprintf("checksums-%s.txt", version))
 
-	// Try to download checksums with retry logic
-	downloadErr := rm.downloadFile(checksumURL, checksumPath, nil)
+	// First, check if there's already a checksum file (either manually placed or previously downloaded)
+	// and honor that, skipping download entirely in such case
+	var downloadErr error
+	if _, err := os.Stat(manualChecksumPath); err == nil {
+		log.Printf("Using existing checksums from: %s", manualChecksumPath)
+		checksumPath = manualChecksumPath
+	} else if _, err := os.Stat(checksumPath); err == nil {
+		log.Printf("Using existing checksums from: %s", checksumPath)
+	} else {
+		// No existing checksum file found, try to download
+		downloadErr = rm.downloadFile(checksumURL, checksumPath, nil)
 
-	// If download fails, check for manually placed checksum file
-	if downloadErr != nil {
-		log.Printf("Warning: failed to download checksums: %v", downloadErr)
-
-		// Check if user has manually placed a checksums file
-		manualChecksumPath := filepath.Join(rm.ChecksumsPath, fmt.Sprintf("checksums-%s.txt", version))
-		if _, err := os.Stat(manualChecksumPath); err == nil {
-			log.Printf("Using manually placed checksums from: %s", manualChecksumPath)
-			checksumPath = manualChecksumPath
-		} else {
+		if downloadErr != nil {
+			log.Printf("Warning: failed to download checksums: %v", downloadErr)
 			log.Printf("Warning: Checksum verification will be skipped. For security, you can manually place checksums at: %s", manualChecksumPath)
 			log.Printf("Download checksums from: %s", checksumURL)
 			// Continue without verification - log warning but don't fail
