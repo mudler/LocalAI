@@ -382,7 +382,7 @@ func (sm *SystrayManager) showStatusDetails(status, version string) {
 // showErrorDialog shows a simple error dialog
 func (sm *SystrayManager) showErrorDialog(title, message string) {
 	fyne.DoAndWait(func() {
-		dialog.ShowError(fmt.Errorf(message), sm.window)
+		dialog.ShowError(fmt.Errorf("%s", message), sm.window)
 	})
 }
 

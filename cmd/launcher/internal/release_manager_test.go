@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -37,6 +38,8 @@ var _ = Describe("ReleaseManager", func() {
 			Expect(newRM.GitHubOwner).To(Equal("mudler"))
 			Expect(newRM.GitHubRepo).To(Equal("LocalAI"))
 			Expect(newRM.BinaryPath).To(ContainSubstring(".localai"))
+			Expect(newRM.HTTPClient).ToNot(BeNil())
+			Expect(newRM.HTTPClient.Timeout).To(Equal(30 * time.Second))
 		})
 	})
 
