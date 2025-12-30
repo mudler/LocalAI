@@ -228,10 +228,24 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 
 		id := uuid.New().String()
 		created := int(time.Now().Unix())
+		// Create usage object with required fields for image generation API
+		inputTokens := 0
+		outputTokens := 0
 		resp := &schema.OpenAIResponse{
 			ID:      id,
 			Created: created,
 			Data:    result,
+			Usage: schema.OpenAIUsage{
+				PromptTokens:     0,
+				CompletionTokens: 0,
+				TotalTokens:      0,
+				InputTokens:      &inputTokens,
+				OutputTokens:     &outputTokens,
+				InputTokensDetails: &schema.InputTokensDetails{
+					TextTokens:  0,
+					ImageTokens: 0,
+				},
+			},
 		}
 
 		jsonResult, _ := json.Marshal(resp)
