@@ -67,6 +67,10 @@ func (m *transcriptOnlyModel) PredictStream(ctx context.Context, in *proto.Predi
 	return fmt.Errorf("predict stream operation not supported in transcript-only mode")
 }
 
+func (m *transcriptOnlyModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, error) {
+	return nil, fmt.Errorf("TTS not supported in transcript-only mode")
+}
+
 func (m *wrappedModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
 	return m.VADClient.VAD(ctx, in)
 }
@@ -97,12 +101,20 @@ func (m *wrappedModel) PredictStream(ctx context.Context, in *proto.PredictOptio
 	return m.LLMClient.PredictStream(ctx, in, f)
 }
 
+func (m *wrappedModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, error) {
+	return m.TTSClient.TTS(ctx, in, opts...)
+}
+
 func (m *anyToAnyModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
 	return m.LLMClient.Predict(ctx, in)
 }
 
 func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
 	return m.LLMClient.PredictStream(ctx, in, f)
+}
+
+func (m *anyToAnyModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, error) {
+	return m.LLMClient.TTS(ctx, in, opts...)
 }
 
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {

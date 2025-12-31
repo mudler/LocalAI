@@ -15,9 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
-	"github.com/mudler/LocalAI/core/backend"
 
-	// "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
@@ -158,6 +156,7 @@ type Model interface {
 	Transcribe(ctx context.Context, in *proto.TranscriptRequest, opts ...grpc.CallOption) (*proto.TranscriptResult, error)
 	Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error)
 	PredictStream(ctx context.Context, in *proto.PredictOptions, f func(*proto.Reply), opts ...grpc.CallOption) error
+	TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, error)
 }
 
 var upgrader = websocket.Upgrader{
@@ -870,14 +869,11 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 	}
 	conv.Lock.Unlock()
 
-	// var generatedText string
-	// var generatedAudio []byte
-	// var err error
-
 	item = types.MessageItem{
 		ID:     generateItemID(),
 		Type:   types.MessageItemTypeMessage,
 		Status: types.ItemStatusInProgress,
+		Role:   types.MessageRoleAssistant,
 	}
 
 	sendEvent(c, types.ConversationItemAddedEvent{
@@ -886,6 +882,11 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		},
 		Item: item,
 	})
+
+	conv.Lock.Lock()
+	conv.Items = append(conv.Items, &item)
+	conv.Lock.Unlock()
+	// XXX: And from now item must be accessed with conv.Lock held
 
 	input := schema.OpenAIRequest{
 		Messages: conversationHistory,
@@ -905,7 +906,6 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		protoMessages = conversationHistory.ToProto()
 	}
 
-	// TODO: generate response using Predict and send ItemDoneEvent with text content
 	opts := proto.PredictOptions{}
 	opts.Prompt = predInput
 	opts.Messages = protoMessages
@@ -922,8 +922,11 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		response = config.TemplateConfig.ReplyPrefix + response
 	}
 
-	// For some reason we don't send the audio yet according to OpenAI. The user must send conversation.item.retrieve
-	// This makes sense when we are not using a real any-to-any model, but otherwise seems like a total waste of a round trip?
+	// For some reason we don't send the audio in the ItemDone event according to OpenAI. The user must request it with conversation.item.retrieve.
+	// This almost makes sense when not using a real any-to-any model because we can send the transcript before the audio is ready, but it's not clear
+	// why the user should request the audio? If it is to save bandwidth then we shouldn't send the user's own audio back to them and besides the common case
+	// is to want the generated audio
+	conv.Lock.Lock()
 	item.Status = types.ItemStatusCompleted
 	item.Content = []types.MessageContentPart{
 		{
@@ -931,31 +934,55 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 			Transcript: response,
 		},
 	}
-	sendEvent(c, types.ConversationItemDoneEvent{
-		ServerEventBase:types.ServerEventBase{
-			Type: types.ServerEventTypeConversationItemDone,
-		},
-		Item: item,
-	})
+	conv.Lock.Unlock()
 
-	// TODO: generate voice audio from LLM text output and add this to the conv
-}
-
-// Function to split the response into chunks (for streaming)
-func splitResponseIntoChunks(response string) []string {
-	// Split the response into chunks of fixed size
-	chunkSize := 50 // characters per chunk
-	var chunks []string
-	for len(response) > 0 {
-		if len(response) > chunkSize {
-			chunks = append(chunks, response[:chunkSize])
-			response = response[chunkSize:]
-		} else {
-			chunks = append(chunks, response)
-			break
-		}
+	f, err := os.CreateTemp("", "realtime-tts-*.wav")
+	if err != nil {
+		xlog.Error("failed to create temp file for TTS", "error", err)
+		sendError(c, "tts_error", "Failed to create temp file for TTS", "", item.ID)
+		return
 	}
-	return chunks
+	defer os.Remove(f.Name())
+
+	modelWrapped, ok := session.ModelInterface.(*wrappedModel)
+	if !ok {
+		xlog.Error("model is not wrappedModel")
+		sendError(c, "model_error", "Model is not wrappedModel", "", item.ID)
+		return
+	}
+
+	ttsReq := &proto.TTSRequest{
+		Text:  response,
+		Voice: session.Voice,
+		Model: modelWrapped.TTSConfig.Model,
+		Dst:   f.Name(),
+	}
+
+	res, err := session.ModelInterface.TTS(context.TODO(), ttsReq)
+	if err != nil {
+		xlog.Error("TTS failed", "error", err)
+		sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %v", err), "", item.ID)
+		return
+	}
+	if !res.Success {
+		xlog.Error("TTS failed", "message", res.Message)
+		sendError(c, "tts_error", fmt.Sprintf("TTS generation failed: %s", res.Message), "", item.ID)
+		return
+	}
+
+	audioBytes, err := os.ReadFile(f.Name())
+	if err != nil {
+		xlog.Error("failed to read TTS file", "error", err)
+		sendError(c, "tts_error", fmt.Sprintf("Failed to read TTS audio: %v", err), "", item.ID)
+		return
+	}
+
+	conv.Lock.Lock()
+	item.Content[0].Audio = base64.StdEncoding.EncodeToString(audioBytes)
+	conv.Lock.Unlock()
+
+	// TODO: should we just send the audio now despite the OpenAI docs?
+	// TODO: save messages in a KV store with eviction for later retrieval with conversation.item.retrieve
 }
 
 // Helper functions to generate unique IDs
