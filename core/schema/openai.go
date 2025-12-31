@@ -160,7 +160,6 @@ type OpenAIRequest struct {
 	Stream bool `json:"stream"`
 
 	// Image (not supported by OpenAI)
-	Mode    int    `json:"mode"`
 	Quality string `json:"quality"`
 	Step    int    `json:"step"`
 

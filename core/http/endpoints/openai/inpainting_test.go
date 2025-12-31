@@ -10,9 +10,9 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
-	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/middleware"
 	model "github.com/mudler/LocalAI/pkg/model"
 	"github.com/stretchr/testify/require"
 )
@@ -58,7 +58,7 @@ func TestInpainting_HappyPath(t *testing.T) {
 
 	// stub the backend.ImageGenerationFunc
 	orig := backend.ImageGenerationFunc
-	backend.ImageGenerationFunc = func(height, width, mode, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
+	backend.ImageGenerationFunc = func(height, width, step, seed int, positive_prompt, negative_prompt, src, dst string, loader *model.ModelLoader, modelConfig config.ModelConfig, appConfig *config.ApplicationConfig, refImages []string) (func() error, error) {
 		fn := func() error {
 			// write a fake png file to dst
 			return os.WriteFile(dst, []byte("PNGDATA"), 0644)
