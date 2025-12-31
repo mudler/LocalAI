@@ -53,7 +53,8 @@ async function promptDallE() {
   const size = document.getElementById("image-size").value;
   const negativePrompt = document.getElementById("negative-prompt").value.trim();
   const n = parseInt(document.getElementById("image-count").value) || 1;
-  const step = parseInt(document.getElementById("image-steps").value) || 15;
+  const stepInput = document.getElementById("image-steps").value.trim();
+  const step = stepInput ? parseInt(stepInput) : undefined;
   const seedInput = document.getElementById("image-seed").value.trim();
   const seed = seedInput ? parseInt(seedInput) : undefined;
 
@@ -69,8 +70,11 @@ async function promptDallE() {
     prompt: combinedPrompt,
     n: n,
     size: size,
-    step: step,
   };
+
+  if (step !== undefined) {
+    requestBody.step = step;
+  }
 
   if (seed !== undefined) {
     requestBody.seed = seed;
@@ -172,7 +176,7 @@ async function promptDallE() {
         detailsDiv.className = "flex flex-wrap gap-4 text-xs text-[var(--color-text-secondary)] mt-2";
         detailsDiv.innerHTML = `
           <span><strong>Size:</strong> ${size}</span>
-          <span><strong>Steps:</strong> ${step}</span>
+          ${step !== undefined ? `<span><strong>Steps:</strong> ${step}</span>` : ''}
           ${seed !== undefined ? `<span><strong>Seed:</strong> ${seed}</span>` : ''}
         `;
         captionDiv.appendChild(detailsDiv);
