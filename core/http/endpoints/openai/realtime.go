@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"sync"
 	"time"
 
@@ -16,6 +15,9 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
+	"github.com/mudler/LocalAI/core/backend"
+
+	// "github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/core/http/endpoints/openai/types"
 	"github.com/mudler/LocalAI/core/schema"
@@ -283,7 +285,7 @@ func registerRealtime(application *application.Application, model, intent string
 		vadServerStarted := false
 		toggleVAD := func() {
 			if session.TurnDetection.Type == types.ServerTurnDetectionTypeServerVad && !vadServerStarted {
-				log.Debug().Msg("Starting VAD goroutine...")
+				xlog.Debug("Starting VAD goroutine...")
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
@@ -292,7 +294,7 @@ func registerRealtime(application *application.Application, model, intent string
 				}()
 				vadServerStarted = true
 			} else if session.TurnDetection.Type != types.ServerTurnDetectionTypeServerVad && vadServerStarted {
-				log.Debug().Msg("Stopping VAD goroutine...")
+				xlog.Debug("Stopping VAD goroutine...")
 
 				go func() {
 					done <- struct{}{}
@@ -582,8 +584,11 @@ func updateSession(session *Session, update *types.ClientSession, cl *config.Mod
 
 	if update.Model != "" {
 		pipeline := config.Pipeline{
-			LLM: update.Model,
-			// TODO: Setup pipeline by configuring STT and TTS models
+			VAD:           vadModel,
+			LLM:           update.Model,
+			Transcription: "whisper-1",
+			TTS:           "tts-1",
+			// TODO: Allow user to configure transcription and audio gen models
 		}
 		m, err := newModel(&pipeline, cl, ml, appConfig)
 		if err != nil {
@@ -734,8 +739,6 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 		return
 	}
 
-	// TODO: If we have a real any-to-any model then transcription is optional
-
 	f, err := os.CreateTemp("", "realtime-audio-chunk-*.wav")
 	if err != nil {
 		xlog.Error("failed to create temp file", "error", err)
@@ -758,6 +761,7 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 
 	f.Sync()
 
+	// TODO: If we have a real any-to-any model then transcription is optional
 	var transcript string
 	if session.InputAudioTranscription != nil {
 		tr, err := session.ModelInterface.Transcribe(ctx, &proto.TranscriptRequest{
@@ -784,11 +788,14 @@ func commitUtterance(ctx context.Context, utt []byte, cfg *config.ModelConfig, e
 			ContentIndex: 0,
 			Transcript:   transcript,
 		})
-		// TODO: Update the prompt with transcription result?
+	} else {
+		sendNotImplemented(c, "any-to-any models")
+		return
 	}
 
-	// trigger the response generation
-	generateResponse(cfg, evaluator, session, transcript, conv, ResponseCreate{}, c, websocket.TextMessage)
+	if !session.TranscriptionOnly {
+		generateResponse(cfg, evaluator, session, utt, transcript, conv, ResponseCreate{}, c, websocket.TextMessage)
+	}
 }
 
 func runVAD(ctx context.Context, session *Session, adata []int16) ([]*proto.VADSegment, error) {
@@ -812,13 +819,10 @@ func runVAD(ctx context.Context, session *Session, adata []int16) ([]*proto.VADS
 }
 
 // Function to generate a response based on the conversation
-func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator, session *Session, transcript string, conv *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
+func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator, session *Session, utt []byte, transcript string, conv *Conversation, responseCreate ResponseCreate, c *websocket.Conn, mt int) {
+	xlog.Debug("Generating realtime response...")
 
-	log.Debug().Msg("Generating realtime response...")
-
-	// TODO: Commit the audio and/or transcribed text to the conversation
-	// Commit logic: create item, broadcast item.created, etc.
-	item := &types.MessageItem{
+	item := types.MessageItem{
 		ID:     generateItemID(),
 		Type:   "message",
 		Status: "completed",
@@ -832,393 +836,109 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		},
 	}
 	conv.Lock.Lock()
-	conv.Items = append(conv.Items, item)
+	conv.Items = append(conv.Items, &item)
 	conv.Lock.Unlock()
 
 	sendEvent(c, types.ConversationItemAddedEvent{
 		ServerEventBase: types.ServerEventBase{
 			Type: types.ServerEventTypeConversationItemAdded,
 		},
-		Item: *item,
+		Item: item,
 	})
 
 	// Compile the conversation history
 	conv.Lock.Lock()
-	var conversationHistory []schema.Message
-	var latestUserAudio string
+	var conversationHistory schema.Messages
 	for _, item := range conv.Items {
 		for _, content := range item.Content {
 			switch content.Type {
-			case types.MessageContentTypeInputText, types.MessageContentTypeText:
+			case types.MessageContentTypeInputText, types.MessageContentTypeOutputText:
 				conversationHistory = append(conversationHistory, schema.Message{
 					Role:          string(item.Role),
 					StringContent: content.Text,
 					Content:       content.Text,
 				})
-			case types.MessageContentTypeInputAudio, types.MessageContentTypeAudio:
-				// We do not to turn to text here the audio result.
-				// When generating it later on from the LLM,
-				// we will also generate text and return it and store it in the conversation
-				// Here we just want to get the user audio if there is any as a new input for the conversation.
-				if item.Role == "user" {
-					latestUserAudio = content.Audio
-				}
-			}
-		}
-	}
-
-	conv.Lock.Unlock()
-
-	var generatedText string
-	var generatedAudio []byte
-	var functionCall *FunctionCall
-	var err error
-
-	if latestUserAudio != "" {
-		// Process the latest user audio input
-		decodedAudio, err := base64.StdEncoding.DecodeString(latestUserAudio)
-		if err != nil {
-			log.Error().Msgf("failed to decode latest user audio: %s", err.Error())
-			sendError(c, "invalid_audio_data", "Failed to decode audio data", "", "")
-			return
-		}
-
-		// Process the audio input and generate a response
-		generatedText, generatedAudio, functionCall, err = processAudioResponse(session, decodedAudio)
-		if err != nil {
-			log.Error().Msgf("failed to process audio response: %s", err.Error())
-			sendError(c, "processing_error", "Failed to generate audio response", "", "")
-			return
-		}
-	} else {
-
-		if session.Instructions != "" {
-			conversationHistory = append([]schema.Message{{
-				Role:          "system",
-				StringContent: session.Instructions,
-				Content:       session.Instructions,
-			}}, conversationHistory...)
-		}
-
-		funcs := session.Functions
-		shouldUseFn := len(funcs) > 0 && config.ShouldUseFunctions()
-
-		// Allow the user to set custom actions via config file
-		// to be "embedded" in each model
-		noActionName := "answer"
-		noActionDescription := "use this action to answer without performing any action"
-
-		if config.FunctionsConfig.NoActionFunctionName != "" {
-			noActionName = config.FunctionsConfig.NoActionFunctionName
-		}
-		if config.FunctionsConfig.NoActionDescriptionName != "" {
-			noActionDescription = config.FunctionsConfig.NoActionDescriptionName
-		}
-
-		if (!config.FunctionsConfig.GrammarConfig.NoGrammar) && shouldUseFn {
-			noActionGrammar := functions.Function{
-				Name:        noActionName,
-				Description: noActionDescription,
-				Parameters: map[string]interface{}{
-					"properties": map[string]interface{}{
-						"message": map[string]interface{}{
-							"type":        "string",
-							"description": "The message to reply the user with",
-						}},
-				},
-			}
-
-			// Append the no action function
-			if !config.FunctionsConfig.DisableNoAction {
-				funcs = append(funcs, noActionGrammar)
-			}
-
-			// Update input grammar
-			jsStruct := funcs.ToJSONStructure(config.FunctionsConfig.FunctionNameKey, config.FunctionsConfig.FunctionNameKey)
-			g, err := jsStruct.Grammar(config.FunctionsConfig.GrammarOptions()...)
-			if err == nil {
-				config.Grammar = g
-			}
-		}
-
-		// Generate a response based on text conversation history
-		prompt := evaluator.TemplateMessages(conversationHistory, config, funcs, shouldUseFn)
-
-		generatedText, functionCall, err = processTextResponse(config, session, prompt)
-		if err != nil {
-			log.Error().Msgf("failed to process text response: %s", err.Error())
-			sendError(c, "processing_error", "Failed to generate text response", "", "")
-			return
-		}
-		log.Debug().Any("text", generatedText).Msg("Generated text response")
-	}
-
-	if functionCall != nil {
-		// The model wants to call a function
-		// Create a function_call item and send it to the client
-		item := &Item{
-			ID:           generateItemID(),
-			Object:       "realtime.item",
-			Type:         "function_call",
-			Status:       "completed",
-			Role:         "assistant",
-			FunctionCall: functionCall,
-		}
-
-		// Add item to conversation
-		conv.Lock.Lock()
-		conv.Items = append(conv.Items, item)
-		conv.Lock.Unlock()
-
-		// Send item.created event
-		sendEvent(c, OutgoingMessage{
-			Type: "conversation.item.created",
-			Item: item,
-		})
-
-		// Optionally, you can generate a message to the user indicating the function call
-		// For now, we'll assume the client handles the function call and may trigger another response
-
-	} else {
-		// Send response.stream messages
-		if generatedAudio != nil {
-			// If generatedAudio is available, send it as audio
-			encodedAudio := base64.StdEncoding.EncodeToString(generatedAudio)
-			outgoingMsg := OutgoingMessage{
-				Type:  "response.stream",
-				Audio: encodedAudio,
-			}
-			sendEvent(c, outgoingMsg)
-		} else {
-			// Send text response (could be streamed in chunks)
-			chunks := splitResponseIntoChunks(generatedText)
-			for _, chunk := range chunks {
-				outgoingMsg := OutgoingMessage{
-					Type:    "response.stream",
-					Content: chunk,
-				}
-				sendEvent(c, outgoingMsg)
-			}
-		}
-
-		// Send response.done message
-		sendEvent(c, OutgoingMessage{
-			Type: "response.done",
-		})
-
-		// Add the assistant's response to the conversation
-		content := []ConversationContent{}
-		if generatedAudio != nil {
-			content = append(content, ConversationContent{
-				Type:  "audio",
-				Audio: base64.StdEncoding.EncodeToString(generatedAudio),
-			})
-			// Optionally include a text transcript
-			if generatedText != "" {
-				content = append(content, ConversationContent{
-					Type: "text",
-					Text: generatedText,
+			case types.MessageContentTypeInputAudio, types.MessageContentTypeOutputAudio:
+				conversationHistory = append(conversationHistory, schema.Message{
+					Role:          string(item.Role),
+					StringContent: content.Transcript,
+					Content:       content.Transcript,
+					StringAudios:  []string{content.Audio},
 				})
 			}
-		} else {
-			content = append(content, ConversationContent{
-				Type: "text",
-				Text: generatedText,
-			})
 		}
-
-		item := &Item{
-			ID:      generateItemID(),
-			Object:  "realtime.item",
-			Type:    "message",
-			Status:  "completed",
-			Role:    "assistant",
-			Content: content,
-		}
-
-		// Add item to conversation
-		conv.Lock.Lock()
-		conv.Items = append(conv.Items, item)
-		conv.Lock.Unlock()
-
-		// Send item.created event
-		sendEvent(c, OutgoingMessage{
-			Type: "conversation.item.created",
-			Item: item,
-		})
-
-		log.Debug().Any("item", item).Msg("Realtime response sent")
 	}
-}
+	conv.Lock.Unlock()
 
-// Function to process text response and detect function calls
-func processTextResponse(config *config.ModelConfig, session *Session, prompt string) (string, *FunctionCall, error) {
+	// var generatedText string
+	// var generatedAudio []byte
+	// var err error
 
-	// Placeholder implementation
-	// Replace this with actual model inference logic using session.Model and prompt
-	// For example, the model might return a special token or JSON indicating a function call
-
-	/*
-		predFunc, err := backend.ModelInference(context.Background(), prompt, input.Messages, images, videos, audios, ml, *config, o, nil, "", "", nil, nil, nil)
-
-		result, tokenUsage, err := ComputeChoices(input, prompt, config, startupOptions, ml, func(s string, c *[]schema.Choice) {
-			if !shouldUseFn {
-				// no function is called, just reply and use stop as finish reason
-				stopReason := FinishReasonStop
-				*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
-				return
-			}
-
-			textContentToReturn = functions.ParseTextContent(s, config.FunctionsConfig)
-			s = functions.CleanupLLMResult(s, config.FunctionsConfig)
-			results := functions.ParseFunctionCall(s, config.FunctionsConfig)
-			xlog.Debug("Text content to return", "text", textContentToReturn)
-			noActionsToRun := len(results) > 0 && results[0].Name == noActionName || len(results) == 0
-
-			switch {
-			case noActionsToRun:
-				result, err := handleQuestion(config, input, ml, startupOptions, results, s, predInput)
-				if err != nil {
-					xlog.Error("error handling question", "error", err)
-					return
-				}
-				*c = append(*c, schema.Choice{
-					Message: &schema.Message{Role: "assistant", Content: &result}})
-			default:
-				toolChoice := schema.Choice{
-					Message: &schema.Message{
-						Role: "assistant",
-					},
-				}
-
-				if len(input.Tools) > 0 {
-					toolCallsReason := FinishReasonToolCalls
-					toolChoice.FinishReason = &toolCallsReason
-				}
-
-				for _, ss := range results {
-					name, args := ss.Name, ss.Arguments
-					if len(input.Tools) > 0 {
-						// If we are using tools, we condense the function calls into
-						// a single response choice with all the tools
-						toolChoice.Message.Content = textContentToReturn
-						toolChoice.Message.ToolCalls = append(toolChoice.Message.ToolCalls,
-							schema.ToolCall{
-								ID:   id,
-								Type: "function",
-								FunctionCall: schema.FunctionCall{
-									Name:      name,
-									Arguments: args,
-								},
-							},
-						)
-					} else {
-						// otherwise we return more choices directly
-						functionCallReason := FinishReasonFunctionCall
-						*c = append(*c, schema.Choice{
-							FinishReason: &functionCallReason,
-							Message: &schema.Message{
-								Role:    "assistant",
-								Content: &textContentToReturn,
-								FunctionCall: map[string]interface{}{
-									"name":      name,
-									"arguments": args,
-								},
-							},
-						})
-					}
-				}
-
-				if len(input.Tools) > 0 {
-					// we need to append our result if we are using tools
-					*c = append(*c, toolChoice)
-				}
-			}
-
-		}, nil)
-		if err != nil {
-			return err
-		}
-
-		resp := &schema.OpenAIResponse{
-			ID:      id,
-			Created: created,
-			Model:   input.Model, // we have to return what the user sent here, due to OpenAI spec.
-			Choices: result,
-			Object:  "chat.completion",
-			Usage: schema.OpenAIUsage{
-				PromptTokens:     tokenUsage.Prompt,
-				CompletionTokens: tokenUsage.Completion,
-				TotalTokens:      tokenUsage.Prompt + tokenUsage.Completion,
-			},
-		}
-		respData, _ := json.Marshal(resp)
-		xlog.Debug("Response", "response", string(respData))
-
-		// Return the prediction in the response body
-		return c.JSON(resp)
-
-	*/
-
-	// TODO: use session.ModelInterface...
-	// Simulate a function call
-	if strings.Contains(prompt, "weather") {
-		functionCall := &FunctionCall{
-			Name: "get_weather",
-			Arguments: map[string]interface{}{
-				"location": "New York",
-				"scale":    "celsius",
-			},
-		}
-		return "", functionCall, nil
+	item = types.MessageItem{
+		ID:     generateItemID(),
+		Type:   types.MessageItemTypeMessage,
+		Status: types.ItemStatusInProgress,
 	}
 
-	// Otherwise, return a normal text response
-	return "This is a generated response based on the conversation.", nil, nil
-}
-
-// Function to process audio response and detect function calls
-func processAudioResponse(session *Session, audioData []byte) (string, []byte, *FunctionCall, error) {
-	// TODO: Do the below or use an any-to-any model like Qwen Omni
-	// Implement the actual model inference logic using session.Model and audioData
-	// For example:
-	// 1. Transcribe the audio to text
-	// 2. Generate a response based on the transcribed text
-	// 3. Check if the model wants to call a function
-	// 4. Convert the response text to speech (audio)
-	//
-	// Placeholder implementation:
-
-	// TODO: template eventual messages, like chat.go
-	reply, err := session.ModelInterface.Predict(context.Background(), &proto.PredictOptions{
-		Prompt: "What's the weather in New York?",
+	sendEvent(c, types.ConversationItemAddedEvent{
+		ServerEventBase: types.ServerEventBase{
+			Type: types.ServerEventTypeConversationItemAdded,
+		},
+		Item: item,
 	})
 
-	if err != nil {
-		return "", nil, nil, err
+	input := schema.OpenAIRequest{
+		Messages: conversationHistory,
 	}
 
-	generatedAudio := reply.Audio
+	// TODO: This logic is shared with llm.go and the chat API. We probably want to refactor it
+	var protoMessages []*proto.Message
+	var predInput string
+	if !config.TemplateConfig.UseTokenizerTemplate {
+		predInput = evaluator.TemplateMessages(input, input.Messages, config, []functions.Function{}, false)
 
-	transcribedText := "What's the weather in New York?"
-	var functionCall *FunctionCall
-
-	// Simulate a function call
-	if strings.Contains(transcribedText, "weather") {
-		functionCall = &FunctionCall{
-			Name: "get_weather",
-			Arguments: map[string]interface{}{
-				"location": "New York",
-				"scale":    "celsius",
-			},
+		xlog.Debug("Prompt (after templating)", "prompt", predInput)
+		if config.Grammar != "" {
+			xlog.Debug("Grammar", "grammar", config.Grammar)
 		}
-		return "", nil, functionCall, nil
+
+		protoMessages = conversationHistory.ToProto()
 	}
 
-	// Generate a response
-	generatedText := "This is a response to your speech input."
+	// TODO: generate response using Predict and send ItemDoneEvent with text content
+	opts := proto.PredictOptions{}
+	opts.Prompt = predInput
+	opts.Messages = protoMessages
+	opts.UseTokenizerTemplate = config.TemplateConfig.UseTokenizerTemplate
 
-	return generatedText, generatedAudio, nil, nil
+	reply, err := session.ModelInterface.Predict(context.TODO(), &opts)
+	if err != nil {
+		sendError(c, "inference_failed", fmt.Sprintf("backend error: %v", err), "", item.ID)
+		return
+	}
+
+	response := string(reply.Message)
+	if config.TemplateConfig.ReplyPrefix != "" {
+		response = config.TemplateConfig.ReplyPrefix + response
+	}
+
+	// For some reason we don't send the audio yet according to OpenAI. The user must send conversation.item.retrieve
+	// This makes sense when we are not using a real any-to-any model, but otherwise seems like a total waste of a round trip?
+	item.Status = types.ItemStatusCompleted
+	item.Content = []types.MessageContentPart{
+		{
+			Type: types.MessageContentTypeOutputAudio,
+			Transcript: response,
+		},
+	}
+	sendEvent(c, types.ConversationItemDoneEvent{
+		ServerEventBase:types.ServerEventBase{
+			Type: types.ServerEventTypeConversationItemDone,
+		},
+		Item: item,
+	})
+
+	// TODO: generate voice audio from LLM text output and add this to the conv
 }
 
 // Function to split the response into chunks (for streaming)

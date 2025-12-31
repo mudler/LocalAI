@@ -171,11 +171,11 @@ const (
 type MessageContentType string
 
 const (
-	MessageContentTypeText       MessageContentType = "text"
-	MessageContentTypeAudio      MessageContentType = "audio"
-	MessageContentTypeTranscript MessageContentType = "transcript"
-	MessageContentTypeInputText  MessageContentType = "input_text"
-	MessageContentTypeInputAudio MessageContentType = "input_audio"
+	MessageContentTypeOutputText  MessageContentType = "output_text"
+	MessageContentTypeOutputAudio MessageContentType = "output_audio"
+	MessageContentTypeTranscript  MessageContentType = "transcript"
+	MessageContentTypeInputText   MessageContentType = "input_text"
+	MessageContentTypeInputAudio  MessageContentType = "input_audio"
 )
 
 type MessageContentPart struct {
@@ -719,7 +719,7 @@ const (
 	ServerEventTypeInputAudioBufferSpeechStarted                    ServerEventType = "input_audio_buffer.speech_started"
 	ServerEventTypeInputAudioBufferSpeechStopped                    ServerEventType = "input_audio_buffer.speech_stopped"
 	ServerEventTypeConversationItemAdded                            ServerEventType = "conversation.item.added"
-	ServerEventTypeConversationItemCreated                          ServerEventType = "conversation.item.created"
+	ServerEventTypeConversationItemDone                             ServerEventType = "conversation.item.done"
 	ServerEventTypeConversationItemInputAudioTranscriptionCompleted ServerEventType = "conversation.item.input_audio_transcription.completed"
 	ServerEventTypeConversationItemInputAudioTranscriptionFailed    ServerEventType = "conversation.item.input_audio_transcription.failed"
 	ServerEventTypeConversationItemTruncated                        ServerEventType = "conversation.item.truncated"
@@ -780,9 +780,9 @@ type SessionCreatedEvent struct {
 // Returned when a transcription session is created.
 // See https://platform.openai.com/docs/api-reference/realtime-server-events/session/created
 type TranscriptionSessionCreatedEvent struct {
-  ServerEventBase
-  // The transcription session resource.
-  Session ServerSession `json:"session"`
+	ServerEventBase
+	// The transcription session resource.
+	Session ServerSession `json:"session"`
 }
 
 // SessionUpdatedEvent is the event for session updated.
@@ -843,7 +843,7 @@ type InputAudioBufferSpeechStoppedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
-type ConversationItemCreatedEvent struct {
+type ConversationItemDoneEvent struct {
 	ServerEventBase
 	PreviousItemID string      `json:"previous_item_id,omitempty"`
 	Item           MessageItem `json:"item"`
@@ -1098,7 +1098,7 @@ type ServerEventInterface interface {
 		InputAudioBufferClearedEvent |
 		InputAudioBufferSpeechStartedEvent |
 		InputAudioBufferSpeechStoppedEvent |
-		ConversationItemCreatedEvent |
+		ConversationItemDoneEvent |
 		ConversationItemInputAudioTranscriptionCompletedEvent |
 		ConversationItemInputAudioTranscriptionFailedEvent |
 		ConversationItemTruncatedEvent |
@@ -1155,8 +1155,8 @@ func UnmarshalServerEvent(data []byte) (ServerEvent, error) { //nolint:funlen,cy
 		return unmarshalServerEvent[InputAudioBufferSpeechStartedEvent](data)
 	case ServerEventTypeInputAudioBufferSpeechStopped:
 		return unmarshalServerEvent[InputAudioBufferSpeechStoppedEvent](data)
-	case ServerEventTypeConversationItemCreated:
-		return unmarshalServerEvent[ConversationItemCreatedEvent](data)
+	case ServerEventTypeConversationItemDone:
+		return unmarshalServerEvent[ConversationItemDoneEvent](data)
 	case ServerEventTypeConversationItemInputAudioTranscriptionCompleted:
 		return unmarshalServerEvent[ConversationItemInputAudioTranscriptionCompletedEvent](data)
 	case ServerEventTypeConversationItemInputAudioTranscriptionFailed:
