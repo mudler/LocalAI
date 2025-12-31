@@ -1,4 +1,29 @@
 ---
+- name: "tildeopen-30b-instruct-lv-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/TildeOpen-30B-Instruct-LV-i1-GGUF
+  description: |
+    The **TildeOpen-30B-Instruct-LV-i1-GGUF** is a quantized version of the base model **pazars/TildeOpen-30B-Instruct-LV**, optimized for deployment. It is an instruct-based language model trained on diverse datasets, supporting multiple languages (en, de, fr, pl, ru, it, pt, cs, nl, es, fi, tr, hu, bg, uk, bs, hr, da, et, lt, ro, sk, sl, sv, no, lv, sr, sq, mk, is, mt, ga). Licensed under CC-BY-4.0, it uses the Transformers library and is designed for efficient inference. The quantized version (with imatrix format) is tailored for deployment on devices with limited resources, while the base model remains the original, high-quality version.
+  overrides:
+    parameters:
+      model: llama-cpp/models/TildeOpen-30B-Instruct-LV.i1-Q4_K_M.gguf
+    name: TildeOpen-30B-Instruct-LV-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/TildeOpen-30B-Instruct-LV-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/TildeOpen-30B-Instruct-LV.i1-Q4_K_M.gguf
+      sha256: 48ed550e9ce7278ac456a43634c2a5804ba273522021434dfa0aa85dda3167b3
+      uri: https://huggingface.co/mradermacher/TildeOpen-30B-Instruct-LV-i1-GGUF/resolve/main/TildeOpen-30B-Instruct-LV.i1-Q4_K_M.gguf
 - name: "allenai_olmo-3.1-32b-think"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
