@@ -1,4 +1,32 @@
 ---
+- name: "crewai-qwen3-4b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/rchow93/crewai-qwen3-4b-gguf
+  description: |
+    The CrewAI Qwen3-4B GGUF Model is a fine-tuned version of the Qwen3-4B model, specifically optimized for code generation within the CrewAI ecosystem. It leverages the native Qwen3 chat template with `
+  overrides:
+    parameters:
+      model: llama-cpp/models/crewai-qwen3-4b-thinking-v2-q4_k_m.gguf
+    name: crewai-qwen3-4b-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/rchow93/crewai-qwen3-4b-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/crewai-qwen3-4b-thinking-v2-q4_k_m.gguf
+      sha256: e2bf0faf5b5112002d96d799f65152640bad327e37b30bb50168338dab7efa00
+      uri: https://huggingface.co/rchow93/crewai-qwen3-4b-gguf/resolve/main/crewai-qwen3-4b-thinking-v2-q4_k_m.gguf
+    - filename: llama-cpp/models/qwen3-4b.Q4_K_M.gguf
+      sha256: fce57007763bbde5314000939d140366d9931c3edfe78e4025f6e32214e0dbd3
+      uri: https://huggingface.co/rchow93/crewai-qwen3-4b-gguf/resolve/main/qwen3-4b.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
