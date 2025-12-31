@@ -1,4 +1,29 @@
 ---
+- name: "verdictai-8b-v2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/VerdictAI-8b-V2-GGUF
+  description: |
+    The model `VerdictAI-8b-V2` is a large language model (8 billion parameters) developed by VerdictAI. It is optimized for efficiency with quantized versions (e.g., Q4_K_S, Q2_K) and is designed for tasks like text generation, reasoning, and multi-modal tasks. The model is trained on extensive text data and is fine-tuned for specific applications. It supports inference via GGUF format, making it suitable for deployment in various AI pipelines. For detailed technical specifications, refer to the Hugging Face repository's README, which provides the original model description and parameters.
+  overrides:
+    parameters:
+      model: llama-cpp/models/VerdictAI-8b-V2.Q4_K_M.gguf
+    name: VerdictAI-8b-V2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/VerdictAI-8b-V2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/VerdictAI-8b-V2.Q4_K_M.gguf
+      sha256: 23aaf47339c697daf2f604ad04f4f78b903d42c2d0e0ab9c8be3021c59c3fdb4
+      uri: https://huggingface.co/mradermacher/VerdictAI-8b-V2-GGUF/resolve/main/VerdictAI-8b-V2.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
