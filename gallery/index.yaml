@@ -1,4 +1,29 @@
 ---
+- name: "inf-rl-qwen-coder-32b-2746"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/inf-rl-qwen-coder-32b-2746-GGUF
+  description: |
+    The model is a quantized version of the Qwen series, specifically the 32B variant. It is optimized for efficiency through techniques like tensor quantization (e.g., Q4_K_S, Q2_K, etc.), but the underlying architecture and parameters are derived from the original Qwen model. It is designed for tasks requiring large-scale language understanding and generation, with reduced computational demands while maintaining performance. The quantization details (e.g., output tensor quantization, convert type) indicate its optimized format for deployment. For the full description of the original Qwen model, refer to the Hugging Face repository's README, which may include additional details about the base model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/inf-rl-qwen-coder-32b-2746.Q4_K_M.gguf
+    name: inf-rl-qwen-coder-32b-2746-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/inf-rl-qwen-coder-32b-2746-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/inf-rl-qwen-coder-32b-2746.Q4_K_M.gguf
+      sha256: 82f6a0e3886297ecedc9c47b54acad3fbd31ff19e81d2d79bef55d185e381c98
+      uri: https://huggingface.co/mradermacher/inf-rl-qwen-coder-32b-2746-GGUF/resolve/main/inf-rl-qwen-coder-32b-2746.Q4_K_M.gguf
 - name: "allenai_olmo-3.1-32b-think"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
