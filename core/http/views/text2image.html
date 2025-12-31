@@ -193,36 +193,11 @@
                                 />
                             </div>
 
-                            <!-- Multiple Input Images (Dynamic) -->
-                            <div>
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
-                                        <i class="fas fa-images mr-2 text-[var(--color-primary)]"></i>Multiple Input Images:
-                                    </label>
-                                    <button type="button" id="add-input-image" class="px-3 py-1 text-sm bg-[var(--color-primary)] text-white rounded hover:opacity-80">
-                                        <i class="fas fa-plus mr-1"></i>Add Image
-                                    </button>
-                                </div>
-                                <div id="input-images-container" class="space-y-2">
-                                    <div class="input-image-item flex items-center gap-2">
-                                        <input
-                                            type="file"
-                                            class="input-image-file input p-2.5 flex-1"
-                                            accept="image/*"
-                                            data-type="files"
-                                        />
-                                        <button type="button" class="remove-input-image px-3 py-2 text-sm bg-red-500 text-white rounded hover:opacity-80 hidden">
-                                            <i class="fas fa-times"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
                             <!-- Reference Images (Dynamic) -->
                             <div>
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
-                                        <i class="fas fa-bookmark mr-2 text-[var(--color-primary)]"></i>Reference Images:
+                                        <i class="fas fa-images mr-2 text-[var(--color-primary)]"></i>Multiple Input Images:
                                     </label>
                                     <button type="button" id="add-reference-image" class="px-3 py-1 text-sm bg-[var(--color-primary)] text-white rounded hover:opacity-80">
                                         <i class="fas fa-plus mr-1"></i>Add Image
@@ -307,34 +282,6 @@
     // Set initial active size preset
     document.querySelector('.size-preset[data-size="512x512"]').classList.add('bg-[var(--color-primary)]', 'text-white');
 
-    // Dynamic image inputs for Multiple Input Images
-    function addInputImage() {
-        const container = document.getElementById('input-images-container');
-        const newItem = document.createElement('div');
-        newItem.className = 'input-image-item flex items-center gap-2';
-        newItem.innerHTML = `
-            <input
-                type="file"
-                class="input-image-file input p-2.5 flex-1"
-                accept="image/*"
-                data-type="files"
-            />
-            <button type="button" class="remove-input-image px-3 py-2 text-sm bg-red-500 text-white rounded hover:opacity-80">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        container.appendChild(newItem);
-        updateRemoveButtons('input-images-container', 'remove-input-image');
-    }
-
-    function removeInputImage(button) {
-        const container = document.getElementById('input-images-container');
-        if (container.children.length > 1) {
-            button.closest('.input-image-item').remove();
-            updateRemoveButtons('input-images-container', 'remove-input-image');
-        }
-    }
-
     // Dynamic image inputs for Reference Images
     function addReferenceImage() {
         const container = document.getElementById('reference-images-container');
@@ -375,15 +322,7 @@
     }
 
     // Event listeners for dynamic inputs
-    document.getElementById('add-input-image').addEventListener('click', addInputImage);
     document.getElementById('add-reference-image').addEventListener('click', addReferenceImage);
-
-    // Use event delegation for remove buttons
-    document.getElementById('input-images-container').addEventListener('click', function(e) {
-        if (e.target.closest('.remove-input-image')) {
-            removeInputImage(e.target.closest('.remove-input-image'));
-        }
-    });
 
     document.getElementById('reference-images-container').addEventListener('click', function(e) {
         if (e.target.closest('.remove-reference-image')) {
@@ -392,7 +331,6 @@
     });
 
     // Initialize remove button visibility
-    updateRemoveButtons('input-images-container', 'remove-input-image');
     updateRemoveButtons('reference-images-container', 'remove-reference-image');
 </script>
 

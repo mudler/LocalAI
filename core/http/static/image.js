@@ -85,19 +85,6 @@ async function promptDallE() {
       requestBody.file = base64;
     }
 
-    // Multiple input images (collect from all dynamic inputs)
-    const inputImageInputs = document.querySelectorAll('.input-image-file');
-    const inputImageFiles = [];
-    for (const input of inputImageInputs) {
-      if (input.files.length > 0) {
-        inputImageFiles.push(input.files[0]);
-      }
-    }
-    if (inputImageFiles.length > 0) {
-      const base64Array = await filesToBase64Array(inputImageFiles);
-      requestBody.files = base64Array;
-    }
-
     // Reference images (collect from all dynamic inputs)
     const refImageInputs = document.querySelectorAll('.reference-image-file');
     const refImageFiles = [];
