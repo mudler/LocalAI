@@ -1,4 +1,35 @@
 ---
+- name: "kairos-mm-qwen2.5-vl-7b-rl-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/KAIROS-MM-Qwen2.5-VL-7B-RL-i1-GGUF
+  description: |
+    The model described here is a quantized version of the Qwen2.5 model, specifically tailored for Vision-Language Modeling (VL) tasks. It is based on the Qwen2.5 foundation but optimized for efficiency through quantization techniques (e.g., Q2_K, Q4_K_S, etc.). Key features include:
+      - **Size**: 7B parameters (7 billion parameters).
+      - **Capabilities**: Combines vision and language understanding for tasks like image captioning, code generation, and multilingual processing.
+      - **Quantization**: Optimized for deployment on resource-constrained devices, with trade-offs between accuracy and efficiency.
+      - **Community-optimized**: Not the original author's model but a community-maintained version for practical use.
+
+    For model galleries, emphasize its efficiency, versatility, and suitability for real-world applications like content creation or technical documentation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/KAIROS-MM-Qwen2.5-VL-7B-RL.i1-Q4_K_M.gguf
+    name: KAIROS-MM-Qwen2.5-VL-7B-RL-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/KAIROS-MM-Qwen2.5-VL-7B-RL-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/KAIROS-MM-Qwen2.5-VL-7B-RL.i1-Q4_K_M.gguf
+      sha256: ab907de75f7d7f1c8c3d09d3dedf05349ad41ce0d9abb40283e74c2a3749de77
+      uri: https://huggingface.co/mradermacher/KAIROS-MM-Qwen2.5-VL-7B-RL-i1-GGUF/resolve/main/KAIROS-MM-Qwen2.5-VL-7B-RL.i1-Q4_K_M.gguf
 - name: "allenai_olmo-3.1-32b-think"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
