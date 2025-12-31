@@ -157,14 +157,9 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 					negative_prompt = prompts[1]
 				}
 
-				mode := 0
 				step := config.Step
 				if step == 0 {
 					step = 15
-				}
-
-				if input.Mode != 0 {
-					mode = input.Mode
 				}
 
 				if input.Step != 0 {
@@ -197,7 +192,7 @@ func ImageEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfi
 					inputSrc = inputImages[0]
 				}
 
-				fn, err := backend.ImageGeneration(height, width, mode, step, *config.Seed, positive_prompt, negative_prompt, inputSrc, output, ml, *config, appConfig, refImages)
+				fn, err := backend.ImageGeneration(height, width, step, *config.Seed, positive_prompt, negative_prompt, inputSrc, output, ml, *config, appConfig, refImages)
 				if err != nil {
 					return err
 				}

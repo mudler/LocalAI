@@ -119,14 +119,24 @@ func main() {
 	}
 
 	fmt.Println(result.FormattedOutput)
+	var models []ProcessedModel
 
-	// Use AI agent to select the most interesting models
-	fmt.Println("Using AI agent to select the most interesting models...")
-	models, err := selectMostInterestingModels(context.Background(), result)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error in model selection: %v\n", err)
-		// Continue with original result if selection fails
+	if len(result.Models) > 1 {
+		fmt.Println("More than one model found (", len(result.Models), "), using AI agent to select the most interesting models")
+		for _, model := range result.Models {
+			fmt.Println("Model: ", model.ModelID)
+		}
+		// Use AI agent to select the most interesting models
+		fmt.Println("Using AI agent to select the most interesting models...")
+		models, err = selectMostInterestingModels(context.Background(), result)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error in model selection: %v\n", err)
+			// Continue with original result if selection fails
+			models = result.Models
+		}
+	} else if len(result.Models) == 1 {
 		models = result.Models
+		fmt.Println("Only one model found, using it directly")
 	}
 
 	fmt.Print(models)
@@ -315,7 +325,7 @@ func searchAndProcessModels(searchTerm string, limit int, quantization string) (
 				outputBuilder.WriteString(fmt.Sprintf("   README Content Preview: %s\n",
 					processedModel.ReadmeContentPreview))
 			} else {
-				continue
+				fmt.Printf("   Warning: Failed to get real readme: %v\n", err)
 			}
 			fmt.Println("Real readme got", readmeContent)
 

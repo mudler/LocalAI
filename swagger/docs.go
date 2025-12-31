@@ -1889,6 +1889,17 @@ const docTemplate = `{
                 }
             }
         },
+        "schema.InputTokensDetails": {
+            "type": "object",
+            "properties": {
+                "image_tokens": {
+                    "type": "integer"
+                },
+                "text_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.Item": {
             "type": "object",
             "properties": {
@@ -2579,6 +2590,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "completion_tokens": {
+                    "type": "integer"
+                },
+                "input_tokens": {
+                    "description": "Fields for image generation API compatibility",
+                    "type": "integer"
+                },
+                "input_tokens_details": {
+                    "$ref": "#/definitions/schema.InputTokensDetails"
+                },
+                "output_tokens": {
                     "type": "integer"
                 },
                 "prompt_tokens": {

@@ -49,6 +49,8 @@ type ReleaseManager struct {
 	ChecksumsPath string
 	// MetadataPath is where version metadata is stored
 	MetadataPath string
+	// HTTPClient is the HTTP client used for downloads
+	HTTPClient *http.Client
 }
 
 // NewReleaseManager creates a new release manager
@@ -65,6 +67,9 @@ func NewReleaseManager() *ReleaseManager {
 		CurrentVersion: internal.PrintableVersion(),
 		ChecksumsPath:  checksumsPath,
 		MetadataPath:   metadataPath,
+		HTTPClient: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 
@@ -72,7 +77,7 @@ func NewReleaseManager() *ReleaseManager {
 func (rm *ReleaseManager) GetLatestRelease() (*Release, error) {
 	url := fmt.Sprintf("https://api.github.com/repos/%s/%s/releases/latest", rm.GitHubOwner, rm.GitHubRepo)
 
-	resp, err := http.Get(url)
+	resp, err := rm.HTTPClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch latest release: %w", err)
 	}
@@ -125,18 +130,43 @@ func (rm *ReleaseManager) DownloadRelease(version string, progressCallback func(
 		rm.GitHubOwner, rm.GitHubRepo, version, version)
 
 	checksumPath := filepath.Join(rm.BinaryPath, "checksums.txt")
-	if err := rm.downloadFile(checksumURL, checksumPath, nil); err != nil {
-		return fmt.Errorf("failed to download checksums: %w", err)
+	manualChecksumPath := filepath.Join(rm.ChecksumsPath, fmt.Sprintf("checksums-%s.txt", version))
+
+	// First, check if there's already a checksum file (either manually placed or previously downloaded)
+	// and honor that, skipping download entirely in such case
+	var downloadErr error
+	if _, err := os.Stat(manualChecksumPath); err == nil {
+		log.Printf("Using existing checksums from: %s", manualChecksumPath)
+		checksumPath = manualChecksumPath
+	} else if _, err := os.Stat(checksumPath); err == nil {
+		log.Printf("Using existing checksums from: %s", checksumPath)
+	} else {
+		// No existing checksum file found, try to download
+		downloadErr = rm.downloadFile(checksumURL, checksumPath, nil)
+
+		if downloadErr != nil {
+			log.Printf("Warning: failed to download checksums: %v", downloadErr)
+			log.Printf("Warning: Checksum verification will be skipped. For security, you can manually place checksums at: %s", manualChecksumPath)
+			log.Printf("Download checksums from: %s", checksumURL)
+			// Continue without verification - log warning but don't fail
+		}
 	}
 
-	// Verify the checksum
-	if err := rm.VerifyChecksum(localPath, checksumPath, binaryName); err != nil {
-		return fmt.Errorf("checksum verification failed: %w", err)
-	}
+	// Verify the checksum if we have a checksum file
+	if _, err := os.Stat(checksumPath); err == nil {
+		if err := rm.VerifyChecksum(localPath, checksumPath, binaryName); err != nil {
+			return fmt.Errorf("checksum verification failed: %w", err)
+		}
+		log.Printf("Checksum verification successful")
 
-	// Save checksums persistently for future verification
-	if err := rm.saveChecksums(version, checksumPath, binaryName); err != nil {
-		log.Printf("Warning: failed to save checksums: %v", err)
+		// Save checksums persistently for future verification
+		if downloadErr == nil {
+			if err := rm.saveChecksums(version, checksumPath, binaryName); err != nil {
+				log.Printf("Warning: failed to save checksums: %v", err)
+			}
+		}
+	} else {
+		log.Printf("Warning: Proceeding without checksum verification")
 	}
 
 	// Make the binary executable
@@ -168,34 +198,61 @@ func (rm *ReleaseManager) GetBinaryName(version string) string {
 
 // downloadFile downloads a file from a URL to a local path with optional progress callback
 func (rm *ReleaseManager) downloadFile(url, filepath string, progressCallback func(float64)) error {
-	resp, err := http.Get(url)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+	return rm.downloadFileWithRetry(url, filepath, progressCallback, 3)
+}
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad status: %s", resp.Status)
-	}
+// downloadFileWithRetry downloads a file from a URL with retry logic
+func (rm *ReleaseManager) downloadFileWithRetry(url, filepath string, progressCallback func(float64), maxRetries int) error {
+	var lastErr error
 
-	out, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-
-	// Create a progress reader if callback is provided
-	var reader io.Reader = resp.Body
-	if progressCallback != nil && resp.ContentLength > 0 {
-		reader = &progressReader{
-			Reader:   resp.Body,
-			Total:    resp.ContentLength,
-			Callback: progressCallback,
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		if attempt > 1 {
+			log.Printf("Retrying download (attempt %d/%d): %s", attempt, maxRetries, url)
+			time.Sleep(time.Duration(attempt) * time.Second)
 		}
+
+		resp, err := rm.HTTPClient.Get(url)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			lastErr = fmt.Errorf("bad status: %s", resp.Status)
+			continue
+		}
+
+		out, err := os.Create(filepath)
+		if err != nil {
+			resp.Body.Close()
+			return err
+		}
+
+		// Create a progress reader if callback is provided
+		var reader io.Reader = resp.Body
+		if progressCallback != nil && resp.ContentLength > 0 {
+			reader = &progressReader{
+				Reader:   resp.Body,
+				Total:    resp.ContentLength,
+				Callback: progressCallback,
+			}
+		}
+
+		_, err = io.Copy(out, reader)
+		resp.Body.Close()
+		out.Close()
+
+		if err != nil {
+			lastErr = err
+			os.Remove(filepath)
+			continue
+		}
+
+		return nil
 	}
 
-	_, err = io.Copy(out, reader)
-	return err
+	return fmt.Errorf("failed after %d attempts: %w", maxRetries, lastErr)
 }
 
 // saveChecksums saves checksums persistently for future verification
