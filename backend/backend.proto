@@ -301,7 +301,6 @@ message TranscriptSegment {
 message GenerateImageRequest {
   int32 height = 1;
   int32 width = 2;
-  int32 mode = 3;
   int32 step = 4;
   int32 seed = 5;
   string positive_prompt = 6;
