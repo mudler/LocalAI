@@ -1,4 +1,38 @@
 ---
+- name: "boreas-24b-v1.2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Boreas-24B-v1.2-GGUF
+  description: |
+    **Model Name:** Boreas-24B-v1.2
+    **Base Model:** Naphula/Boreas-24B-v1.2
+    **Size:** 24 billion parameters
+    **Purpose:** Creative writing, storytelling, plot generation, and roleplaying in diverse genres (fiction, science fiction, romance, horror, etc.).
+    **Quantization:** Optimized for efficiency with Q2_K (9.0 GB) and Q4_K_S (13.6 GB) formats, prioritizing speed and quality.
+    **Format:** GGUF (compressed for fast deployment).
+    **Features:** Supports vivid prose, scene continuation, and multi-genre storytelling.
+    **Note:** This is a quantized version of the original model, not the original author's model.
+
+    *For gallery use, highlight its versatility in creative tasks and efficient deployment.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/Boreas-24B-v1.2.Q4_K_M.gguf
+    name: Boreas-24B-v1.2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Boreas-24B-v1.2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Boreas-24B-v1.2.Q4_K_M.gguf
+      sha256: 475d243b4c978e3ff3c732570982861dd12a9b390e200fa9f95d56a9fe6acbab
+      uri: https://huggingface.co/mradermacher/Boreas-24B-v1.2-GGUF/resolve/main/Boreas-24B-v1.2.Q4_K_M.gguf
 - name: "allenai_olmo-3.1-32b-think"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
