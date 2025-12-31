@@ -1,4 +1,38 @@
 ---
+- name: "hemlock-qwen2.5-coder-14b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Hemlock-Qwen2.5-Coder-14B-GGUF
+  description: |
+    The **Hemlock-Qwen2.5-Coder-14B** is a large language model fine-tuned on the Hemlock programming language, optimized for coding tasks. Built on the Qwen2.5-Coder-14B-Instruct base model, it combines the robustness of a 14B parameter foundation with specialized training on the Hemlock-SFT dataset. The model excels in code generation, language understanding, and tasks requiring precise linguistic and logical reasoning. Available in multiple quantized formats (e.g., Q4_K_S, Q6_K), it balances performance and efficiency for diverse applications.
+  tags:
+    - llm
+    - code
+    - coding
+    - qwen
+    - gguf
+    - instruction-tuned
+    - reasoning
+    - text-to-text
+  overrides:
+    parameters:
+      model: llama-cpp/models/Hemlock-Qwen2.5-Coder-14B.Q4_K_M.gguf
+    name: Hemlock-Qwen2.5-Coder-14B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Hemlock-Qwen2.5-Coder-14B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Hemlock-Qwen2.5-Coder-14B.Q4_K_M.gguf
+      sha256: cd949e15b890df796d3e7b9b61d62774414386b951ada923cbbca87b88f10fcb
+      uri: https://huggingface.co/mradermacher/Hemlock-Qwen2.5-Coder-14B-GGUF/resolve/main/Hemlock-Qwen2.5-Coder-14B.Q4_K_M.gguf
 - name: "huihui-glm-4.6v-flash-abliterated"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
