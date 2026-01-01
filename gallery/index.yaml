@@ -1,4 +1,29 @@
 ---
+- name: "bartleby-llama-3.2-1b_gguf"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/staeiou/bartleby-llama-3.2-1b_gguf
+  description: |
+    AI model: bartleby-llama-3.2-1b_gguf
+  overrides:
+    parameters:
+      model: llama-cpp/models/bartleby-llama-3.2-1b-instruct.Q4_K_M.gguf
+    name: bartleby-llama-3.2-1b_gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/staeiou/bartleby-llama-3.2-1b_gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/bartleby-llama-3.2-1b-instruct.Q4_K_M.gguf
+      sha256: 1bd0c4cc2ee00c300631f9a7c3dfe9afc8dfb61cb7188dd7352df248f4f72b01
+      uri: https://huggingface.co/staeiou/bartleby-llama-3.2-1b_gguf/resolve/main/bartleby-llama-3.2-1b-instruct.Q4_K_M.gguf
 - name: "tildeopen-30b-instruct-lv-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
