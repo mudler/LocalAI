@@ -315,9 +315,9 @@
   files:
     - filename: Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/Qwen3-VL-30B-A3B-Instruct-Q4_K_M.gguf
-      sha256: dfee58d4227981d04dd8558b7d8d50073b4d69a6d017a67ed42795d303b6f9ef
+      sha256: 7ea0a652b4bda1c1911a93a79a7cd98b92011dfea078e87328285294b2b4ab44
     - filename: mmproj/mmproj-F16.gguf
-      sha256: 7e7cec67a3a887bddbf38099738d08570e85f08dd126578fa00a7acf4dacef01
+      sha256: 9f248089357599a08a23af40cb5ce0030de14a2e119b7ef57f66cb339bd20819
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Instruct-GGUF/mmproj-F16.gguf
 - !!merge <<: *qwen3vl
   name: "qwen3-vl-30b-a3b-thinking"
@@ -332,10 +332,10 @@
   files:
     - filename: Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
-      sha256: 68aacddb0c5598150fcbdb38916606e070101439714726352b808e1efa075e53
+      sha256: b5622d28d2deb398558841fb29060f0ad241bd30f6afe79ed3fcf78d5fbf887b
     - filename: mmproj/mmproj-F16.gguf
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/mmproj-F16.gguf
-      sha256: 752f8f67171e1d3c752b638b1b210a4c75dd0731200595f496ef8b26040ce35d
+      sha256: 7c5d39a9dc4645fc49a39a1c5a96157825af4d1c6e0961bed5d667a65b4b9572
 - !!merge <<: *qwen3vl
   name: "qwen3-vl-4b-instruct"
   urls:
