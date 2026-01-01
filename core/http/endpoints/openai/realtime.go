@@ -126,11 +126,14 @@ type ConversationContent struct {
 	// Additional fields as needed
 }
 
-// Define the structures for incoming messages
+// TODO: We could replace this with the Union pattern or UnmarshalServerEvent like trick used in openai-relatime-api
+// Define the structures for incoming messages/events of any type
 type IncomingMessage struct {
 	Type     types.ClientEventType `json:"type"`
+	EventID  string                `json:"event_id,omitempty"`
 	Session  json.RawMessage       `json:"session,omitempty"`
 	Item     json.RawMessage       `json:"item,omitempty"`
+	ItemID   string                `json:"item_id,omitempty"`
 	Audio    string                `json:"audio,omitempty"`
 	Response json.RawMessage       `json:"response,omitempty"`
 	Error    *ErrorMessage         `json:"error,omitempty"`
@@ -236,6 +239,8 @@ func registerRealtime(application *application.Application, model, intent string
 		conversationID := generateConversationID()
 		conversation := &Conversation{
 			ID:    conversationID,
+			// TODO: We need to truncate the conversation items when a new item is added and we have run out of space. There are multiple places where items
+			//       can be added so we could use a datastructure here that enforces truncation upon addition
 			Items: []*types.MessageItem{},
 		}
 		session.Conversations[conversationID] = conversation
@@ -269,13 +274,12 @@ func registerRealtime(application *application.Application, model, intent string
 		sendEvent(c, types.TranscriptionSessionCreatedEvent{
 			ServerEventBase: types.ServerEventBase{
 				EventID: "event_TODO",
-				Type:    types.ServerEventTypeTranscriptionSessionCreated,
+				Type:    types.ServerEventTypeSessionCreated,
 			},
 			Session: session.ToServer(),
 		})
 
 		var (
-			// mt   int
 			msg  []byte
 			wg   sync.WaitGroup
 			done = make(chan struct{})
@@ -425,60 +429,40 @@ func registerRealtime(application *application.Application, model, intent string
 
 			case types.ClientEventTypeConversationItemCreate:
 				xlog.Debug("recv", "message", string(msg))
-
-				// Handle creating new conversation items
-				var item types.ConversationItemCreateEvent
-				if err := json.Unmarshal(incomingMsg.Item, &item); err != nil {
-					xlog.Error("failed to unmarshal 'conversation.item.create'", "error", err)
-					sendError(c, "invalid_item", "Invalid item format", "", "")
-					continue
-				}
-
 				sendNotImplemented(c, "conversation.item.create")
-
-				// Generate item ID and set status
-				// item.ID = generateItemID()
-				// item.Object = "realtime.item"
-				// item.Status = "completed"
-				//
-				// // Add item to conversation
-				// conversation.Lock.Lock()
-				// conversation.Items = append(conversation.Items, &item)
-				// conversation.Lock.Unlock()
-				//
-				// // Send item.created event
-				// sendEvent(c, OutgoingMessage{
-				// 	Type: "conversation.item.created",
-				// 	Item: &item,
-				// })
 
 			case types.ClientEventTypeConversationItemDelete:
 				sendError(c, "not_implemented", "Deleting items not implemented", "", "event_TODO")
 
-			case types.ClientEventTypeResponseCreate:
-				// Handle generating a response
-				var responseCreate types.ResponseCreateEvent
-				if len(incomingMsg.Response) > 0 {
-					if err := json.Unmarshal(incomingMsg.Response, &responseCreate); err != nil {
-						xlog.Error("failed to unmarshal 'response.create' response object", "error", err)
-						sendError(c, "invalid_response_create", "Invalid response create format", "", "")
-						continue
+			case types.ClientEventTypeConversationItemRetrieve:
+				xlog.Debug("recv", "message", string(msg))
+
+				if incomingMsg.ItemID == "" {
+					sendError(c, "invalid_item_id", "Need item_id, but none specified", "", "event_TODO")
+					continue
+				}
+
+				conversation.Lock.Lock()
+				var retrievedItem types.MessageItem
+				for _, item := range conversation.Items {
+					if item.ID == incomingMsg.ItemID {
+						retrievedItem = *item
+						break
 					}
 				}
+				conversation.Lock.Unlock()
 
-				// Update session functions if provided
-				if len(responseCreate.Response.Tools) > 0 {
-					// TODO: Tools -> Functions
-				}
+				sendEvent(c, types.ConversationItemRetrievedEvent{
+					ServerEventBase: types.ServerEventBase{
+						Type: types.ServerEventTypeConversationItemRetrieved,
+						EventID: "event_TODO",
+					},
+					Item: retrievedItem,
+				})
 
+			case types.ClientEventTypeResponseCreate:
+				xlog.Debug("recv", "message", string(msg))
 				sendNotImplemented(c, "response.create")
-
-				// TODO: Generate a response based on the conversation history
-				// wg.Add(1)
-				// go func() {
-				// 	defer wg.Done()
-				// 	generateResponse(cfg, evaluator, session, conversation, responseCreate, c, mt)
-				// }()
 
 			case types.ClientEventTypeResponseCancel:
 				xlog.Debug("recv", "message", string(msg))
@@ -608,9 +592,9 @@ func updateSession(session *Session, update *types.ClientSession, cl *config.Mod
 	if update.Instructions != "" {
 		session.Instructions = update.Instructions
 	}
-	if update.Tools != nil {
-		return fmt.Errorf("Haven't implemented tools")
-	}
+	// if update.Tools != nil {
+	// 	return fmt.Errorf("Haven't implemented tools")
+	// }
 
 	session.InputAudioTranscription = update.InputAudioTranscription
 
@@ -922,15 +906,11 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		response = config.TemplateConfig.ReplyPrefix + response
 	}
 
-	// For some reason we don't send the audio in the ItemDone event according to OpenAI. The user must request it with conversation.item.retrieve.
-	// This almost makes sense when not using a real any-to-any model because we can send the transcript before the audio is ready, but it's not clear
-	// why the user should request the audio? If it is to save bandwidth then we shouldn't send the user's own audio back to them and besides the common case
-	// is to want the generated audio
 	conv.Lock.Lock()
 	item.Status = types.ItemStatusCompleted
 	item.Content = []types.MessageContentPart{
 		{
-			Type: types.MessageContentTypeOutputAudio,
+			Type:       types.MessageContentTypeOutputAudio,
 			Transcript: response,
 		},
 	}
@@ -977,12 +957,20 @@ func generateResponse(config *config.ModelConfig, evaluator *templates.Evaluator
 		return
 	}
 
+	// For some reason OpenAI doesn't send the audio now according to the docs. The user must request it with conversation.item.retrieve.
+	// This (almost) makes sense when not using a real any-to-any model because we can send the transcript before the audio is ready.
+	// However we don't do that for now, to keep things simple we only send the done event once we have the audio ready
 	conv.Lock.Lock()
+	doneEvent := types.ConversationItemDoneEvent{
+		ServerEventBase: types.ServerEventBase{
+			Type: types.ServerEventTypeConversationItemAdded,
+		},
+		Item: item,
+	}
 	item.Content[0].Audio = base64.StdEncoding.EncodeToString(audioBytes)
 	conv.Lock.Unlock()
 
-	// TODO: should we just send the audio now despite the OpenAI docs?
-	// TODO: save messages in a KV store with eviction for later retrieval with conversation.item.retrieve
+	sendEvent(c, doneEvent)
 }
 
 // Helper functions to generate unique IDs
