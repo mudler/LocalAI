@@ -1,4 +1,29 @@
 ---
+- name: "atlas-teach-8b-instruct-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/ATLAS-Teach-8B-Instruct-i1-GGUF
+  description: |
+    This model is a large language model (8B parameters) trained for instruction-following tasks. It is a quantized version of the base model *Arc-Intelligence/ATLAS-8B-Instruct*, designed for efficient deployment with GGUF format. It supports reasoning, pedagogy, and supervised fine-tuning. Available quantized versions range from low-quality (e.g., IQ1_S) to high-quality (e.g., Q4_K_M), with the best balance of size, speed, and quality in the *Q4_K_M* variant. The model is optimized for multi-part GGUF files and can be used for tasks like question-answering, coding, and educational purposes.
+  overrides:
+    parameters:
+      model: llama-cpp/models/ATLAS-Teach-8B-Instruct.i1-Q4_K_M.gguf
+    name: ATLAS-Teach-8B-Instruct-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/ATLAS-Teach-8B-Instruct-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/ATLAS-Teach-8B-Instruct.i1-Q4_K_M.gguf
+      sha256: 9211ee3ec17bf83848e9c9b21df3f29a655a18826bd424be3920fa6f145535d6
+      uri: https://huggingface.co/mradermacher/ATLAS-Teach-8B-Instruct-i1-GGUF/resolve/main/ATLAS-Teach-8B-Instruct.i1-Q4_K_M.gguf
 - name: "tildeopen-30b-instruct-lv-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
