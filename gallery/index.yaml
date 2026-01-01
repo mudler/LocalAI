@@ -1,4 +1,29 @@
 ---
+- name: "hy-mt1.5-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mungert/HY-MT1.5-7B-GGUF
+  description: |
+    AI model: hy-mt1.5-7b
+  overrides:
+    parameters:
+      model: llama-cpp/models/HY-MT1.5-7B-q4_k_m.gguf
+    name: HY-MT1.5-7B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Mungert/HY-MT1.5-7B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/HY-MT1.5-7B-q4_k_m.gguf
+      sha256: 3145f5185be40538f8c0e9f090ca3050a75bd194aa1e64b3e0e1802468bb64d1
+      uri: https://huggingface.co/Mungert/HY-MT1.5-7B-GGUF/resolve/main/HY-MT1.5-7B-q4_k_m.gguf
 - name: "tildeopen-30b-instruct-lv-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
