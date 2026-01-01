@@ -1,4 +1,52 @@
 ---
+- name: "qwen3-vl-32b-instruct"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/Qwen3-VL-32B-Instruct-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-32B-Instruct
+    **Architecture:** Vision-Language Model (VLM) with Dense/MoE variants, optimized for reasoning and task-specific deployment.
+
+    **Key Features:**
+      - **Advanced Vision Understanding:** Recognizes objects, scenes, and visual patterns with enhanced spatial reasoning and 3D grounding.
+      - **Text-Vision Fusion:** Seamlessly integrates text and visual inputs for unified comprehension and generation.
+      - **Long-Context Handling:** Supports up to 256K context length, enabling detailed analysis of books, videos, and complex scenes.
+      - **Multimodal Reasoning:** Excels in STEM/Math tasks, providing causal analysis and evidence-based answers.
+      - **Visual Coding Boost:** Generates HTML/JS/Draw.io from images/videos for creative workflows.
+      - **Cross-Modal Interaction:** Operates as a visual agent in GUIs, invoking tools and completing tasks.
+
+    **Use Cases:**
+      - General-purpose vision-language understanding (e.g., image captioning, video analysis).
+      - Customizable deployment (Dense/MoE architectures) for edge/cloud scenarios.
+      - Research and development in STEM, education, and creative applications.
+
+    **Licensing:** Apache-2.0
+    **Repository:** [Qwen/Qwen3-VL-32B-Instruct](https://huggingface.co/Qwen/Qwen3-VL-32B-Instruct)
+
+    This model combines advanced vision and language processing to deliver robust, task-specific capabilities for a wide range of applications.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-32B-Instruct-Q4_K_M.gguf
+    name: Qwen3-VL-32B-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/mmproj-F32.gguf
+    description: Imported from https://huggingface.co/unsloth/Qwen3-VL-32B-Instruct-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-32B-Instruct-Q4_K_M.gguf
+      sha256: 92d605566f8661b296251c535ed028ecf81c32e14e06948a3d8bef829e96a804
+      uri: https://huggingface.co/unsloth/Qwen3-VL-32B-Instruct-GGUF/resolve/main/Qwen3-VL-32B-Instruct-Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/mmproj-F32.gguf
+      sha256: c9b2f5bc432af8581cd7275dac22b7e3b2d1db31e7ca0ef505e7ff3a48df6e72
+      uri: https://huggingface.co/unsloth/Qwen3-VL-32B-Instruct-GGUF/resolve/main/mmproj-F32.gguf
 - name: "tildeopen-30b-instruct-lv-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
