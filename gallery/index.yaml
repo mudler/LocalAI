@@ -1,4 +1,36 @@
 ---
+- name: "minimax-m2.1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2.1-i1-GGUF
+  description: |
+    The model **MiniMax-M2.1** (base model: *MiniMaxAI/MiniMax-M2.1*) is a large language model quantized for efficient deployment. It is optimized for speed and memory usage, with quantized versions available in various formats (e.g., GGUF) for different performance trade-offs. The quantization is done by the user, and the model is licensed under the *modified-mit* license.
+
+    Key features:
+      - **Quantized versions**: Includes low-precision (IQ1, IQ2, Q2_K, etc.) and high-precision (Q4_K_M, Q6_K) options.
+      - **Usage**: Requires GGUF files; see [TheBloke's documentation](https://huggingface.co/TheBloke/KafkaLM-70B-German-V0.1-GGUF) for details on integration.
+      - **License**: Modified MIT (see [license link](https://github.com/MiniMax-AI/MiniMax-M2.1/blob/main/LICENSE)).
+
+    For gallery use, emphasize its quantized variants, performance trade-offs, and licensing.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.1.i1-Q4_K_M.gguf
+    name: MiniMax-M2.1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MiniMax-M2.1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.1.i1-Q4_K_M.gguf
+      sha256: dba387e17ddd9b4559fb6f14459fcece7f00c66bbe4062d7ceea7fb9568e3282
+      uri: https://huggingface.co/mradermacher/MiniMax-M2.1-i1-GGUF/resolve/main/MiniMax-M2.1.i1-Q4_K_M.gguf
 - name: "tildeopen-30b-instruct-lv-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
