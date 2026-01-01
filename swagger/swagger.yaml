@@ -705,9 +705,6 @@ definitions:
         additionalProperties:
           type: string
         type: object
-      mode:
-        description: Image (not supported by OpenAI)
-        type: integer
       model:
         type: string
       model_base_name:
@@ -727,6 +724,7 @@ definitions:
       prompt:
         description: Prompt is read only by completion/image API calls
       quality:
+        description: Image (not supported by OpenAI)
         type: string
       reasoning_effort:
         type: string

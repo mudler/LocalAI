@@ -2446,10 +2446,6 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "mode": {
-                    "description": "Image (not supported by OpenAI)",
-                    "type": "integer"
-                },
                 "model": {
                     "type": "string"
                 },
@@ -2476,6 +2472,7 @@ const docTemplate = `{
                     "description": "Prompt is read only by completion/image API calls"
                 },
                 "quality": {
+                    "description": "Image (not supported by OpenAI)",
                     "type": "string"
                 },
                 "reasoning_effort": {
