@@ -300,10 +300,10 @@
   files:
     - filename: Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/Qwen3-VL-30B-A3B-Thinking-Q4_K_M.gguf
-      sha256: 68aacddb0c5598150fcbdb38916606e070101439714726352b808e1efa075e53
+      sha256: b5622d28d2deb398558841fb29060f0ad241bd30f6afe79ed3fcf78d5fbf887b
     - filename: mmproj/mmproj-F16.gguf
       uri: huggingface://unsloth/Qwen3-VL-30B-A3B-Thinking-GGUF/mmproj-F16.gguf
-      sha256: 752f8f67171e1d3c752b638b1b210a4c75dd0731200595f496ef8b26040ce35d
+      sha256: 7c5d39a9dc4645fc49a39a1c5a96157825af4d1c6e0961bed5d667a65b4b9572
 - !!merge <<: *qwen3vl
   name: "qwen3-vl-4b-instruct"
   urls:
