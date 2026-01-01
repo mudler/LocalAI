@@ -32,9 +32,13 @@ async function promptDallE() {
   const input = document.getElementById("input");
   const generateBtn = document.getElementById("generate-btn");
   const resultDiv = document.getElementById("result");
+  const resultPlaceholder = document.getElementById("result-placeholder");
 
   // Show loader and disable form
-  loader.style.display = "block";
+  loader.classList.remove("hidden");
+  if (resultPlaceholder) {
+    resultPlaceholder.style.display = "none";
+  }
   input.disabled = true;
   generateBtn.disabled = true;
 
@@ -42,7 +46,10 @@ async function promptDallE() {
   const prompt = input.value.trim();
   if (!prompt) {
     alert("Please enter a prompt");
-    loader.style.display = "none";
+    loader.classList.add("hidden");
+    if (resultPlaceholder) {
+      resultPlaceholder.style.display = "flex";
+    }
     input.disabled = false;
     generateBtn.disabled = false;
     return;
@@ -103,8 +110,11 @@ async function promptDallE() {
     }
   } catch (error) {
     console.error("Error processing image files:", error);
-    resultDiv.innerHTML = '<p class="text-red-500">Error processing image files: ' + error.message + '</p>';
-    loader.style.display = "none";
+    resultDiv.innerHTML = '<p class="text-xs text-red-500 p-2">Error processing image files: ' + error.message + '</p>';
+    loader.classList.add("hidden");
+    if (resultPlaceholder) {
+      resultPlaceholder.style.display = "none";
+    }
     input.disabled = false;
     generateBtn.disabled = false;
     return;
@@ -124,21 +134,27 @@ async function promptDallE() {
 
     if (json.error) {
       // Display error
-      resultDiv.innerHTML = '<p class="text-red-500 p-4">Error: ' + json.error.message + '</p>';
-      loader.style.display = "none";
+      resultDiv.innerHTML = '<p class="text-xs text-red-500 p-2">Error: ' + json.error.message + '</p>';
+      loader.classList.add("hidden");
+      if (resultPlaceholder) {
+        resultPlaceholder.style.display = "none";
+      }
       input.disabled = false;
       generateBtn.disabled = false;
       return;
     }
 
-    // Clear result div
+    // Clear result div and hide placeholder
     resultDiv.innerHTML = '';
+    if (resultPlaceholder) {
+      resultPlaceholder.style.display = "none";
+    }
 
     // Display all generated images
     if (json.data && json.data.length > 0) {
       json.data.forEach((item, index) => {
         const imageContainer = document.createElement("div");
-        imageContainer.className = "mb-6 bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-xl p-4";
+        imageContainer.className = "mb-4 bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-lg p-2";
 
         // Create image element
         const img = document.createElement("img");
@@ -150,30 +166,30 @@ async function promptDallE() {
           return; // Skip invalid items
         }
         img.alt = prompt;
-        img.className = "w-full h-auto rounded-lg mb-3";
+        img.className = "w-full h-auto rounded-lg mb-2";
         imageContainer.appendChild(img);
 
         // Create caption container
         const captionDiv = document.createElement("div");
-        captionDiv.className = "mt-3 p-3 bg-[var(--color-bg-secondary)] rounded-lg";
+        captionDiv.className = "mt-2 p-2 bg-[var(--color-bg-secondary)] rounded-lg";
 
         // Prompt caption
         const promptCaption = document.createElement("p");
-        promptCaption.className = "text-sm text-[var(--color-text-primary)] mb-2";
+        promptCaption.className = "text-xs text-[var(--color-text-primary)] mb-1.5";
         promptCaption.innerHTML = '<strong>Prompt:</strong> ' + escapeHtml(prompt);
         captionDiv.appendChild(promptCaption);
 
         // Negative prompt if provided
         if (negativePrompt) {
           const negativeCaption = document.createElement("p");
-          negativeCaption.className = "text-sm text-[var(--color-text-secondary)] mb-2";
+          negativeCaption.className = "text-xs text-[var(--color-text-secondary)] mb-1.5";
           negativeCaption.innerHTML = '<strong>Negative Prompt:</strong> ' + escapeHtml(negativePrompt);
           captionDiv.appendChild(negativeCaption);
         }
 
         // Generation details
         const detailsDiv = document.createElement("div");
-        detailsDiv.className = "flex flex-wrap gap-4 text-xs text-[var(--color-text-secondary)] mt-2";
+        detailsDiv.className = "flex flex-wrap gap-3 text-[10px] text-[var(--color-text-secondary)] mt-1.5";
         detailsDiv.innerHTML = `
           <span><strong>Size:</strong> ${size}</span>
           ${step !== undefined ? `<span><strong>Steps:</strong> ${step}</span>` : ''}
@@ -183,7 +199,7 @@ async function promptDallE() {
 
         // Copy prompt button
         const copyBtn = document.createElement("button");
-        copyBtn.className = "mt-2 px-3 py-1 text-xs bg-[var(--color-primary)] text-white rounded hover:opacity-80";
+        copyBtn.className = "mt-1.5 px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80";
         copyBtn.innerHTML = '<i class="fas fa-copy mr-1"></i>Copy Prompt';
         copyBtn.onclick = () => {
           navigator.clipboard.writeText(prompt).then(() => {
@@ -198,8 +214,15 @@ async function promptDallE() {
         imageContainer.appendChild(captionDiv);
         resultDiv.appendChild(imageContainer);
       });
+      // Hide placeholder when images are displayed
+      if (resultPlaceholder) {
+        resultPlaceholder.style.display = "none";
+      }
     } else {
-      resultDiv.innerHTML = '<p class="text-[var(--color-text-secondary)] p-4">No images were generated.</p>';
+      resultDiv.innerHTML = '<p class="text-xs text-[var(--color-text-secondary)] p-2">No images were generated.</p>';
+      if (resultPlaceholder) {
+        resultPlaceholder.style.display = "none";
+      }
     }
 
     // Preserve prompt in input field (don't clear it)
@@ -207,10 +230,13 @@ async function promptDallE() {
 
   } catch (error) {
     console.error("Error generating image:", error);
-    resultDiv.innerHTML = '<p class="text-red-500 p-4">Error: ' + error.message + '</p>';
+    resultDiv.innerHTML = '<p class="text-xs text-red-500 p-2">Error: ' + error.message + '</p>';
+    if (resultPlaceholder) {
+      resultPlaceholder.style.display = "none";
+    }
   } finally {
     // Hide loader and re-enable form
-    loader.style.display = "none";
+    loader.classList.add("hidden");
     input.disabled = false;
     generateBtn.disabled = false;
     input.focus();
@@ -250,6 +276,6 @@ document.addEventListener("DOMContentLoaded", function() {
   // Hide loader initially
   const loader = document.getElementById("loader");
   if (loader) {
-    loader.style.display = "none";
+    loader.classList.add("hidden");
   }
 });

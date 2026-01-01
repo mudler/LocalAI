@@ -3,249 +3,243 @@
 {{template "views/partials/head" .}}
 <script defer src="static/image.js"></script>
 
-<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
-<div class="flex flex-col min-h-screen">
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex flex-col h-screen">
+<div class="flex flex-col flex-1 overflow-hidden">
    
     {{template "views/partials/navbar" .}}
-    <div class="container mx-auto px-4 py-8 flex-grow" x-data="{ component: 'menu' }">
-    
-        <!-- Hero Section -->
-        <div class="hero-section">
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    Image Generation {{ if .Model }} with {{.Model}} {{ end }}
-                </h1>
-                <p class="hero-subtitle">Create stunning images from text descriptions</p>
-            </div>
-        </div>
-      
-        <!-- Model Selection - Positioned between hero and generation form -->
-        <div class="card p-5 mb-6">
-            <div class="flex items-center">
-                <div class="text-lg font-medium text-[var(--color-primary)] mr-4">
-                    <i class="fas fa-palette mr-2"></i>Select Model:
-                </div>
-                <div class="flex-grow">
-                    <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
-                        id="model-select"
-                        class="input w-full max-w-md p-2.5 pr-10"
-                    >	
-                        <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
-                        {{ $model:=.Model}}
-                        {{ range .ModelsConfig }}
-                          {{ $cfg := . }}
-                          {{ range .KnownUsecaseStrings }}
-                            {{ if eq . "FLAG_IMAGE" }}
-                                <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Two Column Layout: Settings on Left, Preview on Right -->
+        <div class="flex flex-col lg:flex-row flex-1 gap-4 p-4">
+            <!-- Left Column: Generation Settings -->
+            <div class="flex-shrink-0 lg:w-1/4">
+                <div class="card p-3 space-y-3">
+                    <!-- Model Selection - Compact -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
+                        </div>
+                        <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
+                            id="model-select"
+                            class="input w-full p-1.5 text-xs"
+                        >	
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ $model:=.Model}}
+                            {{ range .ModelsConfig }}
+                              {{ $cfg := . }}
+                              {{ range .KnownUsecaseStrings }}
+                                {{ if eq . "FLAG_IMAGE" }}
+                                    <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                {{ end }}
+                              {{ end }}
                             {{ end }}
-                          {{ end }}
-                        {{ end }}
-                        {{ range .ModelsWithoutConfig }}
-                            <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
-                        {{end}}
-                    </select>
-                </div>
-            </div>
-        </div>
-            
-        <!-- Image Generation Form -->
-        <div class="card p-6">
-            <h2 class="h3 mb-6">Generate an Image</h2>
-            
-            <div class="relative">
-                <input id="image-model" type="hidden" value="{{.Model}}">
-                <form id="genimage" action="text2image/{{.Model}}" method="get" class="mb-8">
-                    <!-- Basic Settings -->
-                    <div class="space-y-4">
-                        <!-- Prompt -->
-                        <div class="relative">
-                            <label for="input" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                <i class="fas fa-magic mr-2 text-[var(--color-primary)]"></i>Prompt:
-                            </label>
-                            <div class="relative">
-                                <textarea
-                                    id="input"
-                                    name="input"
-                                    placeholder="Describe the image you want to generate..."
-                                    autocomplete="off"
-                                    rows="3"
-                                    class="input w-full pr-12 py-4 text-lg resize-y"
-                                    required
-                                ></textarea>
-                                <span id="loader" class="loader absolute right-4 top-4 hidden" style="top: 1rem; right: 1rem;">
-                                    <svg class="animate-spin h-6 w-6 text-[var(--color-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                    </svg>
-                                </span>
-                            </div>
-                        </div>
-
-                        <!-- Negative Prompt -->
-                        <div>
-                            <label for="negative-prompt" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                <i class="fas fa-ban mr-2 text-[var(--color-primary)]"></i>Negative Prompt (optional):
-                            </label>
-                            <textarea
-                                id="negative-prompt"
-                                name="negative-prompt"
-                                placeholder="Things to avoid in the image..."
-                                rows="2"
-                                class="input w-full py-2 resize-y"
-                            ></textarea>
-                        </div>
-
-                        <!-- Size Selection with Presets -->
-                        <div>
-                            <label for="image-size" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                <i class="fas fa-expand-arrows-alt mr-2 text-[var(--color-primary)]"></i>Image Size:
-                            </label>
-                            <div class="flex flex-wrap gap-2 mb-2">
-                                <button type="button" class="size-preset px-3 py-1 text-sm rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256">256×256</button>
-                                <button type="button" class="size-preset px-3 py-1 text-sm rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="512x512">512×512</button>
-                                <button type="button" class="size-preset px-3 py-1 text-sm rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="768x768">768×768</button>
-                                <button type="button" class="size-preset px-3 py-1 text-sm rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="1024x1024">1024×1024</button>
-                            </div>
-                            <input
-                                type="text"
-                                id="image-size"
-                                value="512x512"
-                                placeholder="e.g., 256x256, 512x512, 1024x1024"
-                                class="input p-2.5 w-full max-w-xs"
-                            />
-                        </div>
-
-                        <!-- Number of Images -->
-                        <div>
-                            <label for="image-count" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                <i class="fas fa-images mr-2 text-[var(--color-primary)]"></i>Number of Images:
-                            </label>
-                            <input
-                                type="number"
-                                id="image-count"
-                                name="n"
-                                min="1"
-                                max="4"
-                                value="1"
-                                class="input p-2.5 w-full max-w-xs"
-                            />
-                        </div>
+                            {{ range .ModelsWithoutConfig }}
+                                <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
+                            {{end}}
+                        </select>
                     </div>
-
-                    <!-- Advanced Settings (Collapsible) -->
-                    <div class="mt-6">
-                        <button type="button" id="advanced-toggle" class="flex items-center justify-between w-full text-left text-sm font-medium text-[var(--color-text-primary)] hover:text-[var(--color-primary)]">
-                            <span><i class="fas fa-cog mr-2"></i>Advanced Settings</span>
-                            <i class="fas fa-chevron-down" id="advanced-chevron"></i>
-                        </button>
-                        <div id="advanced-settings" class="hidden mt-4 space-y-4">
-                            <!-- Steps -->
-                            <div>
-                                <label for="image-steps" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                    <i class="fas fa-step-forward mr-2 text-[var(--color-primary)]"></i>Steps:
-                                </label>
-                                <input
-                                    type="number"
-                                    id="image-steps"
-                                    name="step"
-                                    min="1"
-                                    max="100"
-                                    placeholder="Leave empty for default"
-                                    class="input p-2.5 w-full max-w-xs"
-                                />
-                            </div>
-
-                            <!-- Seed -->
-                            <div>
-                                <label for="image-seed" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                    <i class="fas fa-seedling mr-2 text-[var(--color-primary)]"></i>Seed (optional):
-                                </label>
-                                <input
-                                    type="number"
-                                    id="image-seed"
-                                    name="seed"
-                                    min="0"
-                                    placeholder="Leave empty for random"
-                                    class="input p-2.5 w-full max-w-xs"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Image Inputs (Collapsible) -->
-                    <div class="mt-6">
-                        <button type="button" id="image-inputs-toggle" class="flex items-center justify-between w-full text-left text-sm font-medium text-[var(--color-text-primary)] hover:text-[var(--color-primary)]">
-                            <span><i class="fas fa-image mr-2"></i>Image Inputs (for img2img/inpainting)</span>
-                            <i class="fas fa-chevron-down" id="image-inputs-chevron"></i>
-                        </button>
-                        <div id="image-inputs-settings" class="hidden mt-4 space-y-4">
-                            <!-- Source Image (img2img) -->
-                            <div>
-                                <label for="source-image" class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">
-                                    <i class="fas fa-file-image mr-2 text-[var(--color-primary)]"></i>Source Image (img2img):
-                                </label>
-                                <input
-                                    type="file"
-                                    id="source-image"
-                                    name="file"
-                                    accept="image/*"
-                                    class="input p-2.5 w-full"
-                                />
-                            </div>
-
-                            <!-- Reference Images (Dynamic) -->
-                            <div>
-                                <div class="flex items-center justify-between mb-2">
-                                    <label class="block text-sm font-medium text-[var(--color-text-secondary)]">
-                                        <i class="fas fa-images mr-2 text-[var(--color-primary)]"></i>Multiple Input Images:
+                    
+                    <div class="relative">
+                        <input id="image-model" type="hidden" value="{{.Model}}">
+                        <form id="genimage" action="text2image/{{.Model}}" method="get">
+                            <!-- Basic Settings -->
+                            <div class="space-y-2">
+                                <!-- Prompt -->
+                                <div class="space-y-1">
+                                    <label for="input" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-magic mr-1.5 text-[var(--color-primary)]"></i>Prompt
                                     </label>
-                                    <button type="button" id="add-reference-image" class="px-3 py-1 text-sm bg-[var(--color-primary)] text-white rounded hover:opacity-80">
-                                        <i class="fas fa-plus mr-1"></i>Add Image
-                                    </button>
+                                    <textarea
+                                        id="input"
+                                        name="input"
+                                        placeholder="Describe the image you want to generate..."
+                                        autocomplete="off"
+                                        rows="3"
+                                        class="input w-full p-1.5 text-xs resize-y"
+                                        required
+                                    ></textarea>
                                 </div>
-                                <div id="reference-images-container" class="space-y-2">
-                                    <div class="reference-image-item flex items-center gap-2">
+
+                                <!-- Negative Prompt -->
+                                <div class="space-y-1">
+                                    <label for="negative-prompt" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-ban mr-1.5 text-[var(--color-primary)]"></i>Negative Prompt
+                                    </label>
+                                    <textarea
+                                        id="negative-prompt"
+                                        name="negative-prompt"
+                                        placeholder="Things to avoid in the image..."
+                                        rows="2"
+                                        class="input w-full p-1.5 text-xs resize-y"
+                                    ></textarea>
+                                </div>
+
+                                <!-- Size Selection with Presets -->
+                                <div class="space-y-1">
+                                    <label for="image-size" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-expand-arrows-alt mr-1.5 text-[var(--color-primary)]"></i>Image Size
+                                    </label>
+                                    <div class="flex flex-wrap gap-1.5 mb-1.5">
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256">256×256</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="512x512">512×512</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="768x768">768×768</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="1024x1024">1024×1024</button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="image-size"
+                                        value="512x512"
+                                        placeholder="e.g., 256x256, 512x512, 1024x1024"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+
+                                <!-- Number of Images -->
+                                <div class="space-y-1">
+                                    <label for="image-count" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Number of Images
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="image-count"
+                                        name="n"
+                                        min="1"
+                                        max="4"
+                                        value="1"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+                            </div>
+
+                            <!-- Advanced Settings (Collapsible) -->
+                            <div class="space-y-2">
+                                <button type="button" id="advanced-toggle" class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+                                    <span><i class="fa-solid fa-sliders mr-1.5 text-[var(--color-primary)]"></i> Advanced Settings</span>
+                                    <i class="fas fa-chevron-down text-[10px]" id="advanced-chevron"></i>
+                                </button>
+                                <div id="advanced-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
+                                    <!-- Steps -->
+                                    <div class="space-y-1">
+                                        <label for="image-steps" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-step-forward mr-1.5 text-[var(--color-primary)]"></i>Steps
+                                        </label>
                                         <input
-                                            type="file"
-                                            class="reference-image-file input p-2.5 flex-1"
-                                            accept="image/*"
-                                            data-type="ref_images"
+                                            type="number"
+                                            id="image-steps"
+                                            name="step"
+                                            min="1"
+                                            max="100"
+                                            placeholder="Leave empty for default"
+                                            class="input p-1.5 text-xs w-full"
                                         />
-                                        <button type="button" class="remove-reference-image px-3 py-2 text-sm bg-red-500 text-white rounded hover:opacity-80 hidden">
-                                            <i class="fas fa-times"></i>
-                                        </button>
+                                    </div>
+
+                                    <!-- Seed -->
+                                    <div class="space-y-1">
+                                        <label for="image-seed" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-seedling mr-1.5 text-[var(--color-primary)]"></i>Seed
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="image-seed"
+                                            name="seed"
+                                            min="0"
+                                            placeholder="Leave empty for random"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
                                     </div>
                                 </div>
                             </div>
-                        </div>
+
+                            <!-- Image Inputs (Collapsible) -->
+                            <div class="space-y-2">
+                                <button type="button" id="image-inputs-toggle" class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+                                    <span><i class="fa-solid fa-image mr-1.5 text-[var(--color-primary)]"></i> Image Inputs</span>
+                                    <i class="fas fa-chevron-down text-[10px]" id="image-inputs-chevron"></i>
+                                </button>
+                                <div id="image-inputs-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
+                                    <!-- Source Image (img2img) -->
+                                    <div class="space-y-1">
+                                        <label for="source-image" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-file-image mr-1.5 text-[var(--color-primary)]"></i>Source Image (img2img)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            id="source-image"
+                                            name="file"
+                                            accept="image/*"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
+                                    </div>
+
+                                    <!-- Reference Images (Dynamic) -->
+                                    <div class="space-y-1">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <label class="block text-xs text-[var(--color-text-secondary)]">
+                                                <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Multiple Input Images
+                                            </label>
+                                            <button type="button" id="add-reference-image" class="px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80">
+                                                <i class="fas fa-plus mr-1"></i>Add
+                                            </button>
+                                        </div>
+                                        <div id="reference-images-container" class="space-y-1.5">
+                                            <div class="reference-image-item flex items-center gap-1.5">
+                                                <input
+                                                    type="file"
+                                                    class="reference-image-file input p-1.5 text-xs flex-1"
+                                                    accept="image/*"
+                                                    data-type="ref_images"
+                                                />
+                                                <button type="button" class="remove-reference-image px-1.5 py-1.5 text-[10px] bg-red-500 text-white rounded hover:opacity-80 hidden">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <div>
+                                <button
+                                    type="submit"
+                                    id="generate-btn"
+                                    class="w-full px-2 py-1.5 text-xs rounded text-[var(--color-bg-primary)] bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors font-medium"
+                                >
+                                    <i class="fas fa-magic mr-1.5"></i>Generate Image
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                    
-                    <!-- Submit Button -->
-                    <div class="mt-6">
-                        <button
-                            type="submit"
-                            id="generate-btn"
-                            class="btn-primary w-full"
-                        >
-                            <i class="fas fa-magic mr-2"></i>Generate Image
-                        </button>
-                    </div>
-                </form>
-                
-                <!-- Image Results Container -->
-                <div class="mt-6 border-t border-[#1E293B] pt-6">
-                    <h3 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4">Generated Images</h3>
-                    <div id="result" class="space-y-6">
-                        <div class="bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-xl p-4 min-h-[300px] flex items-center justify-center">
-                            <p class="text-[var(--color-text-secondary)] italic">Your generated images will appear here</p>
+                </div>
+            </div>
+
+            <!-- Right Column: Image Preview -->
+            <div class="flex-grow lg:w-3/4">
+                <div class="card p-3">
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Generated Images</h3>
+                    <div class="relative min-h-[400px]">
+                        <!-- Loading Animation -->
+                        <div id="loader" class="hidden absolute inset-0 flex items-center justify-center bg-[var(--color-bg-primary)]/80 rounded-xl z-10">
+                            <div class="text-center">
+                                <svg class="animate-spin h-10 w-10 text-[var(--color-primary)] mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                <p class="text-xs text-[var(--color-text-secondary)]">Generating image...</p>
+                            </div>
                         </div>
+                        <!-- Placeholder when no images -->
+                        <div id="result-placeholder" class="bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-xl p-6 min-h-[400px] flex items-center justify-center">
+                            <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
+                        </div>
+                        <!-- Results container -->
+                        <div id="result" class="space-y-4"></div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    {{template "views/partials/footer" .}}
 </div>
 
 <script>
@@ -290,11 +284,11 @@
         newItem.innerHTML = `
             <input
                 type="file"
-                class="reference-image-file input p-2.5 flex-1"
+                class="reference-image-file input p-1.5 text-xs flex-1"
                 accept="image/*"
                 data-type="ref_images"
             />
-            <button type="button" class="remove-reference-image px-3 py-2 text-sm bg-red-500 text-white rounded hover:opacity-80">
+            <button type="button" class="remove-reference-image px-1.5 py-1.5 text-[10px] bg-red-500 text-white rounded hover:opacity-80">
                 <i class="fas fa-times"></i>
             </button>
         `;
