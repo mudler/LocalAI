@@ -1,4 +1,29 @@
 ---
+- name: "qwen2.5-coder-32b-instruct-np-abliterated-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-Coder-32B-Instruct-NP-Abliterated-i1-GGUF
+  description: |
+    The model described in this repository is **Qwen2.5-Coder-32B-Instruct-NP-Abliterated**, a large language model optimized for coding tasks. It is quantized using a combination of tensor quantization methods (e.g., Q2_K, IQ3_M, etc.) to reduce memory usage while maintaining performance. The model is designed for instruction-following tasks, leveraging its 32B parameter size and fine-tuning for coding-specific applications. It is not quantized by the original model author, as indicated by the repository's tags and quantization details. For a more comprehensive description, refer to the repository's main README file, which likely contains the actual model specification and training details.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-Coder-32B-Instruct-NP-Abliterated.i1-Q4_K_M.gguf
+    name: Qwen2.5-Coder-32B-Instruct-NP-Abliterated-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-Coder-32B-Instruct-NP-Abliterated-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-Coder-32B-Instruct-NP-Abliterated.i1-Q4_K_M.gguf
+      sha256: 750f9000e17300f823529ee107b87e9ffe21b612d455a16d4f29eb5c6385f13f
+      uri: https://huggingface.co/mradermacher/Qwen2.5-Coder-32B-Instruct-NP-Abliterated-i1-GGUF/resolve/main/Qwen2.5-Coder-32B-Instruct-NP-Abliterated.i1-Q4_K_M.gguf
 - name: "minimax-m2.1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
