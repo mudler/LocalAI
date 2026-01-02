@@ -36,7 +36,7 @@ func ModelOptions(c config.ModelConfig, so *config.ApplicationConfig, opts ...mo
 
 	c.Threads = &threads
 
-	grpcOpts := grpcModelOpts(c)
+	grpcOpts := grpcModelOpts(c, so.SystemState.Model.ModelsPath)
 	defOpts = append(defOpts, model.WithLoadGRPCLoadModelOpts(grpcOpts))
 
 	if so.ParallelBackendRequests {
@@ -72,7 +72,7 @@ func getSeed(c config.ModelConfig) int32 {
 	return seed
 }
 
-func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
+func grpcModelOpts(c config.ModelConfig, modelPath string) *pb.ModelOptions {
 	b := 512
 	if c.Batch != 0 {
 		b = c.Batch
@@ -131,7 +131,7 @@ func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 		})
 	}
 
-	return &pb.ModelOptions{
+	opts := &pb.ModelOptions{
 		CUDA:                 c.CUDA || c.Diffusers.CUDA,
 		SchedulerType:        c.Diffusers.SchedulerType,
 		GrammarTriggers:      triggers,
@@ -170,7 +170,6 @@ func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 		LimitImagePerPrompt: int32(c.LimitMMPerPrompt.LimitImagePerPrompt),
 		LimitVideoPerPrompt: int32(c.LimitMMPerPrompt.LimitVideoPerPrompt),
 		LimitAudioPerPrompt: int32(c.LimitMMPerPrompt.LimitAudioPerPrompt),
-		MMProj:              c.MMProj,
 		FlashAttention:      flashAttention,
 		CacheTypeKey:        c.CacheTypeK,
 		CacheTypeValue:      c.CacheTypeV,
@@ -198,6 +197,12 @@ func grpcModelOpts(c config.ModelConfig) *pb.ModelOptions {
 		// RWKV
 		Tokenizer: c.Tokenizer,
 	}
+
+	if c.MMProj != "" {
+		opts.MMProj = filepath.Join(modelPath, c.MMProj)
+	}
+
+	return opts
 }
 
 func gRPCPredictOpts(c config.ModelConfig, modelPath string) *pb.PredictOptions {
