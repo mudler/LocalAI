@@ -138,9 +138,9 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
 
 	// MCP endpoint - supports both streaming and non-streaming modes
-	// Note: These are the canonical MCP routes (not duplicated in openai.go)
+	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
 	if evaluator != nil {
-		mcpStreamHandler := localai.MCPStreamEndpoint(cl, ml, evaluator, appConfig)
+		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),

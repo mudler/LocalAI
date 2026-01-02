@@ -79,9 +79,6 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/completions", completionHandler, completionMiddleware...)
 	app.POST("/v1/engines/:model/completions", completionHandler, completionMiddleware...)
 
-	// Note: MCP endpoints are registered in localai.go to avoid route conflicts
-	// The localai.MCPStreamEndpoint handler supports both streaming and non-streaming modes
-
 	// embeddings
 	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
