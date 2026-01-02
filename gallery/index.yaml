@@ -1,4 +1,35 @@
 ---
+- name: "sensor-material-expert-qwen2.5-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Sensor-Material-Expert-Qwen2.5-7B-GGUF
+  description: |
+    The model is a quantized version of the original Qwen2.5-7B, optimized for efficiency. It retains the core capabilities of the base model (7 billion parameters) but uses quantization to reduce memory usage and improve inference speed. Key features include:
+      - **Base Model**: Qwen2.5-7B (7B parameters)
+      - **Quantization**: x-f16, Q4_K_S, Q2_K, etc.
+      - **Use Case**: Efficient deployment for edge devices or scenarios requiring low-resource usage.
+      - **Optimized for**: Fast inference, reduced memory footprint.
+
+    This version is a tailored optimization for specific tasks, but the original base model remains the foundation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Sensor-Material-Expert-Qwen2.5-7B.Q4_K_M.gguf
+    name: Sensor-Material-Expert-Qwen2.5-7B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Sensor-Material-Expert-Qwen2.5-7B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Sensor-Material-Expert-Qwen2.5-7B.Q4_K_M.gguf
+      sha256: 9ca15892fe4355a544c3ebc3c85ae236edb08c2e2303e432f857df19c9420f29
+      uri: https://huggingface.co/mradermacher/Sensor-Material-Expert-Qwen2.5-7B-GGUF/resolve/main/Sensor-Material-Expert-Qwen2.5-7B.Q4_K_M.gguf
 - name: "iquest-coder-v1-40b-instruct-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
