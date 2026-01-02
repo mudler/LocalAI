@@ -1,4 +1,29 @@
 ---
+- name: "nanbeige4-3b-hereticmerge"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Nanbeige4-3B-HereticMerge-GGUF
+  description: |
+    The model is the original **Nanbeige4-3B-HereticMerge** (base model), a large language model designed for tasks like text generation and reasoning. It is quantized for efficient inference, with the GGUF file being a compressed version (e.g., Q8_0 for best performance). The quantized version (mradermacher/Nanbeige4-3B-HereticMerge-GGUF) is optimized for faster deployment, while the base model (bunnycore/Nanbeige4-3B-HereticMerge) is the original, high-quality version. Both are part of the HereticMerge series, focusing on reasoning and reasoning-based tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nanbeige4-3B-HereticMerge.Q4_K_M.gguf
+    name: Nanbeige4-3B-HereticMerge-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nanbeige4-3B-HereticMerge-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Nanbeige4-3B-HereticMerge.Q4_K_M.gguf
+      sha256: 9674ea30616f5c303320cfda59e856018dbebc43e3ea2e601b076c5874b7948d
+      uri: https://huggingface.co/mradermacher/Nanbeige4-3B-HereticMerge-GGUF/resolve/main/Nanbeige4-3B-HereticMerge.Q4_K_M.gguf
 - name: "iquest-coder-v1-40b-instruct-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
