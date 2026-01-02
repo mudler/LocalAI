@@ -9,10 +9,10 @@
     {{template "views/partials/navbar" .}}
     <div class="flex flex-1 overflow-hidden">
         <!-- Two Column Layout: Settings on Left, Preview on Right -->
-        <div class="flex flex-col lg:flex-row flex-1 gap-4 p-4">
+        <div class="flex flex-col lg:flex-row flex-1 gap-4 p-4 overflow-hidden">
             <!-- Left Column: Generation Settings -->
-            <div class="flex-shrink-0 lg:w-1/4">
-                <div class="card p-3 space-y-3">
+            <div class="flex-shrink-0 lg:w-1/4 flex flex-col min-h-0">
+                <div class="card p-3 space-y-3 overflow-y-auto flex-1">
                     <!-- Model Selection - Compact -->
                     <div class="space-y-1.5">
                         <div class="flex items-center justify-between gap-2">
@@ -214,10 +214,10 @@
             </div>
 
             <!-- Right Column: Image Preview -->
-            <div class="flex-grow lg:w-3/4">
-                <div class="card p-3">
-                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Generated Images</h3>
-                    <div class="relative min-h-[400px]">
+            <div class="flex-grow lg:w-3/4 flex flex-col min-h-0">
+                <div class="card p-3 flex flex-col flex-1 min-h-0">
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-3 flex-shrink-0">Generated Images</h3>
+                    <div class="relative flex-1 min-h-0 overflow-y-auto">
                         <!-- Loading Animation -->
                         <div id="loader" class="hidden absolute inset-0 flex items-center justify-center bg-[var(--color-bg-primary)]/80 rounded-xl z-10">
                             <div class="text-center">
@@ -229,11 +229,11 @@
                             </div>
                         </div>
                         <!-- Placeholder when no images -->
-                        <div id="result-placeholder" class="bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-xl p-6 min-h-[400px] flex items-center justify-center">
+                        <div id="result-placeholder" class="bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-xl p-6 min-h-[400px] flex items-center justify-center flex-shrink-0">
                             <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
                         </div>
                         <!-- Results container -->
-                        <div id="result" class="space-y-4"></div>
+                        <div id="result" class="space-y-4 pb-4"></div>
                     </div>
                 </div>
             </div>
