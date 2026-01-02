@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-30b-a3b-architect18-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-30B-A3B-Architect18-i1-GGUF
+  description: |
+    The model, **Qwen3-30B-A3B-Architect18**, is a large language model (30 billion parameters) designed for creative tasks like story generation, writing, and roleplaying. It is quantized for efficient deployment, with support for multiple precision levels (e.g., i1-IQ2_M, i1-Q4_K_M, etc.). The base model is **nightmedia/Qwen3-30B-A3B-Architect18**, and the quantized version is optimized for performance and memory efficiency. It supports 128k context and is suitable for tasks like plot generation, scene continuation, and fictional writing. Available in various quantized formats (GGUF) with sizes ranging from 0.2GB to 25.2GB, tailored for different use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-30B-A3B-Architect18.i1-Q4_K_M.gguf
+    name: Qwen3-30B-A3B-Architect18-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-30B-A3B-Architect18-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-30B-A3B-Architect18.i1-Q4_K_M.gguf
+      sha256: 4e9c1b661072f02d273161d7b4bdd72a731994ba67a7fb161fa6021f706d822a
+      uri: https://huggingface.co/mradermacher/Qwen3-30B-A3B-Architect18-i1-GGUF/resolve/main/Qwen3-30B-A3B-Architect18.i1-Q4_K_M.gguf
 - name: "onerec-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
