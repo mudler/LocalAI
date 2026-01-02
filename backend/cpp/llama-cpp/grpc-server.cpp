@@ -358,9 +358,7 @@ static void params_parse(server_context& /*ctx_server*/, const backend::ModelOpt
 
     params.model.path = request->modelfile();
     if (!request->mmproj().empty()) {
-    // get the directory of modelfile
-      std::string model_dir = params.model.path.substr(0, params.model.path.find_last_of("/\\"));
-      params.mmproj.path = model_dir + "/"+ request->mmproj();
+      params.mmproj.path = request->mmproj();
     }
     //  params.model_alias ??
     params.model_alias =  request->modelfile();
