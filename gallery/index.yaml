@@ -1,4 +1,35 @@
 ---
+- name: "qwen2.5-72b-instruct-malaysian"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-Malaysian-GGUF
+  description: |
+    The **mradermacher/Qwen2.5-72B-Instruct-Malaysian-GGUF** model is a quantized version of the **Scicom-intl/Qwen2.5-72B-Instruct-Malaysian** base model, optimized for efficient inference. It is designed for instruction-following tasks and supports multiple quantization formats (e.g., Q2_K, Q4_K_S, Q6_K) to balance model size, speed, and quality. The model is hosted on **nethype GmbH**'s servers and offers downloadable GGUF files in various quantization levels (e.g., Q4_K_S for fast, recommended inference). Key features include:
+      - **Base model**: Qwen2.5-72B (large language model)
+      - **Quantization**: Supports multiple formats (e.g., Q4_K_S, Q6_K) with trade-offs in quality vs. efficiency
+      - **Usage**: Ideal for tasks requiring fast, low-latency responses (e.g., chatbots, text generation)
+      - **Available quantized versions**: Sizes range from 29.9GB (Q2_K) to 77.4GB (Q8_0), with Q4_K_S and Q6_K being highly recommended for performance.
+
+    For detailed specifications, refer to the [model page](https://hf.tst.eu/model#Qwen2.5-72B-Instruct-Malaysian-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-72B-Instruct-Malaysian.Q4_K_M.gguf
+    name: Qwen2.5-72B-Instruct-Malaysian-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-Malaysian-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-72B-Instruct-Malaysian.Q4_K_M.gguf
+      sha256: b721ea1540c1dfc46489c5a7efbc4eda7c954f3d86037de443478e2d07947970
+      uri: https://huggingface.co/mradermacher/Qwen2.5-72B-Instruct-Malaysian-GGUF/resolve/main/Qwen2.5-72B-Instruct-Malaysian.Q4_K_M.gguf
 - name: "minimax-m2.1-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
