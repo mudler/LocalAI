@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-30b-a3b-xxl"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/altomek/Qwen3-30B-A3B-XXL-GGUF
+  description: |
+    AI model: qwen3-30b-a3b-xxl
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-30B-A3B-Q6_K_XXL.gguf
+    name: Qwen3-30B-A3B-XXL-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/altomek/Qwen3-30B-A3B-XXL-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-30B-A3B-Q6_K_XXL.gguf
+      sha256: 43c845884efc6ce8331442bf8a4ab9d729a4402b1b56c38767bc602bb7e7d8d7
+      uri: https://huggingface.co/altomek/Qwen3-30B-A3B-XXL-GGUF/resolve/main/Qwen3-30B-A3B-Q6_K_XXL.gguf
 - name: "iquest-coder-v1-40b-instruct-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
