@@ -750,6 +750,7 @@ function stopRequest() {
   if (!activeChat) return;
   
   const request = activeRequests.get(activeChat.id);
+  const requestModel = request?.model || null; // Get model before deleting request
   if (request) {
     if (request.controller) {
       request.controller.abort();
@@ -779,7 +780,8 @@ function stopRequest() {
     `<span class='error'>Request cancelled by user</span>`,
     null,
     null,
-    activeChat.id
+    activeChat.id,
+    requestModel
   );
 }
 
@@ -1231,7 +1233,8 @@ async function promptGPT(systemPrompt, input) {
       startTime: requestStartTime,
       tokensReceived: 0,
       interval: null,
-      maxTokensPerSecond: 0
+      maxTokensPerSecond: 0,
+      model: model // Store the model used for this request
     });
     
     // Update reactive tracking for UI indicators
@@ -1271,21 +1274,27 @@ async function promptGPT(systemPrompt, input) {
         return;
       } else {
         // Timeout error (controller was aborted by timeout, not user)
+        const request = activeRequests.get(chatId);
+        const requestModel = request?.model || null;
         chatStore.add(
           "assistant",
           `<span class='error'>Request timeout: MCP processing is taking longer than expected. Please try again.</span>`,
           null,
           null,
-          chatId
+          chatId,
+          requestModel
         );
       }
     } else {
+      const request = activeRequests.get(chatId);
+      const requestModel = request?.model || null;
       chatStore.add(
         "assistant",
         `<span class='error'>Network Error: ${error.message}</span>`,
         null,
         null,
-        chatId
+        chatId,
+        requestModel
       );
     }
     toggleLoader(false, chatId);
@@ -1299,12 +1308,15 @@ async function promptGPT(systemPrompt, input) {
   }
 
   if (!response.ok) {
+    const request = activeRequests.get(chatId);
+    const requestModel = request?.model || null;
     chatStore.add(
       "assistant",
       `<span class='error'>Error: POST ${endpoint} ${response.status}</span>`,
       null,
       null,
-      chatId
+      chatId,
+      requestModel
     );
     toggleLoader(false, chatId);
     activeRequests.delete(chatId);
@@ -1324,12 +1336,15 @@ async function promptGPT(systemPrompt, input) {
       .getReader();
 
     if (!reader) {
+      const request = activeRequests.get(chatId);
+      const requestModel = request?.model || null;
       chatStore.add(
         "assistant",
         `<span class='error'>Error: Failed to decode MCP API response</span>`,
         null,
         null,
-        chatId
+        chatId,
+        requestModel
       );
       toggleLoader(false, chatId);
       activeRequests.delete(chatId);
@@ -1598,12 +1613,15 @@ async function promptGPT(systemPrompt, input) {
                   break;
                 
                 case "error":
+                  const request = activeRequests.get(chatId);
+                  const requestModel = request?.model || null;
                   chatStore.add(
                     "assistant",
                     `<span class='error'>MCP Error: ${eventData.message}</span>`,
                     null,
                     null,
-                    chatId
+                    chatId,
+                    requestModel
                   );
                   break;
               }
@@ -1624,9 +1642,11 @@ async function promptGPT(systemPrompt, input) {
           // Update or create assistant message with processed regular content
           const currentChat = chatStore.getChat(chatId);
           if (!currentChat) break; // Chat was deleted
+          const request = activeRequests.get(chatId);
+          const requestModel = request?.model || null;
           if (lastAssistantMessageIndex === -1) {
             if (processedRegular && processedRegular.trim()) {
-              chatStore.add("assistant", processedRegular, null, null, chatId);
+              chatStore.add("assistant", processedRegular, null, null, chatId, requestModel);
               lastAssistantMessageIndex = targetHistory.length - 1;
             }
           } else {
@@ -1706,7 +1726,9 @@ async function promptGPT(systemPrompt, input) {
             lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
           }
         } else if (processedRegular && processedRegular.trim()) {
-          chatStore.add("assistant", processedRegular, null, null, chatId);
+          const request = activeRequests.get(chatId);
+          const requestModel = request?.model || null;
+          chatStore.add("assistant", processedRegular, null, null, chatId, requestModel);
           lastAssistantMessageIndex = targetHistory.length - 1;
         }
       }
@@ -1754,7 +1776,9 @@ async function promptGPT(systemPrompt, input) {
               lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
             }
           } else {
-            chatStore.add("assistant", finalRegular, null, null, chatId);
+            const request = activeRequests.get(chatId);
+            const requestModel = request?.model || null;
+            chatStore.add("assistant", finalRegular, null, null, chatId, requestModel);
           }
         }
         
@@ -1812,12 +1836,15 @@ async function promptGPT(systemPrompt, input) {
       .getReader();
 
     if (!reader) {
+      const request = activeRequests.get(chatId);
+      const requestModel = request?.model || null;
       chatStore.add(
         "assistant",
         `<span class='error'>Error: Failed to decode API response</span>`,
         null,
         null,
-        chatId
+        chatId,
+        requestModel
       );
       toggleLoader(false, chatId);
       activeRequests.delete(chatId);
@@ -1848,9 +1875,11 @@ async function promptGPT(systemPrompt, input) {
     const addToChat = (token) => {
       const currentChat = chatStore.getChat(chatId);
       if (!currentChat) return; // Chat was deleted
-      chatStore.add("assistant", token, null, null, chatId);
-      // Count tokens for rate calculation (per chat)
+      // Get model from request for this chat
       const request = activeRequests.get(chatId);
+      const requestModel = request?.model || null;
+      chatStore.add("assistant", token, null, null, chatId, requestModel);
+      // Count tokens for rate calculation (per chat)
       if (request) {
         const tokenCount = Math.ceil(token.length / 4);
         request.tokensReceived += tokenCount;
@@ -2008,12 +2037,15 @@ async function promptGPT(systemPrompt, input) {
       if (error.name !== 'AbortError' || !currentAbortController) {
         const currentChat = chatStore.getChat(chatId);
         if (currentChat) {
+          const request = activeRequests.get(chatId);
+          const requestModel = request?.model || null;
           chatStore.add(
             "assistant",
             `<span class='error'>Error: Failed to process stream</span>`,
             null,
             null,
-            chatId
+            chatId,
+            requestModel
           );
         }
       }
