@@ -28,7 +28,7 @@ fi
 
 # We don't embed this into the images as it is a large dependency and not always needed.
 # Besides, the speed inference are not actually usable in the current state for production use-cases.
-if [ "x${BUILD_TYPE}" == "x" ] && [ "x${FROM_SOURCE}" == "xtrue" ]; then
+if [ "x${BUILD_TYPE}" == "x" ] && [ "x${FROM_SOURCE:-}" == "xtrue" ]; then
         ensureVenv
         # https://docs.vllm.ai/en/v0.6.1/getting_started/cpu-installation.html
         if [ ! -d vllm ]; then

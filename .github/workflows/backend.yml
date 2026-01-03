@@ -39,72 +39,19 @@ jobs:
       #max-parallel: ${{ github.event_name != 'pull_request' && 6 || 4 }}
       matrix:
         include:
-          # CUDA 11 builds
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-rerankers'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "rerankers"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-llama-cpp'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "llama-cpp"
-            dockerfile: "./backend/Dockerfile.llama-cpp"
-            context: "./"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-transformers'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "transformers"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-diffusers'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "diffusers"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
           - build-type: 'l4t'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-diffusers'
             runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -112,12 +59,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -125,92 +72,26 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-chatterbox'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          # CUDA 11 additional backends
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-kokoro'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "kokoro"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-faster-whisper'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "faster-whisper"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-coqui'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "coqui"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-bark'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "bark"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-chatterbox'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "chatterbox"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # CUDA 12 builds
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vibevoice'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -218,194 +99,194 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-vllm'
             runs-on: 'arc-runner-set'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-chatterbox'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-rfdetr'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-exllama2'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-neutts'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # cuda 13
           - build-type: 'cublas'
             cuda-major-version: "13"
@@ -414,12 +295,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -427,12 +308,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-vibevoice'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -440,12 +321,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -466,12 +347,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -479,12 +360,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -497,7 +378,7 @@ jobs:
             ubuntu-version: '2404'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
+            context: "./"
           - build-type: 'l4t'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -510,7 +391,7 @@ jobs:
             ubuntu-version: '2404'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
+            context: "./"
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -518,12 +399,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -531,12 +412,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -544,12 +425,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -557,12 +438,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-chatterbox'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -570,12 +451,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -596,12 +477,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "13"
             cuda-minor-version: "0"
@@ -622,12 +503,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-13-rfdetr'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # hipblas builds
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -636,12 +517,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -649,12 +530,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -662,12 +543,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vllm'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -675,12 +556,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-transformers'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -688,12 +569,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-diffusers'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # ROCm additional backends
           - build-type: 'hipblas'
             cuda-major-version: ""
@@ -702,12 +583,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-kokoro'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -715,12 +596,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-vibevoice'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -728,12 +609,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -741,12 +622,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -754,12 +635,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-bark'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
             # sycl builds
           - build-type: 'intel'
             cuda-major-version: ""
@@ -768,12 +649,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rerankers'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rerankers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -781,12 +662,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -794,12 +675,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -807,12 +688,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vllm'
             runs-on: 'arc-runner-set'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vllm"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -820,12 +701,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-transformers'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "transformers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -833,12 +714,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-diffusers'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "diffusers"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -846,12 +727,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-vibevoice'
             runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -859,12 +740,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-kokoro'
             runs-on: 'ubuntu-24.04-arm'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'true'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # SYCL additional backends
           - build-type: 'intel'
             cuda-major-version: ""
@@ -873,12 +754,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-kokoro'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "kokoro"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -886,12 +767,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-faster-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "faster-whisper"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -899,12 +780,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-vibevoice'
             runs-on: 'arc-runner-set'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -912,12 +793,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-coqui'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "coqui"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -925,12 +806,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-bark'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "bark"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # piper
           - build-type: ''
             cuda-major-version: ""
@@ -939,12 +820,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-piper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "piper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           # bark-cpp
           - build-type: ''
             cuda-major-version: ""
@@ -953,12 +834,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-bark-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "bark-cpp"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -966,25 +847,25 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
-            skip-drivers: 'true'
+            skip-drivers: 'false'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-llama-cpp'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -992,12 +873,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-llama-cpp'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
             dockerfile: "./backend/Dockerfile.llama-cpp"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           # Stablediffusion-ggml
           - build-type: ''
             cuda-major-version: ""
@@ -1006,25 +887,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-stablediffusion-ggml'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "stablediffusion-ggml"
-            dockerfile: "./backend/Dockerfile.golang"
-            context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1032,12 +900,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1045,12 +913,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1058,25 +926,25 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-stablediffusion-ggml'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
-            skip-drivers: 'true'
+            skip-drivers: 'false'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-stablediffusion-ggml'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "stablediffusion-ggml"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           # whisper
           - build-type: ''
             cuda-major-version: ""
@@ -1085,25 +953,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-whisper'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "whisper"
-            dockerfile: "./backend/Dockerfile.golang"
-            context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'sycl_f32'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1111,12 +966,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f32-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'sycl_f16'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1124,12 +979,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-sycl-f16-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'vulkan'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1137,38 +992,38 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-whisper'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'cublas'
             cuda-major-version: "12"
-            cuda-minor-version: "0"
+            cuda-minor-version: "9"
             platforms: 'linux/arm64'
-            skip-drivers: 'true'
+            skip-drivers: 'false'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-whisper'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-whisper'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             runs-on: 'ubuntu-latest'
             skip-drivers: 'false'
             backend: "whisper"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           #silero-vad
           - build-type: ''
             cuda-major-version: ""
@@ -1177,12 +1032,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-silero-vad'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "silero-vad"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           # local-store
           - build-type: ''
             cuda-major-version: ""
@@ -1191,12 +1046,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-local-store'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "local-store"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           # huggingface
           - build-type: ''
             cuda-major-version: ""
@@ -1205,12 +1060,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-huggingface'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "huggingface"
             dockerfile: "./backend/Dockerfile.golang"
             context: "./"
-            ubuntu-version: '2204'
+            ubuntu-version: '2404'
           # rfdetr
           - build-type: ''
             cuda-major-version: ""
@@ -1219,25 +1074,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-rfdetr'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-rfdetr'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "rfdetr"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1245,12 +1087,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-rfdetr'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1258,12 +1100,12 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-rfdetr'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "rfdetr"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # exllama2
           - build-type: ''
             cuda-major-version: ""
@@ -1272,25 +1114,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-exllama2'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
-          - build-type: 'cublas'
-            cuda-major-version: "11"
-            cuda-minor-version: "7"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-11-exllama2'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            backend: "exllama2"
-            dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'intel'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1298,12 +1127,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-intel-exllama2'
             runs-on: 'ubuntu-latest'
-            base-image: "quay.io/go-skynet/intel-oneapi-base:latest"
+            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
             skip-drivers: 'false'
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1311,12 +1140,12 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-gpu-hipblas-exllama2'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             runs-on: 'ubuntu-latest'
             backend: "exllama2"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1324,12 +1153,12 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-chatterbox'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "chatterbox"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # runs out of space on the runner
           # - build-type: 'hipblas'
           #   cuda-major-version: ""
@@ -1337,12 +1166,12 @@ jobs:
           #   platforms: 'linux/amd64'
           #   tag-latest: 'auto'
           #   tag-suffix: '-gpu-hipblas-rfdetr'
-          #   base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+          #   base-image: "rocm/dev-ubuntu-24.04:6.4.4"
           #   runs-on: 'ubuntu-latest'
           #   skip-drivers: 'false'
           #   backend: "rfdetr"
           #   dockerfile: "./backend/Dockerfile.python"
-          #   context: "./backend"
+          #   context: "./"
           # kitten-tts
           - build-type: ''
             cuda-major-version: ""
@@ -1351,12 +1180,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-kitten-tts'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "kitten-tts"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           # neutts
           - build-type: ''
             cuda-major-version: ""
@@ -1365,12 +1194,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-neutts'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'hipblas'
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1378,12 +1207,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-neutts'
             runs-on: 'arc-runner-set'
-            base-image: "rocm/dev-ubuntu-22.04:6.4.3"
+            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: 'l4t'
             cuda-major-version: "12"
             cuda-minor-version: "0"
@@ -1391,12 +1220,12 @@ jobs:
             skip-drivers: 'true'
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-neutts'
-            base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
+            base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-24.04-arm'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
           - build-type: ''
             cuda-major-version: ""
             cuda-minor-version: ""
@@ -1404,12 +1233,12 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-cpu-vibevoice'
             runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
+            base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "vibevoice"
             dockerfile: "./backend/Dockerfile.python"
-            context: "./backend"
-            ubuntu-version: '2204'
+            context: "./"
+            ubuntu-version: '2404'
   backend-jobs-darwin:
     uses: ./.github/workflows/backend_build_darwin.yml
     strategy:
