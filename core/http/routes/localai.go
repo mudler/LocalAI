@@ -137,9 +137,10 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_TOKENIZE)),
 		requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.TokenizeRequest) }))
 
-	// MCP Stream endpoint
+	// MCP endpoint - supports both streaming and non-streaming modes
+	// Note: streaming mode is NOT compatible with the OpenAI apis. We have a set which streams more states.
 	if evaluator != nil {
-		mcpStreamHandler := localai.MCPStreamEndpoint(cl, ml, evaluator, appConfig)
+		mcpStreamHandler := localai.MCPEndpoint(cl, ml, evaluator, appConfig)
 		mcpStreamMiddleware := []echo.MiddlewareFunc{
 			requestExtractor.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
 			requestExtractor.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
@@ -154,6 +155,7 @@ func RegisterLocalAIRoutes(router *echo.Echo,
 		}
 		router.POST("/v1/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 		router.POST("/mcp/v1/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
+		router.POST("/mcp/chat/completions", mcpStreamHandler, mcpStreamMiddleware...)
 	}
 
 	// Agent job routes

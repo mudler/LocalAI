@@ -954,7 +954,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 		if !appConfig.EnableTracing {
 			return c.JSON(503, map[string]any{
 				"error": "Tracing disabled",
-				})
+			})
 		}
 		traces := middleware.GetTraces()
 		return c.JSON(200, map[string]interface{}{

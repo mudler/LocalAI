@@ -79,24 +79,6 @@ func RegisterOpenAIRoutes(app *echo.Echo,
 	app.POST("/completions", completionHandler, completionMiddleware...)
 	app.POST("/v1/engines/:model/completions", completionHandler, completionMiddleware...)
 
-	// MCPcompletion
-	mcpCompletionHandler := openai.MCPCompletionEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.TemplatesEvaluator(), application.ApplicationConfig())
-	mcpCompletionMiddleware := []echo.MiddlewareFunc{
-		traceMiddleware,
-		re.BuildFilteredFirstAvailableDefaultModel(config.BuildUsecaseFilterFn(config.FLAG_CHAT)),
-		re.SetModelAndConfig(func() schema.LocalAIRequest { return new(schema.OpenAIRequest) }),
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(c echo.Context) error {
-				if err := re.SetOpenAIRequest(c); err != nil {
-					return err
-				}
-				return next(c)
-			}
-		},
-	}
-	app.POST("/mcp/v1/chat/completions", mcpCompletionHandler, mcpCompletionMiddleware...)
-	app.POST("/mcp/chat/completions", mcpCompletionHandler, mcpCompletionMiddleware...)
-
 	// embeddings
 	embeddingHandler := openai.EmbeddingsEndpoint(application.ModelConfigLoader(), application.ModelLoader(), application.ApplicationConfig())
 	embeddingMiddleware := []echo.MiddlewareFunc{
