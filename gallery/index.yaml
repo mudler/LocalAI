@@ -1,4 +1,41 @@
 ---
+- name: "opengemini-flash-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/OpenGemini-Flash-i1-GGUF
+  description: |
+    The model is a quantized version of **shadowlilac/OpenGemini-Flash**, optimized for efficiency with techniques like IQ3, Q4_K, and other quantization methods. It is designed for **text-generation inference** and uses the **transformers** library. Key details include:
+
+      - **Base Model**: `shadowlilac/OpenGemini-Flash`
+      - **Quantization**: IQ3, Q4_K, Q2_K, etc., tailored for speed and efficiency.
+      - **Use Case**: Efficient text generation, suitable for deployment in low-resource environments.
+      - **Size/Speed**: Optimized for balance between model size and performance (e.g., 8.7 GB for the optimal Q4_K_M quantized version).
+      - **Features**: Supports multi-part GGUF files, compatible with tools like *unsloth* and *qwen3*.
+
+    **Download links**:
+      - [Optimal Q4_K_M quantized model](https://huggingface.co/mradermacher/OpenGemini-Flash-i1-GGUF/resolve/main/OpenGemini-Flash.i1-Q4_K_M.gguf)
+      - [Popular IQ3_XXS quantized model](https://huggingface.co/mradermacher/OpenGemini-Flash-i1-GGUF/resolve/main/OpenGemini-Flash.i1-IQ3_XXS.gguf)
+
+    For detailed usage instructions, refer to the [HuggingFace model page](https://hf.tst.eu/model#OpenGemini-Flash-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/OpenGemini-Flash.i1-Q4_K_M.gguf
+    name: OpenGemini-Flash-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/OpenGemini-Flash-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/OpenGemini-Flash.i1-Q4_K_M.gguf
+      sha256: 301f3a12be1603755be70edd097bf6ae0548b16d33dd4d73ab579202af9bdbb2
+      uri: https://huggingface.co/mradermacher/OpenGemini-Flash-i1-GGUF/resolve/main/OpenGemini-Flash.i1-Q4_K_M.gguf
 - name: "iquest-coder-v1-40b-instruct-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
