@@ -1,4 +1,29 @@
 ---
+- name: "mimo-v2-flash-base"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MiMo-V2-Flash-Base-GGUF
+  description: |
+    The model is a large language model (LLM) based on the **XiaomiMiMo/MiMo-V2-Flash-Base** base model, optimized for efficient deployment using GGUF format. It supports various quantization levels (Q2_K, Q4_K_S, Q6_K, Q8_0) and is designed for tasks like text generation and reasoning. The quantized versions offer trade-offs between accuracy and efficiency, with Q4_K_S (175.5 GB) being recommended for fast, reliable use. The model is compatible with tools like HuggingFace Transformers and is suitable for applications requiring low-resource deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiMo-V2-Flash-Base.Q4_K_S.gguf
+    name: MiMo-V2-Flash-Base-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MiMo-V2-Flash-Base-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiMo-V2-Flash-Base.Q4_K_S.gguf
+      sha256: 9c85128164b093c3bfd95177c073103beb894ffb53db293c0e6527993de3466a
+      uri: https://huggingface.co/mradermacher/MiMo-V2-Flash-Base-GGUF/resolve/main/MiMo-V2-Flash-Base.Q4_K_S.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
