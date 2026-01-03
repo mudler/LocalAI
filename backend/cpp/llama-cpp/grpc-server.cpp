@@ -67,6 +67,7 @@ static ggml_type kv_cache_type_from_str(const std::string & s);
 static std::string get_all_kv_cache_types();
 static void add_rpc_devices(std::string servers);
 static void params_parse(server_context& ctx_server, const backend::ModelOptions* request, common_params & params);
+static json sanitize_tools_for_template(const json& tools);
 
 static void start_llama_server(server_context& ctx_server) {
 
@@ -291,6 +292,80 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     }
 
     return data;
+}
+
+// Sanitize tools by removing null values from parameters.properties
+// This prevents Jinja template errors when iterating over properties
+static json sanitize_tools_for_template(const json& tools) {
+    if (!tools.is_array()) {
+        return tools;
+    }
+
+    json sanitized_tools = json::array();
+    for (const auto& tool : tools) {
+        json sanitized_tool = tool;
+        bool modified = false;
+        
+        // Handle OpenAI format (tool.function.parameters.properties)
+        if (tool.contains("function") && tool["function"].is_object()) {
+            const auto& func = tool["function"];
+            if (func.contains("parameters") && func["parameters"].is_object()) {
+                const auto& params = func["parameters"];
+                if (params.contains("properties") && params["properties"].is_object()) {
+                    json sanitized_properties = json::object();
+                    int null_count = 0;
+                    for (const auto& prop : params["properties"].items()) {
+                        // Only include non-null property values
+                        // Null values cause Jinja template errors when calling .keys() on them
+                        if (!prop.value().is_null()) {
+                            sanitized_properties[prop.key()] = prop.value();
+                        } else {
+                            null_count++;
+                            std::string tool_name = func.contains("name") ? func["name"].get<std::string>() : "unknown";
+                            SRV_WRN("[TOOLS DEBUG] sanitize_tools_for_template: Removing null property '%s' from tool '%s'\n",
+                                    prop.key().c_str(), tool_name.c_str());
+                        }
+                    }
+                    if (null_count > 0) {
+                        sanitized_tool["function"]["parameters"]["properties"] = sanitized_properties;
+                        modified = true;
+                        SRV_INF("[TOOLS DEBUG] sanitize_tools_for_template: Removed %d null properties from tool '%s'\n",
+                                null_count, func.contains("name") ? func["name"].get<std::string>().c_str() : "unknown");
+                    }
+                }
+            }
+        }
+        
+        // Handle direct format (tool.parameters.properties) - in case tools are already converted
+        if (tool.contains("parameters") && tool["parameters"].is_object()) {
+            const auto& params = tool["parameters"];
+            if (params.contains("properties") && params["properties"].is_object()) {
+                json sanitized_properties = json::object();
+                int null_count = 0;
+                for (const auto& prop : params["properties"].items()) {
+                    if (!prop.value().is_null()) {
+                        sanitized_properties[prop.key()] = prop.value();
+                    } else {
+                        null_count++;
+                        std::string tool_name = tool.contains("name") ? tool["name"].get<std::string>() : "unknown";
+                        SRV_WRN("[TOOLS DEBUG] sanitize_tools_for_template: Removing null property '%s' from tool '%s' (direct format)\n",
+                                prop.key().c_str(), tool_name.c_str());
+                    }
+                }
+                if (null_count > 0) {
+                    sanitized_tool["parameters"]["properties"] = sanitized_properties;
+                    modified = true;
+                    SRV_INF("[TOOLS DEBUG] sanitize_tools_for_template: Removed %d null properties from tool '%s' (direct format)\n",
+                            null_count, tool.contains("name") ? tool["name"].get<std::string>().c_str() : "unknown");
+                }
+            }
+        }
+        
+        sanitized_tools.push_back(sanitized_tool);
+    }
+    
+    SRV_INF("[TOOLS DEBUG] sanitize_tools_for_template: Sanitized %zu tools\n", sanitized_tools.size());
+    return sanitized_tools;
 }
 
 
@@ -1091,14 +1166,16 @@ public:
                 if (!has_grammar_from_go) {
                     // NoGrammar=true: pass tools and let template generate grammar
                     if (data.contains("tools")) {
-                        body_json["tools"] = data["tools"];
-                        std::string tools_str = data["tools"].dump();
+                        // Sanitize tools to remove null values from parameters.properties
+                        // This prevents Jinja template errors when iterating over properties
+                        body_json["tools"] = sanitize_tools_for_template(data["tools"]);
+                        std::string tools_str = body_json["tools"].dump();
                         SRV_INF("Using tools from data (NoGrammar=true): %s\n", tools_str.c_str());
                         // Debug: Log tools count and details before template processing
-                        if (data["tools"].is_array()) {
-                            SRV_INF("[TOOLS DEBUG] PredictStream: Passing %zu tools to oaicompat_chat_params_parse\n", data["tools"].size());
-                            for (size_t t_idx = 0; t_idx < data["tools"].size(); t_idx++) {
-                                const auto& tool = data["tools"][t_idx];
+                        if (body_json["tools"].is_array()) {
+                            SRV_INF("[TOOLS DEBUG] PredictStream: Passing %zu tools to oaicompat_chat_params_parse\n", body_json["tools"].size());
+                            for (size_t t_idx = 0; t_idx < body_json["tools"].size(); t_idx++) {
+                                const auto& tool = body_json["tools"][t_idx];
                                 std::string tool_name = "unknown";
                                 std::string tool_desc = "";
                                 if (tool.contains("function")) {
@@ -1172,6 +1249,12 @@ public:
                 // Pass add_generation_prompt if present (used by oaicompat_chat_params_parse)
                 if (data.contains("add_generation_prompt")) {
                     body_json["add_generation_prompt"] = data["add_generation_prompt"];
+                }
+
+                // Final sanitization pass: ensure tools are clean before template processing
+                // This is a defensive check in case tools were modified or null values were reintroduced
+                if (body_json.contains("tools") && body_json["tools"].is_array()) {
+                    body_json["tools"] = sanitize_tools_for_template(body_json["tools"]);
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
@@ -1827,14 +1910,16 @@ public:
                 if (!has_grammar_from_go) {
                     // NoGrammar=true: pass tools and let template generate grammar
                     if (data.contains("tools")) {
-                        body_json["tools"] = data["tools"];
-                        std::string tools_str = data["tools"].dump();
+                        // Sanitize tools to remove null values from parameters.properties
+                        // This prevents Jinja template errors when iterating over properties
+                        body_json["tools"] = sanitize_tools_for_template(data["tools"]);
+                        std::string tools_str = body_json["tools"].dump();
                         SRV_INF("Using tools from data (NoGrammar=true): %s\n", tools_str.c_str());
                         // Debug: Log tools count and details before template processing
-                        if (data["tools"].is_array()) {
-                            SRV_INF("[TOOLS DEBUG] Predict: Passing %zu tools to oaicompat_chat_params_parse\n", data["tools"].size());
-                            for (size_t t_idx = 0; t_idx < data["tools"].size(); t_idx++) {
-                                const auto& tool = data["tools"][t_idx];
+                        if (body_json["tools"].is_array()) {
+                            SRV_INF("[TOOLS DEBUG] Predict: Passing %zu tools to oaicompat_chat_params_parse\n", body_json["tools"].size());
+                            for (size_t t_idx = 0; t_idx < body_json["tools"].size(); t_idx++) {
+                                const auto& tool = body_json["tools"][t_idx];
                                 std::string tool_name = "unknown";
                                 std::string tool_desc = "";
                                 if (tool.contains("function")) {
@@ -1908,6 +1993,12 @@ public:
                 // Pass add_generation_prompt if present (used by oaicompat_chat_params_parse)
                 if (data.contains("add_generation_prompt")) {
                     body_json["add_generation_prompt"] = data["add_generation_prompt"];
+                }
+
+                // Final sanitization pass: ensure tools are clean before template processing
+                // This is a defensive check in case tools were modified or null values were reintroduced
+                if (body_json.contains("tools") && body_json["tools"].is_array()) {
+                    body_json["tools"] = sanitize_tools_for_template(body_json["tools"]);
                 }
 
                 // Debug: Print full body_json before template processing (includes messages, tools, tool_choice, etc.)
