@@ -622,7 +622,9 @@ func handleQuestion(config *config.ModelConfig, cl *config.ModelConfigLoader, in
 	// Serialize tools and tool_choice to JSON strings
 	toolsJSON := ""
 	if len(input.Tools) > 0 {
-		toolsBytes, err := json.Marshal(input.Tools)
+		// Sanitize tools to remove null values from parameters.properties
+		sanitizedTools := functions.SanitizeTools(input.Tools)
+		toolsBytes, err := json.Marshal(sanitizedTools)
 		if err == nil {
 			toolsJSON = string(toolsBytes)
 		}

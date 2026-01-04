@@ -7,6 +7,7 @@ import (
 	"github.com/mudler/LocalAI/core/config"
 
 	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/pkg/functions"
 	model "github.com/mudler/LocalAI/pkg/model"
 )
 
@@ -42,7 +43,9 @@ func ComputeChoices(
 	// Serialize tools and tool_choice to JSON strings
 	toolsJSON := ""
 	if len(req.Tools) > 0 {
-		toolsBytes, err := json.Marshal(req.Tools)
+		// Sanitize tools to remove null values from parameters.properties
+		sanitizedTools := functions.SanitizeTools(req.Tools)
+		toolsBytes, err := json.Marshal(sanitizedTools)
 		if err == nil {
 			toolsJSON = string(toolsBytes)
 		}

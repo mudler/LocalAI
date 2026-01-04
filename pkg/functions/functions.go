@@ -102,3 +102,57 @@ func (f Functions) Select(name string) Functions {
 
 	return funcs
 }
+
+// SanitizeTools removes null values from tool.parameters.properties and converts them to empty objects.
+// This prevents Jinja template errors when processing tools with malformed parameter schemas.
+func SanitizeTools(tools Tools) Tools {
+	if len(tools) == 0 {
+		return tools
+	}
+
+	sanitized := make(Tools, 0, len(tools))
+	for _, tool := range tools {
+		// Create a copy of the tool to avoid modifying the original
+		sanitizedTool := Tool{
+			Type:     tool.Type,
+			Function: tool.Function,
+		}
+
+		// Check if the tool has parameters
+		if sanitizedTool.Function.Parameters != nil {
+			// Check if parameters has a "properties" field
+			if properties, ok := sanitizedTool.Function.Parameters["properties"]; ok {
+				// Try to cast properties to a map
+				if propertiesMap, ok := properties.(map[string]interface{}); ok {
+					// Create a new map for sanitized properties
+					sanitizedProperties := make(map[string]interface{})
+					hasNullValues := false
+
+					// Iterate through properties and remove null values
+					for key, value := range propertiesMap {
+						if value == nil {
+							// Convert null to empty object
+							sanitizedProperties[key] = map[string]interface{}{}
+							hasNullValues = true
+							xlog.Warn("Found null value in tool parameter properties, converting to empty object",
+								"tool", sanitizedTool.Function.Name,
+								"parameter", key)
+						} else {
+							// Preserve valid values
+							sanitizedProperties[key] = value
+						}
+					}
+
+					// Update the properties if we found null values
+					if hasNullValues {
+						sanitizedTool.Function.Parameters["properties"] = sanitizedProperties
+					}
+				}
+			}
+		}
+
+		sanitized = append(sanitized, sanitizedTool)
+	}
+
+	return sanitized
+}
