@@ -7,8 +7,19 @@ BUILD_TYPE?=
 NATIVE?=false
 ONEAPI_VARS?=/opt/intel/oneapi/setvars.sh
 TARGET?=--target grpc-server
-JOBS?=$(shell nproc)
-ARCH?=$(shell uname -m)
+JOBS?=$(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 1)
+
+# Detect architecture - BMI flags only apply to x86_64
+UNAME_M := $(shell uname -m)
+
+# x86-specific BMI disable flags (not applicable to ARM/other architectures)
+ifeq ($(UNAME_M),x86_64)
+	X86_NOBMI_FLAGS := -DCMAKE_C_FLAGS='-mno-bmi2' -DCMAKE_CXX_FLAGS='-mno-bmi2'
+	X86_NOBMI_FULL_FLAGS := -DCMAKE_C_FLAGS='-mno-bmi -mno-bmi2' -DCMAKE_CXX_FLAGS='-mno-bmi -mno-bmi2'
+else
+	X86_NOBMI_FLAGS :=
+	X86_NOBMI_FULL_FLAGS :=
+endif
 
 # Disable Shared libs as we are linking on static gRPC and we can't mix shared and static
 CMAKE_ARGS+=-DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF
@@ -107,39 +118,21 @@ llama-cpp-avx: llama.cpp
 	cp -rf $(CURRENT_MAKEFILE_DIR)/../llama-cpp $(CURRENT_MAKEFILE_DIR)/../llama-cpp-avx-build
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-avx-build purge
 	$(info ${GREEN}I llama-cpp build info:avx${RESET})
-ifeq ($(OS),Darwin)
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-cpp-avx-build" build-llama-cpp-grpc-server
-else ifeq ($(ARCH),$(filter $(ARCH),aarch64 arm64))
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-cpp-avx-build" build-llama-cpp-grpc-server
-else
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DCMAKE_C_FLAGS=-mno-bmi2 -DCMAKE_CXX_FLAGS=-mno-bmi2" $(MAKE) VARIANT="llama-cpp-avx-build" build-llama-cpp-grpc-server
-endif
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=on -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off $(X86_NOBMI_FLAGS)" $(MAKE) VARIANT="llama-cpp-avx-build" build-llama-cpp-grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-avx-build/grpc-server llama-cpp-avx
 
 llama-cpp-fallback: llama.cpp
 	cp -rf $(CURRENT_MAKEFILE_DIR)/../llama-cpp $(CURRENT_MAKEFILE_DIR)/../llama-cpp-fallback-build
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-fallback-build purge
 	$(info ${GREEN}I llama-cpp build info:fallback${RESET})
-ifeq ($(OS),Darwin)
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-cpp-fallback-build" build-llama-cpp-grpc-server
-else ifeq ($(ARCH),$(filter $(ARCH),aarch64 arm64))
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" $(MAKE) VARIANT="llama-cpp-fallback-build" build-llama-cpp-grpc-server
-else
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DCMAKE_C_FLAGS='-mno-bmi -mno-bmi2' -DCMAKE_CXX_FLAGS='-mno-bmi -mno-bmi2'" $(MAKE) VARIANT="llama-cpp-fallback-build" build-llama-cpp-grpc-server
-endif
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off $(X86_NOBMI_FULL_FLAGS)" $(MAKE) VARIANT="llama-cpp-fallback-build" build-llama-cpp-grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-fallback-build/grpc-server llama-cpp-fallback
 
 llama-cpp-grpc: llama.cpp
 	cp -rf $(CURRENT_MAKEFILE_DIR)/../llama-cpp $(CURRENT_MAKEFILE_DIR)/../llama-cpp-grpc-build
 	$(MAKE) -C $(CURRENT_MAKEFILE_DIR)/../llama-cpp-grpc-build purge
 	$(info ${GREEN}I llama-cpp build info:grpc${RESET})
-ifeq ($(OS),Darwin)
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-cpp-grpc-build" build-llama-cpp-grpc-server
-else ifeq ($(ARCH),$(filter $(ARCH),aarch64 arm64))
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-cpp-grpc-build" build-llama-cpp-grpc-server
-else
-	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off -DCMAKE_C_FLAGS='-mno-bmi -mno-bmi2' -DCMAKE_CXX_FLAGS='-mno-bmi -mno-bmi2'" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-cpp-grpc-build" build-llama-cpp-grpc-server
-endif
+	CMAKE_ARGS="$(CMAKE_ARGS) -DGGML_RPC=ON -DGGML_AVX=off -DGGML_AVX2=off -DGGML_AVX512=off -DGGML_FMA=off -DGGML_F16C=off $(X86_NOBMI_FULL_FLAGS)" TARGET="--target grpc-server --target rpc-server" $(MAKE) VARIANT="llama-cpp-grpc-build" build-llama-cpp-grpc-server
 	cp -rfv $(CURRENT_MAKEFILE_DIR)/../llama-cpp-grpc-build/grpc-server llama-cpp-grpc
 
 llama-cpp-rpc-server: llama-cpp-grpc
