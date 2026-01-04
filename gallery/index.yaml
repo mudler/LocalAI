@@ -1,4 +1,36 @@
 ---
+- name: "got-r1-14b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/GoT-R1-14B-i1-GGUF
+  description: |
+    The **GoT-R1-14B-i1-GGUF** model is a quantized version of the **MYTH-Lab/GoT-R1-14B** base model, optimized for efficiency with specific quantization strategies. It supports multiple quantized formats (e.g., IQ1_M, IQ2_XXS, Q4_K_M) and is designed for GGUF file format compatibility. Key details include:
+
+      - **Model Size**: 14B parameters (14 billion parameters).
+      - **Quantization**: Optimized for inference using techniques like IQ1_M, IQ2_XXS, and Q4_K_M, with trade-offs between size, speed, and quality.
+      - **Usage**: Compatible with GGUF files, suitable for deployment or experimentation.
+      - **Available Quantized Versions**: Includes a range of sizes (e.g., 0.1 GB to 12.2 GB) with varying quality and performance trade-offs.
+
+    The base model is hosted at [MYTH-Lab](https://huggingface.co/MYTH-Lab), and the quantized versions are provided by the repository. For detailed specifications, refer to the [model page](https://hf.tst.eu/model#GoT-R1-14B-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/GoT-R1-14B.i1-Q4_K_M.gguf
+    name: GoT-R1-14B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/GoT-R1-14B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GoT-R1-14B.i1-Q4_K_M.gguf
+      sha256: 160451f873d9689f352a9fd6ac2275d2885d96b45e7dbb90725cc19e78739cdb
+      uri: https://huggingface.co/mradermacher/GoT-R1-14B-i1-GGUF/resolve/main/GoT-R1-14B.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
