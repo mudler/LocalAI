@@ -10,7 +10,8 @@ FROM ${GRPC_BASE_IMAGE} AS grpc
 ARG GRPC_MAKEFLAGS="-j4 -Otarget"
 ARG GRPC_VERSION=v1.65.0
 ARG CMAKE_FROM_SOURCE=false
-ARG CMAKE_VERSION=3.26.4
+# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
+ARG CMAKE_VERSION=3.31.10
 
 ENV MAKEFLAGS=${GRPC_MAKEFLAGS}
 
@@ -26,7 +27,7 @@ RUN apt-get update && \
 
 # Install CMake (the version in 22.04 is too old)
 RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
     else
         apt-get update && \
@@ -50,6 +51,13 @@ RUN git clone --recurse-submodules --jobs 4 -b ${GRPC_VERSION} --depth 1 --shall
     rm -rf /build
 
 FROM ${BASE_IMAGE} AS builder
+ARG CMAKE_FROM_SOURCE=false
+ARG CMAKE_VERSION=3.31.10
+# We can target specific CUDA ARCHITECTURES like --build-arg CUDA_DOCKER_ARCH='75;86;89;120'
+ARG CUDA_DOCKER_ARCH
+ENV CUDA_DOCKER_ARCH=${CUDA_DOCKER_ARCH}
+ARG CMAKE_ARGS
+ENV CMAKE_ARGS=${CMAKE_ARGS}
 ARG BACKEND=rerankers
 ARG BUILD_TYPE
 ENV BUILD_TYPE=${BUILD_TYPE}
@@ -70,6 +78,7 @@ RUN apt-get update && \
         ccache git \
         ca-certificates \
         make \
+        pkg-config libcurl4-openssl-dev \
         curl unzip \
         libssl-dev wget && \
     apt-get clean && \
@@ -189,7 +198,7 @@ EOT
 
 # Install CMake (the version in 22.04 is too old)
 RUN <<EOT bash
-    if [ "${CMAKE_FROM_SOURCE}}" = "true" ]; then
+    if [ "${CMAKE_FROM_SOURCE}" = "true" ]; then
         curl -L -s https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}.tar.gz -o cmake.tar.gz && tar xvf cmake.tar.gz && cd cmake-${CMAKE_VERSION} && ./configure && make && make install
     else
         apt-get update && \
@@ -205,19 +214,30 @@ COPY --from=grpc /opt/grpc /usr/local
 
 COPY . /LocalAI
 
-## Otherwise just run the normal build
-RUN <<EOT bash
-if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then \
-        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-fallback && \
-        make llama-cpp-grpc && make llama-cpp-rpc-server; \
-    else \
-        cd /LocalAI/backend/cpp/llama-cpp && make llama-cpp-avx && \
-        make llama-cpp-avx2 && \
-        make llama-cpp-avx512 && \
-        make llama-cpp-fallback && \
-        make llama-cpp-grpc && \
-        make llama-cpp-rpc-server; \
-    fi  
+RUN <<'EOT' bash
+set -euxo pipefail
+
+if [[ -n "${CUDA_DOCKER_ARCH:-}" ]]; then
+  CUDA_ARCH_ESC="${CUDA_DOCKER_ARCH//;/\\;}"
+  export CMAKE_ARGS="${CMAKE_ARGS:-} -DCMAKE_CUDA_ARCHITECTURES=${CUDA_ARCH_ESC}"
+  echo "CMAKE_ARGS(env) = ${CMAKE_ARGS}"
+  rm -rf /LocalAI/backend/cpp/llama-cpp-*-build
+fi
+
+if [ "${TARGETARCH}" = "arm64" ] || [ "${BUILD_TYPE}" = "hipblas" ]; then
+  cd /LocalAI/backend/cpp/llama-cpp
+  make llama-cpp-fallback
+  make llama-cpp-grpc
+  make llama-cpp-rpc-server
+else
+  cd /LocalAI/backend/cpp/llama-cpp
+  make llama-cpp-avx
+  make llama-cpp-avx2
+  make llama-cpp-avx512
+  make llama-cpp-fallback
+  make llama-cpp-grpc
+  make llama-cpp-rpc-server
+fi
 EOT
 
 
