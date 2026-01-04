@@ -2,6 +2,7 @@ package functions
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/mudler/xlog"
 )
@@ -103,72 +104,89 @@ func (f Functions) Select(name string) Functions {
 	return funcs
 }
 
+// sanitizeValue recursively sanitizes null values in a JSON structure, converting them to empty objects.
+// It handles maps, slices, and nested structures.
+func sanitizeValue(value interface{}, path string) interface{} {
+	if value == nil {
+		// Convert null to empty object
+		xlog.Debug("SanitizeTools: found null value, converting to empty object", "path", path)
+		return map[string]interface{}{}
+	}
+
+	switch v := value.(type) {
+	case map[string]interface{}:
+		// Recursively sanitize map values
+		sanitized := make(map[string]interface{})
+		for key, val := range v {
+			newPath := path
+			if newPath != "" {
+				newPath += "."
+			}
+			newPath += key
+			sanitized[key] = sanitizeValue(val, newPath)
+		}
+		return sanitized
+
+	case []interface{}:
+		// Recursively sanitize slice elements
+		sanitized := make([]interface{}, len(v))
+		for i, val := range v {
+			newPath := fmt.Sprintf("%s[%d]", path, i)
+			sanitized[i] = sanitizeValue(val, newPath)
+		}
+		return sanitized
+
+	default:
+		// For primitive types (string, number, bool), return as-is
+		return value
+	}
+}
+
 // SanitizeTools removes null values from tool.parameters.properties and converts them to empty objects.
 // This prevents Jinja template errors when processing tools with malformed parameter schemas.
+// It works by marshaling to JSON, recursively sanitizing the JSON structure, and unmarshaling back.
 func SanitizeTools(tools Tools) Tools {
 	if len(tools) == 0 {
 		return tools
 	}
 
 	xlog.Debug("SanitizeTools: processing tools", "count", len(tools))
-	sanitized := make(Tools, 0, len(tools))
-	for _, tool := range tools {
-		// Create a copy of the tool to avoid modifying the original
-		sanitizedTool := Tool{
-			Type: tool.Type,
-			Function: Function{
-				Name:        tool.Function.Name,
-				Description: tool.Function.Description,
-				Strict:      tool.Function.Strict,
-			},
+
+	// Marshal to JSON to work with the actual JSON representation
+	toolsJSON, err := json.Marshal(tools)
+	if err != nil {
+		xlog.Warn("SanitizeTools: failed to marshal tools to JSON", "error", err)
+		return tools
+	}
+
+	// Parse JSON into a generic structure
+	var toolsData []map[string]interface{}
+	if err := json.Unmarshal(toolsJSON, &toolsData); err != nil {
+		xlog.Warn("SanitizeTools: failed to unmarshal tools JSON", "error", err)
+		return tools
+	}
+
+	// Recursively sanitize the JSON structure
+	for i, tool := range toolsData {
+		if function, ok := tool["function"].(map[string]interface{}); ok {
+			// Recursively sanitize the entire tool structure
+			tool["function"] = sanitizeValue(function, fmt.Sprintf("tools[%d].function", i))
 		}
+		toolsData[i] = tool
+	}
 
-		// Deep copy and sanitize parameters
-		if tool.Function.Parameters != nil {
-			// Create a new Parameters map
-			sanitizedTool.Function.Parameters = make(map[string]interface{})
+	// Marshal back to JSON
+	sanitizedJSON, err := json.Marshal(toolsData)
+	if err != nil {
+		xlog.Warn("SanitizeTools: failed to marshal sanitized tools", "error", err)
+		return tools
+	}
 
-			// Copy all parameters, sanitizing properties if present
-			for key, value := range tool.Function.Parameters {
-				if key == "properties" {
-					// Special handling for properties - sanitize null values
-					if propertiesMap, ok := value.(map[string]interface{}); ok {
-						// Create a new map for sanitized properties
-						sanitizedProperties := make(map[string]interface{})
-
-						// Iterate through properties and convert null values to empty objects
-						for propKey, propValue := range propertiesMap {
-							// Check for nil/null values (handles both Go nil and JSON null)
-							if propValue == nil {
-								// Convert null to empty object to prevent Jinja template errors
-								sanitizedProperties[propKey] = map[string]interface{}{}
-								xlog.Warn("Found null value in tool parameter properties, converting to empty object",
-									"tool", sanitizedTool.Function.Name,
-									"parameter", propKey)
-							} else {
-								// Check if value is a map/object - if so, ensure it's not null
-								if propValueMap, ok := propValue.(map[string]interface{}); ok {
-									// It's already a valid map, preserve it
-									sanitizedProperties[propKey] = propValueMap
-								} else {
-									// Preserve other valid values (strings, numbers, arrays, etc.)
-									sanitizedProperties[propKey] = propValue
-								}
-							}
-						}
-						sanitizedTool.Function.Parameters["properties"] = sanitizedProperties
-					} else {
-						// If properties is not a map, preserve as-is
-						sanitizedTool.Function.Parameters[key] = value
-					}
-				} else {
-					// Copy other parameters as-is
-					sanitizedTool.Function.Parameters[key] = value
-				}
-			}
-		}
-
-		sanitized = append(sanitized, sanitizedTool)
+	// Unmarshal back into Tools structure
+	var sanitized Tools
+	if err := json.Unmarshal(sanitizedJSON, &sanitized); err != nil {
+		xlog.Warn("SanitizeTools: failed to unmarshal sanitized tools", "error", err)
+		return tools
 	}
 
 	return sanitized

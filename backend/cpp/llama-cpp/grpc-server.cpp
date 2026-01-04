@@ -293,6 +293,8 @@ json parse_options(bool streaming, const backend::PredictOptions* predict, const
     return data;
 }
 
+// Sanitize tools JSON to remove null values from tool.parameters.properties
+// This prevents Jinja template errors when processing tools with malformed parameter schemas
 
 const std::vector<ggml_type> kv_cache_types = {
     GGML_TYPE_F32,
