@@ -1,4 +1,45 @@
 ---
+- name: "qwen3-30b-a3b-instruct-2507-malaysian-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-30B-A3B-Instruct-2507-Malaysian-i1-GGUF
+  description: |
+    **Model Name:** Qwen3-30B-A3B-Instruct-2507-Malaysian
+    **Base Model:** Qwen/Qwen3-30B-A3B-Instruct-2507
+
+    **Description:**
+    This is a quantized version of the Qwen3-30B-A3B-Instruct-2507 model, trained using SFT LoRA (Prompt tuning) on the Scicom-intl/Malaysian-Instructions dataset. It leverages FSDP2 for efficient scaling and includes advanced training parameters like 256 experts, rank 256, and a learning rate of 1e-4. The model is optimized for performance with IQ3_XXS quantization, balancing speed and accuracy.
+
+    **Key Features:**
+      - Trained on Scicom-intl/Malaysian-Instructions dataset.
+      - SFT LoRA (Prompt Tuning) with FSDP2 for efficient training.
+      - 256 experts, rank 256, α × 2.0.
+      - IQ3_XXS quantization for optimal size/speed/quality trade-offs.
+      - Compatible with GGUF format for deployment.
+
+    **Usage:**
+    Download pre-quantized versions (e.g., `i1-IQ3_XXS` for 11.9GB) or use the base model for further tuning.
+
+    *Note: This model is quantized by the user and not the original base model author.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-30B-A3B-Instruct-2507-Malaysian.i1-Q4_K_M.gguf
+    name: Qwen3-30B-A3B-Instruct-2507-Malaysian-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-30B-A3B-Instruct-2507-Malaysian-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-30B-A3B-Instruct-2507-Malaysian.i1-Q4_K_M.gguf
+      sha256: 760241433915c2f63ce3a879586a8e63a1dcbf0b6568d1b8695e3a242e00d952
+      uri: https://huggingface.co/mradermacher/Qwen3-30B-A3B-Instruct-2507-Malaysian-i1-GGUF/resolve/main/Qwen3-30B-A3B-Instruct-2507-Malaysian.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
