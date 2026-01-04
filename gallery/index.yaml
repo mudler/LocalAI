@@ -1,4 +1,29 @@
 ---
+- name: "claro-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/CLARO-7B-i1-GGUF
+  description: |
+    The model is a quantized version of **CLARO-7B** (original model) using **imatrix quantization**. It is optimized for efficiency and is derived from the repository [https://huggingface.co/CLARO-anonymous/CLARO-7B](https://huggingface.co/CLARO-anonymous/CLARO-7B). The quantization includes layers like `Q2_K`, `Q4_K_S`, and `Q3_M` for reduced precision, while retaining key performance characteristics. It is designed for deployment in low-resource settings, leveraging the original model's architecture.
+  overrides:
+    parameters:
+      model: llama-cpp/models/CLARO-7B.i1-Q4_K_M.gguf
+    name: CLARO-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/CLARO-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/CLARO-7B.i1-Q4_K_M.gguf
+      sha256: 72cb3028fd18cf5f40b2d251cccc51139de4268b3b060b5df90f349f4f0a75d8
+      uri: https://huggingface.co/mradermacher/CLARO-7B-i1-GGUF/resolve/main/CLARO-7B.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
