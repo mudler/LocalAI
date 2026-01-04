@@ -1,4 +1,29 @@
 ---
+- name: "meta-llama-3.1-70b-instruct-malaysian-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Meta-Llama-3.1-70B-Instruct-Malaysian-i1-GGUF
+  description: |
+    The **Meta-Llama-3.1-70B-Instruct-Malaysian** is a large language model (70 billion parameters) optimized for instruction-following tasks. It is a quantized version of the original Meta-Llama-3.1-70B model, tailored for efficient deployment on hardware with limited memory or computational resources. The model is designed for instruction tuning, making it suitable for tasks like code generation, dialogue, and reasoning. It supports GGUF format for fast loading and inference, with quantization levels (e.g., Q4_K_M) that balance accuracy and efficiency. The model is available in various quantized variants, with the highest-quality version (Q4_K_M) offering optimal speed, size, and accuracy. For detailed usage, refer to the model's official documentation or community resources.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Meta-Llama-3.1-70B-Instruct-Malaysian.i1-Q4_K_M.gguf
+    name: Meta-Llama-3.1-70B-Instruct-Malaysian-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Meta-Llama-3.1-70B-Instruct-Malaysian-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Meta-Llama-3.1-70B-Instruct-Malaysian.i1-Q4_K_M.gguf
+      sha256: b4330aaed2703d3e4b1be717b6b9f58b04ce976af5641e2308fcf46cb93da08e
+      uri: https://huggingface.co/mradermacher/Meta-Llama-3.1-70B-Instruct-Malaysian-i1-GGUF/resolve/main/Meta-Llama-3.1-70B-Instruct-Malaysian.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
