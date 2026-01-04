@@ -1,4 +1,29 @@
 ---
+- name: "thaillm-30b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/sthaps/ThaiLLM-30B-gguf
+  description: |
+    The model is a large language model (30B parameters) specifically designed for Thai language text generation. It is based on the `ThaiLLM/ThaiLLM-30B` base model, optimized for efficient inference using GGUF quantized weights. The quantized versions (q2_k, q3_k_m, q4_k_m, q5_k_m, q8_0) offer varying levels of precision, with the q4_k_m version recommended for balanced performance. The model is suitable for tasks like text generation, and uses the `llama.cpp` framework for efficient deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/ThaiLLM-30B-q4_k_m.gguf
+    name: ThaiLLM-30B-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/sthaps/ThaiLLM-30B-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/ThaiLLM-30B-q4_k_m.gguf
+      sha256: f05cdd2edc5bff44ea70bb3ac9be1f8431def09ffea8f3c2549dc35a1a2a36a2
+      uri: https://huggingface.co/sthaps/ThaiLLM-30B-gguf/resolve/main/ThaiLLM-30B-q4_k_m.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
