@@ -1515,13 +1515,22 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 					continue
 					//return result, fmt.Errorf("unable to find function name in result")
 				}
-				// Similarly, while here arguments is a map[string]interface{}, OpenAI actually want a stringified object
-				args, ok := s[functionArgumentsKey] // arguments needs to be a string, but we return an object from the grammar result (TODO: fix)
+				// Arguments from grammar result is a map[string]interface{}, but OpenAI expects a stringified JSON object
+				// We marshal it to JSON string here to match OpenAI's format
+				args, ok := s[functionArgumentsKey]
 				if !ok {
 					continue
 					//return result, fmt.Errorf("unable to find arguments in result")
 				}
-				d, _ := json.Marshal(args)
+				// Marshal arguments to JSON string (handles both object and string cases)
+				var d []byte
+				if argsStr, ok := args.(string); ok {
+					// Already a string, use it directly
+					d = []byte(argsStr)
+				} else {
+					// Object, marshal to JSON
+					d, _ = json.Marshal(args)
+				}
 				funcName, ok := func_name.(string)
 				if !ok {
 					continue
@@ -1559,9 +1568,12 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	if len(functionConfig.ResponseRegex) > 0 {
 		// We use named regexes here to extract the function name and arguments
 		// obviously, this expects the LLM to be stable and return correctly formatted JSON
-		// TODO: optimize this and pre-compile it
+		// Pre-compile regexes for better performance
+		compiledRegexes := make([]*regexp.Regexp, 0, len(functionConfig.ResponseRegex))
 		for _, r := range functionConfig.ResponseRegex {
-			var respRegex = regexp.MustCompile(r)
+			compiledRegexes = append(compiledRegexes, regexp.MustCompile(r))
+		}
+		for _, respRegex := range compiledRegexes {
 			matches := respRegex.FindAllStringSubmatch(llmresult, -1)
 			for _, match := range matches {
 				for i, name := range respRegex.SubexpNames() {
