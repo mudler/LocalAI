@@ -627,9 +627,8 @@ functions.search:0<|tool_call_argument_begin|>{"query": "test", "limit": 10}<|to
 			results, err := ParseXML(input, nil)
 			Expect(err).NotTo(HaveOccurred())
 			// Should parse JSON-like format
-			if len(results) > 0 {
-				Expect(results[0].Name).To(Equal("test_function"))
-			}
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("test_function"))
 		})
 
 		It("should validate scope_start has only whitespace before it", func() {
@@ -644,15 +643,11 @@ functions.search:0<|tool_call_argument_begin|>{"query": "test", "limit": 10}<|to
 			// However, our current implementation will still match because regex is greedy
 			// This is a limitation of regex-based parsing vs streaming parser
 			results, err := ParseXML(input, nil)
-			// The iterative parser should reject this (scope validation), but regex parser may accept it
-			// Both behaviors are acceptable depending on which parser is used
-			if err != nil {
-				// Iterative parser rejected it - this is expected
-				Expect(err).To(HaveOccurred())
-			} else {
-				// Regex parser accepted it - this is also acceptable
-				Expect(results).NotTo(BeNil())
-			}
+			// The iterative parser should reject this (scope validation), but ParseXML falls back to regex
+			// So it should succeed with regex parser
+			Expect(err).NotTo(HaveOccurred())
+			// Regex parser accepts it (this is a known limitation)
+			Expect(results).NotTo(BeNil())
 		})
 
 		It("should handle empty tool calls with no arguments", func() {
@@ -903,42 +898,42 @@ Final text`
 				Expect(err).NotTo(HaveOccurred())
 				Expect(isPartial).To(BeFalse())
 				Expect(jsonValue).NotTo(BeNil())
-				Expect(jsonValue["name"]).To(Equal("test"))
-				Expect(jsonValue["value"]).To(Equal(float64(42)))
+				// Type assert to map[string]any
+				obj, ok := jsonValue.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(obj["name"]).To(Equal("test"))
+				Expect(obj["value"]).To(Equal(float64(42)))
 			})
 
-			It("should parse JSON arrays", func() {
+			It("should parse JSON arrays (matching llama.cpp behavior)", func() {
 				parser := NewChatMsgParser(`[{"a":1},{"b":2}]`, false)
 				jsonValue, isPartial, err := parser.TryConsumeJSON()
-				// TryConsumeJSON expects objects, not arrays
-				// Arrays should return an error or be handled by ParseJSONIterative
-				if err != nil {
-					// Arrays are not supported by TryConsumeJSON (it expects objects)
-					// This is expected behavior
-					Expect(err).To(HaveOccurred())
-				} else {
-					// If it somehow parsed, verify the result
-					Expect(jsonValue).NotTo(BeNil())
-					Expect(isPartial).To(BeFalse())
-				}
+				// TryConsumeJSON now supports arrays (matching llama.cpp's try_consume_json)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(isPartial).To(BeFalse())
+				Expect(jsonValue).NotTo(BeNil())
+				// Should be an array
+				arr, ok := jsonValue.([]any)
+				Expect(ok).To(BeTrue())
+				Expect(arr).To(HaveLen(2))
+				// First element should be an object
+				obj1, ok := arr[0].(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(obj1["a"]).To(Equal(float64(1)))
 			})
 
-			It("should handle partial JSON in partial mode", func() {
+			It("should heal incomplete JSON in partial mode", func() {
 				parser := NewChatMsgParser(`{"name":"test","value":`, true)
 				jsonValue, isPartial, err := parser.TryConsumeJSON()
-				// Should handle partial gracefully - may return partial result or error
-				if err != nil {
-					// If error, should be partial exception
-					_, isPartialErr := err.(*ChatMsgPartialException)
-					if !isPartialErr {
-						// Other errors are acceptable for incomplete JSON
-						Expect(err).To(HaveOccurred())
-					}
-				} else {
-					// If no error, should be marked as partial
-					Expect(isPartial).To(BeTrue())
-					Expect(jsonValue).NotTo(BeNil())
-				}
+				// TryConsumeJSON attempts to heal incomplete JSON in partial mode
+				// For this input, healing should succeed (adds closing quote and brace)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(isPartial).To(BeTrue())
+				Expect(jsonValue).NotTo(BeNil())
+				// Type assert to map[string]any
+				obj, ok := jsonValue.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(obj["name"]).To(Equal("test"))
 			})
 
 			It("should reject non-JSON input", func() {
@@ -975,7 +970,7 @@ value
 				Expect(parser.ToolCalls()[0].Name).To(Equal("test"))
 			})
 
-			It("should handle partial XML tool calls", func() {
+			It("should return partial exception for incomplete XML tool calls", func() {
 				input := `<tool_call>
 <function=test>
 <parameter=key>
@@ -984,31 +979,25 @@ value
 				format := GetXMLFormatPreset("qwen3-coder")
 				parser := NewChatMsgParser(input, true)
 				success, err := parser.TryConsumeXMLToolCalls(format)
-				// Should handle partial gracefully - may return partial exception
-				if err != nil {
-					_, isPartialErr := err.(*ChatMsgPartialException)
-					Expect(isPartialErr).To(BeTrue(), "Should return partial exception for incomplete XML")
-				} else {
-					// If no error, should have parsed something
-					Expect(success).To(BeTrue())
-				}
+				// Should return partial exception for incomplete XML
+				Expect(err).To(HaveOccurred())
+				_, isPartialErr := err.(*ChatMsgPartialException)
+				Expect(isPartialErr).To(BeTrue(), "Should return ChatMsgPartialException for incomplete XML")
+				Expect(success).To(BeFalse())
 			})
 
-			It("should detect partial literals", func() {
+			It("should return partial exception for incomplete literals", func() {
 				input := `<tool_call>
 <function=test>
 <parameter=key>`
 				format := GetXMLFormatPreset("qwen3-coder")
 				parser := NewChatMsgParser(input, true)
 				success, err := parser.TryConsumeXMLToolCalls(format)
-				// Should detect partial and emit partial tool call or return partial exception
-				if err != nil {
-					_, isPartial := err.(*ChatMsgPartialException)
-					Expect(isPartial).To(BeTrue(), "Should return partial exception for incomplete literal")
-				} else {
-					// If no error, may have emitted partial tool call
-					Expect(success).To(BeTrue())
-				}
+				// Should return partial exception for incomplete literal
+				Expect(err).To(HaveOccurred())
+				_, isPartial := err.(*ChatMsgPartialException)
+				Expect(isPartial).To(BeTrue(), "Should return ChatMsgPartialException for incomplete literal")
+				Expect(success).To(BeFalse())
 			})
 
 			It("should handle empty tool calls", func() {
@@ -1034,23 +1023,11 @@ functions.search:0
 <|tool_calls_section_end|>`
 				format := GetXMLFormatPreset("kimi-k2")
 				Expect(format).NotTo(BeNil())
-				// Kimi-K2 format has JSON arguments, which the iterative parser handles specially
-				// If iterative parser fails, it should fall back to regex parser
-				parser := NewChatMsgParser(input, false)
-				success, err := parser.TryConsumeXMLToolCalls(format)
-				// Accept either success or fallback to regex parser
-				if err != nil {
-					// If iterative parser fails, test that ParseXML (which falls back) works
-					results, regexErr := ParseXML(input, format)
-					Expect(regexErr).NotTo(HaveOccurred())
-					Expect(results).To(HaveLen(1))
-					Expect(results[0].Name).To(Equal("search"))
-				} else {
-					Expect(success).To(BeTrue())
-					if len(parser.ToolCalls()) > 0 {
-						Expect(parser.ToolCalls()[0].Name).To(Equal("search"))
-					}
-				}
+				// Kimi-K2 format has JSON arguments - test that ParseXML works (uses fallback if needed)
+				results, err := ParseXML(input, format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Name).To(Equal("search"))
 			})
 
 			It("should validate scope_start has only whitespace before it", func() {
@@ -1081,38 +1058,35 @@ test_function
 		})
 
 		Describe("Partial parsing and streaming", func() {
-			It("should detect partial JSON", func() {
+			It("should heal incomplete JSON in partial mode", func() {
 				parser := NewChatMsgParser(`{"name":"test","value":`, true)
 				jsonValue, isPartial, err := parser.TryConsumeJSON()
-				// In partial mode, should handle gracefully
-				if err != nil {
-					// Error is acceptable for incomplete JSON
-					Expect(err).To(HaveOccurred())
-				} else {
-					// If no error, should be marked as partial
-					Expect(isPartial).To(BeTrue())
-					Expect(jsonValue).NotTo(BeNil())
-				}
+				// TryConsumeJSON attempts to heal incomplete JSON in partial mode
+				// For this input, healing should succeed (adds closing quote and brace)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(isPartial).To(BeTrue())
+				Expect(jsonValue).NotTo(BeNil())
+				// Type assert to map[string]any
+				obj, ok := jsonValue.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(obj["name"]).To(Equal("test"))
 			})
 
-			It("should detect partial XML", func() {
+			It("should return partial exception for incomplete XML", func() {
 				input := `<tool_call>
 <function=test>
 <parameter=key>`
 				format := GetXMLFormatPreset("qwen3-coder")
 				parser := NewChatMsgParser(input, true)
 				success, err := parser.TryConsumeXMLToolCalls(format)
-				// Should detect partial - either return partial exception or emit partial tool call
-				if err != nil {
-					_, isPartial := err.(*ChatMsgPartialException)
-					Expect(isPartial).To(BeTrue(), "Should return partial exception for incomplete XML")
-				} else {
-					// If no error, may have emitted partial tool call
-					Expect(success).To(BeTrue())
-				}
+				// Should return partial exception for incomplete XML
+				Expect(err).To(HaveOccurred())
+				_, isPartial := err.(*ChatMsgPartialException)
+				Expect(isPartial).To(BeTrue(), "Should return ChatMsgPartialException for incomplete XML")
+				Expect(success).To(BeFalse())
 			})
 
-			It("should emit partial tool calls", func() {
+			It("should return partial exception for incomplete tool call", func() {
 				input := `<tool_call>
 <function=test>
 <parameter=key>
@@ -1120,15 +1094,11 @@ partial_value`
 				format := GetXMLFormatPreset("qwen3-coder")
 				parser := NewChatMsgParser(input, true)
 				success, err := parser.TryConsumeXMLToolCalls(format)
-				// May emit partial tool call or return error
-				if err != nil {
-					_, isPartial := err.(*ChatMsgPartialException)
-					Expect(isPartial).To(BeTrue(), "Should return partial exception for incomplete tool call")
-				} else {
-					// If no error, should have emitted partial tool call
-					Expect(success).To(BeTrue())
-					Expect(len(parser.ToolCalls())).To(BeNumerically(">=", 0))
-				}
+				// Should return partial exception for incomplete tool call
+				Expect(err).To(HaveOccurred())
+				_, isPartial := err.(*ChatMsgPartialException)
+				Expect(isPartial).To(BeTrue(), "Should return ChatMsgPartialException for incomplete tool call")
+				Expect(success).To(BeFalse())
 			})
 		})
 
@@ -1200,23 +1170,19 @@ value
 				Expect(results).To(HaveLen(1))
 			})
 
-			It("should handle partial XML", func() {
+			It("should return partial tool call for incomplete XML", func() {
 				input := `<tool_call>
 <function=test>
 <parameter=key>`
 				results, err := ParseXMLIterative(input, nil, true)
-				// Should handle partial gracefully - may return empty results or partial exception
-				if err != nil {
-					// Error is acceptable for incomplete XML
-					_, isPartial := err.(*ChatMsgPartialException)
-					if !isPartial {
-						// Other errors should be checked
-						Expect(err).To(HaveOccurred())
-					}
-				} else {
-					// If no error, results should be valid (may be empty)
-					Expect(results).NotTo(BeNil())
-				}
+				// ParseXMLIterative catches partial exceptions and returns partial tool calls
+				// For incomplete XML, should return partial tool call (not error)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).NotTo(BeNil())
+				Expect(results).To(HaveLen(1))
+				Expect(results[0].Name).To(Equal("test"))
+				// Arguments should contain partial flag
+				Expect(results[0].Arguments).To(ContainSubstring("key"))
 			})
 		})
 
@@ -1236,17 +1202,15 @@ value
 				Expect(results).To(HaveLen(3))
 			})
 
-			It("should handle partial JSON", func() {
+			It("should handle partial JSON gracefully (may fall back to legacy parser)", func() {
 				input := `{"name":"test","value":`
 				results, err := ParseJSONIterative(input, true)
-				// Should handle partial gracefully or fall back to legacy parser
-				if err != nil {
-					// Error is acceptable - may fall back to legacy parser
-					Expect(err).To(HaveOccurred())
-				} else {
-					// If no error, results should be valid (may be empty or partial)
-					Expect(results).NotTo(BeNil())
-				}
+				// ParseJSONIterative catches partial exceptions and falls back to legacy parser
+				// Legacy parser should handle this gracefully
+				Expect(err).NotTo(HaveOccurred())
+				Expect(results).NotTo(BeNil())
+				// Results may be empty or contain partial data
+				Expect(len(results)).To(BeNumerically(">=", 0))
 			})
 		})
 	})

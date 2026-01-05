@@ -244,11 +244,12 @@ func ParseJSON(s string) ([]map[string]any, error) {
 
 // ParseJSONIterative parses JSON using the iterative parser
 // Supports partial parsing for streaming scenarios
+// Returns objects and arrays (matching llama.cpp behavior)
 func ParseJSONIterative(s string, isPartial bool) ([]map[string]any, error) {
 	parser := NewChatMsgParser(s, isPartial)
 	var results []map[string]any
 
-	// Try to parse JSON objects one by one
+	// Try to parse JSON values one by one
 	for parser.Pos() < len(parser.Input()) {
 		jsonValue, isPartialJSON, err := parser.TryConsumeJSON()
 		if err != nil {
@@ -260,12 +261,22 @@ func ParseJSONIterative(s string, isPartial bool) ([]map[string]any, error) {
 			return parseJSONLegacy(s)
 		}
 		if jsonValue != nil {
-			results = append(results, jsonValue)
+			// Convert to map[string]any if it's an object, or handle arrays
+			if obj, ok := jsonValue.(map[string]any); ok {
+				results = append(results, obj)
+			} else if arr, ok := jsonValue.([]any); ok {
+				// Handle arrays: extract objects from array
+				for _, item := range arr {
+					if obj, ok := item.(map[string]any); ok {
+						results = append(results, obj)
+					}
+				}
+			}
 		}
 		if isPartialJSON {
 			break
 		}
-		// Skip whitespace between JSON objects
+		// Skip whitespace between JSON values
 		parser.ConsumeSpaces()
 	}
 

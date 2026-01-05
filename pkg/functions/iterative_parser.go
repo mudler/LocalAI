@@ -260,9 +260,10 @@ func AllSpace(s string) bool {
 }
 
 // TryConsumeJSON attempts to consume a JSON value from the current position
-// Returns the parsed JSON and whether it's partial
+// Returns the parsed JSON (can be object, array, or any JSON type) and whether it's partial
 // Improved to better match llama.cpp's JSON parsing with healing support
-func (p *ChatMsgParser) TryConsumeJSON() (map[string]any, bool, error) {
+// Matches llama.cpp's try_consume_json() which returns common_json containing any JSON type
+func (p *ChatMsgParser) TryConsumeJSON() (any, bool, error) {
 	// Skip whitespace
 	p.ConsumeSpaces()
 
@@ -277,8 +278,9 @@ func (p *ChatMsgParser) TryConsumeJSON() (map[string]any, bool, error) {
 	}
 
 	// Try parsing complete JSON first using decoder to get exact position
+	// Use any to support objects, arrays, and other JSON types (matching llama.cpp)
 	decoder := json.NewDecoder(strings.NewReader(p.input[jsonStart:]))
-	var jsonValue map[string]any
+	var jsonValue any
 	if err := decoder.Decode(&jsonValue); err == nil {
 		// Complete JSON parsed successfully
 		// Calculate position after JSON using decoder's input offset
@@ -329,23 +331,12 @@ func (p *ChatMsgParser) TryConsumeJSON() (map[string]any, bool, error) {
 	if jsonEnd == -1 {
 		// Incomplete JSON (partial)
 		if p.isPartial {
-			// Try healing: add healing marker and closing braces
-			// This is a simplified version - full implementation would track stack
-			healedJSON := p.input[jsonStart:] + `"` + p.healingMarker + `"`
-			// Try to close any open objects/arrays
-			openBraces := strings.Count(p.input[jsonStart:], "{") - strings.Count(p.input[jsonStart:], "}")
-			openBrackets := strings.Count(p.input[jsonStart:], "[") - strings.Count(p.input[jsonStart:], "]")
-			for i := 0; i < openBraces; i++ {
-				healedJSON += "}"
-			}
-			for i := 0; i < openBrackets; i++ {
-				healedJSON += "]"
-			}
-
-			var healedValue map[string]any
-			if err := json.Unmarshal([]byte(healedJSON), &healedValue); err == nil {
+			// Use stack-based healing matching llama.cpp's implementation
+			partialInput := p.input[jsonStart:]
+			healedValue, wasHealed, _, err := parseJSONWithStack(partialInput, p.healingMarker)
+			if err == nil && wasHealed {
 				// Successfully healed - remove healing marker from result
-				cleaned := removeHealingMarkerFromJSON(healedValue, p.healingMarker)
+				cleaned := removeHealingMarkerFromJSONAny(healedValue, p.healingMarker)
 				p.pos = len(p.input)
 				return cleaned, true, nil
 			}
@@ -363,7 +354,7 @@ func (p *ChatMsgParser) TryConsumeJSON() (map[string]any, bool, error) {
 	return jsonValue, false, nil
 }
 
-// removeHealingMarkerFromJSON removes healing markers from a parsed JSON structure
+// removeHealingMarkerFromJSON removes healing markers from a parsed JSON structure (objects only)
 func removeHealingMarkerFromJSON(value map[string]any, marker string) map[string]any {
 	result := make(map[string]any)
 	for k, v := range value {
@@ -379,24 +370,25 @@ func removeHealingMarkerFromJSON(value map[string]any, marker string) map[string
 	return result
 }
 
-// removeHealingMarker removes the healing marker from a JSON string
-func removeHealingMarker(jsonStr string) string {
-	// This is a simplified version - in practice, we'd need to properly clean JSON
-	pos := strings.LastIndex(jsonStr, "XML_TOOL_CALL_PARTIAL_FLAG")
-	if pos == -1 {
-		return jsonStr
-	}
-	// Check that only valid JSON characters follow
-	for i := pos + len("XML_TOOL_CALL_PARTIAL_FLAG"); i < len(jsonStr); i++ {
-		ch := jsonStr[i]
-		if ch != '\'' && ch != '"' && ch != '}' && ch != ':' && ch != ']' && !unicode.IsSpace(rune(ch)) {
-			return jsonStr
+// removeHealingMarkerFromJSONAny removes healing markers from any JSON type (objects, arrays, etc.)
+func removeHealingMarkerFromJSONAny(value any, marker string) any {
+	switch v := value.(type) {
+	case map[string]any:
+		return removeHealingMarkerFromJSON(v, marker)
+	case []any:
+		result := make([]any, len(v))
+		for i, item := range v {
+			result[i] = removeHealingMarkerFromJSONAny(item, marker)
 		}
+		return result
+	case string:
+		if idx := strings.Index(v, marker); idx != -1 {
+			return v[:idx]
+		}
+		return v
+	default:
+		return v
 	}
-	if pos > 0 && jsonStr[pos-1] == '"' {
-		pos--
-	}
-	return jsonStr[:pos]
 }
 
 // TryConsumeXMLToolCalls attempts to parse XML tool calls using the iterative parser
@@ -510,31 +502,37 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 		return toolEndSize, tc
 	}
 
-	// Parse scope_start if present
-	if format.ScopeStart != "" && !AllSpace(format.ScopeStart) {
-		tc := p.TryFindLiteral(format.ScopeStart)
-		if tc == nil {
-			return false, nil
-		}
-		if !AllSpace(tc.Prelude) {
-			p.MoveTo(startPos)
-			return false, nil
-		}
-		// Validate size match (partial detection)
-		if len(tc.Groups) > 0 {
-			matchedSize := tc.Groups[0].End - tc.Groups[0].Begin
-			if matchedSize != len(format.ScopeStart) {
-				return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.ScopeStart)}
+	// Parse multiple scopes (for formats like qwen3-coder that can have multiple <tool_call> blocks)
+	// Continue parsing until no more scopes are found
+	for {
+		// Parse scope_start if present
+		if format.ScopeStart != "" && !AllSpace(format.ScopeStart) {
+			tc := p.TryFindLiteral(format.ScopeStart)
+			if tc == nil {
+				// No more scopes found, break
+				break
+			}
+			if !AllSpace(tc.Prelude) {
+				// Non-whitespace before scope_start, stop parsing
+				p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
+				break
+			}
+			// Validate size match (partial detection)
+			if len(tc.Groups) > 0 {
+				matchedSize := tc.Groups[0].End - tc.Groups[0].Begin
+				if matchedSize != len(format.ScopeStart) {
+					return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.ScopeStart)}
+				}
 			}
 		}
-	}
 
-	// Parse tool calls
-	for {
-		tc := p.TryFindLiteral(format.ToolStart)
-		if tc == nil {
-			break
-		}
+		// Parse tool calls within this scope
+		scopeToolCallsFound := false
+		for {
+			tc := p.TryFindLiteral(format.ToolStart)
+			if tc == nil {
+				break
+			}
 
 		if !AllSpace(tc.Prelude) {
 			// Non-whitespace before tool_start, stop parsing
@@ -795,16 +793,42 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 		return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
 	}
 
-	// Parse scope_end if present
-	if format.ScopeEnd != "" {
-		tc := p.TryFindLiteral(format.ScopeEnd)
-		if tc == nil {
-			// Expected scope_end but not found
-			if !p.isPartial {
-				return returnError(errors.New("expected scope_end"), recovery)
+		// Parse scope_end if present (for this scope)
+		if format.ScopeEnd != "" {
+			tc := p.TryFindLiteral(format.ScopeEnd)
+			if tc == nil {
+				// Expected scope_end but not found
+				if !p.isPartial {
+					// If we found tool calls in this scope, it's okay to not have scope_end
+					// (might be multiple scopes or incomplete)
+					if !scopeToolCallsFound {
+						return returnError(errors.New("expected scope_end"), recovery)
+					}
+					break
+				}
+				break
+			} else if !AllSpace(tc.Prelude) {
+				// Non-whitespace before scope_end - this might be another scope_start
+				// Check if it's actually another scope_start
+				if format.ScopeStart != "" {
+					// Check if the non-whitespace is actually another scope_start
+					testPos := tc.Groups[0].Begin - len(tc.Prelude)
+					if testPos >= 0 && testPos < len(p.input) {
+						testInput := p.input[testPos:]
+						if strings.HasPrefix(testInput, format.ScopeStart) {
+							// It's another scope_start, break to continue outer loop
+							p.MoveTo(testPos)
+							break
+						}
+					}
+				}
+				return returnError(errors.New("non-whitespace before scope_end"), recovery)
 			}
-		} else if !AllSpace(tc.Prelude) {
-			return returnError(errors.New("non-whitespace before scope_end"), recovery)
+			// Successfully found scope_end, continue to next scope if any
+			scopeToolCallsFound = true
+		} else {
+			// No scope_end defined, we're done after parsing tool calls
+			break
 		}
 	}
 
