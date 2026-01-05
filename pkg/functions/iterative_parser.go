@@ -955,11 +955,25 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 								// Use jsonDumpMarker to cut precisely (matching llama.cpp lines 532-538)
 								if jsonHealingMarker != "" {
 									// Find jsonDumpMarker in the JSON string and cut there
-									if idx := strings.LastIndex(toolStr, jsonHealingMarker); idx != -1 {
+									// Matching llama.cpp: GGML_ASSERT(std::string::npos != json_str.rfind(...))
+									idx := strings.LastIndex(toolStr, jsonHealingMarker)
+									if idx != -1 {
 										toolStr = toolStr[:idx]
+									} else {
+										// Marker should always be found if it was returned from parseJSONWithStack
+										// Log warning but continue with fallback
+										jsonPreview := toolStr
+										if len(jsonPreview) > 100 {
+											jsonPreview = jsonPreview[:100]
+										}
+										xlog.Debug("jsonDumpMarker not found in JSON string, using fallback", "marker", jsonHealingMarker, "json", jsonPreview)
+										// Fallback: remove trailing } if present
+										if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
+											toolStr = toolStr[:len(toolStr)-1]
+										}
 									}
 								} else {
-									// Remove trailing } if present
+									// Remove trailing } if present (matching llama.cpp line 537)
 									if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
 										toolStr = toolStr[:len(toolStr)-1]
 									}
