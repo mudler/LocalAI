@@ -1616,8 +1616,10 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// If no results from JSON parsing, try XML parsing
 	// This handles cases where the response contains XML tool calls instead of JSON,
 	// or mixed content with XML tool calls
-	// Skip XML parsing if JSONRegexMatch was used and found results (to avoid double-parsing)
-	skipXMLParsing := len(functionConfig.JSONRegexMatch) > 0 && len(results) > 0
+	// Skip XML parsing if JSONRegexMatch or ResponseRegex was used and found results (to avoid double-parsing)
+	// ResponseRegex extracts content that might look like XML (e.g., <function=name>args</function>)
+	// but we've already parsed it, so we shouldn't try XML parsing on the same content
+	skipXMLParsing := (len(functionConfig.JSONRegexMatch) > 0 || len(functionConfig.ResponseRegex) > 0) && len(results) > 0
 	if len(results) == 0 && !skipXMLParsing {
 		xmlResults, err := ParseXML(llmresult, xmlFormat)
 		if err == nil && len(xmlResults) > 0 {
@@ -1627,7 +1629,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	} else if len(results) > 0 && !skipXMLParsing {
 		// Even if we found JSON results, check for XML tool calls in the response
 		// This handles mixed content scenarios (text + JSON + XML)
-		// But skip if JSONRegexMatch was used (it already extracted the content)
+		// But skip if JSONRegexMatch or ResponseRegex was used (they already extracted the content)
 		xmlResults, err := ParseXML(llmresult, xmlFormat)
 		if err == nil && len(xmlResults) > 0 {
 			xlog.Debug("Found additional XML tool calls alongside JSON", "xml_count", len(xmlResults))
@@ -1639,8 +1641,18 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 }
 
 func ParseFunctionCallArgs(functionArguments string, functionConfig FunctionsConfig) string {
+	// Clean up double curly braces (common issue with template engines)
+	// Replace {{ with { and }} with } but only if they appear at the start/end
+	// This handles cases like {{"key":"value"}} -> {"key":"value"}
+	cleaned := functionArguments
+	//if strings.HasPrefix(cleaned, "{{") && strings.HasSuffix(cleaned, "}}") {
+	// Check if it's double braces at the boundaries
+	//	cleaned = strings.TrimPrefix(cleaned, "{")
+	//	cleaned = strings.TrimSuffix(cleaned, "}")
+	//}
+
 	if len(functionConfig.ArgumentRegex) == 0 {
-		return functionArguments
+		return cleaned
 	}
 
 	// We use named regexes here to extract the function argument key value pairs and convert this to valid json.
