@@ -229,7 +229,56 @@ func ParseTextContent(llmresult string, functionConfig FunctionsConfig) string {
 // [ { "foo": "bar" }, { "baz": "qux" } ]
 // Credits to Michael Yang (https://github.com/mxyng) for the original implementation
 // This is a slightly reworked version, improved for readability and error handling
+// ParseJSON parses JSON objects from a string, supporting multiple JSON objects
+// Now defaults to iterative parser for better streaming support
+// Falls back to legacy parser if iterative parser fails
 func ParseJSON(s string) ([]map[string]any, error) {
+	// Try iterative parser first (non-partial mode for complete parsing)
+	results, err := ParseJSONIterative(s, false)
+	if err == nil && len(results) > 0 {
+		return results, nil
+	}
+	// Fall back to legacy parser for backward compatibility
+	return parseJSONLegacy(s)
+}
+
+// ParseJSONIterative parses JSON using the iterative parser
+// Supports partial parsing for streaming scenarios
+func ParseJSONIterative(s string, isPartial bool) ([]map[string]any, error) {
+	parser := NewChatMsgParser(s, isPartial)
+	var results []map[string]any
+
+	// Try to parse JSON objects one by one
+	for parser.Pos() < len(parser.Input()) {
+		jsonValue, isPartialJSON, err := parser.TryConsumeJSON()
+		if err != nil {
+			// If it's a partial exception and we're in partial mode, return what we have
+			if _, ok := err.(*ChatMsgPartialException); ok && isPartial {
+				break
+			}
+			// For non-partial errors or when not in partial mode, try legacy parsing
+			return parseJSONLegacy(s)
+		}
+		if jsonValue != nil {
+			results = append(results, jsonValue)
+		}
+		if isPartialJSON {
+			break
+		}
+		// Skip whitespace between JSON objects
+		parser.ConsumeSpaces()
+	}
+
+	if len(results) > 0 {
+		return results, nil
+	}
+
+	// Fallback to legacy parsing if iterative parser found nothing
+	return parseJSONLegacy(s)
+}
+
+// parseJSONLegacy is the original decoder-based JSON parsing (kept for compatibility)
+func parseJSONLegacy(s string) ([]map[string]any, error) {
 	var objs []map[string]any
 	offset := 0
 
@@ -262,8 +311,9 @@ func ParseJSON(s string) ([]map[string]any, error) {
 	return objs, nil
 }
 
-// getXMLFormatPreset returns a preset XML format by name, or nil if not found
-func getXMLFormatPreset(name string) *XMLToolCallFormat {
+// GetXMLFormatPreset returns a preset XML format by name, or nil if not found
+// This is exported for use in chat.go streaming integration
+func GetXMLFormatPreset(name string) *XMLToolCallFormat {
 	formats := getAllXMLFormats()
 	for _, format := range formats {
 		if format.name == name {
@@ -407,20 +457,78 @@ func parseXMLAutoDetect(s string) ([]FuncCallResults, error) {
 // ParseXML is a function that parses XML-style tool calls from a string that might contain
 // text and valid XML tool calls. If format is nil, it will auto-detect by trying all formats.
 // Returns a slice of FuncCallResults with function names and JSON-encoded arguments.
+// Now defaults to iterative parser for better streaming and partial parsing support.
+// Falls back to regex parser if iterative parser fails for backward compatibility.
 func ParseXML(s string, format *XMLToolCallFormat) ([]FuncCallResults, error) {
+	// Try iterative parser first (non-partial mode for complete parsing)
+	results, err := ParseXMLIterative(s, format, false)
+	if err == nil && len(results) > 0 {
+		return results, nil
+	}
+	// Fall back to regex parser for backward compatibility
 	if format == nil {
 		return parseXMLAutoDetect(s)
 	}
 	return parseXMLWithFormat(s, format)
 }
 
+// ParseXMLIterative parses XML tool calls using the iterative parser
+// This provides better streaming and partial parsing support
+func ParseXMLIterative(s string, format *XMLToolCallFormat, isPartial bool) ([]FuncCallResults, error) {
+	parser := NewChatMsgParser(s, isPartial)
+
+	// Auto-detect format if not provided
+	if format == nil {
+		formats := getAllXMLFormats()
+		for _, fmtPreset := range formats {
+			if fmtPreset.format != nil {
+				// Try parsing with this format
+				parser.MoveTo(0)
+				parser.ClearTools()
+				success, err := parser.TryConsumeXMLToolCalls(fmtPreset.format)
+				if err != nil {
+					// Check if it's a partial exception (recoverable)
+					if _, ok := err.(*ChatMsgPartialException); ok {
+						// Partial parse, return what we have
+						return parser.ToolCalls(), nil
+					}
+					// Try next format
+					continue
+				}
+				if success && len(parser.ToolCalls()) > 0 {
+					return parser.ToolCalls(), nil
+				}
+			}
+		}
+		// No format matched, return empty
+		return []FuncCallResults{}, nil
+	}
+
+	// Use specified format
+	success, err := parser.TryConsumeXMLToolCalls(format)
+	if err != nil {
+		// Check if it's a partial exception (recoverable)
+		if _, ok := err.(*ChatMsgPartialException); ok {
+			// Partial parse, return what we have
+			return parser.ToolCalls(), nil
+		}
+		return nil, err
+	}
+
+	if !success {
+		return []FuncCallResults{}, nil
+	}
+
+	return parser.ToolCalls(), nil
+}
+
 // ParseXMLPartial parses XML tool calls that may be incomplete (for streaming support)
 // It returns both complete results and partial results that can be emitted during streaming
 // Reference: llama.cpp's partial parsing support
+// Uses iterative parser for better partial detection
 func ParseXMLPartial(s string, format *XMLToolCallFormat) (*PartialXMLResult, error) {
-	// For now, try regular parsing first
-	// In the future, this can be enhanced to detect partial matches
-	results, err := ParseXML(s, format)
+	// Use iterative parser with partial flag enabled for better streaming support
+	results, err := ParseXMLIterative(s, format, true)
 	if err != nil {
 		return nil, err
 	}
@@ -1473,7 +1581,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		xlog.Debug("Using custom XML format")
 	} else if functionConfig.XMLFormatPreset != "" {
 		// Preset format specified
-		xmlFormat = getXMLFormatPreset(functionConfig.XMLFormatPreset)
+		xmlFormat = GetXMLFormatPreset(functionConfig.XMLFormatPreset)
 		if xmlFormat == nil {
 			xlog.Debug("Unknown XML format preset, falling back to auto-detection", "preset", functionConfig.XMLFormatPreset)
 		} else {
