@@ -301,21 +301,21 @@ func AllSpace(s string) bool {
 }
 
 // TryConsumeJSON attempts to consume a JSON value from the current position
-// Returns the parsed JSON (can be object, array, or any JSON type) and whether it's partial
-// Improved to better match llama.cpp's JSON parsing with healing support
-// Matches llama.cpp's try_consume_json() which returns common_json containing any JSON type
-func (p *ChatMsgParser) TryConsumeJSON() (any, bool, error) {
+// Returns the parsed JSON (can be object, array, or any JSON type), whether it's partial,
+// and the jsonDumpMarker (non-empty if JSON was healed)
+// Matches llama.cpp's try_consume_json() which returns common_json containing any JSON type and healing_marker
+func (p *ChatMsgParser) TryConsumeJSON() (any, bool, string, error) {
 	// Skip whitespace
 	p.ConsumeSpaces()
 
 	if p.pos >= len(p.input) {
-		return nil, false, errors.New("end of input")
+		return nil, false, "", errors.New("end of input")
 	}
 
 	// Try to parse JSON starting from current position
 	jsonStart := p.pos
 	if p.input[p.pos] != '{' && p.input[p.pos] != '[' {
-		return nil, false, errors.New("not a JSON object or array")
+		return nil, false, "", errors.New("not a JSON object or array")
 	}
 
 	// Try parsing complete JSON first using decoder to get exact position
@@ -326,7 +326,7 @@ func (p *ChatMsgParser) TryConsumeJSON() (any, bool, error) {
 		// Complete JSON parsed successfully
 		// Calculate position after JSON using decoder's input offset
 		p.pos = jsonStart + int(decoder.InputOffset())
-		return jsonValue, false, nil
+		return jsonValue, false, "", nil
 	}
 
 	// If parsing failed, try to find where JSON might end
@@ -374,25 +374,25 @@ func (p *ChatMsgParser) TryConsumeJSON() (any, bool, error) {
 		if p.isPartial {
 			// Use stack-based healing matching llama.cpp's implementation
 			partialInput := p.input[jsonStart:]
-			healedValue, wasHealed, _, err := parseJSONWithStack(partialInput, p.healingMarker)
+			healedValue, wasHealed, jsonDumpMarker, err := parseJSONWithStack(partialInput, p.healingMarker)
 			if err == nil && wasHealed {
 				// Successfully healed - remove healing marker from result
 				cleaned := removeHealingMarkerFromJSONAny(healedValue, p.healingMarker)
 				p.pos = len(p.input)
-				return cleaned, true, nil
+				return cleaned, true, jsonDumpMarker, nil
 			}
 		}
-		return nil, true, errors.New("incomplete JSON")
+		return nil, true, "", errors.New("incomplete JSON")
 	}
 
 	// Parse complete JSON
 	jsonStr := p.input[jsonStart:jsonEnd]
 	if err := json.Unmarshal([]byte(jsonStr), &jsonValue); err != nil {
-		return nil, false, err
+		return nil, false, "", err
 	}
 
 	p.pos = jsonEnd
-	return jsonValue, false, nil
+	return jsonValue, false, "", nil
 }
 
 // tryConsumeJSONPrimitive attempts to consume a JSON primitive (null, true, false, or number)
@@ -919,9 +919,10 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 
 				if format.RawArgVal == nil || !*format.RawArgVal {
 					// Try JSON parsing (objects/arrays)
-					jsonVal, _, err := p.TryConsumeJSON()
+					jsonVal, _, jsonDumpMarker, err := p.TryConsumeJSON()
 					if err == nil {
 						jsonValue = jsonVal
+						jsonHealingMarker = jsonDumpMarker
 						jsonParsed = true
 					} else {
 						// Try primitive fallback (null, true, false, numbers)
@@ -950,9 +951,18 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 								arguments[key] = jsonValue
 								argsJSON, _ := json.Marshal(arguments)
 								toolStr := string(argsJSON)
-								// Remove trailing } if present
-								if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
-									toolStr = toolStr[:len(toolStr)-1]
+
+								// Use jsonDumpMarker to cut precisely (matching llama.cpp lines 532-538)
+								if jsonHealingMarker != "" {
+									// Find jsonDumpMarker in the JSON string and cut there
+									if idx := strings.LastIndex(toolStr, jsonHealingMarker); idx != -1 {
+										toolStr = toolStr[:idx]
+									}
+								} else {
+									// Remove trailing } if present
+									if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
+										toolStr = toolStr[:len(toolStr)-1]
+									}
 								}
 								p.AddToolCall(functionName, "", toolStr)
 								return false, &ChatMsgPartialException{

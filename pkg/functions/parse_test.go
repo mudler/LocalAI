@@ -895,9 +895,10 @@ Final text`
 		Describe("JSON parsing", func() {
 			It("should parse complete JSON objects", func() {
 				parser := NewChatMsgParser(`{"name":"test","value":42}`, false)
-				jsonValue, isPartial, err := parser.TryConsumeJSON()
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
 				Expect(err).NotTo(HaveOccurred())
 				Expect(isPartial).To(BeFalse())
+				Expect(jsonDumpMarker).To(Equal(""), "Complete JSON should have empty jsonDumpMarker")
 				Expect(jsonValue).NotTo(BeNil())
 				// Type assert to map[string]any
 				obj, ok := jsonValue.(map[string]any)
@@ -908,10 +909,11 @@ Final text`
 
 			It("should parse JSON arrays (matching llama.cpp behavior)", func() {
 				parser := NewChatMsgParser(`[{"a":1},{"b":2}]`, false)
-				jsonValue, isPartial, err := parser.TryConsumeJSON()
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
 				// TryConsumeJSON now supports arrays (matching llama.cpp's try_consume_json)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(isPartial).To(BeFalse())
+				Expect(jsonDumpMarker).To(Equal(""), "Complete JSON should have empty jsonDumpMarker")
 				Expect(jsonValue).NotTo(BeNil())
 				// Should be an array
 				arr, ok := jsonValue.([]any)
@@ -925,11 +927,12 @@ Final text`
 
 			It("should heal incomplete JSON in partial mode", func() {
 				parser := NewChatMsgParser(`{"name":"test","value":`, true)
-				jsonValue, isPartial, err := parser.TryConsumeJSON()
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
 				// TryConsumeJSON attempts to heal incomplete JSON in partial mode
 				// For this input, healing should succeed (adds closing quote and brace)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(isPartial).To(BeTrue())
+				Expect(jsonDumpMarker).NotTo(Equal(""), "Healed JSON should have non-empty jsonDumpMarker")
 				Expect(jsonValue).NotTo(BeNil())
 				// Type assert to map[string]any
 				obj, ok := jsonValue.(map[string]any)
@@ -939,9 +942,10 @@ Final text`
 
 			It("should reject non-JSON input", func() {
 				parser := NewChatMsgParser("not json", false)
-				jsonValue, isPartial, err := parser.TryConsumeJSON()
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
 				Expect(err).To(HaveOccurred())
 				Expect(isPartial).To(BeFalse())
+				Expect(jsonDumpMarker).To(Equal(""), "Error case should have empty jsonDumpMarker")
 				Expect(jsonValue).To(BeNil())
 			})
 
@@ -1061,11 +1065,12 @@ test_function
 		Describe("Partial parsing and streaming", func() {
 			It("should heal incomplete JSON in partial mode", func() {
 				parser := NewChatMsgParser(`{"name":"test","value":`, true)
-				jsonValue, isPartial, err := parser.TryConsumeJSON()
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
 				// TryConsumeJSON attempts to heal incomplete JSON in partial mode
 				// For this input, healing should succeed (adds closing quote and brace)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(isPartial).To(BeTrue())
+				Expect(jsonDumpMarker).NotTo(Equal(""), "Healed JSON should have non-empty jsonDumpMarker")
 				Expect(jsonValue).NotTo(BeNil())
 				// Type assert to map[string]any
 				obj, ok := jsonValue.(map[string]any)
@@ -1338,6 +1343,96 @@ plain text value
 				Expect(err).NotTo(HaveOccurred())
 				Expect(parser.Reasoning()).To(ContainSubstring("First"))
 				Expect(parser.Reasoning()).To(ContainSubstring("Second"))
+			})
+		})
+
+		Describe("JSON healing marker behavior", func() {
+			It("should return empty jsonDumpMarker for complete JSON", func() {
+				parser := NewChatMsgParser(`{"key":"value"}`, false)
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(isPartial).To(BeFalse())
+				Expect(jsonDumpMarker).To(Equal(""), "Complete JSON should have empty jsonDumpMarker")
+				Expect(jsonValue).NotTo(BeNil())
+			})
+
+			It("should return non-empty jsonDumpMarker for healed JSON", func() {
+				parser := NewChatMsgParser(`{"key":"value`, true)
+				jsonValue, isPartial, jsonDumpMarker, err := parser.TryConsumeJSON()
+				Expect(err).NotTo(HaveOccurred())
+				Expect(isPartial).To(BeTrue())
+				Expect(jsonDumpMarker).NotTo(Equal(""), "Healed JSON should have non-empty jsonDumpMarker")
+				Expect(jsonValue).NotTo(BeNil())
+			})
+
+			It("should reject healed JSON when val_end doesn't follow", func() {
+				// This test verifies that healed JSON is rejected when val_end doesn't follow
+				// The JSON is healed but val_end is missing, so it should fall back to text parsing
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+{"nested":"value`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, true)
+				_, err := parser.TryConsumeXMLToolCalls(format)
+				// Should return partial exception because JSON was healed but val_end doesn't follow
+				Expect(err).To(HaveOccurred())
+				_, isPartial := err.(*ChatMsgPartialException)
+				Expect(isPartial).To(BeTrue(), "Should return ChatMsgPartialException for partial XML")
+				// The JSON should not be accepted because it was healed and val_end doesn't follow
+				// So it should fall back to text parsing
+			})
+
+			It("should accept non-healed JSON when val_end follows", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+{"nested":"value"}
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				Expect(parser.ToolCalls()).To(HaveLen(1))
+				// Parse arguments JSON
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Value should be parsed as JSON object, not string
+				value, ok := args["key"]
+				Expect(ok).To(BeTrue())
+				nested, ok := value.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(nested["nested"]).To(Equal("value"))
+			})
+
+			It("should cut JSON string at jsonDumpMarker position for partial tool calls", func() {
+				// Test that when emitting partial tool calls with healed JSON,
+				// the JSON string is cut at the jsonDumpMarker position
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+{"nested":"value`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, true)
+				_, err := parser.TryConsumeXMLToolCalls(format)
+				// Should emit partial tool call
+				Expect(err).To(HaveOccurred())
+				_, isPartial := err.(*ChatMsgPartialException)
+				Expect(isPartial).To(BeTrue())
+				// Check that tool call was emitted with partial JSON
+				Expect(parser.ToolCalls()).To(HaveLen(1), "Should emit partial tool call")
+				// The JSON string should be cut at the healing marker position
+				// The arguments JSON string is incomplete (cut at healing marker), so it may not be valid JSON
+				argsStr := parser.ToolCalls()[0].Arguments
+				// Verify that the JSON string was cut (doesn't end with complete closing brace)
+				// This indicates the jsonDumpMarker was used to cut the string
+				Expect(argsStr).NotTo(HaveSuffix("}"), "Partial JSON should be cut and not end with }")
+				// The string should contain the key but the value should be incomplete
+				Expect(argsStr).To(ContainSubstring(`"key"`))
 			})
 		})
 

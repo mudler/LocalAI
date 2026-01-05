@@ -251,7 +251,7 @@ func ParseJSONIterative(s string, isPartial bool) ([]map[string]any, error) {
 
 	// Try to parse JSON values one by one
 	for parser.Pos() < len(parser.Input()) {
-		jsonValue, isPartialJSON, err := parser.TryConsumeJSON()
+		jsonValue, isPartialJSON, _, err := parser.TryConsumeJSON()
 		if err != nil {
 			// If it's a partial exception and we're in partial mode, return what we have
 			if _, ok := err.(*ChatMsgPartialException); ok && isPartial {
