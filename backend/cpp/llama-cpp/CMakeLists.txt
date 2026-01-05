@@ -1,6 +1,6 @@
-# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
-cmake_minimum_required(VERSION 3.31.10)
+set(TARGET grpc-server)
 set(CMAKE_CXX_STANDARD 17)
+cmake_minimum_required(VERSION 3.15)
 set(TARGET grpc-server)
 set(_PROTOBUF_LIBPROTOBUF libprotobuf)
 set(_REFLECTION grpc++_reflection)

@@ -1,5 +1,4 @@
-# CUDA Toolkit 13.x compatibility: CMake 3.31.9+ fixes toolchain detection/arch table issues
-cmake_minimum_required(VERSION 3.31.10)
+cmake_minimum_required(VERSION 3.12)
 project(gosd LANGUAGES C CXX)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
