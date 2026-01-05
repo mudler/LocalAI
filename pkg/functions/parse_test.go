@@ -1,6 +1,7 @@
 package functions_test
 
 import (
+	"encoding/json"
 	"strings"
 
 	. "github.com/mudler/LocalAI/pkg/functions"
@@ -1093,12 +1094,181 @@ test_function
 partial_value`
 				format := GetXMLFormatPreset("qwen3-coder")
 				parser := NewChatMsgParser(input, true)
-				success, err := parser.TryConsumeXMLToolCalls(format)
+				_, err := parser.TryConsumeXMLToolCalls(format)
 				// Should return partial exception for incomplete tool call
 				Expect(err).To(HaveOccurred())
-				_, isPartial := err.(*ChatMsgPartialException)
-				Expect(isPartial).To(BeTrue(), "Should return ChatMsgPartialException for incomplete tool call")
-				Expect(success).To(BeFalse())
+				_, ok := err.(*ChatMsgPartialException)
+				Expect(ok).To(BeTrue(), "Should return ChatMsgPartialException for incomplete tool call")
+			})
+		})
+
+		Describe("JSON parsing order and primitive fallback", func() {
+			It("should parse JSON object before val_end", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+{"nested":"value"}
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				Expect(parser.ToolCalls()).To(HaveLen(1))
+				// Parse arguments JSON
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Value should be parsed as JSON object, not string
+				value, ok := args["key"]
+				Expect(ok).To(BeTrue())
+				nested, ok := value.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(nested["nested"]).To(Equal("value"))
+			})
+
+			It("should parse JSON primitive null", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+null
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// null should be parsed as nil, not string "null"
+				Expect(args["key"]).To(BeNil())
+			})
+
+			It("should parse JSON primitive true", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+true
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// true should be parsed as bool, not string "true"
+				Expect(args["key"]).To(Equal(true))
+			})
+
+			It("should parse JSON primitive false", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+false
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// false should be parsed as bool, not string "false"
+				Expect(args["key"]).To(Equal(false))
+			})
+
+			It("should parse JSON primitive number", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+42
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Number should be parsed as float64, not string "42"
+				Expect(args["key"]).To(Equal(float64(42)))
+			})
+
+			It("should parse JSON primitive negative number", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+-123.45
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(args["key"]).To(Equal(float64(-123.45)))
+			})
+
+			It("should fallback to text when JSON not found", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+plain text value
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Should be parsed as string when not JSON
+				Expect(args["key"]).To(Equal("plain text value"))
+			})
+
+			It("should handle JSON array in parameter value", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+[1,2,3]
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Array should be parsed as []any, not string
+				arr, ok := args["key"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(arr).To(HaveLen(3))
+				Expect(arr[0]).To(Equal(float64(1)))
 			})
 		})
 
@@ -1115,6 +1285,229 @@ partial_value`
 			It("should handle ChatMsgPartialException", func() {
 				err := &ChatMsgPartialException{Message: "test partial"}
 				Expect(err.Error()).To(Equal("test partial"))
+			})
+		})
+
+		Describe("Reasoning block handling", func() {
+			It("should extract reasoning blocks from content", func() {
+				input := `Some text <think>This is reasoning</think> More text`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				err := parser.ParseMsgWithXMLToolCalls(format, "<think>", "</think>")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parser.Reasoning()).To(Equal("This is reasoning"))
+				Expect(parser.Content()).To(ContainSubstring("Some text"))
+				Expect(parser.Content()).To(ContainSubstring("More text"))
+			})
+
+			It("should handle unclosed reasoning blocks", func() {
+				input := `Some text <think>This is unclosed reasoning`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, true)
+				err := parser.ParseMsgWithXMLToolCalls(format, "<think>", "</think>")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parser.Reasoning()).To(ContainSubstring("This is unclosed reasoning"))
+			})
+
+			It("should handle tool calls inside reasoning blocks when allowed", func() {
+				input := `<think>Reasoning <tool_call><function=test></function></tool_call></think>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				format.AllowToolcallInThink = true
+				parser := NewChatMsgParser(input, false)
+				err := parser.ParseMsgWithXMLToolCalls(format, "<think>", "</think>")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parser.ToolCalls()).To(HaveLen(1))
+				Expect(parser.ToolCalls()[0].Name).To(Equal("test"))
+			})
+
+			It("should skip tool calls inside reasoning blocks when not allowed", func() {
+				input := `<think>Reasoning <tool_call><function=test></function></tool_call></think>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				format.AllowToolcallInThink = false
+				parser := NewChatMsgParser(input, false)
+				err := parser.ParseMsgWithXMLToolCalls(format, "<think>", "</think>")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parser.ToolCalls()).To(HaveLen(0))
+			})
+
+			It("should handle multiple reasoning blocks", func() {
+				input := `<think>First</think> Text <think>Second</think> More text`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				err := parser.ParseMsgWithXMLToolCalls(format, "<think>", "</think>")
+				Expect(err).NotTo(HaveOccurred())
+				Expect(parser.Reasoning()).To(ContainSubstring("First"))
+				Expect(parser.Reasoning()).To(ContainSubstring("Second"))
+			})
+		})
+
+		Describe("JSON parsing order and primitive fallback", func() {
+			It("should parse JSON object before val_end", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+{"nested":"value"}
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				Expect(parser.ToolCalls()).To(HaveLen(1))
+				// Parse arguments JSON
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Value should be parsed as JSON object, not string
+				value, ok := args["key"]
+				Expect(ok).To(BeTrue())
+				nested, ok := value.(map[string]any)
+				Expect(ok).To(BeTrue())
+				Expect(nested["nested"]).To(Equal("value"))
+			})
+
+			It("should parse JSON primitive null", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+null
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// null should be parsed as nil, not string "null"
+				Expect(args["key"]).To(BeNil())
+			})
+
+			It("should parse JSON primitive true", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+true
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// true should be parsed as bool, not string "true"
+				Expect(args["key"]).To(Equal(true))
+			})
+
+			It("should parse JSON primitive false", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+false
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// false should be parsed as bool, not string "false"
+				Expect(args["key"]).To(Equal(false))
+			})
+
+			It("should parse JSON primitive number", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+42
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Number should be parsed as float64, not string "42"
+				Expect(args["key"]).To(Equal(float64(42)))
+			})
+
+			It("should parse JSON primitive negative number", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+-123.45
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(args["key"]).To(Equal(float64(-123.45)))
+			})
+
+			It("should fallback to text when JSON not found", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+plain text value
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Should be parsed as string when not JSON
+				Expect(args["key"]).To(Equal("plain text value"))
+			})
+
+			It("should handle JSON array in parameter value", func() {
+				input := `<tool_call>
+<function=test>
+<parameter=key>
+[1,2,3]
+</parameter>
+</function>
+</tool_call>`
+				format := GetXMLFormatPreset("qwen3-coder")
+				parser := NewChatMsgParser(input, false)
+				success, err := parser.TryConsumeXMLToolCalls(format)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(success).To(BeTrue())
+				var args map[string]any
+				err = json.Unmarshal([]byte(parser.ToolCalls()[0].Arguments), &args)
+				Expect(err).NotTo(HaveOccurred())
+				// Array should be parsed as []any, not string
+				arr, ok := args["key"].([]any)
+				Expect(ok).To(BeTrue())
+				Expect(arr).To(HaveLen(3))
+				Expect(arr[0]).To(Equal(float64(1)))
 			})
 		})
 

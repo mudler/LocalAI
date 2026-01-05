@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/mudler/xlog"
 )
@@ -159,6 +161,45 @@ func (p *ChatMsgParser) Content() string {
 // Reasoning returns the parsed reasoning content
 func (p *ChatMsgParser) Reasoning() string {
 	return p.reasoning.String()
+}
+
+// rstrip removes trailing whitespace from a string
+func rstrip(s string) string {
+	return strings.TrimRightFunc(s, unicode.IsSpace)
+}
+
+// eraseSpaces erases a substring and surrounding spaces, replacing with newlines
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 659-668
+func eraseSpaces(str string, l, r int) (string, int) {
+	if l < 0 || r < 0 || l > len(str) || r > len(str) || l > r {
+		return str, l
+	}
+	// Move l left to include leading spaces
+	for l > 0 && l < len(str) && unicode.IsSpace(rune(str[l-1])) {
+		l--
+	}
+	// Move r right to include trailing spaces
+	for r < len(str) && unicode.IsSpace(rune(str[r])) {
+		r++
+	}
+	// Replace with newlines
+	result := str[:l]
+	if l < r {
+		result += "\n"
+		if l+1 < r {
+			result += "\n"
+		}
+	}
+	newL := l
+	if newL != 0 {
+		newL += 2
+	}
+	if newL < len(str) && newL <= r {
+		result += str[r:]
+	} else if newL < len(str) {
+		result += str[newL:]
+	}
+	return result, newL
 }
 
 // ClearTools clears all parsed tool calls
@@ -354,6 +395,169 @@ func (p *ChatMsgParser) TryConsumeJSON() (any, bool, error) {
 	return jsonValue, false, nil
 }
 
+// tryConsumeJSONPrimitive attempts to consume a JSON primitive (null, true, false, or number)
+// This is a fallback when TryConsumeJSON fails because it only accepts objects/arrays
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 506-520
+func (p *ChatMsgParser) tryConsumeJSONPrimitive() (any, bool) {
+	// Consume spaces first
+	p.ConsumeSpaces()
+	if p.pos >= len(p.input) {
+		return nil, false
+	}
+
+	// Get UTF-8 safe view of remaining input
+	remaining := p.input[p.pos:]
+	safeView := utf8TruncateSafeView(remaining)
+
+	// Check for null, true, false (minimum 4 chars needed)
+	if len(safeView) >= 4 {
+		prefix := safeView
+		if len(prefix) > 6 {
+			prefix = prefix[:6]
+		}
+		if strings.HasPrefix(prefix, "null") {
+			// Check if it's complete "null" (followed by space, comma, }, ], or end)
+			if len(safeView) >= 4 {
+				if len(safeView) == 4 || isJSONTerminator(safeView[4]) {
+					p.pos += 4
+					return nil, false
+				}
+			}
+		} else if strings.HasPrefix(prefix, "true") {
+			if len(safeView) >= 4 {
+				if len(safeView) == 4 || isJSONTerminator(safeView[4]) {
+					p.pos += 4
+					return true, false
+				}
+			}
+		} else if strings.HasPrefix(prefix, "false") {
+			if len(safeView) >= 5 {
+				if len(safeView) == 5 || isJSONTerminator(safeView[5]) {
+					p.pos += 5
+					return false, false
+				}
+			}
+		}
+	}
+
+	// Check for number: [0-9-][0-9]*(\.\d*)?([eE][+-]?\d*)?
+	// Use regex to match number pattern
+	numberRegex := regexp.MustCompile(`^[0-9-][0-9]*(\.\d*)?([eE][+-]?\d*)?`)
+	if match := numberRegex.FindString(safeView); match != "" {
+		// Try to parse as number
+		var numValue float64
+		if _, err := fmt.Sscanf(match, "%f", &numValue); err == nil {
+			// Check if match is followed by a JSON terminator or end of input
+			if len(safeView) == len(match) || isJSONTerminator(safeView[len(match)]) {
+				p.pos += len(match)
+				return numValue, false
+			}
+		}
+	}
+
+	return nil, false
+}
+
+// isJSONTerminator checks if a character is a valid JSON terminator
+func isJSONTerminator(ch byte) bool {
+	return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ||
+		ch == ',' || ch == '}' || ch == ']' || ch == ':' || ch == '<'
+}
+
+// utf8TruncateSafeView truncates a string at a safe UTF-8 boundary
+// This is a helper function to avoid importing from parse.go
+func utf8TruncateSafeView(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	// Check if the string ends at a valid UTF-8 boundary
+	// If not, truncate to the last valid boundary
+	for i := len(s); i > 0 && i > len(s)-4; i-- {
+		if utf8.ValidString(s[:i]) {
+			return s[:i]
+		}
+	}
+	// If we can't find a valid boundary in the last 4 bytes, truncate conservatively
+	if len(s) > 3 {
+		return s[:len(s)-3]
+	}
+	return ""
+}
+
+// isJSONObjectOrArray checks if a value is a JSON object or array
+func isJSONObjectOrArray(v any) bool {
+	switch v.(type) {
+	case map[string]any, []any:
+		return true
+	default:
+		return false
+	}
+}
+
+// isJSONString checks if a value is a JSON string
+func isJSONString(v any) bool {
+	_, ok := v.(string)
+	return ok
+}
+
+// trimPotentialPartialWord removes partial XML tags from the end of content
+// This prevents emitting incomplete tags during streaming
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 684-692
+func trimPotentialPartialWord(content string, format *XMLToolCallFormat, startThink, endThink string) string {
+	patterns := []string{
+		startThink,
+		endThink,
+		format.ScopeStart,
+		format.ToolStart,
+		format.ToolSep,
+		format.KeyStart,
+		format.KeyValSep,
+	}
+	if format.KeyValSep2 != nil {
+		patterns = append(patterns, *format.KeyValSep2)
+	}
+	patterns = append(patterns, format.ValEnd)
+	if format.LastValEnd != nil {
+		patterns = append(patterns, *format.LastValEnd)
+	}
+	patterns = append(patterns, format.ToolEnd)
+	if format.LastToolEnd != nil {
+		patterns = append(patterns, *format.LastToolEnd)
+	}
+	patterns = append(patterns, format.ScopeEnd)
+
+	bestMatch := len(content)
+	for _, pattern := range patterns {
+		if len(pattern) == 0 {
+			continue
+		}
+		// Check for suffix matches from end of content backwards
+		maxStart := len(content) - len(pattern)
+		if maxStart < 0 {
+			maxStart = 0
+		}
+		for matchIdx := len(content); matchIdx > maxStart; matchIdx-- {
+			matchLen := len(content) - matchIdx
+			if matchLen > 0 && matchIdx < len(content) {
+				// Check if pattern matches as suffix starting at matchIdx
+				if matchIdx+matchLen <= len(content) {
+					substr := content[matchIdx : matchIdx+matchLen]
+					if len(substr) <= len(pattern) && strings.HasPrefix(pattern, substr) {
+						if matchIdx < bestMatch {
+							bestMatch = matchIdx
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if len(content) > bestMatch {
+		return content[:bestMatch]
+	}
+	return content
+}
+
 // removeHealingMarkerFromJSON removes healing markers from a parsed JSON structure (objects only)
 func removeHealingMarkerFromJSON(value map[string]any, marker string) map[string]any {
 	result := make(map[string]any)
@@ -534,152 +738,133 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 				break
 			}
 
-		if !AllSpace(tc.Prelude) {
-			// Non-whitespace before tool_start, stop parsing
-			p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
-			break
-		}
-
-		// Find function name
-		var funcName *FindLiteralResult
-		if AllSpace(format.ToolSep) {
-			// GLM 4.5 format: function name is between tool_start and key_start
-			funcName = p.TryFindLiteral(format.KeyStart)
-		} else {
-			// Standard format: function name is between tool_start and tool_sep
-			funcName = p.TryFindLiteral(format.ToolSep)
-		}
-
-		if funcName == nil {
-			// Try to find tool_end instead (empty tool call)
-			_, toolEnd := tryFindToolEnd()
-			if toolEnd != nil {
-				// Empty tool call - extract function name from between tool_start and tool_end
-				nameStart := tc.Groups[0].End
-				nameEnd := toolEnd.Groups[0].Begin
-				functionName := ""
-				if nameEnd > nameStart {
-					functionName = strings.TrimSpace(p.input[nameStart:nameEnd])
-				}
-				argsJSON, _ := json.Marshal(map[string]any{})
-				p.AddToolCall(functionName, "", string(argsJSON))
-				recovery = false
-				continue
-			}
-			// Partial tool name not supported
-			return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
-		}
-
-		// Check if tool_end appears in function name prelude (empty tool call)
-		functionNamePrelude := funcName.Prelude
-		if strings.Contains(functionNamePrelude, format.ToolEnd) ||
-			(format.LastToolEnd != nil && strings.Contains(functionNamePrelude, *format.LastToolEnd)) {
-			// Empty tool call - function name is empty, tool_end is in the prelude
-			// Move back to start of tool_start and find tool_end
-			p.MoveTo(tc.Groups[0].Begin)
-			_, toolEnd := tryFindToolEnd()
-			if toolEnd != nil {
-				// Extract function name from between tool_start and tool_end
-				nameStart := tc.Groups[0].End
-				nameEnd := toolEnd.Groups[0].Begin
-				functionName := ""
-				if nameEnd > nameStart {
-					functionName = strings.TrimSpace(p.input[nameStart:nameEnd])
-					// Remove tool_sep if present
-					if !AllSpace(format.ToolSep) && strings.HasSuffix(functionName, format.ToolSep) {
-						functionName = strings.TrimSpace(functionName[:len(functionName)-len(format.ToolSep)])
-					}
-				}
-				argsJSON, _ := json.Marshal(map[string]any{})
-				p.AddToolCall(functionName, "", string(argsJSON))
-				recovery = false
-				continue
-			}
-		}
-
-		// Extract function name from prelude
-		// Move to appropriate position based on format
-		if AllSpace(format.ToolSep) {
-			// GLM 4.5 format: function name is on a separate line after tool_start, before key_start
-			// The prelude contains the function name
-			p.MoveTo(funcName.Groups[0].Begin)
-		} else {
-			// Standard format: function name is before tool_sep
-			p.MoveTo(funcName.Groups[0].End)
-		}
-		functionName := strings.TrimSpace(funcName.Prelude)
-
-		// Handle Kimi-K2 function name stripping
-		if strings.HasPrefix(functionName, "functions.") {
-			functionName = functionName[10:]
-			if idx := strings.LastIndex(functionName, ":"); idx != -1 {
-				suffix := functionName[idx+1:]
-				allDigits := true
-				for _, r := range suffix {
-					if r < '0' || r > '9' {
-						allDigits = false
-						break
-					}
-				}
-				if allDigits {
-					functionName = functionName[:idx]
-				}
-			}
-		}
-
-		// Parse arguments
-		arguments := make(map[string]any)
-
-		for {
-			keyStart := p.TryFindLiteral(format.KeyStart)
-			if keyStart == nil {
+			if !AllSpace(tc.Prelude) {
+				// Non-whitespace before tool_start, stop parsing
+				p.MoveTo(tc.Groups[0].Begin - len(tc.Prelude))
 				break
 			}
 
-			if !AllSpace(keyStart.Prelude) {
-				// Non-whitespace before key_start, stop parsing parameters
-				p.MoveTo(keyStart.Groups[0].Begin - len(keyStart.Prelude))
-				break
+			// Find function name
+			var funcName *FindLiteralResult
+			if AllSpace(format.ToolSep) {
+				// GLM 4.5 format: function name is between tool_start and key_start
+				funcName = p.TryFindLiteral(format.KeyStart)
+			} else {
+				// Standard format: function name is between tool_start and tool_sep
+				funcName = p.TryFindLiteral(format.ToolSep)
 			}
 
-			// Validate size match (partial detection)
-			if len(keyStart.Groups) > 0 {
-				matchedSize := keyStart.Groups[0].End - keyStart.Groups[0].Begin
-				if matchedSize != len(format.KeyStart) {
-					// Partial key_start, emit tool call with current args
-					argsJSON, _ := json.Marshal(arguments)
-					if len(argsJSON) > 0 && argsJSON[len(argsJSON)-1] == '}' {
-						argsJSON = argsJSON[:len(argsJSON)-1]
+			if funcName == nil {
+				// Try to find tool_end instead (empty tool call)
+				_, toolEnd := tryFindToolEnd()
+				if toolEnd != nil {
+					// Empty tool call - extract function name from between tool_start and tool_end
+					nameStart := tc.Groups[0].End
+					nameEnd := toolEnd.Groups[0].Begin
+					functionName := ""
+					if nameEnd > nameStart {
+						functionName = strings.TrimSpace(p.input[nameStart:nameEnd])
 					}
+					argsJSON, _ := json.Marshal(map[string]any{})
 					p.AddToolCall(functionName, "", string(argsJSON))
-					return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.KeyStart)}
+					recovery = false
+					continue
+				}
+				// Partial tool name not supported
+				return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
+			}
+
+			// Check if tool_end appears in function name prelude (empty tool call)
+			functionNamePrelude := funcName.Prelude
+			if strings.Contains(functionNamePrelude, format.ToolEnd) ||
+				(format.LastToolEnd != nil && strings.Contains(functionNamePrelude, *format.LastToolEnd)) {
+				// Empty tool call - function name is empty, tool_end is in the prelude
+				// Move back to start of tool_start and find tool_end
+				p.MoveTo(tc.Groups[0].Begin)
+				_, toolEnd := tryFindToolEnd()
+				if toolEnd != nil {
+					// Extract function name from between tool_start and tool_end
+					nameStart := tc.Groups[0].End
+					nameEnd := toolEnd.Groups[0].Begin
+					functionName := ""
+					if nameEnd > nameStart {
+						functionName = strings.TrimSpace(p.input[nameStart:nameEnd])
+						// Remove tool_sep if present
+						if !AllSpace(format.ToolSep) && strings.HasSuffix(functionName, format.ToolSep) {
+							functionName = strings.TrimSpace(functionName[:len(functionName)-len(format.ToolSep)])
+						}
+					}
+					argsJSON, _ := json.Marshal(map[string]any{})
+					p.AddToolCall(functionName, "", string(argsJSON))
+					recovery = false
+					continue
 				}
 			}
 
-			// Find key_val_sep
-			keyValSep := p.TryFindLiteral(format.KeyValSep)
-			if keyValSep == nil {
-				// Generate partial args
-				rest := p.ConsumeRest()
-				arguments[rest+"XML_TOOL_CALL_PARTIAL_FLAG"] = ""
-				argsJSON, _ := json.Marshal(arguments)
-				toolStr := string(argsJSON)
-				if cleaned, isPartial := partialJSON(toolStr); isPartial {
-					p.AddToolCall(functionName, "", cleaned)
-				} else {
-					p.AddToolCall(functionName, "", toolStr)
-				}
-				return false, &ChatMsgPartialException{
-					Message: fmt.Sprintf("Expected %s after %s", format.KeyValSep, format.KeyStart),
+			// Extract function name from prelude
+			// Move to appropriate position based on format
+			if AllSpace(format.ToolSep) {
+				// GLM 4.5 format: function name is on a separate line after tool_start, before key_start
+				// The prelude contains the function name
+				p.MoveTo(funcName.Groups[0].Begin)
+			} else {
+				// Standard format: function name is before tool_sep
+				p.MoveTo(funcName.Groups[0].End)
+			}
+			functionName := strings.TrimSpace(funcName.Prelude)
+
+			// Handle Kimi-K2 function name stripping
+			if strings.HasPrefix(functionName, "functions.") {
+				functionName = functionName[10:]
+				if idx := strings.LastIndex(functionName, ":"); idx != -1 {
+					suffix := functionName[idx+1:]
+					allDigits := true
+					for _, r := range suffix {
+						if r < '0' || r > '9' {
+							allDigits = false
+							break
+						}
+					}
+					if allDigits {
+						functionName = functionName[:idx]
+					}
 				}
 			}
 
-			// Validate size match
-			if len(keyValSep.Groups) > 0 {
-				matchedSize := keyValSep.Groups[0].End - keyValSep.Groups[0].Begin
-				if matchedSize != len(format.KeyValSep) {
-					// Partial key_val_sep
-					rest := keyValSep.Prelude
+			// Parse arguments
+			arguments := make(map[string]any)
+
+			for {
+				keyStart := p.TryFindLiteral(format.KeyStart)
+				if keyStart == nil {
+					break
+				}
+
+				if !AllSpace(keyStart.Prelude) {
+					// Non-whitespace before key_start, stop parsing parameters
+					p.MoveTo(keyStart.Groups[0].Begin - len(keyStart.Prelude))
+					break
+				}
+
+				// Validate size match (partial detection)
+				if len(keyStart.Groups) > 0 {
+					matchedSize := keyStart.Groups[0].End - keyStart.Groups[0].Begin
+					if matchedSize != len(format.KeyStart) {
+						// Partial key_start, emit tool call with current args
+						argsJSON, _ := json.Marshal(arguments)
+						if len(argsJSON) > 0 && argsJSON[len(argsJSON)-1] == '}' {
+							argsJSON = argsJSON[:len(argsJSON)-1]
+						}
+						p.AddToolCall(functionName, "", string(argsJSON))
+						return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.KeyStart)}
+					}
+				}
+
+				// Find key_val_sep
+				keyValSep := p.TryFindLiteral(format.KeyValSep)
+				if keyValSep == nil {
+					// Generate partial args
+					rest := p.ConsumeRest()
 					arguments[rest+"XML_TOOL_CALL_PARTIAL_FLAG"] = ""
 					argsJSON, _ := json.Marshal(arguments)
 					toolStr := string(argsJSON)
@@ -688,74 +873,228 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 					} else {
 						p.AddToolCall(functionName, "", toolStr)
 					}
-					return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.KeyValSep)}
+					return false, &ChatMsgPartialException{
+						Message: fmt.Sprintf("Expected %s after %s", format.KeyValSep, format.KeyStart),
+					}
+				}
+
+				// Validate size match
+				if len(keyValSep.Groups) > 0 {
+					matchedSize := keyValSep.Groups[0].End - keyValSep.Groups[0].Begin
+					if matchedSize != len(format.KeyValSep) {
+						// Partial key_val_sep
+						rest := keyValSep.Prelude
+						arguments[rest+"XML_TOOL_CALL_PARTIAL_FLAG"] = ""
+						argsJSON, _ := json.Marshal(arguments)
+						toolStr := string(argsJSON)
+						if cleaned, isPartial := partialJSON(toolStr); isPartial {
+							p.AddToolCall(functionName, "", cleaned)
+						} else {
+							p.AddToolCall(functionName, "", toolStr)
+						}
+						return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.KeyValSep)}
+					}
+				}
+
+				key := strings.TrimSpace(keyValSep.Prelude)
+				recovery = false
+
+				// Handle key_val_sep2 if present (GLM 4.5 format)
+				// For GLM 4.5, key_val_sep2 is "</arg_key>\n<arg_value>"
+				// We need to consume it but it's optional - if not found, the value might be empty
+				if format.KeyValSep2 != nil {
+					// Try to consume it, but don't fail if not found (might be empty value)
+					p.TryConsumeLiteral(*format.KeyValSep2)
+				}
+
+				// Save position before attempting JSON parsing
+				// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 499-555
+				valStart := p.pos
+
+				// Try to parse JSON first (if raw_argval is false/null)
+				// This matches llama.cpp's approach: try JSON before finding val_end
+				var jsonValue any
+				var jsonHealingMarker string
+				jsonParsed := false
+
+				if format.RawArgVal == nil || !*format.RawArgVal {
+					// Try JSON parsing (objects/arrays)
+					jsonVal, _, err := p.TryConsumeJSON()
+					if err == nil {
+						jsonValue = jsonVal
+						jsonParsed = true
+					} else {
+						// Try primitive fallback (null, true, false, numbers)
+						primitiveVal, found := p.tryConsumeJSONPrimitive()
+						if found {
+							jsonValue = primitiveVal
+							jsonParsed = true
+						} else {
+							// Reset position if JSON parsing failed
+							p.MoveTo(valStart)
+						}
+					}
+				}
+
+				// If JSON was parsed, check if val_end follows
+				if jsonParsed {
+					jsonEnd := p.pos
+					p.ConsumeSpaces()
+
+					// Check if at end of input (partial case)
+					if p.pos >= len(p.input) {
+						// Partial JSON - handle based on format and JSON type
+						if format.RawArgVal != nil && !*format.RawArgVal {
+							// raw_argval is false - only JSON allowed
+							if isJSONObjectOrArray(jsonValue) || isJSONString(jsonValue) {
+								arguments[key] = jsonValue
+								argsJSON, _ := json.Marshal(arguments)
+								toolStr := string(argsJSON)
+								// Remove trailing } if present
+								if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
+									toolStr = toolStr[:len(toolStr)-1]
+								}
+								p.AddToolCall(functionName, "", toolStr)
+								return false, &ChatMsgPartialException{
+									Message: "JSON arg_value detected. Waiting for more tokens for validations.",
+								}
+							}
+						}
+						// Generate partial args
+						genPartialArgs := func(needle string) {
+							arguments[key] = needle
+							argsJSON, _ := json.Marshal(arguments)
+							toolStr := string(argsJSON)
+							if cleaned, isPartial := partialJSON(toolStr); isPartial {
+								p.AddToolCall(functionName, "", cleaned)
+							} else {
+								p.AddToolCall(functionName, "", toolStr)
+							}
+						}
+						genPartialArgs("XML_TOOL_CALL_PARTIAL_FLAG")
+						return false, &ChatMsgPartialException{
+							Message: "JSON arg_value detected. Waiting for more tokens for validations.",
+						}
+					}
+
+					// Rewind to json_end and check if val_end follows
+					p.MoveTo(jsonEnd)
+					valEndSize, valEnd := tryFindValEnd()
+					if valEnd != nil && AllSpace(valEnd.Prelude) && jsonHealingMarker == "" {
+						// val_end follows JSON
+						if len(valEnd.Groups) > 0 {
+							matchedSize := valEnd.Groups[0].End - valEnd.Groups[0].Begin
+							if matchedSize == valEndSize {
+								// Complete val_end - use JSON value
+								arguments[key] = jsonValue
+							} else {
+								// Partial val_end
+								genPartialArgs := func(needle string) {
+									arguments[key] = needle
+									argsJSON, _ := json.Marshal(arguments)
+									toolStr := string(argsJSON)
+									if cleaned, isPartial := partialJSON(toolStr); isPartial {
+										p.AddToolCall(functionName, "", cleaned)
+									} else {
+										p.AddToolCall(functionName, "", toolStr)
+									}
+								}
+								genPartialArgs("XML_TOOL_CALL_PARTIAL_FLAG")
+								return false, &ChatMsgPartialException{
+									Message: fmt.Sprintf("Partial literal: %s", format.ValEnd),
+								}
+							}
+						}
+					} else {
+						// val_end doesn't follow - rewind and parse as text
+						p.MoveTo(valStart)
+						jsonParsed = false
+					}
+				}
+
+				// If JSON wasn't parsed or val_end didn't follow, parse as plain text
+				if !jsonParsed {
+					valEndSize, valEnd := tryFindValEnd()
+					if valEnd == nil {
+						// Partial value
+						rest := p.ConsumeRest()
+						if format.TrimRawArgVal {
+							rest = strings.TrimSpace(rest)
+						}
+						arguments[key] = rest + "XML_TOOL_CALL_PARTIAL_FLAG"
+						argsJSON, _ := json.Marshal(arguments)
+						toolStr := string(argsJSON)
+						if cleaned, isPartial := partialJSON(toolStr); isPartial {
+							p.AddToolCall(functionName, "", cleaned)
+						} else {
+							p.AddToolCall(functionName, "", toolStr)
+						}
+						return false, &ChatMsgPartialException{
+							Message: fmt.Sprintf("Expected %s after %s", format.ValEnd, format.KeyValSep),
+						}
+					}
+
+					// Validate size match
+					if len(valEnd.Groups) > 0 {
+						matchedSize := valEnd.Groups[0].End - valEnd.Groups[0].Begin
+						if matchedSize != valEndSize {
+							// Partial val_end
+							rest := valEnd.Prelude
+							if format.TrimRawArgVal {
+								rest = strings.TrimSpace(rest)
+							}
+							arguments[key] = rest + "XML_TOOL_CALL_PARTIAL_FLAG"
+							argsJSON, _ := json.Marshal(arguments)
+							toolStr := string(argsJSON)
+							if cleaned, isPartial := partialJSON(toolStr); isPartial {
+								p.AddToolCall(functionName, "", cleaned)
+							} else {
+								p.AddToolCall(functionName, "", toolStr)
+							}
+							return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.ValEnd)}
+						}
+					}
+
+					// Parse value using parseParameterValue to match regex parser behavior
+					// This handles JSON-first parsing correctly for text fallback
+					valueStr := strings.TrimSpace(valEnd.Prelude)
+					value := parseParameterValue(valueStr, format)
+					arguments[key] = value
 				}
 			}
 
-			key := strings.TrimSpace(keyValSep.Prelude)
-			recovery = false
-
-			// Handle key_val_sep2 if present (GLM 4.5 format)
-			// For GLM 4.5, key_val_sep2 is "</arg_key>\n<arg_value>"
-			// We need to consume it but it's optional - if not found, the value might be empty
-			if format.KeyValSep2 != nil {
-				// Try to consume it, but don't fail if not found (might be empty value)
-				p.TryConsumeLiteral(*format.KeyValSep2)
-			}
-
-			// Find val_end
-			valEndSize, valEnd := tryFindValEnd()
-			if valEnd == nil {
-				// Partial value
-				rest := p.ConsumeRest()
-				if format.TrimRawArgVal {
-					rest = strings.TrimSpace(rest)
-				}
-				arguments[key] = rest + "XML_TOOL_CALL_PARTIAL_FLAG"
+			// Find tool_end
+			toolEndSize, toolEnd := tryFindToolEnd()
+			if toolEnd == nil {
+				// Partial tool call
 				argsJSON, _ := json.Marshal(arguments)
 				toolStr := string(argsJSON)
-				if cleaned, isPartial := partialJSON(toolStr); isPartial {
-					p.AddToolCall(functionName, "", cleaned)
-				} else {
-					p.AddToolCall(functionName, "", toolStr)
+				if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
+					toolStr = toolStr[:len(toolStr)-1]
 				}
-				return false, &ChatMsgPartialException{
-					Message: fmt.Sprintf("Expected %s after %s", format.ValEnd, format.KeyValSep),
-				}
+				p.AddToolCall(functionName, "", toolStr)
+				return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
+			}
+
+			if !AllSpace(toolEnd.Prelude) {
+				return returnError(errors.New("non-whitespace before tool_end"), recovery)
 			}
 
 			// Validate size match
-			if len(valEnd.Groups) > 0 {
-				matchedSize := valEnd.Groups[0].End - valEnd.Groups[0].Begin
-				if matchedSize != valEndSize {
-					// Partial val_end
-					rest := valEnd.Prelude
-					if format.TrimRawArgVal {
-						rest = strings.TrimSpace(rest)
-					}
-					arguments[key] = rest + "XML_TOOL_CALL_PARTIAL_FLAG"
+			if len(toolEnd.Groups) > 0 {
+				matchedSize := toolEnd.Groups[0].End - toolEnd.Groups[0].Begin
+				if matchedSize == toolEndSize {
+					// Complete tool call
 					argsJSON, _ := json.Marshal(arguments)
-					toolStr := string(argsJSON)
-					if cleaned, isPartial := partialJSON(toolStr); isPartial {
-						p.AddToolCall(functionName, "", cleaned)
-					} else {
-						p.AddToolCall(functionName, "", toolStr)
+					if !p.AddToolCall(functionName, "", string(argsJSON)) {
+						return false, &ChatMsgPartialException{Message: "Failed to add XML tool call"}
 					}
-					return false, &ChatMsgPartialException{Message: fmt.Sprintf("Partial literal: %s", format.ValEnd)}
+					recovery = false
+					continue
 				}
 			}
 
-			// Parse value using parseParameterValue to match regex parser behavior
-			// This handles JSON-first parsing correctly
-			valueStr := strings.TrimSpace(valEnd.Prelude)
-			value := parseParameterValue(valueStr, format)
-			arguments[key] = value
-		}
-
-		// Find tool_end
-		toolEndSize, toolEnd := tryFindToolEnd()
-		if toolEnd == nil {
-			// Partial tool call
+			// Partial tool_end
 			argsJSON, _ := json.Marshal(arguments)
 			toolStr := string(argsJSON)
 			if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
@@ -764,34 +1103,6 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 			p.AddToolCall(functionName, "", toolStr)
 			return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
 		}
-
-		if !AllSpace(toolEnd.Prelude) {
-			return returnError(errors.New("non-whitespace before tool_end"), recovery)
-		}
-
-		// Validate size match
-		if len(toolEnd.Groups) > 0 {
-			matchedSize := toolEnd.Groups[0].End - toolEnd.Groups[0].Begin
-			if matchedSize == toolEndSize {
-				// Complete tool call
-				argsJSON, _ := json.Marshal(arguments)
-				if !p.AddToolCall(functionName, "", string(argsJSON)) {
-					return false, &ChatMsgPartialException{Message: "Failed to add XML tool call"}
-				}
-				recovery = false
-				continue
-			}
-		}
-
-		// Partial tool_end
-		argsJSON, _ := json.Marshal(arguments)
-		toolStr := string(argsJSON)
-		if len(toolStr) > 0 && toolStr[len(toolStr)-1] == '}' {
-			toolStr = toolStr[:len(toolStr)-1]
-		}
-		p.AddToolCall(functionName, "", toolStr)
-		return false, &ChatMsgPartialException{Message: "incomplete tool_call"}
-	}
 
 		// Parse scope_end if present (for this scope)
 		if format.ScopeEnd != "" {
@@ -833,6 +1144,194 @@ func (p *ChatMsgParser) TryConsumeXMLToolCalls(format *XMLToolCallFormat) (bool,
 	}
 
 	return len(p.toolCalls) > 0, nil
+}
+
+// ParseMsgWithXMLToolCalls parses content with reasoning blocks and XML tool calls
+// This matches llama.cpp's parse_msg_with_xml_tool_calls function
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 654-872
+func (p *ChatMsgParser) ParseMsgWithXMLToolCalls(format *XMLToolCallFormat, startThink, endThink string) error {
+	if format == nil {
+		return errors.New("format is required")
+	}
+
+	// Default reasoning tags if not provided
+	if startThink == "" {
+		startThink = "<think>"
+	}
+	if endThink == "" {
+		endThink = "</think>"
+	}
+
+	// Trim leading spaces without affecting keyword matching
+	p.ConsumeSpaces()
+
+	// Parse content
+	reasoningUnclosed := false // TODO: support thinking_forced_open from syntax
+	unclosedReasoningContent := ""
+
+	for {
+		// Find scope_start + tool_start using tryFind2LiteralSplitBySpaces
+		tc := p.tryFind2LiteralSplitBySpaces(format.ScopeStart, format.ToolStart)
+		var content string
+		var toolCallStart string
+
+		if tc != nil {
+			content = tc.Prelude
+			toolCallStart = p.Str(tc.Groups[0])
+		} else {
+			content = p.ConsumeRest()
+			content = utf8TruncateSafeView(content)
+		}
+
+		// Handle unclosed think block
+		if reasoningUnclosed {
+			pos := strings.Index(content, endThink)
+			if pos == -1 && p.pos != len(p.input) {
+				unclosedReasoningContent += content
+				if !(format.AllowToolcallInThink && tc != nil) {
+					unclosedReasoningContent += toolCallStart
+					continue
+				}
+			} else {
+				reasoningUnclosed = false
+				var reasoningContent string
+				if pos == -1 {
+					reasoningContent = content
+					content = ""
+				} else {
+					reasoningContent = content[:pos]
+					content = content[pos+len(endThink):]
+				}
+				if p.pos == len(p.input) && AllSpace(content) {
+					reasoningContent = rstrip(reasoningContent)
+					reasoningContent = trimPotentialPartialWord(reasoningContent, format, startThink, endThink)
+					reasoningContent = rstrip(reasoningContent)
+					if reasoningContent == "" {
+						unclosedReasoningContent = rstrip(unclosedReasoningContent)
+						unclosedReasoningContent = trimPotentialPartialWord(unclosedReasoningContent, format, startThink, endThink)
+						unclosedReasoningContent = rstrip(unclosedReasoningContent)
+						if unclosedReasoningContent == "" {
+							continue
+						}
+					}
+				}
+				// TODO: Handle reasoning_format and reasoning_in_content from syntax
+				// For now, always add to reasoning content
+				p.AddReasoningContent(unclosedReasoningContent)
+				p.AddReasoningContent(reasoningContent)
+				unclosedReasoningContent = ""
+			}
+		}
+
+		// Handle multiple think blocks
+		toolcallInThink := false
+		thinkStart := strings.Index(content, startThink)
+		for thinkStart != -1 {
+			thinkEnd := strings.Index(content[thinkStart+len(startThink):], endThink)
+			if thinkEnd != -1 {
+				thinkEnd += thinkStart + len(startThink)
+				// Extract reasoning content
+				reasoningContent := content[thinkStart+len(startThink) : thinkEnd]
+				p.AddReasoningContent(reasoningContent)
+				// Erase the reasoning block from content
+				content, _ = eraseSpaces(content, thinkStart, thinkEnd+len(endThink)-1)
+				thinkStart = strings.Index(content, startThink)
+			} else {
+				// Unclosed reasoning block
+				if format.AllowToolcallInThink {
+					unclosedReasoningContent = content[thinkStart+len(startThink):]
+				} else {
+					unclosedReasoningContent = content[thinkStart+len(startThink):] + toolCallStart
+				}
+				reasoningUnclosed = true
+				content = content[:thinkStart]
+				toolcallInThink = true
+				break
+			}
+		}
+
+		// TODO: Handle reasoning_format and reasoning_in_content
+		// For now, strip content and handle unclosed end_think tokens
+		content = rstrip(content)
+		pos := strings.LastIndex(content, endThink)
+		for pos != -1 {
+			content, pos = eraseSpaces(content, pos, pos+len(endThink)-1)
+			pos = strings.LastIndex(content, endThink)
+		}
+		// Strip leading whitespace if needed
+		content = strings.TrimLeftFunc(content, unicode.IsSpace)
+
+		// Remove potential partial suffix
+		if p.pos == len(p.input) {
+			if unclosedReasoningContent == "" {
+				content = rstrip(content)
+				content = trimPotentialPartialWord(content, format, startThink, endThink)
+				content = rstrip(content)
+			} else {
+				unclosedReasoningContent = rstrip(unclosedReasoningContent)
+				unclosedReasoningContent = trimPotentialPartialWord(unclosedReasoningContent, format, startThink, endThink)
+				unclosedReasoningContent = rstrip(unclosedReasoningContent)
+			}
+		}
+
+		// Consume unclosed_reasoning_content if allow_toolcall_in_think is set
+		if format.AllowToolcallInThink && unclosedReasoningContent != "" {
+			// TODO: Handle reasoning_format
+			p.AddReasoningContent(unclosedReasoningContent)
+			unclosedReasoningContent = ""
+		}
+
+		// Add content
+		if content != "" {
+			// TODO: Handle reasoning_format for multiple content blocks
+			if p.content.Len() > 0 {
+				p.AddContent("\n\n")
+			}
+			p.AddContent(content)
+		}
+
+		// Skip tool call if it's in thinking block and allow_toolcall_in_think is not set
+		if toolcallInThink && !format.AllowToolcallInThink {
+			continue
+		}
+
+		// No tool call found, break
+		if tc == nil {
+			break
+		}
+
+		// Parse tool calls
+		p.MoveTo(tc.Groups[0].Begin)
+		success, err := p.TryConsumeXMLToolCalls(format)
+		if err != nil {
+			// Check if it's a partial exception
+			if _, ok := err.(*ChatMsgPartialException); ok {
+				// Partial parse, continue
+				continue
+			}
+			return err
+		}
+		if success {
+			endOfTool := p.pos
+			p.ConsumeSpaces()
+			if p.pos != len(p.input) {
+				p.MoveTo(endOfTool)
+				if p.content.Len() > 0 {
+					p.AddContent("\n\n")
+				}
+			}
+		} else {
+			// Tool call parsing failed, add next character as content
+			if p.pos < len(p.input) {
+				nextChar := string(p.input[p.pos])
+				nextChar = rstrip(nextChar)
+				p.AddContent(nextChar)
+				p.pos++
+			}
+		}
+	}
+
+	return nil
 }
 
 // tryFind2LiteralSplitBySpaces finds two literals separated by spaces
