@@ -7,6 +7,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/mudler/LocalAI/pkg/functions/grammars"
 	"github.com/mudler/LocalAI/pkg/utils"
@@ -147,6 +148,8 @@ type XMLToolCallFormat struct {
 	LastToolEnd *string `yaml:"last_tool_end,omitempty" json:"last_tool_end,omitempty"`
 	// TrimRawArgVal indicates whether to trim whitespace from raw values
 	TrimRawArgVal bool `yaml:"trim_raw_argval,omitempty" json:"trim_raw_argval,omitempty"`
+	// AllowToolcallInThink allows tool calls inside thinking/reasoning blocks
+	AllowToolcallInThink bool `yaml:"allow_toolcall_in_think,omitempty" json:"allow_toolcall_in_think,omitempty"`
 }
 
 type FuncCallResults struct {
@@ -341,16 +344,17 @@ func getAllXMLFormats() []xmlFormatPreset {
 		{
 			name: "kimi-k2",
 			format: &XMLToolCallFormat{
-				ScopeStart: "<|tool_calls_section_begin|>",
-				ToolStart:  "<|tool_call_begin|>",
-				ToolSep:    "<|tool_call_argument_begin|>{",
-				KeyStart:   "\"",
-				KeyValSep:  "\":",
-				ValEnd:     ",",
-				ToolEnd:    "}<|tool_call_end|>",
-				ScopeEnd:   "<|tool_calls_section_end|>",
-				LastValEnd: &emptyValEnd,
-				RawArgVal:  &falseVal,
+				ScopeStart:           "<|tool_calls_section_begin|>",
+				ToolStart:            "<|tool_call_begin|>",
+				ToolSep:              "<|tool_call_argument_begin|>{",
+				KeyStart:             "\"",
+				KeyValSep:            "\":",
+				ValEnd:               ",",
+				ToolEnd:              "}<|tool_call_end|>",
+				ScopeEnd:             "<|tool_calls_section_end|>",
+				LastValEnd:           &emptyValEnd,
+				RawArgVal:            &falseVal,
+				AllowToolcallInThink: true, // Kimi-K2 supports tool calls in thinking blocks
 			},
 		},
 		{
@@ -410,7 +414,94 @@ func ParseXML(s string, format *XMLToolCallFormat) ([]FuncCallResults, error) {
 	return parseXMLWithFormat(s, format)
 }
 
+// ParseXMLPartial parses XML tool calls that may be incomplete (for streaming support)
+// It returns both complete results and partial results that can be emitted during streaming
+// Reference: llama.cpp's partial parsing support
+func ParseXMLPartial(s string, format *XMLToolCallFormat) (*PartialXMLResult, error) {
+	// For now, try regular parsing first
+	// In the future, this can be enhanced to detect partial matches
+	results, err := ParseXML(s, format)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if the input ends with incomplete XML tags (indicating partial content)
+	isPartial := false
+	trimmed := strings.TrimSpace(s)
+
+	// Auto-detect format if not provided to check for partial content
+	if format == nil {
+		formats := getAllXMLFormats()
+		for _, fmtPreset := range formats {
+			if fmtPreset.format != nil {
+				format = fmtPreset.format
+				break
+			}
+		}
+	}
+
+	if format != nil {
+		// Check if string ends with incomplete tool_end or val_end
+		// Also check for incomplete tags like "</parameter" (missing >)
+		if !strings.HasSuffix(trimmed, format.ToolEnd) {
+			if format.LastToolEnd != nil && !strings.HasSuffix(trimmed, *format.LastToolEnd) {
+				// Check if it starts with tool_end but is incomplete
+				if len(trimmed) > 0 && len(format.ToolEnd) > 0 {
+					suffix := trimmed[max(0, len(trimmed)-len(format.ToolEnd)):]
+					if strings.HasPrefix(format.ToolEnd, suffix) && suffix != format.ToolEnd {
+						isPartial = true
+					}
+				}
+			}
+			// Also check for incomplete closing tags (ends with < but not complete)
+			if strings.HasSuffix(trimmed, "<") || strings.HasSuffix(trimmed, "</") {
+				isPartial = true
+			}
+		}
+		if !strings.HasSuffix(trimmed, format.ValEnd) {
+			if format.LastValEnd != nil && !strings.HasSuffix(trimmed, *format.LastValEnd) {
+				if len(trimmed) > 0 && len(format.ValEnd) > 0 {
+					suffix := trimmed[max(0, len(trimmed)-len(format.ValEnd)):]
+					if strings.HasPrefix(format.ValEnd, suffix) && suffix != format.ValEnd {
+						isPartial = true
+					}
+				}
+			}
+			// Check for incomplete closing tags
+			if strings.HasSuffix(trimmed, "<") || strings.HasSuffix(trimmed, "</") {
+				isPartial = true
+			}
+		}
+		// Check for incomplete parameter tags
+		if format.KeyStart != "" && (strings.HasSuffix(trimmed, "<parameter") || strings.HasSuffix(trimmed, "<parameter=")) {
+			isPartial = true
+		}
+		// Check if we have tool_start but missing tool_end (incomplete tool call)
+		if strings.Contains(trimmed, format.ToolStart) && !strings.HasSuffix(trimmed, format.ToolEnd) {
+			if format.LastToolEnd == nil || !strings.HasSuffix(trimmed, *format.LastToolEnd) {
+				// Check if tool_end appears anywhere (if not, it's partial)
+				if !strings.Contains(trimmed, format.ToolEnd) {
+					isPartial = true
+				}
+			}
+		}
+	}
+
+	return &PartialXMLResult{
+		Results:   results,
+		IsPartial: isPartial,
+	}, nil
+}
+
+func max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 // parseXMLWithFormat parses XML tool calls using a specific format configuration
+// Returns parsed results and error. Handles errors gracefully by continuing to parse other tool calls.
 func parseXMLWithFormat(s string, format *XMLToolCallFormat) ([]FuncCallResults, error) {
 	var results []FuncCallResults
 
@@ -484,7 +575,14 @@ func parseXMLWithFormat(s string, format *XMLToolCallFormat) ([]FuncCallResults,
 	if scopePattern != nil {
 		scopeMatches := scopePattern.FindAllStringSubmatch(s, -1)
 		if len(scopeMatches) == 0 {
-			// Scope not found, try parsing without scope (scope is optional)
+			// Scope not found
+			// If scope_end is not empty/whitespace, this might be an error
+			// But scope is optional, so try parsing without scope
+			if strings.TrimSpace(format.ScopeEnd) != "" {
+				// Scope expected but not found - this might indicate incomplete input
+				// For now, try parsing without scope (scope is optional)
+				xlog.Debug("scope_start not found but scope_end is non-empty", "scope_end", format.ScopeEnd)
+			}
 			searchContent = s
 		} else {
 			// Process each scope match separately
@@ -503,9 +601,14 @@ func parseXMLWithFormat(s string, format *XMLToolCallFormat) ([]FuncCallResults,
 					}
 					if !allWhitespace {
 						// Non-whitespace before scope_start, skip this match
+						// This matches llama.cpp's behavior (line 394)
+						xlog.Debug("non-whitespace before scope_start, skipping match", "prelude", prelude)
 						continue
 					}
 					scopeContent := scopeMatch[2]
+					// Validate scope_end is present in the match (scope pattern should include it)
+					// The regex pattern already includes scope_end, so if we matched, it should be there
+					// But we can verify the match is complete
 					// Find all tool calls within this scope - try both patterns
 					var toolCallMatches [][]string
 					for _, pattern := range toolCallPatterns {
@@ -547,11 +650,53 @@ func parseXMLWithFormat(s string, format *XMLToolCallFormat) ([]FuncCallResults,
 								functionContent = match[2]
 							}
 
+							// Check for empty tool call: if tool_end appears in function name or content is empty
+							// This matches llama.cpp's behavior (lines 419-424)
+							if strings.Contains(functionName, format.ToolEnd) || (format.LastToolEnd != nil && strings.Contains(functionName, *format.LastToolEnd)) {
+								// Empty tool call - emit with empty arguments
+								cleanName := strings.TrimSpace(functionName)
+								if idx := strings.Index(cleanName, format.ToolEnd); idx != -1 {
+									cleanName = strings.TrimSpace(cleanName[:idx])
+								} else if format.LastToolEnd != nil {
+									if idx := strings.Index(cleanName, *format.LastToolEnd); idx != -1 {
+										cleanName = strings.TrimSpace(cleanName[:idx])
+									}
+								}
+								results = append(results, FuncCallResults{
+									Name:      cleanName,
+									Arguments: "{}",
+								})
+								continue
+							}
+
+							// Check if content is empty or only whitespace
+							if strings.TrimSpace(functionContent) == "" {
+								// Empty tool call - emit with empty arguments
+								results = append(results, FuncCallResults{
+									Name:      functionName,
+									Arguments: "{}",
+								})
+								continue
+							}
+
 							// Parse parameters based on format
 							args, err := parseXMLParametersWithFormat(functionContent, format)
 							if err != nil {
 								xlog.Debug("error parsing XML parameters", "error", err, "content", functionContent)
 								continue
+							}
+
+							// If no parameters were parsed and content was not empty, still create tool call with empty args
+							if len(args) == 0 && strings.TrimSpace(functionContent) != "" {
+								// Check if there's any parameter-like content that just didn't match
+								if !strings.Contains(functionContent, format.KeyStart) {
+									argsJSON, _ := json.Marshal(args)
+									results = append(results, FuncCallResults{
+										Name:      functionName,
+										Arguments: string(argsJSON),
+									})
+									continue
+								}
 							}
 
 							argsJSON, _ := json.Marshal(args)
@@ -582,6 +727,32 @@ func parseXMLWithFormat(s string, format *XMLToolCallFormat) ([]FuncCallResults,
 		if len(match) < 3 {
 			continue
 		}
+
+		// Validate tool_end is complete (exact size match)
+		// This matches llama.cpp's behavior (line 595)
+		fullMatch := match[0]
+		expectedToolEnd := format.ToolEnd
+		if format.LastToolEnd != nil && strings.HasSuffix(fullMatch, *format.LastToolEnd) {
+			expectedToolEnd = *format.LastToolEnd
+		}
+		if !strings.HasSuffix(fullMatch, expectedToolEnd) {
+			// tool_end not found at end, skip this match
+			xlog.Debug("tool_end validation failed", "expected", expectedToolEnd, "match", fullMatch)
+			continue
+		}
+		// Verify the tool_end is exactly the expected size (not a partial match)
+		// Extract the tool_end from the end of the match
+		if len(fullMatch) < len(expectedToolEnd) {
+			// Match is shorter than expected tool_end, skip
+			continue
+		}
+		actualToolEnd := fullMatch[len(fullMatch)-len(expectedToolEnd):]
+		if actualToolEnd != expectedToolEnd {
+			// tool_end doesn't match exactly, skip
+			xlog.Debug("tool_end size validation failed", "expected", expectedToolEnd, "actual", actualToolEnd)
+			continue
+		}
+
 		functionName := strings.TrimSpace(match[1])
 
 		// Handle Kimi-K2 function name prefix stripping: "functions.name:index" -> "name"
@@ -617,11 +788,48 @@ func parseXMLWithFormat(s string, format *XMLToolCallFormat) ([]FuncCallResults,
 			}
 		}
 
+		// Check for empty tool call: if tool_end appears in function name prelude or content is empty
+		// This matches llama.cpp's behavior (lines 419-424)
+		// If the function name contains tool_end, it indicates the tool call has no arguments
+		if strings.Contains(functionName, format.ToolEnd) || (format.LastToolEnd != nil && strings.Contains(functionName, *format.LastToolEnd)) {
+			// Empty tool call - emit with empty arguments
+			results = append(results, FuncCallResults{
+				Name:      strings.TrimSpace(strings.Split(functionName, format.ToolEnd)[0]),
+				Arguments: "{}",
+			})
+			continue
+		}
+
+		// Check if content is empty or only whitespace (another indicator of empty tool call)
+		if strings.TrimSpace(functionContent) == "" {
+			// Empty tool call - emit with empty arguments
+			results = append(results, FuncCallResults{
+				Name:      functionName,
+				Arguments: "{}",
+			})
+			continue
+		}
+
 		// Parse parameters based on format
 		args, err := parseXMLParametersWithFormat(functionContent, format)
 		if err != nil {
 			xlog.Debug("error parsing XML parameters", "error", err, "content", functionContent)
 			continue
+		}
+
+		// If no parameters were parsed and content was not empty, still create tool call with empty args
+		// This handles cases where parameters exist but couldn't be parsed
+		if len(args) == 0 && strings.TrimSpace(functionContent) != "" {
+			// Check if there's any parameter-like content that just didn't match
+			// If not, treat as empty tool call
+			if !strings.Contains(functionContent, format.KeyStart) {
+				argsJSON, _ := json.Marshal(args)
+				results = append(results, FuncCallResults{
+					Name:      functionName,
+					Arguments: string(argsJSON),
+				})
+				continue
+			}
 		}
 
 		argsJSON, _ := json.Marshal(args)
@@ -671,10 +879,30 @@ func parseGLM45Format(s string, format *XMLToolCallFormat) ([]FuncCallResults, e
 
 			functionContent := match[2]
 
+			// Check for empty tool call: if content is empty or only whitespace
+			if strings.TrimSpace(functionContent) == "" {
+				// Empty tool call - emit with empty arguments
+				results = append(results, FuncCallResults{
+					Name:      functionName,
+					Arguments: "{}",
+				})
+				continue
+			}
+
 			// Parse parameters using GLM 4.5 format
 			args, err := parseXMLParametersWithFormat(functionContent, format)
 			if err != nil {
 				xlog.Debug("error parsing GLM 4.5 parameters", "error", err, "content", functionContent)
+				continue
+			}
+
+			// If no parameters were parsed, still create tool call with empty args
+			if len(args) == 0 {
+				argsJSON, _ := json.Marshal(args)
+				results = append(results, FuncCallResults{
+					Name:      functionName,
+					Arguments: string(argsJSON),
+				})
 				continue
 			}
 
@@ -785,6 +1013,76 @@ func parseJSONLikeXMLFormat(s string, format *XMLToolCallFormat) ([]FuncCallResu
 	return results, nil
 }
 
+// utf8TruncateSafe truncates a string at a safe UTF-8 boundary
+// This prevents truncation in the middle of multi-byte characters
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 27-58
+func utf8TruncateSafe(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	// Check if the string ends at a valid UTF-8 boundary
+	// If not, truncate to the last valid boundary
+	for i := len(s); i > 0 && i > len(s)-4; i-- {
+		if utf8.ValidString(s[:i]) {
+			return s[:i]
+		}
+	}
+	// If we can't find a valid boundary in the last 4 bytes, truncate conservatively
+	if len(s) > 3 {
+		return s[:len(s)-3]
+	}
+	return ""
+}
+
+// PartialXMLResult represents a partial XML parsing result that can be emitted during streaming
+type PartialXMLResult struct {
+	Results    []FuncCallResults
+	IsPartial  bool
+	PartialArg string // The argument that was partially parsed
+}
+
+// XML_TOOL_CALL_PARTIAL_FLAG is a marker used to indicate partial JSON in tool calls
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp line 314
+const XML_TOOL_CALL_PARTIAL_FLAG = "XML_TOOL_CALL_PARTIAL_FLAG"
+
+// partialJSON cleans up partial JSON by removing incomplete parts marked with XML_TOOL_CALL_PARTIAL_FLAG
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 314-330
+func partialJSON(jsonStr string) (string, bool) {
+	pos := strings.LastIndex(jsonStr, XML_TOOL_CALL_PARTIAL_FLAG)
+	if pos == -1 {
+		return jsonStr, false
+	}
+	// Check that only valid JSON characters follow the flag
+	for i := pos + len(XML_TOOL_CALL_PARTIAL_FLAG); i < len(jsonStr); i++ {
+		ch := jsonStr[i]
+		if ch != '\'' && ch != '"' && ch != '}' && ch != ':' && ch != ']' && !strings.ContainsRune(" \t\n\r", rune(ch)) {
+			return jsonStr, false
+		}
+	}
+	// Remove the flag and everything after it
+	if pos > 0 && jsonStr[pos-1] == '"' {
+		pos--
+	}
+	return jsonStr[:pos], true
+}
+
+// genPartialJSON generates partial JSON with XML_TOOL_CALL_PARTIAL_FLAG marker
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 332-343
+func genPartialJSON(args map[string]any, functionName string, rest string, needle string) (string, bool) {
+	// Add the partial argument with the flag
+	args[rest+needle] = XML_TOOL_CALL_PARTIAL_FLAG
+	jsonBytes, err := json.Marshal(args)
+	if err != nil {
+		return "", false
+	}
+	jsonStr := string(jsonBytes)
+	// Try to clean up the partial JSON
+	if cleaned, isPartial := partialJSON(jsonStr); isPartial {
+		return cleaned, true
+	}
+	return jsonStr, false
+}
+
 // parseXMLParametersWithFormat extracts parameters from XML content based on format configuration
 func parseXMLParametersWithFormat(content string, format *XMLToolCallFormat) (map[string]any, error) {
 	args := make(map[string]any)
@@ -814,6 +1112,90 @@ func parseXMLParametersWithFormat(content string, format *XMLToolCallFormat) (ma
 	}
 
 	return args, nil
+}
+
+// parseMsgWithXMLToolCalls parses content with reasoning blocks and XML tool calls
+// This handles <think> or <think> tags and extracts tool calls
+// Reference: llama.cpp/common/chat-parser-xml-toolcall.cpp lines 654-872
+func parseMsgWithXMLToolCalls(s string, format *XMLToolCallFormat, startThink string, endThink string) ([]FuncCallResults, string, error) {
+	if startThink == "" {
+		startThink = "<think>"
+	}
+	if endThink == "" {
+		endThink = "</think>"
+	}
+
+	var results []FuncCallResults
+	var reasoningContent strings.Builder
+	var content strings.Builder
+
+	// Simple approach: find reasoning blocks and tool calls
+	// For more complex scenarios, we'd need iterative parsing
+	thinkStartIdx := strings.Index(s, startThink)
+
+	if thinkStartIdx == -1 {
+		// No reasoning blocks, just parse tool calls
+		xmlResults, err := parseXMLWithFormat(s, format)
+		return xmlResults, "", err
+	}
+
+	// Process content before first thinking block
+	if thinkStartIdx > 0 {
+		preContent := s[:thinkStartIdx]
+		xmlResults, _ := parseXMLWithFormat(preContent, format)
+		results = append(results, xmlResults...)
+		content.WriteString(preContent)
+	}
+
+	// Process thinking blocks and tool calls
+	pos := 0
+	for pos < len(s) {
+		thinkStart := strings.Index(s[pos:], startThink)
+		if thinkStart == -1 {
+			// No more thinking blocks, process rest
+			remaining := s[pos:]
+			xmlResults, _ := parseXMLWithFormat(remaining, format)
+			results = append(results, xmlResults...)
+			content.WriteString(remaining)
+			break
+		}
+		thinkStart += pos
+
+		thinkEnd := strings.Index(s[thinkStart+len(startThink):], endThink)
+		if thinkEnd == -1 {
+			// Unclosed thinking block
+			if format.AllowToolcallInThink {
+				// Allow tool calls in unclosed thinking block
+				thinkingContent := s[thinkStart+len(startThink):]
+				reasoningContent.WriteString(thinkingContent)
+				// Try to parse tool calls from thinking content
+				xmlResults, _ := parseXMLWithFormat(thinkingContent, format)
+				results = append(results, xmlResults...)
+			} else {
+				// Skip tool calls in unclosed thinking block
+				content.WriteString(s[pos:thinkStart])
+			}
+			break
+		}
+		thinkEnd += thinkStart + len(startThink)
+
+		// Extract thinking content
+		thinkingContent := s[thinkStart+len(startThink) : thinkEnd]
+		reasoningContent.WriteString(thinkingContent)
+
+		// Check for tool calls between thinking blocks
+		betweenContent := s[pos:thinkStart]
+		if len(betweenContent) > 0 {
+			xmlResults, _ := parseXMLWithFormat(betweenContent, format)
+			results = append(results, xmlResults...)
+			content.WriteString(betweenContent)
+		}
+
+		// Check for tool calls after thinking block
+		pos = thinkEnd + len(endThink)
+	}
+
+	return results, reasoningContent.String(), nil
 }
 
 // parseGLM45Parameters handles GLM 4.5 format with <arg_key> and <arg_value> pairs
@@ -927,6 +1309,9 @@ func parseStandardParameters(content string, format *XMLToolCallFormat) (map[str
 }
 
 // parseParameterValue parses a parameter value based on format configuration
+// Implements JSON-first parsing: tries JSON parsing first (if raw_argval is false/null),
+// validates JSON is complete, then falls back to text parsing.
+// This matches llama.cpp's behavior in chat-parser-xml-toolcall.cpp lines 501-555
 func parseParameterValue(paramValue string, format *XMLToolCallFormat) any {
 	// Trim if configured
 	if format.TrimRawArgVal {
@@ -936,36 +1321,32 @@ func parseParameterValue(paramValue string, format *XMLToolCallFormat) any {
 	// Handle raw_argval option
 	if format.RawArgVal != nil {
 		if *format.RawArgVal {
-			// Raw string only
-			return paramValue
-		} else {
-			// JSON only
-			var jsonValue any
-			if err := json.Unmarshal([]byte(paramValue), &jsonValue); err == nil {
-				return jsonValue
-			}
-			// If JSON parsing fails, return as string anyway
+			// Raw string only - no JSON parsing
 			return paramValue
 		}
+		// raw_argval is false - JSON only, must be valid JSON
+		var jsonValue any
+		if err := json.Unmarshal([]byte(paramValue), &jsonValue); err == nil {
+			// Valid JSON - return parsed value (including primitives)
+			return jsonValue
+		}
+		// JSON parsing failed but raw_argval is false - return as string anyway
+		// (llama.cpp would throw an error, but we're more lenient)
+		return paramValue
 	}
 
-	// Default: try JSON, fallback to string
+	// Default: raw_argval is nil - try JSON first, fallback to text
+	// This matches llama.cpp's behavior where both are allowed when raw_argval is nullopt
 	var jsonValue any
 	if err := json.Unmarshal([]byte(paramValue), &jsonValue); err != nil {
-		// Not valid JSON, treat as string
+		// Not valid JSON, treat as plain text string
 		return paramValue
 	}
 
-	// If it's a JSON object or array, use the parsed value
-	// Otherwise, if it's a primitive (number, bool, null), keep as string to preserve XML semantics
-	switch jsonValue.(type) {
-	case map[string]any, []any:
-		// JSON object or array - use parsed value
-		return jsonValue
-	default:
-		// Primitive JSON value (number, bool, null) - keep as string to match XML semantics
-		return paramValue
-	}
+	// Valid JSON was parsed - return the parsed value
+	// This includes objects, arrays, and primitives (null, true, false, numbers, strings)
+	// This matches llama.cpp's behavior where JSON values (including primitives) are used as-is
+	return jsonValue
 }
 
 func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncCallResults {
@@ -1104,15 +1485,18 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	// If no results from JSON parsing, try XML parsing
 	// This handles cases where the response contains XML tool calls instead of JSON,
 	// or mixed content with XML tool calls
-	if len(results) == 0 {
+	// Skip XML parsing if JSONRegexMatch was used and found results (to avoid double-parsing)
+	skipXMLParsing := len(functionConfig.JSONRegexMatch) > 0 && len(results) > 0
+	if len(results) == 0 && !skipXMLParsing {
 		xmlResults, err := ParseXML(llmresult, xmlFormat)
 		if err == nil && len(xmlResults) > 0 {
 			xlog.Debug("Found XML tool calls", "count", len(xmlResults))
 			results = append(results, xmlResults...)
 		}
-	} else {
+	} else if len(results) > 0 && !skipXMLParsing {
 		// Even if we found JSON results, check for XML tool calls in the response
 		// This handles mixed content scenarios (text + JSON + XML)
+		// But skip if JSONRegexMatch was used (it already extracted the content)
 		xmlResults, err := ParseXML(llmresult, xmlFormat)
 		if err == nil && len(xmlResults) > 0 {
 			xlog.Debug("Found additional XML tool calls alongside JSON", "xml_count", len(xmlResults))

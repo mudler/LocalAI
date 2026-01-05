@@ -66,10 +66,49 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	}
 	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
 		result := ""
+		lastEmittedCount := 0
 		_, tokenUsage, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
-			// TODO: Change generated BNF grammar to be compliant with the schema so we can
-			// stream the result token by token here.
+			// Try incremental XML parsing for streaming support
+			// This allows emitting partial tool calls as they're being generated
+			cleanedResult := functions.CleanupLLMResult(result, config.FunctionsConfig)
+			partialResult, parseErr := functions.ParseXMLPartial(cleanedResult, nil)
+			if parseErr == nil && partialResult != nil {
+				// Emit new tool calls that weren't emitted before
+				if len(partialResult.Results) > lastEmittedCount {
+					for i := lastEmittedCount; i < len(partialResult.Results); i++ {
+						toolCall := partialResult.Results[i]
+						initialMessage := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   req.Model,
+							Choices: []schema.Choice{{
+								Delta: &schema.Message{
+									Role: "assistant",
+									ToolCalls: []schema.ToolCall{
+										{
+											Index: i,
+											ID:    id,
+											Type:  "function",
+											FunctionCall: schema.FunctionCall{
+												Name: toolCall.Name,
+											},
+										},
+									},
+								},
+								Index:        0,
+								FinishReason:     nil,
+							}},
+							Object: "chat.completion.chunk",
+						}
+						select {
+						case responses <- initialMessage:
+						default:
+						}
+					}
+					lastEmittedCount = len(partialResult.Results)
+				}
+			}
 			return true
 		})
 		if err != nil {

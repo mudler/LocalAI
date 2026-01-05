@@ -378,7 +378,8 @@ roses are red
 			Expect(err).NotTo(HaveOccurred())
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Name).To(Equal("add"))
-			Expect(results[0].Arguments).To(Equal(`{"x":"5","y":"3"}`))
+			// JSON parsing converts numeric strings to numbers (matching llama.cpp behavior)
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
 		})
 
 		It("should parse XML tool call with multiple parameters", func() {
@@ -426,9 +427,10 @@ param_2_Value
 			Expect(err).NotTo(HaveOccurred())
 			Expect(results).To(HaveLen(2))
 			Expect(results[0].Name).To(Equal("add"))
-			Expect(results[0].Arguments).To(Equal(`{"x":"5","y":"3"}`))
+			// JSON parsing converts numeric strings to numbers (matching llama.cpp behavior)
+			Expect(results[0].Arguments).To(Equal(`{"x":5,"y":3}`))
 			Expect(results[1].Name).To(Equal("subtract"))
-			Expect(results[1].Arguments).To(Equal(`{"x":"10","y":"7"}`))
+			Expect(results[1].Arguments).To(Equal(`{"x":10,"y":7}`))
 		})
 
 		It("should handle mixed text and XML tool calls", func() {
@@ -642,6 +644,78 @@ functions.search:0<|tool_call_argument_begin|>{"query": "test", "limit": 10}<|to
 			// For now, we accept this behavior - it's a trade-off of regex vs streaming parser
 			_ = results
 			_ = err
+		})
+
+		It("should handle empty tool calls with no arguments", func() {
+			// Tool call with no parameters should return empty arguments object
+			input := `<tool_call>
+<function=test_function>
+</function>
+</tool_call>`
+
+			results, err := ParseXML(input, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("test_function"))
+			Expect(results[0].Arguments).To(Equal("{}"))
+		})
+
+		It("should support partial parsing for streaming", func() {
+			// Partial XML that ends mid-tag should be detected as partial
+			input := `<tool_call>
+<function=test>
+<parameter=key>
+value
+</parameter>`
+
+			partialResult, err := ParseXMLPartial(input, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(partialResult).NotTo(BeNil())
+			// Should detect partial content
+			Expect(partialResult.IsPartial).To(BeTrue())
+		})
+
+		It("should parse JSON values correctly in all formats", func() {
+			// Test that numeric strings are parsed as numbers (not strings)
+			input := `<tool_call>
+<function=test>
+<parameter=count>
+42
+</parameter>
+<parameter=enabled>
+true
+</parameter>
+</function>
+</tool_call>`
+
+			results, err := ParseXML(input, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(results).To(HaveLen(1))
+			// JSON parsing should convert "42" to number 42 and "true" to boolean true
+			Expect(results[0].Arguments).To(ContainSubstring(`"count":42`))
+			Expect(results[0].Arguments).To(ContainSubstring(`"enabled":true`))
+		})
+
+		It("should handle reasoning blocks with tool calls", func() {
+			// Test parsing tool calls that appear after reasoning blocks
+			// Note: parseMsgWithXMLToolCalls is currently internal, so we test through ParseXML
+			// which should still parse tool calls even with reasoning blocks present
+			input := `<think>
+I need to search for information.
+</think>
+<tool_call>
+<function=search>
+<parameter=query>
+test query
+</parameter>
+</function>
+</tool_call>`
+
+			// ParseXML should extract tool calls even with reasoning blocks
+			results, err := ParseXML(input, nil)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("search"))
 		})
 	})
 
