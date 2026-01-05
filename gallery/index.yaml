@@ -1,4 +1,35 @@
 ---
+- name: "joke-finetome-model-20260105-035838"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mathieu-Thomas-JOSSET/joke-finetome-model-gguf-20260105-035838
+  description: |
+    This model is a finetuned GGUF version of the Phi-4 model, optimized using Unsloth for faster training. It's designed for efficient inference with the GGUF format, suitable for deployment via Ollama. The model is specifically tuned for joke generation tasks, leveraging the Phi-4 base model's capabilities. Key features include:
+      - **GGUF Format**: Efficient for deployment.
+      - **Unsloth**: Used for accelerated training.
+      - **Model Files**: `phi-4.Q4_K_M.gguf`.
+      - **Use Case**: Text generation for jokes or similar tasks.
+
+    Ideal for users needing a fast, optimized model for specific applications.
+  overrides:
+    parameters:
+      model: llama-cpp/models/phi-4.Q4_K_M.gguf
+    name: joke-finetome-model-gguf-20260105-035838
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Mathieu-Thomas-JOSSET/joke-finetome-model-gguf-20260105-035838
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/phi-4.Q4_K_M.gguf
+      sha256: 302a84a2293d36e6d0f7293edcdc1ed86bb02c4adf075c94bf6dcd3a8399fa84
+      uri: https://huggingface.co/Mathieu-Thomas-JOSSET/joke-finetome-model-gguf-20260105-035838/resolve/main/phi-4.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
