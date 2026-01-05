@@ -1,4 +1,30 @@
 ---
+- name: "pentestic-agent-v12"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ichsanlook/pentestic-agent-v12-gguf
+  description: |
+    **Model Description:**
+    The `pentestic-agent-v12-gguf` is a finetuned GGUF model optimized for efficient deployment with LLaMA.cpp and Ollama. It was trained using Unsloth for faster speed and converted to GGUF format. The model supports text and multimodal tasks, with a file name `gemma-3-1b-it.Q4_K_M.gguf`. It uses the GGUF format and is compatible with tools like Ollama for easy deployment. Note that the BOS token behavior was adjusted for GGUF compatibility.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-1b-it.Q4_K_M.gguf
+    name: pentestic-agent-v12-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ichsanlook/pentestic-agent-v12-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-1b-it.Q4_K_M.gguf
+      sha256: 78bac95989667cd9095fe7a8391c3d828a32f05a8aebbe7a6b2468f1796cf21b
+      uri: https://huggingface.co/ichsanlook/pentestic-agent-v12-gguf/resolve/main/gemma-3-1b-it.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
