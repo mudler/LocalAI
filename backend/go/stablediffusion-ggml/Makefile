@@ -8,7 +8,7 @@ JOBS?=$(shell nproc --ignore=1)
 
 # stablediffusion.cpp (ggml)
 STABLEDIFFUSION_GGML_REPO?=https://github.com/leejet/stable-diffusion.cpp
-STABLEDIFFUSION_GGML_VERSION?=4ff2c8c74bd17c2cfffe3a01be77743fb3efba2f
+STABLEDIFFUSION_GGML_VERSION?=c5602a676caff5fe5a9f3b76b2bc614faf5121a5
 
 CMAKE_ARGS+=-DGGML_MAX_NAME=128
 

@@ -66,10 +66,111 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 	}
 	processTools := func(noAction string, prompt string, req *schema.OpenAIRequest, config *config.ModelConfig, loader *model.ModelLoader, responses chan schema.OpenAIResponse, extraUsage bool) error {
 		result := ""
+		lastEmittedCount := 0
 		_, tokenUsage, err := ComputeChoices(req, prompt, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, usage backend.TokenUsage) bool {
 			result += s
-			// TODO: Change generated BNF grammar to be compliant with the schema so we can
-			// stream the result token by token here.
+			// Try incremental XML parsing for streaming support using iterative parser
+			// This allows emitting partial tool calls as they're being generated
+			cleanedResult := functions.CleanupLLMResult(result, config.FunctionsConfig)
+
+			// Determine XML format from config
+			var xmlFormat *functions.XMLToolCallFormat
+			if config.FunctionsConfig.XMLFormat != nil {
+				xmlFormat = config.FunctionsConfig.XMLFormat
+			} else if config.FunctionsConfig.XMLFormatPreset != "" {
+				xmlFormat = functions.GetXMLFormatPreset(config.FunctionsConfig.XMLFormatPreset)
+			}
+
+			// Use iterative parser for streaming (partial parsing enabled)
+			// Try XML parsing first
+			partialResults, parseErr := functions.ParseXMLIterative(cleanedResult, xmlFormat, true)
+			if parseErr == nil && len(partialResults) > 0 {
+				// Emit new XML tool calls that weren't emitted before
+				if len(partialResults) > lastEmittedCount {
+					for i := lastEmittedCount; i < len(partialResults); i++ {
+						toolCall := partialResults[i]
+						initialMessage := schema.OpenAIResponse{
+							ID:      id,
+							Created: created,
+							Model:   req.Model,
+							Choices: []schema.Choice{{
+								Delta: &schema.Message{
+									Role: "assistant",
+									ToolCalls: []schema.ToolCall{
+										{
+											Index: i,
+											ID:    id,
+											Type:  "function",
+											FunctionCall: schema.FunctionCall{
+												Name: toolCall.Name,
+											},
+										},
+									},
+								},
+								Index:        0,
+								FinishReason: nil,
+							}},
+							Object: "chat.completion.chunk",
+						}
+						select {
+						case responses <- initialMessage:
+						default:
+						}
+					}
+					lastEmittedCount = len(partialResults)
+				}
+			} else {
+				// Try JSON tool call parsing for streaming
+				// Check if the result looks like JSON tool calls
+				jsonResults, jsonErr := functions.ParseJSONIterative(cleanedResult, true)
+				if jsonErr == nil && len(jsonResults) > 0 {
+					// Check if these are tool calls (have "name" and optionally "arguments")
+					for _, jsonObj := range jsonResults {
+						if name, ok := jsonObj["name"].(string); ok && name != "" {
+							// This looks like a tool call
+							args := "{}"
+							if argsVal, ok := jsonObj["arguments"]; ok {
+								if argsStr, ok := argsVal.(string); ok {
+									args = argsStr
+								} else {
+									argsBytes, _ := json.Marshal(argsVal)
+									args = string(argsBytes)
+								}
+							}
+							// Emit tool call
+							initialMessage := schema.OpenAIResponse{
+								ID:      id,
+								Created: created,
+								Model:   req.Model,
+								Choices: []schema.Choice{{
+									Delta: &schema.Message{
+										Role: "assistant",
+										ToolCalls: []schema.ToolCall{
+											{
+												Index: lastEmittedCount,
+												ID:    id,
+												Type:  "function",
+												FunctionCall: schema.FunctionCall{
+													Name:      name,
+													Arguments: args,
+												},
+											},
+										},
+									},
+									Index:        0,
+									FinishReason: nil,
+								}},
+								Object: "chat.completion.chunk",
+							}
+							select {
+							case responses <- initialMessage:
+							default:
+							}
+							lastEmittedCount++
+						}
+					}
+				}
+			}
 			return true
 		})
 		if err != nil {

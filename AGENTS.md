@@ -2,6 +2,19 @@
 
 Building and testing the project depends on the components involved and the platform where development is taking place. Due to the amount of context required it's usually best not to try building or testing the project unless the user requests it. If you must build the project then inspect the Makefile in the project root and the Makefiles of any backends that are effected by changes you are making. In addition the workflows in .github/workflows can be used as a reference when it is unclear how to build or test a component. The primary Makefile contains targets for building inside or outside Docker, if the user has not previously specified a preference then ask which they would like to use.
 
+## Building a specified backend
+
+Let's say the user wants to build a particular backend for a given platform. For example let's say they want to build bark for ROCM/hipblas
+
+- The Makefile has targets like `docker-build-bark` created with `generate-docker-build-target` at the time of writing. Recently added backends may require a new target.
+- At a minimum we need to set the BUILD_TYPE, BASE_IMAGE build-args
+  - Use .github/workflows/backend.yml as a reference it lists the needed args in the `include` job strategy matrix
+  - l4t and cublas also requires the CUDA major and minor version
+- You can pretty print a command like `DOCKER_MAKEFLAGS=-j$(nproc --ignore=1) BUILD_TYPE=hipblas BASE_IMAGE=rocm/dev-ubuntu-24.04:6.4.4 make docker-build-bark`
+- Unless the user specifies that they want you to run the command, then just print it because not all agent frontends handle long running jobs well and the output may overflow your context
+- The user may say they want to build AMD or ROCM instead of hipblas, or Intel instead of SYCL or NVIDIA insted of l4t or cublas. Ask for confirmation if there is ambiguity.
+- Sometimes the user may need extra parameters to be added to `docker build` (e.g. `--platform` for cross-platform builds or `--progress` to view the full logs), in which case you can generate the `docker build` command directly.
+
 # Coding style
 
 - The project has the following .editorconfig
@@ -77,3 +90,49 @@ When fixing compilation errors after upstream changes:
 - HTTP server uses `server_routes` with HTTP handlers
 - Both use the same `server_context` and task queue infrastructure
 - gRPC methods: `LoadModel`, `Predict`, `PredictStream`, `Embedding`, `Rerank`, `TokenizeString`, `GetMetrics`, `Health`
+
+## Tool Call Parsing Maintenance
+
+When working on JSON/XML tool call parsing functionality, always check llama.cpp for reference implementation and updates:
+
+### Checking for XML Parsing Changes
+
+1. **Review XML Format Definitions**: Check `llama.cpp/common/chat-parser-xml-toolcall.h` for `xml_tool_call_format` struct changes
+2. **Review Parsing Logic**: Check `llama.cpp/common/chat-parser-xml-toolcall.cpp` for parsing algorithm updates
+3. **Review Format Presets**: Check `llama.cpp/common/chat-parser.cpp` for new XML format presets (search for `xml_tool_call_format form`)
+4. **Review Model Lists**: Check `llama.cpp/common/chat.h` for `COMMON_CHAT_FORMAT_*` enum values that use XML parsing:
+   - `COMMON_CHAT_FORMAT_GLM_4_5`
+   - `COMMON_CHAT_FORMAT_MINIMAX_M2`
+   - `COMMON_CHAT_FORMAT_KIMI_K2`
+   - `COMMON_CHAT_FORMAT_QWEN3_CODER_XML`
+   - `COMMON_CHAT_FORMAT_APRIEL_1_5`
+   - `COMMON_CHAT_FORMAT_XIAOMI_MIMO`
+   - Any new formats added
+
+### Model Configuration Options
+
+Always check `llama.cpp` for new model configuration options that should be supported in LocalAI:
+
+1. **Check Server Context**: Review `llama.cpp/tools/server/server-context.cpp` for new parameters
+2. **Check Chat Params**: Review `llama.cpp/common/chat.h` for `common_chat_params` struct changes
+3. **Check Server Options**: Review `llama.cpp/tools/server/server.cpp` for command-line argument changes
+4. **Examples of options to check**:
+   - `ctx_shift` - Context shifting support
+   - `parallel_tool_calls` - Parallel tool calling
+   - `reasoning_format` - Reasoning format options
+   - Any new flags or parameters
+
+### Implementation Guidelines
+
+1. **Feature Parity**: Always aim for feature parity with llama.cpp's implementation
+2. **Test Coverage**: Add tests for new features matching llama.cpp's behavior
+3. **Documentation**: Update relevant documentation when adding new formats or options
+4. **Backward Compatibility**: Ensure changes don't break existing functionality
+
+### Files to Monitor
+
+- `llama.cpp/common/chat-parser-xml-toolcall.h` - Format definitions
+- `llama.cpp/common/chat-parser-xml-toolcall.cpp` - Parsing logic
+- `llama.cpp/common/chat-parser.cpp` - Format presets and model-specific handlers
+- `llama.cpp/common/chat.h` - Format enums and parameter structures
+- `llama.cpp/tools/server/server-context.cpp` - Server configuration options

@@ -154,7 +154,7 @@ async function promptDallE() {
     if (json.data && json.data.length > 0) {
       json.data.forEach((item, index) => {
         const imageContainer = document.createElement("div");
-        imageContainer.className = "mb-4 bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-lg p-2";
+        imageContainer.className = "flex flex-col";
 
         // Create image element
         const img = document.createElement("img");
@@ -166,23 +166,23 @@ async function promptDallE() {
           return; // Skip invalid items
         }
         img.alt = prompt;
-        img.className = "w-full h-auto rounded-lg mb-2";
+        img.className = "w-full h-auto rounded-lg";
         imageContainer.appendChild(img);
 
-        // Create caption container
+        // Create caption container (optional, can be collapsed or shown on hover)
         const captionDiv = document.createElement("div");
-        captionDiv.className = "mt-2 p-2 bg-[var(--color-bg-secondary)] rounded-lg";
+        captionDiv.className = "mt-2 p-2 bg-[var(--color-bg-secondary)] rounded-lg text-xs";
 
         // Prompt caption
         const promptCaption = document.createElement("p");
-        promptCaption.className = "text-xs text-[var(--color-text-primary)] mb-1.5";
+        promptCaption.className = "text-[var(--color-text-primary)] mb-1.5 break-words";
         promptCaption.innerHTML = '<strong>Prompt:</strong> ' + escapeHtml(prompt);
         captionDiv.appendChild(promptCaption);
 
         // Negative prompt if provided
         if (negativePrompt) {
           const negativeCaption = document.createElement("p");
-          negativeCaption.className = "text-xs text-[var(--color-text-secondary)] mb-1.5";
+          negativeCaption.className = "text-[var(--color-text-secondary)] mb-1.5 break-words";
           negativeCaption.innerHTML = '<strong>Negative Prompt:</strong> ' + escapeHtml(negativePrompt);
           captionDiv.appendChild(negativeCaption);
         }
