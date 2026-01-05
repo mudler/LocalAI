@@ -70,6 +70,11 @@ func generateHealingMarker(input string) string {
 	}
 }
 
+// SetHealingMarker sets a custom healing marker for testing purposes
+func (p *ChatMsgParser) SetHealingMarker(marker string) {
+	p.healingMarker = marker
+}
+
 // Input returns the input string
 func (p *ChatMsgParser) Input() string {
 	return p.input
