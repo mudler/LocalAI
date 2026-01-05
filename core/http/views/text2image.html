@@ -215,26 +215,23 @@
 
             <!-- Right Column: Image Preview -->
             <div class="flex-grow lg:w-3/4 flex flex-col min-h-0">
-                <div class="card p-3 flex flex-col flex-1 min-h-0">
-                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-3 flex-shrink-0">Generated Images</h3>
-                    <div class="relative flex-1 min-h-0 overflow-y-auto">
-                        <!-- Loading Animation -->
-                        <div id="loader" class="hidden absolute inset-0 flex items-center justify-center bg-[var(--color-bg-primary)]/80 rounded-xl z-10">
-                            <div class="text-center">
-                                <svg class="animate-spin h-10 w-10 text-[var(--color-primary)] mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                </svg>
-                                <p class="text-xs text-[var(--color-text-secondary)]">Generating image...</p>
-                            </div>
+                <div class="relative flex-1 min-h-0 overflow-y-auto">
+                    <!-- Loading Animation -->
+                    <div id="loader" class="hidden absolute inset-0 flex items-center justify-center bg-[var(--color-bg-primary)]/80 rounded-xl z-10">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 text-[var(--color-primary)] mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="text-xs text-[var(--color-text-secondary)]">Generating image...</p>
                         </div>
-                        <!-- Placeholder when no images -->
-                        <div id="result-placeholder" class="bg-[var(--color-bg-primary)]/50 border border-[#1E293B] rounded-xl p-6 min-h-[400px] flex items-center justify-center flex-shrink-0">
-                            <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
-                        </div>
-                        <!-- Results container -->
-                        <div id="result" class="space-y-4 pb-4"></div>
                     </div>
+                    <!-- Placeholder when no images -->
+                    <div id="result-placeholder" class="min-h-[400px] flex items-center justify-center flex-shrink-0">
+                        <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
+                    </div>
+                    <!-- Results container -->
+                    <div id="result" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4"></div>
                 </div>
             </div>
         </div>
