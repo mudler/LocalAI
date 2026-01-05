@@ -50,16 +50,6 @@ Standard container images do not have pre-installed models. Use these if you wan
 
 {{% /tab %}}
 
-{{% tab title="GPU Images CUDA 11" %}}
-
-| Description | Quay | Docker Hub                                                  |
-| --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-nvidia-cuda-11` | `localai/localai:master-gpu-nvidia-cuda-11`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-nvidia-cuda-11` | `localai/localai:latest-gpu-nvidia-cuda-11`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-nvidia-cuda-11` | `localai/localai:{{< version >}}-gpu-nvidia-cuda-11`             |
-
-{{% /tab %}}
-
 {{% tab title="GPU Images CUDA 12" %}}
 
 | Description | Quay | Docker Hub                                                  |
@@ -169,11 +159,9 @@ services:
     image: localai/localai:latest-aio-cpu
     # For a specific version:
     # image: localai/localai:{{< version >}}-aio-cpu
-    # For Nvidia GPUs decomment one of the following (cuda11, cuda12, or cuda13):
-    # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-11
+    # For Nvidia GPUs decomment one of the following (cuda12 or cuda13):
     # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-12
     # image: localai/localai:{{< version >}}-aio-gpu-nvidia-cuda-13
-    # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-13
     healthcheck:
@@ -225,7 +213,6 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/models localai/lo
 | --- | --- |-----------------------------------------------|
 | Latest images for CPU | `quay.io/go-skynet/local-ai:latest-aio-cpu` | `localai/localai:latest-aio-cpu`                      |
 | Versioned image (e.g. for CPU) | `quay.io/go-skynet/local-ai:{{< version >}}-aio-cpu` | `localai/localai:{{< version >}}-aio-cpu`             |
-| Latest images for Nvidia GPU (CUDA11) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-11` | `localai/localai:latest-aio-gpu-nvidia-cuda-11`                      |
 | Latest images for Nvidia GPU (CUDA12) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12` | `localai/localai:latest-aio-gpu-nvidia-cuda-12`                      |
 | Latest images for Nvidia GPU (CUDA13) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-13` | `localai/localai:latest-aio-gpu-nvidia-cuda-13`                      |
 | Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-hipblas` | `localai/localai:latest-aio-gpu-hipblas`                      |

@@ -65,7 +65,7 @@ The backend system provides language-specific Dockerfiles that handle the build 
 ## Hardware Acceleration Support
 
 ### CUDA (NVIDIA)
-- **Versions**: CUDA 11.x, 12.x
+- **Versions**: CUDA 12.x, 13.x
 - **Features**: cuBLAS, cuDNN, TensorRT optimization
 - **Targets**: x86_64, ARM64 (Jetson)
 
@@ -132,8 +132,7 @@ For ARM64/Mac builds, docker can't be used, and the makefile in the respective b
 ### Build Types
 
 - **`cpu`**: CPU-only optimization
-- **`cublas11`**: CUDA 11.x with cuBLAS
-- **`cublas12`**: CUDA 12.x with cuBLAS
+- **`cublas12`**, **`cublas13`**: CUDA 12.x, 13.x with cuBLAS
 - **`hipblas`**: ROCm with rocBLAS
 - **`intel`**: Intel oneAPI optimization
 - **`vulkan`**: Vulkan-based acceleration
