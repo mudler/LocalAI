@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/mudler/LocalAI/main/schemas/gallery.model.schema.json",
+  "title": "LocalAI Gallery Model Spec",
+  "description": "Schema for LocalAI gallery model YAML files",
+  "type": "object",
+
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Model name"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the model"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Optional icon reference or URL"
+    },
+    "license": {
+      "type": "string",
+      "description": "Model license identifier or text"
+    },
+    "urls": {
+      "type": "array",
+      "description": "URLs pointing to remote model configuration",
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "config_file": {
+      "type": "string",
+      "description": "Inline YAML configuration that will be written to the model config file"
+    },
+    "files": {
+      "type": "array",
+      "description": "Files to download and install for this model",
+      "items": {
+        "type": "object",
+        "required": ["filename", "uri"],
+        "properties": {
+          "filename": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string",
+            "description": "Optional SHA256 checksum for file verification"
+          },
+          "uri": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "prompt_templates": {
+      "type": "array",
+      "description": "Prompt templates written as .tmpl files",
+      "items": {
+        "type": "object",
+        "required": ["name", "content"],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+
+  "additionalProperties": false
+}
