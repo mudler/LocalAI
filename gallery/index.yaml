@@ -1,4 +1,40 @@
 ---
+- name: "llama-3.3-8b-instruct-128k_abliterated-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-8B-Instruct-128K_Abliterated-i1-GGUF
+  description: |
+    The **Llama-3.3-8B-Instruct-128K_Abliterated** is a variant of Meta's Llama 3.3 8B Instruct model, optimized for safety and performance. It retains the full 128K context window while removing safety guardrails through **orthogonalization**. This makes it more "open" and less constrained, similar to the original model but with reduced risk of refusal mechanisms.
+
+    Key features:
+      - **Base Model:** Meta Llama 3.3 8B Instruct (128K variant)
+      - **Size:** 8B parameters
+      - **Context:** 128K tokens
+      - **License:** Llama 3 Community License
+      - **Method:** Orthogonalization-based abliteration (removes safety mechanisms)
+      - **KL Divergence:** <0.005 (very close to the original model)
+      - **Refusals:** ~5% (lower than original)
+
+    This model balances safety and capability, offering a practical alternative to the original while preserving most of its knowledge and functionality.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.3-8B-Instruct-128K_Abliterated.i1-Q4_K_M.gguf
+    name: Llama-3.3-8B-Instruct-128K_Abliterated-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.3-8B-Instruct-128K_Abliterated-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.3-8B-Instruct-128K_Abliterated.i1-Q4_K_M.gguf
+      sha256: 30f1cd87397ec2a24b3b41cc172d86114874d9c4e76148640de945238856aacf
+      uri: https://huggingface.co/mradermacher/Llama-3.3-8B-Instruct-128K_Abliterated-i1-GGUF/resolve/main/Llama-3.3-8B-Instruct-128K_Abliterated.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
