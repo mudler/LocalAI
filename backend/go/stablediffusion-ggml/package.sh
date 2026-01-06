@@ -6,8 +6,7 @@
 set -e
 
 CURDIR=$(dirname "$(realpath $0)")
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="${SCRIPT_DIR}/../../.."
+REPO_ROOT="${CURDIR}/../../.."
 
 # Create lib directory
 mkdir -p $CURDIR/package/lib

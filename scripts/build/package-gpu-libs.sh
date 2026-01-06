@@ -44,7 +44,7 @@ package_cuda_libs() {
 
     local cuda_lib_paths=(
         "/usr/local/cuda/lib64"
-        "/usr/local/cuda-${CUDA_MAJOR_VERSION}/lib64"
+        "/usr/local/cuda-${CUDA_MAJOR_VERSION:-}/lib64"
         "/usr/lib/x86_64-linux-gnu"
         "/usr/lib/aarch64-linux-gnu"
     )
