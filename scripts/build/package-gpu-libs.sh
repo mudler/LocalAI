@@ -1,0 +1,269 @@
+#!/bin/bash
+# Script to package GPU libraries based on BUILD_TYPE
+# This script copies GPU-specific runtime libraries to a target lib directory
+# so backends can run in isolation with their own GPU libraries.
+#
+# Usage: source package-gpu-libs.sh TARGET_LIB_DIR
+#        package_gpu_libs
+#
+# Environment variables:
+#   BUILD_TYPE - The GPU build type (cublas, l4t, hipblas, sycl_f16, sycl_f32, intel, vulkan)
+#   CUDA_MAJOR_VERSION - CUDA major version (for cublas/l4t builds)
+#
+# This enables backends to be fully self-contained and run on a unified base image
+# without requiring GPU drivers to be pre-installed in the host image.
+
+set -e
+
+TARGET_LIB_DIR="${1:-./lib}"
+
+# Create target directory if it doesn't exist
+mkdir -p "$TARGET_LIB_DIR"
+
+# Helper function to copy library and follow symlinks
+copy_lib() {
+    local src="$1"
+    if [ -e "$src" ]; then
+        cp -arfLv "$src" "$TARGET_LIB_DIR/" 2>/dev/null || true
+    fi
+}
+
+# Helper function to copy all matching libraries from a glob pattern
+copy_libs_glob() {
+    local pattern="$1"
+    for lib in $pattern; do
+        if [ -e "$lib" ]; then
+            copy_lib "$lib"
+        fi
+    done
+}
+
+# Package NVIDIA CUDA libraries
+package_cuda_libs() {
+    echo "Packaging CUDA libraries for BUILD_TYPE=${BUILD_TYPE}..."
+
+    local cuda_lib_paths=(
+        "/usr/local/cuda/lib64"
+        "/usr/local/cuda-${CUDA_MAJOR_VERSION}/lib64"
+        "/usr/lib/x86_64-linux-gnu"
+        "/usr/lib/aarch64-linux-gnu"
+    )
+
+    # Core CUDA runtime libraries
+    local cuda_libs=(
+        "libcudart.so*"
+        "libcublas.so*"
+        "libcublasLt.so*"
+        "libcufft.so*"
+        "libcurand.so*"
+        "libcusparse.so*"
+        "libcusolver.so*"
+        "libnvrtc.so*"
+        "libnvrtc-builtins.so*"
+        "libcudnn.so*"
+        "libcudnn_ops.so*"
+        "libcudnn_cnn.so*"
+        "libnvJitLink.so*"
+        "libnvinfer.so*"
+        "libnvonnxparser.so*"
+    )
+
+    for lib_path in "${cuda_lib_paths[@]}"; do
+        if [ -d "$lib_path" ]; then
+            for lib_pattern in "${cuda_libs[@]}"; do
+                copy_libs_glob "${lib_path}/${lib_pattern}"
+            done
+        fi
+    done
+
+    # Copy CUDA target directory for runtime compilation support
+    if [ -d "/usr/local/cuda/targets" ]; then
+        mkdir -p "$TARGET_LIB_DIR/../cuda"
+        cp -arfL /usr/local/cuda/targets "$TARGET_LIB_DIR/../cuda/" 2>/dev/null || true
+    fi
+
+    echo "CUDA libraries packaged successfully"
+}
+
+# Package AMD ROCm/HIPBlas libraries
+package_rocm_libs() {
+    echo "Packaging ROCm/HIPBlas libraries for BUILD_TYPE=${BUILD_TYPE}..."
+
+    local rocm_lib_paths=(
+        "/opt/rocm/lib"
+        "/opt/rocm/lib64"
+        "/opt/rocm/hip/lib"
+    )
+
+    # Find the actual ROCm versioned directory
+    for rocm_dir in /opt/rocm-*; do
+        if [ -d "$rocm_dir/lib" ]; then
+            rocm_lib_paths+=("$rocm_dir/lib")
+        fi
+    done
+
+    # Core ROCm/HIP runtime libraries
+    local rocm_libs=(
+        "libamdhip64.so*"
+        "libhipblas.so*"
+        "librocblas.so*"
+        "librocrand.so*"
+        "librocsparse.so*"
+        "librocsolver.so*"
+        "librocfft.so*"
+        "libMIOpen.so*"
+        "libroctx64.so*"
+        "libhsa-runtime64.so*"
+        "libamd_comgr.so*"
+        "libhip_hcc.so*"
+        "libhiprtc.so*"
+    )
+
+    for lib_path in "${rocm_lib_paths[@]}"; do
+        if [ -d "$lib_path" ]; then
+            for lib_pattern in "${rocm_libs[@]}"; do
+                copy_libs_glob "${lib_path}/${lib_pattern}"
+            done
+        fi
+    done
+
+    # Copy rocblas library data (tuning files, etc.)
+    for rocm_base in /opt/rocm /opt/rocm-*; do
+        if [ -d "$rocm_base/lib/rocblas" ]; then
+            mkdir -p "$TARGET_LIB_DIR/rocblas"
+            cp -arfL "$rocm_base/lib/rocblas/"* "$TARGET_LIB_DIR/rocblas/" 2>/dev/null || true
+        fi
+    done
+
+    # Copy libomp from LLVM (required for ROCm)
+    for omp_path in /opt/rocm*/lib/llvm/lib/libomp.so*; do
+        if [ -e "$omp_path" ]; then
+            copy_lib "$omp_path"
+        fi
+    done
+
+    echo "ROCm libraries packaged successfully"
+}
+
+# Package Intel oneAPI/SYCL libraries
+package_intel_libs() {
+    echo "Packaging Intel oneAPI/SYCL libraries for BUILD_TYPE=${BUILD_TYPE}..."
+
+    local intel_lib_paths=(
+        "/opt/intel/oneapi/compiler/latest/lib"
+        "/opt/intel/oneapi/mkl/latest/lib/intel64"
+        "/opt/intel/oneapi/tbb/latest/lib/intel64/gcc4.8"
+    )
+
+    # Core Intel oneAPI runtime libraries
+    local intel_libs=(
+        "libsycl.so*"
+        "libOpenCL.so*"
+        "libmkl_core.so*"
+        "libmkl_intel_lp64.so*"
+        "libmkl_intel_thread.so*"
+        "libmkl_sequential.so*"
+        "libmkl_sycl.so*"
+        "libiomp5.so*"
+        "libsvml.so*"
+        "libirng.so*"
+        "libimf.so*"
+        "libintlc.so*"
+        "libtbb.so*"
+        "libtbbmalloc.so*"
+        "libpi_level_zero.so*"
+        "libpi_opencl.so*"
+        "libze_loader.so*"
+    )
+
+    for lib_path in "${intel_lib_paths[@]}"; do
+        if [ -d "$lib_path" ]; then
+            for lib_pattern in "${intel_libs[@]}"; do
+                copy_libs_glob "${lib_path}/${lib_pattern}"
+            done
+        fi
+    done
+
+    echo "Intel oneAPI libraries packaged successfully"
+}
+
+# Package Vulkan libraries
+package_vulkan_libs() {
+    echo "Packaging Vulkan libraries for BUILD_TYPE=${BUILD_TYPE}..."
+
+    local vulkan_lib_paths=(
+        "/usr/lib/x86_64-linux-gnu"
+        "/usr/lib/aarch64-linux-gnu"
+        "/usr/local/lib"
+    )
+
+    # Core Vulkan runtime libraries
+    local vulkan_libs=(
+        "libvulkan.so*"
+        "libshaderc_shared.so*"
+        "libSPIRV.so*"
+        "libSPIRV-Tools.so*"
+        "libglslang.so*"
+    )
+
+    for lib_path in "${vulkan_lib_paths[@]}"; do
+        if [ -d "$lib_path" ]; then
+            for lib_pattern in "${vulkan_libs[@]}"; do
+                copy_libs_glob "${lib_path}/${lib_pattern}"
+            done
+        fi
+    done
+
+    # Copy Vulkan ICD files
+    if [ -d "/usr/share/vulkan/icd.d" ]; then
+        mkdir -p "$TARGET_LIB_DIR/../vulkan/icd.d"
+        cp -arfL /usr/share/vulkan/icd.d/* "$TARGET_LIB_DIR/../vulkan/icd.d/" 2>/dev/null || true
+    fi
+
+    echo "Vulkan libraries packaged successfully"
+}
+
+# Main function to package GPU libraries based on BUILD_TYPE
+package_gpu_libs() {
+    local build_type="${BUILD_TYPE:-}"
+
+    echo "Packaging GPU libraries for BUILD_TYPE=${build_type}..."
+
+    case "$build_type" in
+        cublas|l4t)
+            package_cuda_libs
+            ;;
+        hipblas)
+            package_rocm_libs
+            ;;
+        sycl_f16|sycl_f32|intel)
+            package_intel_libs
+            ;;
+        vulkan)
+            package_vulkan_libs
+            ;;
+        ""|cpu)
+            echo "No GPU libraries to package for BUILD_TYPE=${build_type}"
+            ;;
+        *)
+            echo "Unknown BUILD_TYPE: ${build_type}, skipping GPU library packaging"
+            ;;
+    esac
+
+    echo "GPU library packaging complete. Contents of ${TARGET_LIB_DIR}:"
+    ls -la "$TARGET_LIB_DIR/" 2>/dev/null || echo "  (empty or not created)"
+}
+
+# Export the function so it can be sourced and called
+export -f package_gpu_libs
+export -f copy_lib
+export -f copy_libs_glob
+export -f package_cuda_libs
+export -f package_rocm_libs
+export -f package_intel_libs
+export -f package_vulkan_libs
+
+# If script is run directly (not sourced), execute the packaging
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    package_gpu_libs
+fi

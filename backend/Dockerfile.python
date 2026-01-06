@@ -174,8 +174,14 @@ EOT
 COPY backend/python/${BACKEND} /${BACKEND}
 COPY backend/backend.proto /${BACKEND}/backend.proto
 COPY backend/python/common/ /${BACKEND}/common
+COPY scripts/build/package-gpu-libs.sh /package-gpu-libs.sh
 
 RUN cd /${BACKEND} && PORTABLE_PYTHON=true make
+
+# Package GPU libraries into the backend's lib directory
+RUN mkdir -p /${BACKEND}/lib && \
+    TARGET_LIB_DIR="/${BACKEND}/lib" BUILD_TYPE="${BUILD_TYPE}" CUDA_MAJOR_VERSION="${CUDA_MAJOR_VERSION}" \
+    bash /package-gpu-libs.sh "/${BACKEND}/lib"
 
 FROM scratch
 ARG BACKEND=rerankers
