@@ -1,4 +1,29 @@
 ---
+- name: "qwen2.5-3b-instruct-reticent-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-3B-Instruct-Reticent-i1-GGUF
+  description: |
+    The model `mradermacher/Qwen2.5-3B-Instruct-Reticent-i1-GGUF` is a quantized version of the base model `Firworks/Qwen2.5-3B-Instruct-Reticent`. It is optimized for efficiency with various quantization levels (e.g., IQ1_S, IQ2_S, IQ4_K_M) and is designed to balance performance and accuracy. The quantized files are available in GGUF format, with sizes ranging from 0.1 GB to 2.6 GB, and are suitable for tasks requiring low memory usage. The model is "reticent," meaning it prioritizes simplicity and efficiency over complexity, making it ideal for resource-constrained environments. For detailed usage instructions, refer to the [model page](https://hf.tst.eu/model#Qwen2.5-3B-Instruct-Reticent-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-3B-Instruct-Reticent.i1-Q4_K_M.gguf
+    name: Qwen2.5-3B-Instruct-Reticent-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-3B-Instruct-Reticent-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-3B-Instruct-Reticent.i1-Q4_K_M.gguf
+      sha256: 2f35b00ad7f72411aaffcf36480c15210b6246c2192f3b535fdcb95752fd5723
+      uri: https://huggingface.co/mradermacher/Qwen2.5-3B-Instruct-Reticent-i1-GGUF/resolve/main/Qwen2.5-3B-Instruct-Reticent.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
