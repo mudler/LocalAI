@@ -11,17 +11,18 @@ import (
 type Message struct {
 	// The message role
 	Role string `json:"role,omitempty" yaml:"role"`
-
 	// The message name (used for tools calls)
 	Name string `json:"name,omitempty" yaml:"name"`
 
 	// The message content
 	Content interface{} `json:"content" yaml:"content"`
 
-	StringContent string   `json:"string_content,omitempty" yaml:"string_content,omitempty"`
-	StringImages  []string `json:"string_images,omitempty" yaml:"string_images,omitempty"`
-	StringVideos  []string `json:"string_videos,omitempty" yaml:"string_videos,omitempty"`
-	StringAudios  []string `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
+	// Annotations for citations
+	Annotations   []Annotation `json:"annotations,omitempty"`
+	StringContent string       `json:"string_content,omitempty" yaml:"string_content,omitempty"`
+	StringImages  []string     `json:"string_images,omitempty" yaml:"string_images,omitempty"`
+	StringVideos  []string     `json:"string_videos,omitempty" yaml:"string_videos,omitempty"`
+	StringAudios  []string     `json:"string_audios,omitempty" yaml:"string_audios,omitempty"`
 
 	// A result of a function call
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`

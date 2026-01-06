@@ -6,6 +6,33 @@ import (
 	functions "github.com/mudler/LocalAI/pkg/functions"
 )
 
+type ApproximateLocation struct {
+	Country string `json:"country,omitempty"`
+	City    string `json:"city,omitempty"`
+	Region  string `json:"region,omitempty"`
+}
+
+type UserLocation struct {
+	Type        string               `json:"type,omitempty"`
+	Approximate *ApproximateLocation `json:"approximate,omitempty"`
+}
+
+type WebSearchOptions struct {
+	UserLocation *UserLocation `json:"user_location,omitempty"`
+}
+
+type UrlCitation struct {
+	EndIndex   int    `json:"end_index,omitempty"`
+	StartIndex int    `json:"start_index,omitempty"`
+	Title      string `json:"title,omitempty"`
+	URL        string `json:"url,omitempty"`
+}
+
+type Annotation struct {
+	Type        string       `json:"type,omitempty"`
+	UrlCitation *UrlCitation `json:"url_citation,omitempty"`
+}
+
 // APIError provides error information returned by the OpenAI API.
 type APIError struct {
 	Code    any     `json:"code,omitempty"`
@@ -149,6 +176,9 @@ type OpenAIRequest struct {
 
 	// Messages is read only by chat/completion API calls
 	Messages []Message `json:"messages" yaml:"messages"`
+
+	// WebSearchOptions for Deep Research
+	WebSearchOptions *WebSearchOptions `json:"web_search_options,omitempty"`
 
 	// A list of available functions to call
 	Functions    functions.Functions `json:"functions" yaml:"functions"`
