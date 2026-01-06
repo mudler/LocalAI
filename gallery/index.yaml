@@ -1,4 +1,29 @@
 ---
+- name: "summorchestra-qwen3-8b-grpo-brlp-samsum-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM-i1-GGUF
+  description: |
+    This is a quantized version of the Qwen3-8B large language model, optimized for efficient inference and deployment. It is designed for tasks like summarization and is available in multiple quantization levels (e.g., IQ1_S, IQ1_M, IQ2_XXS, etc.), each tailored for different performance and accuracy trade-offs. The model is hosted on Hugging Face and can be downloaded in various formats (GGUF) for use in applications requiring low-resource deployment. It leverages the Qwen3-8B base model with additional optimizations for specific tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM.i1-Q4_K_M.gguf
+    name: SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM.i1-Q4_K_M.gguf
+      sha256: 81f26a0ec011c7361aca6a5d972a0cc3967e298f197413c3e23ae095762b11c6
+      uri: https://huggingface.co/mradermacher/SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM-i1-GGUF/resolve/main/SummOrchestra-Qwen3-8B-GRPO-BRLP-SAMSUM.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
