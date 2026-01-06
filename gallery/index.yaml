@@ -1,4 +1,36 @@
 ---
+- name: "gemma-3-12b-it-mpoa-v2-12b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gemma-3-12b-it-MPOA-v2-12B-i1-GGUF
+  description: |
+    This model is a large language model (LLM) based on the **Gemma-3-12B** series, designed for vision tasks. It uses **mmproj** (a vision transformer variant) and is quantized into GGUF format for efficient deployment. The base model is **grimjim/gemma-3-12b-it-MPOA-v2-12B**, and the quantized versions are available in the [static repository](https://huggingface.co/mradermacher/gemma-3-12b-it-MPOA-v2-12B-GGUF). Key features include:
+
+      - **Vision capability**: Designed for visual tasks, with mmproj files in the static repo.
+      - **Quantized GGUF**: Offers efficient deployment with various quantization levels (e.g., i1-Q4_K_M, i1-Q6_K) for trade-offs between size, speed, and quality.
+      - **Customizable quantization**: Supports multiple quantization schemes (IQ3, Q2, Q4) for tailored performance.
+      - **Community support**: Built on the **Gemma** series, leveraging contributions from **nicoboss** and **nethype GmbH**.
+
+    For gallery use, highlight its vision focus, quantization options, and compatibility with GGUF format.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-12b-it-MPOA-v2-12B.i1-Q4_K_M.gguf
+    name: gemma-3-12b-it-MPOA-v2-12B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gemma-3-12b-it-MPOA-v2-12B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-12b-it-MPOA-v2-12B.i1-Q4_K_M.gguf
+      sha256: edbf7ba8742d7192b100b170a93f385cf58073e1e2a6be58a01be0058ead8951
+      uri: https://huggingface.co/mradermacher/gemma-3-12b-it-MPOA-v2-12B-i1-GGUF/resolve/main/gemma-3-12b-it-MPOA-v2-12B.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
