@@ -1,4 +1,29 @@
 ---
+- name: "miromind-ai.mirothinker-v1.5-30b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/DevQuasar/miromind-ai.MiroThinker-v1.5-30B-GGUF
+  description: |
+    The model, **miromind-ai/MiroThinker-v1.5-30B**, is a large language model designed for **text-generation** tasks. It is a quantized version of the base model **miromind-ai/MiroThinker-v1.5-30B**, optimized for efficiency while retaining strong performance. It is suitable for applications requiring high-quality, context-aware text generation. For more details, see the original model's README [here](https://huggingface.co/miromind-ai/MiroThinker-v1.5-30B).
+  overrides:
+    parameters:
+      model: llama-cpp/models/miromind-ai.MiroThinker-v1.5-30B.Q4_K_M.gguf
+    name: miromind-ai.MiroThinker-v1.5-30B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/DevQuasar/miromind-ai.MiroThinker-v1.5-30B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/miromind-ai.MiroThinker-v1.5-30B.Q4_K_M.gguf
+      sha256: 103b15b39366938bc673e228b73b41369a2d30a3a6c8918af02322847f71ed07
+      uri: https://huggingface.co/DevQuasar/miromind-ai.MiroThinker-v1.5-30B-GGUF/resolve/main/miromind-ai.MiroThinker-v1.5-30B.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
