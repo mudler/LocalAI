@@ -1,4 +1,29 @@
 ---
+- name: "gemma3-270m-sft-basic-lora64-v2-20260106-160832"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Christoferson/gemma3-270m-sft-basic-lora64-V2-20260106-160832-GGUF
+  description: |
+    This model is a fine-tuned version of the original Gemma3-270M (270 million parameters) language model, optimized for GGUF format using Unsloth. It incorporates LoRA64 (Low-Rank Adaptation) for efficient training. The model is designed for text-only tasks and is compatible with the Llama.cpp framework. It includes GGUF files for deployment, with support for different quantization levels (F16, Q5_K_M, Q8_0, Q4_K_M). The model was trained with unsloth for speed and efficiency.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-270m-it.Q4_K_M.gguf
+    name: gemma3-270m-sft-basic-lora64-V2-20260106-160832-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Christoferson/gemma3-270m-sft-basic-lora64-V2-20260106-160832-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-270m-it.Q4_K_M.gguf
+      sha256: 7892212285f7d7576c9c1cee5961c5b501270b59ed39014c9bf2d65630348b93
+      uri: https://huggingface.co/Christoferson/gemma3-270m-sft-basic-lora64-V2-20260106-160832-GGUF/resolve/main/gemma-3-270m-it.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
