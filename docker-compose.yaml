@@ -11,7 +11,7 @@ services:
       dockerfile: Dockerfile
       args:
       - IMAGE_TYPE=core
-      - BASE_IMAGE=ubuntu:22.04
+      - BASE_IMAGE=ubuntu:24.04
     ports:
       - 8080:8080
     env_file:

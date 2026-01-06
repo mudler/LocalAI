@@ -23,7 +23,7 @@ on:
         type: string
       cuda-minor-version:
         description: 'CUDA minor version'
-        default: "4"
+        default: "9"
         type: string
       platforms:
         description: 'Platforms'
@@ -60,6 +60,11 @@ on:
         description: 'Ubuntu version'
         required: false
         default: '2204'
+        type: string
+      ubuntu-codename:
+        description: 'Ubuntu codename'
+        required: false
+        default: 'noble'
         type: string
     secrets:
       dockerUsername:
@@ -244,6 +249,7 @@ jobs:
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
@@ -272,6 +278,7 @@ jobs:
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha

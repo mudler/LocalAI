@@ -1,6 +1,7 @@
-ARG BASE_IMAGE=ubuntu:22.04
+ARG BASE_IMAGE=ubuntu:24.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
+ARG UBUNTU_CODENAME=noble
 
 FROM ${BASE_IMAGE} AS requirements
 
@@ -9,7 +10,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         ca-certificates curl wget espeak-ng libgomp1 \
-        ffmpeg && \
+        ffmpeg libopenblas0 libopenblas-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -23,7 +24,7 @@ ARG SKIP_DRIVERS=false
 ARG TARGETARCH
 ARG TARGETVARIANT
 ENV BUILD_TYPE=${BUILD_TYPE}
-ARG UBUNTU_VERSION=2204
+ARG UBUNTU_VERSION=2404
 
 RUN mkdir -p /run/localai
 RUN echo "default" > /run/localai/capability
@@ -34,11 +35,30 @@ RUN <<EOT bash
         apt-get update && \
         apt-get install -y  --no-install-recommends \
             software-properties-common pciutils wget gpg-agent && \
-        wget -qO - https://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add - && \
-        wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list && \
-        apt-get update && \
-        apt-get install -y \
-            vulkan-sdk && \
+        apt-get install -y libglm-dev cmake libxcb-dri3-0 libxcb-present0 libpciaccess0 \
+            libpng-dev libxcb-keysyms1-dev libxcb-dri3-dev libx11-dev g++ gcc \
+            libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
+            git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
+            ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
+            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils mesa-vulkan-drivers && \
+        wget "https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz" && \
+        tar -xf vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
+        rm vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
+        mkdir -p /opt/vulkan-sdk && \
+        mv 1.4.328.1 /opt/vulkan-sdk/ && \
+        cd /opt/vulkan-sdk/1.4.328.1 && \
+        ./vulkansdk --no-deps --maxjobs \
+            vulkan-loader \
+            vulkan-validationlayers \
+            vulkan-extensionlayer \
+            vulkan-tools \
+            shaderc && \
+        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/bin/* /usr/bin/ && \
+        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
+        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/include/* /usr/include/ && \
+        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/share/* /usr/share/ && \
+        rm -rf /opt/vulkan-sdk && \
+        ldconfig && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
         echo "vulkan" > /run/localai/capability
@@ -71,7 +91,7 @@ RUN <<EOT bash
             libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
             libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
-        if [ "${CUDA_MAJOR_VERSION}" = "13" ] && [ "arm64" = "$TARGETARCH" ]; then
+        if [ "arm64" = "$TARGETARCH" ]; then
             apt-get install -y --no-install-recommends \
             libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
         fi
@@ -141,12 +161,11 @@ ENV PATH=/opt/rocm/bin:${PATH}
 # The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
 FROM requirements-drivers AS build-requirements
 
-ARG GO_VERSION=1.22.6
+ARG GO_VERSION=1.25.4
 ARG CMAKE_VERSION=3.31.10
 ARG CMAKE_FROM_SOURCE=false
 ARG TARGETARCH
 ARG TARGETVARIANT
-
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -206,7 +225,7 @@ WORKDIR /build
 FROM ${INTEL_BASE_IMAGE} AS intel
 RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu jammy/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         intel-oneapi-runtime-libs && \

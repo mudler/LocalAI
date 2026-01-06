@@ -1,5 +1,5 @@
---extra-index-url https://download.pytorch.org/whl/rocm6.3
-torch==2.8.0+rocm6.3
+--extra-index-url https://download.pytorch.org/whl/rocm6.4
+torch==2.8.0+rocm6.4
 transformers==4.56.1
 accelerate
 librosa==0.11.0

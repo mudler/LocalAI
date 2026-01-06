@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 
+#
 # use the library by adding the following line to a script:
 # source $(dirname $0)/../common/libbackend.sh
 #
@@ -206,8 +206,8 @@ function init() {
 
 # getBuildProfile will inspect the system to determine which build profile is appropriate:
 # returns one of the following:
-# - cublas11
 # - cublas12
+# - cublas13
 # - hipblas
 # - intel
 function getBuildProfile() {
@@ -392,7 +392,7 @@ function runProtogen() {
 #  - requirements-${BUILD_TYPE}.txt
 #  - requirements-${BUILD_PROFILE}.txt
 #
-# BUILD_PROFILE is a more specific version of BUILD_TYPE, ex: cuda-11 or cuda-12
+# BUILD_PROFILE is a more specific version of BUILD_TYPE, ex: cuda-12 or cuda-13
 # it can also include some options that we do not have BUILD_TYPES for, ex: intel
 #
 # NOTE: for BUILD_PROFILE==intel, this function does NOT automatically use the Intel python package index.

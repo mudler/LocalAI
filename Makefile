@@ -1,3 +1,6 @@
+# Disable parallel execution for backend builds
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm
+
 GOCMD=go
 GOTEST=$(GOCMD) test
 GOVET=$(GOCMD) vet
@@ -7,10 +10,13 @@ LAUNCHER_BINARY_NAME=local-ai-launcher
 CUDA_MAJOR_VERSION?=13
 CUDA_MINOR_VERSION?=0
 UBUNTU_VERSION?=2204
+UBUNTU_CODENAME?=noble
 
 GORELEASER?=
 
 export BUILD_TYPE?=
+export CUDA_MAJOR_VERSION?=12
+export CUDA_MINOR_VERSION?=9
 
 GO_TAGS?=
 BUILD_ID?=
@@ -164,6 +170,7 @@ docker-build-aio:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		-t local-ai:tests -f Dockerfile .
 	BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test $(MAKE) docker-aio
@@ -194,6 +201,7 @@ prepare-e2e:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		-t localai-tests .
@@ -318,7 +326,7 @@ test-extra: prepare-test-extra
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
 IMAGE_TYPE?=core
-BASE_IMAGE?=ubuntu:22.04
+BASE_IMAGE?=ubuntu:24.04
 
 docker:
 	docker build \
@@ -330,19 +338,21 @@ docker:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE) .
 
-docker-cuda11:
+docker-cuda12:
 	docker build \
-		--build-arg CUDA_MAJOR_VERSION=11 \
-		--build-arg CUDA_MINOR_VERSION=8 \
+		--build-arg CUDA_MAJOR_VERSION=${CUDA_MAJOR_VERSION} \
+		--build-arg CUDA_MINOR_VERSION=${CUDA_MINOR_VERSION} \
 		--build-arg BASE_IMAGE=$(BASE_IMAGE) \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
-		-t $(DOCKER_IMAGE)-cuda-11 .
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
+		-t $(DOCKER_IMAGE)-cuda-12 .
 
 docker-aio:
 	@echo "Building AIO image with base $(BASE_IMAGE) as $(DOCKER_AIO_IMAGE)"
@@ -352,6 +362,7 @@ docker-aio:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
 
 docker-aio-all:
@@ -360,7 +371,7 @@ docker-aio-all:
 
 docker-image-intel:
 	docker build \
-		--build-arg BASE_IMAGE=quay.io/go-skynet/intel-oneapi-base:latest \
+		--build-arg BASE_IMAGE=intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04 \
 		--build-arg IMAGE_TYPE=$(IMAGE_TYPE) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
@@ -368,6 +379,7 @@ docker-image-intel:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE) .
 
 ########################################################
@@ -453,6 +465,7 @@ define docker-build-backend
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef

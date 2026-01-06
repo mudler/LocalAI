@@ -152,9 +152,6 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gp
 # CUDA 12.0
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 
-# CUDA 11.7
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
-
 # NVIDIA Jetson (L4T) ARM64
 # CUDA 12 (for Nvidia AGX Orin and similar platforms)
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64
@@ -192,9 +189,6 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-ai
 
 # NVIDIA CUDA 12 version
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-
-# NVIDIA CUDA 11 version
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
 
 # Intel GPU version
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
@@ -279,9 +273,9 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 ### Text Generation & Language Models
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
-| **llama.cpp** | LLM inference in C/C++ | CUDA 11/12/13, ROCm, Intel SYCL, Vulkan, Metal, CPU |
+| **llama.cpp** | LLM inference in C/C++ | CUDA 12/13, ROCm, Intel SYCL, Vulkan, Metal, CPU |
 | **vLLM** | Fast LLM inference with PagedAttention | CUDA 12/13, ROCm, Intel |
-| **transformers** | HuggingFace transformers framework | CUDA 11/12/13, ROCm, Intel, CPU |
+| **transformers** | HuggingFace transformers framework | CUDA 12/13, ROCm, Intel, CPU |
 | **exllama2** | GPTQ inference library | CUDA 12/13 |
 | **MLX** | Apple Silicon LLM inference | Metal (M1/M2/M3+) |
 | **MLX-VLM** | Apple Silicon Vision-Language Models | Metal (M1/M2/M3+) |
@@ -295,7 +289,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **bark-cpp** | C++ implementation of Bark | CUDA, Metal, CPU |
 | **coqui** | Advanced TTS with 1100+ languages | CUDA 12/13, ROCm, Intel, CPU |
 | **kokoro** | Lightweight TTS model | CUDA 12/13, ROCm, Intel, CPU |
-| **chatterbox** | Production-grade TTS | CUDA 11/12/13, CPU |
+| **chatterbox** | Production-grade TTS | CUDA 12/13, CPU |
 | **piper** | Fast neural TTS system | CPU |
 | **kitten-tts** | Kitten TTS models | CPU |
 | **silero-vad** | Voice Activity Detection | CPU |
@@ -306,13 +300,13 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
 | **stablediffusion.cpp** | Stable Diffusion in C/C++ | CUDA 12/13, Intel SYCL, Vulkan, CPU |
-| **diffusers** | HuggingFace diffusion models | CUDA 11/12/13, ROCm, Intel, Metal, CPU |
+| **diffusers** | HuggingFace diffusion models | CUDA 12/13, ROCm, Intel, Metal, CPU |
 
 ### Specialized AI Tasks
 | Backend | Description | Acceleration Support |
 |---------|-------------|---------------------|
 | **rfdetr** | Real-time object detection | CUDA 12/13, Intel, CPU |
-| **rerankers** | Document reranking API | CUDA 11/12/13, ROCm, Intel, CPU |
+| **rerankers** | Document reranking API | CUDA 12/13, ROCm, Intel, CPU |
 | **local-store** | Vector database | CPU |
 | **huggingface** | HuggingFace API integration | API-based |
 
@@ -320,7 +314,6 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 
 | Acceleration Type | Supported Backends | Hardware Support |
 |-------------------|-------------------|------------------|
-| **NVIDIA CUDA 11** | llama.cpp, whisper, stablediffusion, diffusers, rerankers, bark, chatterbox | Nvidia hardware |
 | **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
 | **NVIDIA CUDA 13** | All CUDA-compatible backends | Nvidia hardware |
 | **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice | AMD Graphics |

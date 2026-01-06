@@ -68,11 +68,6 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gp
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-12
 ```
 
-**NVIDIA CUDA 11:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gpu-nvidia-cuda-11
-```
-
 **AMD GPU (ROCm):**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
@@ -120,11 +115,6 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-ai
 **NVIDIA CUDA 12:**
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-12
-```
-
-**NVIDIA CUDA 11:**
-```bash
-docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-aio-gpu-nvidia-cuda-11
 ```
 
 **AMD GPU (ROCm):**
