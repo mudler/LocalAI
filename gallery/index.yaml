@@ -1,4 +1,36 @@
 ---
+- name: "meta-llama-3.1-70b-instruct-malaysian"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Meta-Llama-3.1-70B-Instruct-Malaysian-GGUF
+  description: |
+    The model is a quantized version of **Meta-Llama-3.1-70B-Instruct** (base model: `meta-llama/Llama-3.1-70B-Instruct`), optimized for efficiency with SFT LoRA training. Key features include:
+      - **Rank 256** linear layers with α × 2.0
+      - **16384 context length** (multipacked with 32-bit batch size)
+      - **Liger fused cross-entropy**
+      - **1e-4 learning rate** (50 warmup, 3 epochs)
+      - Quantized for deployment (e.g., Q4_K_S, Q8_0)
+
+    This version is derived from SFT LoRA training on the `Scicom-intl/Malaysian-Instructions` dataset, with source code available at [this link](https://github.com/Scicom-AI-Enterprise-Organization/small-ablation).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Meta-Llama-3.1-70B-Instruct-Malaysian.Q4_K_M.gguf
+    name: Meta-Llama-3.1-70B-Instruct-Malaysian-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Meta-Llama-3.1-70B-Instruct-Malaysian-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Meta-Llama-3.1-70B-Instruct-Malaysian.Q4_K_M.gguf
+      sha256: 314c0ffd4381049259c88e95f5ce693581d2808471fc195761bd59b96635004c
+      uri: https://huggingface.co/mradermacher/Meta-Llama-3.1-70B-Instruct-Malaysian-GGUF/resolve/main/Meta-Llama-3.1-70B-Instruct-Malaysian.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
