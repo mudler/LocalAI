@@ -61,6 +61,11 @@ on:
         required: false
         default: '2204'
         type: string
+      ubuntu-codename:
+        description: 'Ubuntu codename'
+        required: false
+        default: 'noble'
+        type: string
     secrets:
       dockerUsername:
         required: true
@@ -244,6 +249,7 @@ jobs:
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha
@@ -272,6 +278,7 @@ jobs:
             MAKEFLAGS=${{ inputs.makeflags }}
             SKIP_DRIVERS=${{ inputs.skip-drivers }}
             UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+            UBUNTU_CODENAME=${{ inputs.ubuntu-codename }}
           context: .
           file: ./Dockerfile
           cache-from: type=gha

@@ -10,6 +10,7 @@ LAUNCHER_BINARY_NAME=local-ai-launcher
 CUDA_MAJOR_VERSION?=13
 CUDA_MINOR_VERSION?=0
 UBUNTU_VERSION?=2204
+UBUNTU_CODENAME?=noble
 
 GORELEASER?=
 
@@ -169,6 +170,7 @@ docker-build-aio:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		-t local-ai:tests -f Dockerfile .
 	BASE_IMAGE=local-ai:tests DOCKER_AIO_IMAGE=local-ai-aio:test $(MAKE) docker-aio
@@ -199,6 +201,7 @@ prepare-e2e:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		--build-arg GO_TAGS="$(GO_TAGS)" \
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		-t localai-tests .
@@ -335,6 +338,7 @@ docker:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE) .
 
 docker-cuda12:
@@ -347,6 +351,7 @@ docker-cuda12:
 		--build-arg MAKEFLAGS="$(DOCKER_MAKEFLAGS)" \
 		--build-arg BUILD_TYPE=$(BUILD_TYPE) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE)-cuda-12 .
 
 docker-aio:
@@ -357,6 +362,7 @@ docker-aio:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_AIO_IMAGE) -f Dockerfile.aio .
 
 docker-aio-all:
@@ -373,6 +379,7 @@ docker-image-intel:
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		-t $(DOCKER_IMAGE) .
 
 ########################################################
@@ -458,6 +465,7 @@ define docker-build-backend
 		--build-arg CUDA_MAJOR_VERSION=$(CUDA_MAJOR_VERSION) \
 		--build-arg CUDA_MINOR_VERSION=$(CUDA_MINOR_VERSION) \
 		--build-arg UBUNTU_VERSION=$(UBUNTU_VERSION) \
+		--build-arg UBUNTU_CODENAME=$(UBUNTU_CODENAME) \
 		$(if $(filter true,$(5)),--build-arg BACKEND=$(1)) \
 		-t local-ai-backend:$(1) -f backend/Dockerfile.$(2) $(3)
 endef

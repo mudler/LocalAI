@@ -1,6 +1,7 @@
 ARG BASE_IMAGE=ubuntu:24.04
 ARG GRPC_BASE_IMAGE=${BASE_IMAGE}
 ARG INTEL_BASE_IMAGE=${BASE_IMAGE}
+ARG UBUNTU_CODENAME=noble
 
 FROM ${BASE_IMAGE} AS requirements
 
@@ -224,7 +225,7 @@ WORKDIR /build
 FROM ${INTEL_BASE_IMAGE} AS intel
 RUN wget -qO - https://repositories.intel.com/gpu/intel-graphics.key | \
 gpg --yes --dearmor --output /usr/share/keyrings/intel-graphics.gpg
-RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu noble/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
+RUN echo "deb [arch=amd64 signed-by=/usr/share/keyrings/intel-graphics.gpg] https://repositories.intel.com/gpu/ubuntu ${UBUNTU_CODENAME}/lts/2350 unified" > /etc/apt/sources.list.d/intel-graphics.list
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         intel-oneapi-runtime-libs && \
