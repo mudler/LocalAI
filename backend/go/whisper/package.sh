@@ -56,7 +56,7 @@ fi
 GPU_LIB_SCRIPT="${REPO_ROOT}/scripts/build/package-gpu-libs.sh"
 if [ -f "$GPU_LIB_SCRIPT" ]; then
     echo "Packaging GPU libraries for BUILD_TYPE=${BUILD_TYPE:-cpu}..."
-    TARGET_LIB_DIR="$CURDIR/package/lib" source "$GPU_LIB_SCRIPT" "$CURDIR/package/lib"
+    source "$GPU_LIB_SCRIPT" "$CURDIR/package/lib"
     package_gpu_libs
 fi
 

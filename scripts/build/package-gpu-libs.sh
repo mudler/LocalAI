@@ -31,7 +31,12 @@ copy_lib() {
 # Helper function to copy all matching libraries from a glob pattern
 copy_libs_glob() {
     local pattern="$1"
-    for lib in $pattern; do
+    # Use nullglob option to handle non-matching patterns gracefully
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local matched=($pattern)
+    eval "$old_nullglob"
+    for lib in "${matched[@]}"; do
         if [ -e "$lib" ]; then
             copy_lib "$lib"
         fi
@@ -128,7 +133,11 @@ package_rocm_libs() {
     done
 
     # Copy rocblas library data (tuning files, etc.)
-    for rocm_base in /opt/rocm /opt/rocm-*; do
+    local old_nullglob=$(shopt -p nullglob)
+    shopt -s nullglob
+    local rocm_dirs=(/opt/rocm /opt/rocm-*)
+    eval "$old_nullglob"
+    for rocm_base in "${rocm_dirs[@]}"; do
         if [ -d "$rocm_base/lib/rocblas" ]; then
             mkdir -p "$TARGET_LIB_DIR/rocblas"
             cp -arfL "$rocm_base/lib/rocblas/"* "$TARGET_LIB_DIR/rocblas/" 2>/dev/null || true
@@ -136,7 +145,10 @@ package_rocm_libs() {
     done
 
     # Copy libomp from LLVM (required for ROCm)
-    for omp_path in /opt/rocm*/lib/llvm/lib/libomp.so*; do
+    shopt -s nullglob
+    local omp_libs=(/opt/rocm*/lib/llvm/lib/libomp.so*)
+    eval "$old_nullglob"
+    for omp_path in "${omp_libs[@]}"; do
         if [ -e "$omp_path" ]; then
             copy_lib "$omp_path"
         fi
