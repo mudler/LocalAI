@@ -78,6 +78,20 @@ LOCALAI_IMAGE_TAG=test LOCALAI_IMAGE=local-ai-aio make run-e2e-aio
 
 We are welcome the contribution of the documents, please open new PR or create a new issue. The documentation is available under `docs/` https://github.com/mudler/LocalAI/tree/master/docs
 
+### Gallery YAML Schema
+
+LocalAI provides a JSON Schema for gallery model YAML files at:
+
+`core/schema/gallery-model.schema.json`
+
+This schema mirrors the internal gallery model configuration and can be used by editors (such as VS Code) to enable autocomplete, validation, and inline documentation when creating or modifying gallery files.
+
+To use it with the YAML language server, add the following comment at the top of a gallery YAML file:
+
+```yaml
+# yaml-language-server: $schema=../core/schema/gallery-model.schema.json
+```
+
 ## Community and Communication
 
 - You can reach out via the Github issue tracker.
