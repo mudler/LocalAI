@@ -1,4 +1,47 @@
 ---
+- name: "ucoder-mini"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/uaytug/ucoder-mini-GGUF
+  description: |
+    **uCoder Mini** is a 1.5B-parameter, Qwen2-based language model optimized for **coding and mathematical reasoning**. It excels in tasks like algorithm implementation, competitive programming (e.g., LeetCode), and problem-solving with code.
+
+    **Key Features:**
+      - **Focus**: Trained on high-quality coding/math datasets (e.g., UCDS).
+      - **Size**: 1.5B parameters, efficient for consumer GPUs.
+      - **Context**: Supports up to 4096 tokens for long code generation.
+      - **Languages**: Handles Python, JavaScript, C++, Java, and more.
+      - **Use Cases**: Algorithm challenges, debugging, and math problem solving.
+
+    **Not Suitable For**:
+      - General conversation/chat.
+      - Creative writing or non-English tasks.
+      - Production systems without human review.
+
+    **Training**: Supervised fine-tuning on curated datasets like Codeforces, Code-Contests-Plus, and OpenMathInstruct.
+
+    **Hardware**: Requires ~4GB VRAM for inference.
+
+    *Note: Not intended for general knowledge or creative tasks.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/uCoder-mini-Q4_K_M.gguf
+    name: ucoder-mini-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/uaytug/ucoder-mini-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/uCoder-mini-Q4_K_M.gguf
+      sha256: ff5a62f35b19c63ea0b821d74a6452b97d92efd709dfbfc4cdc9d98710493c42
+      uri: https://huggingface.co/uaytug/ucoder-mini-GGUF/resolve/main/uCoder-mini-Q4_K_M.gguf
 - name: "mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
