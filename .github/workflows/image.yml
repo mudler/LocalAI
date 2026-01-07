@@ -13,42 +13,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  hipblas-jobs:
-    uses: ./.github/workflows/image_build.yml
-    with:
-      tag-latest: ${{ matrix.tag-latest }}
-      tag-suffix: ${{ matrix.tag-suffix }}
-      build-type: ${{ matrix.build-type }}
-      cuda-major-version: ${{ matrix.cuda-major-version }}
-      cuda-minor-version: ${{ matrix.cuda-minor-version }}
-      platforms: ${{ matrix.platforms }}
-      runs-on: ${{ matrix.runs-on }}
-      base-image: ${{ matrix.base-image }}
-      grpc-base-image: ${{ matrix.grpc-base-image }}
-      aio: ${{ matrix.aio }}
-      makeflags: ${{ matrix.makeflags }}
-      ubuntu-version: ${{ matrix.ubuntu-version }}
-      ubuntu-codename: ${{ matrix.ubuntu-codename }}
-    secrets:
-      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
-      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
-      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-    strategy:
-      matrix:
-        include:
-          - build-type: 'hipblas'
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-hipblas'
-            base-image: "rocm/dev-ubuntu-24.04:6.4.4"
-            grpc-base-image: "ubuntu:24.04"
-            runs-on: 'ubuntu-latest'
-            makeflags: "--jobs=3 --output-sync=target"
-            aio: "-aio-gpu-hipblas"
-            ubuntu-version: '2404'
-            ubuntu-codename: 'noble'
-
+  # Unified base image build - GPU drivers are now packaged in individual backends
   core-image-build:
     uses: ./.github/workflows/image_build.yml
     with:
@@ -72,9 +37,10 @@ jobs:
       quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
       quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
     strategy:
-      #max-parallel: ${{ github.event_name != 'pull_request' && 2 || 4 }}
       matrix:
         include:
+          # Unified base image for all platforms
+          # GPU-specific backends will be pulled at runtime and contain their own GPU libraries
           - build-type: ''
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
@@ -82,104 +48,6 @@ jobs:
             base-image: "ubuntu:24.04"
             runs-on: 'ubuntu-latest'
             aio: "-aio-cpu"
-            makeflags: "--jobs=4 --output-sync=target"
-            skip-drivers: 'false'
-            ubuntu-version: '2404'
-            ubuntu-codename: 'noble'
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-12'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            makeflags: "--jobs=4 --output-sync=target"
-            aio: "-aio-gpu-nvidia-cuda-12"
-            ubuntu-version: '2404'
-            ubuntu-codename: 'noble'
-          - build-type: 'cublas'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-nvidia-cuda-13'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:22.04"
-            skip-drivers: 'false'
-            makeflags: "--jobs=4 --output-sync=target"
-            aio: "-aio-gpu-nvidia-cuda-13"
-            ubuntu-version: '2404'
-            ubuntu-codename: 'noble'
-          - build-type: 'vulkan'
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            tag-suffix: '-gpu-vulkan'
-            runs-on: 'ubuntu-latest'
-            base-image: "ubuntu:24.04"
-            skip-drivers: 'false'
-            makeflags: "--jobs=4 --output-sync=target"
-            aio: "-aio-gpu-vulkan"
-            ubuntu-version: '2404'
-            ubuntu-codename: 'noble'
-          - build-type: 'intel'
-            platforms: 'linux/amd64'
-            tag-latest: 'auto'
-            base-image: "intel/oneapi-basekit:2025.3.0-0-devel-ubuntu24.04"
-            grpc-base-image: "ubuntu:24.04"
-            tag-suffix: '-gpu-intel'
-            runs-on: 'ubuntu-latest'
-            makeflags: "--jobs=3 --output-sync=target"
-            aio: "-aio-gpu-intel"
-            ubuntu-version: '2404'
-            ubuntu-codename: 'noble'
-
-  gh-runner:
-    uses: ./.github/workflows/image_build.yml
-    with:
-      tag-latest: ${{ matrix.tag-latest }}
-      tag-suffix: ${{ matrix.tag-suffix }}
-      build-type: ${{ matrix.build-type }}
-      cuda-major-version: ${{ matrix.cuda-major-version }}
-      cuda-minor-version: ${{ matrix.cuda-minor-version }}
-      platforms: ${{ matrix.platforms }}
-      runs-on: ${{ matrix.runs-on }}
-      aio: ${{ matrix.aio }}
-      base-image: ${{ matrix.base-image }}
-      grpc-base-image: ${{ matrix.grpc-base-image }}
-      makeflags: ${{ matrix.makeflags }}
-      skip-drivers: ${{ matrix.skip-drivers }}
-      ubuntu-version: ${{ matrix.ubuntu-version }}
-      ubuntu-codename: ${{ matrix.ubuntu-codename }}
-    secrets:
-      dockerUsername: ${{ secrets.DOCKERHUB_USERNAME }}
-      dockerPassword: ${{ secrets.DOCKERHUB_PASSWORD }}
-      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
-      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
-    strategy:
-      matrix:
-        include:
-          - build-type: 'cublas'
-            cuda-major-version: "12"
-            cuda-minor-version: "9"
-            platforms: 'linux/arm64'
-            tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64'
-            base-image: "ubuntu:24.04"
-            runs-on: 'ubuntu-24.04-arm'
-            makeflags: "--jobs=4 --output-sync=target"
-            skip-drivers: 'true'
-            ubuntu-version: "2404"
-            ubuntu-codename: 'noble'
-          - build-type: 'cublas'
-            cuda-major-version: "13"
-            cuda-minor-version: "0"
-            platforms: 'linux/arm64'
-            tag-latest: 'auto'
-            tag-suffix: '-nvidia-l4t-arm64-cuda-13'
-            base-image: "ubuntu:24.04"
-            runs-on: 'ubuntu-24.04-arm'
             makeflags: "--jobs=4 --output-sync=target"
             skip-drivers: 'false'
             ubuntu-version: '2404'
