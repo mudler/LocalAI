@@ -14,7 +14,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# The requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
+# GPU drivers are no longer installed in the main image.
+# Each backend now packages its own GPU libraries (CUDA, ROCm, SYCL, Vulkan)
+# This allows for a unified base image that works with any backend.
 FROM requirements AS requirements-drivers
 
 ARG BUILD_TYPE
@@ -28,132 +30,6 @@ ARG UBUNTU_VERSION=2404
 
 RUN mkdir -p /run/localai
 RUN echo "default" > /run/localai/capability
-
-# Vulkan requirements
-RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "vulkan" ] && [ "${SKIP_DRIVERS}" = "false" ]; then
-        apt-get update && \
-        apt-get install -y  --no-install-recommends \
-            software-properties-common pciutils wget gpg-agent && \
-        apt-get install -y libglm-dev cmake libxcb-dri3-0 libxcb-present0 libpciaccess0 \
-            libpng-dev libxcb-keysyms1-dev libxcb-dri3-dev libx11-dev g++ gcc \
-            libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
-            git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
-            ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
-            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils mesa-vulkan-drivers && \
-        wget "https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz" && \
-        tar -xf vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
-        rm vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
-        mkdir -p /opt/vulkan-sdk && \
-        mv 1.4.328.1 /opt/vulkan-sdk/ && \
-        cd /opt/vulkan-sdk/1.4.328.1 && \
-        ./vulkansdk --no-deps --maxjobs \
-            vulkan-loader \
-            vulkan-validationlayers \
-            vulkan-extensionlayer \
-            vulkan-tools \
-            shaderc && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/bin/* /usr/bin/ && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/include/* /usr/include/ && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/share/* /usr/share/ && \
-        rm -rf /opt/vulkan-sdk && \
-        ldconfig && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        echo "vulkan" > /run/localai/capability
-    fi
-EOT
-
-# CuBLAS requirements
-RUN <<EOT bash
-    if ( [ "${BUILD_TYPE}" = "cublas" ] || [ "${BUILD_TYPE}" = "l4t" ] ) && [ "${SKIP_DRIVERS}" = "false" ]; then
-        apt-get update && \
-        apt-get install -y  --no-install-recommends \
-            software-properties-common pciutils
-        if [ "amd64" = "$TARGETARCH" ]; then
-            curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/x86_64/cuda-keyring_1.1-1_all.deb
-        fi
-        if [ "arm64" = "$TARGETARCH" ]; then
-            if [ "${CUDA_MAJOR_VERSION}" = "13" ]; then
-                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/sbsa/cuda-keyring_1.1-1_all.deb
-            else
-                curl -O https://developer.download.nvidia.com/compute/cuda/repos/ubuntu${UBUNTU_VERSION}/arm64/cuda-keyring_1.1-1_all.deb
-            fi
-        fi
-        dpkg -i cuda-keyring_1.1-1_all.deb && \
-        rm -f cuda-keyring_1.1-1_all.deb && \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            cuda-nvcc-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcufft-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcurand-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcublas-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcusparse-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} \
-            libcusolver-dev-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
-        if [ "arm64" = "$TARGETARCH" ]; then
-            apt-get install -y --no-install-recommends \
-            libcufile-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libcudnn9-cuda-${CUDA_MAJOR_VERSION} cuda-cupti-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION} libnvjitlink-${CUDA_MAJOR_VERSION}-${CUDA_MINOR_VERSION}
-        fi
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        echo "nvidia-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
-    fi
-EOT
-
-RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
-        echo "nvidia-l4t-cuda-${CUDA_MAJOR_VERSION}" > /run/localai/capability
-    fi
-EOT
-
-# https://github.com/NVIDIA/Isaac-GR00T/issues/343
-RUN <<EOT bash
-    if [ "${BUILD_TYPE}" = "cublas" ] && [ "${TARGETARCH}" = "arm64" ]; then
-        wget https://developer.download.nvidia.com/compute/cudss/0.6.0/local_installers/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
-        dpkg -i cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0_0.6.0-1_arm64.deb && \
-        cp /var/cudss-local-tegra-repo-ubuntu${UBUNTU_VERSION}-0.6.0/cudss-*-keyring.gpg /usr/share/keyrings/ && \
-        apt-get update && apt-get -y install cudss cudss-cuda-${CUDA_MAJOR_VERSION} && \
-        wget https://developer.download.nvidia.com/compute/nvpl/25.5/local_installers/nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5_1.0-1_arm64.deb && \
-        dpkg -i nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5_1.0-1_arm64.deb && \
-        cp /var/nvpl-local-repo-ubuntu${UBUNTU_VERSION}-25.5/nvpl-*-keyring.gpg /usr/share/keyrings/ && \
-        apt-get update && apt-get install -y nvpl
-    fi
-EOT
-
-# If we are building with clblas support, we need the libraries for the builds
-RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            libclblast-dev && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* \
-    ; fi
-
-RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            rocblas-dev && \
-        apt-get clean && \
-        rm -rf /var/lib/apt/lists/* && \
-        echo "amd" > /run/localai/capability && \
-        # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
-        # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
-        ldconfig \
-    ; fi
-
-RUN if [ "${BUILD_TYPE}" = "hipblas" ]; then \
-    ln -s /opt/rocm-**/lib/llvm/lib/libomp.so /usr/lib/libomp.so \
-    ; fi
-
-RUN expr "${BUILD_TYPE}" = intel && echo "intel" > /run/localai/capability || echo "not intel"
-
-# Cuda
-ENV PATH=/usr/local/cuda/bin:${PATH}
-
-# HipBLAS requirements
-ENV PATH=/opt/rocm/bin:${PATH}
 
 ###################################
 ###################################

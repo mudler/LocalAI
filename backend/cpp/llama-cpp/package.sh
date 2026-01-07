@@ -6,6 +6,7 @@
 set -e
 
 CURDIR=$(dirname "$(realpath $0)")
+REPO_ROOT="${CURDIR}/../../.."
 
 # Create lib directory
 mkdir -p $CURDIR/package/lib
@@ -35,6 +36,15 @@ elif [ -f "/lib/ld-linux-aarch64.so.1" ]; then
 else
     echo "Error: Could not detect architecture"
     exit 1
+fi
+
+# Package GPU libraries based on BUILD_TYPE
+# The GPU library packaging script will detect BUILD_TYPE and copy appropriate GPU libraries
+GPU_LIB_SCRIPT="${REPO_ROOT}/scripts/build/package-gpu-libs.sh"
+if [ -f "$GPU_LIB_SCRIPT" ]; then
+    echo "Packaging GPU libraries for BUILD_TYPE=${BUILD_TYPE:-cpu}..."
+    source "$GPU_LIB_SCRIPT" "$CURDIR/package/lib"
+    package_gpu_libs
 fi
 
 echo "Packaging completed successfully" 

@@ -465,6 +465,14 @@ function startBackend() {
     if [ "x${PORTABLE_PYTHON}" == "xtrue" ] || [ -x "$(_portable_python)" ]; then
         _makeVenvPortable --update-pyvenv-cfg
     fi
+
+    # Set up GPU library paths if a lib directory exists
+    # This allows backends to include their own GPU libraries (CUDA, ROCm, etc.)
+    if [ -d "${EDIR}/lib" ]; then
+        export LD_LIBRARY_PATH="${EDIR}/lib:${LD_LIBRARY_PATH:-}"
+        echo "Added ${EDIR}/lib to LD_LIBRARY_PATH for GPU libraries"
+    fi
+
     if [ ! -z "${BACKEND_FILE:-}" ]; then
         exec "${EDIR}/venv/bin/python" "${BACKEND_FILE}" "$@"
     elif [ -e "${MY_DIR}/server.py" ]; then
