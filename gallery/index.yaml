@@ -1,4 +1,29 @@
 ---
+- name: "lfm2.5-1.2b-nova-function-calling"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF
+  description: |
+    The **LFM2.5-1.2B-Nova-Function-Calling-GGUF** is a quantized version of the original model, optimized for efficiency with **Unsloth**. It supports text and multimodal tasks, using different quantization levels (e.g., Q2_K, Q3_K, Q4_K, etc.) to balance performance and memory usage. The model is designed for function calling and is faster than the original version, making it suitable for tasks like code generation, reasoning, and multi-modal input processing.
+  overrides:
+    parameters:
+      model: llama-cpp/models/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
+    name: LFM2.5-1.2B-Nova-Function-Calling-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
+      sha256: 5d039ad4195447cf4b6dbee8f7fe11f985c01d671a18153084c869077e431fbf
+      uri: https://huggingface.co/NovachronoAI/LFM2.5-1.2B-Nova-Function-Calling-GGUF/resolve/main/LFM2.5-1.2B-Nova-Function-Calling.Q4_K_M.gguf
 - name: "mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
