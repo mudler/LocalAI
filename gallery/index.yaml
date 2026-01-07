@@ -1,4 +1,29 @@
 ---
+- name: "mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF
+  description: |
+    The model described in this repository is the **Mistral-Nemo-Instruct-2407-12B** (12 billion parameters), a large language model optimized for instruction tuning and high-level reasoning tasks. It is a **quantized version** of the original model, compressed for efficiency while retaining key capabilities. The model is designed to generate human-like text, perform complex reasoning, and support multi-modal tasks, making it suitable for applications requiring strong language understanding and output.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning.i1-Q4_K_M.gguf
+    name: Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning.i1-Q4_K_M.gguf
+      sha256: 7337216f6d42b0771344328da00d454c0fdc91743ced0a4f5a1c6632f4f4b063
+      uri: https://huggingface.co/mradermacher/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning-i1-GGUF/resolve/main/Mistral-Nemo-Instruct-2407-12B-Thinking-M-Claude-Opus-High-Reasoning.i1-Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
