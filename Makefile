@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/moonshine
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -315,6 +315,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/chatterbox
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/vibevoice
+	$(MAKE) -C backend/python/moonshine
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -322,6 +323,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/chatterbox test
 	$(MAKE) -C backend/python/vllm test
 	$(MAKE) -C backend/python/vibevoice test
+	$(MAKE) -C backend/python/moonshine test
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
@@ -455,6 +457,7 @@ BACKEND_VLLM = vllm|python|./backend|false|true
 BACKEND_DIFFUSERS = diffusers|python|./backend|--progress=plain|true
 BACKEND_CHATTERBOX = chatterbox|python|./backend|false|true
 BACKEND_VIBEVOICE = vibevoice|python|./backend|--progress=plain|true
+BACKEND_MOONSHINE = moonshine|python|./backend|false|true
 
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
@@ -499,12 +502,13 @@ $(eval $(call generate-docker-build-target,$(BACKEND_VLLM)))
 $(eval $(call generate-docker-build-target,$(BACKEND_DIFFUSERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CHATTERBOX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2 docker-build-moonshine
 
 ########################################################
 ### END Backends
