@@ -1,4 +1,37 @@
 ---
+- name: "mn-captainerisnebula-chimera-v1.1-thinking-claudeopus4.5-12b-heretic-uncensored"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored-GGUF
+  description: |
+    This model is a full-reasoning, uncensored, and highly expressive language model based on the base model *DavidAU/MN-CaptainErisNebula-12B-Chimera-v1.1-heretic-uncensored*. It integrates **Claude Opus 4.5** reasoning capabilities, trained with **Unsloth** and quantized for efficiency (Q4_K_S, IQ4_XS, etc.). It generates **vivid, explicit, and unfiltered content** (e.g., horror, swearing, romance), requiring directed prompts to unlock intense outputs. Features include:
+
+      - **Reasoning mode**: Generates detailed, thought-provoking text.
+      - **Uncensored**: Avoids refusals, but requires explicit prompts for explicit content.
+      - **Quantized**: Optimized for GGUF format with Q4_K_S or higher.
+      - **Settings**: Adjust temperature (0.7–2.5), rep_pen (1.05–1.15), and context length (8k+).
+      - **Training**: Trained after using the *Heretic* tool (v1.0.1) to unlock NSFW content.
+
+    **Note**: This model is designed for advanced use cases, requiring careful prompt engineering to achieve desired outputs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored.Q4_K_M.gguf
+    name: MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored.Q4_K_M.gguf
+      sha256: 83e77e97fe1664bb42d6507608044cbc4494edee35311495f6b4620fbcc4d057
+      uri: https://huggingface.co/mradermacher/MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored-GGUF/resolve/main/MN-CaptainErisNebula-Chimera-v1.1-THINKING-ClaudeOpus4.5-12B-heretic-uncensored.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
