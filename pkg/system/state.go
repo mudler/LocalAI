@@ -1,7 +1,6 @@
 package system
 
 import (
-	"github.com/jaypipes/ghw/pkg/gpu"
 	"github.com/mudler/LocalAI/pkg/xsysinfo"
 	"github.com/mudler/xlog"
 )
@@ -19,7 +18,6 @@ type SystemState struct {
 	GPUVendor string
 	Backend   Backend
 	Model     Model
-	gpus      []*gpu.GraphicsCard
 	VRAM      uint64
 }
 
@@ -50,9 +48,7 @@ func GetSystemState(opts ...SystemStateOptions) (*SystemState, error) {
 	}
 
 	// Detection is best-effort here, we don't want to fail if it fails
-	state.gpus, _ = xsysinfo.GPUs()
-	xlog.Debug("GPUs", "gpus", state.gpus)
-	state.GPUVendor, _ = detectGPUVendor(state.gpus)
+	state.GPUVendor, _ = xsysinfo.DetectGPUVendor()
 	xlog.Debug("GPU vendor", "gpuVendor", state.GPUVendor)
 	state.VRAM, _ = xsysinfo.TotalAvailableVRAM()
 	xlog.Debug("Total available VRAM", "vram", state.VRAM)

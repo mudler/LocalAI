@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/jaypipes/ghw/pkg/gpu"
 	"github.com/mudler/xlog"
 )
 
@@ -19,8 +18,9 @@ const (
 	metal             = "metal"
 	nvidia            = "nvidia"
 
-	amd   = "amd"
-	intel = "intel"
+	amd    = "amd"
+	intel  = "intel"
+	vulkan = "vulkan"
 
 	nvidiaCuda13    = "nvidia-cuda-13"
 	nvidiaCuda12    = "nvidia-cuda-12"
@@ -131,26 +131,6 @@ func (s *SystemState) getSystemCapabilities() string {
 	return s.GPUVendor
 }
 
-func detectGPUVendor(gpus []*gpu.GraphicsCard) (string, error) {
-	for _, gpu := range gpus {
-		if gpu.DeviceInfo != nil {
-			if gpu.DeviceInfo.Vendor != nil {
-				gpuVendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
-				if strings.Contains(gpuVendorName, strings.ToUpper(nvidia)) {
-					return nvidia, nil
-				}
-				if strings.Contains(gpuVendorName, strings.ToUpper(amd)) {
-					return amd, nil
-				}
-				if strings.Contains(gpuVendorName, strings.ToUpper(intel)) {
-					return intel, nil
-				}
-			}
-		}
-	}
-
-	return "", nil
-}
 
 // BackendPreferenceTokens returns a list of substrings that represent the preferred
 // backend implementation order for the current system capability. Callers can use
@@ -169,6 +149,8 @@ func (s *SystemState) BackendPreferenceTokens() []string {
 		return []string{"metal", "cpu"}
 	case strings.HasPrefix(capStr, darwinX86):
 		return []string{"darwin-x86", "cpu"}
+	case strings.HasPrefix(capStr, vulkan):
+		return []string{"vulkan", "cpu"}
 	default:
 		return []string{"cpu"}
 	}
