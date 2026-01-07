@@ -14,28 +14,11 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# GPU drivers are no longer installed in the main image.
-# Each backend now packages its own GPU libraries (CUDA, ROCm, SYCL, Vulkan)
-# This allows for a unified base image that works with any backend.
-FROM requirements AS requirements-drivers
-
-ARG BUILD_TYPE
-ARG CUDA_MAJOR_VERSION=12
-ARG CUDA_MINOR_VERSION=0
-ARG SKIP_DRIVERS=false
-ARG TARGETARCH
-ARG TARGETVARIANT
-ENV BUILD_TYPE=${BUILD_TYPE}
-ARG UBUNTU_VERSION=2404
-
-RUN mkdir -p /run/localai
-RUN echo "default" > /run/localai/capability
-
 ###################################
 ###################################
 
 # The requirements-core target is common to all images.  It should not be placed in requirements-core unless every single build will use it.
-FROM requirements-drivers AS build-requirements
+FROM requirements AS build-requirements
 
 ARG GO_VERSION=1.25.4
 ARG CMAKE_VERSION=3.31.10
@@ -85,8 +68,6 @@ RUN test -n "$TARGETARCH" \
 # Use the variables in subsequent instructions
 RUN echo "Target Architecture: $TARGETARCH"
 RUN echo "Target Variant: $TARGETVARIANT"
-
-
 
 
 WORKDIR /build
@@ -209,7 +190,7 @@ RUN go install github.com/mikefarah/yq/v4@latest
 
 # This is the final target. The result of this target will be the image uploaded to the registry.
 # If you cannot find a more suitable place for an addition, this layer is a suitable place for it.
-FROM requirements-drivers
+FROM requirements
 
 ENV HEALTHCHECK_ENDPOINT=http://localhost:8080/readyz
 
