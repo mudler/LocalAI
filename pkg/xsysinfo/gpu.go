@@ -89,21 +89,39 @@ func GPUs() ([]*gpu.GraphicsCard, error) {
 }
 
 func TotalAvailableVRAM() (uint64, error) {
+	// First, try ghw library detection
 	gpus, err := GPUs()
-	if err != nil {
-		return 0, err
-	}
-
-	var totalVRAM uint64
-	for _, gpu := range gpus {
-		if gpu != nil && gpu.Node != nil && gpu.Node.Memory != nil {
-			if gpu.Node.Memory.TotalUsableBytes > 0 {
-				totalVRAM += uint64(gpu.Node.Memory.TotalUsableBytes)
+	if err == nil {
+		var totalVRAM uint64
+		for _, gpu := range gpus {
+			if gpu != nil && gpu.Node != nil && gpu.Node.Memory != nil {
+				if gpu.Node.Memory.TotalUsableBytes > 0 {
+					totalVRAM += uint64(gpu.Node.Memory.TotalUsableBytes)
+				}
 			}
+		}
+		// If we got valid VRAM from ghw, return it
+		if totalVRAM > 0 {
+			return totalVRAM, nil
 		}
 	}
 
-	return totalVRAM, nil
+	// Fallback to binary-based detection via GetGPUMemoryUsage()
+	// This works even when ghw dependencies are missing from the base image
+	gpuMemoryInfo := GetGPUMemoryUsage()
+	if len(gpuMemoryInfo) > 0 {
+		var totalVRAM uint64
+		for _, gpu := range gpuMemoryInfo {
+			totalVRAM += gpu.TotalVRAM
+		}
+		if totalVRAM > 0 {
+			xlog.Debug("VRAM detected via binary tools", "total_vram", totalVRAM)
+			return totalVRAM, nil
+		}
+	}
+
+	// No VRAM detected
+	return 0, nil
 }
 
 func HasGPU(vendor string) bool {
@@ -120,6 +138,66 @@ func HasGPU(vendor string) bool {
 		}
 	}
 	return false
+}
+
+// DetectGPUVendor detects the GPU vendor using multiple methods with fallbacks.
+// First tries ghw library, then falls back to binary detection.
+// Returns vendor string (VendorNVIDIA, VendorAMD, VendorIntel, VendorVulkan) or empty string if not detected.
+// Priority order: NVIDIA > AMD > Intel > Vulkan
+func DetectGPUVendor() (string, error) {
+	// First, try ghw library detection
+	gpus, err := GPUs()
+	if err == nil && len(gpus) > 0 {
+		for _, gpu := range gpus {
+			if gpu.DeviceInfo != nil && gpu.DeviceInfo.Vendor != nil {
+				vendorName := strings.ToUpper(gpu.DeviceInfo.Vendor.Name)
+				if strings.Contains(vendorName, strings.ToUpper(VendorNVIDIA)) {
+					xlog.Debug("GPU vendor detected via ghw", "vendor", VendorNVIDIA)
+					return VendorNVIDIA, nil
+				}
+				if strings.Contains(vendorName, strings.ToUpper(VendorAMD)) {
+					xlog.Debug("GPU vendor detected via ghw", "vendor", VendorAMD)
+					return VendorAMD, nil
+				}
+				if strings.Contains(vendorName, strings.ToUpper(VendorIntel)) {
+					xlog.Debug("GPU vendor detected via ghw", "vendor", VendorIntel)
+					return VendorIntel, nil
+				}
+			}
+		}
+	}
+
+	// Fallback to binary detection (priority: NVIDIA > AMD > Intel > Vulkan)
+	// Check for nvidia-smi
+	if _, err := exec.LookPath("nvidia-smi"); err == nil {
+		xlog.Debug("GPU vendor detected via binary", "vendor", VendorNVIDIA, "binary", "nvidia-smi")
+		return VendorNVIDIA, nil
+	}
+
+	// Check for rocm-smi (AMD)
+	if _, err := exec.LookPath("rocm-smi"); err == nil {
+		xlog.Debug("GPU vendor detected via binary", "vendor", VendorAMD, "binary", "rocm-smi")
+		return VendorAMD, nil
+	}
+
+	// Check for xpu-smi or intel_gpu_top (Intel)
+	if _, err := exec.LookPath("xpu-smi"); err == nil {
+		xlog.Debug("GPU vendor detected via binary", "vendor", VendorIntel, "binary", "xpu-smi")
+		return VendorIntel, nil
+	}
+	if _, err := exec.LookPath("intel_gpu_top"); err == nil {
+		xlog.Debug("GPU vendor detected via binary", "vendor", VendorIntel, "binary", "intel_gpu_top")
+		return VendorIntel, nil
+	}
+
+	// Check for vulkaninfo (Vulkan - lowest priority as it can detect any GPU)
+	if _, err := exec.LookPath("vulkaninfo"); err == nil {
+		xlog.Debug("GPU vendor detected via binary", "vendor", VendorVulkan, "binary", "vulkaninfo")
+		return VendorVulkan, nil
+	}
+
+	// No vendor detected
+	return "", nil
 }
 
 // isUnifiedMemoryDevice checks if the given GPU name matches any known unified memory device
