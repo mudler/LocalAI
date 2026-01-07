@@ -1,4 +1,29 @@
 ---
+- name: "gpt-oss-20b-vietmind"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/gpt-oss-20b-VietMind-GGUF
+  description: |
+    The **mradermacher/gpt-oss-20b-VietMind-GGUF** model is a large language model (20 billion parameters) optimized for text generation. It is based on the original **GPT-OSU** architecture, with quantized versions (Q2_K and Q4_K_S) for efficient inference. The model is available as a GGUF file and supports fast, low-precision quantization for deployment. It is designed for tasks like text generation, translation, and reasoning, with the original model being the base reference. Quantized versions are provided for flexibility, but the core model remains the original GPT-OSU.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gpt-oss-20b-VietMind.Q4_K_M.gguf
+    name: gpt-oss-20b-VietMind-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/gpt-oss-20b-VietMind-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gpt-oss-20b-VietMind.Q4_K_M.gguf
+      sha256: 2bc6992548afe5fe05600cb6455aec4bc8ef28c350c545ab7f3f160db9f0276b
+      uri: https://huggingface.co/mradermacher/gpt-oss-20b-VietMind-GGUF/resolve/main/gpt-oss-20b-VietMind.Q4_K_M.gguf
 - name: "rwkv7-g1c-13.3b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
