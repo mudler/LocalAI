@@ -40,24 +40,39 @@ RUN <<EOT bash
             libwayland-dev libxrandr-dev libxcb-randr0-dev libxcb-ewmh-dev \
             git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
             ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
-            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils mesa-vulkan-drivers && \
-        wget "https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz" && \
-        tar -xf vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
-        rm vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
-        mkdir -p /opt/vulkan-sdk && \
-        mv 1.4.328.1 /opt/vulkan-sdk/ && \
-        cd /opt/vulkan-sdk/1.4.328.1 && \
-        ./vulkansdk --no-deps --maxjobs \
-            vulkan-loader \
-            vulkan-validationlayers \
-            vulkan-extensionlayer \
-            vulkan-tools \
-            shaderc && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/bin/* /usr/bin/ && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/include/* /usr/include/ && \
-        cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/share/* /usr/share/ && \
-        rm -rf /opt/vulkan-sdk && \
+            clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils mesa-vulkan-drivers
+        if [ "amd64" = "$TARGETARCH" ]; then
+            wget "https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz" && \
+            tar -xf vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
+            rm vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
+            mkdir -p /opt/vulkan-sdk && \
+            mv 1.4.328.1 /opt/vulkan-sdk/ && \
+            cd /opt/vulkan-sdk/1.4.328.1 && \
+            ./vulkansdk --no-deps --maxjobs \
+                vulkan-loader \
+                vulkan-validationlayers \
+                vulkan-extensionlayer \
+                vulkan-tools \
+                shaderc && \
+            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/bin/* /usr/bin/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/include/* /usr/include/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/share/* /usr/share/ && \
+            rm -rf /opt/vulkan-sdk
+        fi
+        if [ "arm64" = "$TARGETARCH" ]; then
+            mkdir vulkan && cd vulkan && \
+            curl -L -o vulkan-sdk.tar.xz https://github.com/mudler/vulkan-sdk-arm/releases/download/1.4.335.0/vulkansdk-ubuntu-24.04-arm-1.4.335.0.tar.xz && \
+            tar -xvf vulkan-sdk.tar.xz && \
+            rm vulkan-sdk.tar.xz && \
+            cd 1.4.335.0 && \
+            cp -rfv aarch64/bin/* /usr/bin/ && \
+            cp -rfv aarch64/lib/* /usr/lib/aarch64-linux-gnu/ && \
+            cp -rfv aarch64/include/* /usr/include/ && \
+            cp -rfv aarch64/share/* /usr/share/ && \
+            cd ../.. && \
+            rm -rf vulkan
+        fi
         ldconfig && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \

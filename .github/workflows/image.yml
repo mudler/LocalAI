@@ -113,7 +113,7 @@
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
             - build-type: 'vulkan'
-              platforms: 'linux/amd64'
+              platforms: 'linux/amd64,linux/arm64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-vulkan'
               runs-on: 'ubuntu-latest'
