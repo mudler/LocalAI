@@ -1,4 +1,29 @@
 ---
+- name: "thestoryteller-12b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/TheStoryteller-12B-i1-GGUF
+  description: |
+    The model `TheStoryteller-12B` is a 12-billion parameter language model trained for storytelling tasks. It uses a quantized version (e.g., Q2_K, IQ3_M) for efficient deployment, but the base model (unquantized) is available at `huggingface.co/lordalbior/TheStoryteller-12B`. The quantized version is optimized for inference but may differ slightly from the original model's capabilities. For model gallery purposes, this is a compressed version for practical use.
+  overrides:
+    parameters:
+      model: llama-cpp/models/TheStoryteller-12B.i1-Q4_K_M.gguf
+    name: TheStoryteller-12B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/TheStoryteller-12B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/TheStoryteller-12B.i1-Q4_K_M.gguf
+      sha256: 4af5ffd111e7b1a8e61b6f14de3f886636d9e37d656692907c643d672dda3c25
+      uri: https://huggingface.co/mradermacher/TheStoryteller-12B-i1-GGUF/resolve/main/TheStoryteller-12B.i1-Q4_K_M.gguf
 - name: "mistral-nemo-instruct-2407-12b-thinking-m-claude-opus-high-reasoning-i1"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
