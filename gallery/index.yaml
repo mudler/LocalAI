@@ -1,4 +1,36 @@
 ---
+- name: "heretic_fusion-gemma3-1b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Heretic_Fusion-Gemma3-1B-i1-GGUF
+  description: |
+    The model is a quantized version of the **Novaciano/Heretic_Fusion-Gemma3-1B** base model, optimized for specific use cases. It is a GGUF file designed for efficient deployment, with various quantization levels (e.g., Q2_K, IQ3, Q4) tailored for performance and memory efficiency. Key features include:
+
+      - **Purpose**: Designed for tasks requiring high throughput (e.g., text generation, content creation) with limitations on input/output censorship or suitability for all audiences.
+      - **Quantization**: Optimized for speed and size, with options like IQ4_XS (optimal balance of speed/accuracy) or Q4_K_M (recommended for performance).
+      - **Tags**: Includes "abliterated," "uncensored," "merge," and "not-for-all-audiences" to indicate its use case and constraints.
+      - **Usage**: Requires reference to [TheBloke's README](https://huggingface.co/TheBloke/KafkaLM-70B-German-V0.1-GGUF) for detailed instructions on GGUF file handling.
+
+    Available quantized versions range from low-quality (e.g., `i1-Q2_K_S`) to high-quality (e.g., `i1-Q4_K_M`), with sizes up to 1.1GB. The model is not intended for general-purpose deployment but is suited for specialized tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Heretic_Fusion-Gemma3-1B.i1-Q4_K_M.gguf
+    name: Heretic_Fusion-Gemma3-1B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Heretic_Fusion-Gemma3-1B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Heretic_Fusion-Gemma3-1B.i1-Q4_K_M.gguf
+      sha256: f5442acd0b020829a05ab9e664ab022715482dd616c3990ca9b93d061ced768e
+      uri: https://huggingface.co/mradermacher/Heretic_Fusion-Gemma3-1B-i1-GGUF/resolve/main/Heretic_Fusion-Gemma3-1B.i1-Q4_K_M.gguf
 - name: "lfm2.5-1.2b-nova-function-calling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
