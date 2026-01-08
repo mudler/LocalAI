@@ -119,7 +119,6 @@ You can ask [Charm Crush](https://charm.land/crush) to generate your config by g
       "type": "openai-compat",
       "models": [
         {
-          // We can dream right? :-)
           "id": "qwen3-coder-480b-a35b-instruct",
           "name": "Qwen 3 Coder 480b",
           "context_window": 256000
