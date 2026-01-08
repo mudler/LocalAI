@@ -1,4 +1,37 @@
 ---
+- name: "minimax-m2.1-reap-50-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-50-i1-GGUF
+  description: |
+    The **MiniMax-M2.1-REAP-50-i1-GGUF** model is a quantized version of the original **0xSero/MiniMax-M2.1-REAP-50** model, optimized for efficiency and speed. It is designed for use with GGUF format, offering a range of quantized versions tailored for different performance and accuracy trade-offs. Key features include:
+
+      - **Base Model**: 0xSero/MiniMax-M2.1-REAP-50
+      - **Quantization**: Optimized for deployment with GGUF files, including variants like `i1-Q4_K_M` (recommended for balance of speed and quality) and `i1-Q6_K` (high-performance).
+      - **Tags**: Minimax, MOE, pruning, compression, REAP, Cerebras, code, function-calling.
+      - **Usage**: Requires GGUF file support; reference TheBloke's README for guidance on multi-part file handling.
+      - **Resources**: Available at [nethype.de](https://www.nethype.de/) for download and further tuning.
+
+    This model is ideal for applications requiring efficient, low-latency inference with customizable quantization levels.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.1-REAP-50.i1-Q4_K_M.gguf
+    name: MiniMax-M2.1-REAP-50-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-50-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.1-REAP-50.i1-Q4_K_M.gguf
+      sha256: 8998081096aaaa0796bdedd7b437f3074851340bfd9999819bf5cc606a1adac6
+      uri: https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-50-i1-GGUF/resolve/main/MiniMax-M2.1-REAP-50.i1-Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
