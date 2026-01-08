@@ -21,6 +21,8 @@ TARGET_LIB_DIR="${1:-./lib}"
 mkdir -p "$TARGET_LIB_DIR"
 
 # Associative array to track copied files by basename
+# Note: We use basename for deduplication because the target is a flat directory.
+# If the same library exists in multiple source paths, we only copy it once.
 declare -A COPIED_FILES
 
 # Helper function to copy library preserving symlinks structure
