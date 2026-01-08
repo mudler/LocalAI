@@ -1,4 +1,33 @@
 ---
+- name: "editthinker-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/EditThinker-8B-GGUF
+  description: |
+    The model, **EditThinker-8B (quantized version)**, is a large language model designed for tasks like text generation, reasoning, and multi-turn dialogue. It is a compressed version of the original EditThinker-8B model, optimized for efficiency with quantization techniques (e.g., Q4_K_S, Q2_K, etc.). It retains the core capabilities of the original model but is tailored for deployment in resource-constrained environments. The quantized version is suitable for applications requiring reduced memory usage and faster inference. For the original, unquantized model, refer to the official Hugging Face repository.
+  overrides:
+    parameters:
+      model: llama-cpp/models/EditThinker-8B.Q4_K_M.gguf
+    name: EditThinker-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/EditThinker-8B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/EditThinker-8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/EditThinker-8B.Q4_K_M.gguf
+      sha256: 815a2480340b91200f0d8c3ca3d986bb70d2b6329c9ed9572b98c8bb560ecd57
+      uri: https://huggingface.co/mradermacher/EditThinker-8B-GGUF/resolve/main/EditThinker-8B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/EditThinker-8B.mmproj-f16.gguf
+      sha256: c18b616c54f24dd1dec11bcda81bf0f58f49f2776ea4ed77abc5f5e365fbdef8
+      uri: https://huggingface.co/mradermacher/EditThinker-8B-GGUF/resolve/main/EditThinker-8B.mmproj-f16.gguf
 - name: "lfm2.5-1.2b-nova-function-calling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
