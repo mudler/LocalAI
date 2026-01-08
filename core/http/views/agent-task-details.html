@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="taskDetails()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow max-w-6xl">
+        <!-- Header -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="hero-title">
+                        <span x-text="isNewTask ? 'Create Task' : (isEditMode ? 'Edit Task' : 'Task Details')"></span>
+                    </h1>
+                    <p class="text-lg text-[#94A3B8]" x-text="isNewTask ? 'Create a new agent task' : (task ? task.name : 'Loading...')"></p>
+                </div>
+                <div class="flex space-x-3">
+                    <template x-if="!isNewTask && !isEditMode">
+                        <div class="flex space-x-3">
+                            <button @click="showExecuteModal()" 
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-play mr-2"></i>Execute
+                            </button>
+                            <button @click="enterEditMode()" 
+                                    class="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-edit mr-2"></i>Edit
+                            </button>
+                            <button @click="deleteTask()" 
+                                    class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-trash mr-2"></i>Delete
+                            </button>
+                        </div>
+                    </template>
+                    <template x-if="isEditMode || isNewTask">
+                        <div class="flex space-x-3">
+                            <button @click="cancelEdit()" 
+                                    class="bg-[#1E293B] hover:bg-[#2D3A4F] text-white px-4 py-2 rounded-lg transition-colors">
+                                Cancel
+                            </button>
+                            <button @click="saveTask()" 
+                                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors">
+                                <i class="fas fa-save mr-2"></i>Save
+                            </button>
+                        </div>
+                    </template>
+                    <a href="/agent-jobs" class="text-[#94A3B8] hover:text-[#E5E7EB] px-4 py-2">
+                        <i class="fas fa-arrow-left mr-2"></i>Back
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit/Create Form -->
+        <template x-if="isEditMode || isNewTask">
+            <form @submit.prevent="saveTask()" class="space-y-8">
+                <!-- Basic Information -->
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Basic Information</h2>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-[#E5E7EB] mb-2">Name *</label>
+                            <input type="text" x-model="taskForm.name" required
+                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                        </div>
+
+                        <div>
+                            <label class="block text-[#E5E7EB] mb-2">Description</label>
+                            <textarea x-model="taskForm.description" rows="3"
+                                       class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                        </div>
+
+                        <div>
+                            <label class="block text-[#E5E7EB] mb-2">Model *</label>
+                            <select x-model="taskForm.model" required
+                                    class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                <option value="">Select a model with MCP configuration...</option>
+                                {{ range .ModelsConfig }}
+                                {{ $cfg := . }}
+                                {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                                {{ if $hasMCP }}
+                                <option value="{{$cfg.Name}}" class="bg-[#1E293B] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                                {{ end }}
+                                {{ end }}
+                            </select>
+                            <p class="text-sm text-[#94A3B8] mt-1">Only models with MCP configuration are shown</p>
+                        </div>
+
+                        <div>
+                            <label class="flex items-center">
+                                <input type="checkbox" x-model="taskForm.enabled"
+                                       class="mr-2">
+                                <span class="text-[#E5E7EB]">Enabled</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Prompt Template -->
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Prompt Template</h2>
+                    <div>
+                        <label class="block text-[#E5E7EB] mb-2">Prompt *</label>
+                        <p class="text-sm text-[#94A3B8] mb-4">
+                            Use Go template syntax with <code class="bg-[#101827] px-1.5 py-0.5 rounded text-[#38BDF8]">{{"{{"}}.param{{"}}"}}</code> for dynamic parameters. 
+                            Parameters are provided when executing the job and will be substituted into the prompt.
+                        </p>
+                        
+                        <!-- Example Prompt -->
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4 mb-4">
+                            <p class="text-xs text-[#94A3B8] mb-2 font-semibold">Example Prompt:</p>
+                            <pre class="text-xs text-[#E5E7EB] font-mono whitespace-pre-wrap">You are a helpful assistant. The user's name is {{"{{"}}.user_name{{"}}"}} and they work as a {{"{{"}}.job_title{{"}}"}}.
+
+Please help them with the following task: {{"{{"}}.task_description{{"}}"}}
+
+Provide a detailed response that addresses their specific needs.</pre>
+                        </div>
+                        
+                        <textarea x-model="taskForm.prompt" required rows="12"
+                                   placeholder="Enter your prompt template here. Use {{.parameter_name}} to reference parameters that will be provided when the job executes."
+                                   class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                        <p class="text-xs text-[#94A3B8] mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            The prompt will be processed as a Go template. All parameters passed during job execution will be available as template variables.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Cron Schedule -->
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Cron Schedule (Optional)</h2>
+                    <div class="space-y-6">
+                        <div>
+                            <label class="block text-[#E5E7EB] mb-2">Cron Expression</label>
+                            <input type="text" 
+                                   x-model="taskForm.cron" 
+                                   @blur="validateCron(taskForm.cron)"
+                                   @input="cronError = ''"
+                                   placeholder="0 0 * * * (daily at midnight)"
+                                   :class="cronError ? 'w-full bg-[#101827] border border-red-500 rounded px-4 py-2 text-[#E5E7EB] focus:border-red-500 focus:ring-2 focus:ring-red-500/50' : 'w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50'">
+                            <p class="text-sm text-[#94A3B8] mt-1">Standard 5-field cron format (minute hour day month weekday)</p>
+                            <p x-show="cronError" class="text-sm text-red-400 mt-2" x-text="cronError"></p>
+                        </div>
+                        
+                        <!-- Cron Parameters -->
+                        <div>
+                            <label class="block text-[#E5E7EB] mb-2">Cron Parameters (Optional)</label>
+                            <p class="text-sm text-[#94A3B8] mb-3">
+                                Parameters to use when executing jobs triggered by cron. These will be used to template the prompt.
+                                Enter as key-value pairs (one per line, format: key=value).
+                            </p>
+                            <textarea x-model="cronParametersText" 
+                                      @input="updateCronParameters()"
+                                      rows="6"
+                                      placeholder="user_name=Alice&#10;job_title=Software Engineer&#10;task_description=Daily status report"
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <p class="text-xs text-[#94A3B8] mt-1">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Multimedia Sources Configuration -->
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Multimedia Sources (Optional)</h2>
+                    <p class="text-sm text-[#94A3B8] mb-4">
+                        Configure multimedia sources (images, videos, audios, files) to fetch when cron jobs execute. 
+                        Each source can have custom headers for authentication/authorization. These will be fetched and included in the job execution.
+                    </p>
+                    <div class="space-y-4">
+                        <template x-for="(source, index) in taskForm.multimedia_sources" :key="index">
+                            <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Multimedia Source <span x-text="index + 1"></span></h3>
+                                    <button type="button" @click="taskForm.multimedia_sources.splice(index, 1)" 
+                                            class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">Type *</label>
+                                        <select x-model="source.type" required
+                                                class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                            <option value="">Select type...</option>
+                                            <option value="image">Image</option>
+                                            <option value="video">Video</option>
+                                            <option value="audio">Audio</option>
+                                            <option value="file">File</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                        <input type="url" x-model="source.url" required
+                                               placeholder="https://example.com/image.png"
+                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                        <p class="text-xs text-[#94A3B8] mt-1">URL where multimedia content will be fetched from</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                        <textarea x-model="source.headers_json" rows="3"
+                                                  placeholder='{"Authorization": "Bearer token"}'
+                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                        <p class="text-xs text-[#94A3B8] mt-1">Custom headers for the HTTP request (e.g., Authorization)</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <button type="button" @click="addMultimediaSource()" 
+                                class="w-full bg-[#101827] hover:bg-[#0A0E1A] border border-[#38BDF8]/20 border-dashed rounded-lg p-4 text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add Multimedia Source
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Webhook Configuration -->
+                <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhooks (Optional)</h2>
+                    <p class="text-sm text-[#94A3B8] mb-4">
+                        Configure webhook URLs to receive notifications when jobs complete. You can add multiple webhooks, each with custom headers and HTTP methods.
+                    </p>
+                    <div class="space-y-4">
+                        <template x-for="(webhook, index) in taskForm.webhooks" :key="index">
+                            <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h3 class="text-lg font-semibold text-[#E5E7EB]">Webhook <span x-text="index + 1"></span></h3>
+                                    <button type="button" @click="taskForm.webhooks.splice(index, 1)" 
+                                            class="text-red-400 hover:text-red-300">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">URL *</label>
+                                        <input type="url" x-model="webhook.url" required
+                                               placeholder="https://hooks.slack.com/services/YOUR/WEBHOOK/URL"
+                                               class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                        <p class="text-xs text-[#94A3B8] mt-1">URL where webhook notifications will be sent</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">HTTP Method</label>
+                                        <select x-model="webhook.method"
+                                                class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50">
+                                            <option value="POST">POST</option>
+                                            <option value="PUT">PUT</option>
+                                            <option value="PATCH">PATCH</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">Headers (JSON)</label>
+                                        <textarea x-model="webhook.headers_json" rows="3"
+                                                  placeholder='{"Authorization": "Bearer token", "Content-Type": "application/json"}'
+                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                        <p class="text-xs text-[#94A3B8] mt-1">Custom headers for the webhook request (e.g., Authorization)</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[#E5E7EB] mb-2">Custom Payload Template (Optional)</label>
+                                        <p class="text-xs text-[#94A3B8] mb-2">Customize the webhook payload using Go template syntax. Available variables: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Job</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Task</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Result</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Error</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Status</code></p>
+                                        <p class="text-xs text-[#94A3B8] mb-2">Note: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">.Error</code> will be empty string if job succeeded, or contain the error message if it failed. Use this to handle both success and failure cases in a single webhook.</p>
+                                        <div class="bg-[#0A0E1A] border border-[#38BDF8]/10 rounded-lg p-3 mb-2">
+                                            <p class="text-xs text-[#94A3B8] mb-1 font-semibold">Example (Slack with error handling):</p>
+                                            <pre class="text-xs text-[#E5E7EB] font-mono whitespace-pre-wrap">{
+  "text": "Job {{.Job.ID}} {{if .Error}}failed{{else}}completed{{end}}",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Task:* {{.Task.Name}}\n*Status:* {{.Status}}\n{{if .Error}}*Error:* {{.Error}}{{else}}*Result:* {{.Result}}{{end}}"
+      }
+    }
+  ]
+}</pre>
+                                        </div>
+                                        <textarea x-model="webhook.payload_template" rows="5"
+                                                  placeholder='{"text": "Job {{.Job.ID}} completed with status {{.Status}}", "error": "{{.Error}}"}'
+                                                  class="w-full bg-[#0A0E1A] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <button type="button" @click="addWebhook()" 
+                                class="w-full bg-[#101827] border border-[#38BDF8]/20 hover:border-[#38BDF8]/40 rounded px-4 py-3 text-[#38BDF8] transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add Webhook
+                        </button>
+                    </div>
+                </div>
+
+            </form>
+        </template>
+
+        <!-- Task Information (always visible when not in edit mode and not creating new task) -->
+        <div x-show="!isEditMode && !isNewTask" x-cloak>
+            <!-- Task Information -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Task Information</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Name</label>
+                        <div class="text-[#E5E7EB] mt-1 font-semibold" x-text="task ? task.name : 'Loading...'"></div>
+                    </div>
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Status</label>
+                        <div class="mt-1">
+                            <span :class="task && task.enabled ? 'bg-green-500' : 'bg-gray-500'" 
+                                  class="px-2 py-1 rounded text-xs text-white" 
+                                  x-text="task && task.enabled ? 'Enabled' : 'Disabled'"></span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Model</label>
+                        <div class="mt-1 flex items-center space-x-2">
+                            <a :href="task ? '/chat/' + task.model + '?mcp=true' : '#'" 
+                               class="text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                               x-text="task ? task.model : '-'"></a>
+                            <a :href="task ? '/models/edit/' + task.model : '#'" 
+                               class="text-yellow-400 hover:text-yellow-300"
+                               title="Edit model configuration">
+                                <i class="fas fa-edit text-sm"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[#94A3B8] text-sm">Cron Schedule</label>
+                        <div class="text-[#E5E7EB] mt-1 font-mono text-sm" x-text="task && task.cron ? task.cron : '-'"></div>
+                    </div>
+                    <div class="md:col-span-2" x-show="task && task.cron_parameters && Object.keys(task.cron_parameters).length > 0">
+                        <label class="text-[#94A3B8] text-sm">Cron Parameters</label>
+                        <div class="mt-1">
+                            <template x-for="(value, key) in task.cron_parameters" :key="key">
+                                <div class="text-[#E5E7EB] text-sm mb-1">
+                                    <span class="font-semibold text-[#38BDF8]" x-text="key + ':'"></span>
+                                    <span x-text="value"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-[#94A3B8] text-sm">Description</label>
+                        <div class="text-[#E5E7EB] mt-1" x-text="task && task.description ? task.description : 'No description'"></div>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="text-[#94A3B8] text-sm">Prompt Template</label>
+                        <pre class="bg-[#101827] p-4 rounded text-[#E5E7EB] text-sm mt-1 whitespace-pre-wrap" x-text="task ? task.prompt : '-'"></pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Usage Examples -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="task && task.id">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">API Usage Examples</h2>
+                <p class="text-sm text-[#94A3B8] mb-4">
+                    Use these curl commands to interact with this task programmatically.
+                </p>
+                
+                <div class="space-y-6">
+                    <!-- Execute Task by ID -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-play text-[#38BDF8] mr-2"></i>
+                            Execute Task by ID
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "task_id": "<span x-text="task ? task.id : 'task-uuid'"></span>",
+    "parameters": {
+      "user_name": "Alice",
+      "job_title": "Software Engineer",
+      "task_description": "Review code changes"
+    }
+  }'</code></pre>
+                        </div>
+                    </div>
+                    
+                    <!-- Execute Task by Name -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-code text-[#38BDF8] mr-2"></i>
+                            Execute Task by Name
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/tasks/<span x-text="task ? task.name : 'task-name'"></span>/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "user_name": "Bob",
+    "job_title": "Data Scientist",
+    "task_description": "Analyze sales data"
+  }'</code></pre>
+                        </div>
+                        <p class="text-xs text-[#94A3B8] mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            The request body should be a JSON object where keys are parameter names and values are strings. 
+                            If no body is provided, the task will execute with empty parameters.
+                        </p>
+                    </div>
+                    
+                    <!-- Execute Task with Multimedia -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-images text-[#38BDF8] mr-2"></i>
+                            Execute Task with Multimedia (Images)
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X POST {{ .BaseURL }}api/agent/jobs/execute \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -d '{
+    "task_id": "<span x-text="task ? task.id : 'task-uuid'"></span>",
+    "parameters": {
+      "user_name": "Alice",
+      "task_description": "Analyze this image"
+    },
+    "images": [
+      "https://example.com/image.png",
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+    ]
+  }'</code></pre>
+                        </div>
+                        <p class="text-xs text-[#94A3B8] mt-2">
+                            You can provide multimedia content as URLs or base64-encoded data URIs. Supported types: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">images</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">videos</code>, <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">audios</code>, and <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">files</code>.
+                        </p>
+                    </div>
+                    
+                    <!-- Check Job Status -->
+                    <div>
+                        <h3 class="text-lg font-semibold text-[#E5E7EB] mb-3 flex items-center">
+                            <i class="fas fa-info-circle text-[#38BDF8] mr-2"></i>
+                            Check Job Status
+                        </h3>
+                        <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                            <pre class="text-xs text-[#E5E7EB] font-mono overflow-x-auto"><code>curl -X GET {{ .BaseURL }}api/agent/jobs/JOB_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"</code></pre>
+                        </div>
+                        <p class="text-xs text-[#94A3B8] mt-2">
+                            After executing a task, you will receive a <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">job_id</code> in the response. Use it to query the job's status and results.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Webhook Configuration (View Mode) -->
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="task && task.id && task.webhooks && task.webhooks.length > 0">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhook Configuration</h2>
+                <div class="space-y-4">
+                    <template x-for="(webhook, index) in task.webhooks" :key="index">
+                        <div class="bg-[#101827] p-4 rounded border border-[#38BDF8]/10">
+                            <div class="flex items-center mb-3">
+                                <h3 class="text-lg font-semibold text-[#E5E7EB]">Webhook <span x-text="index + 1"></span></h3>
+                            </div>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="text-[#94A3B8] text-sm">URL</label>
+                                    <div class="text-[#E5E7EB] mt-1 font-mono text-sm break-all" x-text="webhook.url"></div>
+                                </div>
+                                <div>
+                                    <label class="text-[#94A3B8] text-sm">Method</label>
+                                    <div class="text-[#E5E7EB] mt-1 font-mono text-sm" x-text="webhook.method || 'POST'"></div>
+                                </div>
+                                <div x-show="webhook.headers && Object.keys(webhook.headers).length > 0">
+                                    <label class="text-[#94A3B8] text-sm">Headers</label>
+                                    <pre class="bg-[#0A0E1A] p-3 rounded text-[#E5E7EB] text-xs mt-1 overflow-x-auto" x-text="JSON.stringify(webhook.headers, null, 2)"></pre>
+                                </div>
+                                <div x-show="webhook.payload_template">
+                                    <label class="text-[#94A3B8] text-sm">Payload Template</label>
+                                    <pre class="bg-[#0A0E1A] p-3 rounded text-[#E5E7EB] text-xs mt-1 whitespace-pre-wrap overflow-x-auto" x-text="webhook.payload_template"></pre>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jobs for this Task (visible when not creating new task and not in edit mode) -->
+        <template x-if="!isNewTask && !isEditMode">
+            <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job History</h2>
+                    <div class="flex space-x-4">
+                        <select x-model="jobFilter" @change="fetchJobs()" 
+                                class="bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB]">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="running">Running</option>
+                            <option value="completed">Completed</option>
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                        <button @click="clearJobHistory()" 
+                                class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+                                title="Clear all job history for this task">
+                            <i class="fas fa-trash mr-2"></i>Clear History
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="border-b border-[#38BDF8]/20">
+                                <th class="text-left py-3 px-4 text-[#94A3B8]">Job ID</th>
+                                <th class="text-left py-3 px-4 text-[#94A3B8]">Status</th>
+                                <th class="text-left py-3 px-4 text-[#94A3B8]">Created</th>
+                                <th class="text-left py-3 px-4 text-[#94A3B8]">Triggered By</th>
+                                <th class="text-left py-3 px-4 text-[#94A3B8]">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <template x-for="job in jobs" :key="job.id">
+                                <tr class="border-b border-[#38BDF8]/10 hover:bg-[#101827]">
+                                    <td class="py-3 px-4">
+                                        <a :href="'/agent-jobs/jobs/' + job.id" 
+                                           class="font-mono text-sm text-[#38BDF8] hover:text-[#38BDF8]/80 hover:underline" 
+                                           x-text="job.id.substring(0, 8) + '...'"
+                                           :title="job.id"></a>
+                                    </td>
+                                    <td class="py-3 px-4">
+                                        <span :class="{
+                                            'bg-yellow-500': job.status === 'pending',
+                                            'bg-blue-500': job.status === 'running',
+                                            'bg-green-500': job.status === 'completed',
+                                            'bg-red-500': job.status === 'failed',
+                                            'bg-gray-500': job.status === 'cancelled'
+                                        }" 
+                                        class="px-2 py-1 rounded text-xs text-white" 
+                                        x-text="job.status"></span>
+                                    </td>
+                                    <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="formatDate(job.created_at)"></td>
+                                    <td class="py-3 px-4 text-[#94A3B8] text-sm" x-text="job.triggered_by || '-'"></td>
+                                    <td class="py-3 px-4">
+                                        <button x-show="job.status === 'pending' || job.status === 'running'" 
+                                                @click="cancelJob(job.id)" 
+                                                class="text-red-400 hover:text-red-300"
+                                                title="Cancel job">
+                                            <i class="fas fa-stop"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr x-show="jobs.length === 0">
+                                <td colspan="5" class="py-8 text-center text-[#94A3B8]">No jobs found for this task</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Execute Task Modal -->
+    <div x-show="showExecuteTaskModal" 
+         x-cloak
+         @click.away="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'"
+         class="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl max-w-2xl w-full mx-4 max-h-[90vh] flex flex-col" @click.stop>
+            <div class="flex justify-between items-center p-8 pb-6 border-b border-[#38BDF8]/20">
+                <h3 class="text-2xl font-semibold text-[#E5E7EB]">Execute Task</h3>
+                <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
+                        class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <template x-if="task">
+                <div class="flex flex-col flex-1 min-h-0">
+                    <div class="flex-1 overflow-y-auto px-8 py-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Task</label>
+                        <div class="text-[#94A3B8]" x-text="task.name"></div>
+                    </div>
+                    
+                    <!-- Tabs for Parameters and Multimedia -->
+                    <div class="border-b border-[#38BDF8]/20">
+                        <div class="flex space-x-4">
+                            <button @click="executeModalTab = 'parameters'" 
+                                    :class="executeModalTab === 'parameters' ? 'border-b-2 border-[#38BDF8] text-[#38BDF8]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
+                                    class="px-4 py-2 font-medium transition-colors">
+                                Parameters
+                            </button>
+                            <button @click="executeModalTab = 'multimedia'" 
+                                    :class="executeModalTab === 'multimedia' ? 'border-b-2 border-[#38BDF8] text-[#38BDF8]' : 'text-[#94A3B8] hover:text-[#E5E7EB]'"
+                                    class="px-4 py-2 font-medium transition-colors">
+                                Multimedia
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Parameters Tab -->
+                    <div x-show="executeModalTab === 'parameters'">
+                        <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Parameters</label>
+                        <p class="text-xs text-[#94A3B8] mb-3">
+                            Enter parameters as key-value pairs (one per line, format: key=value). 
+                            These will be used to template the prompt.
+                        </p>
+                        <textarea x-model="executionParametersText" 
+                                  rows="6"
+                                  placeholder="user_name=Alice&#10;job_title=Software Engineer&#10;task_description=Review code changes"
+                                  class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                        <p class="text-xs text-[#94A3B8] mt-1">
+                            Example: <code class="bg-[#101827] px-1 py-0.5 rounded text-[#38BDF8]">user_name=Alice</code>
+                        </p>
+                    </div>
+                    
+                    <!-- Multimedia Tab -->
+                    <div x-show="executeModalTab === 'multimedia'" class="space-y-4">
+                        <p class="text-xs text-[#94A3B8] mb-3">
+                            Provide multimedia content as URLs or base64-encoded data URIs. You can also upload files which will be converted to base64.
+                        </p>
+                        
+                        <!-- Images -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Images</label>
+                            <textarea x-model="executionMultimedia.images" 
+                                      rows="3"
+                                      placeholder="https://example.com/image.png&#10;data:image/png;base64,iVBORw0KG..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'image')" accept="image/*" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                        
+                        <!-- Videos -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Videos</label>
+                            <textarea x-model="executionMultimedia.videos" 
+                                      rows="3"
+                                      placeholder="https://example.com/video.mp4&#10;data:video/mp4;base64,..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'video')" accept="video/*" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                        
+                        <!-- Audios -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Audios</label>
+                            <textarea x-model="executionMultimedia.audios" 
+                                      rows="3"
+                                      placeholder="https://example.com/audio.mp3&#10;data:audio/mpeg;base64,..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'audio')" accept="audio/*" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                        
+                        <!-- Files -->
+                        <div>
+                            <label class="block text-sm font-medium text-[#E5E7EB] mb-2">Files</label>
+                            <textarea x-model="executionMultimedia.files" 
+                                      rows="3"
+                                      placeholder="https://example.com/file.pdf&#10;data:application/pdf;base64,..."
+                                      class="w-full bg-[#101827] border border-[#38BDF8]/20 rounded px-4 py-2 text-[#E5E7EB] font-mono text-sm focus:border-[#38BDF8] focus:ring-2 focus:ring-[#38BDF8]/50"></textarea>
+                            <input type="file" @change="handleFileUpload($event, 'file')" multiple
+                                   class="mt-2 text-sm text-[#94A3B8] file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-[#38BDF8] file:text-white hover:file:bg-[#38BDF8]/80">
+                        </div>
+                    </div>
+                    </div>
+                    
+                    <div class="flex justify-end space-x-4 p-8 pt-6 border-t border-[#38BDF8]/20 bg-[#1E293B]">
+                        <button @click="showExecuteTaskModal = false; executionParameters = {}; executionParametersText = ''; executionMultimedia = {images: '', videos: '', audios: '', files: ''}; executeModalTab = 'parameters'" 
+                                class="px-4 py-2 bg-[#101827] hover:bg-[#0A0E1A] text-[#E5E7EB] rounded-lg transition-colors">
+                            Cancel
+                        </button>
+                        <button @click="executeTaskWithParameters()" 
+                                class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                            <i class="fas fa-play mr-2"></i>Execute
+                        </button>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <script>
+        function taskDetails() {
+            return {
+                taskId: null,
+                task: null,
+                jobs: [],
+                jobFilter: '',
+                showExecuteTaskModal: false,
+                executionParameters: {},
+                executionParametersText: '',
+                executionMultimedia: {
+                    images: '',
+                    videos: '',
+                    audios: '',
+                    files: ''
+                },
+                executeModalTab: 'parameters',
+                isNewTask: false,
+                isEditMode: false,
+                taskForm: {
+                    name: '',
+                    description: '',
+                    model: '',
+                    prompt: '',
+                    enabled: true,
+                    cron: '',
+                    cron_parameters: {},
+                    webhooks: [],
+                    multimedia_sources: []
+                },
+                cronError: '',
+                cronParametersText: '',
+
+                init() {
+                    // Get task ID from URL
+                    const path = window.location.pathname;
+                    if (path === '/agent-jobs/tasks/new') {
+                        this.isNewTask = true;
+                        this.taskId = null;
+                    } else {
+                        // Check if this is an edit route
+                        const editMatch = path.match(/\/agent-jobs\/tasks\/([^\/]+)\/edit$/);
+                        if (editMatch) {
+                            this.taskId = editMatch[1];
+                            this.isNewTask = false;
+                            this.isEditMode = true;
+                            this.loadTask();
+                        } else {
+                            const match = path.match(/\/agent-jobs\/tasks\/([^\/]+)$/);
+                            if (match) {
+                                this.taskId = match[1];
+                                this.isNewTask = false;
+                                this.isEditMode = false;
+                                this.loadTask();
+                                // Fetch jobs immediately and set up polling
+                                this.fetchJobs();
+                                // Poll for job updates every 2 seconds
+                                setInterval(() => {
+                                    if (!this.isEditMode && !this.isNewTask && this.taskId) {
+                                        this.fetchJobs();
+                                    }
+                                }, 2000);
+                            }
+                        }
+                    }
+                },
+
+                async loadTask() {
+                    try {
+                        const response = await fetch('/api/agent/tasks/' + this.taskId);
+                        if (response.ok) {
+                            this.task = await response.json();
+                            // Initialize form with task data
+                            // Handle webhooks: use new format (backend should have migrated legacy fields)
+                            let webhooks = [];
+                            if (this.task.webhooks && Array.isArray(this.task.webhooks) && this.task.webhooks.length > 0) {
+                                // Use new format
+                                webhooks = this.task.webhooks.map(wh => ({
+                                    ...wh,
+                                    headers_json: JSON.stringify(wh.headers || {}, null, 2)
+                                }));
+                            }
+                            // Note: Legacy fields (webhook_url, webhook_auth, webhook_template) should be migrated
+                            // by the backend, so we don't need to handle them here
+                            
+                            // Handle multimedia sources
+                            let multimediaSources = [];
+                            if (this.task.multimedia_sources && Array.isArray(this.task.multimedia_sources) && this.task.multimedia_sources.length > 0) {
+                                multimediaSources = this.task.multimedia_sources.map(ms => ({
+                                    ...ms,
+                                    headers_json: JSON.stringify(ms.headers || {}, null, 2)
+                                }));
+                            }
+                            
+                            // Convert cron_parameters to text format
+                            let cronParamsText = '';
+                            if (this.task.cron_parameters && Object.keys(this.task.cron_parameters).length > 0) {
+                                cronParamsText = Object.entries(this.task.cron_parameters)
+                                    .map(([key, value]) => `${key}=${value}`)
+                                    .join('\n');
+                            }
+                            
+                            this.taskForm = {
+                                name: this.task.name || '',
+                                description: this.task.description || '',
+                                model: this.task.model || '',
+                                prompt: this.task.prompt || '',
+                                enabled: this.task.enabled !== undefined ? this.task.enabled : true,
+                                cron: this.task.cron || '',
+                                cron_parameters: this.task.cron_parameters || {},
+                                webhooks: webhooks,
+                                multimedia_sources: multimediaSources
+                            };
+                            this.cronParametersText = cronParamsText;
+                        } else {
+                            console.error('Failed to load task');
+                        }
+                    } catch (error) {
+                        console.error('Failed to load task:', error);
+                    }
+                },
+
+                async fetchJobs() {
+                    if (!this.taskId) return;
+                    try {
+                        let url = '/api/agent/jobs?task_id=' + this.taskId + '&limit=100';
+                        if (this.jobFilter) {
+                            url += '&status=' + this.jobFilter;
+                        }
+                        const response = await fetch(url);
+                        if (response.ok) {
+                            this.jobs = await response.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to fetch jobs:', error);
+                    }
+                },
+
+                enterEditMode() {
+                    this.isEditMode = true;
+                },
+
+                cancelEdit() {
+                    if (this.isNewTask) {
+                        window.location.href = '/agent-jobs';
+                    } else {
+                        this.isEditMode = false;
+                        this.loadTask(); // Reload to reset form
+                    }
+                },
+
+                addWebhook() {
+                    const webhook = {
+                        url: '',
+                        method: 'POST',
+                        headers: {},
+                        headers_json: '{}',
+                        payload_template: ''
+                    };
+                    this.taskForm.webhooks.push(webhook);
+                },
+
+                addMultimediaSource() {
+                    const source = {
+                        type: '',
+                        url: '',
+                        headers: {},
+                        headers_json: '{}'
+                    };
+                    if (!this.taskForm.multimedia_sources) {
+                        this.taskForm.multimedia_sources = [];
+                    }
+                    this.taskForm.multimedia_sources.push(source);
+                },
+
+                updateCronParameters() {
+                    // Parse text input into parameters object
+                    const params = {};
+                    if (this.cronParametersText && this.cronParametersText.trim()) {
+                        const lines = this.cronParametersText.trim().split('\n');
+                        for (const line of lines) {
+                            const trimmed = line.trim();
+                            if (trimmed) {
+                                const equalIndex = trimmed.indexOf('=');
+                                if (equalIndex > 0) {
+                                    const key = trimmed.substring(0, equalIndex).trim();
+                                    const value = trimmed.substring(equalIndex + 1).trim();
+                                    if (key) {
+                                        params[key] = value;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    this.taskForm.cron_parameters = params;
+                },
+
+                validateCron(cronExpr) {
+                    this.cronError = '';
+                    if (!cronExpr || cronExpr.trim() === '') {
+                        return true; // Empty is valid (optional field)
+                    }
+                    
+                    // Basic validation: should have 5 space-separated fields
+                    const fields = cronExpr.trim().split(/\s+/);
+                    if (fields.length !== 5) {
+                        this.cronError = 'Cron expression must have exactly 5 fields (minute hour day month weekday)';
+                        return false;
+                    }
+                    
+                    // More lenient validation - just check basic structure
+                    // The actual parsing will be done server-side
+                    const validChars = /^[\d\*\s\-\/\,]+$/i;
+                    if (!validChars.test(cronExpr) && !cronExpr.match(/[A-Z]{3}/i)) {
+                        this.cronError = 'Cron expression contains invalid characters';
+                        return false;
+                    }
+                    
+                    return true;
+                },
+
+                async saveTask() {
+                    // Validate cron before saving
+                    if (this.taskForm.cron && !this.validateCron(this.taskForm.cron)) {
+                        return; // Don't save if cron is invalid
+                    }
+                    
+                    // Update cron parameters from text input
+                    this.updateCronParameters();
+                    
+                    // Convert headers_json strings back to objects
+                    // Explicitly exclude legacy webhook fields
+                    const taskToSave = {
+                        name: this.taskForm.name,
+                        description: this.taskForm.description,
+                        model: this.taskForm.model,
+                        prompt: this.taskForm.prompt,
+                        enabled: this.taskForm.enabled,
+                        cron: this.taskForm.cron,
+                        cron_parameters: this.taskForm.cron_parameters || {},
+                        webhooks: this.taskForm.webhooks.map(webhook => {
+                            const headers = {};
+                            try {
+                                Object.assign(headers, JSON.parse(webhook.headers_json || '{}'));
+                            } catch (e) {
+                                console.error('Invalid headers JSON:', e);
+                            }
+                            return {
+                                url: webhook.url,
+                                method: webhook.method || 'POST',
+                                headers: headers,
+                                payload_template: webhook.payload_template || ''
+                            };
+                        })
+                        // Explicitly exclude legacy fields: webhook_url, webhook_auth, webhook_template
+                    };
+
+                    try {
+                        let response;
+                        if (this.isNewTask) {
+                            response = await fetch('/api/agent/tasks', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(taskToSave)
+                            });
+                        } else {
+                            response = await fetch('/api/agent/tasks/' + this.taskId, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(taskToSave)
+                            });
+                        }
+                        if (response.ok) {
+                            if (this.isNewTask) {
+                                const result = await response.json();
+                                window.location.href = '/agent-jobs/tasks/' + result.id;
+                            } else {
+                                this.isEditMode = false;
+                                await this.loadTask();
+                            }
+                        } else {
+                            const error = await response.json();
+                            const errorMsg = error.error || 'Unknown error';
+                            // Check if error is related to cron
+                            if (errorMsg.toLowerCase().includes('cron')) {
+                                this.cronError = errorMsg;
+                            } else {
+                                alert('Failed to save task: ' + errorMsg);
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Failed to save task:', error);
+                        alert('Failed to save task: ' + error.message);
+                    }
+                },
+
+                showExecuteModal() {
+                    this.executionParameters = {};
+                    this.executionParametersText = '';
+                    this.executionMultimedia = {images: '', videos: '', audios: '', files: ''};
+                    this.executeModalTab = 'parameters';
+                    this.showExecuteTaskModal = true;
+                },
+
+                parseParameters(text) {
+                    const params = {};
+                    if (!text || !text.trim()) {
+                        return params;
+                    }
+                    const lines = text.split('\n');
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        const equalIndex = trimmed.indexOf('=');
+                        if (equalIndex > 0) {
+                            const key = trimmed.substring(0, equalIndex).trim();
+                            const value = trimmed.substring(equalIndex + 1).trim();
+                            if (key) {
+                                params[key] = value;
+                            }
+                        }
+                    }
+                    return params;
+                },
+
+                async executeTaskWithParameters() {
+                    if (!this.task) return;
+                    
+                    // Parse parameters from text
+                    this.executionParameters = this.parseParameters(this.executionParametersText);
+                    
+                    // Parse multimedia from text (split by newlines, filter empty)
+                    const parseMultimedia = (text) => {
+                        if (!text || !text.trim()) return [];
+                        return text.split('\n')
+                            .map(line => line.trim())
+                            .filter(line => line.length > 0);
+                    };
+                    
+                    const requestBody = {
+                        task_id: this.task.id,
+                        parameters: this.executionParameters,
+                        images: parseMultimedia(this.executionMultimedia.images),
+                        videos: parseMultimedia(this.executionMultimedia.videos),
+                        audios: parseMultimedia(this.executionMultimedia.audios),
+                        files: parseMultimedia(this.executionMultimedia.files)
+                    };
+                    
+                    try {
+                        const response = await fetch('/api/agent/jobs/execute', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(requestBody)
+                        });
+                        if (response.ok) {
+                            this.showExecuteTaskModal = false;
+                            this.executionParameters = {};
+                            this.executionParametersText = '';
+                            this.executionMultimedia = {images: '', videos: '', audios: '', files: ''};
+                            this.executeModalTab = 'parameters';
+                            this.fetchJobs();
+                        } else {
+                            const error = await response.json();
+                            alert('Failed to execute task: ' + (error.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Failed to execute task:', error);
+                        alert('Failed to execute task: ' + error.message);
+                    }
+                },
+                
+                handleFileUpload(event, type) {
+                    const files = event.target.files;
+                    if (!files || files.length === 0) return;
+                    
+                    const dataURIs = [];
+                    let processed = 0;
+                    
+                    for (let i = 0; i < files.length; i++) {
+                        const file = files[i];
+                        const reader = new FileReader();
+                        
+                        reader.onload = (e) => {
+                            const dataURI = e.target.result;
+                            dataURIs.push(dataURI);
+                            processed++;
+                            
+                            if (processed === files.length) {
+                                // Append to existing content
+                                const current = this.executionMultimedia[type + 's'] || '';
+                                const newContent = current ? current + '\n' + dataURIs.join('\n') : dataURIs.join('\n');
+                                this.executionMultimedia[type + 's'] = newContent;
+                            }
+                        };
+                        
+                        reader.readAsDataURL(file);
+                    }
+                },
+
+                async deleteTask() {
+                    if (!confirm('Are you sure you want to delete this task? This will also delete all associated jobs.')) return;
+                    try {
+                        const response = await fetch('/api/agent/tasks/' + this.taskId, {
+                            method: 'DELETE'
+                        });
+                        if (response.ok) {
+                            window.location.href = '/agent-jobs';
+                        } else {
+                            const error = await response.json();
+                            alert('Failed to delete task: ' + (error.error || 'Unknown error'));
+                        }
+                    } catch (error) {
+                        console.error('Failed to delete task:', error);
+                        alert('Failed to delete task: ' + error.message);
+                    }
+                },
+
+                async cancelJob(jobId) {
+                    try {
+                        const response = await fetch('/api/agent/jobs/' + jobId + '/cancel', {
+                            method: 'POST'
+                        });
+                        if (response.ok) {
+                            this.fetchJobs();
+                        }
+                    } catch (error) {
+                        console.error('Failed to cancel job:', error);
+                    }
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleString();
+                },
+
+                async clearJobHistory() {
+                    if (!confirm('Are you sure you want to clear all job history for this task? This action cannot be undone.')) return;
+                    try {
+                        // Get all jobs for this task
+                        const response = await fetch('/api/agent/jobs?task_id=' + this.taskId + '&limit=1000');
+                        if (response.ok) {
+                            const jobs = await response.json();
+                            // Delete each job
+                            for (const job of jobs) {
+                                await fetch('/api/agent/jobs/' + job.id, {
+                                    method: 'DELETE'
+                                });
+                            }
+                            // Refresh job list
+                            this.fetchJobs();
+                        }
+                    } catch (error) {
+                        console.error('Failed to clear job history:', error);
+                        alert('Failed to clear job history: ' + error.message);
+                    }
+                }
+            }
+        }
+    </script>
+</div>
+</body>
+</html>

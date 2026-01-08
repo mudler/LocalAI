@@ -1,0 +1,4 @@
+name: whisper-1
+backend: whisper
+parameters:
+  model: whisper-en

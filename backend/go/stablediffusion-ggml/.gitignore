@@ -1,0 +1,6 @@
+package/
+sources/
+.cache/
+build/
+libgosd.so
+stablediffusion-ggml

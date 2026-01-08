@@ -1,0 +1,74 @@
+<nav class="bg-gradient-to-r from-gray-900 to-gray-950 shadow-lg border-b border-gray-800/50">
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center">
+                <!-- Logo Image -->
+                <a href="./" class="flex items-center group">
+                    <img src="static/logo_horizontal.png" 
+                         alt="LocalAI Logo" 
+                         class="h-10 mr-3 rounded-lg border border-blue-600/30 shadow-md transition-all duration-300 group-hover:shadow-blue-500/20 group-hover:border-blue-500/50">
+                </a>
+            </div>
+            
+            <!-- Menu button for small screens -->
+            <div class="lg:hidden">
+                <button id="menu-toggle" class="text-gray-300 hover:text-blue-400 focus:outline-none p-2 rounded-lg transition duration-300 ease-in-out hover:bg-gray-800/70">
+                    <i class="fas fa-bars fa-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Navigation links -->
+            <div class="hidden lg:flex lg:items-center lg:justify-end lg:space-x-1">
+                <a href="./" class="text-gray-300 hover:text-white px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-blue-900/30 flex items-center">
+                    <i class="fas fa-home text-blue-400 mr-2"></i>Home
+                </a>
+                <a href="https://localai.io" target="_blank" class="text-gray-300 hover:text-white px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-blue-900/30 flex items-center group">
+                    <i class="fas fa-book-reader text-blue-400 mr-2"></i>Documentation
+                    <i class="fas fa-external-link-alt text-xs ml-1 opacity-70 group-hover:opacity-100 transition-opacity"></i>
+                </a>
+                <a href="https://models.localai.io/" class="text-gray-300 hover:text-white px-3 py-2 rounded-lg transition duration-300 ease-in-out hover:bg-blue-900/30 flex items-center">
+                    <i class="fas fa-brain text-blue-400 mr-2"></i>Models
+                </a>
+            </div>
+        </div>
+        
+        <!-- Collapsible menu for small screens -->
+        <div class="hidden lg:hidden" id="mobile-menu">
+            <div class="pt-3 pb-2 space-y-1 border-t border-gray-800/50 mt-2">
+                <a href="./" class="block text-gray-300 hover:text-white hover:bg-blue-900/30 px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
+                    <i class="fas fa-home text-blue-400 mr-3 w-5 text-center"></i>Home
+                </a>
+                <a href="https://localai.io" target="_blank" class="block text-gray-300 hover:text-white hover:bg-blue-900/30 px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
+                    <i class="fas fa-book-reader text-blue-400 mr-3 w-5 text-center"></i>Documentation
+                    <i class="fas fa-external-link-alt text-xs ml-1 opacity-70"></i>
+                </a>
+                <a href="https://models.localai.io/" class="block text-gray-300 hover:text-white hover:bg-blue-900/30 px-3 py-2 rounded-lg transition duration-300 ease-in-out flex items-center">
+                    <i class="fas fa-brain text-blue-400 mr-3 w-5 text-center"></i>Models
+                </a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+    // JavaScript to toggle the mobile menu with animation
+    document.getElementById('menu-toggle').addEventListener('click', function () {
+        var mobileMenu = document.getElementById('mobile-menu');
+        if (mobileMenu.classList.contains('hidden')) {
+            mobileMenu.classList.remove('hidden');
+            // Use setTimeout to create a mild animation effect
+            setTimeout(function() {
+                mobileMenu.classList.add('opacity-100');
+                mobileMenu.classList.remove('opacity-0');
+            }, 10);
+        } else {
+            mobileMenu.classList.add('opacity-0');
+            mobileMenu.classList.remove('opacity-100');
+            // Wait for transition to finish before hiding
+            setTimeout(function() {
+                mobileMenu.classList.add('hidden');
+            }, 300);
+        }
+    });
+    
+</script>

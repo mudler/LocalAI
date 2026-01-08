@@ -1,0 +1,529 @@
+package downloader
+
+import (
+	"context"
+	"crypto/sha256"
+	"errors"
+	"fmt"
+	"hash"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+
+	"github.com/mudler/LocalAI/pkg/oci"
+	"github.com/mudler/LocalAI/pkg/utils"
+	"github.com/mudler/LocalAI/pkg/xio"
+	"github.com/mudler/xlog"
+)
+
+const (
+	HuggingFacePrefix  = "huggingface://"
+	HuggingFacePrefix1 = "hf://"
+	HuggingFacePrefix2 = "hf.co/"
+	OCIPrefix          = "oci://"
+	OCIFilePrefix      = "ocifile://"
+	OllamaPrefix       = "ollama://"
+	HTTPPrefix         = "http://"
+	HTTPSPrefix        = "https://"
+	GithubURI          = "github:"
+	GithubURI2         = "github://"
+	LocalPrefix        = "file://"
+)
+
+type URI string
+
+// HF_ENDPOINT is the HuggingFace endpoint, can be overridden by setting the HF_ENDPOINT environment variable.
+var HF_ENDPOINT string = loadConfig()
+
+func loadConfig() string {
+	HF_ENDPOINT := os.Getenv("HF_ENDPOINT")
+	if HF_ENDPOINT == "" {
+		HF_ENDPOINT = "https://huggingface.co"
+	}
+	return HF_ENDPOINT
+}
+
+func (uri URI) ReadWithCallback(basePath string, f func(url string, i []byte) error) error {
+	return uri.ReadWithAuthorizationAndCallback(context.Background(), basePath, "", f)
+}
+
+func (uri URI) ReadWithAuthorizationAndCallback(ctx context.Context, basePath string, authorization string, f func(url string, i []byte) error) error {
+	url := uri.ResolveURL()
+
+	if strings.HasPrefix(string(uri), LocalPrefix) {
+		// checks if the file is symbolic, and resolve if so - otherwise, this function returns the path unmodified.
+		resolvedFile, err := filepath.EvalSymlinks(url)
+		if err != nil {
+			return err
+		}
+		resolvedBasePath, err := filepath.EvalSymlinks(basePath)
+		if err != nil {
+			return err
+		}
+		// Check if the local file is rooted in basePath
+		err = utils.InTrustedRoot(resolvedFile, resolvedBasePath)
+		if err != nil {
+			xlog.Debug("downloader.GetURI blocked an attempt to ready a file url outside of basePath", "resolvedFile", resolvedFile, "basePath", basePath)
+			return err
+		}
+		// Read the response body
+		body, err := os.ReadFile(resolvedFile)
+		if err != nil {
+			return err
+		}
+
+		// Unmarshal YAML data into a struct
+		return f(url, body)
+	}
+
+	// Send a GET request to the URL
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
+	}
+	if authorization != "" {
+		req.Header.Add("Authorization", authorization)
+	}
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	// Read the response body
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	// Unmarshal YAML data into a struct
+	return f(url, body)
+}
+
+func (u URI) FilenameFromUrl() (string, error) {
+	if f := filenameFromUrl(string(u)); f != "" {
+		return f, nil
+	}
+
+	f := utils.MD5(string(u))
+	if strings.HasSuffix(string(u), ".yaml") || strings.HasSuffix(string(u), ".yml") {
+		f = f + ".yaml"
+	}
+
+	return f, nil
+}
+
+func filenameFromUrl(urlstr string) string {
+	// strip anything after @
+	if strings.Contains(urlstr, "@") {
+		urlstr = strings.Split(urlstr, "@")[0]
+	}
+
+	u, err := url.Parse(urlstr)
+	if err != nil {
+		return ""
+	}
+	x, err := url.QueryUnescape(u.EscapedPath())
+	if err != nil {
+		return ""
+	}
+	return filepath.Base(x)
+}
+
+func (u URI) LooksLikeURL() bool {
+	return strings.HasPrefix(string(u), HTTPPrefix) ||
+		strings.HasPrefix(string(u), HTTPSPrefix) ||
+		strings.HasPrefix(string(u), HuggingFacePrefix) ||
+		strings.HasPrefix(string(u), HuggingFacePrefix1) ||
+		strings.HasPrefix(string(u), HuggingFacePrefix2) ||
+		strings.HasPrefix(string(u), GithubURI) ||
+		strings.HasPrefix(string(u), OllamaPrefix) ||
+		strings.HasPrefix(string(u), OCIPrefix) ||
+		strings.HasPrefix(string(u), GithubURI2)
+}
+
+func (u URI) LooksLikeHTTPURL() bool {
+	return strings.HasPrefix(string(u), HTTPPrefix) ||
+		strings.HasPrefix(string(u), HTTPSPrefix)
+}
+
+func (u URI) LooksLikeDir() bool {
+	f, err := os.Stat(string(u))
+	return err == nil && f.IsDir()
+}
+
+func (s URI) LooksLikeOCI() bool {
+	return strings.HasPrefix(string(s), "quay.io") ||
+		strings.HasPrefix(string(s), OCIPrefix) ||
+		strings.HasPrefix(string(s), OllamaPrefix) ||
+		strings.HasPrefix(string(s), OCIFilePrefix) ||
+		strings.HasPrefix(string(s), "ghcr.io") ||
+		strings.HasPrefix(string(s), "docker.io")
+}
+
+func (s URI) LooksLikeOCIFile() bool {
+	return strings.HasPrefix(string(s), OCIFilePrefix)
+}
+
+func (s URI) ResolveURL() string {
+	switch {
+	case strings.HasPrefix(string(s), LocalPrefix):
+		return strings.TrimPrefix(string(s), LocalPrefix)
+	case strings.HasPrefix(string(s), GithubURI2):
+		repository := strings.Replace(string(s), GithubURI2, "", 1)
+
+		repoParts := strings.Split(repository, "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
+	case strings.HasPrefix(string(s), GithubURI):
+		parts := strings.Split(string(s), ":")
+		repoParts := strings.Split(parts[1], "@")
+		branch := "main"
+
+		if len(repoParts) > 1 {
+			branch = repoParts[1]
+		}
+
+		repoPath := strings.Split(repoParts[0], "/")
+		org := repoPath[0]
+		project := repoPath[1]
+		projectPath := strings.Join(repoPath[2:], "/")
+
+		return fmt.Sprintf("https://raw.githubusercontent.com/%s/%s/%s/%s", org, project, branch, projectPath)
+	case strings.HasPrefix(string(s), HuggingFacePrefix) || strings.HasPrefix(string(s), HuggingFacePrefix1) || strings.HasPrefix(string(s), HuggingFacePrefix2):
+		repository := strings.Replace(string(s), HuggingFacePrefix, "", 1)
+		repository = strings.Replace(repository, HuggingFacePrefix1, "", 1)
+		repository = strings.Replace(repository, HuggingFacePrefix2, "", 1)
+		// convert repository to a full URL.
+		// e.g. TheBloke/Mixtral-8x7B-v0.1-GGUF/mixtral-8x7b-v0.1.Q2_K.gguf@main -> https://huggingface.co/TheBloke/Mixtral-8x7B-v0.1-GGUF/resolve/main/mixtral-8x7b-v0.1.Q2_K.gguf
+
+		repoPieces := strings.Split(repository, "/")
+		repoID := strings.Split(repository, "@")
+		if len(repoPieces) < 3 {
+			return string(s)
+		}
+
+		owner := repoPieces[0]
+		repo := repoPieces[1]
+
+		branch := "main"
+		filepath := strings.Join(repoPieces[2:], "/")
+
+		if len(repoID) > 1 {
+			if strings.Contains(repo, "@") {
+				branch = repoID[1]
+			}
+			if strings.Contains(filepath, "@") {
+				filepath = repoID[2]
+			}
+		}
+
+		return fmt.Sprintf("%s/%s/%s/resolve/%s/%s", HF_ENDPOINT, owner, repo, branch, filepath)
+	}
+
+	return string(s)
+}
+
+func removePartialFile(tmpFilePath string) error {
+	_, err := os.Stat(tmpFilePath)
+	if err == nil {
+		xlog.Debug("Removing temporary file", "file", tmpFilePath)
+		err = os.Remove(tmpFilePath)
+		if err != nil {
+			err1 := fmt.Errorf("failed to remove temporary download file %s: %v", tmpFilePath, err)
+			xlog.Warn("failed to remove temporary download file", "error", err1)
+			return err1
+		}
+	}
+	return nil
+}
+
+func calculateHashForPartialFile(file *os.File) (hash.Hash, error) {
+	hash := sha256.New()
+	_, err := io.Copy(hash, file)
+	if err != nil {
+		return nil, err
+	}
+	return hash, nil
+}
+
+func (uri URI) checkSeverSupportsRangeHeader() (bool, error) {
+	url := uri.ResolveURL()
+	resp, err := http.Head(url)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	return resp.Header.Get("Accept-Ranges") == "bytes", nil
+}
+
+func (uri URI) DownloadFile(filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
+	return uri.DownloadFileWithContext(context.Background(), filePath, sha, fileN, total, downloadStatus)
+}
+
+func (uri URI) DownloadFileWithContext(ctx context.Context, filePath, sha string, fileN, total int, downloadStatus func(string, string, string, float64)) error {
+	url := uri.ResolveURL()
+	if uri.LooksLikeOCI() {
+
+		// Only Ollama wants to download to the file, for the rest, we want to download to the directory
+		// so we check if filepath has any extension, otherwise we assume it's a directory
+		if filepath.Ext(filePath) != "" && !strings.HasPrefix(url, OllamaPrefix) {
+			filePath = filepath.Dir(filePath)
+		}
+
+		progressStatus := func(desc ocispec.Descriptor) io.Writer {
+			return &progressWriter{
+				fileName:       filePath,
+				total:          desc.Size,
+				hash:           sha256.New(),
+				fileNo:         fileN,
+				totalFiles:     total,
+				downloadStatus: downloadStatus,
+			}
+		}
+
+		if url, ok := strings.CutPrefix(url, OllamaPrefix); ok {
+			return oci.OllamaFetchModel(ctx, url, filePath, progressStatus)
+		}
+
+		if url, ok := strings.CutPrefix(url, OCIFilePrefix); ok {
+			// Open the tarball
+			img, err := tarball.ImageFromPath(url, nil)
+			if err != nil {
+				return fmt.Errorf("failed to open tarball: %s", err.Error())
+			}
+
+			return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
+		}
+
+		url = strings.TrimPrefix(url, OCIPrefix)
+		img, err := oci.GetImage(url, "", nil, nil)
+		if err != nil {
+			return fmt.Errorf("failed to get image %q: %v", url, err)
+		}
+
+		return oci.ExtractOCIImage(ctx, img, url, filePath, downloadStatus)
+	}
+
+	// Check for cancellation before starting
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	// Check if the file already exists
+	_, err := os.Stat(filePath)
+	if err == nil {
+		xlog.Debug("[downloader] File already exists", "filePath", filePath)
+		// File exists, check SHA
+		if sha != "" {
+			// Verify SHA
+			calculatedSHA, err := calculateSHA(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to calculate SHA for file %q: %v", filePath, err)
+			}
+			if calculatedSHA == sha {
+				// SHA matches, skip downloading
+				xlog.Debug("File already exists and matches the SHA. Skipping download", "file", filePath)
+				return nil
+			}
+			// SHA doesn't match, delete the file and download again
+			err = os.Remove(filePath)
+			if err != nil {
+				return fmt.Errorf("failed to remove existing file %q: %v", filePath, err)
+			}
+			xlog.Debug("Removed file (SHA doesn't match)", "file", filePath)
+
+		} else {
+			// SHA is missing, skip downloading
+			xlog.Debug("File already exists. Skipping download", "file", filePath)
+			return nil
+		}
+	} else if !os.IsNotExist(err) || !URI(url).LooksLikeHTTPURL() {
+		// Error occurred while checking file existence
+		return fmt.Errorf("file %s does not exist (%v) and %s does not look like an HTTP URL", filePath, err, url)
+	}
+
+	xlog.Info("Downloading", "url", url)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create request for %q: %v", filePath, err)
+	}
+
+	// save partial download to dedicated file
+	tmpFilePath := filePath + ".partial"
+	tmpFileInfo, err := os.Stat(tmpFilePath)
+	if err == nil && uri.LooksLikeHTTPURL() {
+		support, err := uri.checkSeverSupportsRangeHeader()
+		if err != nil {
+			return fmt.Errorf("failed to check if uri server supports range header: %v", err)
+		}
+		if support {
+			startPos := tmpFileInfo.Size()
+			req.Header.Set("Range", fmt.Sprintf("bytes=%d-", startPos))
+		} else {
+			err := removePartialFile(tmpFilePath)
+			if err != nil {
+				return err
+			}
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("failed to check file %q existence: %v", filePath, err)
+	}
+
+	var source io.ReadCloser
+	var contentLength int64
+	if _, e := os.Stat(uri.ResolveURL()); strings.HasPrefix(string(uri), LocalPrefix) || e == nil {
+		file, err := os.Open(uri.ResolveURL())
+		if err != nil {
+			return fmt.Errorf("failed to open file %q: %v", uri.ResolveURL(), err)
+		}
+		l, err := file.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to get file size %q: %v", uri.ResolveURL(), err)
+		}
+		source = file
+		contentLength = l.Size()
+	} else {
+		// Start the request
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			// Check if error is due to context cancellation
+			if errors.Is(err, context.Canceled) {
+				// Clean up partial file on cancellation
+				removePartialFile(tmpFilePath)
+				return err
+			}
+			return fmt.Errorf("failed to download file %q: %v", filePath, err)
+		}
+		//defer resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("failed to download url %q, invalid status code %d", url, resp.StatusCode)
+		}
+		source = resp.Body
+		contentLength = resp.ContentLength
+	}
+	defer source.Close()
+
+	// Create parent directory
+	err = os.MkdirAll(filepath.Dir(filePath), 0750)
+	if err != nil {
+		return fmt.Errorf("failed to create parent directory for file %q: %v", filePath, err)
+	}
+
+	// Create and write file
+	outFile, err := os.OpenFile(tmpFilePath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create / open file %q: %v", tmpFilePath, err)
+	}
+	defer outFile.Close()
+	hash, err := calculateHashForPartialFile(outFile)
+	if err != nil {
+		return fmt.Errorf("failed to calculate hash for partial file")
+	}
+	progress := &progressWriter{
+		fileName:       tmpFilePath,
+		total:          contentLength,
+		hash:           hash,
+		fileNo:         fileN,
+		totalFiles:     total,
+		downloadStatus: downloadStatus,
+		ctx:            ctx,
+	}
+
+	_, err = xio.Copy(ctx, io.MultiWriter(outFile, progress), source)
+	if err != nil {
+		// Check if error is due to context cancellation
+		if errors.Is(err, context.Canceled) {
+			// Clean up partial file on cancellation
+			removePartialFile(tmpFilePath)
+			return err
+		}
+		return fmt.Errorf("failed to write file %q: %v", filePath, err)
+	}
+
+	// Check for cancellation before finalizing
+	select {
+	case <-ctx.Done():
+		removePartialFile(tmpFilePath)
+		return ctx.Err()
+	default:
+	}
+
+	err = os.Rename(tmpFilePath, filePath)
+	if err != nil {
+		return fmt.Errorf("failed to rename temporary file %s -> %s: %v", tmpFilePath, filePath, err)
+	}
+
+	if sha != "" {
+		// Verify SHA
+		calculatedSHA := fmt.Sprintf("%x", progress.hash.Sum(nil))
+		if calculatedSHA != sha {
+			xlog.Debug("SHA mismatch for file", "file", filePath, "calculated", calculatedSHA, "metadata", sha)
+			return fmt.Errorf("SHA mismatch for file %q ( calculated: %s != metadata: %s )", filePath, calculatedSHA, sha)
+		}
+	} else {
+		xlog.Debug("SHA missing. Skipping validation", "file", filePath)
+	}
+
+	xlog.Info("File downloaded and verified", "file", filePath)
+	if utils.IsArchive(filePath) {
+		basePath := filepath.Dir(filePath)
+		xlog.Info("File is an archive, uncompressing", "file", filePath, "basePath", basePath)
+		if err := utils.ExtractArchive(filePath, basePath); err != nil {
+			xlog.Debug("Failed decompressing", "file", filePath, "error", err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return strconv.FormatInt(bytes, 10) + " B"
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+func calculateSHA(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := sha256.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", hash.Sum(nil)), nil
+}

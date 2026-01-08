@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="jobDetails()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow max-w-6xl">
+        <!-- Header -->
+        <div class="hero-section">
+            <div class="hero-content flex justify-between items-center">
+                <div>
+                    <h1 class="hero-title">
+                        Job Details
+                    </h1>
+                    <p class="hero-subtitle">Live job status, reasoning traces, and execution details</p>
+                </div>
+                <a href="/agent-jobs" class="text-[#94A3B8] hover:text-[#E5E7EB]">
+                    <i class="fas fa-arrow-left mr-2"></i>Back to Jobs
+                </a>
+            </div>
+        </div>
+
+        <!-- Job Status Card -->
+        <div class="card p-8 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB]">Job Status</h2>
+                <div class="flex items-center space-x-4">
+                    <span :class="{
+                        'bg-yellow-500': job.status === 'pending',
+                        'bg-blue-500': job.status === 'running',
+                        'bg-green-500': job.status === 'completed',
+                        'bg-red-500': job.status === 'failed',
+                        'bg-gray-500': job.status === 'cancelled'
+                    }" 
+                    class="px-4 py-2 rounded-lg text-sm font-semibold text-white" 
+                    x-text="job.status ? job.status.toUpperCase() : 'LOADING...'"></span>
+                    <button x-show="job.status === 'pending' || job.status === 'running'" 
+                            @click="cancelJob()" 
+                            class="btn-primary"
+                            style="background: var(--color-error);">
+                        <i class="fas fa-stop mr-2"></i>Cancel
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="text-[#94A3B8] text-sm">Job ID</label>
+                    <div class="font-mono text-[#E5E7EB] mt-1" x-text="job.id || '-'"></div>
+                </div>
+                <div>
+                    <label class="text-[#94A3B8] text-sm">Task</label>
+                    <div class="text-[#E5E7EB] mt-1" x-text="task ? task.name : (job.task_id || '-')"></div>
+                </div>
+                <div>
+                    <label class="text-[#94A3B8] text-sm">Created</label>
+                    <div class="text-[#E5E7EB] mt-1" x-text="formatDate(job.created_at)"></div>
+                </div>
+                <div>
+                    <label class="text-[#94A3B8] text-sm">Started</label>
+                    <div class="text-[#E5E7EB] mt-1" x-text="formatDate(job.started_at)"></div>
+                </div>
+                <div>
+                    <label class="text-[#94A3B8] text-sm">Completed</label>
+                    <div class="text-[#E5E7EB] mt-1" x-text="formatDate(job.completed_at)"></div>
+                </div>
+                <div>
+                    <label class="text-[#94A3B8] text-sm">Triggered By</label>
+                    <div class="text-[#E5E7EB] mt-1" x-text="job.triggered_by || '-'"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Agent Prompt Template -->
+        <div class="card p-8 mb-8" x-show="task && task.prompt">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Agent Prompt Template</h2>
+            <p class="text-sm text-[#94A3B8] mb-4">The original prompt template from the task definition.</p>
+            <div class="bg-[#101827] p-4 rounded text-[#E5E7EB] whitespace-pre-wrap font-mono text-sm" x-text="task.prompt"></div>
+        </div>
+
+        <!-- Cron Parameters -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="job.triggered_by === 'cron' && task && task.cron_parameters && Object.keys(task.cron_parameters).length > 0">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Cron Parameters</h2>
+            <p class="text-sm text-[#94A3B8] mb-4">Parameters configured for cron-triggered executions of this task.</p>
+            <pre class="bg-[#101827] p-4 rounded text-[#E5E7EB] text-sm overflow-x-auto" x-text="JSON.stringify(task.cron_parameters, null, 2)"></pre>
+        </div>
+
+        <!-- Parameters -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="job.parameters && Object.keys(job.parameters).length > 0">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Job Parameters</h2>
+            <p class="text-sm text-[#94A3B8] mb-4">Parameters used for this specific job execution.</p>
+            <pre class="bg-[#101827] p-4 rounded text-[#E5E7EB] text-sm overflow-x-auto" x-text="JSON.stringify(job.parameters, null, 2)"></pre>
+        </div>
+
+        <!-- Rendered Job Prompt -->
+        <div class="card p-8 mb-8" x-show="task && task.prompt">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Rendered Job Prompt</h2>
+            <p class="text-sm text-[#94A3B8] mb-4">The prompt with parameters substituted, as it was sent to the agent.</p>
+            <div class="bg-[#101827] p-4 rounded text-[#E5E7EB] whitespace-pre-wrap" x-text="getRenderedPrompt()"></div>
+        </div>
+
+        <!-- Result -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="job.result">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Result</h2>
+            <div class="bg-[#101827] p-4 rounded text-[#E5E7EB] whitespace-pre-wrap" x-text="job.result"></div>
+        </div>
+
+        <!-- Error -->
+        <div class="card p-8 mb-8" x-show="job.error" style="border-color: var(--color-error);">
+            <h2 class="text-2xl font-semibold text-red-400 mb-6">Error</h2>
+            <div class="bg-red-900/20 p-4 rounded text-red-400 whitespace-pre-wrap" x-text="job.error"></div>
+        </div>
+
+        <!-- Reasoning Traces & Actions -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Execution Traces</h2>
+            <div x-show="!traces || traces.length === 0" class="text-[#94A3B8] text-center py-8">
+                <i class="fas fa-info-circle text-2xl mb-2"></i>
+                <p>No execution traces available yet. Traces will appear here as the job executes.</p>
+            </div>
+            <div x-show="traces && traces.length > 0" class="space-y-4">
+                <template x-for="(trace, index) in traces" :key="index">
+                    <div class="bg-[#101827] border border-[#38BDF8]/10 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center space-x-3">
+                                <span class="text-xs text-[#94A3B8] font-mono" x-text="'Step ' + (index + 1)"></span>
+                                <span class="text-xs px-2 py-1 rounded" 
+                                      :class="{
+                                          'bg-blue-500/20 text-blue-400': trace.type === 'reasoning',
+                                          'bg-purple-500/20 text-purple-400': trace.type === 'tool_call',
+                                          'bg-green-500/20 text-green-400': trace.type === 'tool_result',
+                                          'bg-yellow-500/20 text-yellow-400': trace.type === 'status'
+                                      }"
+                                      x-text="trace.type"></span>
+                            </div>
+                            <span class="text-xs text-[#94A3B8]" x-text="formatTime(trace.timestamp)"></span>
+                        </div>
+                        <div class="text-[#E5E7EB] text-sm" x-text="trace.content"></div>
+                        <div x-show="trace.tool_name" class="mt-2 text-xs text-[#94A3B8]">
+                            <span class="font-semibold">Tool:</span> <span x-text="trace.tool_name"></span>
+                        </div>
+                        <div x-show="trace.arguments" class="mt-2">
+                            <pre class="text-xs text-[#94A3B8] bg-[#0A0E1A] p-2 rounded overflow-x-auto" x-text="JSON.stringify(trace.arguments, null, 2)"></pre>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- Webhook Status -->
+        <div class="bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl p-8 mb-8" x-show="job.webhook_sent !== undefined || job.webhook_error">
+            <h2 class="text-2xl font-semibold text-[#E5E7EB] mb-6">Webhook Status</h2>
+            <div class="space-y-3">
+                <div class="flex items-center space-x-3">
+                    <span :class="job.webhook_sent && !job.webhook_error ? 'text-green-400' : (job.webhook_error ? 'text-yellow-400' : 'text-gray-400')">
+                        <i class="fas" :class="job.webhook_sent && !job.webhook_error ? 'fa-check-circle' : (job.webhook_error ? 'fa-exclamation-triangle' : 'fa-clock')"></i>
+                    </span>
+                    <span class="text-[#E5E7EB]" 
+                          x-text="job.webhook_sent && !job.webhook_error ? 'All webhooks sent successfully' : (job.webhook_error ? 'Webhook delivery had errors' : 'Webhook pending')"></span>
+                    <span x-show="job.webhook_sent_at" class="text-[#94A3B8] text-sm" x-text="'at ' + formatDate(job.webhook_sent_at)"></span>
+                </div>
+                <div x-show="job.webhook_error" class="bg-red-900/20 border border-red-500/20 rounded-lg p-4">
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-exclamation-circle text-red-400 mt-1"></i>
+                        <div class="flex-1">
+                            <div class="text-red-400 font-semibold mb-1">Webhook Delivery Errors:</div>
+                            <div class="text-red-300 text-sm whitespace-pre-wrap" x-text="job.webhook_error"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        function jobDetails() {
+            return {
+                job: {},
+                task: null,
+                traces: [],
+                jobId: null,
+                pollingInterval: null,
+
+                init() {
+                    // Get job ID from URL
+                    const path = window.location.pathname;
+                    const match = path.match(/\/agent-jobs\/jobs\/([^\/]+)/);
+                    if (match) {
+                        this.jobId = match[1];
+                        this.loadJobAndTask();
+                        // Poll for updates every 2 seconds if job is still running
+                        this.startPolling();
+                    }
+                },
+
+                async loadJobAndTask() {
+                    try {
+                        // Load job first
+                        const jobResponse = await fetch('/api/agent/jobs/' + this.jobId);
+                        this.job = await jobResponse.json();
+                        // Parse traces from job result or separate endpoint
+                        this.parseTraces();
+                        
+                        // Then load task if we have a task_id
+                        if (this.job.task_id) {
+                            const taskResponse = await fetch('/api/agent/tasks/' + this.job.task_id);
+                            this.task = await taskResponse.json();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load job or task:', error);
+                    }
+                },
+
+                async loadJob() {
+                    try {
+                        const response = await fetch('/api/agent/jobs/' + this.jobId);
+                        this.job = await response.json();
+                        // Parse traces from job result or separate endpoint
+                        this.parseTraces();
+                        // Reload task if task_id changed
+                        if (this.job.task_id && (!this.task || this.task.id !== this.job.task_id)) {
+                            await this.loadTask();
+                        }
+                    } catch (error) {
+                        console.error('Failed to load job:', error);
+                    }
+                },
+
+                async loadTask() {
+                    if (!this.job || !this.job.task_id) return;
+                    try {
+                        const response = await fetch('/api/agent/tasks/' + this.job.task_id);
+                        this.task = await response.json();
+                    } catch (error) {
+                        console.error('Failed to load task:', error);
+                    }
+                },
+
+                parseTraces() {
+                    // Extract traces from job
+                    if (this.job.traces && Array.isArray(this.job.traces)) {
+                        this.traces = this.job.traces;
+                    } else {
+                        this.traces = [];
+                    }
+                },
+
+                startPolling() {
+                    // Poll every 2 seconds if job is still running
+                    this.pollingInterval = setInterval(() => {
+                        if (this.job.status === 'pending' || this.job.status === 'running') {
+                            this.loadJob();
+                        } else {
+                            this.stopPolling();
+                        }
+                    }, 2000);
+                },
+
+                stopPolling() {
+                    if (this.pollingInterval) {
+                        clearInterval(this.pollingInterval);
+                        this.pollingInterval = null;
+                    }
+                },
+
+                async cancelJob() {
+                    if (!confirm('Are you sure you want to cancel this job?')) return;
+                    try {
+                        const response = await fetch('/api/agent/jobs/' + this.jobId + '/cancel', {
+                            method: 'POST'
+                        });
+                        if (response.ok) {
+                            this.loadJob();
+                        }
+                    } catch (error) {
+                        console.error('Failed to cancel job:', error);
+                    }
+                },
+
+                formatDate(dateStr) {
+                    if (!dateStr) return '-';
+                    const date = new Date(dateStr);
+                    return date.toLocaleString();
+                },
+
+                formatTime(timestamp) {
+                    if (!timestamp) return '';
+                    const date = new Date(timestamp);
+                    return date.toLocaleTimeString();
+                },
+
+                getRenderedPrompt() {
+                    if (!this.task || !this.task.prompt) return '';
+                    if (!this.job.parameters || Object.keys(this.job.parameters).length === 0) {
+                        return this.task.prompt;
+                    }
+                    
+                    // Simple template rendering: replace {{.param}} with parameter values
+                    // This is a simplified version - Go templates are more complex, but this handles the common case
+                    let rendered = this.task.prompt;
+                    for (const [key, value] of Object.entries(this.job.parameters)) {
+                        // Escape special regex characters in the key
+                        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        // Replace {{.key}} and {{ .key }} patterns
+                        const patterns = [
+                            new RegExp(`\\{\\{\\.${escapedKey}\\}\\}`, 'g'),
+                            new RegExp(`\\{\\{\\s*\\.${escapedKey}\\s*\\}\\}`, 'g')
+                        ];
+                        patterns.forEach(pattern => {
+                            rendered = rendered.replace(pattern, value || '');
+                        });
+                    }
+                    
+                    return rendered;
+                }
+            }
+        }
+    </script>
+</div>
+</body>
+</html>
+

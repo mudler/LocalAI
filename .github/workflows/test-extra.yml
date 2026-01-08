@@ -1,0 +1,268 @@
+---
+name: 'Tests extras backends'
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+
+concurrency:
+  group: ci-tests-extra-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  # Requires CUDA
+  # tests-chatterbox-tts:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v6
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+  #     - name: Test chatterbox-tts
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/chatterbox
+  #          make --jobs=5 --output-sync=target -C backend/python/chatterbox test
+  tests-transformers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+      - name: Test transformers
+        run: |
+           make --jobs=5 --output-sync=target -C backend/python/transformers
+           make --jobs=5 --output-sync=target -C backend/python/transformers test
+  tests-rerankers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+      - name: Test rerankers
+        run: |
+           make --jobs=5 --output-sync=target -C backend/python/rerankers
+           make --jobs=5 --output-sync=target -C backend/python/rerankers test
+
+  tests-diffusers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          sudo apt-get install -y libopencv-dev
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test diffusers
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/diffusers
+          make --jobs=5 --output-sync=target -C backend/python/diffusers test
+
+  #tests-vllm:
+  #  runs-on: ubuntu-latest
+  #  steps:
+  #    - name: Clone
+  #      uses: actions/checkout@v6
+  #      with:
+  #        submodules: true
+  #    - name: Dependencies
+  #      run: |
+  #        sudo apt-get update
+  #        sudo apt-get install -y build-essential ffmpeg
+  #        sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #        sudo apt-get install -y libopencv-dev
+  #        # Install UV
+  #        curl -LsSf https://astral.sh/uv/install.sh | sh
+  #        pip install --user --no-cache-dir grpcio-tools==1.64.1
+  #    - name: Test vllm backend
+  #      run: |
+  #        make --jobs=5 --output-sync=target -C backend/python/vllm
+  #        make --jobs=5 --output-sync=target -C backend/python/vllm test
+  # tests-transformers-musicgen:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v6
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+  #     - name: Test transformers-musicgen
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen
+  #          make --jobs=5 --output-sync=target -C backend/python/transformers-musicgen test
+
+  # tests-bark:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Release space from worker
+  #       run: |
+  #           echo "Listing top largest packages"
+  #           pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+  #           head -n 30 <<< "${pkgs}"
+  #           echo
+  #           df -h
+  #           echo
+  #           sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+  #           sudo apt-get remove --auto-remove android-sdk-platform-tools || true
+  #           sudo apt-get purge --auto-remove android-sdk-platform-tools || true
+  #           sudo rm -rf /usr/local/lib/android
+  #           sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+  #           sudo rm -rf /usr/share/dotnet
+  #           sudo apt-get remove -y '^mono-.*' || true
+  #           sudo apt-get remove -y '^ghc-.*' || true
+  #           sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+  #           sudo apt-get remove -y 'php.*' || true
+  #           sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+  #           sudo apt-get remove -y '^google-.*' || true
+  #           sudo apt-get remove -y azure-cli || true
+  #           sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+  #           sudo apt-get remove -y '^gfortran-.*' || true
+  #           sudo apt-get remove -y microsoft-edge-stable || true
+  #           sudo apt-get remove -y firefox || true
+  #           sudo apt-get remove -y powershell || true
+  #           sudo apt-get remove -y r-base-core || true
+  #           sudo apt-get autoremove -y
+  #           sudo apt-get clean
+  #           echo
+  #           echo "Listing top largest packages"
+  #           pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+  #           head -n 30 <<< "${pkgs}"
+  #           echo
+  #           sudo rm -rfv build || true
+  #           sudo rm -rf /usr/share/dotnet || true
+  #           sudo rm -rf /opt/ghc || true
+  #           sudo rm -rf "/usr/local/share/boost" || true
+  #           sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+  #           df -h
+  #     - name: Clone
+  #       uses: actions/checkout@v6
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+
+  #     - name: Test bark
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/bark
+  #          make --jobs=5 --output-sync=target -C backend/python/bark test
+
+
+  # Below tests needs GPU. Commented out for now
+  # TODO: Re-enable as soon as we have GPU nodes
+  # tests-vllm:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Clone
+  #       uses: actions/checkout@v6
+  #       with:
+  #         submodules: true
+  #     - name: Dependencies
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install build-essential ffmpeg
+  #         # Install UV
+  #         curl -LsSf https://astral.sh/uv/install.sh | sh
+  #         sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+  #         sudo apt-get install -y libopencv-dev
+  #         pip install --user --no-cache-dir grpcio-tools==1.64.1
+  #     - name: Test vllm
+  #       run: |
+  #          make --jobs=5 --output-sync=target -C backend/python/vllm
+  #          make --jobs=5 --output-sync=target -C backend/python/vllm test
+
+  tests-coqui:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch espeak espeak-ng python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test coqui
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/coqui
+          make --jobs=5 --output-sync=target -C backend/python/coqui test
+  tests-moonshine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone
+        uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install build-essential ffmpeg
+          sudo apt-get install -y ca-certificates cmake curl patch python3-pip
+          # Install UV
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          pip install --user --no-cache-dir grpcio-tools==1.64.1
+      - name: Test moonshine
+        run: |
+          make --jobs=5 --output-sync=target -C backend/python/moonshine
+          make --jobs=5 --output-sync=target -C backend/python/moonshine test

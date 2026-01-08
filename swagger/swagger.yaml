@@ -1,0 +1,1938 @@
+basePath: /
+definitions:
+  config.Gallery:
+    properties:
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  functions.Function:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      parameters:
+        additionalProperties: true
+        type: object
+      strict:
+        type: boolean
+    type: object
+  functions.Item:
+    properties:
+      properties:
+        additionalProperties: true
+        type: object
+      type:
+        type: string
+    type: object
+  functions.JSONFunctionStructure:
+    properties:
+      $defs:
+        additionalProperties: true
+        type: object
+      anyOf:
+        items:
+          $ref: '#/definitions/functions.Item'
+        type: array
+      oneOf:
+        items:
+          $ref: '#/definitions/functions.Item'
+        type: array
+    type: object
+  functions.Tool:
+    properties:
+      function:
+        $ref: '#/definitions/functions.Function'
+      type:
+        type: string
+    type: object
+  gallery.File:
+    properties:
+      filename:
+        type: string
+      sha256:
+        type: string
+      uri:
+        type: string
+    type: object
+  gallery.GalleryBackend:
+    properties:
+      alias:
+        type: string
+      capabilities:
+        additionalProperties:
+          type: string
+        type: object
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      mirrors:
+        items:
+          type: string
+        type: array
+      name:
+        type: string
+      tags:
+        items:
+          type: string
+        type: array
+      uri:
+        type: string
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
+  gallery.GalleryModel:
+    properties:
+      config_file:
+        additionalProperties: true
+        description: config_file is read in the situation where URL is blank - and
+          therefore this is a base config.
+        type: object
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      name:
+        type: string
+      overrides:
+        additionalProperties: true
+        description: Overrides are used to override the configuration of the model
+          located at URL
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
+  localai.GalleryBackend:
+    properties:
+      id:
+        type: string
+    type: object
+  localai.GalleryModel:
+    properties:
+      config_file:
+        additionalProperties: true
+        description: config_file is read in the situation where URL is blank - and
+          therefore this is a base config.
+        type: object
+      description:
+        type: string
+      files:
+        description: AdditionalFiles are used to add additional files to the model
+        items:
+          $ref: '#/definitions/gallery.File'
+        type: array
+      gallery:
+        allOf:
+        - $ref: '#/definitions/config.Gallery'
+        description: Gallery is a reference to the gallery which contains the model
+      icon:
+        type: string
+      id:
+        type: string
+      installed:
+        description: Installed is used to indicate if the model is installed or not
+        type: boolean
+      license:
+        type: string
+      name:
+        type: string
+      overrides:
+        additionalProperties: true
+        description: Overrides are used to override the configuration of the model
+          located at URL
+        type: object
+      tags:
+        items:
+          type: string
+        type: array
+      url:
+        type: string
+      urls:
+        items:
+          type: string
+        type: array
+    type: object
+  proto.MemoryUsageData:
+    properties:
+      breakdown:
+        additionalProperties:
+          format: int64
+          type: integer
+        type: object
+      total:
+        type: integer
+    type: object
+  proto.StatusResponse:
+    properties:
+      memory:
+        $ref: '#/definitions/proto.MemoryUsageData'
+      state:
+        $ref: '#/definitions/proto.StatusResponse_State'
+    type: object
+  proto.StatusResponse_State:
+    enum:
+    - 0
+    - 1
+    - 2
+    - -1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - StatusResponse_UNINITIALIZED
+    - StatusResponse_BUSY
+    - StatusResponse_READY
+    - StatusResponse_ERROR
+  proto.VADResponse:
+    properties:
+      segments:
+        items:
+          $ref: '#/definitions/proto.VADSegment'
+        type: array
+    type: object
+  proto.VADSegment:
+    properties:
+      end:
+        type: number
+      start:
+        type: number
+    type: object
+  schema.BackendMonitorRequest:
+    properties:
+      model:
+        type: string
+    type: object
+  schema.BackendResponse:
+    properties:
+      id:
+        type: string
+      status_url:
+        type: string
+    type: object
+  schema.Choice:
+    properties:
+      delta:
+        $ref: '#/definitions/schema.Message'
+      finish_reason:
+        type: string
+      index:
+        type: integer
+      logprobs:
+        $ref: '#/definitions/schema.Logprobs'
+      message:
+        $ref: '#/definitions/schema.Message'
+      text:
+        type: string
+    type: object
+  schema.Detection:
+    properties:
+      class_name:
+        type: string
+      height:
+        type: number
+      width:
+        type: number
+      x:
+        type: number
+      "y":
+        type: number
+    type: object
+  schema.DetectionRequest:
+    properties:
+      image:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.DetectionResponse:
+    properties:
+      detections:
+        items:
+          $ref: '#/definitions/schema.Detection'
+        type: array
+    type: object
+  schema.ElevenLabsSoundGenerationRequest:
+    properties:
+      do_sample:
+        type: boolean
+      duration_seconds:
+        type: number
+      model_id:
+        type: string
+      prompt_influence:
+        type: number
+      text:
+        type: string
+    type: object
+  schema.FunctionCall:
+    properties:
+      arguments:
+        type: string
+      name:
+        type: string
+    type: object
+  schema.GalleryResponse:
+    properties:
+      status:
+        type: string
+      uuid:
+        type: string
+    type: object
+  schema.InputTokensDetails:
+    properties:
+      image_tokens:
+        type: integer
+      text_tokens:
+        type: integer
+    type: object
+  schema.Item:
+    properties:
+      b64_json:
+        type: string
+      embedding:
+        items:
+          type: number
+        type: array
+      index:
+        type: integer
+      object:
+        type: string
+      url:
+        description: Images
+        type: string
+    type: object
+  schema.JINADocumentResult:
+    properties:
+      document:
+        $ref: '#/definitions/schema.JINAText'
+      index:
+        type: integer
+      relevance_score:
+        type: number
+    type: object
+  schema.JINARerankRequest:
+    properties:
+      backend:
+        type: string
+      documents:
+        items:
+          type: string
+        type: array
+      model:
+        type: string
+      query:
+        type: string
+      top_n:
+        type: integer
+    type: object
+  schema.JINARerankResponse:
+    properties:
+      model:
+        type: string
+      results:
+        items:
+          $ref: '#/definitions/schema.JINADocumentResult'
+        type: array
+      usage:
+        $ref: '#/definitions/schema.JINAUsageInfo'
+    type: object
+  schema.JINAText:
+    properties:
+      text:
+        type: string
+    type: object
+  schema.JINAUsageInfo:
+    properties:
+      prompt_tokens:
+        type: integer
+      total_tokens:
+        type: integer
+    type: object
+  schema.Job:
+    properties:
+      audios:
+        description: List of audio URLs or base64 strings
+        items:
+          type: string
+        type: array
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      error:
+        description: Error message if failed
+        type: string
+      files:
+        description: List of file URLs or base64 strings
+        items:
+          type: string
+        type: array
+      id:
+        description: UUID
+        type: string
+      images:
+        description: |-
+          Multimedia content (for manual execution)
+          Can contain URLs or base64-encoded data URIs
+        items:
+          type: string
+        type: array
+      parameters:
+        additionalProperties:
+          type: string
+        description: Template parameters
+        type: object
+      result:
+        description: Agent response
+        type: string
+      started_at:
+        type: string
+      status:
+        allOf:
+        - $ref: '#/definitions/schema.JobStatus'
+        description: pending, running, completed, failed, cancelled
+      task_id:
+        description: Reference to Task
+        type: string
+      traces:
+        description: Execution traces (reasoning, tool calls, tool results)
+        items:
+          $ref: '#/definitions/schema.JobTrace'
+        type: array
+      triggered_by:
+        description: '"manual", "cron", "api"'
+        type: string
+      videos:
+        description: List of video URLs or base64 strings
+        items:
+          type: string
+        type: array
+      webhook_error:
+        description: Error if webhook failed
+        type: string
+      webhook_sent:
+        description: Webhook delivery tracking
+        type: boolean
+      webhook_sent_at:
+        type: string
+    type: object
+  schema.JobExecutionRequest:
+    properties:
+      audios:
+        description: List of audio URLs or base64 strings
+        items:
+          type: string
+        type: array
+      files:
+        description: List of file URLs or base64 strings
+        items:
+          type: string
+        type: array
+      images:
+        description: |-
+          Multimedia content (optional, for manual execution)
+          Can contain URLs or base64-encoded data URIs
+        items:
+          type: string
+        type: array
+      parameters:
+        additionalProperties:
+          type: string
+        description: Optional, for templating
+        type: object
+      task_id:
+        description: Required
+        type: string
+      videos:
+        description: List of video URLs or base64 strings
+        items:
+          type: string
+        type: array
+    type: object
+  schema.JobExecutionResponse:
+    properties:
+      job_id:
+        type: string
+      status:
+        type: string
+      url:
+        description: URL to check job status
+        type: string
+    type: object
+  schema.JobStatus:
+    enum:
+    - pending
+    - running
+    - completed
+    - failed
+    - cancelled
+    type: string
+    x-enum-varnames:
+    - JobStatusPending
+    - JobStatusRunning
+    - JobStatusCompleted
+    - JobStatusFailed
+    - JobStatusCancelled
+  schema.JobTrace:
+    properties:
+      arguments:
+        additionalProperties: true
+        description: Tool arguments or result data
+        type: object
+      content:
+        description: The actual trace content
+        type: string
+      timestamp:
+        description: When this trace occurred
+        type: string
+      tool_name:
+        description: Tool name (for tool_call/tool_result)
+        type: string
+      type:
+        description: '"reasoning", "tool_call", "tool_result", "status"'
+        type: string
+    type: object
+  schema.LogprobContent:
+    properties:
+      bytes:
+        items:
+          type: integer
+        type: array
+      id:
+        type: integer
+      logprob:
+        type: number
+      token:
+        type: string
+      top_logprobs:
+        items:
+          $ref: '#/definitions/schema.LogprobContent'
+        type: array
+    type: object
+  schema.Logprobs:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/schema.LogprobContent'
+        type: array
+    type: object
+  schema.LogprobsValue:
+    properties:
+      enabled:
+        description: true if logprobs should be returned
+        type: boolean
+    type: object
+  schema.Message:
+    properties:
+      content:
+        description: The message content
+      function_call:
+        description: A result of a function call
+      name:
+        description: The message name (used for tools calls)
+        type: string
+      role:
+        description: The message role
+        type: string
+      string_audios:
+        items:
+          type: string
+        type: array
+      string_content:
+        type: string
+      string_images:
+        items:
+          type: string
+        type: array
+      string_videos:
+        items:
+          type: string
+        type: array
+      tool_calls:
+        items:
+          $ref: '#/definitions/schema.ToolCall'
+        type: array
+    type: object
+  schema.ModelsDataResponse:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/schema.OpenAIModel'
+        type: array
+      object:
+        type: string
+    type: object
+  schema.MultimediaSourceConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers for HTTP request (e.g., Authorization)
+        type: object
+      type:
+        description: '"image", "video", "audio", "file"'
+        type: string
+      url:
+        description: URL to fetch from
+        type: string
+    type: object
+  schema.NodeData:
+    properties:
+      id:
+        type: string
+      lastSeen:
+        type: string
+      name:
+        type: string
+      serviceID:
+        type: string
+      tunnelAddress:
+        type: string
+    type: object
+  schema.OpenAIModel:
+    properties:
+      id:
+        type: string
+      object:
+        type: string
+    type: object
+  schema.OpenAIRequest:
+    properties:
+      backend:
+        type: string
+      batch:
+        description: Custom parameters - not present in the OpenAI API
+        type: integer
+      clip_skip:
+        description: Diffusers
+        type: integer
+      echo:
+        type: boolean
+      file:
+        description: whisper
+        type: string
+      files:
+        description: Multiple input images for img2img or inpainting
+        items:
+          type: string
+        type: array
+      frequency_penalty:
+        type: number
+      function_call:
+        description: might be a string or an object
+      functions:
+        description: A list of available functions to call
+        items:
+          $ref: '#/definitions/functions.Function'
+        type: array
+      grammar:
+        description: A grammar to constrain the LLM output
+        type: string
+      grammar_json_functions:
+        $ref: '#/definitions/functions.JSONFunctionStructure'
+      ignore_eos:
+        type: boolean
+      input: {}
+      instruction:
+        description: Edit endpoint
+        type: string
+      language:
+        description: Also part of the OpenAI official spec
+        type: string
+      logit_bias:
+        additionalProperties:
+          format: float64
+          type: number
+        description: Map of token IDs to bias values (-100 to 100)
+        type: object
+      logprobs:
+        allOf:
+        - $ref: '#/definitions/schema.LogprobsValue'
+        description: |-
+          OpenAI API logprobs parameters
+          logprobs: boolean - if true, returns log probabilities of each output token
+          top_logprobs: integer 0-20 - number of most likely tokens to return at each token position
+      max_tokens:
+        type: integer
+      messages:
+        description: Messages is read only by chat/completion API calls
+        items:
+          $ref: '#/definitions/schema.Message'
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      model_base_name:
+        type: string
+      "n":
+        description: Also part of the OpenAI official spec. use it for returning multiple
+          results
+        type: integer
+      n_keep:
+        type: integer
+      negative_prompt:
+        type: string
+      negative_prompt_scale:
+        type: number
+      presence_penalty:
+        type: number
+      prompt:
+        description: Prompt is read only by completion/image API calls
+      quality:
+        description: Image (not supported by OpenAI)
+        type: string
+      reasoning_effort:
+        type: string
+      ref_images:
+        description: Reference images for models that support them (e.g., Flux Kontext)
+        items:
+          type: string
+        type: array
+      repeat_last_n:
+        type: integer
+      repeat_penalty:
+        type: number
+      response_format:
+        description: whisper/image
+      rope_freq_base:
+        type: number
+      rope_freq_scale:
+        type: number
+      seed:
+        type: integer
+      size:
+        description: image
+        type: string
+      step:
+        type: integer
+      stop: {}
+      stream:
+        type: boolean
+      temperature:
+        type: number
+      tfz:
+        type: number
+      tokenizer:
+        description: RWKV (?)
+        type: string
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/functions.Tool'
+        type: array
+      top_k:
+        type: integer
+      top_logprobs:
+        description: Number of top logprobs per token (0-20)
+        type: integer
+      top_p:
+        description: Common options between all the API calls, part of the OpenAI
+          spec
+        type: number
+      translate:
+        description: Only for audio transcription
+        type: boolean
+      typical_p:
+        type: number
+    required:
+    - file
+    type: object
+  schema.OpenAIResponse:
+    properties:
+      choices:
+        items:
+          $ref: '#/definitions/schema.Choice'
+        type: array
+      created:
+        type: integer
+      data:
+        items:
+          $ref: '#/definitions/schema.Item'
+        type: array
+      id:
+        type: string
+      model:
+        type: string
+      object:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.OpenAIUsage'
+    type: object
+  schema.OpenAIUsage:
+    properties:
+      completion_tokens:
+        type: integer
+      input_tokens:
+        description: Fields for image generation API compatibility
+        type: integer
+      input_tokens_details:
+        $ref: '#/definitions/schema.InputTokensDetails'
+      output_tokens:
+        type: integer
+      prompt_tokens:
+        type: integer
+      timing_prompt_processing:
+        description: Extra timing data, disabled by default as is't not a part of
+          OpenAI specification
+        type: number
+      timing_token_generation:
+        type: number
+      total_tokens:
+        type: integer
+    type: object
+  schema.P2PNodesResponse:
+    properties:
+      federated_nodes:
+        items:
+          $ref: '#/definitions/schema.NodeData'
+        type: array
+      nodes:
+        items:
+          $ref: '#/definitions/schema.NodeData'
+        type: array
+    type: object
+  schema.SysInfoModel:
+    properties:
+      id:
+        type: string
+    type: object
+  schema.SystemInformationResponse:
+    properties:
+      backends:
+        items:
+          type: string
+        type: array
+      loaded_models:
+        items:
+          $ref: '#/definitions/schema.SysInfoModel'
+        type: array
+    type: object
+  schema.TTSRequest:
+    description: TTS request body
+    properties:
+      backend:
+        type: string
+      input:
+        description: text input
+        type: string
+      language:
+        description: (optional) language to use with TTS model
+        type: string
+      model:
+        type: string
+      response_format:
+        description: (optional) output format
+        type: string
+      voice:
+        description: voice audio file or speaker id
+        type: string
+    type: object
+  schema.Task:
+    properties:
+      created_at:
+        type: string
+      cron:
+        description: Optional cron expression
+        type: string
+      cron_parameters:
+        additionalProperties:
+          type: string
+        description: Parameters to use when executing cron jobs
+        type: object
+      description:
+        description: Optional description
+        type: string
+      enabled:
+        description: Can be disabled without deletion
+        type: boolean
+      id:
+        description: UUID
+        type: string
+      model:
+        description: Model name (must have MCP config)
+        type: string
+      multimedia_sources:
+        description: |-
+          Multimedia sources (for cron jobs)
+          URLs to fetch multimedia content from when cron job executes
+          Each source can have custom headers for authentication/authorization
+        items:
+          $ref: '#/definitions/schema.MultimediaSourceConfig'
+        type: array
+      name:
+        description: User-friendly name
+        type: string
+      prompt:
+        description: Template prompt (supports {{.param}} syntax)
+        type: string
+      updated_at:
+        type: string
+      webhooks:
+        description: |-
+          Webhook configuration (for notifications)
+          Support multiple webhook endpoints
+          Webhooks can handle both success and failure cases using template variables:
+          - {{.Job}} - Job object with all fields
+          - {{.Task}} - Task object
+          - {{.Result}} - Job result (if successful)
+          - {{.Error}} - Error message (if failed, empty string if successful)
+          - {{.Status}} - Job status string
+        items:
+          $ref: '#/definitions/schema.WebhookConfig'
+        type: array
+    type: object
+  schema.TokenizeRequest:
+    properties:
+      content:
+        type: string
+      model:
+        type: string
+    type: object
+  schema.TokenizeResponse:
+    properties:
+      tokens:
+        items:
+          type: integer
+        type: array
+    type: object
+  schema.ToolCall:
+    properties:
+      function:
+        $ref: '#/definitions/schema.FunctionCall'
+      id:
+        type: string
+      index:
+        type: integer
+      type:
+        type: string
+    type: object
+  schema.VADRequest:
+    description: VAD request body
+    properties:
+      audio:
+        description: model name or full path
+        items:
+          type: number
+        type: array
+      model:
+        type: string
+    type: object
+  schema.VideoRequest:
+    properties:
+      cfg_scale:
+        type: number
+      end_image:
+        type: string
+      fps:
+        type: integer
+      height:
+        type: integer
+      input_reference:
+        type: string
+      model:
+        type: string
+      negative_prompt:
+        type: string
+      num_frames:
+        type: integer
+      prompt:
+        type: string
+      response_format:
+        type: string
+      seconds:
+        type: string
+      seed:
+        type: integer
+      size:
+        type: string
+      start_image:
+        type: string
+      step:
+        type: integer
+      width:
+        type: integer
+    type: object
+  schema.WebhookConfig:
+    properties:
+      headers:
+        additionalProperties:
+          type: string
+        description: Custom headers (e.g., Authorization)
+        type: object
+      method:
+        description: 'HTTP method (POST, PUT, PATCH) - default: POST'
+        type: string
+      payload_template:
+        description: Optional template for payload
+        type: string
+      url:
+        description: Webhook endpoint URL
+        type: string
+    type: object
+  services.GalleryOpStatus:
+    properties:
+      cancellable:
+        description: Cancellable is true if the operation can be cancelled
+        type: boolean
+      cancelled:
+        description: Cancelled is true if the operation was cancelled
+        type: boolean
+      deletion:
+        description: Deletion is true if the operation is a deletion
+        type: boolean
+      downloaded_size:
+        type: string
+      error: {}
+      file_name:
+        type: string
+      file_size:
+        type: string
+      gallery_element_name:
+        type: string
+      message:
+        type: string
+      processed:
+        type: boolean
+      progress:
+        type: number
+    type: object
+info:
+  contact:
+    name: LocalAI
+    url: https://localai.io
+  description: The LocalAI Rest API.
+  license:
+    name: MIT
+    url: https://raw.githubusercontent.com/mudler/LocalAI/master/LICENSE
+  title: LocalAI API
+  version: 2.0.0
+paths:
+  /api/agent/jobs:
+    get:
+      description: Get a list of agent jobs, optionally filtered by task_id and status
+      parameters:
+      - description: Filter by task ID
+        in: query
+        name: task_id
+        type: string
+      - description: Filter by status (pending, running, completed, failed, cancelled)
+        in: query
+        name: status
+        type: string
+      - description: Limit number of results
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of jobs
+          schema:
+            items:
+              $ref: '#/definitions/schema.Job'
+            type: array
+      summary: List agent jobs
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}:
+    delete:
+      description: Delete an agent job by ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent job
+      tags:
+      - agent-jobs
+    get:
+      description: Get an agent job by ID
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job details
+          schema:
+            $ref: '#/definitions/schema.Job'
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent job
+      tags:
+      - agent-jobs
+  /api/agent/jobs/{id}/cancel:
+    post:
+      description: Cancel a running or pending agent job
+      parameters:
+      - description: Job ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Job cancelled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Job cannot be cancelled
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Job not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cancel an agent job
+      tags:
+      - agent-jobs
+  /api/agent/jobs/execute:
+    post:
+      consumes:
+      - application/json
+      description: Create and execute a new agent job
+      parameters:
+      - description: Job execution request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JobExecutionRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Job created
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute an agent job
+      tags:
+      - agent-jobs
+  /api/agent/tasks:
+    get:
+      description: Get a list of all agent tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of tasks
+          schema:
+            items:
+              $ref: '#/definitions/schema.Task'
+            type: array
+      summary: List all agent tasks
+      tags:
+      - agent-jobs
+    post:
+      consumes:
+      - application/json
+      description: Create a new reusable agent task with prompt template and configuration
+      parameters:
+      - description: Task definition
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Task created
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Create a new agent task
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{id}:
+    delete:
+      description: Delete an agent task by ID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task deleted
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Delete an agent task
+      tags:
+      - agent-jobs
+    get:
+      description: Get an agent task by ID
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task details
+          schema:
+            $ref: '#/definitions/schema.Task'
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Get an agent task
+      tags:
+      - agent-jobs
+    put:
+      consumes:
+      - application/json
+      description: Update an existing agent task
+      parameters:
+      - description: Task ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Updated task definition
+        in: body
+        name: task
+        required: true
+        schema:
+          $ref: '#/definitions/schema.Task'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task updated
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Update an agent task
+      tags:
+      - agent-jobs
+  /api/agent/tasks/{name}/execute:
+    post:
+      consumes:
+      - application/json
+      description: Execute an agent task by its name (convenience endpoint). Parameters
+        can be provided in the request body as a JSON object with string values.
+      parameters:
+      - description: Task name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Template parameters (JSON object with string values)
+        in: body
+        name: request
+        schema:
+          additionalProperties:
+            type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Job created
+          schema:
+            $ref: '#/definitions/schema.JobExecutionResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Task not found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Execute a task by name
+      tags:
+      - agent-jobs
+  /api/p2p:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/schema.P2PNodesResponse'
+            type: array
+      summary: Returns available P2P nodes
+  /api/p2p/token:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Show the P2P token
+  /backend/monitor:
+    get:
+      parameters:
+      - description: Backend statistics request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.BackendMonitorRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.StatusResponse'
+      summary: Backend monitor endpoint
+  /backend/shutdown:
+    post:
+      parameters:
+      - description: Backend statistics request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.BackendMonitorRequest'
+      responses: {}
+      summary: Backend monitor endpoint
+  /backends:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.GalleryBackend'
+            type: array
+      summary: List all Backends
+  /backends/apply:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.GalleryBackend'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.BackendResponse'
+      summary: Install backends to LocalAI.
+  /backends/available:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.GalleryBackend'
+            type: array
+      summary: List all available Backends
+  /backends/delete/{name}:
+    post:
+      parameters:
+      - description: Backend name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.BackendResponse'
+      summary: delete backends from LocalAI.
+  /backends/galleries:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: List all Galleries
+  /backends/jobs:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/services.GalleryOpStatus'
+            type: object
+      summary: Returns all the jobs status progress
+  /backends/jobs/{uuid}:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/services.GalleryOpStatus'
+      summary: Returns the job status
+  /metrics:
+    get:
+      parameters:
+      - description: Gallery details
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/config.Gallery'
+      responses: {}
+      summary: Prometheus metrics endpoint
+  /models/apply:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/localai.GalleryModel'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+      summary: Install models to LocalAI.
+  /models/available:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/gallery.GalleryModel'
+            type: array
+      summary: List installable models.
+  /models/delete/{name}:
+    post:
+      parameters:
+      - description: Model name
+        in: path
+        name: name
+        required: true
+        type: string
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.GalleryResponse'
+      summary: delete models to LocalAI.
+  /models/galleries:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            items:
+              $ref: '#/definitions/config.Gallery'
+            type: array
+      summary: List all Galleries
+  /models/jobs:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              $ref: '#/definitions/services.GalleryOpStatus'
+            type: object
+      summary: Returns all the jobs status progress
+  /models/jobs/{uuid}:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/services.GalleryOpStatus'
+      summary: Returns the job status
+  /system:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.SystemInformationResponse'
+      summary: Show the LocalAI instance information
+  /tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
+  /tts:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+  /v1/audio/speech:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+  /v1/audio/transcriptions:
+    post:
+      consumes:
+      - multipart/form-data
+      parameters:
+      - description: model
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: file
+        in: formData
+        name: file
+        required: true
+        type: file
+      responses:
+        "200":
+          description: Response
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Transcribes audio into the input language.
+  /v1/chat/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate a chat completions for a given prompt and model.
+  /v1/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Generate completions for a given prompt and model.
+  /v1/detection:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.DetectionRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.DetectionResponse'
+      summary: Detects objects in the input image.
+  /v1/edits:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: OpenAI edit endpoint
+  /v1/embeddings:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Get a vector representation of a given input that can be easily consumed
+        by machine learning models and algorithms.
+  /v1/images/generations:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates an image given a prompt.
+  /v1/images/inpainting:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Perform image inpainting. Accepts multipart/form-data with `image`
+        and `mask` files.
+      parameters:
+      - description: Model identifier
+        in: formData
+        name: model
+        required: true
+        type: string
+      - description: Text prompt guiding the generation
+        in: formData
+        name: prompt
+        required: true
+        type: string
+      - description: Number of inference steps (default 25)
+        in: formData
+        name: steps
+        type: integer
+      - description: Original image file
+        in: formData
+        name: image
+        required: true
+        type: file
+      - description: Mask image file (white = area to inpaint)
+        in: formData
+        name: mask
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Image inpainting
+      tags:
+      - images
+  /v1/mcp/chat/completions:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.OpenAIRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Stream MCP chat completions with reasoning, tool calls, and results
+  /v1/models:
+    get:
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.ModelsDataResponse'
+      summary: List and describe the various models available in the API.
+  /v1/rerank:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.JINARerankRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.JINARerankResponse'
+      summary: Reranks a list of phrases by relevance to a given text query.
+  /v1/sound-generation:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.ElevenLabsSoundGenerationRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+  /v1/text-to-speech/{voice-id}:
+    post:
+      parameters:
+      - description: Account ID
+        in: path
+        name: voice-id
+        required: true
+        type: string
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TTSRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            type: string
+      summary: Generates audio from the input text.
+  /v1/tokenMetrics:
+    get:
+      consumes:
+      - application/json
+      produces:
+      - audio/x-wav
+      responses:
+        "200":
+          description: generated audio/wav file
+          schema:
+            type: string
+      summary: Get TokenMetrics for Active Slot.
+  /v1/tokenize:
+    post:
+      parameters:
+      - description: Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.TokenizeRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.TokenizeResponse'
+      summary: Tokenize the input.
+  /vad:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VADRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/proto.VADResponse'
+      summary: Detect voice fragments in an audio stream
+  /video:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.VideoRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.OpenAIResponse'
+      summary: Creates a video given a prompt.
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

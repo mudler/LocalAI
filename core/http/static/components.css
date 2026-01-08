@@ -1,0 +1,441 @@
+/* LocalAI Component Styles */
+/* Buttons, Cards, Inputs, Grid Pattern, Hero Sections */
+
+/* ============================================
+   Grid Pattern
+   ============================================ */
+.grid-pattern {
+  background-image: 
+    linear-gradient(rgba(56, 189, 248, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.03) 1px, transparent 1px);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 0;
+}
+
+@media (max-width: 640px) {
+  .grid-pattern {
+    background-image: 
+      linear-gradient(rgba(56, 189, 248, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56, 189, 248, 0.02) 1px, transparent 1px);
+  }
+}
+
+/* ============================================
+   Buttons
+   ============================================ */
+.btn-primary,
+button.btn-primary,
+a.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-default);
+  text-decoration: none;
+  box-shadow: var(--shadow-none);
+}
+
+.btn-primary:hover {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-subtle);
+}
+
+.btn-primary:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-border-focus);
+}
+
+.btn-primary:active {
+  background: var(--color-primary-active);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-secondary,
+button.btn-secondary,
+a.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 24px;
+  background: transparent;
+  color: var(--color-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-medium);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background: var(--color-primary-light);
+  border-color: var(--color-primary-border);
+}
+
+.btn-secondary:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-border-focus);
+}
+
+.btn-secondary:active {
+  background: var(--color-primary-light);
+}
+
+.btn-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-tertiary,
+button.btn-tertiary,
+a.btn-tertiary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  font-weight: var(--weight-normal);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-default);
+  text-decoration: none;
+}
+
+.btn-tertiary:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.btn-tertiary:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-border-focus);
+}
+
+.btn-tertiary:active {
+  color: var(--color-text-primary);
+}
+
+.btn-tertiary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ============================================
+   Cards
+   ============================================ */
+.card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-none);
+  transition: border-color var(--duration-normal) var(--ease-default);
+}
+
+.card:hover {
+  border-color: var(--color-border-default);
+}
+
+.card:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-border-focus);
+}
+
+.card-active {
+  border-color: var(--color-primary-border);
+}
+
+.card-elevated {
+  box-shadow: var(--shadow-subtle);
+}
+
+.card-elevated:hover {
+  box-shadow: var(--shadow-sm);
+}
+
+/* ============================================
+   Input Fields
+   ============================================ */
+.input,
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="search"],
+input[type="url"],
+textarea,
+select {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--radius-md);
+  transition: all var(--duration-fast) var(--ease-default);
+  outline: none;
+}
+
+.input::placeholder,
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.input:focus,
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-primary-border);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  outline: none;
+}
+
+.input:disabled,
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Input States */
+.input-error,
+input.input-error,
+textarea.input-error {
+  border-color: var(--color-error);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.input-error:focus {
+  box-shadow: 0 0 0 3px var(--color-error-light);
+}
+
+.input-success,
+input.input-success,
+textarea.input-success {
+  border-color: var(--color-success);
+  box-shadow: 0 0 0 2px var(--color-success-light);
+}
+
+.input-success:focus {
+  box-shadow: 0 0 0 3px var(--color-success-light);
+}
+
+/* ============================================
+   Hero Sections
+   ============================================ */
+/* ============================================
+   Hero Section - Minimal
+   ============================================ */
+.hero-section {
+  padding: 0.75rem 0;
+  margin-bottom: 1.5rem;
+}
+
+.hero-content {
+  text-align: center;
+}
+
+.hero-title {
+  font-family: var(--font-body);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
+}
+
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: var(--text-xl);
+  }
+}
+
+.hero-subtitle {
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-normal);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-normal);
+  margin: 0;
+}
+
+/* ============================================
+   Icon Hover Effects
+   ============================================ */
+.icon-hover {
+  transition: all var(--duration-fast) var(--ease-default);
+  cursor: pointer;
+}
+
+.icon-hover:hover {
+  transform: scale(1.1);
+  color: var(--color-primary);
+}
+
+/* ============================================
+   Status Badges
+   ============================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-secondary);
+  color: var(--color-text-primary);
+  border: none;
+}
+
+.badge-success {
+  background: var(--color-success-light);
+  color: var(--color-success);
+  border: none;
+}
+
+.badge-warning {
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  border: none;
+}
+
+.badge-error {
+  background: var(--color-error-light);
+  color: var(--color-error);
+  border: none;
+}
+
+.badge-info {
+  background: var(--color-info-light);
+  color: var(--color-info);
+  border: none;
+}
+
+.badge-gradient {
+  background: var(--gradient-primary);
+  color: #FFFFFF;
+  border: none;
+}
+
+/* ============================================
+   Navigation
+   ============================================ */
+.nav-link {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  transition: all var(--duration-fast) var(--ease-default);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+.nav-link:hover {
+  color: var(--color-text-primary);
+  background: var(--color-bg-secondary);
+}
+
+.nav-link-active {
+  color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.nav-link-active:hover {
+  color: var(--color-primary-hover);
+}
+
+/* ============================================
+   P2P/Network Specific Components
+   ============================================ */
+.animation-container {
+  position: relative;
+  width: 100%;
+  height: 25vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
+}
+
+.text-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 1;
+}
+
+.fa-circle-nodes {
+  animation: rotateCircleNodes 8s linear infinite;
+  display: inline-block;
+  filter: drop-shadow(0 0 8px var(--color-primary));
+}
+
+.fa-flask {
+  animation: shakeFlask 3s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+.active-node {
+  position: relative;
+  overflow: hidden;
+}
+
+.active-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--color-primary), transparent);
+  animation: nodeGlow 3s ease-in-out infinite;
+}
+
+/* ============================================
+   Responsive Adjustments
+   ============================================ */
+@media (max-width: 640px) {
+  .btn-primary,
+  .btn-secondary,
+  .btn-tertiary {
+    padding: 0.625rem 1.25rem;
+    font-size: var(--text-sm);
+  }
+  
+  .card {
+    padding: 1rem;
+  }
+  
+  .hero-section {
+    padding: 0.5rem 0;
+    margin-bottom: 1rem;
+  }
+}
+

@@ -1,0 +1,67 @@
+name: Build test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      - name: Run GoReleaser
+        run: |
+          make dev-dist
+  launcher-build-darwin:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      - name: Build launcher for macOS ARM64
+        run: |
+          make build-launcher-darwin
+          ls -liah dist
+      - name: Upload macOS launcher artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: launcher-macos
+          path: dist/
+          retention-days: 30
+      
+  launcher-build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.25
+      - name: Build launcher for Linux
+        run: |
+          sudo apt-get update
+          sudo apt-get install golang gcc libgl1-mesa-dev xorg-dev libxkbcommon-dev
+          make build-launcher-linux
+      - name: Upload Linux launcher artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: launcher-linux
+          path: local-ai-launcher-linux.tar.xz
+          retention-days: 30

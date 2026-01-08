@@ -1,0 +1,36 @@
+version: 2
+before:
+  hooks:
+    - make protogen-go
+    - go mod tidy
+dist: release
+source:
+  enabled: true
+  name_template: '{{ .ProjectName }}-{{ .Tag }}-source'
+builds:
+  - main: ./cmd/local-ai
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X "github.com/mudler/LocalAI/internal.Version={{ .Tag }}"
+      - -X "github.com/mudler/LocalAI/internal.Commit={{ .FullCommit }}"
+    goos:
+      - linux
+      - darwin
+      #- windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+archives:
+  - formats: [ 'binary' ] # this removes the tar of the archives, leaving the binaries alone
+    name_template: local-ai-{{ .Tag }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}
+checksum:
+  name_template: '{{ .ProjectName }}-{{ .Tag }}-checksums.txt'
+snapshot:
+  version_template: "{{ .Tag }}-next"
+changelog:
+  use: github-native

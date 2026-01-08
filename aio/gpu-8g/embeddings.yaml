@@ -1,0 +1,13 @@
+embeddings: true
+name: text-embedding-ada-002
+backend: llama-cpp
+parameters:
+  model: huggingface://bartowski/granite-embedding-107m-multilingual-GGUF/granite-embedding-107m-multilingual-f16.gguf
+
+usage: |
+    You can test this model with curl like this:
+
+    curl http://localhost:8080/embeddings -X POST -H "Content-Type: application/json" -d '{
+      "input": "Your text string goes here",
+      "model": "text-embedding-ada-002"
+    }'

@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen" x-data="importModel()" x-init="init()">
+
+    {{template "views/partials/navbar" .}}
+    {{template "views/partials/inprogress" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Header -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <div class="flex flex-col md:flex-row md:items-center md:justify-between">
+                    <div>
+                        <h1 class="hero-title">
+                            {{if .ModelName}}Edit Model: {{.ModelName}}{{else}}Import New Model{{end}}
+                        </h1>
+                        <p class="hero-subtitle" x-text="isAdvancedMode ? 'Configure your model settings using YAML' : 'Import a model from URI with preferences'"></p>
+                    </div>
+                    <div class="flex gap-3">
+                        <!-- Mode Toggle (only show when not in edit mode) -->
+                        <template x-if="!isEditMode">
+                            <button @click="toggleMode()" class="btn-secondary">
+                                <i class="fas" :class="isAdvancedMode ? 'fa-magic mr-2' : 'fa-code mr-2'"></i>
+                                <span x-text="isAdvancedMode ? 'Simple Mode' : 'Advanced Mode'"></span>
+                            </button>
+                        </template>
+                        <!-- Advanced Mode Buttons -->
+                        <template x-if="isAdvancedMode">
+                            <div class="flex gap-3">
+                                <button id="validateBtn" class="btn-primary">
+                                    <i class="fas fa-check mr-2"></i>
+                                    <span>Validate</span>
+                                </button>
+                                <button id="saveBtn" class="btn-primary">
+                                    <i class="fas fa-save mr-2"></i>
+                                    <span>{{if .ModelName}}Update{{else}}Create{{end}}</span>
+                                </button>
+                            </div>
+                        </template>
+                        <!-- Simple Mode Button -->
+                        <template x-if="!isAdvancedMode && !isEditMode">
+                            <button @click="submitImport()" 
+                                    :disabled="isSubmitting || !importUri.trim()"
+                                    class="btn-primary">
+                                <i class="fas" :class="isSubmitting ? 'fa-spinner fa-spin mr-2' : 'fa-upload mr-2'"></i>
+                                <span x-text="isSubmitting ? 'Importing...' : 'Import Model'"></span>
+                            </button>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alert Messages -->
+        <div id="alertContainer" class="mb-6"></div>
+
+        <!-- Simple Import Mode -->
+        <div x-show="!isAdvancedMode && !isEditMode" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="card p-8">
+            <div class="space-y-6">
+                <h2 class="text-2xl font-semibold text-[#E5E7EB] flex items-center gap-3 mb-6">
+                    <div class="w-10 h-10 rounded-lg bg-green-500/10 flex items-center justify-center">
+                        <i class="fas fa-link text-green-400"></i>
+                    </div>
+                    Import from URI
+                </h2>
+
+                <!-- URI Input -->
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="block text-sm font-medium text-[#94A3B8]">
+                            <i class="fas fa-link mr-2"></i>Model URI
+                        </label>
+                        <div class="flex gap-2">
+                            <a href="https://huggingface.co/models?search=gguf&sort=trending" 
+                               target="_blank"
+                               class="text-xs px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5">
+                                <i class="fab fa-huggingface"></i>
+                                <span>Search GGUF Models on Hugging Face</span>
+                                <i class="fas fa-external-link-alt text-xs"></i>
+                            </a>
+                            <a href="https://huggingface.co/models?sort=trending" 
+                               target="_blank"
+                               class="text-xs px-3 py-1.5 rounded-lg bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 transition-all flex items-center gap-1.5">
+                                <i class="fab fa-huggingface"></i>
+                                <span>Browse All Models on Hugging Face</span>
+                                <i class="fas fa-external-link-alt text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <input 
+                        x-model="importUri"
+                        type="text" 
+                        placeholder="huggingface://TheBloke/Llama-2-7B-Chat-GGUF or https://example.com/model.gguf"
+                        class="input w-full"
+                        :disabled="isSubmitting">
+                    <p class="mt-2 text-xs text-[#94A3B8]">
+                        Enter the URI or path to the model file you want to import
+                    </p>
+                    
+                    <!-- URI Format Guide -->
+                    <div class="mt-4" x-data="{ showGuide: false }">
+                        <button @click="showGuide = !showGuide" 
+                                class="flex items-center gap-2 text-sm text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                            <i class="fas" :class="showGuide ? 'fa-chevron-down' : 'fa-chevron-right'"></i>
+                            <i class="fas fa-info-circle"></i>
+                            <span>Supported URI Formats</span>
+                        </button>
+                        
+                        <div x-show="showGuide" 
+                             x-transition:enter="transition ease-out duration-200"
+                             x-transition:enter-start="opacity-0 transform -translate-y-2"
+                             x-transition:enter-end="opacity-100 transform translate-y-0"
+                             class="mt-3 p-4 bg-[#101827] border border-[#1E293B] rounded-lg space-y-4">
+                            
+                            <!-- HuggingFace -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fab fa-huggingface text-purple-400"></i>
+                                    HuggingFace
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">huggingface://</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[#6B7280] mt-0.5">Standard HuggingFace format</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">hf://</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[#6B7280] mt-0.5">Short HuggingFace format</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">https://huggingface.co/</code><span class="text-[#94A3B8]">TheBloke/Llama-2-7B-Chat-GGUF</span>
+                                            <p class="text-[#6B7280] mt-0.5">Full HuggingFace URL</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- HTTP/HTTPS -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-globe text-blue-400"></i>
+                                    HTTP/HTTPS URLs
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">https://</code><span class="text-[#94A3B8]">example.com/model.gguf</span>
+                                            <p class="text-[#6B7280] mt-0.5">Direct download from any HTTPS URL</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Local Files -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-file text-yellow-400"></i>
+                                    Local Files
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">file://</code><span class="text-[#94A3B8]">/path/to/model.gguf</span>
+                                            <p class="text-[#6B7280] mt-0.5">Local file path (absolute)</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#94A3B8]">/path/to/model.yaml</code>
+                                            <p class="text-[#6B7280] mt-0.5">Direct local YAML config file</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- OCI -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-box text-cyan-400"></i>
+                                    OCI Registry
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">oci://</code><span class="text-[#94A3B8]">registry.example.com/model:tag</span>
+                                            <p class="text-[#6B7280] mt-0.5">OCI container registry</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">ocifile://</code><span class="text-[#94A3B8]">/path/to/image.tar</span>
+                                            <p class="text-[#6B7280] mt-0.5">Local OCI tarball file</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Ollama -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-cube text-indigo-400"></i>
+                                    Ollama
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#10B981]">ollama://</code><span class="text-[#94A3B8]">llama2:7b</span>
+                                            <p class="text-[#6B7280] mt-0.5">Ollama model format</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- YAML Config Files -->
+                            <div>
+                                <h4 class="text-sm font-semibold text-[#E5E7EB] mb-2 flex items-center gap-2">
+                                    <i class="fas fa-code text-pink-400"></i>
+                                    YAML Configuration Files
+                                </h4>
+                                <div class="space-y-1.5 text-xs text-[#94A3B8] font-mono pl-6">
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#94A3B8]">https://example.com/model.yaml</code>
+                                            <p class="text-[#6B7280] mt-0.5">Remote YAML config file</p>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-start gap-2">
+                                        <span class="text-green-400">•</span>
+                                        <div>
+                                            <code class="text-[#94A3B8]">file:///path/to/config.yaml</code>
+                                            <p class="text-[#6B7280] mt-0.5">Local YAML config file</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="pt-2 mt-3 border-t border-[#1E293B]">
+                                <p class="text-xs text-[#6B7280] italic">
+                                    <i class="fas fa-lightbulb mr-1.5 text-yellow-400"></i>
+                                    Tip: For HuggingFace models, you can use any of the three formats. The system will automatically detect and download the appropriate model files.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Preferences Section -->
+                <div>
+                    <div class="flex items-center justify-between mb-4">
+                        <label class="block text-sm font-medium text-gray-300">
+                            <i class="fas fa-cog mr-2"></i>Preferences (Optional)
+                        </label>
+                    </div>
+                    
+                    <!-- Common Preferences -->
+                    <div class="space-y-4 mb-6 p-4 bg-gray-900/50 rounded-xl border border-gray-700/50">
+                        <h3 class="text-sm font-semibold text-gray-300 mb-3 flex items-center">
+                            <i class="fas fa-star mr-2 text-yellow-400"></i>Common Preferences
+                        </h3>
+                        
+                        <!-- Backend Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-server mr-2"></i>Backend
+                            </label>
+                            <select 
+                                x-model="commonPreferences.backend"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                                <option value="">Auto-detect (based on URI)</option>
+                                <option value="llama-cpp">llama-cpp</option>
+                                <option value="mlx">mlx</option>
+                                <option value="mlx-vlm">mlx-vlm</option>
+                                <option value="transformers">transformers</option>
+                                <option value="vllm">vllm</option>
+                                <option value="diffusers">diffusers</option>
+                            </select>
+                            <p class="mt-1 text-xs text-gray-400">
+                                Force a specific backend. Leave empty to auto-detect from URI.
+                            </p>
+                        </div>
+                        
+                        <!-- Model Name -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-tag mr-2"></i>Model Name
+                            </label>
+                            <input 
+                                x-model="commonPreferences.name"
+                                type="text" 
+                                placeholder="Leave empty to use filename"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Custom name for the model. If empty, the filename will be used.
+                            </p>
+                        </div>
+                        
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-align-left mr-2"></i>Description
+                            </label>
+                            <textarea 
+                                x-model="commonPreferences.description"
+                                rows="3"
+                                placeholder="Leave empty to use default description"
+                                class="input w-full resize-none"
+                                :disabled="isSubmitting"></textarea>
+                            <p class="mt-1 text-xs text-gray-400">
+                                Custom description for the model. If empty, a default description will be generated.
+                            </p>
+                        </div>
+                        
+                        <!-- Quantizations -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-layer-group mr-2"></i>Quantizations
+                            </label>
+                            <input 
+                                x-model="commonPreferences.quantizations"
+                                type="text" 
+                                placeholder="q4_k_m,q4_k_s,q3_k_m (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Preferred quantizations (comma-separated). Examples: q4_k_m, q4_k_s, q3_k_m, q2_k. Leave empty to use default (q4_k_m).
+                            </p>
+                        </div>
+                        
+                        <!-- MMProj Quantizations -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-image mr-2"></i>MMProj Quantizations
+                            </label>
+                            <input 
+                                x-model="commonPreferences.mmproj_quantizations"
+                                type="text" 
+                                placeholder="fp16,fp32 (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Preferred MMProj quantizations (comma-separated). Examples: fp16, fp32. Leave empty to use default (fp16).
+                            </p>
+                        </div>
+                        
+                        <!-- Embeddings -->
+                        <div>
+                            <label class="flex items-center cursor-pointer">
+                                <input 
+                                    x-model="commonPreferences.embeddings"
+                                    type="checkbox" 
+                                    class="w-5 h-5 rounded bg-gray-900/90 border-gray-700/70 text-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all cursor-pointer"
+                                    :disabled="isSubmitting">
+                                <span class="ml-3 text-sm font-medium text-gray-300">
+                                    <i class="fas fa-vector-square mr-2"></i>Embeddings
+                                </span>
+                            </label>
+                            <p class="mt-1 ml-8 text-xs text-gray-400">
+                                Enable embeddings support for this model.
+                            </p>
+                        </div>
+                        
+                        <!-- Model Type -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-tag mr-2"></i>Model Type
+                            </label>
+                            <input 
+                                x-model="commonPreferences.type"
+                                type="text" 
+                                placeholder="AutoModelForCausalLM (for transformers backend)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Model type for transformers backend. Examples: AutoModelForCausalLM, SentenceTransformer, Mamba, MusicgenForConditionalGeneration. Leave empty to use default (AutoModelForCausalLM).
+                            </p>
+                        </div>
+                        
+                        <!-- Pipeline Type (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-stream mr-2"></i>Pipeline Type
+                            </label>
+                            <input 
+                                x-model="commonPreferences.pipeline_type"
+                                type="text" 
+                                placeholder="StableDiffusionPipeline (for diffusers backend)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Pipeline type for diffusers backend. Examples: StableDiffusionPipeline, StableDiffusion3Pipeline, FluxPipeline. Leave empty to use default (StableDiffusionPipeline).
+                            </p>
+                        </div>
+                        
+                        <!-- Scheduler Type (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-clock mr-2"></i>Scheduler Type
+                            </label>
+                            <input 
+                                x-model="commonPreferences.scheduler_type"
+                                type="text" 
+                                placeholder="k_dpmpp_2m (optional)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Scheduler type for diffusers backend. Examples: k_dpmpp_2m, euler_a, ddim. Leave empty to use model default.
+                            </p>
+                        </div>
+                        
+                        <!-- Enable Parameters (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="block text-sm font-medium text-gray-300 mb-2">
+                                <i class="fas fa-cogs mr-2"></i>Enable Parameters
+                            </label>
+                            <input 
+                                x-model="commonPreferences.enable_parameters"
+                                type="text" 
+                                placeholder="negative_prompt,num_inference_steps (comma-separated)"
+                                class="w-full px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                :disabled="isSubmitting">
+                            <p class="mt-1 text-xs text-gray-400">
+                                Enabled parameters for diffusers backend (comma-separated). Leave empty to use default (negative_prompt,num_inference_steps).
+                            </p>
+                        </div>
+                        
+                        <!-- CUDA (Diffusers) -->
+                        <div x-show="commonPreferences.backend === 'diffusers'">
+                            <label class="flex items-center cursor-pointer">
+                                <input 
+                                    x-model="commonPreferences.cuda"
+                                    type="checkbox" 
+                                    class="w-5 h-5 rounded bg-gray-900/90 border-gray-700/70 text-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all cursor-pointer"
+                                    :disabled="isSubmitting">
+                                <span class="ml-3 text-sm font-medium text-gray-300">
+                                    <i class="fas fa-microchip mr-2"></i>CUDA
+                                </span>
+                            </label>
+                            <p class="mt-1 ml-8 text-xs text-gray-400">
+                                Enable CUDA support for GPU acceleration with diffusers backend.
+                            </p>
+                        </div>
+                    </div>
+                    
+                    <!-- Custom Preferences -->
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-medium text-gray-300">
+                                <i class="fas fa-sliders-h mr-2"></i>Custom Preferences
+                            </label>
+                            <button @click="addPreference()" 
+                                    :disabled="isSubmitting"
+                                    class="text-sm px-3 py-1.5 rounded-lg bg-green-600/20 hover:bg-green-600/30 text-green-300 border border-green-500/30 transition-all">
+                                <i class="fas fa-plus mr-1"></i>Add Custom
+                            </button>
+                        </div>
+                        
+                        <div class="space-y-3" x-show="preferences.length > 0">
+                            <template x-for="(pref, index) in preferences" :key="index">
+                                <div class="flex gap-3 items-center">
+                                    <input 
+                                        x-model="pref.key"
+                                        type="text" 
+                                        placeholder="Key"
+                                        class="flex-1 px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                        :disabled="isSubmitting">
+                                    <span class="text-gray-400">:</span>
+                                    <input 
+                                        x-model="pref.value"
+                                        type="text" 
+                                        placeholder="Value"
+                                        class="flex-1 px-4 py-2 bg-gray-900/90 border border-gray-700/70 rounded-lg text-gray-200 focus:border-green-500 focus:ring-2 focus:ring-green-500/50 focus:outline-none transition-all"
+                                        :disabled="isSubmitting">
+                                    <button @click="removePreference(index)" 
+                                            :disabled="isSubmitting"
+                                            class="px-3 py-2 rounded-lg bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 transition-all">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                        <p class="mt-2 text-xs text-gray-400">
+                            Add custom key-value pairs for advanced configuration
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced YAML Editor Panel -->
+        <div x-show="isAdvancedMode || isEditMode" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             class="bg-[#1E293B] border border-[#8B5CF6]/20 rounded-xl overflow-hidden h-[calc(100vh-250px)]">
+            <div class="sticky top-0 bg-[#1E293B] border-b border-[#101827] p-6 flex items-center justify-between z-10">
+                <h2 class="text-xl font-semibold text-[#E5E7EB] flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-fuchsia-500/10 flex items-center justify-center">
+                        <i class="fas fa-code text-fuchsia-400"></i>
+                    </div>
+                    YAML Configuration Editor
+                </h2>
+                <div class="flex items-center gap-3">
+                    <button id="formatYamlBtn" class="text-[#94A3B8] hover:text-[#E5E7EB] text-sm px-3 py-1.5 rounded-lg hover:bg-[#101827] transition-colors">
+                        <i class="fas fa-indent mr-1.5"></i> Format
+                    </button>
+                    <button id="copyYamlBtn" class="text-[#94A3B8] hover:text-[#E5E7EB] text-sm px-3 py-1.5 rounded-lg hover:bg-[#101827] transition-colors">
+                        <i class="fas fa-copy mr-1.5"></i> Copy
+                    </button>
+                </div>
+            </div>
+            <div class="relative" style="height: calc(100% - 88px);">
+                <div id="yamlCodeMirror" class="h-full"></div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<!-- Include JS-YAML library -->
+<script src="static/assets/js-yaml.min.js"></script>
+
+<!-- Include CodeMirror for syntax highlighting -->
+<link rel="stylesheet" href="static/assets/codemirror.min.css">
+<script src="static/assets/codemirror.min.js"></script>
+<script src="static/assets/yaml.min.js"></script>
+<script src="static/assets/autorefresh.min.js"></script>
+
+<style>
+/* Enhanced CodeMirror styling */
+.CodeMirror {
+    background: linear-gradient(135deg, #111827 0%, #1f2937 100%) !important;
+    color: #e5e7eb !important;
+    border: none !important;
+    height: 100% !important;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace !important;
+    font-size: 14px !important;
+    border-radius: 0 !important;
+    line-height: 1.5 !important;
+}
+
+.CodeMirror-cursor {
+    border-left: 2px solid #a78bfa !important;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+.CodeMirror-gutters {
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%) !important;
+    border-right: 1px solid rgba(75, 85, 99, 0.5) !important;
+    color: #9ca3af !important;
+    padding-right: 8px !important;
+}
+
+.CodeMirror-linenumber {
+    color: #6b7280 !important;
+    padding: 0 8px 0 4px !important;
+    font-size: 12px !important;
+}
+
+.CodeMirror-activeline-background {
+    background: rgba(139, 92, 246, 0.1) !important;
+}
+
+.CodeMirror-selected {
+    background: rgba(139, 92, 246, 0.25) !important;
+}
+
+.CodeMirror-selectedtext {
+    background: rgba(139, 92, 246, 0.25) !important;
+}
+
+.CodeMirror-focused .CodeMirror-selected {
+    background: rgba(139, 92, 246, 0.3) !important;
+}
+
+.CodeMirror-line::selection, .CodeMirror-line > span::selection, .CodeMirror-line > span > span::selection {
+    background: rgba(139, 92, 246, 0.3) !important;
+}
+
+.CodeMirror-line::-moz-selection, .CodeMirror-line > span::-moz-selection, .CodeMirror-line > span > span::-moz-selection {
+    background: rgba(139, 92, 246, 0.3) !important;
+}
+
+/* Enhanced YAML Syntax Highlighting */
+.cm-keyword { color: #8b5cf6 !important; font-weight: 600 !important; }
+.cm-string { color: #10b981 !important; }
+.cm-number { color: #f59e0b !important; }
+.cm-comment { color: #6b7280 !important; font-style: italic !important; }
+.cm-property { color: #ec4899 !important; }
+.cm-operator { color: #ef4444 !important; }
+.cm-variable { color: #06b6d4 !important; }
+.cm-tag { color: #8b5cf6 !important; font-weight: 600 !important; }
+.cm-attribute { color: #f59e0b !important; }
+.cm-def { color: #ec4899 !important; font-weight: 600 !important; }
+.cm-bracket { color: #d1d5db !important; }
+.cm-punctuation { color: #d1d5db !important; }
+.cm-quote { color: #10b981 !important; }
+.cm-meta { color: #6b7280 !important; }
+.cm-builtin { color: #f472b6 !important; }
+.cm-atom { color: #f59e0b !important; }
+
+/* Enhanced scrollbar styling */
+.CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+    background: #1f2937 !important;
+}
+
+.CodeMirror-vscrollbar, .CodeMirror-hscrollbar {
+    background: #1f2937 !important;
+}
+
+.CodeMirror-vscrollbar::-webkit-scrollbar, .CodeMirror-hscrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.CodeMirror-vscrollbar::-webkit-scrollbar-track, .CodeMirror-hscrollbar::-webkit-scrollbar-track {
+    background: #1f2937;
+    border-radius: 4px;
+}
+
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, #6b7280 0%, #9ca3af 100%);
+    border-radius: 4px;
+}
+
+.CodeMirror-vscrollbar::-webkit-scrollbar-thumb:hover, .CodeMirror-hscrollbar::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #9ca3af 0%, #d1d5db 100%);
+}
+
+/* Focus ring styling */
+.CodeMirror-focused {
+    outline: 2px solid rgba(139, 92, 246, 0.5) !important;
+    outline-offset: -2px !important;
+    border-radius: 0.5rem !important;
+}
+
+/* Alert styling */
+.alert {
+    border-radius: 1rem;
+    padding: 1rem 1.5rem;
+    backdrop-filter: blur(8px);
+    border: 1px solid;
+    animation: slideInFromTop 0.3s ease-out;
+}
+
+@keyframes slideInFromTop {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.alert-success {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+    border-color: rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.alert-error {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+.alert-warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+    border-color: rgba(245, 158, 11, 0.3);
+    color: #f59e0b;
+}
+
+.alert-info {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+    border-color: rgba(59, 130, 246, 0.3);
+    color: #3b82f6;
+}
+</style>
+
+<script>
+function importModel() {
+    return {
+        isAdvancedMode: false,
+        isEditMode: {{if .ModelName}}true{{else}}false{{end}},
+        importUri: '',
+        preferences: [],
+        commonPreferences: {
+            backend: '',
+            name: '',
+            description: '',
+            quantizations: '',
+            mmproj_quantizations: '',
+            embeddings: false,
+            type: '',
+            pipeline_type: '',
+            scheduler_type: '',
+            enable_parameters: '',
+            cuda: false
+        },
+        isSubmitting: false,
+        currentJobId: null,
+        jobPollInterval: null,
+        yamlEditor: null,
+        modelEditor: null,
+        
+        init() {
+            // If in edit mode, always show advanced mode
+            if (this.isEditMode) {
+                this.isAdvancedMode = true;
+            }
+            
+            // Initialize YAML editor if in advanced mode
+            if (this.isAdvancedMode || this.isEditMode) {
+                this.$nextTick(() => {
+                    this.initializeCodeMirror();
+                    this.bindAdvancedEvents();
+                });
+            }
+        },
+        
+        toggleMode() {
+            this.isAdvancedMode = !this.isAdvancedMode;
+            if (this.isAdvancedMode) {
+                this.$nextTick(() => {
+                    this.initializeCodeMirror();
+                    this.bindAdvancedEvents();
+                });
+            }
+        },
+        
+        addPreference() {
+            this.preferences.push({ key: '', value: '' });
+        },
+        
+        removePreference(index) {
+            this.preferences.splice(index, 1);
+        },
+        
+        async submitImport() {
+            if (!this.importUri.trim()) {
+                this.showAlert('error', 'Please enter a model URI');
+                return;
+            }
+            
+            this.isSubmitting = true;
+            
+            try {
+                // Build preferences object starting with common preferences
+                const prefsObj = {};
+                
+                // Add common preferences (only non-empty values)
+                if (this.commonPreferences.backend && this.commonPreferences.backend.trim()) {
+                    prefsObj.backend = this.commonPreferences.backend.trim();
+                }
+                if (this.commonPreferences.name && this.commonPreferences.name.trim()) {
+                    prefsObj.name = this.commonPreferences.name.trim();
+                }
+                if (this.commonPreferences.description && this.commonPreferences.description.trim()) {
+                    prefsObj.description = this.commonPreferences.description.trim();
+                }
+                if (this.commonPreferences.quantizations && this.commonPreferences.quantizations.trim()) {
+                    prefsObj.quantizations = this.commonPreferences.quantizations.trim();
+                }
+                if (this.commonPreferences.mmproj_quantizations && this.commonPreferences.mmproj_quantizations.trim()) {
+                    prefsObj.mmproj_quantizations = this.commonPreferences.mmproj_quantizations.trim();
+                }
+                if (this.commonPreferences.embeddings) {
+                    prefsObj.embeddings = 'true';
+                }
+                if (this.commonPreferences.type && this.commonPreferences.type.trim()) {
+                    prefsObj.type = this.commonPreferences.type.trim();
+                }
+                if (this.commonPreferences.pipeline_type && this.commonPreferences.pipeline_type.trim()) {
+                    prefsObj.pipeline_type = this.commonPreferences.pipeline_type.trim();
+                }
+                if (this.commonPreferences.scheduler_type && this.commonPreferences.scheduler_type.trim()) {
+                    prefsObj.scheduler_type = this.commonPreferences.scheduler_type.trim();
+                }
+                if (this.commonPreferences.enable_parameters && this.commonPreferences.enable_parameters.trim()) {
+                    prefsObj.enable_parameters = this.commonPreferences.enable_parameters.trim();
+                }
+                if (this.commonPreferences.cuda) {
+                    prefsObj.cuda = true;
+                }
+                
+                // Add custom preferences (can override common ones)
+                this.preferences.forEach(pref => {
+                    if (pref.key && pref.value) {
+                        prefsObj[pref.key.trim()] = pref.value.trim();
+                    }
+                });
+                
+                const requestBody = {
+                    uri: this.importUri.trim(),
+                    preferences: Object.keys(prefsObj).length > 0 ? prefsObj : null
+                };
+                
+                const response = await fetch('/models/import-uri', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'Failed to start import' }));
+                    // Extract error message from various possible formats
+                    // Handle nested error object: {"error": {"message": "...", "code": 500}}
+                    let errorMessage = 'Failed to start import';
+                    if (errorData.error) {
+                        if (typeof errorData.error === 'object' && errorData.error.message) {
+                            errorMessage = errorData.error.message;
+                        } else if (typeof errorData.error === 'string') {
+                            errorMessage = errorData.error;
+                        }
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    } else if (errorData.Error) {
+                        errorMessage = errorData.Error;
+                    } else {
+                        errorMessage = JSON.stringify(errorData);
+                    }
+                    throw new Error(errorMessage);
+                }
+                
+                const result = await response.json();
+                
+                if (result.uuid) {
+                    this.currentJobId = result.uuid;
+                    this.showAlert('success', 'Import started! Tracking progress...');
+                    this.startJobPolling();
+                } else if (result.ID) {
+                    // Fallback for different response format
+                    this.currentJobId = result.ID;
+                    this.showAlert('success', 'Import started! Tracking progress...');
+                    this.startJobPolling();
+                } else {
+                    throw new Error('No job ID returned from server');
+                }
+            } catch (error) {
+                this.showAlert('error', 'Failed to start import: ' + error.message);
+                this.isSubmitting = false;
+            }
+        },
+        
+        startJobPolling() {
+            if (this.jobPollInterval) {
+                clearInterval(this.jobPollInterval);
+            }
+            
+            this.jobPollInterval = setInterval(async () => {
+                if (!this.currentJobId) {
+                    clearInterval(this.jobPollInterval);
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/models/jobs/${this.currentJobId}`);
+                    if (!response.ok) {
+                        return;
+                    }
+                    
+                    const jobData = await response.json();
+                    
+                    if (jobData.completed) {
+                        clearInterval(this.jobPollInterval);
+                        this.isSubmitting = false;
+                        this.currentJobId = null;
+                        this.showAlert('success', 'Model imported successfully! Refreshing page...');
+                        
+                        // Refresh the page after a short delay
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 2000);
+                    } else if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
+                        clearInterval(this.jobPollInterval);
+                        this.isSubmitting = false;
+                        this.currentJobId = null;
+                        // Extract error message - handle both string and object errors
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.error && typeof jobData.error === 'object') {
+                            // Check if error object has any properties
+                            const errorKeys = Object.keys(jobData.error);
+                            if (errorKeys.length > 0) {
+                                // Try common error object properties
+                                errorMessage = jobData.error.message || jobData.error.error || jobData.error.Error || JSON.stringify(jobData.error);
+                            } else {
+                                // Empty object {}, fall back to message field
+                                errorMessage = jobData.message || 'Unknown error';
+                            }
+                        } else if (jobData.message) {
+                            // Use message field if error is not present or is empty
+                            errorMessage = jobData.message;
+                        }
+                        // Remove "error: " prefix if present
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.showAlert('error', 'Import failed: ' + errorMessage);
+                    }
+                } catch (error) {
+                    console.error('Error polling job status:', error);
+                }
+            }, 1000);
+        },
+        
+        initializeCodeMirror() {
+            if (this.yamlEditor) {
+                return; // Already initialized
+            }
+            
+            const initialValue = {{if .ConfigYAML}}`{{.ConfigYAML}}`{{else}}this.getDefaultConfig(){{end}};
+            
+            this.yamlEditor = CodeMirror(document.getElementById('yamlCodeMirror'), {
+                mode: 'yaml',
+                theme: 'default',
+                lineNumbers: true,
+                autoRefresh: true,
+                indentUnit: 2,
+                tabSize: 2,
+                indentWithTabs: false,
+                lineWrapping: true,
+                styleActiveLine: true,
+                matchBrackets: true,
+                autoCloseBrackets: true,
+                value: initialValue
+            });
+        },
+        
+        bindAdvancedEvents() {
+            if (!this.yamlEditor) return;
+            
+            // Button events
+            const saveBtn = document.getElementById('saveBtn');
+            const validateBtn = document.getElementById('validateBtn');
+            const formatYamlBtn = document.getElementById('formatYamlBtn');
+            const copyYamlBtn = document.getElementById('copyYamlBtn');
+            
+            if (saveBtn) {
+                saveBtn.addEventListener('click', () => this.saveConfig());
+            }
+            if (validateBtn) {
+                validateBtn.addEventListener('click', () => this.validateConfig());
+            }
+            if (formatYamlBtn) {
+                formatYamlBtn.addEventListener('click', () => this.formatYaml());
+            }
+            if (copyYamlBtn) {
+                copyYamlBtn.addEventListener('click', () => this.copyYaml());
+            }
+        },
+        
+        getDefaultConfig() {
+            return `# Model Configuration
+name: my-model
+backend: llama-cpp
+parameters:
+  model: path/to/model.gguf
+  temperature: 0.7
+  top_p: 0.9
+  top_k: 40
+  max_tokens: 2048
+
+# Uncomment and configure as needed:
+# context_size: 4096
+# gpu_layers: 35
+# threads: 8
+# f16: true
+# mmap: true
+
+# Template configuration
+# template:
+#   chat: |
+#     {{"{{"}}.Input}}
+#   completion: |
+#     {{"{{"}}.Input}}
+
+# Use cases
+# known_usecases:
+#   - chat
+#   - completion
+`;
+        },
+        
+        validateConfig() {
+            try {
+                const yamlContent = this.yamlEditor.getValue();
+                const config = jsyaml.load(yamlContent);
+                
+                if (!config || typeof config !== 'object') {
+                    throw new Error('Invalid YAML structure');
+                }
+                
+                if (!config.name) {
+                    throw new Error('Model name is required');
+                }
+                if (!config.backend) {
+                    throw new Error('Backend is required');
+                }
+                if (!config.parameters || !config.parameters.model) {
+                    throw new Error('Model file/path is required in parameters.model');
+                }
+                
+                this.showAlert('success', 'Configuration is valid!');
+            } catch (error) {
+                this.showAlert('error', 'Validation failed: ' + error.message);
+            }
+        },
+        
+        async saveConfig() {
+            try {
+                // Validate before saving
+                const yamlContent = this.yamlEditor.getValue();
+                const config = jsyaml.load(yamlContent);
+                
+                if (!config || typeof config !== 'object') {
+                    throw new Error('Invalid YAML structure');
+                }
+                
+                if (!config.name) {
+                    throw new Error('Model name is required');
+                }
+                if (!config.backend) {
+                    throw new Error('Backend is required');
+                }
+                if (!config.parameters || !config.parameters.model) {
+                    throw new Error('Model file/path is required in parameters.model');
+                }
+                
+                const endpoint = this.isEditMode ? `/models/edit/{{.ModelName}}` : '/models/import';
+                
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-yaml',
+                    },
+                    body: yamlContent
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ message: 'Failed to save configuration' }));
+                    // Extract error message from various possible formats
+                    // Handle nested error object: {"error": {"message": "...", "code": 500}}
+                    let errorMessage = 'Failed to save configuration';
+                    if (errorData.error) {
+                        if (typeof errorData.error === 'object' && errorData.error.message) {
+                            errorMessage = errorData.error.message;
+                        } else if (typeof errorData.error === 'string') {
+                            errorMessage = errorData.error;
+                        }
+                    } else if (errorData.message) {
+                        errorMessage = errorData.message;
+                    } else if (errorData.Error) {
+                        errorMessage = errorData.Error;
+                    } else {
+                        errorMessage = JSON.stringify(errorData);
+                    }
+                    throw new Error(errorMessage);
+                }
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    this.showAlert('success', result.message || (this.isEditMode ? 'Model updated successfully!' : 'Model created successfully!'));
+                    if (!this.isEditMode && config.name) {
+                        setTimeout(() => {
+                            window.location.href = `/models/edit/${config.name}`;
+                        }, 2000);
+                    }
+                } else {
+                    const errorMessage = result.message || result.error || result.Error || 'Failed to save configuration';
+                    this.showAlert('error', errorMessage);
+                }
+            } catch (error) {
+                this.showAlert('error', 'Failed to save: ' + error.message);
+            }
+        },
+        
+        formatYaml() {
+            try {
+                const yamlContent = this.yamlEditor.getValue();
+                const parsed = jsyaml.load(yamlContent);
+                const formatted = jsyaml.dump(parsed, {
+                    indent: 2,
+                    lineWidth: 120,
+                    noRefs: true,
+                    sortKeys: false
+                });
+                this.yamlEditor.setValue(formatted);
+                this.showAlert('success', 'YAML formatted successfully');
+            } catch (error) {
+                this.showAlert('error', 'Failed to format YAML: ' + error.message);
+            }
+        },
+        
+        copyYaml() {
+            const yamlContent = this.yamlEditor.getValue();
+            navigator.clipboard.writeText(yamlContent).then(() => {
+                this.showAlert('success', 'YAML copied to clipboard');
+            }).catch(err => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = yamlContent;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                this.showAlert('success', 'YAML copied to clipboard');
+            });
+        },
+        
+        showAlert(type, message) {
+            const container = document.getElementById('alertContainer');
+            const alertClasses = {
+                success: 'alert alert-success',
+                error: 'alert alert-error',
+                warning: 'alert alert-warning',
+                info: 'alert alert-info'
+            };
+            
+            const alertIcons = {
+                success: 'fas fa-check-circle',
+                error: 'fas fa-exclamation-triangle',
+                warning: 'fas fa-exclamation-circle',
+                info: 'fas fa-info-circle'
+            };
+            
+            container.innerHTML = `
+                <div class="${alertClasses[type]}">
+                    <div class="flex items-center">
+                        <i class="${alertIcons[type]} mr-3 text-lg"></i>
+                        <span class="flex-1">${message}</span>
+                        <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-current hover:opacity-70 transition-opacity">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            if (type === 'success' || type === 'info') {
+                setTimeout(() => {
+                    const alert = container.querySelector('div');
+                    if (alert) alert.remove();
+                }, 5000);
+            }
+        }
+    }
+}
+</script>
+
+</body>
+</html>

@@ -1,0 +1,250 @@
+---
+name: 'build backend container images (reusable)'
+
+on:
+  workflow_call:
+    inputs:
+      base-image:
+        description: 'Base image'
+        required: true
+        type: string
+      build-type:
+        description: 'Build type'
+        default: ''
+        type: string
+      cuda-major-version:
+        description: 'CUDA major version'
+        default: "12"
+        type: string
+      cuda-minor-version:
+        description: 'CUDA minor version'
+        default: "1"
+        type: string
+      platforms:
+        description: 'Platforms'
+        default: ''
+        type: string
+      tag-latest:
+        description: 'Tag latest'
+        default: ''
+        type: string
+      tag-suffix:
+        description: 'Tag suffix'
+        default: ''
+        type: string
+      runs-on:
+        description: 'Runs on'
+        required: true
+        default: ''
+        type: string
+      backend:
+        description: 'Backend to build'
+        required: true
+        type: string
+      context:
+        description: 'Build context'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Build Dockerfile'
+        required: true
+        type: string
+      skip-drivers:
+        description: 'Skip drivers'
+        default: 'false'
+        type: string
+      ubuntu-version:
+        description: 'Ubuntu version'
+        required: false
+        default: '2204'
+        type: string
+    secrets:
+      dockerUsername:
+        required: false
+      dockerPassword:
+        required: false
+      quayUsername:
+        required: true
+      quayPassword:
+        required: true
+
+jobs:
+  backend-build:
+    runs-on: ${{ inputs.runs-on }}
+    env:
+        quay_username: ${{ secrets.quayUsername }}
+    steps:
+
+
+      - name: Free Disk Space (Ubuntu)
+        if: inputs.runs-on == 'ubuntu-latest'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          # this might remove tools that are actually needed,
+          # if set to "true" but frees about 6 GB
+          tool-cache: true
+          # all of these default to true, but feel free to set to
+          # "false" if necessary for your workflow
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Force Install GIT latest
+        run: |
+          sudo apt-get update \
+          && sudo apt-get install -y software-properties-common \
+          && sudo apt-get update \
+          && sudo add-apt-repository -y ppa:git-core/ppa \
+          && sudo apt-get update \
+          && sudo apt-get install -y git
+
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Release space from worker
+        if: inputs.runs-on == 'ubuntu-latest'
+        run: |
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          df -h
+          echo
+          sudo apt-get remove -y '^llvm-.*|^libllvm.*' || true
+          sudo apt-get remove --auto-remove android-sdk-platform-tools snapd || true
+          sudo apt-get purge --auto-remove android-sdk-platform-tools snapd || true
+          sudo rm -rf /usr/local/lib/android
+          sudo apt-get remove -y '^dotnet-.*|^aspnetcore-.*' || true
+          sudo rm -rf /usr/share/dotnet
+          sudo apt-get remove -y '^mono-.*' || true
+          sudo apt-get remove -y '^ghc-.*' || true
+          sudo apt-get remove -y '.*jdk.*|.*jre.*' || true
+          sudo apt-get remove -y 'php.*' || true
+          sudo apt-get remove -y hhvm powershell firefox monodoc-manual msbuild || true
+          sudo apt-get remove -y '^google-.*' || true
+          sudo apt-get remove -y azure-cli || true
+          sudo apt-get remove -y '^mongo.*-.*|^postgresql-.*|^mysql-.*|^mssql-.*' || true
+          sudo apt-get remove -y '^gfortran-.*' || true
+          sudo apt-get remove -y microsoft-edge-stable || true
+          sudo apt-get remove -y firefox || true
+          sudo apt-get remove -y powershell || true
+          sudo apt-get remove -y r-base-core || true
+          sudo apt-get autoremove -y
+          sudo apt-get clean
+          echo
+          echo "Listing top largest packages"
+          pkgs=$(dpkg-query -Wf '${Installed-Size}\t${Package}\t${Status}\n' | awk '$NF == "installed"{print $1 "\t" $2}' | sort -nr)
+          head -n 30 <<< "${pkgs}"
+          echo
+          sudo rm -rfv build || true
+          sudo rm -rf /usr/share/dotnet || true
+          sudo rm -rf /opt/ghc || true
+          sudo rm -rf "/usr/local/share/boost" || true
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
+          df -h
+
+      - name: Docker meta
+        id: meta
+        if: github.event_name != 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/local-ai-backends
+            localai/localai-backends
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{raw}}
+            type=sha
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+
+      - name: Docker meta for PR
+        id: meta_pull_request
+        if: github.event_name == 'pull_request'
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            quay.io/go-skynet/ci-tests
+          tags: |
+            type=ref,event=branch,suffix=${{ github.event.number }}-${{ inputs.backend }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=semver,pattern={{raw}},suffix=${{ github.event.number }}-${{ inputs.backend }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+            type=sha,suffix=${{ github.event.number }}-${{ inputs.backend }}-${{ inputs.build-type }}-${{ inputs.cuda-major-version }}-${{ inputs.cuda-minor-version }}
+          flavor: |
+            latest=${{ inputs.tag-latest }}
+            suffix=${{ inputs.tag-suffix }},onlatest=true
+## End testing image
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@master
+        with:
+          platforms: all
+
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@master
+
+      - name: Login to DockerHub
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.dockerUsername }}
+          password: ${{ secrets.dockerPassword }}
+
+      - name: Login to Quay.io
+        if: ${{ env.quay_username != '' }}
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.quayUsername }}
+          password: ${{ secrets.quayPassword }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        if: github.event_name != 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            BACKEND=${{ inputs.backend }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          cache-from: type=gha
+          platforms: ${{ inputs.platforms }}
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Build and push (PR)
+        uses: docker/build-push-action@v6
+        if: github.event_name == 'pull_request'
+        with:
+          builder: ${{ steps.buildx.outputs.name }}
+          build-args: |
+            BUILD_TYPE=${{ inputs.build-type }}
+            SKIP_DRIVERS=${{ inputs.skip-drivers }}
+            CUDA_MAJOR_VERSION=${{ inputs.cuda-major-version }}
+            CUDA_MINOR_VERSION=${{ inputs.cuda-minor-version }}
+            BASE_IMAGE=${{ inputs.base-image }}
+            BACKEND=${{ inputs.backend }}
+            UBUNTU_VERSION=${{ inputs.ubuntu-version }}
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile }}
+          cache-from: type=gha
+          platforms: ${{ inputs.platforms }}
+          push: ${{ env.quay_username != '' }}
+          tags: ${{ steps.meta_pull_request.outputs.tags }}
+          labels: ${{ steps.meta_pull_request.outputs.labels }}
+
+
+
+      - name: job summary
+        run: |
+          echo "Built image: ${{ steps.meta.outputs.labels }}" >> $GITHUB_STEP_SUMMARY

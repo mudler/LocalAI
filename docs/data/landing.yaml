@@ -1,0 +1,280 @@
+# Note: Template blocks require a 'weight' parameter so they're correctly ordered on the landing page
+
+# Hero
+hero:
+  enable: true
+  weight: 10
+  template: hero
+
+  backgroundImage:
+    path: "images/templates/hero"
+    filename:
+      desktop: "gradient-desktop.webp"
+      mobile: "gradient-mobile.webp"
+
+  badge:
+    text: "⭐ 33.3k+ stars on GitHub!"
+    color: primary
+    pill: false
+    soft: true
+
+  titleLogo:
+    path: "images/logos"
+    filename: "logo.png"
+    alt: "LocalAI Logo"
+    height: 340px
+
+  title: ""
+  subtitle: |
+    **The free, OpenAI, Anthropic alternative. Your All-in-One Complete AI Stack** - Run powerful language models, autonomous agents, and document intelligence **locally** on your hardware. 
+    
+    **No cloud, no limits, no compromise.**
+
+  image:
+    path: "images"
+    filename: "localai_screenshot.png"
+    alt: "LocalAI Screenshot"
+    boxShadow: true
+    rounded: true
+
+  ctaButton:
+    icon: rocket_launch
+    btnText: "Get Started"
+    url: "/installation/"
+  cta2Button:
+    icon: code
+    btnText: "View on GitHub"
+    url: "https://github.com/mudler/LocalAI"
+
+  info: |
+    **Drop-in replacement for OpenAI API** - modular suite of tools that work seamlessly together or independently. 
+    
+    Start with **[LocalAI](https://localai.io)**'s OpenAI-compatible API, extend with **[LocalAGI](https://github.com/mudler/LocalAGI)**'s autonomous agents, and enhance with **[LocalRecall](https://github.com/mudler/LocalRecall)**'s semantic search - all running locally on your hardware.
+
+    **Open Source** MIT Licensed.
+
+# Feature Grid
+featureGrid:
+  enable: true
+  weight: 20
+  template: feature grid
+
+  title: Why choose LocalAI?
+  subtitle: |
+    **OpenAI API Compatible** - Run AI models locally with our modular ecosystem. From language models to autonomous agents and semantic search, build your complete AI stack without the cloud.
+
+  items:
+    - title: LLM Inferencing
+      icon: memory_alt
+      description: LocalAI is a free, **Open Source** OpenAI alternative. Run **LLMs**, generate **images**, **audio** and more **locally** with consumer grade hardware.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+    - title: Agentic-first
+      icon: smart_toy
+      description: |
+        Extend LocalAI with LocalAGI, an autonomous AI agent platform that runs locally, no coding required. 
+        Build and deploy autonomous agents with ease. Interact with REST APIs or use the WebUI.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalAGI
+
+    - title: Memory and Knowledge base
+      icon: psychology
+      description: 
+        Extend LocalAI with LocalRecall, A local rest api for semantic search and memory management. Perfect for AI applications.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalRecall
+
+    - title: OpenAI Compatible
+      icon: api
+      description: Drop-in replacement for OpenAI API. Compatible with existing applications and libraries.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: No GPU Required
+      icon: memory
+      description: Run on consumer grade hardware. No need for expensive GPUs or cloud services.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Multiple Models
+      icon: hub
+      description: |
+          Support for various model families including LLMs, image generation, and audio models.
+          Supports multiple backends for inferencing, including vLLM, llama.cpp, and more.
+          You can switch between them as needed and install them from the Web interface or the CLI.
+      ctaLink:
+        text: learn more
+        url: /model-compatibility
+
+    - title: Privacy Focused
+      icon: security
+      description: Keep your data local. No data leaves your machine, ensuring complete privacy.
+      ctaLink:
+        text: learn more
+        url: /basics/container/
+
+    - title: Easy Setup
+      icon: settings
+      description: Simple installation and configuration. Get started in minutes with Binaries installation, Docker, Podman, Kubernetes or local installation.
+      ctaLink:
+        text: learn more
+        url: /basics/getting_started/
+
+    - title: Community Driven
+      icon: groups
+      description: Active community support and regular updates. Contribute and help shape the future of LocalAI.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalAI
+
+
+
+    - title: Extensible
+      icon: extension
+      description: Easy to extend and customize. Add new models and features as needed.
+      ctaLink:
+        text: learn more
+        url: /docs/integrations/
+
+    - title: Peer 2 Peer
+      icon: hub
+      description: |
+        LocalAI is designed to be a decentralized LLM inference, powered by a peer-to-peer system based on libp2p. 
+        It is designed to be used in a local or remote network, and is compatible with any LLM model. 
+        It works both in federated mode or by splitting models weights.
+      ctaLink:
+        text: learn more
+        url: /features/distribute/
+
+    - title: Open Source
+      icon: code
+      description: MIT licensed. Free to use, modify, and distribute. Community contributions welcome.
+      ctaLink:
+        text: learn more
+        url: https://github.com/mudler/LocalAI
+
+imageText:
+  enable: true
+  weight: 25
+  template: image text
+
+  title: LocalAI - Run AI models locally with ease
+  subtitle: |
+    LocalAI makes it simple to run various AI models on your own hardware. From text generation to image creation, autonomous agents to semantic search - all orchestrated through a unified API.
+    LocalAI, created by **Ettore Di Giacinto (mudler)**,  is a Free and Open Source, community-driven project to make Free, Open AI accessible to everyone. The LocalAI stack is MIT licensed, and the models trained by LocalAI are available under the Apache 2.0 License.
+
+  list:
+    - text: OpenAI API compatibility
+      icon: api
+
+    - text: Multiple model support
+      icon: hub
+
+    - text: Image understanding
+      icon: image
+    
+    - text: Image generation
+      icon: image
+
+    - text: Audio generation
+      icon: music_note
+
+    - text: Voice activity detection
+      icon: mic
+
+    - text: Speech recognition
+      icon: mic
+
+    - text: Video generation
+      icon: movie
+
+    - text: Privacy focused
+      icon: security
+
+    - text: Autonomous agents with [LocalAGI](https://github.com/mudler/LocalAGI)
+      icon: smart_toy
+
+    - text: MCP Support [MCP](https://localai.io/docs/features/mcp/)
+      icon: api
+
+    - text: Semantic search with [LocalRecall](https://github.com/mudler/LocalRecall)
+      icon: psychology
+
+    - text: Agent orchestration
+      icon: hub
+
+  image:
+    path: "images"
+    filename: "imagen.png"
+    alt: "LocalAI Image generation"
+
+  imgOrder:
+    desktop: 2
+    mobile: 1
+
+  ctaButton:
+    text: Learn more
+    url: "/basics/getting_started/"
+
+# Image compare
+imageCompare:
+  enable: false
+  weight: 30
+  template: image compare
+
+  title: LocalAI in Action
+  subtitle: See how LocalAI can transform your local AI experience with various models and capabilities.
+
+  items:
+    - title: Text Generation
+      config: {
+        startingPoint: 50,
+        addCircle: true,
+        addCircleBlur: false,
+        showLabels: true,
+        labelOptions: {
+          before: 'Dark',
+          after: 'Light',
+          onHover: false
+        }
+      }
+      imagePath: "images/screenshots"
+      imageBefore: "text_generation_input.webp"
+      imageAfter: "text_generation_output.webp"
+
+    - title: Image Generation
+      config: {
+        startingPoint: 50,
+        addCircle: true,
+        addCircleBlur: true,
+        showLabels: true,
+        labelOptions: {
+          before: 'Prompt',
+          after: 'Result',
+          onHover: true
+        }
+      }
+      imagePath: "images/screenshots"
+      imageBefore: "imagen_before.webp"
+      imageAfter: "imagen_after.webp"
+
+    - title: Audio Generation
+      config: {
+        startingPoint: 50,
+        addCircle: true,
+        addCircleBlur: false,
+        showLabels: true,
+        labelOptions: {
+          before: 'Text',
+          after: 'Audio',
+          onHover: false
+        }
+      }
+      imagePath: "images/screenshots"
+      imageBefore: "audio_generation_text.webp"
+      imageAfter: "audio_generation_waveform.webp"

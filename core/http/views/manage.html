@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="flex flex-col min-h-screen" x-data="indexDashboard()">
+
+    {{template "views/partials/navbar" .}}
+
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-[var(--color-success)]'"
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Header -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    Model & Backend Management
+                </h1>
+                <p class="hero-subtitle">Manage your installed models and backends</p>
+                
+                <!-- Quick Actions -->
+                <div class="flex flex-wrap justify-center gap-3">
+                    <a href="browse/" class="btn-primary text-sm py-1.5 px-3">
+                        <i class="fas fa-images mr-1.5 text-[10px]"></i>
+                        <span>Model Gallery</span>
+                    </a>
+                    
+                    <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
+                        <i class="fas fa-plus mr-1.5 text-[10px]"></i>
+                        <span>Import Model</span>
+                    </a>
+
+                    <button id="reload-models-btn" class="btn-primary text-sm py-1.5 px-3">
+                        <i class="fas fa-sync-alt mr-1.5 text-[10px]"></i>
+                        <span>Update Models</span>
+                    </button>
+
+                    <a href="/browse/backends" class="btn-secondary text-sm py-1.5 px-3">
+                        <i class="fas fa-cogs mr-1.5 text-[10px]"></i>
+                        <span>Backend Gallery</span>
+                    </a>
+
+                    {{ if not .DisableRuntimeSettings }}
+                    <a href="/settings" class="btn-secondary text-sm py-1.5 px-3">
+                        <i class="fas fa-cog mr-1.5 text-[10px]"></i>
+                        <span>Settings</span>
+                    </a>
+                    {{ end }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Memory Info Section (GPU or RAM) -->
+        <div class="mt-8" x-data="resourceMonitor()" x-init="startPolling()">
+            <template x-if="resourceData && resourceData.available">
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between mb-3">
+                        <h2 class="h3 flex items-center">
+                            <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'" class="mr-2 text-[var(--color-primary)] text-sm"></i>
+                            <span x-text="resourceData.type === 'gpu' ? 'GPU Status' : 'Memory Status'"></span>
+                        </h2>
+                        <div class="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
+                            <template x-if="resourceData.type === 'gpu'">
+                                <span x-text="`${resourceData.aggregate.gpu_count} GPU${resourceData.aggregate.gpu_count > 1 ? 's' : ''}`"></span>
+                            </template>
+                            <template x-if="resourceData.type === 'ram'">
+                                <span>System RAM</span>
+                            </template>
+                            <template x-if="resourceData.reclaimer_enabled">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                                    <i class="fas fa-shield-alt text-[8px] mr-1"></i>Reclaimer Active
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- Per-GPU Stats (when GPU available) -->
+                    <template x-if="resourceData.type === 'gpu' && resourceData.gpus">
+                        <div class="space-y-3">
+                            <template x-for="gpu in resourceData.gpus" :key="gpu.index">
+                                <div class="bg-[var(--color-bg-primary)] rounded p-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
+                                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
+                                                  :class="gpu.vendor === 'nvidia' ? 'bg-green-500/10 text-green-300' : 
+                                                          gpu.vendor === 'amd' ? 'bg-red-500/10 text-red-300' : 
+                                                          gpu.vendor === 'intel' ? 'bg-blue-500/10 text-blue-300' : 
+                                                          'bg-[var(--color-accent-light)] text-[var(--color-accent)]'"
+                                                  x-text="gpu.vendor.toUpperCase()">
+                                            </span>
+                                        </div>
+                                        <span class="text-xs font-mono" 
+                                              :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                              x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
+                                    </div>
+                                    <!-- Progress Bar -->
+                                    <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
+                                        <div class="h-full rounded-full transition-all duration-300"
+                                             :class="gpu.usage_percent > 90 ? 'bg-red-500' : gpu.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                             :style="`width: ${gpu.usage_percent}%`"></div>
+                                    </div>
+                                    <div class="flex justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                                        <span x-text="`Used: ${formatBytes(gpu.used_vram)}`"></span>
+                                        <span x-text="`Total: ${formatBytes(gpu.total_vram)}`"></span>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                    
+                    <!-- RAM Stats (when no GPU) -->
+                    <template x-if="resourceData.type === 'ram' && resourceData.ram">
+                        <div class="bg-[var(--color-bg-primary)] rounded p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs font-medium text-[var(--color-text-primary)]">System RAM</span>
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)]">
+                                        RAM
+                                    </span>
+                                </div>
+                                <span class="text-xs font-mono" 
+                                      :class="resourceData.ram.usage_percent > 90 ? 'text-red-400' : resourceData.ram.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                      x-text="`${resourceData.ram.usage_percent.toFixed(1)}%`"></span>
+                            </div>
+                            <!-- Progress Bar -->
+                            <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-300"
+                                     :class="resourceData.ram.usage_percent > 90 ? 'bg-red-500' : resourceData.ram.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                     :style="`width: ${resourceData.ram.usage_percent}%`"></div>
+                            </div>
+                            <div class="flex justify-between mt-1 text-[10px] text-[var(--color-text-secondary)]">
+                                <span x-text="`Used: ${formatBytes(resourceData.ram.used)}`"></span>
+                                <span x-text="`Total: ${formatBytes(resourceData.ram.total)}`"></span>
+                            </div>
+                        </div>
+                    </template>
+                    
+                    <!-- Aggregate Stats (if multiple GPUs) -->
+                    <template x-if="resourceData.type === 'gpu' && resourceData.aggregate.gpu_count > 1">
+                        <div class="mt-3 pt-3 border-t border-[var(--color-primary-border)]/20">
+                            <div class="flex items-center justify-between text-xs">
+                                <span class="text-[var(--color-text-secondary)]">Total VRAM:</span>
+                                <span class="font-mono text-[var(--color-text-primary)]" 
+                                      x-text="`${formatBytes(resourceData.aggregate.used_memory)} / ${formatBytes(resourceData.aggregate.total_memory)} (${resourceData.aggregate.usage_percent.toFixed(1)}%)`"></span>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+
+        <!-- Models Section -->
+        <div class="models mt-8">
+            {{template "views/partials/inprogress" .}}
+            
+            {{ if eq (len .ModelsConfig) 0 }}
+            <!-- No Models State -->
+            <div class="card p-8">
+                <div class="text-center max-w-4xl mx-auto">
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/10 border border-yellow-500/20 mb-4">
+                        <i class="text-yellow-400 text-xl fas fa-robot"></i>
+                    </div>
+                    <h2 class="h2 mb-2">No models installed yet</h2>
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-6">Get started by installing a model from the gallery or importing it</p>
+                    
+                    <div class="flex flex-wrap justify-center gap-2 mb-6">
+                        <a href="browse" class="btn-primary text-sm py-1.5 px-3">
+                            <i class="fas fa-images mr-1.5 text-[10px]"></i>
+                            Browse Model Gallery
+                        </a>
+                        <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
+                            <i class="fas fa-upload mr-1.5 text-[10px]"></i>
+                            Import Model
+                        </a>
+                        <a href="https://localai.io/basics/getting_started/" target="_blank" class="btn-secondary text-sm py-1.5 px-3">
+                            <i class="fas fa-book mr-1.5 text-[10px]"></i>
+                            Documentation
+                        </a>
+                    </div>
+
+                    {{ if ne (len .Models) 0 }}
+                    <div class="mt-8 pt-6 border-t border-[var(--color-primary-border)]/20">
+                        <h3 class="text-lg font-semibold text-[var(--color-text-primary)] mb-2 flex items-center">
+                            <i class="fas fa-file-alt mr-2 text-[var(--color-primary)] text-sm"></i>
+                            Detected Model Files
+                        </h3>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-4">These models were found but don't have configuration files yet</p>
+                        <div class="flex flex-wrap gap-2 justify-center">
+                            {{ range .Models }}
+                            <div class="bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded px-2 py-1 flex items-center gap-2">
+                                <i class="fas fa-brain text-xs text-[var(--color-primary)]"></i>
+                                <span class="text-xs text-[var(--color-text-primary)] font-medium">{{.}}</span>
+                            </div>              
+                            {{end}}
+                        </div>
+                    </div>
+                    {{end}}
+                </div>
+            </div>
+            {{ else }}
+            <!-- Models Table -->
+            {{ $modelsN := len .ModelsConfig}}
+            {{ $modelsN = add $modelsN (len .Models)}}
+            <div class="mb-6">
+                <h2 class="h3 mb-1 flex items-center">
+                    <i class="fas fa-brain mr-2 text-[var(--color-primary)] text-sm"></i>
+                    Installed Models
+                </h2>
+                <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+                    <span class="text-[var(--color-primary)] font-medium">{{$modelsN}}</span> model{{if gt $modelsN 1}}s{{end}} ready to use
+                </p>
+            </div>
+            
+            <div class="overflow-x-auto mb-8">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Name</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Status</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Backend</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Use Cases</th>
+                            <th class="text-right p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{$galleryConfig:=.GalleryConfig}}
+                        {{ $loadedModels := .LoadedModels }}
+                        
+                        {{ range .ModelsConfig }}
+                        {{ $backendCfg := . }}
+                        {{ $cfg:= index $galleryConfig .Name}}
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
+                            <!-- Name Column -->
+                            <td class="p-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="relative flex-shrink-0">
+                                        {{ if and $cfg $cfg.Icon }}
+                                        <img src="{{$cfg.Icon}}" class="w-4 h-4 object-contain" alt="{{.Name}} icon">
+                                        {{ else }}
+                                        <i class="fas fa-brain text-xs text-[var(--color-primary)]"></i>
+                                        {{ end }}
+                                        {{ if index $loadedModels .Name }}
+                                        <div class="absolute -top-0.5 -right-0.5 w-2 h-2 bg-[var(--color-success)] rounded-full border border-[var(--color-bg-secondary)]"></div>
+                                        {{ end }}
+                                    </div>
+                                    <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.Name}}</span>
+                                    <a href="/models/edit/{{.Name}}" 
+                                       class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 rounded p-0.5 transition-colors ml-1 flex-shrink-0"
+                                       title="Edit {{.Name}}">
+                                        <i class="fas fa-edit text-[10px]"></i>
+                                    </a>
+                                </div>
+                            </td>
+                            
+                            <!-- Status Column -->
+                            <td class="p-2">
+                                <div class="flex flex-wrap gap-1">
+                                    {{ if index $loadedModels .Name }}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300">
+                                        <i class="fas fa-circle text-[8px] mr-1"></i>Running
+                                    </span>
+                                    {{ end }}
+                                    {{ if and $backendCfg (or (ne $backendCfg.MCP.Servers "") (ne $backendCfg.MCP.Stdio ""))  }}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)]">
+                                        <i class="fas fa-plug text-[8px] mr-1"></i>MCP
+                                    </span>
+                                    {{ end }}
+                                </div>
+                            </td>
+                            
+                            <!-- Backend Column -->
+                            <td class="p-2">
+                                {{ if .Backend }}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+                                    <i class="fas fa-cog text-[8px] mr-1"></i>{{.Backend}}
+                                </span>
+                                {{ else }}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-300">
+                                    <i class="fas fa-magic text-[8px] mr-1"></i>Auto
+                                </span>
+                                {{ end }}
+                            </td>
+                            
+                            <!-- Use Cases Column -->
+                            <td class="p-2">
+                                <div class="flex flex-wrap gap-1">
+                                    {{ range .KnownUsecaseStrings }}
+                                    {{ if eq . "FLAG_CHAT" }}
+                                    <a href="chat/{{$backendCfg.Name}}" onclick="sessionStorage.setItem('localai_create_new_chat', 'true');" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-primary)]/10 text-[var(--color-primary)] hover:bg-[var(--color-primary)]/20 transition-colors" title="Chat">
+                                        <i class="fas fa-comment-alt text-[8px] mr-1"></i>Chat
+                                    </a>
+                                    {{ end }}
+                                    {{ if eq . "FLAG_IMAGE" }}
+                                    <a href="text2image/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300 hover:bg-[var(--color-success)]/20 transition-colors" title="Image">
+                                        <i class="fas fa-image text-[8px] mr-1"></i>Image
+                                    </a>
+                                    {{ end }}
+                                    {{ if eq . "FLAG_TTS" }}
+                                    <a href="tts/{{$backendCfg.Name}}" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)] hover:bg-[var(--color-accent-light)] transition-colors" title="TTS">
+                                        <i class="fas fa-microphone text-[8px] mr-1"></i>TTS
+                                    </a>
+                                    {{ end }}
+                                    {{ end }}
+                                </div>
+                            </td>
+                            
+                            <!-- Actions Column -->
+                            <td class="p-2">
+                                <div class="flex items-center justify-end gap-1">
+                                    {{ if index $loadedModels .Name }}
+                                    <button class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors" 
+                                        onclick="handleStopModel('{{.Name}}')"
+                                        title="Stop {{.Name}}">
+                                        <i class="fas fa-stop text-xs"></i>
+                                    </button>
+                                    {{ end }}
+                                    <button class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
+                                        onclick="handleDeleteModel('{{.Name}}')"
+                                        title="Delete {{.Name}}">
+                                        <i class="fas fa-trash-alt text-xs"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {{ end }}
+                        
+                        <!-- Models without config -->
+                        {{ range .Models }}
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors">
+                            <td class="p-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-brain text-xs text-[var(--color-text-secondary)]"></i>
+                                    <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.}}</span>
+                                </div>
+                            </td>
+                            <td class="p-2">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-orange-500/10 text-orange-300">
+                                    <i class="fas fa-exclamation-triangle text-[8px] mr-1"></i>No Config
+                                </span>
+                            </td>
+                            <td class="p-2">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-500/10 text-yellow-300">
+                                    <i class="fas fa-magic text-[8px] mr-1"></i>Auto
+                                </span>
+                            </td>
+                            <td class="p-2">
+                                <span class="text-xs text-[var(--color-text-secondary)]">—</span>
+                            </td>
+                            <td class="p-2">
+                                <span class="text-xs text-[var(--color-text-secondary)]">—</span>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{ end }}
+        </div>
+
+        <!-- Backends Section -->
+        <div class="mt-8">
+            <div class="mb-6">
+                <div class="flex items-center justify-between mb-1">
+                    <h2 class="h3 flex items-center">
+                        <i class="fas fa-cogs mr-2 text-[var(--color-accent)] text-sm"></i>
+                        Installed Backends
+                    </h2>
+                    {{ if gt (len .InstalledBackends) 0 }}
+                    <button
+                        @click="reinstallAllBackends()"
+                        :disabled="reinstallingAll"
+                        class="btn-primary text-sm py-1.5 px-3"
+                        title="Reinstall all backends">
+                        <i class="fas fa-arrow-rotate-right mr-1.5 text-[10px]" :class="reinstallingAll ? 'fa-spin' : ''"></i>
+                        <span x-text="reinstallingAll ? 'Reinstalling...' : 'Reinstall All'"></span>
+                    </button>
+                    {{ end }}
+                </div>
+                <p class="text-sm text-[var(--color-text-secondary)] mb-4">
+                    <span class="text-[var(--color-accent)] font-medium">{{len .InstalledBackends}}</span> backend{{if gt (len .InstalledBackends) 1}}s{{end}} ready to use
+                </p>
+            </div>
+
+            {{ if eq (len .InstalledBackends) 0 }}
+            <!-- No backends state -->
+            <div class="card p-8">
+                <div class="text-center max-w-4xl mx-auto">
+                    <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-[var(--color-accent-light)] border border-[var(--color-accent-border)] mb-4">
+                        <i class="text-[var(--color-accent)] text-xl fas fa-cogs"></i>
+                    </div>
+                    <h2 class="h2 mb-2">No backends installed yet</h2>
+                    <p class="text-sm text-[var(--color-text-secondary)] mb-6">Backends power your AI models. Install them from the backend gallery to get started</p>
+                    
+                    <div class="flex flex-wrap justify-center gap-3">
+                        <a href="/browse/backends" class="btn-primary">
+                            <i class="fas fa-cogs mr-2 text-xs"></i>
+                            Browse Backend Gallery
+                        </a>
+                        <a href="https://localai.io/backends/" target="_blank" class="btn-secondary">
+                            <i class="fas fa-book mr-2 text-xs"></i>
+                            Documentation
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {{ else }}
+            <!-- Backends Table -->
+            <div class="overflow-x-auto mb-8">
+                <table class="w-full border-collapse">
+                    <thead>
+                        <tr class="border-b border-[var(--color-bg-secondary)]">
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Name</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Type</th>
+                            <th class="text-left p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Metadata</th>
+                            <th class="text-right p-2 text-xs font-semibold text-[var(--color-text-secondary)]">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .InstalledBackends }}
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 border-b border-[var(--color-bg-secondary)] transition-colors" data-backend-name="{{.Name}}" data-is-system="{{.IsSystem}}">
+                            <!-- Name Column -->
+                            <td class="p-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-cog text-xs text-[var(--color-accent)]"></i>
+                                    <span class="text-xs text-[var(--color-text-primary)] font-medium truncate">{{.Name}}</span>
+                                </div>
+                            </td>
+                            
+                            <!-- Type Column -->
+                            <td class="p-2">
+                                <div class="flex flex-wrap gap-1">
+                                    {{ if .IsSystem }}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-300">
+                                        <i class="fas fa-shield-alt text-[8px] mr-1"></i>System
+                                    </span>
+                                    {{ else }}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-success)]/10 text-green-300">
+                                        <i class="fas fa-download text-[8px] mr-1"></i>User
+                                    </span>
+                                    {{ end }}
+                                    {{ if .IsMeta }}
+                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--color-accent-light)] text-[var(--color-accent)]">
+                                        <i class="fas fa-layer-group text-[8px] mr-1"></i>Meta
+                                    </span>
+                                    {{ end }}
+                                </div>
+                            </td>
+                            
+                            <!-- Metadata Column -->
+                            <td class="p-2">
+                                <div class="flex flex-col gap-1">
+                                    {{ if and .Metadata .Metadata.Alias }}
+                                    <span class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-tag text-[8px] mr-1"></i>Alias: <span class="text-[var(--color-text-primary)]">{{.Metadata.Alias}}</span>
+                                    </span>
+                                    {{ end }}
+                                    {{ if and .Metadata .Metadata.MetaBackendFor }}
+                                    <span class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-link text-[8px] mr-1"></i>For: <span class="text-[var(--color-accent)]">{{.Metadata.MetaBackendFor}}</span>
+                                    </span>
+                                    {{ end }}
+                                    {{ if and .Metadata .Metadata.InstalledAt }}
+                                    <span class="text-xs text-[var(--color-text-secondary)]">
+                                        <i class="fas fa-calendar text-[8px] mr-1"></i>{{.Metadata.InstalledAt}}
+                                    </span>
+                                    {{ end }}
+                                </div>
+                            </td>
+                            
+                            <!-- Actions Column -->
+                            <td class="p-2">
+                                <div class="flex items-center justify-end gap-1">
+                                    {{ if not .IsSystem }}
+                                    <button
+                                        @click="reinstallBackend('{{.Name}}')"
+                                        :disabled="reinstallingBackends['{{.Name}}']"
+                                        class="text-[var(--color-primary)]/60 hover:text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:opacity-50 disabled:cursor-not-allowed rounded p-1 transition-colors"
+                                        title="Reinstall {{.Name}}">
+                                        <i class="fas fa-arrow-rotate-right text-xs" :class="reinstallingBackends['{{.Name}}'] ? 'fa-spin' : ''"></i>
+                                    </button>
+                                    <button
+                                        @click="deleteBackend('{{.Name}}')"
+                                        class="text-red-400/60 hover:text-red-400 hover:bg-red-500/10 rounded p-1 transition-colors"
+                                        title="Delete {{.Name}}">
+                                        <i class="fas fa-trash-alt text-xs"></i>
+                                    </button>
+                                    {{ else }}
+                                    <span class="text-xs text-[var(--color-text-secondary)]">—</span>
+                                    {{ end }}
+                                </div>
+                            </td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+// Resource Monitor component (GPU if available, otherwise RAM)
+function resourceMonitor() {
+    return {
+        resourceData: null,
+        pollInterval: null,
+        
+        async fetchResourceData() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    this.resourceData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching resource data:', error);
+            }
+        },
+        
+        startPolling() {
+            // Initial fetch
+            this.fetchResourceData();
+            // Poll every 5 seconds
+            this.pollInterval = setInterval(() => this.fetchResourceData(), 5000);
+        },
+        
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
+
+// Helper function to format bytes
+function formatBytes(bytes) {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+// Alpine.js component for index dashboard
+function indexDashboard() {
+    return {
+        notifications: [],
+        reinstallingBackends: {},
+        reinstallingAll: false,
+        backendJobs: {},
+        
+        init() {
+            // Poll for job progress every 600ms
+            setInterval(() => this.pollJobs(), 600);
+        },
+        
+        addNotification(message, type = 'success') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            // Auto-dismiss after 5 seconds
+            setTimeout(() => this.dismissNotification(id), 5000);
+        },
+        
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        async reinstallBackend(backendName) {
+            if (this.reinstallingBackends[backendName]) {
+                return; // Already reinstalling
+            }
+            
+            try {
+                this.reinstallingBackends[backendName] = true;
+                const response = await fetch(`/api/backends/install/${encodeURIComponent(backendName)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.jobID) {
+                    this.backendJobs[backendName] = data.jobID;
+                    this.addNotification(`Reinstalling backend "${backendName}"...`, 'success');
+                } else {
+                    this.reinstallingBackends[backendName] = false;
+                    this.addNotification(`Failed to start reinstall: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error reinstalling backend:', error);
+                this.reinstallingBackends[backendName] = false;
+                this.addNotification(`Failed to reinstall backend: ${error.message}`, 'error');
+            }
+        },
+        
+        async reinstallAllBackends() {
+            if (this.reinstallingAll) {
+                return; // Already reinstalling
+            }
+            
+            if (!confirm('Are you sure you want to reinstall all backends? This may take some time.')) {
+                return;
+            }
+            
+            this.reinstallingAll = true;
+            
+            // Get all non-system backends from the page using data attributes
+            const backendRows = document.querySelectorAll('tr[data-backend-name]');
+            const backendsToReinstall = [];
+            
+            backendRows.forEach(row => {
+                const backendName = row.getAttribute('data-backend-name');
+                const isSystem = row.getAttribute('data-is-system') === 'true';
+                if (backendName && !isSystem && !this.reinstallingBackends[backendName]) {
+                    backendsToReinstall.push(backendName);
+                }
+            });
+            
+            if (backendsToReinstall.length === 0) {
+                this.reinstallingAll = false;
+                this.addNotification('No backends available to reinstall', 'error');
+                return;
+            }
+            
+            this.addNotification(`Starting reinstall of ${backendsToReinstall.length} backend(s)...`, 'success');
+            
+            // Reinstall all backends sequentially to avoid overwhelming the system
+            for (const backendName of backendsToReinstall) {
+                await this.reinstallBackend(backendName);
+                // Small delay between installations
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            // Don't set reinstallingAll to false here - let pollJobs handle it when all jobs complete
+            // This allows the UI to show the batch operation is in progress
+        },
+        
+        async pollJobs() {
+            for (const [backendName, jobID] of Object.entries(this.backendJobs)) {
+                try {
+                    const response = await fetch(`/api/backends/job/${jobID}`);
+                    const jobData = await response.json();
+                    
+                    if (jobData.completed) {
+                        delete this.backendJobs[backendName];
+                        this.reinstallingBackends[backendName] = false;
+                        this.addNotification(`Backend "${backendName}" reinstalled successfully!`, 'success');
+                        
+                        // Only reload if not in batch mode and no other jobs are running
+                        if (!this.reinstallingAll && Object.keys(this.backendJobs).length === 0) {
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+                        }
+                    }
+                    
+                    if (jobData.error || (jobData.message && jobData.message.startsWith('error:'))) {
+                        delete this.backendJobs[backendName];
+                        this.reinstallingBackends[backendName] = false;
+                        let errorMessage = 'Unknown error';
+                        if (typeof jobData.error === 'string') {
+                            errorMessage = jobData.error;
+                        } else if (jobData.error && typeof jobData.error === 'object') {
+                            const errorKeys = Object.keys(jobData.error);
+                            if (errorKeys.length > 0) {
+                                errorMessage = jobData.error.message || jobData.error.error || jobData.error.Error || JSON.stringify(jobData.error);
+                            } else {
+                                errorMessage = jobData.message || 'Unknown error';
+                            }
+                        } else if (jobData.message) {
+                            errorMessage = jobData.message;
+                        }
+                        if (errorMessage.startsWith('error: ')) {
+                            errorMessage = errorMessage.substring(7);
+                        }
+                        this.addNotification(`Error reinstalling backend "${backendName}": ${errorMessage}`, 'error');
+                        
+                        // If batch mode and all jobs are done (completed or errored), reload
+                        if (this.reinstallingAll && Object.keys(this.backendJobs).length === 0) {
+                            this.reinstallingAll = false;
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling job:', error);
+                }
+            }
+            
+            // If batch mode completed and no jobs left, reload
+            if (this.reinstallingAll && Object.keys(this.backendJobs).length === 0) {
+                this.reinstallingAll = false;
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            }
+        },
+        
+        async deleteBackend(backendName) {
+            if (!confirm(`Are you sure you want to delete the backend "${backendName}"?`)) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/backends/system/delete/${encodeURIComponent(backendName)}`, {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    this.addNotification(`Backend "${backendName}" deleted successfully!`, 'success');
+                    // Reload page after short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    this.addNotification(`Failed to delete backend: ${data.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting backend:', error);
+                this.addNotification(`Failed to delete backend: ${error.message}`, 'error');
+            }
+        }
+    }
+}
+
+async function handleStopModel(modelName) {
+    if (!confirm('Are you sure you wish to stop this model?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/backend/shutdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to stop model');
+        }
+    } catch (error) {
+        console.error('Error stopping model:', error);
+        alert('Failed to stop model');
+    }
+}
+
+async function handleDeleteModel(modelName) {
+    if (!confirm('Are you sure you wish to delete this model?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/models/delete/${encodeURIComponent(modelName)}`, {
+            method: 'POST'
+        });
+        
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert('Failed to delete model');
+        }
+    } catch (error) {
+        console.error('Error deleting model:', error);
+        alert('Failed to delete model');
+    }
+}
+
+// Handle reload models button
+document.addEventListener('DOMContentLoaded', function() {
+    const reloadBtn = document.getElementById('reload-models-btn');
+    if (reloadBtn) {
+        reloadBtn.addEventListener('click', function() {
+            const button = this;
+            const originalText = button.querySelector('span').textContent;
+            const icon = button.querySelector('i');
+
+            // Show loading state
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Updating...';
+            icon.classList.add('fa-spin');
+
+            // Make the API call
+            fetch('/models/reload', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success state briefly
+                    button.querySelector('span').textContent = 'Updated!';
+                    icon.classList.remove('fa-spin', 'fa-sync-alt');
+                    icon.classList.add('fa-check');
+
+                    // Reload the page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    // Show error state
+                    button.querySelector('span').textContent = 'Error!';
+                    icon.classList.remove('fa-spin');
+                    console.error('Failed to reload models:', data.error);
+
+                    // Reset button after delay
+                    setTimeout(() => {
+                        button.disabled = false;
+                        button.querySelector('span').textContent = originalText;
+                        icon.classList.remove('fa-check');
+                        icon.classList.add('fa-sync-alt');
+                    }, 3000);
+                }
+            })
+            .catch(error => {
+                // Show error state
+                button.querySelector('span').textContent = 'Error!';
+                icon.classList.remove('fa-spin');
+                console.error('Error reloading models:', error);
+
+                // Reset button after delay
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.querySelector('span').textContent = originalText;
+                    icon.classList.remove('fa-check');
+                    icon.classList.add('fa-sync-alt');
+                }, 3000);
+            });
+        });
+    }
+});
+</script>
+
+</body>
+</html>
+

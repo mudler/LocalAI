@@ -1,0 +1,4 @@
+transformers
+accelerate
+torch==2.4.1
+rerankers[transformers]

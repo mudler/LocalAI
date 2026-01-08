@@ -1,0 +1,23 @@
+name: stablediffusion
+backend: stablediffusion-ggml
+cfg_scale: 4.5
+
+options:
+- sampler:euler
+parameters:
+  model: stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf
+step: 25
+
+download_files:
+- filename: "stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf"
+  sha256: "b8944e9fe0b69b36ae1b5bb0185b3a7b8ef14347fe0fa9af6c64c4829022261f"
+  uri: "huggingface://second-state/stable-diffusion-v1-5-GGUF/stable-diffusion-v1-5-pruned-emaonly-Q4_0.gguf"
+
+usage: |
+        curl http://localhost:8080/v1/images/generations \
+          -H "Content-Type: application/json" \
+          -d '{
+            "prompt": "<positive prompt>|<negative prompt>",
+            "step": 25,
+            "size": "512x512"
+          }'

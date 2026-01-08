@@ -1,0 +1,4 @@
+name: text-embedding-ada-002
+embeddings: true
+parameters:
+  model: huggingface://hugging-quants/Llama-3.2-1B-Instruct-Q4_K_M-GGUF/llama-3.2-1b-instruct-q4_k_m.gguf

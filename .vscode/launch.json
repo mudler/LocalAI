@@ -1,0 +1,34 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "cwd": "${fileDirname}",
+            "env": {
+                "OPENAI_API_BASE": "http://localhost:8080/v1",
+                "OPENAI_API_KEY": "abc"
+            }
+        },
+        {
+            "name": "Launch LocalAI API",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceRoot}",
+            "args": [],
+            "env": {
+                "LOCALAI_LOG_LEVEL": "debug",
+                "LOCALAI_P2P": "true",
+                "LOCALAI_FEDERATED": "true"
+            },
+            "buildFlags": ["-tags", "", "-v"],
+            "envFile": "${workspaceFolder}/.env",
+            "cwd": "${workspaceRoot}"
+        }
+    ]
+}

@@ -1,0 +1,37 @@
+name: Update swagger
+on:
+  schedule:
+    - cron: 0 20 * * *
+  workflow_dispatch:
+jobs:
+  swagger:
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install protobuf-compiler
+      - run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@1958fcbe2ca8bd93af633f11e97d44e567e945af
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+      - name: Bump swagger 🔧
+        run: |
+          make protogen-go swagger
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          token: ${{ secrets.UPDATE_BOT_TOKEN }}
+          push-to-fork: ci-forks/LocalAI
+          commit-message: 'feat(swagger): update swagger'
+          title: 'feat(swagger): update swagger'
+          branch: "update/swagger"
+          body:  Update swagger
+          signoff: true
+

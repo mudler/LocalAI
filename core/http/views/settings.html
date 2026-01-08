@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="flex flex-col min-h-screen" x-data="settingsDashboard()">
+
+    {{template "views/partials/navbar" .}}
+
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-green-500'"
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <div class="container mx-auto px-4 py-6 flex-grow max-w-4xl">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center justify-between mb-2">
+                <h1 class="h2">
+                    Application Settings
+                </h1>
+                <a href="/manage"
+                   class="inline-flex items-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
+                    <i class="fas fa-arrow-left mr-2 text-sm"></i>
+                    <span class="text-sm">Back to Manage</span>
+                </a>
+            </div>
+            <p class="text-sm text-[var(--color-text-secondary)]">Configure watchdog and backend request settings</p>
+        </div>
+
+        <!-- Settings Form -->
+        <form @submit.prevent="saveSettings()" class="space-y-6">
+            <!-- Watchdog Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-shield-alt mr-2 text-[var(--color-primary)] text-sm"></i>
+                    Watchdog Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure automatic monitoring and management of backend processes
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Enable Watchdog -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Watchdog</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable automatic monitoring of backend processes</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.watchdog_enabled"
+                                   @change="updateWatchdogEnabled()"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Enable Idle Check -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Idle Check</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are idle for too long</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.watchdog_idle_enabled"
+                                   :disabled="!settings.watchdog_enabled"
+                                   class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Idle Timeout -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Idle Timeout</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time before an idle backend is stopped (e.g., 15m, 1h)</p>
+                        <input type="text" x-model="settings.watchdog_idle_timeout"
+                               :disabled="!settings.watchdog_idle_enabled"
+                               placeholder="15m"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
+                               :class="!settings.watchdog_idle_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- Enable Busy Check -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Busy Check</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically stop backends that are busy for too long (stuck processes)</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.watchdog_busy_enabled"
+                                   :disabled="!settings.watchdog_enabled"
+                                   class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Busy Timeout -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Busy Timeout</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time before a busy backend is stopped (e.g., 5m, 30m)</p>
+                        <input type="text" x-model="settings.watchdog_busy_timeout"
+                               :disabled="!settings.watchdog_busy_enabled"
+                               placeholder="5m"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
+                               :class="!settings.watchdog_busy_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- Watchdog Check Interval -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Check Interval</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">How often the watchdog checks backends and memory usage (e.g., 2s, 30s)</p>
+                        <input type="text" x-model="settings.watchdog_interval"
+                               :disabled="!settings.watchdog_enabled"
+                               placeholder="2s"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
+                               :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- Force Eviction When Busy -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Force Eviction When Busy</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Allow evicting models even when they have active API calls (default: disabled for safety)</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.force_eviction_when_busy" 
+                                   :disabled="!settings.watchdog_enabled"
+                                   class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- LRU Eviction Max Retries -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">LRU Eviction Max Retries</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of retries when waiting for busy models to become idle (default: 30)</p>
+                        <input type="number" x-model="settings.lru_eviction_max_retries" 
+                               :disabled="!settings.watchdog_enabled"
+                               min="1"
+                               placeholder="30"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
+                               :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- LRU Eviction Retry Interval -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">LRU Eviction Retry Interval</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Interval between retries when waiting for busy models (e.g., 1s, 2s) (default: 1s)</p>
+                        <input type="text" x-model="settings.lru_eviction_retry_interval" 
+                               :disabled="!settings.watchdog_enabled"
+                               placeholder="1s"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary-border)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-border)]"
+                               :class="!settings.watchdog_enabled ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                    <!-- Memory Reclaimer Subsection -->
+                    <div class="mt-6 pt-4 border-t border-[var(--color-primary-border)]/20">
+                        <h3 class="text-md font-medium text-[var(--color-text-primary)] mb-3 flex items-center">
+                            <i class="fas fa-memory mr-2 text-[var(--color-primary)] text-xs"></i>
+                            Memory Reclaimer
+                        </h3>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                            Automatically evict backends when memory usage exceeds a threshold. Uses GPU VRAM if available, otherwise system RAM. Uses LRU strategy.
+                        </p>
+
+                        <!-- Memory Status Preview -->
+                        <div x-data="resourceStatus()" x-init="fetchResource()" class="p-3 bg-[var(--color-bg-primary)] rounded mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs text-[var(--color-text-secondary)]" x-text="resourceData && resourceData.type === 'gpu' ? 'Current GPU Status' : 'Current Memory Status'">Current Memory Status</span>
+                                <button @click="fetchResource()" class="text-[10px] text-[var(--color-primary)] hover:underline">
+                                    <i class="fas fa-sync-alt mr-1"></i>Refresh
+                                </button>
+                            </div>
+                            <template x-if="resourceData && resourceData.available && resourceData.type === 'gpu'">
+                                <div class="space-y-2">
+                                    <template x-for="gpu in resourceData.gpus" :key="gpu.index">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="text-[var(--color-text-primary)] truncate max-w-[200px]" x-text="gpu.name"></span>
+                                            <span class="font-mono"
+                                                  :class="gpu.usage_percent > 90 ? 'text-red-400' : gpu.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                                  x-text="`${gpu.usage_percent.toFixed(1)}%`"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="resourceData && resourceData.available && resourceData.type === 'ram'">
+                                <div class="flex items-center justify-between text-xs">
+                                    <span class="text-[var(--color-text-primary)]">System RAM</span>
+                                    <span class="font-mono"
+                                          :class="resourceData.ram.usage_percent > 90 ? 'text-red-400' : resourceData.ram.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                          x-text="`${resourceData.ram.usage_percent.toFixed(1)}%`"></span>
+                                </div>
+                            </template>
+                            <template x-if="!resourceData || !resourceData.available">
+                                <p class="text-xs text-[var(--color-text-secondary)]">Memory monitoring unavailable</p>
+                            </template>
+                        </div>
+
+                        <!-- Enable Memory Reclaimer -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Memory Reclaimer</label>
+                                <p class="text-xs text-[var(--color-text-secondary)] mt-1">Evict backends when memory usage exceeds threshold</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" x-model="settings.memory_reclaimer_enabled"
+                                       :disabled="!settings.watchdog_enabled"
+                                       class="sr-only peer" :class="!settings.watchdog_enabled ? 'opacity-50' : ''">
+                                <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-primary-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            </label>
+                        </div>
+
+                        <!-- Memory Reclaimer Threshold -->
+                        <div>
+                            <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Memory Threshold (%)</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mb-2">When memory usage exceeds this, backends will be evicted (50-100%)</p>
+                            <div class="flex items-center gap-3">
+                                <input type="range" x-model="settings.memory_reclaimer_threshold_percent"
+                                       min="50" max="100" step="1"
+                                       :disabled="!settings.memory_reclaimer_enabled || !settings.watchdog_enabled"
+                                       class="flex-1 h-2 bg-[var(--color-bg-primary)] rounded-lg appearance-none cursor-pointer"
+                                       :class="(!settings.memory_reclaimer_enabled || !settings.watchdog_enabled) ? 'opacity-50' : ''">
+                                <span class="text-sm font-mono text-[var(--color-text-primary)] w-12 text-right"
+                                      x-text="`${settings.memory_reclaimer_threshold_percent}%`"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backend Request Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-cogs mr-2 text-[var(--color-accent)] text-sm"></i>
+                    Backend Request Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure how backends handle multiple requests
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Max Active Backends -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Max Active Backends</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of models to keep loaded at once (0 = unlimited, 1 = single backend mode). Least recently used models are evicted when limit is reached.</p>
+                        <input type="number" x-model="settings.max_active_backends"
+                               min="0"
+                               placeholder="0"
+                               @change="updateMaxActiveBackends()"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-light)]">
+                    </div>
+
+                    <!-- Parallel Backend Requests -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Parallel Backend Requests</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable backends to handle multiple requests in parallel (if supported)</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.parallel_backend_requests"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-success-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-tachometer-alt mr-2 text-[var(--color-success)] text-sm"></i>
+                    Performance Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure default performance parameters for models
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Threads -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Default Threads</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Number of threads to use for model inference (0 = auto)</p>
+                        <input type="number" x-model="settings.threads"
+                               min="0"
+                               placeholder="0"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
+                    </div>
+
+                    <!-- Context Size -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Default Context Size</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Default context window size for models</p>
+                        <input type="number" x-model="settings.context_size"
+                               min="0"
+                               placeholder="512"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]">
+                    </div>
+
+                    <!-- F16 -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">F16 Precision</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Use 16-bit floating point precision</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.f16"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Debug -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Debug Mode</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable debug logging</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.debug"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Enable Tracing -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable Tracing</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable tracing of requests and responses</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.enable_tracing"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-success-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-success)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Tracing Max Items -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Tracing Max Items</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Maximum number of tracing items to keep</p>
+                        <input type="number" x-model="settings.tracing_max_items"
+                               min="0"
+                               placeholder="0"
+                               :disabled="!settings.enable_tracing"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-success-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-success-light)]"
+                               :class="!settings.enable_tracing ? 'opacity-50 cursor-not-allowed' : ''">
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- API Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-warning-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-globe mr-2 text-[var(--color-warning)] text-sm"></i>
+                    API Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure CORS and CSRF protection
+                </p>
+
+                <div class="space-y-4">
+                    <!-- CORS -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable CORS</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Origin Resource Sharing</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.cors"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- CORS Allow Origins -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">CORS Allow Origins</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Comma-separated list of allowed origins</p>
+                        <input type="text" x-model="settings.cors_allow_origins"
+                               placeholder="*"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-warning-light)] rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-warning-light)]">
+                    </div>
+
+                    <!-- CSRF -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Enable CSRF Protection</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable Cross-Site Request Forgery protection</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.csrf"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-warning-light)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-warning)]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- P2P Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-network-wired mr-2 text-[var(--color-accent)] text-sm"></i>
+                    P2P Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure peer-to-peer networking
+                </p>
+
+                <div class="space-y-4">
+                    <!-- P2P Token -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">P2P Token</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Authentication token for P2P network (set to 0 to generate a new token)</p>
+                        <input type="text" x-model="settings.p2p_token"
+                               placeholder=""
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
+                    </div>
+
+                    <!-- P2P Network ID -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">P2P Network ID</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Network identifier for P2P connections</p>
+                        <input type="text" x-model="settings.p2p_network_id"
+                               placeholder=""
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
+                    </div>
+
+                    <!-- Federated -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Federated Mode</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Enable federated instance mode</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.federated"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Agent Jobs Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-tasks mr-2 text-[var(--color-primary)] text-sm"></i>
+                    Agent Jobs Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure agent job retention and cleanup
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Agent Job Retention Days -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Job Retention Days</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Number of days to keep job history (default: 30)</p>
+                        <input type="number" x-model="settings.agent_job_retention_days"
+                               min="0"
+                               placeholder="30"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-primary)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50">
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Keys Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-error-light)] rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-key mr-2 text-[var(--color-error)] text-sm"></i>
+                    API Keys
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Manage API keys for authentication. Keys from environment variables are always included.
+                </p>
+
+                <div class="space-y-4">
+                    <!-- API Keys List -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">API Keys</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">List of API keys (one per line or comma-separated)</p>
+                        <textarea x-model="settings.api_keys_text"
+                                  rows="4"
+                                  placeholder="sk-1234567890abcdef&#10;sk-0987654321fedcba"
+                                  class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-error-light)] rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-error-light)]"></textarea>
+                        <p class="text-xs text-[var(--color-text-secondary)] mt-1">Note: API keys are sensitive. Handle with care.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gallery Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-images mr-2 text-[var(--color-accent)] text-sm"></i>
+                    Gallery Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure model and backend galleries
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Autoload Galleries -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Autoload Galleries</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load model galleries on startup</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.autoload_galleries"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Autoload Backend Galleries -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-[var(--color-text-primary)]">Autoload Backend Galleries</label>
+                            <p class="text-xs text-[var(--color-text-secondary)] mt-1">Automatically load backend galleries on startup</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" x-model="settings.autoload_backend_galleries"
+                                   class="sr-only peer">
+                            <div class="w-11 h-6 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[var(--color-accent)]/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--color-accent)]"></div>
+                        </label>
+                    </div>
+
+                    <!-- Galleries (JSON) -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Model Galleries (JSON)</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Array of gallery objects with 'url' and 'name' fields</p>
+                        <textarea x-model="settings.galleries_json"
+                                  rows="4"
+                                  placeholder='[{"url": "https://example.com", "name": "Example Gallery"}]'
+                                  class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
+                    </div>
+
+                    <!-- Backend Galleries (JSON) -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Backend Galleries (JSON)</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Array of backend gallery objects with 'url' and 'name' fields</p>
+                        <textarea x-model="settings.backend_galleries_json"
+                                  rows="4"
+                                  placeholder='[{"url": "https://example.com", "name": "Example Backend Gallery"}]'
+                                  class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Source Info -->
+            <div class="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4" x-show="sourceInfo">
+                <div class="flex items-start">
+                    <i class="fas fa-info-circle text-yellow-400 mr-2 mt-0.5"></i>
+                    <div class="flex-1">
+                        <p class="text-sm text-yellow-300 font-medium mb-1">Configuration Source</p>
+                        <p class="text-xs text-yellow-200" x-text="'Settings are currently loaded from: ' + sourceInfo"></p>
+                        <p class="text-xs text-yellow-200 mt-1" x-show="sourceInfo === 'env'">
+                            Environment variables take precedence. To modify settings via the UI, unset the relevant environment variables first.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="flex justify-end">
+                <button type="submit"
+                        :disabled="saving"
+                        class="btn-primary">
+                    <i class="fas fa-save mr-2" :class="saving ? 'fa-spin fa-spinner' : ''"></i>
+                    <span x-text="saving ? 'Saving...' : 'Save Settings'"></span>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+function settingsDashboard() {
+    return {
+        notifications: [],
+        settings: {
+            watchdog_enabled: false,
+            watchdog_idle_enabled: false,
+            watchdog_busy_enabled: false,
+            watchdog_idle_timeout: '15m',
+            watchdog_busy_timeout: '5m',
+            watchdog_interval: '2s',
+            force_eviction_when_busy: false,
+            lru_eviction_max_retries: 30,
+            lru_eviction_retry_interval: '1s',
+            max_active_backends: 0,
+            parallel_backend_requests: false,
+            memory_reclaimer_enabled: false,
+            memory_reclaimer_threshold: 0.95,
+            memory_reclaimer_threshold_percent: 95,
+            threads: 0,
+            context_size: 0,
+            f16: false,
+            debug: false,
+            enable_tracing: false,
+            tracing_max_items: 0,
+            cors: false,
+            csrf: false,
+            cors_allow_origins: '',
+            p2p_token: '',
+            p2p_network_id: '',
+            federated: false,
+            autoload_galleries: false,
+            autoload_backend_galleries: false,
+            galleries_json: '[]',
+            backend_galleries_json: '[]',
+            api_keys_text: '',
+            agent_job_retention_days: 30
+        },
+        sourceInfo: '',
+        saving: false,
+
+        init() {
+            this.loadSettings();
+        },
+
+        async loadSettings() {
+            try {
+                const response = await fetch('/api/settings');
+                const data = await response.json();
+
+                if (response.ok) {
+                    this.settings = {
+                        watchdog_enabled: data.watchdog_enabled,
+                        watchdog_idle_enabled: data.watchdog_idle_enabled,
+                        watchdog_busy_enabled: data.watchdog_busy_enabled,
+                        watchdog_idle_timeout: data.watchdog_idle_timeout || '15m',
+                        watchdog_busy_timeout: data.watchdog_busy_timeout || '5m',
+                        watchdog_interval: data.watchdog_interval || '2s',
+                        force_eviction_when_busy: data.force_eviction_when_busy || false,
+                        lru_eviction_max_retries: data.lru_eviction_max_retries || 30,
+                        lru_eviction_retry_interval: data.lru_eviction_retry_interval || '1s',
+                        max_active_backends: data.max_active_backends || 0,
+                        parallel_backend_requests: data.parallel_backend_requests,
+                        memory_reclaimer_enabled: data.memory_reclaimer_enabled || false,
+                        memory_reclaimer_threshold: data.memory_reclaimer_threshold || 0.95,
+                        memory_reclaimer_threshold_percent: Math.round((data.memory_reclaimer_threshold || 0.95) * 100),
+                        threads: data.threads || 0,
+                        context_size: data.context_size || 0,
+                        f16: data.f16 || false,
+                        debug: data.debug || false,
+                        enable_tracing: data.enable_tracing || false,
+                        tracing_max_items: data.tracing_max_items || 0,
+                        cors: data.cors || false,
+                        csrf: data.csrf || false,
+                        cors_allow_origins: data.cors_allow_origins || '',
+                        p2p_token: data.p2p_token || '',
+                        p2p_network_id: data.p2p_network_id || '',
+                        federated: data.federated || false,
+                        autoload_galleries: data.autoload_galleries || false,
+                        autoload_backend_galleries: data.autoload_backend_galleries || false,
+                        galleries_json: JSON.stringify(data.galleries || [], null, 2),
+                        backend_galleries_json: JSON.stringify(data.backend_galleries || [], null, 2),
+                        api_keys_text: (data.api_keys || []).join('\n'),
+                        agent_job_retention_days: data.agent_job_retention_days || 30
+                    };
+                    this.sourceInfo = data.source || 'default';
+                } else {
+                    this.addNotification('Failed to load settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error loading settings:', error);
+                this.addNotification('Failed to load settings: ' + error.message, 'error');
+            }
+        },
+
+        updateWatchdogEnabled() {
+            if (!this.settings.watchdog_enabled) {
+                this.settings.watchdog_idle_enabled = false;
+                this.settings.watchdog_busy_enabled = false;
+                this.settings.memory_reclaimer_enabled = false;
+            }
+        },
+
+        updateMaxActiveBackends() {
+            // Ensure max_active_backends is a non-negative integer
+            const value = parseInt(this.settings.max_active_backends) || 0;
+            this.settings.max_active_backends = Math.max(0, value);
+        },
+
+        updateTracingEnabled() {
+            if (!this.settings.enable_tracing) {
+                this.settings.tracing_max_items = 0;
+            }
+        },
+
+        async saveSettings() {
+            if (this.saving) return;
+
+            this.saving = true;
+
+            try {
+                const payload = {};
+
+                // Only include changed values
+                if (this.settings.watchdog_enabled !== undefined) {
+                    payload.watchdog_enabled = this.settings.watchdog_enabled;
+                }
+                if (this.settings.watchdog_idle_enabled !== undefined) {
+                    payload.watchdog_idle_enabled = this.settings.watchdog_idle_enabled;
+                }
+                if (this.settings.watchdog_busy_enabled !== undefined) {
+                    payload.watchdog_busy_enabled = this.settings.watchdog_busy_enabled;
+                }
+                if (this.settings.watchdog_idle_timeout) {
+                    payload.watchdog_idle_timeout = this.settings.watchdog_idle_timeout;
+                }
+                if (this.settings.watchdog_busy_timeout) {
+                    payload.watchdog_busy_timeout = this.settings.watchdog_busy_timeout;
+                }
+                if (this.settings.watchdog_interval) {
+                    payload.watchdog_interval = this.settings.watchdog_interval;
+                }
+                if (this.settings.force_eviction_when_busy !== undefined) {
+                    payload.force_eviction_when_busy = this.settings.force_eviction_when_busy;
+                }
+                if (this.settings.lru_eviction_max_retries !== undefined) {
+                    payload.lru_eviction_max_retries = parseInt(this.settings.lru_eviction_max_retries) || 30;
+                }
+                if (this.settings.lru_eviction_retry_interval) {
+                    payload.lru_eviction_retry_interval = this.settings.lru_eviction_retry_interval;
+                }
+                if (this.settings.max_active_backends !== undefined) {
+                    payload.max_active_backends = parseInt(this.settings.max_active_backends) || 0;
+                }
+                if (this.settings.parallel_backend_requests !== undefined) {
+                    payload.parallel_backend_requests = this.settings.parallel_backend_requests;
+                }
+                if (this.settings.memory_reclaimer_enabled !== undefined) {
+                    payload.memory_reclaimer_enabled = this.settings.memory_reclaimer_enabled;
+                }
+                if (this.settings.memory_reclaimer_threshold_percent !== undefined) {
+                    // Convert percent to decimal (0.0-1.0)
+                    payload.memory_reclaimer_threshold = parseInt(this.settings.memory_reclaimer_threshold_percent) / 100;
+                }
+                if (this.settings.threads !== undefined) {
+                    payload.threads = parseInt(this.settings.threads) || 0;
+                }
+                if (this.settings.context_size !== undefined) {
+                    payload.context_size = parseInt(this.settings.context_size) || 0;
+                }
+                if (this.settings.f16 !== undefined) {
+                    payload.f16 = this.settings.f16;
+                }
+                if (this.settings.debug !== undefined) {
+                    payload.debug = this.settings.debug;
+                }
+                if (this.settings.enable_tracing !== undefined) {
+                    payload.enable_tracing = this.settings.enable_tracing;
+                }
+                if (this.settings.tracing_max_items !== undefined) {
+                    payload.tracing_max_items = parseInt(this.settings.tracing_max_items) || 0;
+                }
+                if (this.settings.cors !== undefined) {
+                    payload.cors = this.settings.cors;
+                }
+                if (this.settings.csrf !== undefined) {
+                    payload.csrf = this.settings.csrf;
+                }
+                if (this.settings.cors_allow_origins !== undefined) {
+                    payload.cors_allow_origins = this.settings.cors_allow_origins;
+                }
+                if (this.settings.p2p_token !== undefined) {
+                    payload.p2p_token = this.settings.p2p_token;
+                }
+                if (this.settings.p2p_network_id !== undefined) {
+                    payload.p2p_network_id = this.settings.p2p_network_id;
+                }
+                if (this.settings.federated !== undefined) {
+                    payload.federated = this.settings.federated;
+                }
+                if (this.settings.autoload_galleries !== undefined) {
+                    payload.autoload_galleries = this.settings.autoload_galleries;
+                }
+                if (this.settings.autoload_backend_galleries !== undefined) {
+                    payload.autoload_backend_galleries = this.settings.autoload_backend_galleries;
+                }
+                // Parse API keys from text (split by newline or comma, trim whitespace, filter empty)
+                if (this.settings.api_keys_text !== undefined) {
+                    const keys = this.settings.api_keys_text
+                        .split(/[\n,]/)
+                        .map(k => k.trim())
+                        .filter(k => k.length > 0);
+                    if (keys.length > 0) {
+                        payload.api_keys = keys;
+                    } else {
+                        // If empty, send empty array to clear keys
+                        payload.api_keys = [];
+                    }
+                }
+                // Parse galleries JSON
+                if (this.settings.galleries_json) {
+                    try {
+                        payload.galleries = JSON.parse(this.settings.galleries_json);
+                    } catch (e) {
+                        this.addNotification('Invalid galleries JSON: ' + e.message, 'error');
+                        this.saving = false;
+                        return;
+                    }
+                }
+                if (this.settings.backend_galleries_json) {
+                    try {
+                        payload.backend_galleries = JSON.parse(this.settings.backend_galleries_json);
+                    } catch (e) {
+                        this.addNotification('Invalid backend galleries JSON: ' + e.message, 'error');
+                        this.saving = false;
+                        return;
+                    }
+                }
+                if (this.settings.agent_job_retention_days !== undefined) {
+                    payload.agent_job_retention_days = parseInt(this.settings.agent_job_retention_days) || 30;
+                }
+
+                const response = await fetch('/api/settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    this.addNotification('Settings saved successfully!', 'success');
+                    // Reload settings to get updated source info
+                    setTimeout(() => this.loadSettings(), 1000);
+                } else {
+                    this.addNotification('Failed to save settings: ' + (data.error || 'Unknown error'), 'error');
+                }
+            } catch (error) {
+                console.error('Error saving settings:', error);
+                this.addNotification('Failed to save settings: ' + error.message, 'error');
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        addNotification(message, type = 'success') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            setTimeout(() => this.dismissNotification(id), 5000);
+        },
+
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        }
+    }
+}
+
+// Resource Status component for settings page (GPU if available, otherwise RAM)
+function resourceStatus() {
+    return {
+        resourceData: null,
+
+        async fetchResource() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    this.resourceData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching resource data:', error);
+            }
+        }
+    }
+}
+</script>
+
+</body>
+</html>
+

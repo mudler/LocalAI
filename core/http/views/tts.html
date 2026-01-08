@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+<script defer src="static/tts.js"></script>
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen">
+   
+    {{template "views/partials/navbar" .}}
+    <div class="container mx-auto px-4 py-8 flex-grow">
+        <!-- Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    <i class="fas fa-volume-high mr-2"></i>Text to Speech {{ if .Model }} with {{.Model}} {{ end }}
+                </h1>
+                <p class="hero-subtitle">Convert your text into natural-sounding speech</p>
+            </div>
+        </div>
+
+        <!-- TTS Interface -->
+        <div class="max-w-3xl mx-auto">
+            <div class="card overflow-hidden">
+                <!-- Header with Model Selection -->
+                <div class="border-b border-[#1E293B] p-5">
+                    <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <!-- Model Selection -->
+                        <div class="flex items-center" x-data="{ link : '{{ if .Model }}tts/{{.Model}}{{ end }}' }">
+                            <label for="model-select" class="mr-3 text-[#94A3B8] font-medium">
+                                <i class="fas fa-microphone-lines text-[#8B5CF6] mr-2"></i>Model:
+                            </label>
+                            <select
+                                id="model-select"
+                                x-model="link"
+                                @change="window.location = link"
+                                class="input p-2.5"
+                            >	
+                                <option value="" disabled class="text-[#94A3B8]">Select a model</option>
+                                {{ $model:=.Model}}
+                                {{ range .ModelsConfig }}
+                                    {{ $cfg := . }}
+                                    {{ range .KnownUsecaseStrings }}
+                                        {{ if eq . "FLAG_TTS" }}
+                                            <option value="tts/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[#101827] text-[#E5E7EB]">{{$cfg.Name}}</option>
+                                        {{ end }}
+                                    {{ end }}
+                                {{ end }}
+                                {{ range .ModelsWithoutConfig }}
+                                    <option value="tts/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[#101827] text-[#E5E7EB]">{{.}}</option>
+                                {{end}}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="p-6">
+                    <div class="bg-[#8B5CF6]/10 border border-[#8B5CF6]/20 rounded-lg p-4 mb-6">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-[#8B5CF6] mt-1 mr-3 flex-shrink-0"></i>
+                            <p class="text-[#94A3B8]">
+                                Enter your text below and submit to generate speech with the selected TTS model.
+                                The generated audio will appear below the input field.
+                            </p>
+                        </div>
+                    </div>
+
+                    <input id="tts-model" type="hidden" value="{{.Model}}">
+                    <form id="tts" action="tts/{{.Model}}" method="get" class="mb-6">
+                        <div class="relative">
+                            <input
+                                type="text"
+                                id="input"
+                                name="input"
+                                placeholder="Enter text to convert to speech..."
+                                autocomplete="off"
+                                class="input w-full p-4 pl-4 pr-12"
+                                required
+                            />
+                            <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#8B5CF6] hover:text-[#38BDF8] transition icon-hover">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Loading indicator -->
+                    <div class="flex justify-center my-6">
+                        <div id="loader" class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#8B5CF6]" style="display: none;"></div>
+                    </div>
+
+                    <!-- Results Area -->
+                    <div class="bg-[#101827]/50 border border-[#1E293B] rounded-lg p-4 min-h-[100px] flex items-center justify-center">
+                        <div id="result" class="w-full"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+</body>
+</html>

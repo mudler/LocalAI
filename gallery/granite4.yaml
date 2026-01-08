@@ -1,0 +1,48 @@
+---
+name: "granite-3.2"
+
+config_file: |
+  backend: "llama-cpp"
+  mmap: true
+  template:
+    chat_message: |
+      <|start_of_role|>{{ .RoleName }}<|end_of_role|>
+      {{ if .FunctionCall -}}
+      <tool_call>
+      {{ else if eq .RoleName "tool" -}}
+      <tool_response>
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content }}
+      {{ end -}}
+      {{ if eq .RoleName "tool" -}}
+      </tool_response>
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      </tool_call>
+      {{ end -}}
+      <|end_of_text|>
+    function: |
+      <|start_of_role|>system<|end_of_role|>
+      You are a helpful AI assistant with access to the following tools. When a tool is required to answer the user's query, respond with <|tool_call|> followed by a JSON list of tools used. If a tool does not exist in the provided list of tools, notify the user that you do not have the ability to fulfill the request.
+
+      Write the response to the user's input by strictly aligning with the facts in the provided documents. If the information needed to answer the question is not available in the documents, inform the user that the question cannot be answered based on the available data.
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      For each function call return a json object with function name and arguments
+      {{.Input -}}
+      <|start_of_role|>assistant<|end_of_role|>
+    chat: |
+      {{.Input -}}
+      <|start_of_role|>assistant<|end_of_role|>
+    completion: |
+      {{.Input}}
+  context_size: 8192
+  f16: true
+  stopwords:
+  - '<|im_end|>'
+  - '<dummy32000>'
+  - '</s>'
+  - '<|end_of_text|>'

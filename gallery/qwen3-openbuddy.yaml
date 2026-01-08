@@ -1,0 +1,41 @@
+---
+name: "qwen3-openbuddy"
+
+config_file: |
+  mmap: true
+  backend: "llama-cpp"
+  template:
+    chat_message: |
+      <|role|>{{ .RoleName }}<|says|>
+      {{ if .FunctionCall -}}
+      {{ else if eq .RoleName "tool" -}}
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content }}
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      {{ end -}}<|end|>
+    function: |
+      <|role|>system<|says|>
+      You are a function calling AI model. You are provided with functions to execute. You may call one or more functions to assist with the user query. Don't make assumptions about what values to plug into functions. Here are the available tools:
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      For each function call return a json object with function name and arguments
+      <|end|>
+      {{.Input -}}
+      <|role|>assistant<|says|>
+    chat: |
+      {{.Input -}}
+      <|role|>assistant<|says|>
+    completion: |
+      {{.Input}}
+  context_size: 8192
+  f16: true
+  stopwords:
+  - '<|im_end|>'
+  - '<|end|>'
+  - '<dummy32000>'
+  - '</s>'
+  - '<|endoftext|>'

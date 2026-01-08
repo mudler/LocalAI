@@ -1,0 +1,4 @@
+# This is here to trigger the install script to add --no-build-isolation to the uv pip install commands
+# exllama2 does not specify it's build requirements per PEP517, so we need to provide some things ourselves
+wheel
+setuptools

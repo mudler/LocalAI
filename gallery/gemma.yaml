@@ -1,0 +1,41 @@
+---
+name: "gemma"
+
+config_file: |
+  backend: "llama-cpp"
+  mmap: true
+  context_size: 8192
+  template:
+    chat_message: |-
+      <start_of_turn>{{if eq .RoleName "assistant" }}model{{else}}{{ .RoleName }}{{end}}
+      {{ if .FunctionCall -}}
+      {{ else if eq .RoleName "tool" -}}
+      {{ end -}}
+      {{ if .Content -}}
+      {{.Content -}}
+      {{ end -}}
+      {{ if .FunctionCall -}}
+      {{toJson .FunctionCall}}
+      {{ end -}}<end_of_turn>
+    chat: |
+      {{.Input }}
+      <start_of_turn>model
+    completion: |
+      {{.Input}}
+    function: |
+      <start_of_turn>system
+      You have access to functions. If you decide to invoke any of the function(s),
+      you MUST put it in the format of
+      {"name": function name, "parameters": dictionary of argument name and its value}
+
+      You SHOULD NOT include any other text in the response if you call a function
+      {{range .Functions}}
+      {'type': 'function', 'function': {'name': '{{.Name}}', 'description': '{{.Description}}', 'parameters': {{toJson .Parameters}} }}
+      {{end}}
+      <end_of_turn>
+      {{.Input -}}
+      <start_of_turn>model
+  stopwords:
+  - '<|im_end|>'
+  - '<end_of_turn>'
+  - '<start_of_turn>'

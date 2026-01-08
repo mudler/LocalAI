@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[#101827] text-[#E5E7EB]">
+<div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar" .}}
+
+    <div class="container mx-auto px-4 py-8 flex-grow flex items-center justify-center">
+        <!-- Auth Card -->
+        <div class="max-w-md w-full bg-[#1E293B] border border-[#38BDF8]/20 rounded-xl overflow-hidden">
+            <div class="animation-container">
+                <div class="text-overlay">
+                    <img src="static/logo.png" alt="LocalAI Logo" class="h-32 drop-shadow-[0_0_15px_rgba(56,189,248,0.3)]">
+                </div>
+            </div>
+            
+            <div class="p-8">
+                <div class="text-center mb-6">
+                    <h2 class="h2">
+                        Authorization Required
+                    </h2>
+                    <p class="text-[#94A3B8] mt-2">Please enter your access token to continue</p>
+                </div>
+                
+                <form id="login-form" class="space-y-6" onsubmit="login(); return false;">
+                    <div>
+                        <label for="token" class="block text-sm font-medium text-[#94A3B8] mb-2">Access Token</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none z-10">
+                                <i class="fas fa-key text-[#38BDF8]"></i>
+                            </div>
+                            <input 
+                                type="password" 
+                                id="token" 
+                                name="token" 
+                                placeholder="Enter your token" 
+                                class="bg-[#101827] border border-[#1E293B] text-[#E5E7EB] placeholder-[#94A3B8] text-sm rounded-lg focus:ring-[#38BDF8] focus:border-[#38BDF8] focus:ring-2 block w-full p-2.5 transition-all"
+                                style="padding-left: 3.5rem !important;"
+                                required
+                            />
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <button 
+                            type="submit" 
+                            class="w-full flex items-center justify-center bg-[#38BDF8] hover:bg-[#38BDF8]/90 text-[#101827] font-semibold py-3 px-6 rounded-lg transition-colors"
+                        >
+                            <i class="fas fa-sign-in-alt mr-2"></i>
+                            <span>Login</span>
+                        </button>
+                    </div>
+                </form>
+                
+                <div class="mt-8 pt-6 border-t border-[#1E293B] text-center text-sm text-[#94A3B8]">
+                    <div class="flex items-center justify-center mb-2">
+                        <i class="fas fa-shield-alt mr-2 text-[#38BDF8]"></i>
+                        <span>Instance is token protected</span>
+                    </div>
+                    <p>Current time (UTC): <span id="current-time">{{.CurrentDate}}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+    function login() {
+        const token = document.getElementById('token').value;
+        if (!token.trim()) {
+            // Show error with fading effect
+            const form = document.getElementById('login-form');
+            const errorMsg = document.createElement('div');
+            errorMsg.className = 'p-3 mt-4 bg-red-500/10 text-red-300 rounded-lg border border-red-500/30 text-sm flex items-center';
+            errorMsg.innerHTML = '<i class="fas fa-exclamation-circle mr-2"></i> Please enter a valid token';
+            
+            // Remove any existing error message
+            const existingError = form.querySelector('[class*="bg-red-"]');
+            if (existingError) form.removeChild(existingError);
+            
+            // Add new error message with animation
+            form.appendChild(errorMsg);
+            setTimeout(() => {
+                errorMsg.style.opacity = '0';
+                errorMsg.style.transition = 'opacity 0.5s ease';
+                setTimeout(() => errorMsg.remove(), 500);
+            }, 3000);
+            return;
+        }
+        
+        var date = new Date();
+        date.setTime(date.getTime() + (24*60*60*1000));
+        document.cookie = `token=${token}; expires=${date.toGMTString()}; path=/`;
+
+        // Show loading state
+        const button = document.querySelector('button[type="submit"]');
+        const originalContent = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Authenticating...';
+        button.classList.add('opacity-75');
+        
+        // Reload after short delay to show loading state
+        setTimeout(() => {
+            window.location.reload();
+        }, 800);
+    }
+    
+    // Update current time
+    function updateCurrentTime() {
+        const timeElement = document.getElementById('current-time');
+        if (timeElement) {
+            const now = new Date();
+            const year = now.getUTCFullYear();
+            const month = String(now.getUTCMonth() + 1).padStart(2, '0');
+            const day = String(now.getUTCDate()).padStart(2, '0');
+            const hours = String(now.getUTCHours()).padStart(2, '0');
+            const minutes = String(now.getUTCMinutes()).padStart(2, '0');
+            const seconds = String(now.getUTCSeconds()).padStart(2, '0');
+            timeElement.textContent = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        }
+    }
+    
+    // Initialize current time and update it every second
+    updateCurrentTime();
+    setInterval(updateCurrentTime, 1000);
+    
+    // Add subtle particle animation to the background
+    document.addEventListener('DOMContentLoaded', function() {
+        const animContainer = document.querySelector('.animation-container');
+        if (animContainer) {
+            const canvas = document.createElement('canvas');
+            animContainer.appendChild(canvas);
+            
+            const ctx = canvas.getContext('2d');
+            canvas.width = animContainer.offsetWidth;
+            canvas.height = animContainer.offsetHeight;
+            
+            // Create particles
+            const particles = [];
+            const particleCount = 30;
+            
+            for (let i = 0; i < particleCount; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    radius: Math.random() * 3 + 1,
+                    color: `rgba(${Math.random() * 50 + 50}, ${Math.random() * 100 + 100}, ${Math.random() * 155 + 100}, ${Math.random() * 0.4 + 0.1})`,
+                    speedX: Math.random() * 0.5 - 0.25,
+                    speedY: Math.random() * 0.5 - 0.25
+                });
+            }
+            
+            // Animation loop
+            function animate() {
+                requestAnimationFrame(animate);
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                particles.forEach(particle => {
+                    particle.x += particle.speedX;
+                    particle.y += particle.speedY;
+                    
+                    // Bounce off edges
+                    if (particle.x < 0 || particle.x > canvas.width) {
+                        particle.speedX = -particle.speedX;
+                    }
+                    
+                    if (particle.y < 0 || particle.y > canvas.height) {
+                        particle.speedY = -particle.speedY;
+                    }
+                    
+                    // Draw particle
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = particle.color;
+                    ctx.fill();
+                });
+                
+                // Connect nearby particles with lines
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const dx = particles[i].x - particles[j].x;
+                        const dy = particles[i].y - particles[j].y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 100) {
+                            ctx.beginPath();
+                            ctx.moveTo(particles[i].x, particles[i].y);
+                            ctx.lineTo(particles[j].x, particles[j].y);
+                            ctx.strokeStyle = `rgba(100, 150, 255, ${0.1 * (1 - distance / 100)})`;
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+            
+            // Start animation
+            animate();
+            
+            // Resize handling
+            window.addEventListener('resize', () => {
+                canvas.width = animContainer.offsetWidth;
+                canvas.height = animContainer.offsetHeight;
+            });
+        }
+    });
+</script>
+
+</body>
+</html>

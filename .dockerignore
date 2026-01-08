@@ -1,0 +1,23 @@
+.idea
+.github
+.vscode
+.devcontainer
+models
+backends
+examples/chatbot-ui/models
+backend/go/image/stablediffusion-ggml/build/
+backend/go/*/build
+backend/go/*/.cache
+backend/go/*/sources
+backend/go/*/package
+examples/rwkv/models
+examples/**/models
+Dockerfile*
+__pycache__
+
+# SonarQube
+.scannerwork
+
+# backend virtual environments
+**/venv
+backend/python/**/source

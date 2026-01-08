@@ -1,0 +1,113 @@
+/* LocalAI Theme - CSS Variables System */
+/* Based on logo color palette: cyan, teal, navy, purple */
+
+:root {
+  /* Base Colors */
+  --color-bg-primary: #0F172A;      /* Deep navy background */
+  --color-bg-secondary: #1E293B;     /* Elevated surfaces */
+  --color-bg-tertiary: #1E293B;      /* Cards, panels */
+  --color-bg-overlay: rgba(15, 23, 42, 0.8); /* Modals, overlays */
+  
+  /* Brand Colors */
+  --color-primary: #38BDF8;          /* Cyan - primary actions */
+  --color-primary-hover: #0EA5E9;    /* Darker cyan on hover */
+  --color-primary-active: #0284C7;   /* Active state */
+  --color-primary-text: #FFFFFF;     /* Text on primary background */
+  --color-primary-light: rgba(56, 189, 248, 0.08); /* Light cyan backgrounds (reduced) */
+  --color-primary-border: rgba(56, 189, 248, 0.15); /* Cyan borders (reduced) */
+  
+  --color-secondary: #14B8A6;        /* Teal - secondary actions */
+  --color-secondary-hover: #0D9488;  /* Darker teal on hover */
+  --color-secondary-light: rgba(20, 184, 166, 0.1);
+  
+  --color-accent: #8B5CF6;           /* Purple - special states */
+  --color-accent-hover: #7C3AED;     /* Darker purple on hover */
+  --color-accent-light: rgba(139, 92, 246, 0.1);
+  
+  --color-accent-purple: #A78BFA;    /* Light purple for gradients */
+  --color-accent-teal: #2DD4BF;      /* Light teal for gradients */
+  
+  /* Text Colors */
+  --color-text-primary: #E5E7EB;      /* Primary text */
+  --color-text-secondary: #94A3B8;   /* Secondary text */
+  --color-text-muted: #64748B;        /* Tertiary text */
+  --color-text-disabled: #475569;     /* Disabled text */
+  --color-text-inverse: #0F172A;      /* Text on light backgrounds */
+  
+  /* Border Colors - Minimal System */
+  --color-border-subtle: rgba(148, 163, 184, 0.08);  /* Minimal borders */
+  --color-border-default: rgba(148, 163, 184, 0.12);  /* Default borders */
+  --color-border-strong: rgba(56, 189, 248, 0.2);    /* Focus borders */
+  --color-border-divider: rgba(148, 163, 184, 0.06);  /* Section dividers */
+  --color-border-primary: rgba(56, 189, 248, 0.15);  /* Primary borders (reduced opacity) */
+  --color-border-secondary: rgba(148, 163, 184, 0.1);
+  --color-border-focus: rgba(56, 189, 248, 0.3);     /* Focus borders (reduced) */
+  
+  /* Status Colors */
+  --color-success: #14B8A6;          /* Use teal for success (aligned with logo) */
+  --color-success-light: rgba(20, 184, 166, 0.1);
+  --color-warning: #F59E0B;
+  --color-warning-light: rgba(245, 158, 11, 0.1);
+  --color-error: #EF4444;
+  --color-error-light: rgba(239, 68, 68, 0.1);
+  --color-info: #38BDF8;              /* Use cyan for info */
+  --color-info-light: rgba(56, 189, 248, 0.1);
+  
+  /* Gradient Definitions */
+  --gradient-primary: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
+  --gradient-hero: linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #0F172A 100%);
+  --gradient-card: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%);
+  --gradient-text: linear-gradient(135deg, #38BDF8 0%, #8B5CF6 50%, #14B8A6 100%);
+  
+  /* Shadows - Minimal System */
+  --shadow-none: none;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 0 1px rgba(56, 189, 248, 0.1), 0 0 8px rgba(56, 189, 248, 0.15); /* Minimal glow */
+  
+  /* Animation Timing - Minimal */
+  --duration-instant: 100ms;
+  --duration-fast: 150ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  
+  /* Animation Easing */
+  --ease-default: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* Spacing Scale (for reference, used via Tailwind) */
+  --spacing-xs: 0.25rem;    /* 4px */
+  --spacing-sm: 0.5rem;     /* 8px */
+  --spacing-md: 1rem;       /* 16px */
+  --spacing-lg: 1.5rem;     /* 24px */
+  --spacing-xl: 2rem;       /* 32px */
+  --spacing-2xl: 3rem;      /* 48px */
+  --spacing-3xl: 4rem;      /* 64px */
+  
+  /* Border Radius */
+  --radius-none: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;        /* Updated per PRD */
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-full: 9999px;
+  
+  /* Width System - Container Sizes */
+  --width-xs: 20rem;      /* 320px */
+  --width-sm: 24rem;      /* 384px */
+  --width-md: 28rem;      /* 448px */
+  --width-lg: 32rem;      /* 512px */
+  --width-xl: 36rem;      /* 576px */
+  --width-2xl: 42rem;     /* 672px */
+  --width-3xl: 48rem;     /* 768px */
+  --width-4xl: 56rem;     /* 896px */
+  --width-5xl: 64rem;     /* 1024px */
+  --width-6xl: 72rem;     /* 1152px */
+  --width-7xl: 80rem;     /* 1280px */
+}
+

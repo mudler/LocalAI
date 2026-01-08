@@ -1,0 +1,88 @@
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{.Title}}</title>
+  <base href="{{.BaseURL}}" />
+  <link rel="shortcut icon" href="static/favicon.svg" type="image/svg">
+  <link rel="stylesheet" href="static/assets/highlightjs.css" />
+  <script defer src="static/assets/highlightjs.js"></script>
+  <script defer src="static/assets/alpine.js"></script>
+  <script defer src="static/assets/marked.js"></script>
+  <script defer src="static/assets/purify.js"></script>
+  <!-- LocalAI Design System CSS -->
+  <link href="static/theme.css" rel="stylesheet" />
+  <link href="static/typography.css" rel="stylesheet" />
+  <link href="static/animations.css" rel="stylesheet" />
+  <link href="static/components.css" rel="stylesheet" />
+  <link href="static/general.css" rel="stylesheet" />
+  <link rel="stylesheet" href="static/assets/tw-elements.css" />
+  <script src="static/assets/tailwindcss.js"></script>
+
+  <!-- Preload critical fonts -->
+  <link rel="preload" href="static/assets/playfair-display-bold.ttf" as="font" type="font/ttf" crossorigin>
+  <link rel="preload" href="static/assets/space-grotesk-regular.ttf" as="font" type="font/ttf" crossorigin>
+
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        fontFamily: {
+          sans: ["Space Grotesk", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+          body: ["Space Grotesk", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+          display: ["Playfair Display", "serif"],
+          mono: ["JetBrains Mono", "Fira Code", "monospace"],
+        },
+      },
+      corePlugins: {
+        preflight: false,
+      },
+    };
+    function copyClipboard(token) {
+      // Try modern Clipboard API first (requires secure context)
+      if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(token)
+        .then(() => {
+          console.log('Text copied to clipboard:', token);
+          alert('Text copied to clipboard!');
+        })
+        .catch(err => {
+          console.error('Failed to copy token:', err);
+          fallbackCopy(token);
+        });
+      } else {
+        // Fallback for non-secure contexts
+        fallbackCopy(token);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          console.log('Text copied to clipboard (fallback):', text);
+          alert('Text copied to clipboard!');
+        } else {
+          console.error('Fallback copy failed');
+          alert('Failed to copy text. Please copy manually.');
+        }
+      } catch (err) {
+        console.error('Fallback copy error:', err);
+        alert('Failed to copy text. Please copy manually.');
+      }
+      document.body.removeChild(textArea);
+    }
+  </script>
+
+  <link href="static/assets/fontawesome/css/fontawesome.css" rel="stylesheet" />
+  <link href="static/assets/fontawesome/css/brands.css" rel="stylesheet" />
+  <link href="static/assets/fontawesome/css/solid.css" rel="stylesheet" />
+  <script src="static/assets/flowbite.min.js"></script>
+</head>

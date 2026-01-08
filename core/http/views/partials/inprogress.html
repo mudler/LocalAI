@@ -1,0 +1,221 @@
+<!-- Global Operations Status Bar -->
+<div x-data="operationsStatus()" x-init="init()" x-show="operations.length > 0" 
+     x-transition:enter="transition ease-out duration-200"
+     x-transition:enter-start="opacity-0"
+     x-transition:enter-end="opacity-100"
+     x-transition:leave="transition ease-in duration-150"
+     x-transition:leave-start="opacity-100"
+     x-transition:leave-end="opacity-0"
+     class="sticky top-0 left-0 right-0 z-40 bg-[#1E293B]/95 backdrop-blur-sm border-b border-[#38BDF8]/50">
+    
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2">
+                    <div class="relative">
+                        <i class="fas fa-spinner fa-spin text-[#38BDF8] text-lg"></i>
+                    </div>
+                    <h3 class="text-[#E5E7EB] font-semibold text-sm">
+                        Operations in Progress
+                        <span class="ml-2 bg-[#38BDF8]/20 px-2 py-1 rounded-full text-xs border border-[#38BDF8]/30" x-text="operations.length"></span>
+                    </h3>
+                </div>
+            </div>
+            <button @click="collapsed = !collapsed" 
+                    class="text-[#94A3B8] hover:text-[#E5E7EB] transition-colors">
+                <i class="fas" :class="collapsed ? 'fa-chevron-down' : 'fa-chevron-up'"></i>
+            </button>
+        </div>
+
+        <!-- Operations List -->
+        <div x-show="!collapsed" 
+             x-transition:enter="transition ease-out duration-200"
+             x-transition:enter-start="opacity-0 max-h-0"
+             x-transition:enter-end="opacity-100 max-h-96"
+             x-transition:leave="transition ease-in duration-150"
+             x-transition:leave-start="opacity-100 max-h-96"
+             x-transition:leave-end="opacity-0 max-h-0"
+             class="space-y-2 overflow-y-auto max-h-96">
+            <template x-for="operation in operations" :key="operation.id">
+                <div class="bg-[#101827]/80 rounded-lg p-3 border border-[#1E293B] hover:border-[#38BDF8]/50 transition-colors">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-3 flex-1 min-w-0">
+                            <!-- Icon based on type -->
+                            <div class="flex-shrink-0">
+                                <i class="text-lg" 
+                                   :class="{
+                                       'fas fa-cube text-[#38BDF8]': !operation.isBackend && !operation.isDeletion,
+                                       'fas fa-cubes text-[#8B5CF6]': operation.isBackend && !operation.isDeletion,
+                                       'fas fa-trash text-red-400': operation.isDeletion
+                                   }"></i>
+                            </div>
+                            
+                            <!-- Operation details -->
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center space-x-2">
+                                    <span class="text-[#E5E7EB] font-medium text-sm truncate" x-text="operation.name"></span>
+                                    <span class="flex-shrink-0 text-xs px-2 py-0.5 rounded border"
+                                          :class="{
+                                              'bg-[#38BDF8]/10 text-[#38BDF8]': !operation.isDeletion && !operation.isBackend,
+                                              'bg-[#8B5CF6]/10 text-[#8B5CF6]': !operation.isDeletion && operation.isBackend,
+                                              'bg-red-500/10 text-red-300': operation.isDeletion
+                                          }"
+                                          x-text="operation.isBackend ? 'Backend' : 'Model'"></span>
+                                </div>
+                                
+                                <!-- Status message -->
+                                <div class="flex items-center space-x-2 mt-1">
+                                    <template x-if="operation.isQueued">
+                                        <span class="text-xs text-[#38BDF8] flex items-center">
+                                            <i class="fas fa-clock mr-1"></i>
+                                            Queued
+                                        </span>
+                                    </template>
+                                    <template x-if="operation.isCancelled">
+                                        <span class="text-xs text-red-400 flex items-center">
+                                            <i class="fas fa-ban mr-1"></i>
+                                            Cancelling...
+                                        </span>
+                                    </template>
+                                    <template x-if="!operation.isQueued && !operation.isCancelled && operation.message">
+                                        <span class="text-xs text-[#94A3B8] truncate" x-text="operation.message"></span>
+                                    </template>
+                                </div>
+                            </div>
+                            
+                            <!-- Progress percentage and cancel button -->
+                            <div class="flex-shrink-0 text-right flex items-center space-x-2">
+                                <span class="text-[#E5E7EB] font-bold text-lg" x-text="operation.progress + '%'"></span>
+                                <template x-if="operation.cancellable && !operation.isCancelled">
+                                    <button @click="cancelOperation(operation.jobID, operation.id)"
+                                            class="text-red-400 hover:text-red-300 transition-colors p-1 rounded hover:bg-red-500/20"
+                                            title="Cancel operation">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </template>
+                                <template x-if="operation.isCancelled">
+                                    <span class="text-red-400 text-xs flex items-center">
+                                        <i class="fas fa-ban mr-1"></i>
+                                        Cancelled
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Progress bar -->
+                    <div class="w-full bg-[#101827] rounded-full h-2 overflow-hidden border border-[#1E293B]">
+                        <div class="h-full rounded-full transition-all duration-300"
+                             :class="{
+                                 'bg-[#38BDF8]': !operation.isDeletion && !operation.isCancelled,
+                                 'bg-red-500': operation.isDeletion || operation.isCancelled
+                             }"
+                             :style="'width: ' + operation.progress + '%'">
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>
+
+<script>
+function operationsStatus() {
+    return {
+        operations: [],
+        collapsed: false,
+        pollInterval: null,
+        
+        init() {
+            this.fetchOperations();
+            // Poll every 1s for smooth updates
+            this.pollInterval = setInterval(() => this.fetchOperations(), 1000);
+        },
+        
+        async fetchOperations() {
+            try {
+                const response = await fetch('/api/operations');
+                if (!response.ok) {
+                    throw new Error('Failed to fetch operations');
+                }
+                const data = await response.json();
+                const previousCount = this.operations.length;
+                this.operations = data.operations || [];
+                
+                // If we had operations before and now we don't, refresh the page
+                if (previousCount > 0 && this.operations.length === 0) {
+                    // Small delay to ensure the user sees the completion
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1000);
+                }
+                
+                // Auto-collapse if there are many operations
+                if (this.operations.length > 5 && !this.collapsed) {
+                    // Don't auto-collapse, let user control it
+                }
+            } catch (error) {
+                console.error('Error fetching operations:', error);
+                // Don't clear operations on error, just keep showing last known state
+            }
+        },
+        
+        async cancelOperation(jobID, operationID) {
+            // Check if operation is already cancelled
+            const operation = this.operations.find(op => op.jobID === jobID);
+            if (operation && operation.isCancelled) {
+                // Already cancelled, no need to do anything
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/operations/${jobID}/cancel`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    const errorMessage = error.error || 'Failed to cancel operation';
+                    
+                    // Don't show alert for "already cancelled" - just update UI silently
+                    if (errorMessage.includes('already cancelled')) {
+                        if (operation) {
+                            operation.isCancelled = true;
+                            operation.cancellable = false;
+                        }
+                        this.fetchOperations();
+                        return;
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
+                // Update the operation status immediately
+                if (operation) {
+                    operation.isCancelled = true;
+                    operation.cancellable = false;
+                    operation.message = 'Cancelling...';
+                }
+                
+                // Refresh operations to get updated status
+                this.fetchOperations();
+            } catch (error) {
+                console.error('Error cancelling operation:', error);
+                // Only show alert if it's not an "already cancelled" error
+                if (!error.message.includes('already cancelled')) {
+                    alert('Failed to cancel operation: ' + error.message);
+                }
+            }
+        },
+        
+        destroy() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
+</script>

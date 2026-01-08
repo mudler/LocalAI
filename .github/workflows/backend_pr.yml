@@ -1,0 +1,79 @@
+name: 'build backend container images (PR-filtered)'
+
+on:
+  pull_request:
+
+concurrency:
+  group: ci-backends-pr-${{ github.head_ref || github.ref }}-${{ github.repository }}
+  cancel-in-progress: true
+
+jobs:
+  generate-matrix:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      matrix-darwin: ${{ steps.set-matrix.outputs.matrix-darwin }}
+      has-backends: ${{ steps.set-matrix.outputs.has-backends }}
+      has-backends-darwin: ${{ steps.set-matrix.outputs.has-backends-darwin }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: |
+          bun add js-yaml
+          bun add @octokit/core
+
+      # filters the matrix in backend.yml
+      - name: Filter matrix for changed backends
+        id: set-matrix
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+        run: bun run scripts/changed-backends.js
+
+  backend-jobs:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build.yml
+    if: needs.generate-matrix.outputs.has-backends == 'true'
+    with:
+      tag-latest: ${{ matrix.tag-latest }}
+      tag-suffix: ${{ matrix.tag-suffix }}
+      build-type: ${{ matrix.build-type }}
+      cuda-major-version: ${{ matrix.cuda-major-version }}
+      cuda-minor-version: ${{ matrix.cuda-minor-version }}
+      platforms: ${{ matrix.platforms }}
+      runs-on: ${{ matrix.runs-on }}
+      base-image: ${{ matrix.base-image }}
+      backend: ${{ matrix.backend }}
+      dockerfile: ${{ matrix.dockerfile }}
+      skip-drivers: ${{ matrix.skip-drivers }}
+      context: ${{ matrix.context }}
+      ubuntu-version: ${{ matrix.ubuntu-version }}
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix) }}
+  backend-jobs-darwin:
+    needs: generate-matrix
+    uses: ./.github/workflows/backend_build_darwin.yml
+    if: needs.generate-matrix.outputs.has-backends-darwin == 'true'
+    with:
+      backend: ${{ matrix.backend }}
+      build-type: ${{ matrix.build-type }}
+      go-version: "1.24.x"
+      tag-suffix: ${{ matrix.tag-suffix }}
+      lang: ${{ matrix.lang || 'python' }}
+      use-pip: ${{ matrix.backend == 'diffusers' }}
+      runs-on: "macos-latest"
+    secrets:
+      quayUsername: ${{ secrets.LOCALAI_REGISTRY_USERNAME }}
+      quayPassword: ${{ secrets.LOCALAI_REGISTRY_PASSWORD }}
+    strategy:
+      fail-fast: true
+      matrix: ${{ fromJson(needs.generate-matrix.outputs.matrix-darwin) }}

@@ -1,0 +1,78 @@
+---
+name: localai
+
+config_file: |-
+    name: vibevoice
+    backend: vibevoice
+    description: |
+      VibeVoice-Realtime is a real-time text-to-speech model that generates natural-sounding speech.
+      This model supports voice cloning through voice preset files (.pt files).
+
+    parameters:
+      model: microsoft/VibeVoice-Realtime-0.5B
+
+    # TTS configuration
+    tts:
+      # Voice selection - can be:
+      # 1. Voice preset name (e.g., "Frank", "en-Frank_man", "Grace") - looks for .pt files in voices/streaming_model/
+      # 2. Path to a voice preset .pt file (relative to model directory or absolute)
+      # Available English voices: Carter, Davis, Emma, Frank, Grace, Mike
+      voice: "Frank"
+      # Alternative: use audio_path to specify a voice file directly
+      # audio_path: "voices/streaming_model/en-Frank_man.pt"
+
+    known_usecases:
+      - tts
+
+    # Backend-specific options
+    # These are passed as "key:value" strings to the backend
+    options:
+      # CFG (Classifier-Free Guidance) scale for generation (default: 1.5)
+      # Higher values can improve quality but may slow generation
+      - "cfg_scale:1.5"
+      # Number of inference steps for the diffusion process (default: 5)
+      # More steps = better quality but slower. Typical range: 3-10
+      - "inference_steps:5"
+      # Enable sampling (default: false)
+      # When true, uses temperature and top_p for sampling
+      - "do_sample:false"
+      # Temperature for sampling (only used if do_sample=true, default: 0.9)
+      - "temperature:0.9"
+      # Top-p (nucleus) sampling (only used if do_sample=true, default: 0.9)
+      - "top_p:0.9"
+      # Voices directory path
+      # This explicitly sets where to look for voice preset files (.pt files)
+      # Since we're downloading voices to voices/streaming_model/, we set it here
+      #
+      # Examples:
+      #   - Relative path (relative to models directory): "voices/streaming_model"
+      #   - Absolute path: "/custom/path/to/voices/streaming_model"
+      #   - Custom relative path: "my_custom_voices/streaming_model"
+      #
+      # If not specified, the backend will auto-detect from common locations:
+      #   1. {ModelFile directory}/voices/streaming_model/
+      #   2. {models_dir}/voices/streaming_model/
+      #   3. Backend directory
+      - "voices_dir:voices/streaming_model"
+    # # Download voice preset files
+    # # Voice presets are downloaded to: {models_dir}/voices/streaming_model/
+    # # The voices_dir option above tells the backend to look in this location
+    # download_files:
+    #   # English voices
+    #   - filename: voices/streaming_model/en-Frank_man.pt
+    #     uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Frank_man.pt
+    #   - filename: voices/streaming_model/en-Grace_woman.pt
+    #     uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Grace_woman.pt
+    #   - filename: voices/streaming_model/en-Mike_man.pt
+    #     uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Mike_man.pt
+    #   - filename: voices/streaming_model/en-Emma_woman.pt
+    #     uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Emma_woman.pt
+    #   - filename: voices/streaming_model/en-Carter_man.pt
+    #     uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Carter_man.pt
+    #   - filename: voices/streaming_model/en-Davis_man.pt
+    #     uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Davis_man.pt
+    #   # Uncomment to add more languages:
+    #   # - filename: voices/streaming_model/fr-Spk0_man.pt
+    #   #   uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/fr-Spk0_man.pt
+    #   # - filename: voices/streaming_model/de-Spk0_man.pt
+    #   #   uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/de-Spk0_man.pt

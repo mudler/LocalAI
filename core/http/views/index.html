@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="flex flex-col min-h-screen">
+
+    {{template "views/partials/navbar" .}}
+
+    <!-- Main Content - ChatGPT-style minimal interface -->
+    <div class="flex-1 flex flex-col items-center justify-center px-4 py-12">
+        <div class="w-full max-w-3xl mx-auto">
+            {{ if eq (len .ModelsConfig) 0 }}
+            <!-- No Models - Wizard Guide -->
+            <div class="hero-section">
+                <div class="hero-content">
+                    <h2 class="hero-title">
+                        No Models Installed
+                    </h2>
+                    <p class="hero-subtitle">
+                        Get started with LocalAI by installing your first model. Choose from our gallery, import your own, or use the API to download models.
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Features Preview -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="card card-animate">
+                    <div class="w-10 h-10 bg-[var(--color-primary-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-images text-[var(--color-primary)] text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Model Gallery</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Browse and install pre-configured models</p>
+                </div>
+                <div class="card card-animate">
+                    <div class="w-10 h-10 bg-[var(--color-accent-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-upload text-[var(--color-accent)] text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Import Models</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Upload your own model files</p>
+                </div>
+                <div class="card card-animate">
+                    <div class="w-10 h-10 bg-[var(--color-success-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                        <i class="fas fa-code text-[var(--color-success)] text-xl"></i>
+                    </div>
+                    <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">API Download</h3>
+                    <p class="text-xs text-[var(--color-text-secondary)]">Use the API to download models programmatically</p>
+                </div>
+            </div>
+
+            <!-- Setup Instructions -->
+            <div class="card mb-6 text-left">
+                <h3 class="text-lg font-bold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-rocket text-[var(--color-accent)] mr-2"></i>
+                    How to Get Started
+                </h3>
+                <div class="space-y-4">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                            <span class="text-[var(--color-accent)] font-bold text-sm">1</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[var(--color-text-primary)] font-medium mb-2">Browse the Model Gallery</p>
+                            <p class="text-[var(--color-text-secondary)] text-sm">Explore our curated collection of pre-configured models. Find models for chat, image generation, audio processing, and more.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                            <span class="text-[var(--color-accent)] font-bold text-sm">2</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[var(--color-text-primary)] font-medium mb-2">Install a Model</p>
+                            <p class="text-[var(--color-text-secondary)] text-sm">Click on a model from the gallery to install it, or use the import feature to upload your own model files.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                            <span class="text-[var(--color-accent)] font-bold text-sm">3</span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-[var(--color-text-primary)] font-medium mb-2">Start Chatting</p>
+                            <p class="text-[var(--color-text-secondary)] text-sm">Once installed, return to this page to start chatting with your model or use the API to interact programmatically.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap justify-center gap-4 mb-8">
+                <a href="/browse/" class="btn-primary">
+                    <i class="fas fa-images mr-2"></i>
+                    Browse Model Gallery
+                </a>
+                <a href="/import-model" class="btn-primary">
+                    <i class="fas fa-upload mr-2"></i>
+                    Import Model
+                </a>
+                <a href="https://localai.io/basics/getting_started/" target="_blank" class="btn-secondary">
+                    <i class="fas fa-graduation-cap mr-2"></i>
+                    Getting Started
+                    <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+                </a>
+            </div>
+            {{ else }}
+            <!-- Welcome Message / Hero Section -->
+            <div class="hero-section">
+                <div class="hero-content">
+                    <div class="mb-4 flex justify-center">
+                        <img src="static/logo.png" alt="LocalAI Logo" class="h-16 md:h-20">
+                    </div>
+                    <h1 class="hero-title">How can I help you today?</h1>
+                    <p class="hero-subtitle">Ask me anything, and I'll do my best to assist you.</p>
+                </div>
+            </div>
+
+            <!-- Chat Input Form -->
+            <div class="mb-8" x-data="{
+                selectedModel: '', 
+                inputValue: '', 
+                shiftPressed: false, 
+                fileName: '', 
+                imageFiles: [], 
+                audioFiles: [], 
+                textFiles: [],
+                attachedFiles: [],
+                mcpMode: false,
+                mcpAvailable: false,
+                mcpModels: {},
+                currentPlaceholder: 'Send a message...',
+                placeholderIndex: 0,
+                charIndex: 0,
+                isTyping: false,
+                typingTimeout: null,
+                displayTimeout: null,
+                placeholderMessages: [
+                    'What is Nuclear fusion?',
+                    'How does a combustion engine work?',
+                    'Explain quantum computing',
+                    'What causes climate change?',
+                    'How do neural networks learn?',
+                    'What is the theory of relativity?',
+                    'How does photosynthesis work?',
+                    'Explain the water cycle',
+                    'What is machine learning?',
+                    'How do black holes form?',
+                    'What is DNA and how does it work?',
+                    'Explain the greenhouse effect',
+                    'How does the immune system work?',
+                    'What is artificial intelligence?',
+                    'How do solar panels generate electricity?',
+                    'Explain the process of evolution',
+                    'What is the difference between weather and climate?',
+                    'How does the human brain process information?',
+                    'What is the structure of an atom?',
+                    'How do vaccines work?',
+                    'Explain the concept of entropy',
+                    'What is the speed of light?',
+                    'How does gravity work?',
+                    'What is the difference between mass and weight?'
+                ],
+                init() {
+                    window.currentPlaceholderText = this.currentPlaceholder;
+                    this.startTypingAnimation();
+                    // Build MCP models map from data attributes
+                    this.buildMCPModelsMap();
+                    // Select first model by default
+                    this.$nextTick(() => {
+                        const select = this.$el.querySelector('select');
+                        if (select && select.options.length > 1) {
+                            // Skip the first option (disabled placeholder) and select the first real option
+                            const firstModelOption = select.options[1];
+                            if (firstModelOption && firstModelOption.value) {
+                                this.selectedModel = firstModelOption.value;
+                                this.checkMCPAvailability();
+                            }
+                        }
+                    });
+                    // Watch for changes to selectedModel to update MCP availability
+                    this.$watch('selectedModel', () => {
+                        this.checkMCPAvailability();
+                    });
+                },
+                buildMCPModelsMap() {
+                    const select = this.$el.querySelector('select');
+                    if (!select) return;
+                    this.mcpModels = {};
+                    for (let i = 0; i < select.options.length; i++) {
+                        const option = select.options[i];
+                        if (option.value) {
+                            const hasMcpAttr = option.getAttribute('data-has-mcp');
+                            this.mcpModels[option.value] = hasMcpAttr === 'true';
+                        }
+                    }
+                    // Debug: uncomment to see the MCP models map
+                    // console.log('MCP Models Map:', this.mcpModels);
+                },
+                checkMCPAvailability() {
+                    if (!this.selectedModel) {
+                        this.mcpAvailable = false;
+                        this.mcpMode = false;
+                        return;
+                    }
+                    // Check MCP availability from the map
+                    const hasMCP = this.mcpModels[this.selectedModel] === true;
+                    this.mcpAvailable = hasMCP;
+                    // Debug: uncomment to see what's happening
+                    // console.log('MCP Check:', { model: this.selectedModel, hasMCP, mcpAvailable: this.mcpAvailable, map: this.mcpModels });
+                    if (!hasMCP) {
+                        this.mcpMode = false;
+                    }
+                },
+                startTypingAnimation() {
+                    if (this.isTyping) return;
+                    this.typeNextPlaceholder();
+                },
+                typeNextPlaceholder() {
+                    if (this.isTyping) return;
+                    this.isTyping = true;
+                    this.charIndex = 0;
+                    const message = this.placeholderMessages[this.placeholderIndex];
+                    this.currentPlaceholder = '';
+                    window.currentPlaceholderText = '';
+                    
+                    const typeChar = () => {
+                        if (this.charIndex < message.length) {
+                            this.currentPlaceholder = message.substring(0, this.charIndex + 1);
+                            window.currentPlaceholderText = this.currentPlaceholder;
+                            this.charIndex++;
+                            this.typingTimeout = setTimeout(typeChar, 30);
+                        } else {
+                            // Finished typing, wait 2 seconds then move to next
+                            this.isTyping = false;
+                            window.currentPlaceholderText = this.currentPlaceholder;
+                            this.displayTimeout = setTimeout(() => {
+                                this.placeholderIndex = (this.placeholderIndex + 1) % this.placeholderMessages.length;
+                                this.typeNextPlaceholder();
+                            }, 2000);
+                        }
+                    };
+                    
+                    typeChar();
+                },
+                pauseTyping() {
+                    if (this.typingTimeout) {
+                        clearTimeout(this.typingTimeout);
+                        this.typingTimeout = null;
+                    }
+                    if (this.displayTimeout) {
+                        clearTimeout(this.displayTimeout);
+                        this.displayTimeout = null;
+                    }
+                    this.isTyping = false;
+                },
+                resumeTyping() {
+                    if (!this.inputValue.trim() && !this.isTyping) {
+                        this.startTypingAnimation();
+                    }
+                },
+                handleFocus() {
+                    // Complete the current placeholder instantly if typing
+                    if (this.isTyping && this.placeholderIndex < this.placeholderMessages.length) {
+                        const fullMessage = this.placeholderMessages[this.placeholderIndex];
+                        this.currentPlaceholder = fullMessage;
+                        window.currentPlaceholderText = fullMessage;
+                    }
+                    this.pauseTyping();
+                },
+                handleBlur() {
+                    if (!this.inputValue.trim()) {
+                        this.resumeTyping();
+                    }
+                },
+                handleInput() {
+                    if (this.inputValue.trim()) {
+                        this.pauseTyping();
+                    } else {
+                        this.resumeTyping();
+                    }
+                },
+                handleFileSelection(files, fileType) {
+                    Array.from(files).forEach(file => {
+                        // Check if file already exists
+                        const exists = this.attachedFiles.some(f => f.name === file.name && f.type === fileType);
+                        if (!exists) {
+                            this.attachedFiles.push({ name: file.name, type: fileType });
+                        }
+                    });
+                },
+                removeAttachedFile(fileType, fileName) {
+                    // Remove from attachedFiles array
+                    const index = this.attachedFiles.findIndex(f => f.name === fileName && f.type === fileType);
+                    if (index !== -1) {
+                        this.attachedFiles.splice(index, 1);
+                    }
+                    // Remove from corresponding file array
+                    if (fileType === 'image') {
+                        this.imageFiles = this.imageFiles.filter(f => f.name !== fileName);
+                    } else if (fileType === 'audio') {
+                        this.audioFiles = this.audioFiles.filter(f => f.name !== fileName);
+                    } else if (fileType === 'file') {
+                        this.textFiles = this.textFiles.filter(f => f.name !== fileName);
+                    }
+                }
+            }">
+                <!-- Model Selector with MCP Toggle -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Select Model</label>
+                    <div class="flex items-center gap-3">
+                        <select
+                            x-model="selectedModel"
+                            @change="$nextTick(() => checkMCPAvailability())"
+                            class="input flex-1"
+                            required
+                        >
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model to chat with...</option>
+                            {{ range .ModelsConfig }}
+                            {{ $cfg := . }}
+                            {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                            {{ range .KnownUsecaseStrings }}
+                                {{ if eq . "FLAG_CHAT" }}
+                                <option value="{{$cfg.Name}}" data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}" class="bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                {{ end }}
+                            {{ end }}
+                            {{ end }}
+                        </select>
+                        
+                        <!-- Compact MCP Toggle - Show only if MCP is available for selected model -->
+                        <div 
+                            x-show="mcpAvailable"
+                            class="flex items-center gap-2 px-3 py-2 text-xs rounded text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)] whitespace-nowrap">
+                            <i class="fa-solid fa-plug text-[var(--color-primary)] text-sm"></i>
+                            <span class="text-[var(--color-text-secondary)]">MCP</span>
+                            <label class="relative inline-flex items-center cursor-pointer ml-1">
+                                <input type="checkbox" id="index_mcp_toggle" class="sr-only peer" x-model="mcpMode">
+                                <div class="w-9 h-5 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--color-primary-border)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-bg-secondary)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- MCP Mode Notification - Compact tooltip style -->
+                    <div 
+                        x-show="mcpMode && mcpAvailable"
+                        class="mt-2 p-2 bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] rounded text-[var(--color-text-secondary)] text-xs">
+                        <div class="flex items-start space-x-2">
+                            <i class="fa-solid fa-info-circle text-[var(--color-primary)] mt-0.5 text-xs"></i>
+                            <p class="text-[var(--color-text-secondary)]">Non-streaming mode active. Responses may take longer to process.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Bar -->
+                <form @submit.prevent="startChat($event)" class="relative w-full">
+                    <!-- Attachment Tags - Show above input when files are attached -->
+                    <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
+                        <template x-for="(file, index) in attachedFiles" :key="index">
+                            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] text-[var(--color-text-primary)]">
+                                <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[var(--color-primary)]"></i>
+                                <span x-text="file.name" class="max-w-[200px] truncate"></span>
+                                <button 
+                                    type="button"
+                                    @click="attachedFiles.splice(index, 1); removeAttachedFile(file.type, file.name)"
+                                    class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                                    title="Remove attachment"
+                                >
+                                    <i class="fa-solid fa-times text-xs"></i>
+                                </button>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="relative w-full">
+                        <textarea
+                            x-model="inputValue"
+                            :placeholder="currentPlaceholder"
+                            class="input p-3 pr-16 w-full resize-none border-0"
+                            required
+                            @keydown.shift="shiftPressed = true"
+                            @keyup.shift="shiftPressed = false"
+                            @keydown.enter.prevent="if (!shiftPressed && selectedModel && (inputValue.trim() || currentPlaceholder.trim())) { startChat($event); }"
+                            @focus="handleFocus()"
+                            @blur="handleBlur()"
+                            @input="handleInput()"
+                            rows="2"
+                        ></textarea>
+                        
+                        <!-- Attachment Buttons -->
+                        <button
+                            type="button"
+                            @click="document.getElementById('index_input_image').click()"
+                            class="fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
+                            title="Attach images"
+                        ></button>
+                        <button
+                            type="button"
+                            @click="document.getElementById('index_input_audio').click()"
+                            class="fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
+                            title="Attach an audio file"
+                        ></button>
+                        <button
+                            type="button"
+                            @click="document.getElementById('index_input_file').click()"
+                            class="fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
+                            title="Upload text, markdown or PDF file"
+                        ></button>
+
+                        <!-- Send Button -->
+                        <button
+                            type="submit"
+                            :disabled="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim())"
+                            :class="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
+                            class="text-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200 absolute right-3 top-3"
+                            title="Send message (Enter)"
+                        >
+                            <i class="fa-solid fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Hidden File Inputs -->
+                <input
+                    id="index_input_image"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    style="display: none;"
+                    @change="imageFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'image')"
+                />
+                <input
+                    id="index_input_audio"
+                    type="file"
+                    multiple
+                    accept="audio/*"
+                    style="display: none;"
+                    @change="audioFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'audio')"
+                />
+                <input
+                    id="index_input_file"
+                    type="file"
+                    multiple
+                    accept=".txt,.md,.pdf"
+                    style="display: none;"
+                    @change="textFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'file')"
+                />
+            </div>
+
+            <!-- Quick Links -->
+            <div class="flex flex-wrap justify-center gap-3 mb-8">
+                <a href="/manage" class="btn-tertiary">
+                    <i class="fas fa-cog mr-2"></i>
+                    Installed Models and Backends
+                </a>
+                <a href="/import-model" class="btn-tertiary">
+                    <i class="fas fa-upload mr-2"></i>
+                    Import Model
+                </a>
+                <a href="/browse/" class="btn-tertiary">
+                    <i class="fas fa-images mr-2"></i>
+                    Browse Gallery
+                </a>
+                <a href="https://localai.io" target="_blank" class="btn-tertiary">
+                    <i class="fas fa-book mr-2"></i>
+                    Documentation
+                </a>
+            </div>
+
+            <!-- Memory Status Indicator (GPU or RAM) -->
+            <div class="mb-4" x-data="resourceMonitor()" x-init="startPolling()">
+                <template x-if="resourceData && resourceData.available">
+                    <div class="flex items-center justify-center gap-3 text-xs text-[var(--color-text-secondary)]">
+                        <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20">
+                            <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'"
+                               :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"></i>
+                            <span class="text-[var(--color-text-secondary)]" x-text="resourceData.type === 'gpu' ? 'GPU' : 'RAM'"></span>
+                            <span class="font-mono" 
+                                  :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                                  x-text="`${resourceData.aggregate.usage_percent.toFixed(0)}%`"></span>
+                            <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-300"
+                                     :class="resourceData.aggregate.usage_percent > 90 ? 'bg-red-500' : resourceData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                     :style="`width: ${resourceData.aggregate.usage_percent}%`"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- Model Status Summary - Subtle -->
+            {{ $loadedModels := .LoadedModels }}
+            <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[var(--color-text-secondary)]" 
+                 x-data="{ stoppingAll: false, stopAllModels() { window.stopAllModels(this); }, stopModel(name) { window.stopModel(name); }, getLoadedCount() { return document.querySelectorAll('[data-loaded-model]').length; } }"
+                 x-show="getLoadedCount() > 0"
+                 style="display: none;">
+                <span class="flex items-center gap-1.5">
+                    <i class="fas fa-circle text-green-500 text-[10px]"></i>
+                    <span x-text="`${getLoadedCount()} model(s) loaded`"></span>
+                </span>
+                <span class="text-[var(--color-primary)] opacity-40">•</span>
+                {{ range .ModelsConfig }}
+                    {{ if index $loadedModels .Name }}
+                    <span class="inline-flex items-center gap-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors" data-loaded-model>
+                        <span class="truncate max-w-[100px]">{{.Name}}</span>
+                        <button
+                            @click="stopModel('{{.Name}}')"
+                            class="text-red-400/60 hover:text-red-400 transition-colors ml-0.5"
+                            title="Stop {{.Name}}"
+                        >
+                            <i class="fas fa-times text-[10px]"></i>
+                        </button>
+                    </span>
+                    {{ end }}
+                {{ end }}
+                <span class="text-[var(--color-primary)] opacity-40">•</span>
+                <button
+                    @click="stopAllModels()"
+                    :disabled="stoppingAll"
+                    :class="stoppingAll ? 'opacity-50 cursor-not-allowed' : ''"
+                    class="text-red-400/60 hover:text-red-400 transition-colors text-xs"
+                    title="Stop all loaded models"
+                >
+                    <span x-text="stoppingAll ? 'Stopping...' : 'Stop all'"></span>
+                </button>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<script>
+// Handle form submission - redirect to chat with message
+function startChat(event) {
+    if (event) {
+        event.preventDefault();
+    }
+    
+    // Get form data directly from form elements (Alpine x-model binds to value)
+    const form = event ? event.target.closest('form') : document.querySelector('form');
+    if (!form) return;
+    
+    const alpineComponent = form.closest('[x-data]');
+    const select = alpineComponent ? alpineComponent.querySelector('select') : null;
+    const textarea = form.querySelector('textarea');
+    
+    const selectedModel = select ? select.value : '';
+    let message = textarea ? textarea.value : '';
+    
+    // If message is empty, use the current placeholder text
+    if (!message.trim() && window.currentPlaceholderText) {
+        message = window.currentPlaceholderText;
+    }
+    
+    if (!selectedModel || !message.trim()) {
+        return;
+    }
+
+    // Get MCP mode from checkbox (if available)
+    let mcpMode = false;
+    const mcpToggle = document.getElementById('index_mcp_toggle');
+    if (mcpToggle && mcpToggle.checked) {
+        mcpMode = true;
+    }
+
+    // Store message and files in localStorage for chat page to pick up
+    const chatData = {
+        message: message,
+        imageFiles: [],
+        audioFiles: [],
+        textFiles: [],
+        mcpMode: mcpMode
+    };
+
+    // Convert files to base64 for storage
+    const imageInput = document.getElementById('index_input_image');
+    const audioInput = document.getElementById('index_input_audio');
+    const fileInput = document.getElementById('index_input_file');
+
+    const filePromises = [
+        ...Array.from(imageInput.files || []).map(file => 
+            new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve({ name: file.name, data: e.target.result, type: file.type });
+                reader.readAsDataURL(file);
+            })
+        ),
+        ...Array.from(audioInput.files || []).map(file => 
+            new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve({ name: file.name, data: e.target.result, type: file.type });
+                reader.readAsDataURL(file);
+            })
+        ),
+        ...Array.from(fileInput.files || []).map(file => 
+            new Promise(resolve => {
+                const reader = new FileReader();
+                reader.onload = e => resolve({ name: file.name, data: e.target.result, type: file.type });
+                reader.readAsText(file);
+            })
+        )
+    ];
+
+    if (filePromises.length > 0) {
+        Promise.all(filePromises).then(files => {
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    chatData.imageFiles.push(file);
+                } else if (file.type.startsWith('audio/')) {
+                    chatData.audioFiles.push(file);
+                } else {
+                    chatData.textFiles.push(file);
+                }
+            });
+
+            // Store in localStorage
+            localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData));
+            
+            // Redirect to chat page
+            window.location.href = `/chat/${selectedModel}`;
+        }).catch(err => {
+            console.error('Error processing files:', err);
+            // Still redirect even if file processing fails
+            localStorage.setItem('localai_index_chat_data', JSON.stringify({ message: message, imageFiles: [], audioFiles: [], textFiles: [] }));
+            window.location.href = `/chat/${selectedModel}`;
+        });
+    } else {
+        // No files, just store message and redirect
+        localStorage.setItem('localai_index_chat_data', JSON.stringify(chatData));
+        window.location.href = `/chat/${selectedModel}`;
+    }
+}
+
+// Make startChat available globally
+window.startChat = startChat;
+
+// Stop individual model
+async function stopModel(modelName) {
+    if (!confirm(`Are you sure you want to stop "${modelName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/backend/shutdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        if (response.ok) {
+            // Reload page after short delay to reflect changes
+            setTimeout(() => {
+                window.location.reload();
+            }, 500);
+        } else {
+            alert('Failed to stop model');
+        }
+    } catch (error) {
+        console.error('Error stopping model:', error);
+        alert('Failed to stop model');
+    }
+}
+
+// Stop all loaded models
+async function stopAllModels(component) {
+    const loadedModelNamesStr = '{{ $loadedModels := .LoadedModels }}{{ range .ModelsConfig }}{{ if index $loadedModels .Name }}{{.Name}},{{ end }}{{ end }}';
+    const loadedModelNames = loadedModelNamesStr.split(',').filter(name => name.length > 0);
+    
+    if (loadedModelNames.length === 0) {
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to stop all ${loadedModelNames.length} loaded model(s)?`)) {
+        return;
+    }
+    
+    // Set loading state
+    if (component) {
+        component.stoppingAll = true;
+    }
+    
+    try {
+        // Stop all models in parallel
+        const stopPromises = loadedModelNames.map(modelName =>
+            fetch('/backend/shutdown', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ model: modelName })
+            })
+        );
+        
+        await Promise.all(stopPromises);
+        
+        // Reload page after short delay to reflect changes
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    } catch (error) {
+        console.error('Error stopping models:', error);
+        alert('Failed to stop some models');
+        if (component) {
+            component.stoppingAll = false;
+        }
+    }
+}
+
+// Make functions available globally for Alpine.js
+window.stopModel = stopModel;
+window.stopAllModels = stopAllModels;
+
+// Resource Monitor component (GPU if available, otherwise RAM)
+function resourceMonitor() {
+    return {
+        resourceData: null,
+        pollInterval: null,
+        
+        async fetchResourceData() {
+            try {
+                const response = await fetch('/api/resources');
+                if (response.ok) {
+                    this.resourceData = await response.json();
+                }
+            } catch (error) {
+                console.error('Error fetching resource data:', error);
+            }
+        },
+        
+        startPolling() {
+            // Initial fetch
+            this.fetchResourceData();
+            // Poll every 5 seconds
+            this.pollInterval = setInterval(() => this.fetchResourceData(), 5000);
+        },
+        
+        stopPolling() {
+            if (this.pollInterval) {
+                clearInterval(this.pollInterval);
+            }
+        }
+    }
+}
+</script>
+
+</body>
+</html>
