@@ -1,4 +1,42 @@
 ---
+- name: "llama2-70b-sunsetboulevard-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama2-70B-SunsetBoulevard-i1-GGUF
+  description: |
+    The model is a **70B-parameter Llama 2** language model, quantized for efficient deployment. It is derived from the base model **sequelbox/Llama2-70B-SunsetBoulevard** and is optimized for speed and memory efficiency through quantization. Key features include:
+
+      - **Size**: 70 billion parameters
+      - **Architecture**: Llama 2 (transformer-based)
+      - **Quantization**: Optimized for GGUF format (e.g., IQ4_K_M, i1-Q4_K_M)
+      - **Tags**: `llama`, `llama-2`, `70b`, `sunset-boulevard`
+      - **Use cases**: Chat, reasoning, multi-turn dialogue, and lightweight inference
+
+    Available quantized versions include:
+      - `i1-Q4_K_M` (fast, recommended)
+      - `i1-IQ4_XS` (optimal size/speed/quality)
+      - `i1-Q6_K` (practically static Q6_K)
+
+    For detailed specs, refer to the [model page](https://hf.tst.eu/model#Llama2-70B-SunsetBoulevard-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama2-70B-SunsetBoulevard.i1-Q4_K_M.gguf
+    name: Llama2-70B-SunsetBoulevard-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama2-70B-SunsetBoulevard-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama2-70B-SunsetBoulevard.i1-Q4_K_M.gguf
+      sha256: e603f2df5c839c74dbe006b266970e3981a1d2427fe312b8d2945bb752759f83
+      uri: https://huggingface.co/mradermacher/Llama2-70B-SunsetBoulevard-i1-GGUF/resolve/main/Llama2-70B-SunsetBoulevard.i1-Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
