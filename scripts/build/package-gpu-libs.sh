@@ -20,15 +20,69 @@ TARGET_LIB_DIR="${1:-./lib}"
 # Create target directory if it doesn't exist
 mkdir -p "$TARGET_LIB_DIR"
 
-# Helper function to copy library and follow symlinks
+# Associative array to track copied files by basename
+# Note: We use basename for deduplication because the target is a flat directory.
+# If the same library exists in multiple source paths, we only copy it once.
+declare -A COPIED_FILES
+
+# Helper function to copy library preserving symlinks structure
+# Instead of following symlinks and duplicating files, this function:
+# 1. Resolves symlinks to their real target
+# 2. Copies the real file only once
+# 3. Recreates symlinks pointing to the real file
 copy_lib() {
     local src="$1"
-    if [ -e "$src" ]; then
-        cp -arfLv "$src" "$TARGET_LIB_DIR/" 2>/dev/null || true
+
+    # Check if source exists (follows symlinks)
+    if [ ! -e "$src" ]; then
+        return
+    fi
+
+    local src_basename
+    src_basename=$(basename "$src")
+
+    # Skip if we've already processed this filename
+    if [[ -n "${COPIED_FILES[$src_basename]:-}" ]]; then
+        return
+    fi
+
+    if [ -L "$src" ]; then
+        # Source is a symbolic link
+        # Resolve the real file (following all symlinks)
+        local real_file
+        real_file=$(readlink -f "$src")
+
+        if [ ! -e "$real_file" ]; then
+            echo "Warning: symlink target does not exist: $src -> $real_file" >&2
+            return
+        fi
+
+        local real_basename
+        real_basename=$(basename "$real_file")
+
+        # Copy the real file if we haven't already
+        if [[ -z "${COPIED_FILES[$real_basename]:-}" ]]; then
+            cp -v "$real_file" "$TARGET_LIB_DIR/$real_basename" 2>/dev/null || true
+            COPIED_FILES[$real_basename]=1
+        fi
+
+        # Create the symlink if the source name differs from the real file name
+        if [ "$src_basename" != "$real_basename" ]; then
+            # Point directly to the real file for simplicity and reliability
+            ln -sfv "$real_basename" "$TARGET_LIB_DIR/$src_basename" 2>/dev/null || true
+        fi
+        COPIED_FILES[$src_basename]=1
+    else
+        # Source is a regular file - copy if not already copied
+        if [[ -z "${COPIED_FILES[$src_basename]:-}" ]]; then
+            cp -v "$src" "$TARGET_LIB_DIR/$src_basename" 2>/dev/null || true
+        fi
+        COPIED_FILES[$src_basename]=1
     fi
 }
 
 # Helper function to copy all matching libraries from a glob pattern
+# Files are sorted so that regular files are processed before symlinks
 copy_libs_glob() {
     local pattern="$1"
     # Use nullglob option to handle non-matching patterns gracefully
@@ -36,10 +90,22 @@ copy_libs_glob() {
     shopt -s nullglob
     local matched=($pattern)
     eval "$old_nullglob"
-    for lib in "${matched[@]}"; do
-        if [ -e "$lib" ]; then
-            copy_lib "$lib"
+
+    # Sort files: regular files first, then symlinks
+    # This ensures real files are copied before we try to create symlinks pointing to them
+    local regular_files=()
+    local symlinks=()
+    for file in "${matched[@]}"; do
+        if [ -L "$file" ]; then
+            symlinks+=("$file")
+        elif [ -e "$file" ]; then
+            regular_files+=("$file")
         fi
+    done
+
+    # Process regular files first, then symlinks
+    for lib in "${regular_files[@]}" "${symlinks[@]}"; do
+        copy_lib "$lib"
     done
 }
 
