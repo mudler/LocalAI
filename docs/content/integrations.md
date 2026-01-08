@@ -32,6 +32,7 @@ The list below is a list of software that integrates with LocalAI.
 - [GPTLocalhost (Word Add-in)](https://gptlocalhost.com/demo#LocalAI) - run LocalAI in Microsoft Word locally
 - use LocalAI from Nextcloud with the [integration plugin](https://apps.nextcloud.com/apps/integration_openai) and [AI assistant](https://apps.nextcloud.com/apps/assistant)
 - [Langchain](https://docs.langchain.com/oss/python/integrations/providers/localai) integration package [pypi](https://pypi.org/project/langchain-localai/)
+- [VoxInput](https://github.com/richiejp/VoxInput) - Use voice to control your desktop
 
 Feel free to open up a Pull request (by clicking at the "Edit page" below) to get a page for your project made or if you see a error on one of the pages!
 
@@ -104,6 +105,36 @@ This section provides step-by-step instructions for configuring specific softwar
 
    After saving the configuration file, restart OpenCode for the changes to take effect.
 
+
+### Charm Crush
+
+You can ask [Charm Crush](https://charm.land/crush) to generate your config by giving it this documentation's URL and your LocalAI instance URL. The configuration will look something like the following and goes in `~/.config/crush/crush.json`:
+```json
+{
+  "$schema": "https://charm.land/crush.json",
+  "providers": {
+    "localai": {
+      "name": "LocalAI",
+      "base_url": "http://localai.lan:8081/v1",
+      "type": "openai-compat",
+      "models": [
+        {
+          "id": "qwen3-coder-480b-a35b-instruct",
+          "name": "Qwen 3 Coder 480b",
+          "context_window": 256000
+        },
+        {
+          "id": "qwen3-30b-a3b",
+          "name": "Qwen 3 30b a3b",
+          "context_window": 32000
+        }
+      ]
+    }
+  }
+}
+```
+
+A list of models can be fetched with `https://<server_address>/v1/models` by crush itself and appropriate models added to the provider list. Crush does not appear to be optimized for smaller models.
 
 ### GitHub Actions
 
