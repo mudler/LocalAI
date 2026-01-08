@@ -1,4 +1,29 @@
 ---
+- name: "glm-4.7"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Mungert/GLM-4.7-GGUF
+  description: |
+    AI model: glm-4.7
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.7-f16_q8_0-f16_q8_0-00010-of-00010.gguf
+    name: GLM-4.7-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Mungert/GLM-4.7-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.7-f16_q8_0-f16_q8_0-00010-of-00010.gguf
+      sha256: f4308233f5f60e0cf3bb7c6a0487b3de2a1724520b46d777f1f5956c4ea1d671
+      uri: https://huggingface.co/Mungert/GLM-4.7-GGUF/resolve/main/f16-q8-0/GLM-4.7-f16_q8_0-f16_q8_0-00010-of-00010.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
