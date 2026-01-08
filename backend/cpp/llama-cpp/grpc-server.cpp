@@ -23,6 +23,7 @@
 #include <grpcpp/health_check_service_interface.h>
 #include <regex>
 #include <atomic>
+#include <mutex>
 #include <signal.h>
 #include <thread>
 
@@ -709,11 +710,72 @@ public:
         LOG_INF("\n");
         LOG_INF("%s\n", common_params_get_system_info(params).c_str());
         LOG_INF("\n");
+        
+        // Capture error messages during model loading
+        struct error_capture {
+            std::string captured_error;
+            std::mutex error_mutex;
+            ggml_log_callback original_callback;
+            void* original_user_data;
+        } error_capture_data;
+        
+        // Get original log callback
+        llama_log_get(&error_capture_data.original_callback, &error_capture_data.original_user_data);
+        
+        // Set custom callback to capture errors
+        llama_log_set([](ggml_log_level level, const char * text, void * user_data) {
+            auto* capture = static_cast<error_capture*>(user_data);
+            
+            // Capture error messages
+            if (level == GGML_LOG_LEVEL_ERROR) {
+                std::lock_guard<std::mutex> lock(capture->error_mutex);
+                // Append error message, removing trailing newlines
+                std::string msg(text);
+                while (!msg.empty() && (msg.back() == '\n' || msg.back() == '\r')) {
+                    msg.pop_back();
+                }
+                if (!msg.empty()) {
+                    if (!capture->captured_error.empty()) {
+                        capture->captured_error.append("; ");
+                    }
+                    capture->captured_error.append(msg);
+                }
+            }
+            
+            // Also call original callback to preserve logging
+            if (capture->original_callback) {
+                capture->original_callback(level, text, capture->original_user_data);
+            }
+        }, &error_capture_data);
+        
         // load the model
-        if (!ctx_server.load_model(params)) {
-            result->set_message("Failed loading model");
+        bool load_success = ctx_server.load_model(params);
+        
+        // Restore original log callback
+        llama_log_set(error_capture_data.original_callback, error_capture_data.original_user_data);
+        
+        if (!load_success) {
+            std::string error_msg = "Failed to load model: " + params.model.path;
+            if (!params.mmproj.path.empty()) {
+                error_msg += " (with mmproj: " + params.mmproj.path + ")";
+            }
+            if (params.has_speculative() && !params.speculative.model.path.empty()) {
+                error_msg += " (with draft model: " + params.speculative.model.path + ")";
+            }
+            
+            // Add captured error details if available
+            {
+                std::lock_guard<std::mutex> lock(error_capture_data.error_mutex);
+                if (!error_capture_data.captured_error.empty()) {
+                    error_msg += ". Error: " + error_capture_data.captured_error;
+                } else {
+                    error_msg += ". Model file may not exist or be invalid.";
+                }
+            }
+            
+            result->set_message(error_msg);
             result->set_success(false);
-            return Status::CANCELLED;
+            return grpc::Status(grpc::StatusCode::INTERNAL, error_msg);
         }
 
         // Process grammar triggers now that vocab is available
