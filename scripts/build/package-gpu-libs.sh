@@ -20,15 +20,97 @@ TARGET_LIB_DIR="${1:-./lib}"
 # Create target directory if it doesn't exist
 mkdir -p "$TARGET_LIB_DIR"
 
-# Helper function to copy library and follow symlinks
+# Associative array to track copied files (keyed by inode to detect hardlinks and duplicates)
+declare -A COPIED_INODES
+# Associative array to track copied file paths
+declare -A COPIED_FILES
+
+# Helper function to copy library preserving symlinks structure
+# Instead of following symlinks and duplicating files, this function:
+# 1. Resolves symlinks to their real target
+# 2. Copies the real file only once
+# 3. Recreates the symlink structure in the target directory
 copy_lib() {
     local src="$1"
-    if [ -e "$src" ]; then
-        cp -arfLv "$src" "$TARGET_LIB_DIR/" 2>/dev/null || true
+
+    # Check if source exists (follows symlinks)
+    if [ ! -e "$src" ]; then
+        return
+    fi
+
+    local src_basename
+    src_basename=$(basename "$src")
+
+    # Skip if we've already processed this filename
+    if [[ -n "${COPIED_FILES[$src_basename]:-}" ]]; then
+        return
+    fi
+
+    if [ -L "$src" ]; then
+        # Source is a symbolic link
+        local link_target
+        link_target=$(readlink "$src")
+
+        # Resolve the real file (following all symlinks)
+        local real_file
+        real_file=$(readlink -f "$src")
+
+        if [ ! -e "$real_file" ]; then
+            echo "Warning: symlink target does not exist: $src -> $real_file" >&2
+            return
+        fi
+
+        local real_basename
+        real_basename=$(basename "$real_file")
+
+        # Get inode of the real file to track duplicates
+        local inode
+        inode=$(stat -c '%i' "$real_file" 2>/dev/null || stat -f '%i' "$real_file" 2>/dev/null)
+
+        # Copy the real file if we haven't already (check by inode and filename)
+        if [[ -z "${COPIED_INODES[$inode]:-}" ]] && [[ -z "${COPIED_FILES[$real_basename]:-}" ]]; then
+            cp -v "$real_file" "$TARGET_LIB_DIR/$real_basename" 2>/dev/null || true
+            COPIED_INODES[$inode]="$real_basename"
+            COPIED_FILES[$real_basename]=1
+        fi
+
+        # Create the symlink if the source name differs from the real file name
+        if [ "$src_basename" != "$real_basename" ]; then
+            # Determine the correct link target
+            # If original link was relative (just a filename), keep it relative
+            # If it pointed to a versioned name, point to that
+            local new_link_target
+            if [[ "$link_target" != */* ]]; then
+                # Original link was relative (e.g., libcublas.so -> libcublas.so.12)
+                new_link_target="$link_target"
+                # But we need to make sure that intermediate target exists
+                # If not, point directly to the real file
+                if [ ! -e "$TARGET_LIB_DIR/$link_target" ] && [ "$link_target" != "$real_basename" ]; then
+                    new_link_target="$real_basename"
+                fi
+            else
+                # Original link had a path component, just use the real filename
+                new_link_target="$real_basename"
+            fi
+            ln -sfv "$new_link_target" "$TARGET_LIB_DIR/$src_basename" 2>/dev/null || true
+        fi
+        COPIED_FILES[$src_basename]=1
+    else
+        # Source is a regular file
+        local inode
+        inode=$(stat -c '%i' "$src" 2>/dev/null || stat -f '%i' "$src" 2>/dev/null)
+
+        # Copy only if we haven't already copied this file (by inode or name)
+        if [[ -z "${COPIED_INODES[$inode]:-}" ]] && [[ -z "${COPIED_FILES[$src_basename]:-}" ]]; then
+            cp -v "$src" "$TARGET_LIB_DIR/$src_basename" 2>/dev/null || true
+            COPIED_INODES[$inode]="$src_basename"
+        fi
+        COPIED_FILES[$src_basename]=1
     fi
 }
 
 # Helper function to copy all matching libraries from a glob pattern
+# Files are sorted so that versioned files (real files) are processed before symlinks
 copy_libs_glob() {
     local pattern="$1"
     # Use nullglob option to handle non-matching patterns gracefully
@@ -36,7 +118,16 @@ copy_libs_glob() {
     shopt -s nullglob
     local matched=($pattern)
     eval "$old_nullglob"
-    for lib in "${matched[@]}"; do
+
+    # Sort files: versioned files (longer names with version numbers) first,
+    # then shorter names (symlinks). This ensures real files are copied before symlinks.
+    # Using awk to sort by length in descending order
+    local sorted_files=()
+    while IFS= read -r file; do
+        [ -n "$file" ] && sorted_files+=("$file")
+    done < <(printf '%s\n' "${matched[@]}" | awk '{ print length, $0 }' | sort -rn | cut -d' ' -f2-)
+
+    for lib in "${sorted_files[@]}"; do
         if [ -e "$lib" ]; then
             copy_lib "$lib"
         fi
