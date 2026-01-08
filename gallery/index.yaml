@@ -1,4 +1,29 @@
 ---
+- name: "mirothinker-v1.5-235b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MiroThinker-v1.5-235B-i1-GGUF
+  description: |
+    The **MiroThinker-v1.5-235B** is an open-source, large language model (235 billion parameters) developed by **miromind-ai**, designed for reasoning, generation, and multi-turn dialogue. It is part of the **MiroChain** series, a research effort focused on advanced language understanding and task-specific capabilities. The model is optimized for efficiency through quantization (e.g., IQ3_XXS, Q2_K), but its core architecture and training are based on the original **miromind-ai/MiroThinker-v1.5-235B** base model. It is available as a GGUF file for efficient deployment, with support for multi-part file concatenation. The model is accessible via HuggingFace and is tagged as "agent," "open-source," and "deep-research."
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiroThinker-v1.5-235B.imatrix.gguf
+    name: MiroThinker-v1.5-235B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MiroThinker-v1.5-235B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiroThinker-v1.5-235B.imatrix.gguf
+      sha256: 05364bac2e5d6ec2ff9a22e2b6f1529a29d97b24270a5710b5ea859d77206088
+      uri: https://huggingface.co/mradermacher/MiroThinker-v1.5-235B-i1-GGUF/resolve/main/MiroThinker-v1.5-235B.imatrix.gguf
 - name: "lfm2.5-1.2b-nova-function-calling"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
