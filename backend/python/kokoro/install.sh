@@ -16,11 +16,4 @@ if [ "x${BUILD_PROFILE}" == "xintel" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
 
-# This is here because the jetson-ai-lab.io PyPI mirror's root PyPI endpoint (pypi.jetson-ai-lab.io/root/pypi/)
-# returns 503 errors when uv tries to fall back to it for packages not found in the specific subdirectory.
-# We need uv to continue falling through to the official PyPI index when it encounters these errors.
-if [ "x${BUILD_PROFILE}" == "xl4t12" ] || [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
-    EXTRA_PIP_INSTALL_FLAGS+=" --index-strategy=unsafe-first-match"
-fi
-
 installRequirements
