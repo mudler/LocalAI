@@ -20,22 +20,14 @@ TARGET_LIB_DIR="${1:-./lib}"
 # Create target directory if it doesn't exist
 mkdir -p "$TARGET_LIB_DIR"
 
-# Associative array to track copied files (keyed by inode to detect hardlinks and duplicates)
-declare -A COPIED_INODES
-# Associative array to track copied file paths
+# Associative array to track copied files by basename
 declare -A COPIED_FILES
-
-# Helper function to get inode of a file (cross-platform: Linux and BSD/macOS)
-get_inode() {
-    local file="$1"
-    stat -c '%i' "$file" 2>/dev/null || stat -f '%i' "$file" 2>/dev/null
-}
 
 # Helper function to copy library preserving symlinks structure
 # Instead of following symlinks and duplicating files, this function:
 # 1. Resolves symlinks to their real target
 # 2. Copies the real file only once
-# 3. Recreates the symlink structure in the target directory
+# 3. Recreates symlinks pointing to the real file
 copy_lib() {
     local src="$1"
 
@@ -66,14 +58,9 @@ copy_lib() {
         local real_basename
         real_basename=$(basename "$real_file")
 
-        # Get inode of the real file to track duplicates
-        local inode
-        inode=$(get_inode "$real_file")
-
-        # Copy the real file if we haven't already (check by inode and filename)
-        if [[ -z "${COPIED_INODES[$inode]:-}" ]] && [[ -z "${COPIED_FILES[$real_basename]:-}" ]]; then
+        # Copy the real file if we haven't already
+        if [[ -z "${COPIED_FILES[$real_basename]:-}" ]]; then
             cp -v "$real_file" "$TARGET_LIB_DIR/$real_basename" 2>/dev/null || true
-            COPIED_INODES[$inode]="$real_basename"
             COPIED_FILES[$real_basename]=1
         fi
 
@@ -84,14 +71,9 @@ copy_lib() {
         fi
         COPIED_FILES[$src_basename]=1
     else
-        # Source is a regular file
-        local inode
-        inode=$(get_inode "$src")
-
-        # Copy only if we haven't already copied this file (by inode or name)
-        if [[ -z "${COPIED_INODES[$inode]:-}" ]] && [[ -z "${COPIED_FILES[$src_basename]:-}" ]]; then
+        # Source is a regular file - copy if not already copied
+        if [[ -z "${COPIED_FILES[$src_basename]:-}" ]]; then
             cp -v "$src" "$TARGET_LIB_DIR/$src_basename" 2>/dev/null || true
-            COPIED_INODES[$inode]="$src_basename"
         fi
         COPIED_FILES[$src_basename]=1
     fi
@@ -350,7 +332,6 @@ package_gpu_libs() {
 
 # Export the function so it can be sourced and called
 export -f package_gpu_libs
-export -f get_inode
 export -f copy_lib
 export -f copy_libs_glob
 export -f package_cuda_libs
