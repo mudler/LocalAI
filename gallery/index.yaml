@@ -1,4 +1,29 @@
 ---
+- name: "smollm3-3b-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SmolLM3-3B-heretic-GGUF
+  description: |
+    The model `mradermacher/SmolLM3-3B-heretic-GGUF` is a quantized version of the **SmolLM3-3B** language model, optimized for efficiency through techniques like **x-f16** and **Q4_K_S** quantization. It is a **3-billion parameter** model designed for lightweight tasks, such as text generation and reasoning, with a focus on performance and memory efficiency. The quantization reduces computational costs while maintaining reasonable accuracy for practical use cases. It is not the original model by the author, but a variant tailored for deployment in resource-constrained environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SmolLM3-3B-heretic.Q4_K_M.gguf
+    name: SmolLM3-3B-heretic-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SmolLM3-3B-heretic-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SmolLM3-3B-heretic.Q4_K_M.gguf
+      sha256: 1d87fd5d93653724e3ce51cf25a3f1653fee32fbd50659406033752e100efee3
+      uri: https://huggingface.co/mradermacher/SmolLM3-3B-heretic-GGUF/resolve/main/SmolLM3-3B-heretic.Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
