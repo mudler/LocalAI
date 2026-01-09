@@ -1,4 +1,42 @@
 ---
+- name: "batchonline-grpo-14b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/BatchOnline-GRPO-14B-GGUF
+  description: |
+    **Model Name:** BatchOnline-GRPO-14B
+    **Base Model:** Aletheia-Bench/BatchOnline-GRPO-14B
+    **Language:** English
+    **License:** CC BY-NC-SA 4.0
+
+    This is a quantized version of the Aletheia-Bench/BatchOnline-GRPO-14B model, optimized for efficiency with Q4_K_S quantization (recommended for speed and quality). It supports GGUF format and offers multiple quantized variants (Q2_K, Q4_K_S, Q8_0) for different performance needs. The model is designed for online use and includes support for concatenating multi-part files.
+
+    **Key Features:**
+      - Optimized for fast inference with Q4_K_S quantization.
+      - Available in GGUF format for easy deployment.
+      - Supports English and other languages (check documentation for details).
+      - Licensed under CC BY-NC-SA 4.0.
+
+    For detailed usage instructions, refer to the [model page](https://hf.tst.eu/model#BatchOnline-GRPO-14B-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/BatchOnline-GRPO-14B.Q4_K_M.gguf
+    name: BatchOnline-GRPO-14B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/BatchOnline-GRPO-14B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/BatchOnline-GRPO-14B.Q4_K_M.gguf
+      sha256: b9e54fe80761ea7eab3affd3c3a3632bb757a5aa41c92408fcdfd7bb80e4e691
+      uri: https://huggingface.co/mradermacher/BatchOnline-GRPO-14B-GGUF/resolve/main/BatchOnline-GRPO-14B.Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
