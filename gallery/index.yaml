@@ -1,4 +1,45 @@
 ---
+- name: "spacebound-24b-v1-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SpaceBound-24B-v1-i1-GGUF
+  description: |
+    **Model Name:** SpaceBound-24B-v1-i1-GGUF
+    **Base Model:** Naphula/SpaceBound-24B-v1
+    **License:** Apache-2.0
+
+    This is an experimental hybrid model derived from the WeirdCompound/BereavedCompound series, merged via **slerp**, **nuslerp**, and **flux** techniques. It combines multiple pre-trained models (e.g., Cydonia, Magidonia, Loki, and others) to create a large-scale language model. The merge was archival and testing-focused, potentially sacrificing performance for quality.
+
+    **Key Features:**
+      - Merged via advanced interpolation methods (slerp, nuslerp, flux).
+      - Integrates diverse components (e.g., storytelling, adventure, AI, and RP elements).
+      - Optimized for size/speed/quality with IQ3_M and Q4_K_S quantization.
+      - Available as a GGUF file for efficient deployment.
+
+    **Use Cases:**
+      - General-purpose language understanding & generation.
+      - Testing/educational purposes (as noted in the README).
+
+    **Note:** This model is not quantized by the original author and is a modified version of the base model. For production use, consider the original model's quantization.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SpaceBound-24B-v1.i1-Q4_K_M.gguf
+    name: SpaceBound-24B-v1-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SpaceBound-24B-v1-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SpaceBound-24B-v1.i1-Q4_K_M.gguf
+      sha256: a73c8fe78165c382a336b0792bbdc5255a8018db0173273307ef87927369f0ef
+      uri: https://huggingface.co/mradermacher/SpaceBound-24B-v1-i1-GGUF/resolve/main/SpaceBound-24B-v1.i1-Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
