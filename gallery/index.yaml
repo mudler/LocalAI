@@ -1,4 +1,29 @@
 ---
+- name: "llama-3.3-8b-instruct-128k-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Llama-3.3-8B-Instruct-128K-heretic-GGUF
+  description: |
+    The **Llama-3.3-8B-Instruct-128K-heretic** is a quantized version of the Llama-3.3-8B model, optimized for efficient deployment using the GGUF format. It features 8 billion parameters and supports multiple quantization levels (e.g., Q2_K, Q4_K_S, Q8_0) for trade-offs between accuracy and inference speed. The model is designed for instruction-following tasks and includes tags like "uncensored," "decensored," and "abliterated" to emphasize its use in content generation. Downloadable in various formats (GGUF), it offers flexibility for different application needs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Llama-3.3-8B-Instruct-128K-heretic.Q4_K_M.gguf
+    name: Llama-3.3-8B-Instruct-128K-heretic-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Llama-3.3-8B-Instruct-128K-heretic-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Llama-3.3-8B-Instruct-128K-heretic.Q4_K_M.gguf
+      sha256: 8f81b156c0efcaa169fab7aff21f1a7a927b8342f713a929f9c6e888b1e07c87
+      uri: https://huggingface.co/mradermacher/Llama-3.3-8B-Instruct-128K-heretic-GGUF/resolve/main/Llama-3.3-8B-Instruct-128K-heretic.Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
