@@ -1,4 +1,29 @@
 ---
+- name: "ltx-2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/QuantStack/LTX-2-GGUF
+  description: |
+    The model, **LTX-2**, is a large language model optimized for specific tasks, such as generation and reasoning. It is not the original model authored by the repository's creators, but rather a quantized version of a larger model. The model is designed for efficient inference and is compatible with the GGUF format. For detailed specifications, refer to the official documentation or the README file provided in the repository.
+  overrides:
+    parameters:
+      model: llama-cpp/models/LTX-2-dev-Q4_K_S.gguf
+    name: LTX-2-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/QuantStack/LTX-2-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LTX-2-dev-Q4_K_S.gguf
+      sha256: 48bfc4a65a3cacb4dab7472990e426c1ae4e34c1e669b7b99be59bde96c5940e
+      uri: https://huggingface.co/QuantStack/LTX-2-GGUF/resolve/main/LTX-2-dev/LTX-2-dev-Q4_K_S.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
