@@ -1,4 +1,46 @@
 ---
+- name: "deepseek-v3.2-speciale"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ubergarm/DeepSeek-V3.2-Speciale-GGUF
+  description: |
+    **Model Name:** DeepSeek-V3.2
+    **License:** MIT
+    **Purpose:** Efficient reasoning and agentic AI for complex tasks.
+
+    **Key Features:**
+      - **Efficient Reasoning:** Optimized for long-context scenarios using **DeepSeek Sparse Attention (DSA)** to balance performance and computation.
+      - **High-Performance:** Matches GPT-5 in reasoning and outperforms Gemini-3.0-Pro on benchmark tasks.
+      - **Agentic Capabilities:** Built for interactive, tool-use scenarios via a scalable agentic task synthesis pipeline.
+      - **Competition Success:** Achieved gold-medal results in the 2025 IMO, IOI, ICPC, and CMO.
+
+    **Use Cases:**
+      - Deep reasoning tasks (e.g., mathematical problem-solving, coding challenges).
+      - Interactive, agent-driven applications (e.g., chatbots, tool-assisted workflows).
+
+    **Availability:**
+      - Hosted on [Hugging Face](https://huggingface.co/deepseek-ai) and [Discord](https://discord.gg/Tc7c45Zzu5).
+
+    **Note:** This is a quantized version of the base model. The base model (DeepSeek-V3.2-Speciale) is available for direct use.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-V3.2-Speciale-smol-IQ2_KS-00005-of-00005.gguf
+    name: DeepSeek-V3.2-Speciale-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ubergarm/DeepSeek-V3.2-Speciale-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DeepSeek-V3.2-Speciale-smol-IQ2_KS-00005-of-00005.gguf
+      sha256: 2bce0f5490fd97c73a0f9b2d49952065ed31d4ff22a9d75efef1e6c1fa9656e6
+      uri: https://huggingface.co/ubergarm/DeepSeek-V3.2-Speciale-GGUF/resolve/main/smol-IQ2_KS/DeepSeek-V3.2-Speciale-smol-IQ2_KS-00005-of-00005.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
