@@ -1,4 +1,29 @@
 ---
+- name: "gguf_s-mixed-autoround-minimax-m2.1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Felladrin/gguf-Q2_K_S-Mixed-AutoRound-MiniMax-M2.1
+  description: |
+    This is a quantized version of the MiniMax-M2.1 model, optimized for efficiency with the Q2_K_S format. It uses 8-bit precision for the embedding and lm-head layers, while 4-bit precision is applied to other layers. The model is generated using the auto-round technique, and its license is modified MIT. It is derived from the base model MiniMaxAI/MiniMax-M2.1.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.1-256x4.9B-Q2_K_S.gguf
+    name: gguf-Q2_K_S-Mixed-AutoRound-MiniMax-M2.1
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Felladrin/gguf-Q2_K_S-Mixed-AutoRound-MiniMax-M2.1
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.1-256x4.9B-Q2_K_S.gguf
+      sha256: 0b60d11e72036bfbbd40b59e0a61e56a417a6dacbfa06d53d8c5c9affb3dc021
+      uri: https://huggingface.co/Felladrin/gguf-Q2_K_S-Mixed-AutoRound-MiniMax-M2.1/resolve/main/MiniMax-M2.1-256x4.9B-Q2_K_S.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
