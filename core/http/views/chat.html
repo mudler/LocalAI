@@ -41,13 +41,23 @@ SOFTWARE.
     __chatContextSize = {{ .ContextSize }};
     {{ end }}
 
-    // Store gallery configs for header icon display
+    // Store gallery configs for header icon display and model info modal
     window.__galleryConfigs = {};
     {{ $allGalleryConfigs:=.GalleryConfig }}
     {{ range $modelName, $galleryConfig := $allGalleryConfigs }}
     window.__galleryConfigs["{{$modelName}}"] = {};
     {{ if $galleryConfig.Icon }}
     window.__galleryConfigs["{{$modelName}}"].Icon = "{{$galleryConfig.Icon}}";
+    {{ end }}
+    {{ if $galleryConfig.Description }}
+    window.__galleryConfigs["{{$modelName}}"].Description = {{ printf "%q" $galleryConfig.Description }};
+    {{ end }}
+    {{ if $galleryConfig.URLs }}
+    window.__galleryConfigs["{{$modelName}}"].URLs = [
+      {{ range $idx, $url := $galleryConfig.URLs }}
+      {{ if $idx }},{{ end }}{{ printf "%q" $url }}
+      {{ end }}
+    ];
     {{ end }}
     {{ end }}
 
@@ -326,10 +336,10 @@ SOFTWARE.
                 c += DOMPurify.sanitize(marked.parse(line));
               });
             }
-            // Set expanded state: thinking is expanded by default in non-MCP mode, collapsed in MCP mode
-            // Reasoning, tool_call, and tool_result are always collapsed by default
+            // Set expanded state: thinking and reasoning are expanded by default in non-MCP mode, collapsed in MCP mode
+            // tool_call and tool_result are always collapsed by default
             const isMCPMode = chat.mcpMode || false;
-            const shouldExpand = (role === "thinking" && !isMCPMode) || false;
+            const shouldExpand = ((role === "thinking" || role === "reasoning") && !isMCPMode) || false;
             chat.history.push({ role, content, html: c, image, audio, expanded: shouldExpand, model: messageModel });
             
             // Auto-name chat from first user message
@@ -497,6 +507,11 @@ SOFTWARE.
       activeChat.model = modelName;
       activeChat.updatedAt = Date.now();
       
+      // Update model info modal with new model
+      if (window.updateModelInfoModal) {
+        window.updateModelInfoModal(modelName);
+      }
+      
       // Get context size from data attribute
       let contextSize = null;
       if (selectedOption.dataset.contextSize) {
@@ -536,18 +551,23 @@ SOFTWARE.
       }
       
       // Update model selector to reflect the change (ensure it stays in sync)
+      // Note: We don't dispatch a change event here to avoid infinite loop
+      // The selector is already updated via user interaction or programmatic change
       const modelSelector = document.getElementById('modelSelector');
       if (modelSelector) {
         // Find and select the option matching the model
         const optionValue = 'chat/' + modelName;
         for (let i = 0; i < modelSelector.options.length; i++) {
           if (modelSelector.options[i].value === optionValue) {
-            modelSelector.selectedIndex = i;
+            // Only update if it's different to avoid unnecessary updates
+            if (modelSelector.selectedIndex !== i) {
+              modelSelector.selectedIndex = i;
+            }
             break;
           }
         }
-        // Trigger Alpine reactivity by dispatching change event
-        modelSelector.dispatchEvent(new Event('change', { bubbles: true }));
+        // Don't dispatch change event here - it would cause infinite recursion
+        // The selector is already in sync with the model
       }
       
       // Trigger MCP availability check in Alpine component
@@ -603,27 +623,52 @@ SOFTWARE.
             <div class="flex items-center justify-between gap-2">
               <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
               <div class="flex items-center gap-1 flex-shrink-0">
-                {{ if $model }}
-                {{ $galleryConfig:= index $allGalleryConfigs $model}}
-                {{ if $galleryConfig }}
-                <button 
-                  data-twe-ripple-init 
-                  data-twe-ripple-color="light" 
-                  class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
-                  data-modal-target="model-info-modal" 
-                  data-modal-toggle="model-info-modal"
-                  title="Model Information">
-                  <i class="fas fa-info-circle"></i>
-                </button>
-                {{ end }}
-                {{ end }}
-                {{ if $model }}
-                <a href="/models/edit/{{$model}}" 
-                   class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
-                   title="Edit Model Configuration">
-                  <i class="fas fa-edit"></i>
-                </a>
-                {{ end }}
+                <!-- Info button - reactive to active chat model -->
+                <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model && window.__galleryConfigs && window.__galleryConfigs[$store.chat.activeChat().model]">
+                  <button 
+                    data-twe-ripple-init 
+                    data-twe-ripple-color="light" 
+                    class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                    data-modal-target="model-info-modal" 
+                    data-modal-toggle="model-info-modal"
+                    :data-model-name="$store.chat.activeChat().model"
+                    @click="if (window.updateModelInfoModal) { window.updateModelInfoModal($store.chat.activeChat().model, true); }"
+                    title="Model Information">
+                    <i class="fas fa-info-circle"></i>
+                  </button>
+                </template>
+                <!-- Fallback info button for initial model from server -->
+                <template x-if="(!$store.chat.activeChat() || !$store.chat.activeChat().model) && window.__galleryConfigs && window.__galleryConfigs['{{$model}}']">
+                  <button 
+                    data-twe-ripple-init 
+                    data-twe-ripple-color="light" 
+                    class="text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                    data-modal-target="model-info-modal" 
+                    data-modal-toggle="model-info-modal"
+                    data-model-name="{{$model}}"
+                    @click="if (window.updateModelInfoModal) { window.updateModelInfoModal('{{$model}}', true); }"
+                    title="Model Information">
+                    <i class="fas fa-info-circle"></i>
+                  </button>
+                </template>
+                <!-- Edit button - reactive to active chat model -->
+                <template x-if="$store.chat.activeChat() && $store.chat.activeChat().model">
+                  <a :href="'/models/edit/' + $store.chat.activeChat().model" 
+                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                     title="Edit Model Configuration">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                </template>
+                <!-- Fallback edit button for initial model from server -->
+                <template x-if="!$store.chat.activeChat() || !$store.chat.activeChat().model">
+                  {{ if $model }}
+                  <a href="/models/edit/{{$model}}" 
+                     class="text-[var(--color-text-secondary)] hover:text-[var(--color-warning)] transition-colors text-xs p-1 rounded hover:bg-[var(--color-bg-primary)]" 
+                     title="Edit Model Configuration">
+                    <i class="fas fa-edit"></i>
+                  </a>
+                  {{ end }}
+                </template>
               </div>
             </div>
             <select
@@ -1488,17 +1533,14 @@ SOFTWARE.
       </div>
     </div>
 
-    <!-- Modal moved outside of sidebar to appear in center of page -->
-    {{ if $model }}
-    {{ $galleryConfig:= index $allGalleryConfigs $model}}
-    {{ if $galleryConfig }}
-    <div id="model-info-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <!-- Modal moved outside of sidebar to appear in center of page - Always available, content updated dynamically -->
+    <div id="model-info-modal" tabindex="-1" aria-hidden="true" class="hidden overflow-y-auto overflow-x-hidden fixed top-0 right-0 left-0 z-50 flex justify-center items-center w-full h-full md:inset-0 max-h-full" style="padding: 1rem;">
       <div class="relative p-4 w-full max-w-2xl max-h-full">
         <div class="relative p-4 w-full max-w-2xl max-h-full bg-white rounded-lg shadow dark:bg-gray-700">
           <!-- Header -->
           <div class="flex items-center justify-between p-4 md:p-5 border-b rounded-t dark:border-gray-600">
-            <h3 class="text-xl font-semibold text-gray-900 dark:text-white">{{ $model }}</h3>
-            <button class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="model-info-modal">
+            <h3 id="model-info-modal-title" class="text-xl font-semibold text-gray-900 dark:text-white">{{ if $model }}{{ $model }}{{ end }}</h3>
+            <button class="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:hover:bg-gray-600 dark:hover:text-white" data-modal-hide="model-info-modal" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
               <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                 <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
               </svg>
@@ -1509,29 +1551,24 @@ SOFTWARE.
           <!-- Body -->
           <div class="p-4 md:p-5 space-y-4">
             <div class="flex justify-center items-center">
-              {{ if $galleryConfig.Icon }}<img class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" src="{{$galleryConfig.Icon}}" loading="lazy"/>{{end}}
+              <img id="model-info-modal-icon" class="lazy rounded-t-lg max-h-48 max-w-96 object-cover mt-3 entered loaded" style="display: none;" loading="lazy"/>
             </div>
-            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full">{{ $galleryConfig.Description }}</div>
+            <div id="model-info-description" class="text-base leading-relaxed text-gray-500 dark:text-gray-400 break-words max-w-full"></div>
             <hr>
             <p class="text-sm font-semibold text-gray-900 dark:text-white">Links</p>
-            <ul>
-              {{range $galleryConfig.URLs}}
-              <li><a href="{{ . }}" target="_blank">{{ . }}</a></li>
-              {{end}}
+            <ul id="model-info-links">
             </ul>
           </div>
 
           <!-- Footer -->
           <div class="flex items-center p-4 md:p-5 border-t border-gray-200 rounded-b dark:border-gray-600">
-            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700">
+            <button data-modal-hide="model-info-modal" class="py-2.5 px-5 ms-3 text-sm font-medium text-gray-900 focus:outline-none bg-white rounded-lg border border-gray-200 hover:bg-gray-100 hover:text-blue-700 focus:z-10 focus:ring-4 focus:ring-gray-100 dark:focus:ring-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-600 dark:hover:text-white dark:hover:bg-gray-700" @click="if (window.closeModelInfoModal) { window.closeModelInfoModal(); }">
               Close
             </button>
           </div>
         </div>
       </div>
     </div>
-    {{ end }}
-    {{ end }}
 
     <!-- Alpine store initialization and utilities -->
     <script>
@@ -1742,10 +1779,20 @@ SOFTWARE.
         });
 
         // Also listen for click events on modal toggle buttons
-        document.querySelectorAll('[data-modal-toggle="model-info-modal"]').forEach(button => {
-          button.addEventListener('click', () => {
+        // Use event delegation to handle dynamically created buttons
+        document.addEventListener('click', (e) => {
+          const button = e.target.closest('[data-modal-toggle="model-info-modal"]');
+          if (button) {
+            // Update modal with current model before showing
+            if (window.Alpine && window.Alpine.store("chat")) {
+              const activeChat = window.Alpine.store("chat").activeChat();
+              const modelName = activeChat ? activeChat.model : (button.dataset.modelName || (document.getElementById("chat-model") ? document.getElementById("chat-model").value : null));
+              if (modelName && window.updateModelInfoModal) {
+                window.updateModelInfoModal(modelName, true);
+              }
+            }
             setTimeout(processMarkdown, 300);
-          });
+          }
         });
 
         // Process on initial load if libraries are ready
@@ -1786,12 +1833,176 @@ SOFTWARE.
         syncModelSelectorOnLoad();
       }
 
+      // Function to update model info modal with current model
+      // Set openModal to true to actually open the modal, false to just update content
+      window.updateModelInfoModal = function(modelName, openModal = false) {
+        if (!modelName) {
+          return;
+        }
+        if (!window.__galleryConfigs) {
+          return;
+        }
+        
+        const galleryConfig = window.__galleryConfigs[modelName];
+        // Check if galleryConfig exists and has at least one property
+        if (!galleryConfig || Object.keys(galleryConfig).length === 0) {
+          // Still update the modal title even if no config, so user can see which model they clicked
+          const titleEl = document.getElementById('model-info-modal-title');
+          if (titleEl) {
+            titleEl.textContent = modelName;
+          }
+          // Show message that no info is available
+          const descEl = document.getElementById('model-info-description');
+          if (descEl) {
+            descEl.textContent = 'No additional information available for this model.';
+          }
+          const linksEl = document.getElementById('model-info-links');
+          if (linksEl) {
+            linksEl.innerHTML = '';
+          }
+          const iconEl = document.getElementById('model-info-modal-icon');
+          if (iconEl) {
+            iconEl.style.display = 'none';
+          }
+          // Only open the modal if explicitly requested
+          if (openModal) {
+            const modalElement = document.getElementById('model-info-modal');
+            if (modalElement) {
+              modalElement.classList.remove('hidden');
+              modalElement.setAttribute('aria-hidden', 'false');
+              // Add backdrop
+              let backdrop = document.querySelector('.modal-backdrop');
+              if (!backdrop) {
+                backdrop = document.createElement('div');
+                backdrop.className = 'modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-80 z-40';
+                document.body.appendChild(backdrop);
+                backdrop.addEventListener('click', () => {
+                  closeModelInfoModal();
+                });
+              }
+            }
+          }
+          return;
+        }
+        
+        // Update modal title
+        const titleEl = document.getElementById('model-info-modal-title');
+        if (titleEl) {
+          titleEl.textContent = modelName;
+        }
+        
+        // Update icon
+        const iconEl = document.getElementById('model-info-modal-icon');
+        if (iconEl) {
+          if (galleryConfig.Icon) {
+            iconEl.src = galleryConfig.Icon;
+            iconEl.style.display = 'block';
+          } else {
+            iconEl.style.display = 'none';
+          }
+        }
+        
+        // Update description
+        const descEl = document.getElementById('model-info-description');
+        if (descEl) {
+          descEl.textContent = galleryConfig.Description || 'No description available.';
+        }
+        
+        // Update links
+        const linksEl = document.getElementById('model-info-links');
+        if (linksEl && galleryConfig.URLs && Array.isArray(galleryConfig.URLs) && galleryConfig.URLs.length > 0) {
+          linksEl.innerHTML = '';
+          galleryConfig.URLs.forEach(url => {
+            const li = document.createElement('li');
+            const a = document.createElement('a');
+            a.href = url;
+            a.target = '_blank';
+            a.textContent = url;
+            li.appendChild(a);
+            linksEl.appendChild(li);
+          });
+        } else if (linksEl) {
+          linksEl.innerHTML = '<li>No links available</li>';
+        }
+        
+        // Only open the modal if explicitly requested
+        if (openModal) {
+          const modalElement = document.getElementById('model-info-modal');
+          if (modalElement) {
+            // Ensure positioning classes are present (they might have been removed)
+            if (!modalElement.classList.contains('flex')) {
+              modalElement.classList.add('flex');
+            }
+            if (!modalElement.classList.contains('justify-center')) {
+              modalElement.classList.add('justify-center');
+            }
+            if (!modalElement.classList.contains('items-center')) {
+              modalElement.classList.add('items-center');
+            }
+            // Ensure fixed positioning
+            if (!modalElement.classList.contains('fixed')) {
+              modalElement.classList.add('fixed');
+            }
+            // Ensure full width and height
+            if (!modalElement.classList.contains('w-full')) {
+              modalElement.classList.add('w-full');
+            }
+            if (!modalElement.classList.contains('h-full')) {
+              modalElement.classList.add('h-full');
+            }
+            // Ensure padding is set
+            if (!modalElement.style.padding) {
+              modalElement.style.padding = '1rem';
+            }
+            // Remove hidden class if present
+            modalElement.classList.remove('hidden');
+            // Set aria-hidden to false
+            modalElement.setAttribute('aria-hidden', 'false');
+            // Add backdrop if needed
+            let backdrop = document.querySelector('.modal-backdrop');
+            if (!backdrop) {
+              backdrop = document.createElement('div');
+              backdrop.className = 'modal-backdrop fixed inset-0 bg-gray-900 bg-opacity-50 dark:bg-opacity-80 z-40';
+              document.body.appendChild(backdrop);
+              backdrop.addEventListener('click', () => {
+                window.closeModelInfoModal();
+              });
+            }
+          }
+        }
+      };
+      
+      // Function to close the model info modal
+      window.closeModelInfoModal = function() {
+        const modalElement = document.getElementById('model-info-modal');
+        if (modalElement) {
+          modalElement.classList.add('hidden');
+          modalElement.setAttribute('aria-hidden', 'true');
+        }
+        const backdrop = document.querySelector('.modal-backdrop');
+        if (backdrop) {
+          backdrop.remove();
+        }
+      };
+
       // Also sync after Alpine initializes (in case it runs after DOMContentLoaded)
+      function initializeModelInfo() {
+        syncModelSelectorOnLoad();
+        // Initialize model info modal content with current model (but don't open it)
+        if (window.updateModelInfoModal && window.Alpine && window.Alpine.store("chat")) {
+          const activeChat = window.Alpine.store("chat").activeChat();
+          const modelName = activeChat ? activeChat.model : (document.getElementById("chat-model") ? document.getElementById("chat-model").value : null);
+          if (modelName) {
+            window.updateModelInfoModal(modelName, false); // false = don't open, just update content
+          }
+        }
+      }
+      
       if (window.Alpine) {
-        Alpine.nextTick(syncModelSelectorOnLoad);
+        Alpine.nextTick(initializeModelInfo);
       } else {
         document.addEventListener('alpine:init', () => {
-          Alpine.nextTick(syncModelSelectorOnLoad);
+          Alpine.nextTick(initializeModelInfo);
         });
       }
     </script>
