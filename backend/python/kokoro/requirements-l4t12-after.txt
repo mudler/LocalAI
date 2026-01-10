@@ -1,4 +1,0 @@
-transformers
-accelerate
-kokoro
-soundfile
