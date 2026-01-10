@@ -176,7 +176,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(message.Content).ToNot(BeEmpty())
 
-				// Check if there's a tool use in the response
+				// The model must use tools - find the tool use in the response
 				hasToolUse := false
 				for _, block := range message.Content {
 					if block.Type == anthropic.ContentBlockTypeToolUse {
@@ -191,10 +191,9 @@ var _ = Describe("Anthropic API E2E test", func() {
 					}
 				}
 
-				// If tool_use is returned, verify stop reason
-				if hasToolUse {
-					Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
-				}
+				// Model must have called the tool
+				Expect(hasToolUse).To(BeTrue(), "Model should have called the get_weather tool")
+				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
 			})
 
 			It("handles tool_choice parameter", func() {
@@ -253,7 +252,7 @@ var _ = Describe("Anthropic API E2E test", func() {
 
 				Expect(err).ToNot(HaveOccurred())
 
-				// Find the tool use block
+				// Find the tool use block - model must call the tool
 				var toolUseID string
 				var toolUseName string
 				for _, block := range firstMessage.Content {
@@ -264,35 +263,36 @@ var _ = Describe("Anthropic API E2E test", func() {
 					}
 				}
 
-				// If we got a tool use, send back a tool result
-				if toolUseID != "" {
-					secondMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
-						Model:     "gpt-4",
-						MaxTokens: 1024,
-						Messages: []anthropic.MessageParam{
-							anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
-							anthropic.NewAssistantMessage(firstMessage.Content...),
-							anthropic.NewUserMessage(
-								anthropic.NewToolResultBlock(toolUseID, "Sunny, 72°F", false),
-							),
-						},
-						Tools: []anthropic.ToolParam{
-							{
-								Name:        toolUseName,
-								Description: anthropic.F("Get weather"),
-								InputSchema: anthropic.F(map[string]interface{}{
-									"type": "object",
-									"properties": map[string]interface{}{
-										"location": map[string]interface{}{"type": "string"},
-									},
-								}),
-							},
-						},
-					})
+				// Model must have called the tool
+				Expect(toolUseID).ToNot(BeEmpty(), "Model should have called the get_weather tool")
 
-					Expect(err).ToNot(HaveOccurred())
-					Expect(secondMessage.Content).ToNot(BeEmpty())
-				}
+				// Send back a tool result and verify it's handled correctly
+				secondMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
+						anthropic.NewAssistantMessage(firstMessage.Content...),
+						anthropic.NewUserMessage(
+							anthropic.NewToolResultBlock(toolUseID, "Sunny, 72°F", false),
+						),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        toolUseName,
+							Description: anthropic.F("Get weather"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{"type": "string"},
+								},
+							}),
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(secondMessage.Content).ToNot(BeEmpty())
 			})
 		})
 	})
