@@ -294,6 +294,82 @@ var _ = Describe("Anthropic API E2E test", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(secondMessage.Content).ToNot(BeEmpty())
 			})
+
+			It("handles tool calls in streaming mode", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get the current weather in a given location"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{
+										"type":        "string",
+										"description": "The city and state, e.g. San Francisco, CA",
+									},
+								},
+								"required": []string{"location"},
+							}),
+						},
+					},
+				})
+
+				message := anthropic.Message{}
+				eventCount := 0
+				hasToolUseBlock := false
+				hasContentBlockStart := false
+				hasContentBlockDelta := false
+				hasContentBlockStop := false
+
+				for stream.Next() {
+					event := stream.Current()
+					err := message.Accumulate(event)
+					Expect(err).ToNot(HaveOccurred())
+					eventCount++
+
+					// Check for different event types related to tool use
+					switch e := event.AsAny().(type) {
+					case anthropic.ContentBlockStartEvent:
+						hasContentBlockStart = true
+						if e.ContentBlock.Type == anthropic.ContentBlockTypeToolUse {
+							hasToolUseBlock = true
+						}
+					case anthropic.ContentBlockDeltaEvent:
+						hasContentBlockDelta = true
+					case anthropic.ContentBlockStopEvent:
+						hasContentBlockStop = true
+					}
+				}
+
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(eventCount).To(BeNumerically(">", 0))
+
+				// Verify streaming events were emitted
+				Expect(hasContentBlockStart).To(BeTrue(), "Should have content_block_start event")
+				Expect(hasContentBlockDelta).To(BeTrue(), "Should have content_block_delta event")
+				Expect(hasContentBlockStop).To(BeTrue(), "Should have content_block_stop event")
+
+				// Check accumulated message has tool use
+				Expect(message.Content).ToNot(BeEmpty())
+				
+				// Model must have called the tool
+				foundToolUse := false
+				for _, block := range message.Content {
+					if block.Type == anthropic.ContentBlockTypeToolUse {
+						foundToolUse = true
+						Expect(block.Name).To(Equal("get_weather"))
+						Expect(block.ID).ToNot(BeEmpty())
+					}
+				}
+				Expect(foundToolUse).To(BeTrue(), "Model should have called the get_weather tool in streaming mode")
+				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
+			})
 		})
 	})
 })
