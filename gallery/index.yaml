@@ -1,4 +1,29 @@
 ---
+- name: "llamaforecaster-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/LlamaForecaster-8B-i1-GGUF
+  description: |
+    The **mradermacher/LlamaForecaster-8B-i1-GGUF** model is a quantized version of the original **nikhilchandak/LlamaForecaster-8B**, optimized for forecasting, reasoning, question-answering, reinforcement learning, and calibration tasks. It is designed for efficient deployment with various quantization levels (e.g., i1-IQ4_K_M, i1-Q4_K_M) that balance speed, size, and quality. The model supports GGUF format and offers downloadable quantized variants with sizes ranging from 0.1GB to 5GB. It leverages the original model's capabilities while adapting it for specific domain use cases.
+  overrides:
+    parameters:
+      model: llama-cpp/models/LlamaForecaster-8B.i1-Q4_K_M.gguf
+    name: LlamaForecaster-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/LlamaForecaster-8B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LlamaForecaster-8B.i1-Q4_K_M.gguf
+      sha256: 21bebc02d77c591c86829f9fb076fce55380aab3c4a51e8ea090a9386a24b940
+      uri: https://huggingface.co/mradermacher/LlamaForecaster-8B-i1-GGUF/resolve/main/LlamaForecaster-8B.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
