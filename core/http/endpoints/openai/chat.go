@@ -3,6 +3,7 @@ package openai
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,11 +35,54 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 			Created: created,
 			Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
 			Choices: []schema.Choice{{Delta: &schema.Message{Role: "assistant"}, Index: 0, FinishReason: nil}},
-			Object:  "chat.completion.chunk",
 		}
 		responses <- initialMessage
 
+		// Track accumulated content for reasoning extraction
+		accumulatedContent := ""
+		lastEmittedReasoning := ""
+		lastEmittedCleanedContent := ""
+
 		_, _, err := ComputeChoices(req, s, config, cl, startupOptions, loader, func(s string, c *[]schema.Choice) {}, func(s string, tokenUsage backend.TokenUsage) bool {
+			accumulatedContent += s
+			// Extract reasoning from accumulated content
+			currentReasoning, cleanedContent := functions.ExtractReasoning(accumulatedContent)
+
+			// Calculate new reasoning delta (what we haven't emitted yet)
+			var reasoningDelta *string
+			if currentReasoning != lastEmittedReasoning {
+				// Extract only the new part
+				if len(currentReasoning) > len(lastEmittedReasoning) && strings.HasPrefix(currentReasoning, lastEmittedReasoning) {
+					newReasoning := currentReasoning[len(lastEmittedReasoning):]
+					reasoningDelta = &newReasoning
+					lastEmittedReasoning = currentReasoning
+				} else if currentReasoning != "" {
+					// If reasoning changed in a non-append way, emit the full current reasoning
+					reasoningDelta = &currentReasoning
+					lastEmittedReasoning = currentReasoning
+				}
+			}
+
+			// Calculate content delta from cleaned content
+			var deltaContent string
+			if len(cleanedContent) > len(lastEmittedCleanedContent) && strings.HasPrefix(cleanedContent, lastEmittedCleanedContent) {
+				deltaContent = cleanedContent[len(lastEmittedCleanedContent):]
+				lastEmittedCleanedContent = cleanedContent
+			} else if cleanedContent != lastEmittedCleanedContent {
+				// If cleaned content changed but not in a simple append, extract delta from cleaned content
+				// This handles cases where thinking tags are removed mid-stream
+				if lastEmittedCleanedContent == "" {
+					deltaContent = cleanedContent
+					lastEmittedCleanedContent = cleanedContent
+				} else {
+					// Content changed in non-append way, use the new cleaned content
+					deltaContent = cleanedContent
+					lastEmittedCleanedContent = cleanedContent
+				}
+			}
+			// Only emit content if there's actual content (not just thinking tags)
+			// If deltaContent is empty, we still emit the response but with empty content
+
 			usage := schema.OpenAIUsage{
 				PromptTokens:     tokenUsage.Prompt,
 				CompletionTokens: tokenUsage.Completion,
@@ -49,11 +93,20 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
 
+			delta := &schema.Message{}
+			// Only include content if there's actual content (not just thinking tags)
+			if deltaContent != "" {
+				delta.Content = &deltaContent
+			}
+			if reasoningDelta != nil && *reasoningDelta != "" {
+				delta.Reasoning = reasoningDelta
+			}
+
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Content: &s}, Index: 0, FinishReason: nil}},
+				Choices: []schema.Choice{{Delta: delta, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
 				Usage:   usage,
 			}
@@ -176,6 +229,10 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		if err != nil {
 			return err
 		}
+		// Extract reasoning before processing tool calls
+		reasoning, cleanedResult := functions.ExtractReasoning(result)
+		result = cleanedResult
+
 		textContentToReturn = functions.ParseTextContent(result, config.FunctionsConfig)
 		result = functions.CleanupLLMResult(result, config.FunctionsConfig)
 		functionResults := functions.ParseFunctionCall(result, config.FunctionsConfig)
@@ -208,11 +265,20 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 				usage.TimingPromptProcessing = tokenUsage.TimingPromptProcessing
 			}
 
+			var deltaReasoning *string
+			if reasoning != "" {
+				deltaReasoning = &reasoning
+			}
+			delta := &schema.Message{Content: &result}
+			if deltaReasoning != nil {
+				delta.Reasoning = deltaReasoning
+			}
+
 			resp := schema.OpenAIResponse{
 				ID:      id,
 				Created: created,
 				Model:   req.Model, // we have to return what the user sent here, due to OpenAI spec.
-				Choices: []schema.Choice{{Delta: &schema.Message{Content: &result}, Index: 0, FinishReason: nil}},
+				Choices: []schema.Choice{{Delta: delta, Index: 0, FinishReason: nil}},
 				Object:  "chat.completion.chunk",
 				Usage:   usage,
 			}
@@ -553,10 +619,18 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 		default:
 
 			tokenCallback := func(s string, c *[]schema.Choice) {
+				// Extract reasoning from the response
+				reasoning, cleanedS := functions.ExtractReasoning(s)
+				s = cleanedS
+
 				if !shouldUseFn {
 					// no function is called, just reply and use stop as finish reason
 					stopReason := FinishReasonStop
-					*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: &schema.Message{Role: "assistant", Content: &s}})
+					message := &schema.Message{Role: "assistant", Content: &s}
+					if reasoning != "" {
+						message.Reasoning = &reasoning
+					}
+					*c = append(*c, schema.Choice{FinishReason: &stopReason, Index: 0, Message: message})
 					return
 				}
 
@@ -575,9 +649,13 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 					}
 
 					stopReason := FinishReasonStop
+					message := &schema.Message{Role: "assistant", Content: &result}
+					if reasoning != "" {
+						message.Reasoning = &reasoning
+					}
 					*c = append(*c, schema.Choice{
 						FinishReason: &stopReason,
-						Message:      &schema.Message{Role: "assistant", Content: &result}})
+						Message:      message})
 				default:
 					toolCallsReason := FinishReasonToolCalls
 					toolChoice := schema.Choice{
@@ -585,6 +663,9 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						Message: &schema.Message{
 							Role: "assistant",
 						},
+					}
+					if reasoning != "" {
+						toolChoice.Message.Reasoning = &reasoning
 					}
 
 					for _, ss := range results {
@@ -606,16 +687,20 @@ func ChatEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, evaluator
 						} else {
 							// otherwise we return more choices directly (deprecated)
 							functionCallReason := FinishReasonFunctionCall
+							message := &schema.Message{
+								Role:    "assistant",
+								Content: &textContentToReturn,
+								FunctionCall: map[string]interface{}{
+									"name":      name,
+									"arguments": args,
+								},
+							}
+							if reasoning != "" {
+								message.Reasoning = &reasoning
+							}
 							*c = append(*c, schema.Choice{
 								FinishReason: &functionCallReason,
-								Message: &schema.Message{
-									Role:    "assistant",
-									Content: &textContentToReturn,
-									FunctionCall: map[string]interface{}{
-										"name":      name,
-										"arguments": args,
-									},
-								},
+								Message:      message,
 							})
 						}
 					}

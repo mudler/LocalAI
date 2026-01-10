@@ -1368,6 +1368,7 @@ async function promptGPT(systemPrompt, input) {
     let lastAssistantMessageIndex = -1;
     let lastThinkingMessageIndex = -1;
     let lastThinkingScrollTime = 0;
+    let hasReasoningFromAPI = false; // Track if we're receiving reasoning from API (skip tag-based detection)
     const THINKING_SCROLL_THROTTLE = 200; // Throttle scrolling to every 200ms
 
     try {
@@ -1401,19 +1402,24 @@ async function promptGPT(systemPrompt, input) {
               // Handle different event types
               switch (eventData.type) {
                 case "reasoning":
+                  hasReasoningFromAPI = true; // Mark that we're receiving reasoning from API
                   if (eventData.content) {
-                    // Insert reasoning before assistant message if it exists
+                    const currentChat = chatStore.getChat(chatId);
+                    if (!currentChat) break; // Chat was deleted
+                    const isMCPMode = currentChat.mcpMode || false;
+                    const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+                    // Insert thinking before assistant message if it exists (always use "thinking" role)
                     if (lastAssistantMessageIndex >= 0 && targetHistory[lastAssistantMessageIndex]?.role === "assistant") {
                       targetHistory.splice(lastAssistantMessageIndex, 0, {
-                        role: "reasoning",
+                        role: "thinking",
                         content: eventData.content,
                         html: DOMPurify.sanitize(marked.parse(eventData.content)),
                         image: [],
                         audio: [],
-                        expanded: false // Reasoning is always collapsed
+                        expanded: shouldExpand
                       });
                       lastAssistantMessageIndex++; // Adjust index since we inserted
-                      // Scroll smoothly after adding reasoning
+                      // Scroll smoothly after adding thinking
                       setTimeout(() => {
                         const chatContainer = document.getElementById('chat');
                         if (chatContainer) {
@@ -1425,7 +1431,7 @@ async function promptGPT(systemPrompt, input) {
                       }, 100);
                     } else {
                       // No assistant message yet, just add normally
-                      chatStore.add("reasoning", eventData.content, null, null, chatId);
+                      chatStore.add("thinking", eventData.content, null, null, chatId);
                     }
                   }
                   break;
@@ -1491,14 +1497,17 @@ async function promptGPT(systemPrompt, input) {
                     // Only update display if this is the active chat (interval will handle it)
                     // Don't call updateTokensPerSecond here to avoid unnecessary updates
                     
-                    // Check for thinking tags in the chunk (incremental detection)
-                    if (contentChunk.includes("<thinking>") || contentChunk.includes("<think>")) {
-                      isThinking = true;
-                      thinkingContent = "";
-                      lastThinkingMessageIndex = -1;
-                    }
-                    
-                    if (contentChunk.includes("</thinking>") || contentChunk.includes("</think>")) {
+                    // Only check for thinking tags if we're NOT receiving reasoning from API
+                    // This prevents duplicate thinking/reasoning messages
+                    if (!hasReasoningFromAPI) {
+                      // Check for thinking tags in the chunk (incremental detection)
+                      if (contentChunk.includes("<thinking>") || contentChunk.includes("<think>")) {
+                        isThinking = true;
+                        thinkingContent = "";
+                        lastThinkingMessageIndex = -1;
+                      }
+                      
+                      if (contentChunk.includes("</thinking>") || contentChunk.includes("</think>")) {
                       isThinking = false;
                       // When closing tag is detected, process the accumulated thinking content
                       if (thinkingContent.trim()) {
@@ -1552,10 +1561,11 @@ async function promptGPT(systemPrompt, input) {
                         }
                         thinkingContent = "";
                       }
+                      }
                     }
                     
-                    // Handle content based on thinking state
-                    if (isThinking) {
+                    // Handle content based on thinking state (only if not receiving reasoning from API)
+                    if (!hasReasoningFromAPI && isThinking) {
                       thinkingContent += contentChunk;
                       const currentChat = chatStore.getChat(chatId);
                       if (!currentChat) break; // Chat was deleted
@@ -1637,7 +1647,10 @@ async function promptGPT(systemPrompt, input) {
           
           // Process any thinking tags that might be in the accumulated content
           // This handles cases where tags are split across chunks
-          const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
+          // Only process if we're NOT receiving reasoning from API (to avoid duplicates)
+          const { regularContent: processedRegular, thinkingContent: processedThinking } = hasReasoningFromAPI
+            ? { regularContent: regularContent, thinkingContent: "" }
+            : processThinkingTags(regularContent);
           
           // Update or create assistant message with processed regular content
           const currentChat = chatStore.getChat(chatId);
@@ -1645,10 +1658,10 @@ async function promptGPT(systemPrompt, input) {
           const request = activeRequests.get(chatId);
           const requestModel = request?.model || null;
           if (lastAssistantMessageIndex === -1) {
-            if (processedRegular && processedRegular.trim()) {
-              chatStore.add("assistant", processedRegular, null, null, chatId, requestModel);
-              lastAssistantMessageIndex = targetHistory.length - 1;
-            }
+            // Create assistant message if we have any content (even if empty string after processing)
+            // This ensures the message is created and can be updated with more content later
+            chatStore.add("assistant", processedRegular || "", null, null, chatId, requestModel);
+            lastAssistantMessageIndex = targetHistory.length - 1;
           } else {
             const lastMessage = targetHistory[lastAssistantMessageIndex];
             if (lastMessage && lastMessage.role === "assistant") {
@@ -1686,7 +1699,10 @@ async function promptGPT(systemPrompt, input) {
       if (assistantContentBuffer.length > 0) {
         const regularContent = assistantContentBuffer.join("");
         // Process any remaining thinking tags that might be in the buffer
-        const { regularContent: processedRegular, thinkingContent: processedThinking } = processThinkingTags(regularContent);
+        // Only process if we're NOT receiving reasoning from API (to avoid duplicates)
+        const { regularContent: processedRegular, thinkingContent: processedThinking } = hasReasoningFromAPI
+          ? { regularContent: regularContent, thinkingContent: "" }
+          : processThinkingTags(regularContent);
         
         const currentChat = chatStore.getChat(chatId);
         if (!currentChat) {
@@ -1719,23 +1735,26 @@ async function promptGPT(systemPrompt, input) {
         }
         
         // Then update or create assistant message
+        // Always create/update assistant message if we have any content
         if (lastAssistantMessageIndex !== -1) {
           const lastMessage = targetHistory[lastAssistantMessageIndex];
           if (lastMessage && lastMessage.role === "assistant") {
             lastMessage.content = (lastMessage.content || "") + (processedRegular || "");
             lastMessage.html = DOMPurify.sanitize(marked.parse(lastMessage.content));
           }
-        } else if (processedRegular && processedRegular.trim()) {
+        } else {
+          // Create assistant message (even if empty, so it can be updated with more content)
           const request = activeRequests.get(chatId);
           const requestModel = request?.model || null;
-          chatStore.add("assistant", processedRegular, null, null, chatId, requestModel);
+          chatStore.add("assistant", processedRegular || "", null, null, chatId, requestModel);
           lastAssistantMessageIndex = targetHistory.length - 1;
         }
       }
       
       // Final thinking content flush if any data remains (from incremental detection)
+      // Only process if we're NOT receiving reasoning from API (to avoid duplicates)
       const finalChat = chatStore.getChat(chatId);
-      if (finalChat && thinkingContent.trim() && lastThinkingMessageIndex === -1) {
+      if (finalChat && !hasReasoningFromAPI && thinkingContent.trim() && lastThinkingMessageIndex === -1) {
         const finalHistory = finalChat.history;
         // Extract thinking content if tags are present
         const thinkingMatch = thinkingContent.match(/<(?:thinking|redacted_reasoning)>(.*?)<\/(?:thinking|redacted_reasoning)>/s);
@@ -1891,9 +1910,13 @@ async function promptGPT(systemPrompt, input) {
     let buffer = "";
     let contentBuffer = [];
     let thinkingContent = "";
+    let reasoningContent = ""; // Track reasoning from API reasoning field
     let isThinking = false;
     let lastThinkingMessageIndex = -1;
+    let lastReasoningMessageIndex = -1; // Track reasoning message separately
+    let lastAssistantMessageIndex = -1; // Track assistant message for reasoning placement
     let lastThinkingScrollTime = 0;
+    let hasReasoningFromAPI = false; // Track if we're receiving reasoning from API (skip tag-based detection)
     const THINKING_SCROLL_THROTTLE = 200; // Throttle scrolling to every 200ms
 
     try {
@@ -1929,30 +1952,100 @@ async function promptGPT(systemPrompt, input) {
                 chatStore.updateTokenUsage(jsonData.usage, chatId);
               }
               
-              const token = jsonData.choices[0].delta.content;
+              const token = jsonData.choices?.[0]?.delta?.content;
+              const reasoningDelta = jsonData.choices?.[0]?.delta?.reasoning;
 
-              if (token) {
-                // Check for thinking tags
-                if (token.includes("<thinking>") || token.includes("<think>")) {
-                  isThinking = true;
-                  thinkingContent = "";
-                  lastThinkingMessageIndex = -1;
+              // Handle reasoning from API reasoning field - always use "thinking" role
+              if (reasoningDelta && reasoningDelta.trim() !== "") {
+                hasReasoningFromAPI = true; // Mark that we're receiving reasoning from API
+                reasoningContent += reasoningDelta;
+                const currentChat = chatStore.getChat(chatId);
+                if (!currentChat) {
+                  // Chat was deleted, skip this line
                   return;
                 }
-                if (token.includes("</thinking>") || token.includes("</think>")) {
-                  isThinking = false;
-                  if (thinkingContent.trim()) {
-                    // Only add the final thinking message if we don't already have one
-                    if (lastThinkingMessageIndex === -1) {
-                      chatStore.add("thinking", thinkingContent, null, null, chatId);
+                const isMCPMode = currentChat.mcpMode || false;
+                const shouldExpand = !isMCPMode; // Expanded in non-MCP mode, collapsed in MCP mode
+                
+                // Only create/update thinking message if we have actual content
+                if (reasoningContent.trim() !== "") {
+                  // Update or create thinking message (always use "thinking" role, not "reasoning")
+                  if (lastReasoningMessageIndex === -1) {
+                    // Find the last assistant message index to insert thinking before it
+                    const targetHistory = currentChat.history;
+                    const assistantIndex = targetHistory.length - 1;
+                    if (assistantIndex >= 0 && targetHistory[assistantIndex]?.role === "assistant") {
+                      // Insert thinking before assistant message
+                      targetHistory.splice(assistantIndex, 0, {
+                        role: "thinking",
+                        content: reasoningContent,
+                        html: DOMPurify.sanitize(marked.parse(reasoningContent)),
+                        image: [],
+                        audio: [],
+                        expanded: shouldExpand
+                      });
+                      lastReasoningMessageIndex = assistantIndex;
+                      lastAssistantMessageIndex = assistantIndex + 1; // Adjust for inserted thinking
+                    } else {
+                      // No assistant message yet, just add normally
+                      chatStore.add("thinking", reasoningContent, null, null, chatId);
+                      lastReasoningMessageIndex = currentChat.history.length - 1;
+                    }
+                  } else {
+                    // Update existing thinking message
+                    const targetHistory = currentChat.history;
+                    if (lastReasoningMessageIndex >= 0 && lastReasoningMessageIndex < targetHistory.length) {
+                      const thinkingMessage = targetHistory[lastReasoningMessageIndex];
+                      if (thinkingMessage && thinkingMessage.role === "thinking") {
+                        thinkingMessage.content = reasoningContent;
+                        thinkingMessage.html = DOMPurify.sanitize(marked.parse(reasoningContent));
+                      }
                     }
                   }
-                  return;
                 }
+                
+                // Scroll when reasoning is updated (throttled)
+                const now = Date.now();
+                if (now - lastThinkingScrollTime > THINKING_SCROLL_THROTTLE) {
+                  lastThinkingScrollTime = now;
+                  setTimeout(() => {
+                    const chatContainer = document.getElementById('chat');
+                    if (chatContainer) {
+                      chatContainer.scrollTo({
+                        top: chatContainer.scrollHeight,
+                        behavior: 'smooth'
+                      });
+                    }
+                    scrollThinkingBoxToBottom();
+                  }, 100);
+                }
+              }
 
-                // Handle content based on thinking state
-                if (isThinking) {
-                  thinkingContent += token;
+              if (token && token.trim() !== "") {
+                // Only check for thinking tags if we're NOT receiving reasoning from API
+                // This prevents duplicate thinking/reasoning messages
+                if (!hasReasoningFromAPI) {
+                  // Check for thinking tags (legacy support - models that output tags directly)
+                  if (token.includes("<thinking>") || token.includes("<think>")) {
+                    isThinking = true;
+                    thinkingContent = "";
+                    lastThinkingMessageIndex = -1;
+                    return;
+                  }
+                  if (token.includes("</thinking>") || token.includes("</think>")) {
+                    isThinking = false;
+                    if (thinkingContent.trim()) {
+                      // Only add the final thinking message if we don't already have one
+                      if (lastThinkingMessageIndex === -1) {
+                        chatStore.add("thinking", thinkingContent, null, null, chatId);
+                      }
+                    }
+                    return;
+                  }
+
+                  // Handle content based on thinking state
+                  if (isThinking) {
+                    thinkingContent += token;
                   // Count tokens for rate calculation (per chat)
                   const request = activeRequests.get(chatId);
                   if (request) {
@@ -1995,7 +2088,42 @@ async function promptGPT(systemPrompt, input) {
                     }, 100);
                   }
                 } else {
+                  // Not in thinking state, add to content buffer
                   contentBuffer.push(token);
+                  // Track assistant message index for reasoning placement
+                  if (lastAssistantMessageIndex === -1) {
+                    const currentChat = chatStore.getChat(chatId);
+                    if (currentChat) {
+                      const targetHistory = currentChat.history;
+                      // Find or create assistant message index
+                      for (let i = targetHistory.length - 1; i >= 0; i--) {
+                        if (targetHistory[i].role === "assistant") {
+                          lastAssistantMessageIndex = i;
+                          break;
+                        }
+                      }
+                      // If no assistant message yet, it will be created when we flush contentBuffer
+                    }
+                  }
+                }
+                } else {
+                  // Receiving reasoning from API, just add token to content buffer
+                  contentBuffer.push(token);
+                  // Track assistant message index for reasoning placement
+                  if (lastAssistantMessageIndex === -1) {
+                    const currentChat = chatStore.getChat(chatId);
+                    if (currentChat) {
+                      const targetHistory = currentChat.history;
+                      // Find or create assistant message index
+                      for (let i = targetHistory.length - 1; i >= 0; i--) {
+                        if (targetHistory[i].role === "assistant") {
+                          lastAssistantMessageIndex = i;
+                          break;
+                        }
+                      }
+                      // If no assistant message yet, it will be created when we flush contentBuffer
+                    }
+                  }
                 }
               }
             } catch (error) {
@@ -2007,6 +2135,17 @@ async function promptGPT(systemPrompt, input) {
         // Efficiently update the chat in batch
         if (contentBuffer.length > 0) {
           addToChat(contentBuffer.join(""));
+          // Update assistant message index after adding content
+          const currentChat = chatStore.getChat(chatId);
+          if (currentChat) {
+            const targetHistory = currentChat.history;
+            for (let i = targetHistory.length - 1; i >= 0; i--) {
+              if (targetHistory[i].role === "assistant") {
+                lastAssistantMessageIndex = i;
+                break;
+              }
+            }
+          }
           contentBuffer = [];
           // Scroll when assistant content is updated (this will also show thinking messages above)
           setTimeout(() => {
@@ -2025,7 +2164,30 @@ async function promptGPT(systemPrompt, input) {
       if (contentBuffer.length > 0) {
         addToChat(contentBuffer.join(""));
       }
+      
+      // Final reasoning flush if any data remains - always use "thinking" role
       const finalChat = chatStore.getChat(chatId);
+      if (finalChat && reasoningContent.trim() && lastReasoningMessageIndex === -1) {
+        const isMCPMode = finalChat.mcpMode || false;
+        const shouldExpand = !isMCPMode;
+        const targetHistory = finalChat.history;
+        // Find assistant message to insert before
+        const assistantIndex = targetHistory.length - 1;
+        if (assistantIndex >= 0 && targetHistory[assistantIndex]?.role === "assistant") {
+          targetHistory.splice(assistantIndex, 0, {
+            role: "thinking",
+            content: reasoningContent,
+            html: DOMPurify.sanitize(marked.parse(reasoningContent)),
+            image: [],
+            audio: [],
+            expanded: shouldExpand
+          });
+        } else {
+          chatStore.add("thinking", reasoningContent, null, null, chatId);
+        }
+      }
+      
+      // Final thinking content flush (legacy tag-based thinking)
       if (finalChat && thinkingContent.trim() && lastThinkingMessageIndex === -1) {
         chatStore.add("thinking", thinkingContent, null, null, chatId);
       }
