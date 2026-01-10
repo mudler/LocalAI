@@ -146,5 +146,230 @@ var _ = Describe("Anthropic API E2E test", func() {
 				Expect(message.Content).ToNot(BeEmpty())
 			})
 		})
+
+		Context("Tool calling", func() {
+			It("handles tool calls in non-streaming mode", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get the current weather in a given location"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{
+										"type":        "string",
+										"description": "The city and state, e.g. San Francisco, CA",
+									},
+								},
+								"required": []string{"location"},
+							}),
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Content).ToNot(BeEmpty())
+
+				// The model must use tools - find the tool use in the response
+				hasToolUse := false
+				for _, block := range message.Content {
+					if block.Type == anthropic.ContentBlockTypeToolUse {
+						hasToolUse = true
+						Expect(block.Name).To(Equal("get_weather"))
+						Expect(block.ID).ToNot(BeEmpty())
+						// Verify that input contains location
+						inputMap, ok := block.Input.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+						_, hasLocation := inputMap["location"]
+						Expect(hasLocation).To(BeTrue())
+					}
+				}
+
+				// Model must have called the tool
+				Expect(hasToolUse).To(BeTrue(), "Model should have called the get_weather tool")
+				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
+			})
+
+			It("handles tool_choice parameter", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Tell me about the weather")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get the current weather"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{
+										"type": "string",
+									},
+								},
+							}),
+						},
+					},
+					ToolChoice: anthropic.F[anthropic.ToolChoiceUnionParam](
+						anthropic.ToolChoiceAutoParam{
+							Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto),
+						},
+					),
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Content).ToNot(BeEmpty())
+			})
+
+			It("handles tool results in messages", func() {
+				// First, make a request that should trigger a tool call
+				firstMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get weather"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{"type": "string"},
+								},
+							}),
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+
+				// Find the tool use block - model must call the tool
+				var toolUseID string
+				var toolUseName string
+				for _, block := range firstMessage.Content {
+					if block.Type == anthropic.ContentBlockTypeToolUse {
+						toolUseID = block.ID
+						toolUseName = block.Name
+						break
+					}
+				}
+
+				// Model must have called the tool
+				Expect(toolUseID).ToNot(BeEmpty(), "Model should have called the get_weather tool")
+
+				// Send back a tool result and verify it's handled correctly
+				secondMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
+						anthropic.NewAssistantMessage(firstMessage.Content...),
+						anthropic.NewUserMessage(
+							anthropic.NewToolResultBlock(toolUseID, "Sunny, 72°F", false),
+						),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        toolUseName,
+							Description: anthropic.F("Get weather"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{"type": "string"},
+								},
+							}),
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(secondMessage.Content).ToNot(BeEmpty())
+			})
+
+			It("handles tool calls in streaming mode", func() {
+				stream := client.Messages.NewStreaming(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get the current weather in a given location"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{
+										"type":        "string",
+										"description": "The city and state, e.g. San Francisco, CA",
+									},
+								},
+								"required": []string{"location"},
+							}),
+						},
+					},
+				})
+
+				message := anthropic.Message{}
+				eventCount := 0
+				hasToolUseBlock := false
+				hasContentBlockStart := false
+				hasContentBlockDelta := false
+				hasContentBlockStop := false
+
+				for stream.Next() {
+					event := stream.Current()
+					err := message.Accumulate(event)
+					Expect(err).ToNot(HaveOccurred())
+					eventCount++
+
+					// Check for different event types related to tool use
+					switch e := event.AsAny().(type) {
+					case anthropic.ContentBlockStartEvent:
+						hasContentBlockStart = true
+						if e.ContentBlock.Type == anthropic.ContentBlockTypeToolUse {
+							hasToolUseBlock = true
+						}
+					case anthropic.ContentBlockDeltaEvent:
+						hasContentBlockDelta = true
+					case anthropic.ContentBlockStopEvent:
+						hasContentBlockStop = true
+					}
+				}
+
+				Expect(stream.Err()).ToNot(HaveOccurred())
+				Expect(eventCount).To(BeNumerically(">", 0))
+
+				// Verify streaming events were emitted
+				Expect(hasContentBlockStart).To(BeTrue(), "Should have content_block_start event")
+				Expect(hasContentBlockDelta).To(BeTrue(), "Should have content_block_delta event")
+				Expect(hasContentBlockStop).To(BeTrue(), "Should have content_block_stop event")
+
+				// Check accumulated message has tool use
+				Expect(message.Content).ToNot(BeEmpty())
+				
+				// Model must have called the tool
+				foundToolUse := false
+				for _, block := range message.Content {
+					if block.Type == anthropic.ContentBlockTypeToolUse {
+						foundToolUse = true
+						Expect(block.Name).To(Equal("get_weather"))
+						Expect(block.ID).ToNot(BeEmpty())
+					}
+				}
+				Expect(foundToolUse).To(BeTrue(), "Model should have called the get_weather tool in streaming mode")
+				Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
+			})
+		})
 	})
 })
