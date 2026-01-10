@@ -1191,6 +1191,30 @@
                 }
             }
         },
+        "/v1/messages": {
+            "post": {
+                "summary": "Generate a message response for the given messages and model.",
+                "parameters": [
+                    {
+                        "description": "query params",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/schema.AnthropicRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Response",
+                        "schema": {
+                            "$ref": "#/definitions/schema.AnthropicResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/v1/models": {
             "get": {
                 "summary": "List and describe the various models available in the API.",
@@ -1732,6 +1756,169 @@
                 }
             }
         },
+        "schema.AnthropicContentBlock": {
+            "type": "object",
+            "properties": {
+                "content": {},
+                "id": {
+                    "type": "string"
+                },
+                "input": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "is_error": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "source": {
+                    "$ref": "#/definitions/schema.AnthropicImageSource"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "tool_use_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.AnthropicImageSource": {
+            "type": "object",
+            "properties": {
+                "data": {
+                    "type": "string"
+                },
+                "media_type": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.AnthropicMessage": {
+            "type": "object",
+            "properties": {
+                "content": {},
+                "role": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.AnthropicRequest": {
+            "type": "object",
+            "properties": {
+                "max_tokens": {
+                    "type": "integer"
+                },
+                "messages": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.AnthropicMessage"
+                    }
+                },
+                "metadata": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "model": {
+                    "type": "string"
+                },
+                "stop_sequences": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "stream": {
+                    "type": "boolean"
+                },
+                "system": {
+                    "type": "string"
+                },
+                "temperature": {
+                    "type": "number"
+                },
+                "tool_choice": {},
+                "tools": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.AnthropicTool"
+                    }
+                },
+                "top_k": {
+                    "type": "integer"
+                },
+                "top_p": {
+                    "type": "number"
+                }
+            }
+        },
+        "schema.AnthropicResponse": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/schema.AnthropicContentBlock"
+                    }
+                },
+                "id": {
+                    "type": "string"
+                },
+                "model": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "stop_reason": {
+                    "type": "string"
+                },
+                "stop_sequence": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "usage": {
+                    "$ref": "#/definitions/schema.AnthropicUsage"
+                }
+            }
+        },
+        "schema.AnthropicTool": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "input_schema": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "schema.AnthropicUsage": {
+            "type": "object",
+            "properties": {
+                "input_tokens": {
+                    "type": "integer"
+                },
+                "output_tokens": {
+                    "type": "integer"
+                }
+            }
+        },
         "schema.BackendMonitorRequest": {
             "type": "object",
             "properties": {
@@ -2220,6 +2407,10 @@
                 },
                 "name": {
                     "description": "The message name (used for tools calls)",
+                    "type": "string"
+                },
+                "reasoning": {
+                    "description": "Reasoning content extracted from \u003cthinking\u003e...\u003c/thinking\u003e tags",
                     "type": "string"
                 },
                 "role": {
