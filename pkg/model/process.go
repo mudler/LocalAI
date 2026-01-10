@@ -55,7 +55,7 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
 	}
 
-	if err != nil {
+	if err == nil {
 		delete(ml.models, s)
 	}
 
