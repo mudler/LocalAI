@@ -26,6 +26,12 @@ fi
 
 EXTRA_PIP_INSTALL_FLAGS+=" --no-build-isolation"
 
+
+if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
+    USE_PIP=true
+fi
+
+
 git clone https://github.com/neuphonic/neutts-air neutts-air
 
 cp -rfv neutts-air/neuttsair ./

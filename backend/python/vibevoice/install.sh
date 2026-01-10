@@ -23,6 +23,10 @@ if [ "x${BUILD_PROFILE}" == "xl4t13" ]; then
   PY_STANDALONE_TAG="20251120"
 fi
 
+if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
+    USE_PIP=true
+fi
+
 installRequirements
 
 git clone https://github.com/microsoft/VibeVoice.git

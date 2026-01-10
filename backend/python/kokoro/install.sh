@@ -16,4 +16,8 @@ if [ "x${BUILD_PROFILE}" == "xintel" ]; then
     EXTRA_PIP_INSTALL_FLAGS+=" --upgrade --index-strategy=unsafe-first-match"
 fi
 
+if [ "x${BUILD_PROFILE}" == "xl4t12" ]; then
+    USE_PIP=true
+fi
+
 installRequirements
