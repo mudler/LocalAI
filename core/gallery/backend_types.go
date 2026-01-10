@@ -93,21 +93,22 @@ func (m *GalleryBackend) IsCompatibleWith(systemState *system.SystemState) bool 
 		return false
 	}
 
-	// Check for NVIDIA/CUDA-specific backends
-	isNvidiaBackend := (strings.Contains(combined, "cuda") ||
-		strings.Contains(combined, "nvidia")) &&
-		!strings.Contains(combined, "l4t")
-	if isNvidiaBackend {
-		if systemState.GPUVendor != "nvidia" {
-			return false
-		}
-	}
-
 	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)
-	isL4TBackend := strings.Contains(combined, "l4t") ||
-		(strings.Contains(combined, "nvidia") && strings.Contains(combined, "arm64"))
+	// This must be checked before the general NVIDIA check as L4T backends
+	// may also contain "cuda" or "nvidia" in their names
+	isL4TBackend := strings.Contains(combined, "l4t")
 	if isL4TBackend {
 		if runtime.GOOS != "linux" || runtime.GOARCH != "arm64" || systemState.GPUVendor != "nvidia" {
+			return false
+		}
+		return true
+	}
+
+	// Check for NVIDIA/CUDA-specific backends (non-L4T)
+	isNvidiaBackend := strings.Contains(combined, "cuda") ||
+		strings.Contains(combined, "nvidia")
+	if isNvidiaBackend {
+		if systemState.GPUVendor != "nvidia" {
 			return false
 		}
 	}
