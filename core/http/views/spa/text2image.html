@@ -11,7 +11,7 @@
                         <div class="flex items-center justify-between gap-2">
                             <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
                         </div>
-                        <select id="image-model-select" class="input w-full p-1.5 text-xs">
+                        <select id="image-model-select" class="input w-full p-1.5 text-xs" @change="document.getElementById('image-model').value = $event.target.value">
                             <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
                             {{ $model:=.Model}}
                             {{ range .ModelsConfig }}
@@ -30,7 +30,7 @@
                     
                     <div class="relative">
                         <input id="image-model" type="hidden" value="{{.Model}}">
-                        <form id="genimage" @submit.prevent="generateImage($event)">
+                        <form id="genimage" @submit.prevent="genImage($event)">
                             <!-- Basic Settings -->
                             <div class="space-y-2">
                                 <!-- Prompt -->

@@ -21,7 +21,7 @@
                         <label for="tts-model-select" class="mr-3 text-[var(--color-text-secondary)] font-medium">
                             <i class="fas fa-microphone-lines text-[var(--color-accent)] mr-2"></i>Model:
                         </label>
-                        <select id="tts-model-select" class="input p-2.5">
+                        <select id="tts-model-select" class="input p-2.5" @change="document.getElementById('tts-model').value = $event.target.value">
                             <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
                             {{ $model:=.Model}}
                             {{ range .ModelsConfig }}
@@ -92,7 +92,7 @@ function generateTTS(event) {
     if (event) event.preventDefault();
     
     const input = document.getElementById('tts-input');
-    const model = document.getElementById('tts-model-select')?.value || document.getElementById('tts-model')?.value;
+    const model = document.getElementById('tts-model')?.value;
     const loader = document.getElementById('tts-loader');
     const result = document.getElementById('tts-result');
     
