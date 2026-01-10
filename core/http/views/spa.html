@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+
+<!-- SPA Scripts -->
+<script defer src="static/spa-router.js"></script>
+<script defer src="static/spa-home.js"></script>
+<script defer src="static/chat.js"></script>
+<script defer src="static/image.js"></script>
+<script defer src="static/tts.js"></script>
+<script defer src="static/talk.js"></script>
+<script src="static/assets/pdf.min.js"></script>
+<script>
+  // Initialize PDF.js worker
+  if (typeof pdfjsLib !== 'undefined') {
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'static/assets/pdf.worker.min.js';
+  }
+
+  // Store gallery configs for header icon display and model info modal
+  window.__galleryConfigs = {};
+  {{ $allGalleryConfigs:=.GalleryConfig }}
+  {{ range $modelName, $galleryConfig := $allGalleryConfigs }}
+  window.__galleryConfigs["{{$modelName}}"] = {};
+  {{ if $galleryConfig.Icon }}
+  window.__galleryConfigs["{{$modelName}}"].Icon = "{{$galleryConfig.Icon}}";
+  {{ end }}
+  {{ if $galleryConfig.Description }}
+  window.__galleryConfigs["{{$modelName}}"].Description = {{ printf "%q" $galleryConfig.Description }};
+  {{ end }}
+  {{ if $galleryConfig.URLs }}
+  window.__galleryConfigs["{{$modelName}}"].URLs = [
+    {{ range $idx, $url := $galleryConfig.URLs }}
+    {{ if $idx }},{{ end }}{{ printf "%q" $url }}
+    {{ end }}
+  ];
+  {{ end }}
+  {{ end }}
+</script>
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">
+<div class="flex flex-col min-h-screen" x-data="{ mobileMenuOpen: false, settingsOpen: false, mobileSettingsOpen: false }">
+
+    {{template "views/partials/spa_navbar" .}}
+
+    <!-- SPA View Container -->
+    <div class="flex-1 flex flex-col">
+        
+        <!-- Home View -->
+        <div x-show="$store.router.currentRoute === 'home'" x-cloak>
+            {{template "views/spa/home" .}}
+        </div>
+
+        <!-- Chat View -->
+        <div x-show="$store.router.currentRoute === 'chat'" x-cloak class="flex-1 flex flex-col">
+            {{template "views/spa/chat" .}}
+        </div>
+
+        <!-- Text2Image View -->
+        <div x-show="$store.router.currentRoute === 'text2image'" x-cloak class="flex-1 flex flex-col">
+            {{template "views/spa/text2image" .}}
+        </div>
+
+        <!-- TTS View -->
+        <div x-show="$store.router.currentRoute === 'tts'" x-cloak class="flex-1 flex flex-col">
+            {{template "views/spa/tts" .}}
+        </div>
+
+        <!-- Talk View -->
+        <div x-show="$store.router.currentRoute === 'talk'" x-cloak class="flex-1 flex flex-col">
+            {{template "views/spa/talk" .}}
+        </div>
+
+        <!-- Manage View -->
+        <div x-show="$store.router.currentRoute === 'manage'" x-cloak class="flex-1 flex flex-col">
+            {{template "views/spa/manage" .}}
+        </div>
+
+        <!-- Browse View (Model Gallery) -->
+        <div x-show="$store.router.currentRoute === 'browse'" x-cloak class="flex-1 flex flex-col">
+            {{template "views/spa/browse" .}}
+        </div>
+
+    </div>
+
+    {{template "views/partials/footer" .}}
+</div>
+
+<style>
+/* Hide elements until Alpine.js initializes */
+[x-cloak] { display: none !important; }
+</style>
+
+</body>
+</html>

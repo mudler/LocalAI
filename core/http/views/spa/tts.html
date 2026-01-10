@@ -1,0 +1,138 @@
+<!-- TTS View Content for SPA -->
+<div class="container mx-auto px-4 py-8 flex-grow">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <i class="fas fa-volume-high mr-2"></i>Text to Speech
+            </h1>
+            <p class="hero-subtitle">Convert your text into natural-sounding speech</p>
+        </div>
+    </div>
+
+    <!-- TTS Interface -->
+    <div class="max-w-3xl mx-auto">
+        <div class="card overflow-hidden">
+            <!-- Header with Model Selection -->
+            <div class="border-b border-[var(--color-bg-secondary)] p-5">
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <!-- Model Selection -->
+                    <div class="flex items-center">
+                        <label for="tts-model-select" class="mr-3 text-[var(--color-text-secondary)] font-medium">
+                            <i class="fas fa-microphone-lines text-[var(--color-accent)] mr-2"></i>Model:
+                        </label>
+                        <select id="tts-model-select" class="input p-2.5">
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ $model:=.Model}}
+                            {{ range .ModelsConfig }}
+                                {{ $cfg := . }}
+                                {{ range .KnownUsecaseStrings }}
+                                    {{ if eq . "FLAG_TTS" }}
+                                        <option value="{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                    {{ end }}
+                                {{ end }}
+                            {{ end }}
+                            {{ range .ModelsWithoutConfig }}
+                                <option value="{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-6">
+                <div class="bg-[var(--color-accent-light)] border border-[var(--color-accent-border)] rounded-lg p-4 mb-6">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-[var(--color-accent)] mt-1 mr-3 flex-shrink-0"></i>
+                        <p class="text-[var(--color-text-secondary)]">
+                            Enter your text below and submit to generate speech with the selected TTS model.
+                            The generated audio will appear below the input field.
+                        </p>
+                    </div>
+                </div>
+
+                <input id="tts-model" type="hidden" value="{{.Model}}">
+                <form id="tts" @submit.prevent="generateTTS($event)" class="mb-6">
+                    <div class="relative">
+                        <input
+                            type="text"
+                            id="tts-input"
+                            name="input"
+                            placeholder="Enter text to convert to speech..."
+                            autocomplete="off"
+                            class="input w-full p-4 pl-4 pr-12"
+                            required
+                        />
+                        <button type="submit" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-[var(--color-accent)] hover:text-[var(--color-primary)] transition icon-hover">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Loading indicator -->
+                <div class="flex justify-center my-6">
+                    <div id="tts-loader" class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[var(--color-accent)]" style="display: none;"></div>
+                </div>
+
+                <!-- Results Area -->
+                <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4 min-h-[100px] flex items-center justify-center">
+                    <div id="tts-result" class="w-full text-center text-[var(--color-text-secondary)]">
+                        <p>Generated audio will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// TTS generation function for SPA
+function generateTTS(event) {
+    if (event) event.preventDefault();
+    
+    const input = document.getElementById('tts-input');
+    const model = document.getElementById('tts-model-select')?.value || document.getElementById('tts-model')?.value;
+    const loader = document.getElementById('tts-loader');
+    const result = document.getElementById('tts-result');
+    
+    if (!input?.value.trim() || !model) {
+        alert('Please enter text and select a model');
+        return;
+    }
+    
+    loader.style.display = 'block';
+    result.innerHTML = '';
+    
+    fetch('/tts', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: model,
+            input: input.value.trim()
+        })
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        loader.style.display = 'none';
+        const audioUrl = URL.createObjectURL(blob);
+        result.innerHTML = `
+            <audio controls class="w-full">
+                <source src="${audioUrl}" type="audio/wav">
+                Your browser does not support the audio element.
+            </audio>
+            <a href="${audioUrl}" download="tts_output.wav" class="mt-3 inline-block btn-secondary text-sm">
+                <i class="fas fa-download mr-2"></i>Download
+            </a>
+        `;
+    })
+    .catch(error => {
+        loader.style.display = 'none';
+        result.innerHTML = `<p class="text-red-400">Error generating speech: ${error.message}</p>`;
+    });
+}
+
+window.generateTTS = generateTTS;
+</script>

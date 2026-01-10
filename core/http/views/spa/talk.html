@@ -1,0 +1,229 @@
+<!-- Talk View Content for SPA -->
+<div class="container mx-auto px-4 py-8 flex-grow">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <i class="fas fa-comments mr-2"></i>Talk Interface
+            </h1>
+            <p class="hero-subtitle">Speak with your AI models using voice interaction</p>
+        </div>
+    </div>
+
+    <!-- Talk Interface -->
+    <div class="max-w-3xl mx-auto">
+        <div class="card overflow-hidden">
+            <!-- Talk Interface Body -->
+            <div class="p-6">
+                <!-- Recording Status -->
+                <div id="spa-recording" class="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-4 flex items-center space-x-3" style="display: none;">
+                    <i class="fa-solid fa-microphone text-2xl text-red-400"></i>
+                    <span class="text-red-300 font-medium">Recording... press "Stop recording" to stop</span>
+                </div>
+                
+                <!-- Loader -->
+                <div id="spa-talk-loader" class="my-4 flex justify-center" style="display: none;">
+                    <div class="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[var(--color-primary)]"></div>
+                </div>
+                
+                <!-- Status Text -->
+                <div id="spa-statustext" class="my-4 p-3 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg text-[var(--color-text-primary)]" style="min-height: 3rem;">Press the record button to start recording.</div>
+                
+                <!-- Note -->
+                <div class="bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] rounded-lg p-4 mb-6">
+                    <div class="flex items-start">
+                        <i class="fas fa-info-circle text-[var(--color-primary)] mt-1 mr-3 flex-shrink-0"></i>
+                        <p class="text-[var(--color-text-secondary)]">
+                            <strong class="text-[var(--color-primary)]">Note:</strong> You need an LLM, an audio-transcription (whisper), and a TTS model installed for this to work. Select the appropriate models below and click 'Talk' to start recording.
+                        </p>
+                    </div>
+                </div>
+                
+                <!-- Model Selectors -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <!-- LLM Model -->
+                    <div class="space-y-2">
+                        <label for="spa-modelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                            <i class="fas fa-brain text-[var(--color-primary)] mr-2"></i>LLM Model
+                        </label>
+                        <select id="spa-modelSelect" class="input w-full p-2.5">
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ range .ModelsConfig }}
+                            <option value="{{.Name}}" class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.Name}}</option>
+                            {{ end }}
+                        </select>
+                    </div>
+                    
+                    <!-- Whisper Model -->
+                    <div class="space-y-2">
+                        <label for="spa-whisperModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                            <i class="fas fa-ear-listen text-[var(--color-accent)] mr-2"></i>Whisper Model
+                        </label>
+                        <select id="spa-whisperModelSelect" class="input w-full p-2.5">
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ range .ModelsConfig }}
+                            <option value="{{.Name}}" class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.Name}}</option>
+                            {{ end }}
+                        </select>
+                    </div>
+                    
+                    <!-- TTS Model -->
+                    <div class="space-y-2">
+                        <label for="spa-ttsModelSelect" class="flex items-center text-[var(--color-text-secondary)] font-medium">
+                            <i class="fas fa-volume-high text-green-400 mr-2"></i>TTS Model
+                        </label>
+                        <select id="spa-ttsModelSelect" class="input w-full p-2.5">
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ range .ModelsConfig }}
+                            <option value="{{.Name}}" class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.Name}}</option>
+                            {{ end }}
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Buttons -->
+                <div class="flex items-center justify-between mt-8">
+                    <button id="spa-recordButton" onclick="startTalkRecording()" 
+                        class="inline-flex items-center bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+                        <i class="fas fa-microphone mr-2"></i>
+                        <span>Talk</span>
+                    </button>
+                    <button id="spa-stopRecordButton" onclick="stopTalkRecording()" style="display: none;"
+                        class="inline-flex items-center bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors">
+                        <i class="fas fa-stop mr-2"></i>
+                        <span>Stop Recording</span>
+                    </button>
+                </div>
+                
+                <!-- Audio Result -->
+                <div id="spa-talk-result" class="mt-6"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Simplified Talk functions for SPA
+let talkMediaRecorder = null;
+let talkAudioChunks = [];
+
+function startTalkRecording() {
+    const statusText = document.getElementById('spa-statustext');
+    const recording = document.getElementById('spa-recording');
+    const recordButton = document.getElementById('spa-recordButton');
+    const stopButton = document.getElementById('spa-stopRecordButton');
+    
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            talkMediaRecorder = new MediaRecorder(stream);
+            talkAudioChunks = [];
+            
+            talkMediaRecorder.ondataavailable = event => {
+                talkAudioChunks.push(event.data);
+            };
+            
+            talkMediaRecorder.onstop = () => {
+                const audioBlob = new Blob(talkAudioChunks, { type: 'audio/wav' });
+                processTalkAudio(audioBlob);
+            };
+            
+            talkMediaRecorder.start();
+            recording.style.display = 'flex';
+            recordButton.style.display = 'none';
+            stopButton.style.display = 'inline-flex';
+            statusText.textContent = 'Recording... Speak now.';
+        })
+        .catch(error => {
+            statusText.textContent = 'Error accessing microphone: ' + error.message;
+        });
+}
+
+function stopTalkRecording() {
+    const recording = document.getElementById('spa-recording');
+    const recordButton = document.getElementById('spa-recordButton');
+    const stopButton = document.getElementById('spa-stopRecordButton');
+    
+    if (talkMediaRecorder && talkMediaRecorder.state !== 'inactive') {
+        talkMediaRecorder.stop();
+        talkMediaRecorder.stream.getTracks().forEach(track => track.stop());
+    }
+    
+    recording.style.display = 'none';
+    recordButton.style.display = 'inline-flex';
+    stopButton.style.display = 'none';
+}
+
+function processTalkAudio(audioBlob) {
+    const statusText = document.getElementById('spa-statustext');
+    const loader = document.getElementById('spa-talk-loader');
+    const result = document.getElementById('spa-talk-result');
+    const llmModel = document.getElementById('spa-modelSelect').value;
+    const whisperModel = document.getElementById('spa-whisperModelSelect').value;
+    const ttsModel = document.getElementById('spa-ttsModelSelect').value;
+    
+    if (!llmModel || !whisperModel || !ttsModel) {
+        statusText.textContent = 'Please select all three models (LLM, Whisper, TTS)';
+        return;
+    }
+    
+    loader.style.display = 'flex';
+    statusText.textContent = 'Processing...';
+    
+    // Step 1: Transcribe audio
+    const formData = new FormData();
+    formData.append('file', audioBlob, 'audio.wav');
+    formData.append('model', whisperModel);
+    
+    fetch('/v1/audio/transcriptions', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        const transcription = data.text;
+        statusText.textContent = 'You said: ' + transcription;
+        
+        // Step 2: Send to LLM
+        return fetch('/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: llmModel,
+                messages: [{ role: 'user', content: transcription }]
+            })
+        });
+    })
+    .then(response => response.json())
+    .then(data => {
+        const reply = data.choices[0].message.content;
+        statusText.textContent = 'AI: ' + reply;
+        
+        // Step 3: Convert to speech
+        return fetch('/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: ttsModel,
+                input: reply
+            })
+        });
+    })
+    .then(response => response.blob())
+    .then(blob => {
+        loader.style.display = 'none';
+        const audioUrl = URL.createObjectURL(blob);
+        result.innerHTML = `
+            <audio controls autoplay class="w-full">
+                <source src="${audioUrl}" type="audio/wav">
+            </audio>
+        `;
+    })
+    .catch(error => {
+        loader.style.display = 'none';
+        statusText.textContent = 'Error: ' + error.message;
+    });
+}
+
+window.startTalkRecording = startTalkRecording;
+window.stopTalkRecording = stopTalkRecording;
+</script>

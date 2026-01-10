@@ -1,0 +1,221 @@
+<!-- Browse/Gallery View Content for SPA -->
+<!-- This is a simplified gallery view - for full functionality, use the /browse/ URL -->
+<div class="container mx-auto px-4 py-8 flex-grow" x-data="browseGallery()">
+    
+    <!-- Hero Header -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                <i class="fas fa-images mr-2"></i>Model Gallery
+            </h1>
+            <p class="hero-subtitle">Browse and install AI models</p>
+            
+            <!-- Search and Filter -->
+            <div class="flex flex-wrap justify-center gap-3 mt-6">
+                <div class="relative">
+                    <input type="text" 
+                           x-model="searchQuery"
+                           @input="filterModels()"
+                           placeholder="Search models..." 
+                           class="input pl-10 py-2 w-64">
+                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--color-text-secondary)]"></i>
+                </div>
+                
+                <select x-model="categoryFilter" @change="filterModels()" class="input py-2">
+                    <option value="">All Categories</option>
+                    <option value="chat">Chat</option>
+                    <option value="image">Image Generation</option>
+                    <option value="audio">Audio</option>
+                    <option value="embedding">Embeddings</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div x-show="loading" class="flex justify-center py-12">
+        <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[var(--color-primary)]"></div>
+    </div>
+
+    <!-- Models Grid -->
+    <div x-show="!loading" class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <template x-for="model in filteredModels" :key="model.name">
+            <div class="card overflow-hidden hover:border-[var(--color-primary-border)] transition-colors">
+                <!-- Model Header -->
+                <div class="p-4 border-b border-[var(--color-border)]">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-[var(--color-primary-light)] rounded-lg flex items-center justify-center mr-3">
+                                <template x-if="model.icon">
+                                    <img :src="model.icon" :alt="model.name" class="w-8 h-8 rounded">
+                                </template>
+                                <template x-if="!model.icon">
+                                    <i class="fas fa-brain text-[var(--color-primary)]"></i>
+                                </template>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-[var(--color-text-primary)] truncate max-w-[150px]" x-text="model.name"></h3>
+                                <p class="text-xs text-[var(--color-text-secondary)]" x-text="model.gallery?.name || 'Unknown'"></p>
+                            </div>
+                        </div>
+                        <template x-if="model.installed">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-300">
+                                <i class="fas fa-check mr-1"></i>Installed
+                            </span>
+                        </template>
+                    </div>
+                </div>
+                
+                <!-- Model Info -->
+                <div class="p-4">
+                    <p class="text-xs text-[var(--color-text-secondary)] line-clamp-2 mb-3" x-text="model.description || 'No description available'"></p>
+                    
+                    <!-- Tags -->
+                    <div class="flex flex-wrap gap-1 mb-3">
+                        <template x-for="tag in (model.tags || []).slice(0, 3)" :key="tag">
+                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]" x-text="tag"></span>
+                        </template>
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="flex items-center gap-2">
+                        <template x-if="model.installed">
+                            <button @click="$store.router.navigate('chat', { model: model.name })" 
+                                    class="flex-1 btn-primary text-xs py-1.5">
+                                <i class="fas fa-comments mr-1"></i>Use
+                            </button>
+                        </template>
+                        <template x-if="!model.installed">
+                            <button @click="installModel(model)" 
+                                    :disabled="model.installing"
+                                    :class="model.installing ? 'opacity-50 cursor-not-allowed' : ''"
+                                    class="flex-1 btn-primary text-xs py-1.5">
+                                <i class="fas fa-download mr-1"></i>
+                                <span x-text="model.installing ? 'Installing...' : 'Install'"></span>
+                            </button>
+                        </template>
+                        <a :href="`/browse/${model.gallery?.name || ''}/${model.name}`" 
+                           class="btn-secondary text-xs py-1.5 px-2" title="View details">
+                            <i class="fas fa-info-circle"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Empty State -->
+    <div x-show="!loading && filteredModels.length === 0" class="text-center py-12 text-[var(--color-text-secondary)]">
+        <i class="fas fa-search text-4xl mb-3 opacity-50"></i>
+        <p>No models found</p>
+        <p class="text-sm mt-2">Try adjusting your search or filters</p>
+    </div>
+
+    <!-- Link to Full Gallery -->
+    <div class="mt-8 text-center">
+        <a href="/browse/" class="btn-secondary">
+            <i class="fas fa-external-link-alt mr-2"></i>
+            View Full Model Gallery
+        </a>
+    </div>
+</div>
+
+<script>
+// Browse gallery component
+function browseGallery() {
+    return {
+        loading: true,
+        searchQuery: '',
+        categoryFilter: '',
+        models: [],
+        filteredModels: [],
+        
+        init() {
+            this.loadModels();
+        },
+        
+        async loadModels() {
+            try {
+                // Fetch available models from gallery
+                const response = await fetch('/models/available');
+                if (response.ok) {
+                    const data = await response.json();
+                    this.models = data || [];
+                    this.filterModels();
+                }
+            } catch (error) {
+                console.error('Error loading models:', error);
+            } finally {
+                this.loading = false;
+            }
+        },
+        
+        filterModels() {
+            let filtered = this.models;
+            
+            // Search filter
+            if (this.searchQuery.trim()) {
+                const query = this.searchQuery.toLowerCase();
+                filtered = filtered.filter(m => 
+                    (m.name && m.name.toLowerCase().includes(query)) ||
+                    (m.description && m.description.toLowerCase().includes(query))
+                );
+            }
+            
+            // Category filter
+            if (this.categoryFilter) {
+                filtered = filtered.filter(m => {
+                    const tags = m.tags || [];
+                    const name = (m.name || '').toLowerCase();
+                    switch (this.categoryFilter) {
+                        case 'chat':
+                            return tags.includes('chat') || tags.includes('llm') || name.includes('chat');
+                        case 'image':
+                            return tags.includes('image') || tags.includes('diffusion') || name.includes('stable');
+                        case 'audio':
+                            return tags.includes('audio') || tags.includes('tts') || tags.includes('whisper');
+                        case 'embedding':
+                            return tags.includes('embedding') || name.includes('embed');
+                        default:
+                            return true;
+                    }
+                });
+            }
+            
+            this.filteredModels = filtered.slice(0, 20); // Limit to first 20 for performance
+        },
+        
+        async installModel(model) {
+            model.installing = true;
+            
+            try {
+                const response = await fetch('/models/apply', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        id: model.gallery?.name + '@' + model.name
+                    })
+                });
+                
+                if (response.ok) {
+                    // Model installation started
+                    alert(`Installation of ${model.name} started. This may take a while.`);
+                    // Refresh after a delay
+                    setTimeout(() => this.loadModels(), 5000);
+                } else {
+                    alert('Failed to start installation');
+                }
+            } catch (error) {
+                console.error('Error installing model:', error);
+                alert('Error: ' + error.message);
+            } finally {
+                model.installing = false;
+            }
+        }
+    };
+}
+
+window.browseGallery = browseGallery;
+</script>

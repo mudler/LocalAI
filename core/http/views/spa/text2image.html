@@ -1,0 +1,155 @@
+<!-- Text2Image View Content for SPA -->
+<div class="flex flex-col flex-1 overflow-hidden">
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Two Column Layout: Settings on Left, Preview on Right -->
+        <div class="flex flex-col lg:flex-row flex-1 gap-4 p-4 overflow-hidden">
+            <!-- Left Column: Generation Settings -->
+            <div class="flex-shrink-0 lg:w-1/4 flex flex-col min-h-0">
+                <div class="card p-3 space-y-3 overflow-y-auto flex-1">
+                    <!-- Model Selection -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
+                        </div>
+                        <select id="image-model-select" class="input w-full p-1.5 text-xs">
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ $model:=.Model}}
+                            {{ range .ModelsConfig }}
+                              {{ $cfg := . }}
+                              {{ range .KnownUsecaseStrings }}
+                                {{ if eq . "FLAG_IMAGE" }}
+                                    <option value="{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                {{ end }}
+                              {{ end }}
+                            {{ end }}
+                            {{ range .ModelsWithoutConfig }}
+                                <option value="{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    
+                    <div class="relative">
+                        <input id="image-model" type="hidden" value="{{.Model}}">
+                        <form id="genimage" @submit.prevent="generateImage($event)">
+                            <!-- Basic Settings -->
+                            <div class="space-y-2">
+                                <!-- Prompt -->
+                                <div class="space-y-1">
+                                    <label for="image-input" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-magic mr-1.5 text-[var(--color-primary)]"></i>Prompt
+                                    </label>
+                                    <textarea
+                                        id="image-input"
+                                        name="input"
+                                        placeholder="Describe the image you want to generate..."
+                                        autocomplete="off"
+                                        rows="3"
+                                        class="input w-full p-1.5 text-xs resize-y"
+                                        required
+                                    ></textarea>
+                                </div>
+
+                                <!-- Negative Prompt -->
+                                <div class="space-y-1">
+                                    <label for="negative-prompt" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-ban mr-1.5 text-[var(--color-primary)]"></i>Negative Prompt
+                                    </label>
+                                    <textarea
+                                        id="negative-prompt"
+                                        name="negative-prompt"
+                                        placeholder="Things to avoid in the image..."
+                                        rows="2"
+                                        class="input w-full p-1.5 text-xs resize-y"
+                                    ></textarea>
+                                </div>
+
+                                <!-- Size Selection -->
+                                <div class="space-y-1">
+                                    <label for="image-size" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-expand-arrows-alt mr-1.5 text-[var(--color-primary)]"></i>Image Size
+                                    </label>
+                                    <div class="flex flex-wrap gap-1.5 mb-1.5">
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256">256×256</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)] bg-[var(--color-primary)] text-white" data-size="512x512">512×512</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="768x768">768×768</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="1024x1024">1024×1024</button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="image-size"
+                                        value="512x512"
+                                        placeholder="e.g., 256x256, 512x512, 1024x1024"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+
+                                <!-- Number of Images -->
+                                <div class="space-y-1">
+                                    <label for="image-count" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Number of Images
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="image-count"
+                                        name="n"
+                                        min="1"
+                                        max="4"
+                                        value="1"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <div class="mt-4">
+                                <button
+                                    type="submit"
+                                    id="generate-btn"
+                                    class="w-full px-2 py-1.5 text-xs rounded text-[var(--color-bg-primary)] bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors font-medium"
+                                >
+                                    <i class="fas fa-magic mr-1.5"></i>Generate Image
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Image Preview -->
+            <div class="flex-grow lg:w-3/4 flex flex-col min-h-0">
+                <div class="relative flex-1 min-h-0 overflow-y-auto">
+                    <!-- Loading Animation -->
+                    <div id="loader" class="hidden absolute inset-0 flex items-center justify-center bg-[var(--color-bg-primary)]/80 rounded-xl z-10">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 text-[var(--color-primary)] mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="text-xs text-[var(--color-text-secondary)]">Generating image...</p>
+                        </div>
+                    </div>
+                    <!-- Placeholder when no images -->
+                    <div id="result-placeholder" class="min-h-[400px] flex items-center justify-center flex-shrink-0">
+                        <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
+                    </div>
+                    <!-- Results container -->
+                    <div id="result" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Size preset buttons for SPA
+document.querySelectorAll('.size-preset').forEach(button => {
+    button.addEventListener('click', function() {
+        const size = this.getAttribute('data-size');
+        document.getElementById('image-size').value = size;
+        document.querySelectorAll('.size-preset').forEach(btn => {
+            btn.classList.remove('bg-[var(--color-primary)]', 'text-white');
+        });
+        this.classList.add('bg-[var(--color-primary)]', 'text-white');
+    });
+});
+</script>

@@ -1,0 +1,329 @@
+<!-- Home View Content for SPA -->
+<!-- Main Content - ChatGPT-style minimal interface -->
+<div class="flex-1 flex flex-col items-center justify-center px-4 py-12">
+    <div class="w-full max-w-3xl mx-auto">
+        {{ if eq (len .ModelsConfig) 0 }}
+        <!-- No Models - Wizard Guide -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <h2 class="hero-title">
+                    No Models Installed
+                </h2>
+                <p class="hero-subtitle">
+                    Get started with LocalAI by installing your first model. Choose from our gallery, import your own, or use the API to download models.
+                </p>
+            </div>
+        </div>
+        
+        <!-- Features Preview -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="card card-animate">
+                <div class="w-10 h-10 bg-[var(--color-primary-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-images text-[var(--color-primary)] text-xl"></i>
+                </div>
+                <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Model Gallery</h3>
+                <p class="text-xs text-[var(--color-text-secondary)]">Browse and install pre-configured models</p>
+            </div>
+            <div class="card card-animate">
+                <div class="w-10 h-10 bg-[var(--color-accent-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-upload text-[var(--color-accent)] text-xl"></i>
+                </div>
+                <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Import Models</h3>
+                <p class="text-xs text-[var(--color-text-secondary)]">Upload your own model files</p>
+            </div>
+            <div class="card card-animate">
+                <div class="w-10 h-10 bg-[var(--color-success-light)] rounded-lg flex items-center justify-center mx-auto mb-3">
+                    <i class="fas fa-code text-[var(--color-success)] text-xl"></i>
+                </div>
+                <h3 class="text-sm font-semibold text-[var(--color-text-primary)] mb-2">API Download</h3>
+                <p class="text-xs text-[var(--color-text-secondary)]">Use the API to download models programmatically</p>
+            </div>
+        </div>
+
+        <!-- Setup Instructions -->
+        <div class="card mb-6 text-left">
+            <h3 class="text-lg font-bold text-[var(--color-text-primary)] mb-4 flex items-center">
+                <i class="fas fa-rocket text-[var(--color-accent)] mr-2"></i>
+                How to Get Started
+            </h3>
+            <div class="space-y-4">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                        <span class="text-[var(--color-accent)] font-bold text-sm">1</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[var(--color-text-primary)] font-medium mb-2">Browse the Model Gallery</p>
+                        <p class="text-[var(--color-text-secondary)] text-sm">Explore our curated collection of pre-configured models. Find models for chat, image generation, audio processing, and more.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                        <span class="text-[var(--color-accent)] font-bold text-sm">2</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[var(--color-text-primary)] font-medium mb-2">Install a Model</p>
+                        <p class="text-[var(--color-text-secondary)] text-sm">Click on a model from the gallery to install it, or use the import feature to upload your own model files.</p>
+                    </div>
+                </div>
+                <div class="flex items-start">
+                    <div class="flex-shrink-0 w-8 h-8 rounded-full bg-[var(--color-accent-light)] flex items-center justify-center mr-3 mt-0.5">
+                        <span class="text-[var(--color-accent)] font-bold text-sm">3</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-[var(--color-text-primary)] font-medium mb-2">Start Chatting</p>
+                        <p class="text-[var(--color-text-secondary)] text-sm">Once installed, return to this page to start chatting with your model or use the API to interact programmatically.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap justify-center gap-4 mb-8">
+            <a href="#" @click.prevent="$store.router.navigate('browse')" class="btn-primary">
+                <i class="fas fa-images mr-2"></i>
+                Browse Model Gallery
+            </a>
+            <a href="/import-model" class="btn-primary">
+                <i class="fas fa-upload mr-2"></i>
+                Import Model
+            </a>
+            <a href="https://localai.io/basics/getting_started/" target="_blank" class="btn-secondary">
+                <i class="fas fa-graduation-cap mr-2"></i>
+                Getting Started
+                <i class="fas fa-external-link-alt ml-2 text-sm"></i>
+            </a>
+        </div>
+        {{ else }}
+        <!-- Welcome Message / Hero Section -->
+        <div class="hero-section">
+            <div class="hero-content">
+                <div class="mb-4 flex justify-center">
+                    <img src="static/logo.png" alt="LocalAI Logo" class="h-16 md:h-20">
+                </div>
+                <h1 class="hero-title">How can I help you today?</h1>
+                <p class="hero-subtitle">Ask me anything, and I'll do my best to assist you.</p>
+            </div>
+        </div>
+
+        <!-- Chat Input Form -->
+        <div class="mb-8" x-data="homeInputForm()">
+            <!-- Model Selector with MCP Toggle -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-[var(--color-text-secondary)] mb-2">Select Model</label>
+                <div class="flex items-center gap-3">
+                    <select
+                        x-model="selectedModel"
+                        @change="$nextTick(() => checkMCPAvailability())"
+                        class="input flex-1"
+                        required
+                    >
+                        <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model to chat with...</option>
+                        {{ range .ModelsConfig }}
+                        {{ $cfg := . }}
+                        {{ $hasMCP := or (ne $cfg.MCP.Servers "") (ne $cfg.MCP.Stdio "") }}
+                        {{ range .KnownUsecaseStrings }}
+                            {{ if eq . "FLAG_CHAT" }}
+                            <option value="{{$cfg.Name}}" data-has-mcp="{{if $hasMCP}}true{{else}}false{{end}}" class="bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                            {{ end }}
+                        {{ end }}
+                        {{ end }}
+                    </select>
+                    
+                    <!-- Compact MCP Toggle - Show only if MCP is available for selected model -->
+                    <div 
+                        x-show="mcpAvailable"
+                        class="flex items-center gap-2 px-3 py-2 text-xs rounded text-[var(--color-text-primary)] bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)] whitespace-nowrap">
+                        <i class="fa-solid fa-plug text-[var(--color-primary)] text-sm"></i>
+                        <span class="text-[var(--color-text-secondary)]">MCP</span>
+                        <label class="relative inline-flex items-center cursor-pointer ml-1">
+                            <input type="checkbox" id="spa_home_mcp_toggle" class="sr-only peer" x-model="mcpMode">
+                            <div class="w-9 h-5 bg-[var(--color-bg-primary)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--color-primary-border)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[var(--color-bg-secondary)] after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--color-primary)]"></div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- MCP Mode Notification - Compact tooltip style -->
+                <div 
+                    x-show="mcpMode && mcpAvailable"
+                    class="mt-2 p-2 bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] rounded text-[var(--color-text-secondary)] text-xs">
+                    <div class="flex items-start space-x-2">
+                        <i class="fa-solid fa-info-circle text-[var(--color-primary)] mt-0.5 text-xs"></i>
+                        <p class="text-[var(--color-text-secondary)]">Non-streaming mode active. Responses may take longer to process.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Bar -->
+            <form @submit.prevent="startChatSPA($event)" class="relative w-full">
+                <!-- Attachment Tags - Show above input when files are attached -->
+                <div x-show="attachedFiles.length > 0" class="mb-3 flex flex-wrap gap-2 items-center">
+                    <template x-for="(file, index) in attachedFiles" :key="index">
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm bg-[var(--color-primary-light)] border border-[var(--color-primary-border)] text-[var(--color-text-primary)]">
+                            <i :class="file.type === 'image' ? 'fa-solid fa-image' : file.type === 'audio' ? 'fa-solid fa-microphone' : 'fa-solid fa-file'" class="text-[var(--color-primary)]"></i>
+                            <span x-text="file.name" class="max-w-[200px] truncate"></span>
+                            <button 
+                                type="button"
+                                @click="attachedFiles.splice(index, 1); removeAttachedFile(file.type, file.name)"
+                                class="ml-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+                                title="Remove attachment"
+                            >
+                                <i class="fa-solid fa-times text-xs"></i>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="relative w-full">
+                    <textarea
+                        x-model="inputValue"
+                        :placeholder="currentPlaceholder"
+                        class="input p-3 pr-16 w-full resize-none border-0"
+                        required
+                        @keydown.shift="shiftPressed = true"
+                        @keyup.shift="shiftPressed = false"
+                        @keydown.enter.prevent="if (!shiftPressed && selectedModel && (inputValue.trim() || currentPlaceholder.trim())) { startChatSPA($event); }"
+                        @focus="handleFocus()"
+                        @blur="handleBlur()"
+                        @input="handleInput()"
+                        rows="2"
+                    ></textarea>
+                    
+                    <!-- Attachment Buttons -->
+                    <button
+                        type="button"
+                        @click="document.getElementById('spa_home_input_image').click()"
+                        class="fa-solid fa-image text-[var(--color-text-secondary)] absolute right-12 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
+                        title="Attach images"
+                    ></button>
+                    <button
+                        type="button"
+                        @click="document.getElementById('spa_home_input_audio').click()"
+                        class="fa-solid fa-microphone text-[var(--color-text-secondary)] absolute right-20 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
+                        title="Attach an audio file"
+                    ></button>
+                    <button
+                        type="button"
+                        @click="document.getElementById('spa_home_input_file').click()"
+                        class="fa-solid fa-file text-[var(--color-text-secondary)] absolute right-28 top-3 text-base p-1.5 hover:text-[var(--color-primary)] transition-colors duration-200"
+                        title="Upload text, markdown or PDF file"
+                    ></button>
+
+                    <!-- Send Button -->
+                    <button
+                        type="submit"
+                        :disabled="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim())"
+                        :class="!selectedModel || (!inputValue.trim() && !currentPlaceholder.trim()) ? 'opacity-50 cursor-not-allowed' : ''"
+                        class="text-lg p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors duration-200 absolute right-3 top-3"
+                        title="Send message (Enter)"
+                    >
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Hidden File Inputs -->
+            <input
+                id="spa_home_input_image"
+                type="file"
+                multiple
+                accept="image/*"
+                style="display: none;"
+                @change="imageFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'image')"
+            />
+            <input
+                id="spa_home_input_audio"
+                type="file"
+                multiple
+                accept="audio/*"
+                style="display: none;"
+                @change="audioFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'audio')"
+            />
+            <input
+                id="spa_home_input_file"
+                type="file"
+                multiple
+                accept=".txt,.md,.pdf"
+                style="display: none;"
+                @change="textFiles = Array.from($event.target.files); handleFileSelection($event.target.files, 'file')"
+            />
+        </div>
+
+        <!-- Quick Links -->
+        <div class="flex flex-wrap justify-center gap-3 mb-8">
+            <a href="#" @click.prevent="$store.router.navigate('manage')" class="btn-tertiary">
+                <i class="fas fa-cog mr-2"></i>
+                Installed Models and Backends
+            </a>
+            <a href="/import-model" class="btn-tertiary">
+                <i class="fas fa-upload mr-2"></i>
+                Import Model
+            </a>
+            <a href="#" @click.prevent="$store.router.navigate('browse')" class="btn-tertiary">
+                <i class="fas fa-images mr-2"></i>
+                Browse Gallery
+            </a>
+            <a href="https://localai.io" target="_blank" class="btn-tertiary">
+                <i class="fas fa-book mr-2"></i>
+                Documentation
+            </a>
+        </div>
+
+        <!-- Memory Status Indicator (GPU or RAM) -->
+        <div class="mb-4" x-data="resourceMonitor()" x-init="startPolling()">
+            <template x-if="resourceData && resourceData.available">
+                <div class="flex items-center justify-center gap-3 text-xs text-[var(--color-text-secondary)]">
+                    <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20">
+                        <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'"
+                           :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"></i>
+                        <span class="text-[var(--color-text-secondary)]" x-text="resourceData.type === 'gpu' ? 'GPU' : 'RAM'"></span>
+                        <span class="font-mono" 
+                              :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                              x-text="`${resourceData.aggregate.usage_percent.toFixed(0)}%`"></span>
+                        <div class="w-16 bg-[var(--color-bg-primary)] rounded-full h-1.5 overflow-hidden">
+                            <div class="h-full rounded-full transition-all duration-300"
+                                 :class="resourceData.aggregate.usage_percent > 90 ? 'bg-red-500' : resourceData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                                 :style="`width: ${resourceData.aggregate.usage_percent}%`"></div>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Model Status Summary - Subtle -->
+        {{ $loadedModels := .LoadedModels }}
+        <div class="mb-8 flex items-center justify-center gap-2 text-xs text-[var(--color-text-secondary)]" 
+             x-data="{ stoppingAll: false, stopAllModels() { window.stopAllModels(this); }, stopModel(name) { window.stopModel(name); }, getLoadedCount() { return document.querySelectorAll('[data-loaded-model]').length; } }"
+             x-show="getLoadedCount() > 0"
+             style="display: none;">
+            <span class="flex items-center gap-1.5">
+                <i class="fas fa-circle text-green-500 text-[10px]"></i>
+                <span x-text="`${getLoadedCount()} model(s) loaded`"></span>
+            </span>
+            <span class="text-[var(--color-primary)] opacity-40">•</span>
+            {{ range .ModelsConfig }}
+                {{ if index $loadedModels .Name }}
+                <span class="inline-flex items-center gap-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors" data-loaded-model>
+                    <span class="truncate max-w-[100px]">{{.Name}}</span>
+                    <button
+                        @click="stopModel('{{.Name}}')"
+                        class="text-red-400/60 hover:text-red-400 transition-colors ml-0.5"
+                        title="Stop {{.Name}}"
+                    >
+                        <i class="fas fa-times text-[10px]"></i>
+                    </button>
+                </span>
+                {{ end }}
+            {{ end }}
+            <span class="text-[var(--color-primary)] opacity-40">•</span>
+            <button
+                @click="stopAllModels()"
+                :disabled="stoppingAll"
+                :class="stoppingAll ? 'opacity-50 cursor-not-allowed' : ''"
+                class="text-red-400/60 hover:text-red-400 transition-colors text-xs"
+                title="Stop all loaded models"
+            >
+                <span x-text="stoppingAll ? 'Stopping...' : 'Stop all'"></span>
+            </button>
+        </div>
+        {{ end }}
+    </div>
+</div>

@@ -1,0 +1,307 @@
+<!-- Manage View Content for SPA -->
+<div class="container mx-auto px-4 py-8 flex-grow" x-data="manageDashboard()">
+    
+    <!-- Notifications -->
+    <div class="fixed top-20 right-4 z-50 space-y-2" style="max-width: 400px;">
+        <template x-for="notification in notifications" :key="notification.id">
+            <div x-show="true" 
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="transition ease-in duration-150"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 :class="notification.type === 'error' ? 'bg-red-500' : 'bg-[var(--color-success)]'"
+                 class="rounded-lg p-4 text-white flex items-start space-x-3">
+                <div class="flex-shrink-0">
+                    <i :class="notification.type === 'error' ? 'fas fa-exclamation-circle' : 'fas fa-check-circle'" class="text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium break-words" x-text="notification.message"></p>
+                </div>
+                <button @click="dismissNotification(notification.id)" class="flex-shrink-0 text-white hover:opacity-80 transition-opacity">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <!-- Hero Header -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">
+                Model & Backend Management
+            </h1>
+            <p class="hero-subtitle">Manage your installed models and backends</p>
+            
+            <!-- Quick Actions -->
+            <div class="flex flex-wrap justify-center gap-3">
+                <a href="#" @click.prevent="$store.router.navigate('browse')" class="btn-primary text-sm py-1.5 px-3">
+                    <i class="fas fa-images mr-1.5 text-[10px]"></i>
+                    <span>Model Gallery</span>
+                </a>
+                
+                <a href="/import-model" class="btn-primary text-sm py-1.5 px-3">
+                    <i class="fas fa-plus mr-1.5 text-[10px]"></i>
+                    <span>Import Model</span>
+                </a>
+
+                <button @click="reloadModels()" class="btn-primary text-sm py-1.5 px-3">
+                    <i class="fas fa-sync-alt mr-1.5 text-[10px]"></i>
+                    <span>Update Models</span>
+                </button>
+
+                <a href="/browse/backends" class="btn-secondary text-sm py-1.5 px-3">
+                    <i class="fas fa-cogs mr-1.5 text-[10px]"></i>
+                    <span>Backend Gallery</span>
+                </a>
+
+                {{ if not .DisableRuntimeSettings }}
+                <a href="/settings" class="btn-secondary text-sm py-1.5 px-3">
+                    <i class="fas fa-cog mr-1.5 text-[10px]"></i>
+                    <span>Settings</span>
+                </a>
+                {{ end }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Memory Info Section -->
+    <div class="mt-8" x-data="resourceMonitor()" x-init="startPolling()">
+        <template x-if="resourceData && resourceData.available">
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded-lg p-4 mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="h3 flex items-center">
+                        <i :class="resourceData.type === 'gpu' ? 'fas fa-microchip' : 'fas fa-memory'" class="mr-2 text-[var(--color-primary)] text-sm"></i>
+                        <span x-text="resourceData.type === 'gpu' ? 'GPU Status' : 'Memory Status'"></span>
+                    </h2>
+                </div>
+                
+                <!-- Aggregate Stats -->
+                <div class="bg-[var(--color-bg-primary)] rounded p-3">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-medium text-[var(--color-text-primary)]" x-text="resourceData.type === 'gpu' ? 'Total GPU Memory' : 'System RAM'"></span>
+                        <span class="text-xs font-mono" 
+                              :class="resourceData.aggregate.usage_percent > 90 ? 'text-red-400' : resourceData.aggregate.usage_percent > 70 ? 'text-yellow-400' : 'text-green-400'"
+                              x-text="`${resourceData.aggregate.usage_percent.toFixed(1)}%`"></span>
+                    </div>
+                    <div class="w-full bg-[var(--color-bg-secondary)] rounded-full h-2 overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-300"
+                             :class="resourceData.aggregate.usage_percent > 90 ? 'bg-red-500' : resourceData.aggregate.usage_percent > 70 ? 'bg-yellow-500' : 'bg-[var(--color-success)]'"
+                             :style="`width: ${resourceData.aggregate.usage_percent}%`"></div>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+
+    <!-- Installed Models Section -->
+    <div class="mt-8">
+        <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+            <i class="fas fa-brain text-[var(--color-primary)] mr-2"></i>
+            Installed Models
+        </h2>
+        
+        <div class="card overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="bg-[var(--color-bg-secondary)] border-b border-[var(--color-border)]">
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Model</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Status</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Backend</th>
+                            <th class="px-4 py-3 text-right text-xs font-semibold text-[var(--color-text-secondary)] uppercase">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-[var(--color-border)]">
+                        {{ $loadedModels := .LoadedModels }}
+                        {{ range .ModelsConfig }}
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-[var(--color-text-primary)]">{{.Name}}</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                {{ if index $loadedModels .Name }}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-300">
+                                    <i class="fas fa-circle text-[6px] mr-1.5"></i>Loaded
+                                </span>
+                                {{ else }}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                                    <i class="fas fa-circle text-[6px] mr-1.5"></i>Idle
+                                </span>
+                                {{ end }}
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="text-xs text-[var(--color-text-secondary)]">{{.Backend}}</span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    {{ $hasChat := false }}
+                                    {{ range .KnownUsecaseStrings }}
+                                        {{ if eq . "FLAG_CHAT" }}{{ $hasChat = true }}{{ end }}
+                                    {{ end }}
+                                    {{ if $hasChat }}
+                                    <button @click="$store.router.navigate('chat', { model: '{{.Name}}' })" 
+                                            class="px-2 py-1 text-xs rounded bg-[var(--color-primary)] text-white hover:opacity-80 transition-opacity">
+                                        <i class="fas fa-comments mr-1"></i>Chat
+                                    </button>
+                                    {{ end }}
+                                    {{ if index $loadedModels .Name }}
+                                    <button onclick="stopModelManage('{{.Name}}')" 
+                                            class="px-2 py-1 text-xs rounded bg-red-500/20 text-red-300 hover:bg-red-500/30 transition-colors">
+                                        <i class="fas fa-stop mr-1"></i>Stop
+                                    </button>
+                                    {{ end }}
+                                    <a href="/model-editor/{{.Name}}" class="px-2 py-1 text-xs rounded bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {{ end }}
+                        {{ range .Models }}
+                        <tr class="hover:bg-[var(--color-bg-secondary)]/50 transition-colors">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center">
+                                    <span class="text-sm font-medium text-[var(--color-text-primary)]">{{.}}</span>
+                                    <span class="ml-2 text-xs text-[var(--color-text-secondary)]">(no config)</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--color-bg-secondary)] text-[var(--color-text-secondary)]">
+                                    <i class="fas fa-circle text-[6px] mr-1.5"></i>Idle
+                                </span>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span class="text-xs text-[var(--color-text-secondary)]">-</span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <button @click="$store.router.navigate('chat', { model: '{{.}}' })" 
+                                        class="px-2 py-1 text-xs rounded bg-[var(--color-primary)] text-white hover:opacity-80 transition-opacity">
+                                    <i class="fas fa-comments mr-1"></i>Chat
+                                </button>
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            </div>
+            
+            {{ if and (eq (len .ModelsConfig) 0) (eq (len .Models) 0) }}
+            <div class="text-center py-8 text-[var(--color-text-secondary)]">
+                <i class="fas fa-box-open text-4xl mb-3 opacity-50"></i>
+                <p>No models installed yet</p>
+                <p class="text-sm mt-2">
+                    <a href="#" @click.prevent="$store.router.navigate('browse')" class="text-[var(--color-primary)] hover:underline">Browse the gallery</a> to get started
+                </p>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+
+    <!-- Installed Backends Section -->
+    <div class="mt-8">
+        <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+            <i class="fas fa-server text-[var(--color-accent)] mr-2"></i>
+            Installed Backends
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {{ range .InstalledBackends }}
+            <div class="card p-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-[var(--color-accent-light)] rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-cogs text-[var(--color-accent)]"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-medium text-[var(--color-text-primary)]">{{.Name}}</h3>
+                            <p class="text-xs text-[var(--color-text-secondary)]">{{.Version}}</p>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-500/20 text-green-300">
+                        Installed
+                    </span>
+                </div>
+            </div>
+            {{ else }}
+            <div class="col-span-full text-center py-8 text-[var(--color-text-secondary)]">
+                <i class="fas fa-plug text-4xl mb-3 opacity-50"></i>
+                <p>No backends installed yet</p>
+                <p class="text-sm mt-2">
+                    <a href="/browse/backends" class="text-[var(--color-primary)] hover:underline">Browse the backend gallery</a>
+                </p>
+            </div>
+            {{ end }}
+        </div>
+    </div>
+</div>
+
+<script>
+// Manage dashboard component
+function manageDashboard() {
+    return {
+        notifications: [],
+        
+        init() {
+            // Initialize
+        },
+        
+        addNotification(message, type = 'success') {
+            const id = Date.now();
+            this.notifications.push({ id, message, type });
+            setTimeout(() => this.dismissNotification(id), 5000);
+        },
+        
+        dismissNotification(id) {
+            this.notifications = this.notifications.filter(n => n.id !== id);
+        },
+        
+        reloadModels() {
+            fetch('/models/reload', { method: 'POST' })
+                .then(response => {
+                    if (response.ok) {
+                        this.addNotification('Models reloaded successfully');
+                        setTimeout(() => window.location.reload(), 1000);
+                    } else {
+                        this.addNotification('Failed to reload models', 'error');
+                    }
+                })
+                .catch(error => {
+                    this.addNotification('Error: ' + error.message, 'error');
+                });
+        }
+    };
+}
+
+// Stop model function
+async function stopModelManage(modelName) {
+    if (!confirm(`Are you sure you want to stop "${modelName}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('/backend/shutdown', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ model: modelName })
+        });
+        
+        if (response.ok) {
+            setTimeout(() => window.location.reload(), 500);
+        } else {
+            alert('Failed to stop model');
+        }
+    } catch (error) {
+        console.error('Error stopping model:', error);
+        alert('Failed to stop model');
+    }
+}
+
+window.manageDashboard = manageDashboard;
+window.stopModelManage = stopModelManage;
+</script>

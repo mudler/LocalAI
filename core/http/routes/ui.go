@@ -3,7 +3,6 @@ package routes
 import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/config"
-	"github.com/mudler/LocalAI/core/gallery"
 	"github.com/mudler/LocalAI/core/http/endpoints/localai"
 	"github.com/mudler/LocalAI/core/http/middleware"
 	"github.com/mudler/LocalAI/core/services"
@@ -115,208 +114,24 @@ func RegisterUIRoutes(app *echo.Echo,
 		registerBackendGalleryRoutes(app, appConfig, galleryService, processingOps)
 	}
 
-	app.GET("/talk", func(c echo.Context) error {
-		modelConfigs, _ := services.ListModels(cl, ml, config.NoFilterFn, services.SKIP_IF_CONFIGURED)
+	// Talk route - now served by SPA
+	app.GET("/talk", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-		if len(modelConfigs) == 0 {
-			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, middleware.BaseURL(c))
-		}
+	// Chat routes - now served by SPA
+	app.GET("/chat", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-		summary := map[string]interface{}{
-			"Title":        "LocalAI - Talk",
-			"BaseURL":      middleware.BaseURL(c),
-			"ModelsConfig": modelConfigs,
-			"Model":        modelConfigs[0],
+	// Show the Chat page with specific model
+	app.GET("/chat/:model", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-			"Version": internal.PrintableVersion(),
-		}
+	// Text2Image routes - now served by SPA
+	app.GET("/text2image/:model", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-		// Render index
-		return c.Render(200, "views/talk", summary)
-	})
+	app.GET("/text2image", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-	app.GET("/chat", func(c echo.Context) error {
-		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+	// TTS routes - now served by SPA
+	app.GET("/tts/:model", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
-		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
-			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, middleware.BaseURL(c))
-		}
-		modelThatCanBeUsed := ""
-		galleryConfigs := map[string]*gallery.ModelConfig{}
-
-		for _, m := range modelConfigs {
-			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
-			if err != nil {
-				continue
-			}
-			galleryConfigs[m.Name] = cfg
-		}
-
-		title := "LocalAI - Chat"
-		var modelContextSize *int
-
-		for _, b := range modelConfigs {
-			if b.HasUsecases(config.FLAG_CHAT) {
-				modelThatCanBeUsed = b.Name
-				title = "LocalAI - Chat with " + modelThatCanBeUsed
-				if b.LLMConfig.ContextSize != nil {
-					modelContextSize = b.LLMConfig.ContextSize
-				}
-				break
-			}
-		}
-
-		summary := map[string]interface{}{
-			"Title":               title,
-			"BaseURL":             middleware.BaseURL(c),
-			"ModelsWithoutConfig": modelsWithoutConfig,
-			"GalleryConfig":       galleryConfigs,
-			"ModelsConfig":        modelConfigs,
-			"Model":               modelThatCanBeUsed,
-			"ContextSize":         modelContextSize,
-			"Version":             internal.PrintableVersion(),
-		}
-
-		// Render index
-		return c.Render(200, "views/chat", summary)
-	})
-
-	// Show the Chat page
-	app.GET("/chat/:model", func(c echo.Context) error {
-		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
-
-		galleryConfigs := map[string]*gallery.ModelConfig{}
-		modelName := c.Param("model")
-		var modelContextSize *int
-
-		for _, m := range modelConfigs {
-			cfg, err := gallery.GetLocalModelConfiguration(ml.ModelPath, m.Name)
-			if err != nil {
-				continue
-			}
-			galleryConfigs[m.Name] = cfg
-			if m.Name == modelName && m.LLMConfig.ContextSize != nil {
-				modelContextSize = m.LLMConfig.ContextSize
-			}
-		}
-
-		summary := map[string]interface{}{
-			"Title":               "LocalAI - Chat with " + modelName,
-			"BaseURL":             middleware.BaseURL(c),
-			"ModelsConfig":        modelConfigs,
-			"GalleryConfig":       galleryConfigs,
-			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               modelName,
-			"ContextSize":         modelContextSize,
-			"Version":             internal.PrintableVersion(),
-		}
-
-		// Render index
-		return c.Render(200, "views/chat", summary)
-	})
-
-	app.GET("/text2image/:model", func(c echo.Context) error {
-		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
-
-		summary := map[string]interface{}{
-			"Title":               "LocalAI - Generate images with " + c.Param("model"),
-			"BaseURL":             middleware.BaseURL(c),
-			"ModelsConfig":        modelConfigs,
-			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               c.Param("model"),
-			"Version":             internal.PrintableVersion(),
-		}
-
-		// Render index
-		return c.Render(200, "views/text2image", summary)
-	})
-
-	app.GET("/text2image", func(c echo.Context) error {
-		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
-
-		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
-			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, middleware.BaseURL(c))
-		}
-
-		modelThatCanBeUsed := ""
-		title := "LocalAI - Generate images"
-
-		for _, b := range modelConfigs {
-			if b.HasUsecases(config.FLAG_IMAGE) {
-				modelThatCanBeUsed = b.Name
-				title = "LocalAI - Generate images with " + modelThatCanBeUsed
-				break
-			}
-		}
-
-		summary := map[string]interface{}{
-			"Title":               title,
-			"BaseURL":             middleware.BaseURL(c),
-			"ModelsConfig":        modelConfigs,
-			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               modelThatCanBeUsed,
-			"Version":             internal.PrintableVersion(),
-		}
-
-		// Render index
-		return c.Render(200, "views/text2image", summary)
-	})
-
-	app.GET("/tts/:model", func(c echo.Context) error {
-		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
-
-		summary := map[string]interface{}{
-			"Title":               "LocalAI - Generate images with " + c.Param("model"),
-			"BaseURL":             middleware.BaseURL(c),
-			"ModelsConfig":        modelConfigs,
-			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               c.Param("model"),
-			"Version":             internal.PrintableVersion(),
-		}
-
-		// Render index
-		return c.Render(200, "views/tts", summary)
-	})
-
-	app.GET("/tts", func(c echo.Context) error {
-		modelConfigs := cl.GetAllModelsConfigs()
-		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
-
-		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
-			// If no model is available redirect to the index which suggests how to install models
-			return c.Redirect(302, middleware.BaseURL(c))
-		}
-
-		modelThatCanBeUsed := ""
-		title := "LocalAI - Generate audio"
-
-		for _, b := range modelConfigs {
-			if b.HasUsecases(config.FLAG_TTS) {
-				modelThatCanBeUsed = b.Name
-				title = "LocalAI - Generate audio with " + modelThatCanBeUsed
-				break
-			}
-		}
-		summary := map[string]interface{}{
-			"Title":               title,
-			"BaseURL":             middleware.BaseURL(c),
-			"ModelsConfig":        modelConfigs,
-			"ModelsWithoutConfig": modelsWithoutConfig,
-			"Model":               modelThatCanBeUsed,
-			"Version":             internal.PrintableVersion(),
-		}
-
-		// Render index
-		return c.Render(200, "views/tts", summary)
-	})
+	app.GET("/tts", localai.WelcomeEndpoint(appConfig, cl, ml, processingOps))
 
 	// Traces UI
 	app.GET("/traces", func(c echo.Context) error {
