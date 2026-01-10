@@ -12,15 +12,17 @@ import (
 )
 
 const (
+	// Public constants - used by tests and external packages
+	Nvidia = "nvidia"
+	AMD    = "amd"
+	Intel  = "intel"
+
+	// Private constants - only used within this package
 	defaultCapability = "default"
 	nvidiaL4T         = "nvidia-l4t"
 	darwinX86         = "darwin-x86"
 	metal             = "metal"
-	nvidia            = "nvidia"
-
-	amd    = "amd"
-	intel  = "intel"
-	vulkan = "vulkan"
+	vulkan            = "vulkan"
 
 	nvidiaCuda13    = "nvidia-cuda-13"
 	nvidiaCuda12    = "nvidia-cuda-12"
@@ -30,6 +32,16 @@ const (
 	capabilityEnv        = "LOCALAI_FORCE_META_BACKEND_CAPABILITY"
 	capabilityRunFileEnv = "LOCALAI_FORCE_META_BACKEND_CAPABILITY_RUN_FILE"
 	defaultRunFile       = "/run/localai/capability"
+
+	// Backend detection tokens (private)
+	backendTokenDarwin = "darwin"
+	backendTokenMLX    = "mlx"
+	backendTokenMetal  = "metal"
+	backendTokenL4T    = "l4t"
+	backendTokenCUDA   = "cuda"
+	backendTokenROCM   = "rocm"
+	backendTokenHIP    = "hip"
+	backendTokenSYCL   = "sycl"
 )
 
 var (
@@ -96,7 +108,7 @@ func (s *SystemState) getSystemCapabilities() string {
 
 	// If arm64 on linux and a nvidia gpu is detected, we will return nvidia-l4t
 	if runtime.GOOS == "linux" && runtime.GOARCH == "arm64" {
-		if s.GPUVendor == nvidia {
+		if s.GPUVendor == Nvidia {
 			xlog.Info("Using nvidia-l4t capability (arm64 on linux)", "env", capabilityEnv)
 			if cuda13DirExists {
 				return nvidiaL4TCuda13
@@ -131,7 +143,6 @@ func (s *SystemState) getSystemCapabilities() string {
 	return s.GPUVendor
 }
 
-
 // BackendPreferenceTokens returns a list of substrings that represent the preferred
 // backend implementation order for the current system capability. Callers can use
 // these tokens to select the most appropriate concrete backend among multiple
@@ -139,19 +150,76 @@ func (s *SystemState) getSystemCapabilities() string {
 func (s *SystemState) BackendPreferenceTokens() []string {
 	capStr := strings.ToLower(s.getSystemCapabilities())
 	switch {
-	case strings.HasPrefix(capStr, nvidia):
-		return []string{"cuda", "vulkan", "cpu"}
-	case strings.HasPrefix(capStr, amd):
-		return []string{"rocm", "hip", "vulkan", "cpu"}
-	case strings.HasPrefix(capStr, intel):
-		return []string{"sycl", intel, "cpu"}
+	case strings.HasPrefix(capStr, Nvidia):
+		return []string{backendTokenCUDA, vulkan, "cpu"}
+	case strings.HasPrefix(capStr, AMD):
+		return []string{backendTokenROCM, backendTokenHIP, vulkan, "cpu"}
+	case strings.HasPrefix(capStr, Intel):
+		return []string{backendTokenSYCL, Intel, "cpu"}
 	case strings.HasPrefix(capStr, metal):
-		return []string{"metal", "cpu"}
+		return []string{backendTokenMetal, "cpu"}
 	case strings.HasPrefix(capStr, darwinX86):
 		return []string{"darwin-x86", "cpu"}
 	case strings.HasPrefix(capStr, vulkan):
-		return []string{"vulkan", "cpu"}
+		return []string{vulkan, "cpu"}
 	default:
 		return []string{"cpu"}
 	}
+}
+
+// DetectedCapability returns the detected system capability string.
+// This can be used by the UI to display what capability was detected.
+func (s *SystemState) DetectedCapability() string {
+	return s.getSystemCapabilities()
+}
+
+// IsBackendCompatible checks if a backend (identified by name and URI) is compatible
+// with the current system capability. This function uses getSystemCapabilities to ensure
+// consistency with capability detection (including VRAM checks, environment overrides, etc.).
+func (s *SystemState) IsBackendCompatible(name, uri string) bool {
+	combined := strings.ToLower(name + " " + uri)
+	capability := s.getSystemCapabilities()
+
+	// Check for darwin/macOS-specific backends (mlx, metal, darwin)
+	isDarwinBackend := strings.Contains(combined, backendTokenDarwin) ||
+		strings.Contains(combined, backendTokenMLX) ||
+		strings.Contains(combined, backendTokenMetal)
+	if isDarwinBackend {
+		// Darwin backends require the system to be running on darwin with metal or darwin-x86 capability
+		return capability == metal || capability == darwinX86
+	}
+
+	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)
+	// This must be checked before the general NVIDIA check as L4T backends
+	// may also contain "cuda" or "nvidia" in their names
+	isL4TBackend := strings.Contains(combined, backendTokenL4T)
+	if isL4TBackend {
+		return strings.HasPrefix(capability, nvidiaL4T)
+	}
+
+	// Check for NVIDIA/CUDA-specific backends (non-L4T)
+	isNvidiaBackend := strings.Contains(combined, backendTokenCUDA) ||
+		strings.Contains(combined, Nvidia)
+	if isNvidiaBackend {
+		// NVIDIA backends are compatible with nvidia, nvidia-cuda-12, nvidia-cuda-13, and l4t capabilities
+		return strings.HasPrefix(capability, Nvidia)
+	}
+
+	// Check for AMD/ROCm-specific backends
+	isAMDBackend := strings.Contains(combined, backendTokenROCM) ||
+		strings.Contains(combined, backendTokenHIP) ||
+		strings.Contains(combined, AMD)
+	if isAMDBackend {
+		return capability == AMD
+	}
+
+	// Check for Intel/SYCL-specific backends
+	isIntelBackend := strings.Contains(combined, backendTokenSYCL) ||
+		strings.Contains(combined, Intel)
+	if isIntelBackend {
+		return capability == Intel
+	}
+
+	// CPU backends are always compatible
+	return true
 }

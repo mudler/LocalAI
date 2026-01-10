@@ -63,6 +63,25 @@ func (m *GalleryBackend) IsMeta() bool {
 	return len(m.CapabilitiesMap) > 0 && m.URI == ""
 }
 
+// IsCompatibleWith checks if the backend is compatible with the current system capability.
+// For meta backends, it checks if any of the capabilities in the map match the system capability.
+// For concrete backends, it delegates to SystemState.IsBackendCompatible.
+func (m *GalleryBackend) IsCompatibleWith(systemState *system.SystemState) bool {
+	if systemState == nil {
+		return true
+	}
+
+	// Meta backends are compatible if the system capability matches one of the keys
+	if m.IsMeta() {
+		capability := systemState.Capability(m.CapabilitiesMap)
+		_, exists := m.CapabilitiesMap[capability]
+		return exists
+	}
+
+	// For concrete backends, delegate to the system package
+	return systemState.IsBackendCompatible(m.Name, m.URI)
+}
+
 func (m *GalleryBackend) SetInstalled(installed bool) {
 	m.Installed = installed
 }
