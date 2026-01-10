@@ -1,4 +1,47 @@
 ---
+- name: "deepseek-v3.2-speciale"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ubergarm/DeepSeek-V3.2-Speciale-GGUF
+  description: |
+    **Model Description:**
+    The `deepseek-ai/DeepSeek-V3.2-Speciale` model is a large language model optimized for deep reasoning tasks. This quantized version (available as `ubergarm/DeepSeek-V3.2-Speciale-GGUF`) is a compressed, efficient deployment of the base model, designed for accelerated inference on hardware like GPUs or CPUs. It uses **ik_llama.cpp** for quantization, offering memory-efficient variants with varying bit-precision (e.g., Q8_0, IQ5_K, IQ3_K, IQ2_KS, IQ1_KT) to balance performance and accuracy.
+
+    **Key Features:**
+      - **Base Model:** `deepseek-ai/DeepSeek-V3.2-Speciale` (optimized for reasoning).
+      - **Quantization:** Compressed with `ik_llama.cpp` for reduced memory footprint (e.g., 179GB for `smol-IQ2_KS`).
+      - **Use Cases:** Ideal for tasks requiring deep contextual understanding, such as code generation, translation, and complex reasoning.
+      - **Hardware Support:** Compatible with CUDA 12.9+ and Windows builds for CUDA 12.8.
+
+    **License:** MIT.
+
+    **Available Quantizations:**
+      - `Q8_0` (664GB): High accuracy, 8.504 BPW.
+      - `IQ5_K` (464GB): 5.946 BPW, optimized for performance.
+      - `IQ3_K` (290GB): 3.724 BPW, further reduced memory.
+      - `smol-IQ2_KS` (179GB): 2.297 BPW, smallest variant.
+      - `smol-IQ1_KT` (146GB): 1.871 BPW, even smaller for resource-constrained use.
+
+    **Note:** This quantized model is not the original author's version and is tailored for efficient inference with tools like `ik_llama.cpp`. It is designed for deep reasoning tasks and requires GPU/CPU hardware support.
+  overrides:
+    parameters:
+      model: llama-cpp/models/DeepSeek-V3.2-Speciale-smol-IQ2_KS-00005-of-00005.gguf
+    name: DeepSeek-V3.2-Speciale-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ubergarm/DeepSeek-V3.2-Speciale-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/DeepSeek-V3.2-Speciale-smol-IQ2_KS-00005-of-00005.gguf
+      sha256: 2bce0f5490fd97c73a0f9b2d49952065ed31d4ff22a9d75efef1e6c1fa9656e6
+      uri: https://huggingface.co/ubergarm/DeepSeek-V3.2-Speciale-GGUF/resolve/main/smol-IQ2_KS/DeepSeek-V3.2-Speciale-smol-IQ2_KS-00005-of-00005.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
