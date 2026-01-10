@@ -54,6 +54,11 @@
                         <span class="font-semibold text-cyan-300" x-text="installedBackends"></span>
                         <span class="text-[#94A3B8] ml-1">installed</span>
                     </a>
+                    <div class="flex items-center bg-[#101827] rounded-lg px-4 py-2 border border-[#38BDF8]/30">
+                        <i class="fas fa-microchip text-[#38BDF8] mr-2"></i>
+                        <span class="text-[#94A3B8] mr-1">System:</span>
+                        <span class="font-semibold text-[#38BDF8]" x-text="systemCapability"></span>
+                    </div>
                     <a href="https://localai.io/backends/" target="_blank" class="btn-primary">
                         <i class="fas fa-info-circle mr-2"></i>
                         <span>Documentation</span>
@@ -588,6 +593,7 @@ function backendsGallery() {
         totalPages: 1,
         availableBackends: 0,
         installedBackends: 0,
+        systemCapability: '',
         selectedBackend: null,
         jobProgress: {},
         notifications: [],
@@ -683,6 +689,7 @@ function backendsGallery() {
                 this.totalPages = data.totalPages || 1;
                 this.availableBackends = data.availableBackends || 0;
                 this.installedBackends = data.installedBackends || 0;
+                this.systemCapability = data.systemCapability || 'default';
             } catch (error) {
                 console.error('Error fetching backends:', error);
             } finally {
