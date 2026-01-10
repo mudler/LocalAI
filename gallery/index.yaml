@@ -1,4 +1,29 @@
 ---
+- name: "spacebound_stock-24b-v0-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/SpaceBound_Stock-24B-v0-i1-GGUF
+  description: |
+    The model **Naphula/SpaceBound_Stock-24B-v0** is a large language model with 24 billion parameters, designed for tasks requiring extensive context understanding. It is quantized using a combination of IQ1_M, IQ2_XXS, and IQ4_K_M quantization schemes, optimizing for speed, size, and quality. The quantized version (SpaceBound_Stock-24B-v0-i1-GGUF) is a GGUF file optimized for deployment, supporting multi-part file concatenation. Available quantized versions include options like i1-Q4_K_M (fast, recommended) and i1-IQ4_XS (optimal size/speed/quality). The model is accessible via HuggingFace, with detailed usage instructions and quantization guides provided in the repository.
+  overrides:
+    parameters:
+      model: llama-cpp/models/SpaceBound_Stock-24B-v0.i1-Q4_K_M.gguf
+    name: SpaceBound_Stock-24B-v0-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/SpaceBound_Stock-24B-v0-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/SpaceBound_Stock-24B-v0.i1-Q4_K_M.gguf
+      sha256: 48c9044c294636309e8224154cad8c5844c87fdc6d48df42ab6a0259ca6e8cfc
+      uri: https://huggingface.co/mradermacher/SpaceBound_Stock-24B-v0-i1-GGUF/resolve/main/SpaceBound_Stock-24B-v0.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
