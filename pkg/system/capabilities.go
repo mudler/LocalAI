@@ -172,17 +172,19 @@ func (s *SystemState) DetectedCapability() string {
 }
 
 // IsBackendCompatible checks if a backend (identified by name and URI) is compatible
-// with the current system capability. This function contains the business logic for
-// determining backend compatibility based on name/URI patterns.
+// with the current system capability. This function uses getSystemCapabilities to ensure
+// consistency with capability detection (including VRAM checks, environment overrides, etc.).
 func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 	combined := strings.ToLower(name + " " + uri)
+	capability := s.getSystemCapabilities()
 
 	// Check for darwin/macOS-specific backends (mlx, metal, darwin)
 	isDarwinBackend := strings.Contains(combined, BackendTokenDarwin) ||
 		strings.Contains(combined, BackendTokenMLX) ||
 		strings.Contains(combined, BackendTokenMetal)
-	if isDarwinBackend && runtime.GOOS != "darwin" {
-		return false
+	if isDarwinBackend {
+		// Darwin backends require the system to be running on darwin with metal or darwin-x86 capability
+		return capability == Metal || capability == DarwinX86
 	}
 
 	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)
@@ -190,19 +192,15 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 	// may also contain "cuda" or "nvidia" in their names
 	isL4TBackend := strings.Contains(combined, BackendTokenL4T)
 	if isL4TBackend {
-		if runtime.GOOS != "linux" || runtime.GOARCH != "arm64" || s.GPUVendor != Nvidia {
-			return false
-		}
-		return true
+		return strings.HasPrefix(capability, NvidiaL4T)
 	}
 
 	// Check for NVIDIA/CUDA-specific backends (non-L4T)
 	isNvidiaBackend := strings.Contains(combined, BackendTokenCUDA) ||
 		strings.Contains(combined, Nvidia)
 	if isNvidiaBackend {
-		if s.GPUVendor != Nvidia {
-			return false
-		}
+		// NVIDIA backends are compatible with nvidia, nvidia-cuda-12, nvidia-cuda-13, and l4t capabilities
+		return strings.HasPrefix(capability, Nvidia)
 	}
 
 	// Check for AMD/ROCm-specific backends
@@ -210,18 +208,14 @@ func (s *SystemState) IsBackendCompatible(name, uri string) bool {
 		strings.Contains(combined, BackendTokenHIP) ||
 		strings.Contains(combined, AMD)
 	if isAMDBackend {
-		if s.GPUVendor != AMD {
-			return false
-		}
+		return capability == AMD
 	}
 
 	// Check for Intel/SYCL-specific backends
 	isIntelBackend := strings.Contains(combined, BackendTokenSYCL) ||
 		strings.Contains(combined, Intel)
 	if isIntelBackend {
-		if s.GPUVendor != Intel {
-			return false
-		}
+		return capability == Intel
 	}
 
 	// CPU backends are always compatible
