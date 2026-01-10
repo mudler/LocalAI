@@ -128,8 +128,9 @@ func handleAnthropicNonStream(c echo.Context, id string, input *schema.Anthropic
 		},
 	}
 
-	respData, _ := json.Marshal(resp)
-	xlog.Debug("Anthropic Response", "response", string(respData))
+	if respData, err := json.Marshal(resp); err == nil {
+		xlog.Debug("Anthropic Response", "response", string(respData))
+	}
 
 	return c.JSON(200, resp)
 }
@@ -226,7 +227,11 @@ func handleAnthropicStream(c echo.Context, id string, input *schema.AnthropicReq
 }
 
 func sendAnthropicSSE(c echo.Context, event schema.AnthropicStreamEvent) {
-	data, _ := json.Marshal(event)
+	data, err := json.Marshal(event)
+	if err != nil {
+		xlog.Error("Failed to marshal SSE event", "error", err)
+		return
+	}
 	fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.Type, string(data))
 	c.Response().Flush()
 }

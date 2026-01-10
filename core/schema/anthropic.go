@@ -147,8 +147,13 @@ func (m *AnthropicMessage) GetContentBlocks() []AnthropicContentBlock {
 		for _, block := range content {
 			if blockMap, ok := block.(map[string]interface{}); ok {
 				cb := AnthropicContentBlock{}
-				data, _ := json.Marshal(blockMap)
-				json.Unmarshal(data, &cb)
+				data, err := json.Marshal(blockMap)
+				if err != nil {
+					continue
+				}
+				if err := json.Unmarshal(data, &cb); err != nil {
+					continue
+				}
 				blocks = append(blocks, cb)
 			}
 		}
