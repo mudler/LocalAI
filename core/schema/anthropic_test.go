@@ -2,7 +2,6 @@ package schema_test
 
 import (
 	"encoding/json"
-	"testing"
 
 	"github.com/mudler/LocalAI/core/schema"
 	. "github.com/onsi/ginkgo/v2"
@@ -144,8 +143,3 @@ var _ = Describe("Anthropic Schema", func() {
 		})
 	})
 })
-
-func TestAnthropicSchema(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Anthropic Schema Suite")
-}
