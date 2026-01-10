@@ -226,6 +226,16 @@ func AvailableGalleryModels(galleries []config.Gallery, systemState *system.Syst
 
 // List available backends
 func AvailableBackends(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryBackend], error) {
+	return availableBackendsWithFilter(galleries, systemState, true)
+}
+
+// AvailableBackendsUnfiltered returns all available backends without filtering by system capability.
+func AvailableBackendsUnfiltered(galleries []config.Gallery, systemState *system.SystemState) (GalleryElements[*GalleryBackend], error) {
+	return availableBackendsWithFilter(galleries, systemState, false)
+}
+
+// availableBackendsWithFilter is a helper function that lists available backends with optional filtering.
+func availableBackendsWithFilter(galleries []config.Gallery, systemState *system.SystemState, filterByCapability bool) (GalleryElements[*GalleryBackend], error) {
 	var backends []*GalleryBackend
 
 	systemBackends, err := ListSystemBackends(systemState)
@@ -241,7 +251,17 @@ func AvailableBackends(galleries []config.Gallery, systemState *system.SystemSta
 		if err != nil {
 			return nil, err
 		}
-		backends = append(backends, galleryBackends...)
+
+		// Filter backends by system capability if requested
+		if filterByCapability {
+			for _, backend := range galleryBackends {
+				if backend.IsCompatibleWith(systemState) {
+					backends = append(backends, backend)
+				}
+			}
+		} else {
+			backends = append(backends, galleryBackends...)
+		}
 	}
 
 	return backends, nil
