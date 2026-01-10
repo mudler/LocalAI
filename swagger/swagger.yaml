@@ -239,6 +239,114 @@ definitions:
       start:
         type: number
     type: object
+  schema.AnthropicContentBlock:
+    properties:
+      content: {}
+      id:
+        type: string
+      input:
+        additionalProperties: true
+        type: object
+      is_error:
+        type: boolean
+      name:
+        type: string
+      source:
+        $ref: '#/definitions/schema.AnthropicImageSource'
+      text:
+        type: string
+      tool_use_id:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.AnthropicImageSource:
+    properties:
+      data:
+        type: string
+      media_type:
+        type: string
+      type:
+        type: string
+    type: object
+  schema.AnthropicMessage:
+    properties:
+      content: {}
+      role:
+        type: string
+    type: object
+  schema.AnthropicRequest:
+    properties:
+      max_tokens:
+        type: integer
+      messages:
+        items:
+          $ref: '#/definitions/schema.AnthropicMessage'
+        type: array
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      model:
+        type: string
+      stop_sequences:
+        items:
+          type: string
+        type: array
+      stream:
+        type: boolean
+      system:
+        type: string
+      temperature:
+        type: number
+      tool_choice: {}
+      tools:
+        items:
+          $ref: '#/definitions/schema.AnthropicTool'
+        type: array
+      top_k:
+        type: integer
+      top_p:
+        type: number
+    type: object
+  schema.AnthropicResponse:
+    properties:
+      content:
+        items:
+          $ref: '#/definitions/schema.AnthropicContentBlock'
+        type: array
+      id:
+        type: string
+      model:
+        type: string
+      role:
+        type: string
+      stop_reason:
+        type: string
+      stop_sequence:
+        type: string
+      type:
+        type: string
+      usage:
+        $ref: '#/definitions/schema.AnthropicUsage'
+    type: object
+  schema.AnthropicTool:
+    properties:
+      description:
+        type: string
+      input_schema:
+        additionalProperties: true
+        type: object
+      name:
+        type: string
+    type: object
+  schema.AnthropicUsage:
+    properties:
+      input_tokens:
+        type: integer
+      output_tokens:
+        type: integer
+    type: object
   schema.BackendMonitorRequest:
     properties:
       model:
@@ -572,6 +680,9 @@ definitions:
         description: A result of a function call
       name:
         description: The message name (used for tools calls)
+        type: string
+      reasoning:
+        description: Reasoning content extracted from <thinking>...</thinking> tags
         type: string
       role:
         description: The message role
@@ -1813,6 +1924,21 @@ paths:
           schema:
             $ref: '#/definitions/schema.OpenAIResponse'
       summary: Stream MCP chat completions with reasoning, tool calls, and results
+  /v1/messages:
+    post:
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/schema.AnthropicRequest'
+      responses:
+        "200":
+          description: Response
+          schema:
+            $ref: '#/definitions/schema.AnthropicResponse'
+      summary: Generate a message response for the given messages and model.
   /v1/models:
     get:
       responses:
