@@ -27,6 +27,9 @@ type Message struct {
 	FunctionCall interface{} `json:"function_call,omitempty" yaml:"function_call,omitempty"`
 
 	ToolCalls []ToolCall `json:"tool_calls,omitempty" yaml:"tool_call,omitempty"`
+
+	// Reasoning content extracted from <thinking>...</thinking> tags
+	Reasoning *string `json:"reasoning,omitempty" yaml:"reasoning,omitempty"`
 }
 
 type ToolCall struct {
@@ -78,8 +81,8 @@ func (messages Messages) ToProto() []*proto.Message {
 			}
 		}
 
-		// Note: tool_call_id and reasoning_content are not in schema.Message yet
-		// They may need to be added to schema.Message if needed in the future
+		// Note: tool_call_id is not in schema.Message yet
+		// Reasoning field is now available in schema.Message but not yet in proto.Message
 	}
 	return protoMessages
 }
