@@ -1,4 +1,33 @@
 ---
+- name: "rscovlm-7b-2512"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/RSCoVLM-7B-2512-GGUF
+  description: |
+    The model is a large language model (RSCoVLM-7B) trained for vision and language tasks. It uses a vision transformer architecture and is optimized for efficiency with quantization methods like Q4_K_S and Q2_K. The GGUF format enables efficient deployment, making it suitable for applications requiring low-latency inference. The model is tuned for specific tasks such as image captioning and text generation.
+  overrides:
+    parameters:
+      model: llama-cpp/models/RSCoVLM-7B-2512.Q4_K_M.gguf
+    name: RSCoVLM-7B-2512-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/RSCoVLM-7B-2512.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/RSCoVLM-7B-2512-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/RSCoVLM-7B-2512.Q4_K_M.gguf
+      sha256: 00d9af666ce0687a7ed8b6d5d3d421c7045bd1ea7bc13a28445ffc9d7e9feb2f
+      uri: https://huggingface.co/mradermacher/RSCoVLM-7B-2512-GGUF/resolve/main/RSCoVLM-7B-2512.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/RSCoVLM-7B-2512.mmproj-f16.gguf
+      sha256: 73c491906a0525e3a527de524f29c375e8938b25134a9a987f8356cc387d3c22
+      uri: https://huggingface.co/mradermacher/RSCoVLM-7B-2512-GGUF/resolve/main/RSCoVLM-7B-2512.mmproj-f16.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
