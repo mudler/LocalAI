@@ -617,6 +617,12 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			installedBackendsCount = len(installedBackends)
 		}
 
+		// Get the detected system capability
+		detectedCapability := ""
+		if appConfig.SystemState != nil {
+			detectedCapability = appConfig.SystemState.DetectedCapability()
+		}
+
 		return c.JSON(200, map[string]interface{}{
 			"backends":           backendsJSON,
 			"repositories":       appConfig.BackendGalleries,
@@ -629,6 +635,7 @@ func RegisterUIAPIRoutes(app *echo.Echo, cl *config.ModelConfigLoader, ml *model
 			"totalPages":         totalPages,
 			"prevPage":           prevPage,
 			"nextPage":           nextPage,
+			"systemCapability":   detectedCapability,
 		})
 	})
 

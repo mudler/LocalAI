@@ -2,6 +2,8 @@ package gallery
 
 import (
 	"fmt"
+	"runtime"
+	"strings"
 
 	"github.com/mudler/LocalAI/core/config"
 	"github.com/mudler/LocalAI/pkg/system"
@@ -61,6 +63,76 @@ func (m *GalleryBackend) SetGallery(gallery config.Gallery) {
 
 func (m *GalleryBackend) IsMeta() bool {
 	return len(m.CapabilitiesMap) > 0 && m.URI == ""
+}
+
+// IsCompatibleWith checks if the backend is compatible with the current system capability.
+// For meta backends, it checks if any of the capabilities in the map match the system capability.
+// For concrete backends, it infers compatibility from the backend name and URI.
+func (m *GalleryBackend) IsCompatibleWith(systemState *system.SystemState) bool {
+	if systemState == nil {
+		return true
+	}
+
+	// Meta backends are compatible if the system capability matches one of the keys
+	if m.IsMeta() {
+		capability := systemState.Capability(m.CapabilitiesMap)
+		_, exists := m.CapabilitiesMap[capability]
+		return exists
+	}
+
+	// For concrete backends, infer compatibility from name and URI
+	name := strings.ToLower(m.Name)
+	uri := strings.ToLower(m.URI)
+	combined := name + " " + uri
+
+	// Check for darwin/macOS-specific backends (mlx, metal, darwin)
+	isDarwinBackend := strings.Contains(combined, "darwin") ||
+		strings.Contains(combined, "mlx") ||
+		strings.Contains(combined, "metal")
+	if isDarwinBackend && runtime.GOOS != "darwin" {
+		return false
+	}
+
+	// Check for NVIDIA/CUDA-specific backends
+	isNvidiaBackend := (strings.Contains(combined, "cuda") ||
+		strings.Contains(combined, "nvidia")) &&
+		!strings.Contains(combined, "l4t")
+	if isNvidiaBackend {
+		if systemState.GPUVendor != "nvidia" {
+			return false
+		}
+	}
+
+	// Check for NVIDIA L4T-specific backends (arm64 Linux with NVIDIA GPU)
+	isL4TBackend := strings.Contains(combined, "l4t") ||
+		(strings.Contains(combined, "nvidia") && strings.Contains(combined, "arm64"))
+	if isL4TBackend {
+		if runtime.GOOS != "linux" || runtime.GOARCH != "arm64" || systemState.GPUVendor != "nvidia" {
+			return false
+		}
+	}
+
+	// Check for AMD/ROCm-specific backends
+	isAMDBackend := strings.Contains(combined, "rocm") ||
+		strings.Contains(combined, "hip") ||
+		strings.Contains(combined, "amd")
+	if isAMDBackend {
+		if systemState.GPUVendor != "amd" {
+			return false
+		}
+	}
+
+	// Check for Intel/SYCL-specific backends
+	isIntelBackend := strings.Contains(combined, "sycl") ||
+		strings.Contains(combined, "intel")
+	if isIntelBackend {
+		if systemState.GPUVendor != "intel" {
+			return false
+		}
+	}
+
+	// CPU backends are always compatible
+	return true
 }
 
 func (m *GalleryBackend) SetInstalled(installed bool) {

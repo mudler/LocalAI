@@ -131,7 +131,6 @@ func (s *SystemState) getSystemCapabilities() string {
 	return s.GPUVendor
 }
 
-
 // BackendPreferenceTokens returns a list of substrings that represent the preferred
 // backend implementation order for the current system capability. Callers can use
 // these tokens to select the most appropriate concrete backend among multiple
@@ -154,4 +153,10 @@ func (s *SystemState) BackendPreferenceTokens() []string {
 	default:
 		return []string{"cpu"}
 	}
+}
+
+// DetectedCapability returns the detected system capability string.
+// This can be used by the UI to display what capability was detected.
+func (s *SystemState) DetectedCapability() string {
+	return s.getSystemCapabilities()
 }

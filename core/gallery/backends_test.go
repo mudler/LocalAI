@@ -172,6 +172,78 @@ var _ = Describe("Gallery Backends", func() {
 			Expect(nilMetaBackend.IsMeta()).To(BeFalse())
 		})
 
+		It("should check IsCompatibleWith correctly for meta backends", func() {
+			metaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "meta-backend",
+				},
+				CapabilitiesMap: map[string]string{
+					"nvidia":  "nvidia-backend",
+					"amd":     "amd-backend",
+					"default": "default-backend",
+				},
+			}
+
+			// Test with nil state - should be compatible
+			Expect(metaBackend.IsCompatibleWith(nil)).To(BeTrue())
+
+			// Test with NVIDIA system - should be compatible (has nvidia key)
+			nvidiaState := &system.SystemState{GPUVendor: "nvidia", VRAM: 8 * 1024 * 1024 * 1024}
+			Expect(metaBackend.IsCompatibleWith(nvidiaState)).To(BeTrue())
+
+			// Test with default (no GPU) - should be compatible (has default key)
+			defaultState := &system.SystemState{}
+			Expect(metaBackend.IsCompatibleWith(defaultState)).To(BeTrue())
+		})
+
+		It("should check IsCompatibleWith correctly for concrete backends", func() {
+			// MLX backend should only be compatible on darwin
+			mlxBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "mlx",
+				},
+				URI: "quay.io/go-skynet/local-ai-backends:latest-metal-darwin-arm64-mlx",
+			}
+
+			if runtime.GOOS == "darwin" {
+				Expect(mlxBackend.IsCompatibleWith(&system.SystemState{})).To(BeTrue())
+			} else {
+				Expect(mlxBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+			}
+
+			// CPU backend should be compatible on all systems
+			cpuBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "cpu-llama-cpp",
+				},
+				URI: "quay.io/go-skynet/local-ai-backends:latest-cpu-llama-cpp",
+			}
+			Expect(cpuBackend.IsCompatibleWith(&system.SystemState{})).To(BeTrue())
+
+			// CUDA backend should only be compatible on nvidia systems
+			cudaBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "cuda12-llama-cpp",
+				},
+				URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-llama-cpp",
+			}
+			if runtime.GOOS != "darwin" {
+				// On non-darwin, cuda backend requires nvidia GPU
+				Expect(cudaBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+				Expect(cudaBackend.IsCompatibleWith(&system.SystemState{GPUVendor: "nvidia", VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+			}
+
+			// ROCm backend should only be compatible on AMD systems
+			rocmBackend := &GalleryBackend{
+				Metadata: Metadata{
+					Name: "rocm-llama-cpp",
+				},
+				URI: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-llama-cpp",
+			}
+			Expect(rocmBackend.IsCompatibleWith(&system.SystemState{})).To(BeFalse())
+			Expect(rocmBackend.IsCompatibleWith(&system.SystemState{GPUVendor: "amd", VRAM: 8 * 1024 * 1024 * 1024})).To(BeTrue())
+		})
+
 		It("should find best backend from meta based on system capabilities", func() {
 
 			metaBackend := &GalleryBackend{
