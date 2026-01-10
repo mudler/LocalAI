@@ -146,5 +146,154 @@ var _ = Describe("Anthropic API E2E test", func() {
 				Expect(message.Content).ToNot(BeEmpty())
 			})
 		})
+
+		Context("Tool calling", func() {
+			It("handles tool calls in non-streaming mode", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather like in San Francisco?")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get the current weather in a given location"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{
+										"type":        "string",
+										"description": "The city and state, e.g. San Francisco, CA",
+									},
+								},
+								"required": []string{"location"},
+							}),
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Content).ToNot(BeEmpty())
+
+				// Check if there's a tool use in the response
+				hasToolUse := false
+				for _, block := range message.Content {
+					if block.Type == anthropic.ContentBlockTypeToolUse {
+						hasToolUse = true
+						Expect(block.Name).To(Equal("get_weather"))
+						Expect(block.ID).ToNot(BeEmpty())
+						// Verify that input contains location
+						inputMap, ok := block.Input.(map[string]interface{})
+						Expect(ok).To(BeTrue())
+						_, hasLocation := inputMap["location"]
+						Expect(hasLocation).To(BeTrue())
+					}
+				}
+
+				// If tool_use is returned, verify stop reason
+				if hasToolUse {
+					Expect(message.StopReason).To(Equal(anthropic.MessageStopReasonToolUse))
+				}
+			})
+
+			It("handles tool_choice parameter", func() {
+				message, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("Tell me about the weather")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get the current weather"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{
+										"type": "string",
+									},
+								},
+							}),
+						},
+					},
+					ToolChoice: anthropic.F[anthropic.ToolChoiceUnionParam](
+						anthropic.ToolChoiceAutoParam{
+							Type: anthropic.F(anthropic.ToolChoiceAutoTypeAuto),
+						},
+					),
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(message.Content).ToNot(BeEmpty())
+			})
+
+			It("handles tool results in messages", func() {
+				// First, make a request that should trigger a tool call
+				firstMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+					Model:     "gpt-4",
+					MaxTokens: 1024,
+					Messages: []anthropic.MessageParam{
+						anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
+					},
+					Tools: []anthropic.ToolParam{
+						{
+							Name:        "get_weather",
+							Description: anthropic.F("Get weather"),
+							InputSchema: anthropic.F(map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"location": map[string]interface{}{"type": "string"},
+								},
+							}),
+						},
+					},
+				})
+
+				Expect(err).ToNot(HaveOccurred())
+
+				// Find the tool use block
+				var toolUseID string
+				var toolUseName string
+				for _, block := range firstMessage.Content {
+					if block.Type == anthropic.ContentBlockTypeToolUse {
+						toolUseID = block.ID
+						toolUseName = block.Name
+						break
+					}
+				}
+
+				// If we got a tool use, send back a tool result
+				if toolUseID != "" {
+					secondMessage, err := client.Messages.New(context.TODO(), anthropic.MessageNewParams{
+						Model:     "gpt-4",
+						MaxTokens: 1024,
+						Messages: []anthropic.MessageParam{
+							anthropic.NewUserMessage(anthropic.NewTextBlock("What's the weather in SF?")),
+							anthropic.NewAssistantMessage(firstMessage.Content...),
+							anthropic.NewUserMessage(
+								anthropic.NewToolResultBlock(toolUseID, "Sunny, 72°F", false),
+							),
+						},
+						Tools: []anthropic.ToolParam{
+							{
+								Name:        toolUseName,
+								Description: anthropic.F("Get weather"),
+								InputSchema: anthropic.F(map[string]interface{}{
+									"type": "object",
+									"properties": map[string]interface{}{
+										"location": map[string]interface{}{"type": "string"},
+									},
+								}),
+							},
+						},
+					})
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(secondMessage.Content).ToNot(BeEmpty())
+				}
+			})
+		})
 	})
 })
