@@ -1,4 +1,37 @@
 ---
+- name: "mistral-nemo-2407-12b-thinking-claude-gemini-gpt5.2-uncensored-heretic-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC-i1-GGUF
+  description: |
+    The **Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC** is a large language model (LLM) designed for creative and reasoning tasks. It is based on the **DavidAU/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC** model, optimized for generating vivid prose, fiction, and stories.
+
+    Key features include:
+      - **Languages**: English, French, German, Spanish, Italian, Portuguese, Russian, Japanese, and others.
+      - **Quantized versions**: Available in formats like i1-Q2_K (IQ3_XXS), i1-IQ3_M (Q4_K_S), and i1-IQ3_K_M (Q6_K), with varying trade-offs between size, speed, and quality.
+      - **Use cases**: Plot generation, story continuation, roleplaying, and creative writing.
+      - **Tags**: Uncensored, heretic, creative, fiction, and story generation.
+
+    The model is hosted in a quantized format (GGUF) for efficient deployment, with downloadable options for fine-tuning and use cases. It emphasizes high-quality, diverse outputs across genres.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC.i1-Q4_K_M.gguf
+    name: Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC.i1-Q4_K_M.gguf
+      sha256: 547f7c09771d9f0ca1e4552f2c4226f87d20436f70beecb06beab890b2c4dc6f
+      uri: https://huggingface.co/mradermacher/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC-i1-GGUF/resolve/main/Mistral-Nemo-2407-12B-Thinking-Claude-Gemini-GPT5.2-Uncensored-HERETIC.i1-Q4_K_M.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
