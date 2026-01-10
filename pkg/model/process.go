@@ -24,8 +24,6 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 		return fmt.Errorf("model %s not found", s)
 	}
 
-	defer delete(ml.models, s)
-
 	retries := 1
 	for model.GRPC(false, ml.wd).IsBusy() {
 		xlog.Debug("Model busy. Waiting.", "model", s)
@@ -48,12 +46,17 @@ func (ml *ModelLoader) deleteProcess(s string) error {
 	if process == nil {
 		xlog.Error("No process", "model", s)
 		// Nothing to do as there is no process
+		delete(ml.models, s)
 		return nil
 	}
 
 	err := process.Stop()
 	if err != nil {
 		xlog.Error("(deleteProcess) error while deleting process", "error", err, "model", s)
+	}
+
+	if err == nil {
+		delete(ml.models, s)
 	}
 
 	return err
