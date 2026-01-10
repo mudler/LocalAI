@@ -31,6 +31,37 @@ var _ = Describe("Anthropic Schema", func() {
 			Expect(*req.Temperature).To(Equal(0.7))
 		})
 
+		It("should unmarshal a request with tools", func() {
+			jsonData := `{
+				"model": "claude-3-sonnet-20240229",
+				"max_tokens": 1024,
+				"messages": [
+					{"role": "user", "content": "What's the weather?"}
+				],
+				"tools": [
+					{
+						"name": "get_weather",
+						"description": "Get the current weather",
+						"input_schema": {
+							"type": "object",
+							"properties": {
+								"location": {"type": "string"}
+							}
+						}
+					}
+				],
+				"tool_choice": {"type": "tool", "name": "get_weather"}
+			}`
+
+			var req schema.AnthropicRequest
+			err := json.Unmarshal([]byte(jsonData), &req)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(len(req.Tools)).To(Equal(1))
+			Expect(req.Tools[0].Name).To(Equal("get_weather"))
+			Expect(req.Tools[0].Description).To(Equal("Get the current weather"))
+			Expect(req.ToolChoice).ToNot(BeNil())
+		})
+
 		It("should implement LocalAIRequest interface", func() {
 			req := &schema.AnthropicRequest{Model: "test-model"}
 			Expect(req.ModelName(nil)).To(Equal("test-model"))
@@ -116,6 +147,46 @@ var _ = Describe("Anthropic Schema", func() {
 			Expect(result["type"]).To(Equal("message"))
 			Expect(result["role"]).To(Equal("assistant"))
 			Expect(result["stop_reason"]).To(Equal("end_turn"))
+		})
+
+		It("should marshal a response with tool use", func() {
+			stopReason := "tool_use"
+			resp := schema.AnthropicResponse{
+				ID:         "msg_123",
+				Type:       "message",
+				Role:       "assistant",
+				Model:      "claude-3-sonnet-20240229",
+				StopReason: &stopReason,
+				Content: []schema.AnthropicContentBlock{
+					{
+						Type: "tool_use",
+						ID:   "toolu_123",
+						Name: "get_weather",
+						Input: map[string]interface{}{
+							"location": "San Francisco",
+						},
+					},
+				},
+				Usage: schema.AnthropicUsage{
+					InputTokens:  10,
+					OutputTokens: 5,
+				},
+			}
+
+			data, err := json.Marshal(resp)
+			Expect(err).ToNot(HaveOccurred())
+
+			var result map[string]interface{}
+			err = json.Unmarshal(data, &result)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(result["stop_reason"]).To(Equal("tool_use"))
+			content := result["content"].([]interface{})
+			Expect(len(content)).To(Equal(1))
+			toolUse := content[0].(map[string]interface{})
+			Expect(toolUse["type"]).To(Equal("tool_use"))
+			Expect(toolUse["id"]).To(Equal("toolu_123"))
+			Expect(toolUse["name"]).To(Equal("get_weather"))
 		})
 	})
 

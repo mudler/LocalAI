@@ -18,6 +18,8 @@ type AnthropicRequest struct {
 	Temperature   *float64           `json:"temperature,omitempty"`
 	TopK          *int               `json:"top_k,omitempty"`
 	TopP          *float64           `json:"top_p,omitempty"`
+	Tools         []AnthropicTool    `json:"tools,omitempty"`
+	ToolChoice    interface{}        `json:"tool_choice,omitempty"`
 
 	// Internal fields for request handling
 	Context context.Context    `json:"-"`
@@ -32,6 +34,13 @@ func (ar *AnthropicRequest) ModelName(s *string) string {
 	return ar.Model
 }
 
+// AnthropicTool represents a tool definition in the Anthropic format
+type AnthropicTool struct {
+	Name        string                 `json:"name"`
+	Description string                 `json:"description,omitempty"`
+	InputSchema map[string]interface{} `json:"input_schema"`
+}
+
 // AnthropicMessage represents a message in the Anthropic format
 type AnthropicMessage struct {
 	Role    string      `json:"role"`
@@ -40,12 +49,15 @@ type AnthropicMessage struct {
 
 // AnthropicContentBlock represents a content block in an Anthropic message
 type AnthropicContentBlock struct {
-	Type   string                 `json:"type"`
-	Text   string                 `json:"text,omitempty"`
-	Source *AnthropicImageSource  `json:"source,omitempty"`
-	ID     string                 `json:"id,omitempty"`
-	Name   string                 `json:"name,omitempty"`
-	Input  map[string]interface{} `json:"input,omitempty"`
+	Type       string                 `json:"type"`
+	Text       string                 `json:"text,omitempty"`
+	Source     *AnthropicImageSource  `json:"source,omitempty"`
+	ID         string                 `json:"id,omitempty"`
+	Name       string                 `json:"name,omitempty"`
+	Input      map[string]interface{} `json:"input,omitempty"`
+	ToolUseID  string                 `json:"tool_use_id,omitempty"`
+	Content    interface{}            `json:"content,omitempty"`
+	IsError    *bool                  `json:"is_error,omitempty"`
 }
 
 // AnthropicImageSource represents an image source in Anthropic format
@@ -87,6 +99,7 @@ type AnthropicStreamEvent struct {
 type AnthropicStreamDelta struct {
 	Type         string  `json:"type,omitempty"`
 	Text         string  `json:"text,omitempty"`
+	PartialJSON  string  `json:"partial_json,omitempty"`
 	StopReason   *string `json:"stop_reason,omitempty"`
 	StopSequence *string `json:"stop_sequence,omitempty"`
 }
