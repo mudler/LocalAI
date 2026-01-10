@@ -1,4 +1,56 @@
 ---
+- name: "qwen3-vl-reranker-8b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF
+  description: |
+    **Model Name:** Qwen3-VL-Reranker-8B
+    **Base Model:** Qwen/Qwen3-VL-Reranker-8B
+
+    **Description:**
+    A high-performance multimodal reranking model for state-of-the-art cross-modal search. It supports 30+ languages and handles text, images, screenshots, videos, and mixed modalities. With 8B parameters and a 32K context length, it refines retrieval results by combining embedding vectors with precise relevance scores. Optimized for efficiency, it supports quantized versions (e.g., Q8_0, Q4_K_M) and is ideal for applications requiring accurate multimodal content matching.
+
+    **Key Features:**
+      - **Multimodal**: Text, images, videos, and mixed content.
+      - **Language Support**: 30+ languages.
+      - **Quantization**: Available in Q8_0 (best quality), Q4_K_M (fast, recommended), and lower-precision options.
+      - **Performance**: Outperforms base models in retrieval tasks (e.g., JinaVDR, ViDoRe v3).
+      - **Use Case**: Enhances search pipelines by refining embeddings with precise relevance scores.
+
+    **Downloads:**
+      - [GGUF Files](https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF) (e.g., `Qwen3-VL-Reranker-8B.Q8_0.gguf`).
+
+    **Usage:**
+      - Requires `transformers`, `qwen-vl-utils`, and `torch`.
+      - Example: `from scripts.qwen3_vl_reranker import Qwen3VLReranker; model = Qwen3VLReranker(...)`
+
+    **Citation:**
+    @article{qwen3vlembedding, ...}
+
+    This description emphasizes its capabilities, efficiency, and versatility for multimodal search tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
+    name: Qwen3-VL-Reranker-8B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
+      sha256: f73e62ea68abf741c3e713af823cfb4d2fd2ca35c8b68277b87b4b3d8570b66d
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF/resolve/main/Qwen3-VL-Reranker-8B.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
+      sha256: 15cd9bd4882dae771344f0ac204fce07de91b47c1438ada3861dfc817403c31e
+      uri: https://huggingface.co/mradermacher/Qwen3-VL-Reranker-8B-GGUF/resolve/main/Qwen3-VL-Reranker-8B.mmproj-f16.gguf
 - name: "liquidai.lfm2-2.6b-transcript"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
