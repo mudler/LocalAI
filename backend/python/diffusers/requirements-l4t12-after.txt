@@ -1,0 +1,9 @@
+git+https://github.com/huggingface/diffusers
+transformers
+accelerate
+compel
+peft
+optimum-quanto
+numpy<2
+sentencepiece
+ftfy
