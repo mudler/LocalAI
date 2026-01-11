@@ -16,7 +16,7 @@ RUN apt-get update && \
 
 # The requirements-drivers target is for BUILD_TYPE specific items.  If you need to install something specific to CUDA, or specific to ROCM, it goes here.
 FROM requirements AS requirements-drivers
-
+ARG VULKAN_FROM_SOURCE=false
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
@@ -41,7 +41,7 @@ RUN <<EOT bash
             git python-is-python3 bison libx11-xcb-dev liblz4-dev libzstd-dev \
             ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
             clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils mesa-vulkan-drivers
-        if [ "amd64" = "$TARGETARCH" ]; then
+        if [ "amd64" = "$TARGETARCH" ] && [ "${VULKAN_FROM_SOURCE}" = "true" ]; then
             wget "https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz" && \
             tar -xf vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
             rm vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
@@ -59,6 +59,11 @@ RUN <<EOT bash
             cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/include/* /usr/include/ && \
             cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/share/* /usr/share/ && \
             rm -rf /opt/vulkan-sdk
+        elif [ "amd64" = "${TARGETARCH}}" ]; then
+            wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc && \
+            wget -qO /etc/apt/sources.list.d/lunarg-vulkan-noble.list http://packages.lunarg.com/vulkan/lunarg-vulkan-noble.list && \
+            apt-get update && \
+            apt-get install -y vulkan-sdk
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
             mkdir vulkan && cd vulkan && \
