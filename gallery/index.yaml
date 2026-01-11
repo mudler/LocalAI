@@ -1,4 +1,43 @@
 ---
+- name: "o-researcher-72b-sft-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/O-Researcher-72B-sft-i1-GGUF
+  description: |
+    **Model Overview:**
+    **O-Researcher 72B** is a large-scale research agent designed for end-to-end, multi-turn, and multi-tool deep research problem solving. It leverages a **Multi-Agent Data Synthesis** paradigm to simulate complex reasoning tasks, combining **supervised fine-tuning** with **agentic reinforcement learning** on verifiable multi-domain tasks. This approach maximizes alignment with research goals and enhances research capability.
+
+    **Key Features:**
+      - **State-of-the-art performance**: Outperforms existing models on major deep research benchmarks.
+      - **Open-source**: All weights, inference code, and datasets are freely available.
+      - **Flexibility**: Supports multi-turn interactions and tool integration.
+
+    **Downloads:**
+      - [O-Researcher-72B-rl](https://huggingface.co/PersonalAILab/O-Researcher-72B-rl)
+      - [O-Researcher-72B-sft](https://huggingface.co/PersonalAILab/O-Researcher-72B-sft)
+
+    **License**: Apache License 2.0.
+
+    This model is ideal for researchers seeking to advance agentic AI in open-ended research scenarios.
+  overrides:
+    parameters:
+      model: llama-cpp/models/O-Researcher-72B-sft.i1-Q4_K_M.gguf
+    name: O-Researcher-72B-sft-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/O-Researcher-72B-sft-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/O-Researcher-72B-sft.i1-Q4_K_M.gguf
+      sha256: 2a14f75b67b1ea124d815d90cf4ddd77ff5280cd8da1ba09ac45f8d3da45d57c
+      uri: https://huggingface.co/mradermacher/O-Researcher-72B-sft-i1-GGUF/resolve/main/O-Researcher-72B-sft.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
