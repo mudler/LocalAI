@@ -1,4 +1,75 @@
 ---
+- name: "x-coder-rl-qwen2.5-7b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/X-Coder-RL-Qwen2.5-7B-i1-GGUF
+  description: |
+    **Model Name:** X-Coder-RL-Qwen2.5-7B
+    **Base Model:** IIGroup/X-Coder-SFT-Qwen2.5-7B
+    **Size:** 7B parameters
+
+    **Training:**
+      - Trained using the **X-Coder RLVR framework** on **synthetic RL tasks** for competitive programming.
+      - Uses **GRPO** (Gradient-Based Reinforcement Learning) for training.
+      - Datasets: [IIGroup/X-Coder-RL-40k](https://huggingface.co/datasets/IIGroup/X-Coder-RL-40k)
+
+    **Key Features:**
+      - **Code Reasoning:** Strong performance in solving competitive programming problems.
+      - **Synthetic Data:** Trained on fully synthetic tasks, solutions, and tests.
+      - **Quantized Version:** A compressed version (GGUF format) for efficient inference.
+
+    **Performance:**
+      - Achieves high reasoning accuracy on benchmark tasks like [LiveCodeBench v5](https://example.com).
+
+    **Inference Parameters:**
+      - Temperature: 0.6
+      - Top-P: 0.95
+      - Top-K: 20 (or -1 to disable)
+      - Max New Tokens: 32768
+
+    **Usage:**
+    ```python
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    model_name = "IIGroup/X-Coder-RL-Qwen2.5-7B"
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto")
+
+    prompt = "Write a Python function to solve the two sum problem."
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=32768,
+        temperature=0.6,
+        top_p=0.95,
+        top_k=20,
+        do_sample=True
+    )
+    print(tokenizer.decode(outputs[0], skip_special_tokens=True))
+    ```
+
+    **License:** Apache 2.0
+
+    **Note:** This model is a quantized version of the base model IIGroup/X-Coder-SFT-Qwen2.5-7B, designed for efficient inference. It is optimized for competitive programming tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/X-Coder-RL-Qwen2.5-7B.i1-Q4_K_M.gguf
+    name: X-Coder-RL-Qwen2.5-7B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/X-Coder-RL-Qwen2.5-7B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/X-Coder-RL-Qwen2.5-7B.i1-Q4_K_M.gguf
+      sha256: cae0cba20e8957704e7f461f206d3826741788d621b5e979c2a1d6561dd5c369
+      uri: https://huggingface.co/mradermacher/X-Coder-RL-Qwen2.5-7B-i1-GGUF/resolve/main/X-Coder-RL-Qwen2.5-7B.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
