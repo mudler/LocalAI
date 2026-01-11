@@ -1,4 +1,29 @@
 ---
+- name: "lfm2.5-1.2b-jp"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/tatsuyaaaaaaa/LFM2.5-1.2B-JP-gguf
+  description: |
+    AI model: lfm2.5-1.2b-jp
+  overrides:
+    parameters:
+      model: llama-cpp/models/LFM2.5-1.2B-JP_Q4_K_M.gguf
+    name: LFM2.5-1.2B-JP-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/tatsuyaaaaaaa/LFM2.5-1.2B-JP-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/LFM2.5-1.2B-JP_Q4_K_M.gguf
+      sha256: 44d1203820e89264da617128eaa06224c557471ec6c3ada984717f9ce381d046
+      uri: https://huggingface.co/tatsuyaaaaaaa/LFM2.5-1.2B-JP-gguf/resolve/main/LFM2.5-1.2B-JP_Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
