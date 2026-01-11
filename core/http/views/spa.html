@@ -351,6 +351,125 @@
   window.startChatSPA = startChatSPA;
   window.stopModel = stopModel;
   window.stopAllModels = stopAllModels;
+
+  // ========================================
+  // SPA Router - Alpine.js Store Definition
+  // Must be defined before Alpine.js initializes
+  // ========================================
+  
+  // Define routes and their corresponding view IDs
+  const SPA_ROUTES = {
+    'home': { title: 'LocalAI', viewId: 'view-home', paths: ['/', ''] },
+    'chat': { title: 'LocalAI - Chat', viewId: 'view-chat', paths: ['/chat'] },
+    'text2image': { title: 'LocalAI - Images', viewId: 'view-text2image', paths: ['/text2image'] },
+    'tts': { title: 'LocalAI - TTS', viewId: 'view-tts', paths: ['/tts'] },
+    'talk': { title: 'LocalAI - Talk', viewId: 'view-talk', paths: ['/talk'] },
+    'manage': { title: 'LocalAI - System', viewId: 'view-manage', paths: ['/manage'] },
+    'browse': { title: 'LocalAI - Model Gallery', viewId: 'view-browse', paths: ['/browse'] }
+  };
+
+  // Parse URL path to determine route
+  function parseUrlPath(pathname) {
+    pathname = pathname.replace(/\/$/, '') || '/';
+    
+    // Check for hash-based routes first
+    const hash = window.location.hash.slice(1);
+    if (hash) {
+      const hashParts = hash.split('/');
+      const route = hashParts[0];
+      const model = hashParts[1] || null;
+      if (SPA_ROUTES[route]) {
+        return { route, params: model ? { model } : {} };
+      }
+    }
+    
+    // Check path-based routes
+    for (const [route, config] of Object.entries(SPA_ROUTES)) {
+      for (const path of config.paths) {
+        if (pathname === path) {
+          return { route, params: {} };
+        }
+        if (pathname.startsWith(path + '/')) {
+          const param = pathname.slice(path.length + 1);
+          if (param) {
+            return { route, params: { model: param } };
+          }
+        }
+      }
+    }
+    
+    return { route: 'home', params: {} };
+  }
+
+  // Register the router store with Alpine.js on init event
+  document.addEventListener('alpine:init', () => {
+    const initialRoute = parseUrlPath(window.location.pathname);
+    
+    Alpine.store('router', {
+      currentRoute: initialRoute.route,
+      routeParams: initialRoute.params,
+      previousRoute: null,
+      
+      navigate(route, params = {}) {
+        if (!SPA_ROUTES[route]) {
+          console.warn('Unknown route:', route);
+          return;
+        }
+        
+        this.previousRoute = this.currentRoute;
+        this.currentRoute = route;
+        this.routeParams = params;
+        
+        document.title = SPA_ROUTES[route].title;
+        
+        const url = route === 'home' ? '/' : '/#' + route;
+        if (params.model) {
+          window.history.pushState({ route, params }, '', '/#' + route + '/' + params.model);
+        } else {
+          window.history.pushState({ route, params }, '', url);
+        }
+        
+        window.scrollTo(0, 0);
+        window.dispatchEvent(new CustomEvent('spa:navigate', { 
+          detail: { route, params, previousRoute: this.previousRoute } 
+        }));
+      },
+      
+      isRoute(route) {
+        return this.currentRoute === route;
+      },
+      
+      navigateToChat(model) {
+        this.navigate('chat', { model });
+      },
+      
+      navigateToText2Image(model) {
+        this.navigate('text2image', { model });
+      },
+      
+      navigateToTTS(model) {
+        this.navigate('tts', { model });
+      }
+    });
+  });
+
+  // Handle browser back/forward buttons
+  window.addEventListener('popstate', (event) => {
+    if (window.Alpine && Alpine.store('router')) {
+      if (event.state && event.state.route) {
+        Alpine.store('router').currentRoute = event.state.route;
+        Alpine.store('router').routeParams = event.state.params || {};
+      } else {
+        const parsed = parseUrlPath(window.location.pathname);
+        Alpine.store('router').currentRoute = parsed.route;
+        Alpine.store('router').routeParams = parsed.params;
+      }
+    }
+  });
+
+  // Export for use in other scripts
+  window.SPA_ROUTES = SPA_ROUTES;
+  window.parseUrlPath = parseUrlPath;
 </script>
 
 <!-- SPA Scripts -->
