@@ -20,6 +20,14 @@ on:
         description: 'CUDA minor version'
         default: "1"
         type: string
+      rocm-major-version:
+        description: 'ROCm major version'
+        default: "6"
+        type: string
+      rocm-minor-version:
+        description: 'ROCm minor version'
+        default: "3.4"
+        type: string
       platforms:
         description: 'Platforms'
         default: ''
