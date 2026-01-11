@@ -26,7 +26,7 @@ on:
         type: string
       rocm-minor-version:
         description: 'ROCm minor version'
-        default: "3.4"
+        default: "4.3"
         type: string
       platforms:
         description: 'Platforms'
