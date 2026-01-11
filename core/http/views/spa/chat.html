@@ -1,0 +1,273 @@
+<!-- Chat View Content for SPA -->
+<!-- This embeds the chat interface inline in the SPA -->
+<div class="flex flex-col flex-1 overflow-hidden" x-data="chatSPA()">
+    
+    <!-- Main Chat Area -->
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar for chat list -->
+        <aside class="hidden lg:flex w-64 flex-col bg-[var(--color-bg-secondary)] border-r border-[var(--color-bg-primary)]">
+            <div class="p-3 border-b border-[var(--color-bg-primary)]">
+                <button @click="createNewChatSPA()" class="w-full btn-primary text-sm py-2">
+                    <i class="fas fa-plus mr-2"></i>New Chat
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2 space-y-1">
+                <template x-for="chat in $store.chat.chats" :key="chat.id">
+                    <div 
+                        @click="switchChatSPA(chat.id)"
+                        :class="$store.chat.activeChatId === chat.id ? 'bg-[var(--color-primary-light)] border-[var(--color-primary-border)]' : 'hover:bg-[var(--color-bg-primary)] border-transparent'"
+                        class="p-2 rounded-lg cursor-pointer border transition-colors group relative">
+                        <div class="flex items-center justify-between">
+                            <span class="truncate text-sm text-[var(--color-text-primary)]" x-text="chat.name"></span>
+                            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button 
+                                    @click.stop="deleteChatSPA(chat.id)"
+                                    class="p-1 text-red-400 hover:text-red-300 transition-colors"
+                                    title="Delete chat">
+                                    <i class="fas fa-trash text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 mt-1 text-xs text-[var(--color-text-secondary)]">
+                            <span x-text="chat.model || 'No model'"></span>
+                            <span x-show="$store.chat.hasActiveRequest(chat.id)" class="flex items-center gap-1">
+                                <span class="animate-pulse w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                            </span>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </aside>
+
+        <!-- Chat Content -->
+        <div class="flex-1 flex flex-col min-w-0">
+            <!-- Chat Header -->
+            <header class="flex items-center justify-between px-4 py-2 border-b border-[var(--color-bg-secondary)] bg-[var(--color-bg-primary)]">
+                <div class="flex items-center gap-3">
+                    <button @click="showMobileSidebar = !showMobileSidebar" class="lg:hidden p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <select 
+                            x-model="currentModel"
+                            @change="updateChatModel()"
+                            class="input text-sm py-1.5 px-3">
+                            <option value="" disabled>Select model...</option>
+                            {{ range .ModelsConfig }}
+                            {{ $cfg := . }}
+                            {{ range .KnownUsecaseStrings }}
+                                {{ if eq . "FLAG_CHAT" }}
+                                <option value="{{$cfg.Name}}">{{$cfg.Name}}</option>
+                                {{ end }}
+                            {{ end }}
+                            {{ end }}
+                            {{ range .ModelsWithoutConfig }}
+                            <option value="{{.}}">{{.}}</option>
+                            {{ end }}
+                        </select>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="tokens-per-second" class="text-xs text-[var(--color-text-secondary)]">-</span>
+                    <span id="max-tokens-per-second-badge" class="hidden text-xs bg-green-500/20 text-green-300 px-2 py-0.5 rounded"></span>
+                    <div id="header-loading-indicator" class="hidden">
+                        <svg class="animate-spin h-4 w-4 text-[var(--color-primary)]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <button @click="clearChat()" class="p-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors" title="Clear chat">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Messages Container -->
+            <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-4">
+                <template x-for="(message, index) in $store.chat.activeHistory" :key="index">
+                    <div :class="message.role === 'user' ? 'justify-end' : 'justify-start'" class="flex">
+                        <div :class="message.role === 'user' ? 'bg-[var(--color-primary)] text-white max-w-[80%]' : 'bg-[var(--color-bg-secondary)] text-[var(--color-text-primary)] max-w-[90%]'"
+                             class="rounded-lg px-4 py-2">
+                            <!-- Thinking/Reasoning messages -->
+                            <template x-if="message.role === 'thinking' || message.role === 'reasoning'">
+                                <div class="text-xs">
+                                    <button @click="message.expanded = !message.expanded" class="flex items-center gap-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+                                        <i :class="message.expanded ? 'fa-chevron-down' : 'fa-chevron-right'" class="fas text-xs"></i>
+                                        <span>Thinking...</span>
+                                    </button>
+                                    <div x-show="message.expanded" x-html="message.html" class="mt-2 prose prose-sm prose-invert max-w-none"></div>
+                                </div>
+                            </template>
+                            <!-- Regular messages -->
+                            <template x-if="message.role !== 'thinking' && message.role !== 'reasoning'">
+                                <div x-html="message.html" class="prose prose-sm prose-invert max-w-none"></div>
+                            </template>
+                            <!-- Images -->
+                            <template x-if="message.image && message.image.length > 0">
+                                <div class="mt-2 flex flex-wrap gap-2">
+                                    <template x-for="img in message.image" :key="img">
+                                        <img :src="img" class="max-w-[200px] rounded-lg" alt="Attached image">
+                                    </template>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+                
+                <!-- Empty state -->
+                <div x-show="!$store.chat.activeHistory || $store.chat.activeHistory.length === 0" class="flex flex-col items-center justify-center h-full text-center text-[var(--color-text-secondary)]">
+                    <i class="fas fa-comments text-4xl mb-4 opacity-50"></i>
+                    <p>Start a conversation</p>
+                    <p class="text-sm mt-2">Select a model and send a message to begin</p>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="border-t border-[var(--color-bg-secondary)] p-4 bg-[var(--color-bg-primary)]">
+                <form id="prompt" @submit.prevent="submitPrompt($event)" class="relative">
+                    <div class="flex items-end gap-2">
+                        <div class="flex-1 relative">
+                            <textarea
+                                id="input"
+                                name="input"
+                                placeholder="Type a message..."
+                                class="input w-full resize-none py-3 pr-12"
+                                rows="1"
+                                @keydown.enter.prevent="if (!$event.shiftKey) submitPrompt($event)"
+                                @input="autoResize($event.target)"
+                            ></textarea>
+                            <div class="absolute right-2 bottom-2 flex items-center gap-1">
+                                <button type="button" @click="document.getElementById('input_image').click()" class="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors" title="Attach image">
+                                    <i class="fas fa-image"></i>
+                                </button>
+                                <button type="button" @click="document.getElementById('input_audio').click()" class="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors" title="Attach audio">
+                                    <i class="fas fa-microphone"></i>
+                                </button>
+                                <button type="button" @click="document.getElementById('input_file').click()" class="p-1.5 text-[var(--color-text-secondary)] hover:text-[var(--color-primary)] transition-colors" title="Attach file">
+                                    <i class="fas fa-paperclip"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="submit" id="send-button" class="btn-primary p-3">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                        <button type="button" id="stop-button" @click="stopRequest()" class="btn-primary p-3 bg-red-500 hover:bg-red-600" style="display: none;">
+                            <i class="fas fa-stop"></i>
+                        </button>
+                    </div>
+                    <!-- Hidden file inputs -->
+                    <input type="file" id="input_image" multiple accept="image/*" class="hidden" @change="readInputImage">
+                    <input type="file" id="input_audio" multiple accept="audio/*" class="hidden" @change="readInputAudio">
+                    <input type="file" id="input_file" multiple accept=".txt,.md,.pdf" class="hidden" @change="readInputFile">
+                </form>
+                
+                <!-- System prompt form (hidden) -->
+                <form id="system_prompt" @submit.prevent="submitSystemPrompt($event)" style="display: none;">
+                    <input type="text" id="systemPrompt" name="systemPrompt">
+                </form>
+                <input type="hidden" id="chat-model" value="{{.Model}}">
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile Sidebar Overlay -->
+    <div x-show="showMobileSidebar" @click="showMobileSidebar = false" class="lg:hidden fixed inset-0 bg-black/50 z-40"></div>
+    <aside x-show="showMobileSidebar" class="lg:hidden fixed left-0 top-0 bottom-0 w-64 bg-[var(--color-bg-secondary)] z-50 transform transition-transform"
+           :class="showMobileSidebar ? 'translate-x-0' : '-translate-x-full'">
+        <div class="p-3 border-b border-[var(--color-bg-primary)] flex items-center justify-between">
+            <span class="font-medium text-[var(--color-text-primary)]">Chats</span>
+            <button @click="showMobileSidebar = false" class="p-2 text-[var(--color-text-secondary)]">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="p-3">
+            <button @click="createNewChatSPA(); showMobileSidebar = false" class="w-full btn-primary text-sm py-2">
+                <i class="fas fa-plus mr-2"></i>New Chat
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-2 space-y-1">
+            <template x-for="chat in $store.chat.chats" :key="chat.id">
+                <div 
+                    @click="switchChatSPA(chat.id); showMobileSidebar = false"
+                    :class="$store.chat.activeChatId === chat.id ? 'bg-[var(--color-primary-light)] border-[var(--color-primary-border)]' : 'hover:bg-[var(--color-bg-primary)] border-transparent'"
+                    class="p-2 rounded-lg cursor-pointer border transition-colors">
+                    <span class="truncate text-sm text-[var(--color-text-primary)]" x-text="chat.name"></span>
+                </div>
+            </template>
+        </div>
+    </aside>
+</div>
+
+<script>
+// Chat SPA component
+function chatSPA() {
+    return {
+        currentModel: '{{.Model}}',
+        showMobileSidebar: false,
+        
+        init() {
+            // Initialize chat store if not already done
+            this.$nextTick(() => {
+                if (window.Alpine && Alpine.store('chat') && Alpine.store('chat').chats.length === 0) {
+                    Alpine.store('chat').createChat(this.currentModel, '', false);
+                }
+                // Update model from route params if available
+                const routeParams = Alpine.store('router')?.routeParams;
+                if (routeParams?.model) {
+                    this.currentModel = routeParams.model;
+                    const activeChat = Alpine.store('chat').activeChat();
+                    if (activeChat) {
+                        activeChat.model = this.currentModel;
+                    }
+                }
+            });
+        },
+        
+        updateChatModel() {
+            const activeChat = Alpine.store('chat').activeChat();
+            if (activeChat) {
+                activeChat.model = this.currentModel;
+                if (typeof window.autoSaveChats === 'function') {
+                    window.autoSaveChats();
+                }
+            }
+        },
+        
+        clearChat() {
+            if (confirm('Clear all messages in this chat?')) {
+                Alpine.store('chat').clear();
+            }
+        },
+        
+        autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+        }
+    };
+}
+
+// Helper functions for chat in SPA context
+function createNewChatSPA() {
+    const currentModel = document.getElementById('chat-model')?.value || '';
+    if (window.createNewChat) {
+        window.createNewChat(currentModel, '', false);
+    }
+}
+
+function switchChatSPA(chatId) {
+    if (window.switchChat) {
+        window.switchChat(chatId);
+    }
+}
+
+function deleteChatSPA(chatId) {
+    if (confirm('Delete this chat?')) {
+        if (window.deleteChat) {
+            window.deleteChat(chatId);
+        }
+    }
+}
+
+// Make component available globally
+window.chatSPA = chatSPA;
+</script>
