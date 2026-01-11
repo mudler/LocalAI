@@ -3,12 +3,15 @@ package openai
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
 	grpcClient "github.com/mudler/LocalAI/pkg/grpc"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
+	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
 	"google.golang.org/grpc"
 )
@@ -31,6 +34,7 @@ type wrappedModel struct {
 
 	VADConfig *config.ModelConfig
 	VADClient grpcClient.Backend
+	appConfig *config.ApplicationConfig
 }
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
@@ -49,6 +53,7 @@ type transcriptOnlyModel struct {
 	TranscriptionClient grpcClient.Backend
 	VADConfig           *config.ModelConfig
 	VADClient           grpcClient.Backend
+	appConfig           *config.ApplicationConfig
 }
 
 func (m *transcriptOnlyModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
@@ -65,6 +70,10 @@ func (m *transcriptOnlyModel) Predict(ctx context.Context, in *proto.PredictOpti
 
 func (m *transcriptOnlyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
 	return fmt.Errorf("predict stream operation not supported in transcript-only mode")
+}
+
+func (m *transcriptOnlyModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, string, error) {
+	return nil, "", fmt.Errorf("TTS not supported in transcript-only mode")
 }
 
 func (m *wrappedModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
@@ -97,12 +106,42 @@ func (m *wrappedModel) PredictStream(ctx context.Context, in *proto.PredictOptio
 	return m.LLMClient.PredictStream(ctx, in, f)
 }
 
+func (m *wrappedModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, string, error) {
+	if m.appConfig != nil && m.appConfig.SystemState != nil {
+		mp := filepath.Join(m.appConfig.SystemState.Model.ModelsPath, m.TTSConfig.Model)
+		if _, err := os.Stat(mp); err == nil {
+			if err := utils.VerifyPath(mp, m.appConfig.SystemState.Model.ModelsPath); err == nil {
+				in.Model = mp
+			}
+		}
+	}
+
+	if in.Dst == "" && m.appConfig != nil {
+		audioDir := filepath.Join(m.appConfig.GeneratedContentDir, "audio")
+		if err := os.MkdirAll(audioDir, 0750); err != nil {
+			return nil, "", fmt.Errorf("failed creating audio directory: %s", err)
+		}
+
+		fileName := utils.GenerateUniqueFileName(audioDir, "tts", ".wav")
+		in.Dst = filepath.Join(audioDir, fileName)
+	}
+
+	res, err := m.TTSClient.TTS(ctx, in, opts...)
+	return res, in.Dst, err
+}
+
 func (m *anyToAnyModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
 	return m.LLMClient.Predict(ctx, in)
 }
 
 func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
 	return m.LLMClient.PredictStream(ctx, in, f)
+}
+
+func (m *anyToAnyModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, string, error) {
+	// TODO: Handle file generation if needed for anyToAnyModel
+	res, err := m.LLMClient.TTS(ctx, in, opts...)
+	return res, in.Dst, err
 }
 
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
@@ -143,6 +182,7 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		VADClient:           VADClient,
 		TranscriptionConfig: cfgSST,
 		TranscriptionClient: transcriptionClient,
+		appConfig:           appConfig,
 	}, cfgSST, nil
 }
 
@@ -254,5 +294,6 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 		VADConfig: cfgVAD,
 		VADClient: VADClient,
+		appConfig: appConfig,
 	}, nil
 }
