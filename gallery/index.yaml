@@ -1,4 +1,39 @@
 ---
+- name: "muse-0.6b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Muse-0.6b-i1-GGUF
+  description: |
+    This model is a quantized version of the original **bolshyC/Muse-0.6b** model, optimized for efficiency and deployment. It uses GGUF format and includes various quantization levels (e.g., IQ1_S, IQ2_XXS, Q4_K_M) to balance model size, speed, and quality. Key features:
+
+      - **Base model**: bolshyC/Muse-0.6b
+      - **Quantization**: Optimized for GGUF, with options like Q4_K_M (recommended) or Q6_K (high quality).
+      - **Sizes**: Ranges from 0.1GB to 0.6GB, with Q4_K_M being the fastest and most balanced.
+      - **Use case**: Ideal for deploying on devices with limited memory or bandwidth.
+
+    **License**: Apache-2.0.
+    **Download**: Available at [GGUF links](https://huggingface.co/mradermacher/Muse-0.6b-i1-GGUF/resolve/main).
+
+    For more details, refer to the [model page](https://hf.tst.eu/model#Muse-0.6b-i1-GGUF).
+  overrides:
+    parameters:
+      model: llama-cpp/models/Muse-0.6b.i1-Q4_K_M.gguf
+    name: Muse-0.6b-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Muse-0.6b-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Muse-0.6b.i1-Q4_K_M.gguf
+      sha256: e19eb17f6ca39f9ac72236f3343739852679a311c8acc8c7ba9118f7c989bae7
+      uri: https://huggingface.co/mradermacher/Muse-0.6b-i1-GGUF/resolve/main/Muse-0.6b.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
