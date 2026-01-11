@@ -359,7 +359,8 @@
 <script defer src="static/chat.js"></script>
 <script defer src="static/image.js"></script>
 <script defer src="static/tts.js"></script>
-<script defer src="static/talk.js"></script>
+<!-- Note: talk.js is NOT included here because it has global-scope DOM access that 
+     conflicts with the SPA architecture. The SPA talk view has its own inline JS. -->
 <script src="static/assets/pdf.min.js"></script>
 <script>
   // Initialize PDF.js worker
