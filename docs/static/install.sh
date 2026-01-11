@@ -702,10 +702,10 @@ install_docker() {
             $envs \
             -d -p $PORT:8080 --name local-ai localai/localai:$IMAGE_TAG $STARTCOMMAND
     elif [ "$HAS_AMD" ]; then
-        IMAGE_TAG=${LOCALAI_VERSION}-gpu-hipblas
+        IMAGE_TAG=${LOCALAI_VERSION}-gpu-amd-rocm-6
         # AIO
         if [ "$USE_AIO" = true ]; then
-            IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-hipblas
+            IMAGE_TAG=${LOCALAI_VERSION}-aio-gpu-amd-rocm-6
         fi
 
         info "Starting LocalAI Docker container..."

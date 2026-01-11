@@ -70,7 +70,7 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-gp
 
 **AMD GPU (ROCm):**
 ```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-amd-rocm-6
 ```
 
 **Intel GPU:**
@@ -119,7 +119,7 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-ai
 
 **AMD GPU (ROCm):**
 ```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-amd-rocm-6
 ```
 
 **Intel GPU:**
@@ -140,7 +140,7 @@ services:
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-13
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-12
     # image: localai/localai:latest-aio-gpu-nvidia-cuda-11
-    # image: localai/localai:latest-aio-gpu-hipblas
+    # image: localai/localai:latest-aio-gpu-amd-rocm-6
     # image: localai/localai:latest-aio-gpu-intel
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/readyz"]
