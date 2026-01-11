@@ -43,7 +43,7 @@
               platforms: 'linux/amd64'
               tag-latest: 'auto'
               tag-suffix: '-gpu-amd-rocm-6'
-              base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+              base-image: "ubuntu:24.04"
               grpc-base-image: "ubuntu:24.04"
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
