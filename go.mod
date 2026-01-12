@@ -20,7 +20,7 @@ require (
 	github.com/gofrs/flock v0.13.0
 	github.com/google/go-containerregistry v0.20.7
 	github.com/google/uuid v1.6.0
-	github.com/gpustack/gguf-parser-go v0.22.1
+	github.com/gpustack/gguf-parser-go v0.23.1
 	github.com/hpcloud/tail v1.0.0
 	github.com/ipfs/go-log v1.0.5
 	github.com/jaypipes/ghw v0.21.2
@@ -59,7 +59,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.39.0
 	go.opentelemetry.io/otel/sdk/metric v1.39.0
 	google.golang.org/grpc v1.78.0
-	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
@@ -74,6 +73,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
+	google.golang.org/protobuf v1.36.10 // indirect
 )
 
 require (
