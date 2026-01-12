@@ -148,10 +148,10 @@ package_cuda_libs() {
     done
 
     # Copy CUDA target directory for runtime compilation support
-    if [ -d "/usr/local/cuda/targets" ]; then
-        mkdir -p "$TARGET_LIB_DIR/../cuda"
-        cp -arfL /usr/local/cuda/targets "$TARGET_LIB_DIR/../cuda/" 2>/dev/null || true
-    fi
+    # if [ -d "/usr/local/cuda/targets" ]; then
+    #     mkdir -p "$TARGET_LIB_DIR/../cuda"
+    #     cp -arfL /usr/local/cuda/targets "$TARGET_LIB_DIR/../cuda/" 2>/dev/null || true
+    # fi
 
     echo "CUDA libraries packaged successfully"
 }
