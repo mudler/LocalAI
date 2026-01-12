@@ -104,22 +104,22 @@ RUN <<EOT bash
             ocaml-core ninja-build pkg-config libxml2-dev wayland-protocols python3-jsonschema \
             clang-format qtbase5-dev qt6-base-dev libxcb-glx0-dev sudo xz-utils
         if [ "amd64" = "$TARGETARCH" ]; then
-            wget "https://sdk.lunarg.com/sdk/download/1.4.328.1/linux/vulkansdk-linux-x86_64-1.4.328.1.tar.xz" && \
-            tar -xf vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
-            rm vulkansdk-linux-x86_64-1.4.328.1.tar.xz && \
+            wget "https://sdk.lunarg.com/sdk/download/1.4.335.0/linux/vulkansdk-linux-x86_64-1.4.335.0.tar.xz" && \
+            tar -xf vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
+            rm vulkansdk-linux-x86_64-1.4.335.0.tar.xz && \
             mkdir -p /opt/vulkan-sdk && \
-            mv 1.4.328.1 /opt/vulkan-sdk/ && \
-            cd /opt/vulkan-sdk/1.4.328.1 && \
+            mv 1.4.335.0 /opt/vulkan-sdk/ && \
+            cd /opt/vulkan-sdk/1.4.335.0 && \
             ./vulkansdk --no-deps --maxjobs \
                 vulkan-loader \
                 vulkan-validationlayers \
                 vulkan-extensionlayer \
                 vulkan-tools \
                 shaderc && \
-            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/bin/* /usr/bin/ && \
-            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
-            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/include/* /usr/include/ && \
-            cp -rfv /opt/vulkan-sdk/1.4.328.1/x86_64/share/* /usr/share/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/bin/* /usr/bin/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/lib/* /usr/lib/x86_64-linux-gnu/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/include/* /usr/include/ && \
+            cp -rfv /opt/vulkan-sdk/1.4.335.0/x86_64/share/* /usr/share/ && \
             rm -rf /opt/vulkan-sdk
         fi
         if [ "arm64" = "$TARGETARCH" ]; then
