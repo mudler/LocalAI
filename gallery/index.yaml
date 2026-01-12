@@ -1,4 +1,35 @@
 ---
+- name: "glm-4.7-reap-218b-a32b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/unsloth/GLM-4.7-REAP-218B-A32B-GGUF
+  description: |
+    AI model: glm-4.7-reap-218b-a32b
+  overrides:
+    parameters:
+      model: llama-cpp/models/GLM-4.7-REAP-218B-A32B-Q4_K_M-00001-of-00003.gguf
+    name: GLM-4.7-REAP-218B-A32B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/unsloth/GLM-4.7-REAP-218B-A32B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/GLM-4.7-REAP-218B-A32B-Q4_K_M-00001-of-00003.gguf
+      sha256: 76c0d374ce74654202a6c42f14ddc2fe2dea5f22b1f4b64fd9072882395c42c6
+      uri: https://huggingface.co/unsloth/GLM-4.7-REAP-218B-A32B-GGUF/resolve/main/Q4_K_M/GLM-4.7-REAP-218B-A32B-Q4_K_M-00001-of-00003.gguf
+    - filename: llama-cpp/models/GLM-4.7-REAP-218B-A32B-Q4_K_M-00002-of-00003.gguf
+      sha256: 35b8eaf3516350066bc0adb2ce831f08604c6fbd5dba1e4e9ddad10645f991f5
+      uri: https://huggingface.co/unsloth/GLM-4.7-REAP-218B-A32B-GGUF/resolve/main/Q4_K_M/GLM-4.7-REAP-218B-A32B-Q4_K_M-00002-of-00003.gguf
+    - filename: llama-cpp/models/GLM-4.7-REAP-218B-A32B-Q4_K_M-00003-of-00003.gguf
+      sha256: e77c91b3b82c82d58b36a5866a70671ce763d1edf8629b227fd66e534260f4d0
+      uri: https://huggingface.co/unsloth/GLM-4.7-REAP-218B-A32B-GGUF/resolve/main/Q4_K_M/GLM-4.7-REAP-218B-A32B-Q4_K_M-00003-of-00003.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
