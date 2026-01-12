@@ -1,4 +1,33 @@
 ---
+- name: "dagger-12b_sft_grpo"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/dagger-12B_SFT_GRPO-GGUF
+  description: |
+    The model is a 12B parameter dagger-12B model fine-tuned for specific tasks (SFT) and quantized for efficiency (GRPO). It uses GGUF format and includes various quantization levels (e.g., Q4_K_S, Q2_K) to balance performance and storage. The model is optimized for deployment with compression and is designed for tasks requiring high accuracy with reduced computational costs.
+  overrides:
+    parameters:
+      model: llama-cpp/models/dagger-12B_SFT_GRPO.Q4_K_M.gguf
+    name: dagger-12B_SFT_GRPO-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/dagger-12B_SFT_GRPO.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/dagger-12B_SFT_GRPO-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/dagger-12B_SFT_GRPO.Q4_K_M.gguf
+      sha256: 512b8e3dcfa27482828acc442763af6ecc26a5a70ad97550dcbd477aaf288c8b
+      uri: https://huggingface.co/mradermacher/dagger-12B_SFT_GRPO-GGUF/resolve/main/dagger-12B_SFT_GRPO.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/dagger-12B_SFT_GRPO.mmproj-f16.gguf
+      sha256: 47dd31a2e4e35362b5bc90777f25d6ad9755173f079890fbb318314ea9d636c8
+      uri: https://huggingface.co/mradermacher/dagger-12B_SFT_GRPO-GGUF/resolve/main/dagger-12B_SFT_GRPO.mmproj-f16.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
