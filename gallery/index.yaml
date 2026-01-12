@@ -1,4 +1,60 @@
 ---
+- name: "minimax-m2.1-reap-50-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-50-i1-GGUF
+  description: |
+    **Model Name:** MiniMax-M2.1-REAP-50
+    **Base Model:** MiniMaxAI/MiniMax-M2.1
+    **Compression:** 50% expert pruning
+    **Precision:** BF16 (Brain-Friendly 16-bit)
+    **Size:** ~420GB
+    **Use Cases:** Code generation, function/tool calling, agentic workflows
+
+      ---
+
+    ### **Key Features**
+      - **50% Expert Pruning:** Reduces experts per layer by 50%, retaining 80 experts per layer for optimal performance.
+      - **Calibrated for Code & Tools:** Optimized for tasks like code generation, function calling, and multi-turn reasoning.
+      - **One-Shot Compression:** No fine-tuning required, making it ideal for rapid deployment.
+      - **Efficiency:** ~220B parameters, 420GB disk size, and BF16 precision for balanced accuracy and speed.
+
+      ---
+
+    ### **Technical Details**
+      - **Compression Ratio:** 50% experts removed, preserving critical pathways for code and tool use.
+      - **Calibration Datasets:** Optimized for [evol-codealpaca-v1](https://huggingface.co/datasets/theblackcat102/evol-codealpaca-v1), [xlam-function-calling-60k](https://huggingface.co/Salesforce/xlam-function-calling-60k), and [SWE-smith-trajectories](https://huggingface.co/SWE-bench/SWE-smith-trajectories).
+      - **Deployment:** Compatible with vLLM (Tensor-Parallel Size: 8, dtype: bfloat16).
+
+      ---
+
+    ### **Acknowledgments**
+      - **Cerebras Research:** Original REAP methodology and GLM-4.6 experiments.
+      - **Prime Intellect:** Compute sponsorship for high-performance training.
+
+      ---
+
+    **Citation:**
+    @article{lasby2025reap, ...} (arXiv:2510.13999)
+  overrides:
+    parameters:
+      model: llama-cpp/models/MiniMax-M2.1-REAP-50.i1-Q4_K_M.gguf
+    name: MiniMax-M2.1-REAP-50-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-50-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MiniMax-M2.1-REAP-50.i1-Q4_K_M.gguf
+      sha256: 8998081096aaaa0796bdedd7b437f3074851340bfd9999819bf5cc606a1adac6
+      uri: https://huggingface.co/mradermacher/MiniMax-M2.1-REAP-50-i1-GGUF/resolve/main/MiniMax-M2.1-REAP-50.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
