@@ -84,9 +84,9 @@ Standard container images do not have pre-installed models. Use these if you wan
 
 | Description | Quay | Docker Hub                                                  |
 | --- | --- |-------------------------------------------------------------|
-| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-hipblas` | `localai/localai:master-gpu-hipblas`                      |
-| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-hipblas` | `localai/localai:latest-gpu-hipblas`                      |
-| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-hipblas` | `localai/localai:{{< version >}}-gpu-hipblas`             |
+| Latest images from the branch (development) | `quay.io/go-skynet/local-ai:master-gpu-amd-rocm-6` | `localai/localai:master-gpu-amd-rocm-6`                      |
+| Latest tag | `quay.io/go-skynet/local-ai:latest-gpu-amd-rocm-6` | `localai/localai:latest-gpu-amd-rocm-6`                      |
+| Versioned image | `quay.io/go-skynet/local-ai:{{< version >}}-gpu-amd-rocm-6` | `localai/localai:{{< version >}}-gpu-amd-rocm-6`             |
 
 {{% /tab %}}
 
@@ -190,7 +190,7 @@ services:
 
 **Models caching**: The **AIO** image will download the needed models on the first run if not already present and store those in `/models` inside the container. The AIO models will be automatically updated with new versions of AIO images.
 
-You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`). 
+You can change the directory inside the container by specifying a `MODELS_PATH` environment variable (or `--models-path`).
 
 If you want to use a named model or a local directory, you can mount it as a volume to `/models`:
 
@@ -215,7 +215,7 @@ docker run -p 8080:8080 --name local-ai -ti -v localai-models:/models localai/lo
 | Versioned image (e.g. for CPU) | `quay.io/go-skynet/local-ai:{{< version >}}-aio-cpu` | `localai/localai:{{< version >}}-aio-cpu`             |
 | Latest images for Nvidia GPU (CUDA12) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-12` | `localai/localai:latest-aio-gpu-nvidia-cuda-12`                      |
 | Latest images for Nvidia GPU (CUDA13) | `quay.io/go-skynet/local-ai:latest-aio-gpu-nvidia-cuda-13` | `localai/localai:latest-aio-gpu-nvidia-cuda-13`                      |
-| Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-hipblas` | `localai/localai:latest-aio-gpu-hipblas`                      |
+| Latest images for AMD GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-amd-rocm-6` | `localai/localai:latest-aio-gpu-amd-rocm-6`                      |
 | Latest images for Intel GPU | `quay.io/go-skynet/local-ai:latest-aio-gpu-intel` | `localai/localai:latest-aio-gpu-intel`                      |
 
 ### Available environment variables

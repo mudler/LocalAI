@@ -20,6 +20,8 @@ FROM requirements AS requirements-drivers
 ARG BUILD_TYPE
 ARG CUDA_MAJOR_VERSION=12
 ARG CUDA_MINOR_VERSION=0
+ARG ROCM_MAJOR_VERSION=6
+ARG ROCM_MINOR_VERSION=4.3 # ROCm version to append to the major version, in the format of their apt repo (https://repo.radeon.com/rocm/apt/). Like `0_alpha` or `3.4`.
 ARG SKIP_DRIVERS=false
 ARG TARGETARCH
 ARG TARGETVARIANT
@@ -146,13 +148,29 @@ RUN if [ "${BUILD_TYPE}" = "clblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
     ; fi
 
 RUN if [ "${BUILD_TYPE}" = "hipblas" ] && [ "${SKIP_DRIVERS}" = "false" ]; then \
+        # Setup for specific ROCm version as described here: https://rocm.docs.amd.com/projects/install-on-linux/en/latest/install/install-methods/package-manager/package-manager-ubuntu.html
+        ROCM_VERSION="${ROCM_MAJOR_VERSION}.${ROCM_MINOR_VERSION}" && \
         apt-get update && \
         apt-get install -y --no-install-recommends \
-            hipblas-dev \
-            rocblas-dev && \
+            gpg wget && \
+        mkdir --parents --mode=0755 /etc/apt/keyrings && \
+        wget -qO - https://repo.radeon.com/rocm/rocm.gpg.key | gpg --yes --dearmor --output /etc/apt/keyrings/rocm.gpg && \
+        echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/rocm/apt/${ROCM_VERSION} jammy main" >> /etc/apt/sources.list.d/rocm.list && \
+        if [ "${ROCM_MAJOR_VERSION}" -ge 7 ]; then \
+            echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/rocm.gpg] https://repo.radeon.com/graphics/${ROCM_VERSION}/ubuntu jammy main" >> /etc/apt/sources.list.d/rocm.list \
+        ; fi && \
+        echo "Package: *" >> /etc/apt/preferences.d/rocm-pin-600 && \
+        echo "Pin: release o=repo.radeon.com" >> /etc/apt/preferences.d/rocm-pin-600 && \
+        echo "Pin-Priority: 600" >> /etc/apt/preferences.d/rocm-pin-600 && \
+        # End setup steps for specific ROCm version - the packages below will be installed from the configured repositories
+        apt-get update && \
+        apt-get install -y --no-install-recommends \
+            rocm-hip-runtime \
+            rocblas-dev \
+            hipblas-dev && \
         apt-get clean && \
         rm -rf /var/lib/apt/lists/* && \
-        echo "amd" > /run/localai/capability && \
+        echo "amd-rocm-${ROCM_MAJOR_VERSION}" > /run/localai/capability && \
         # I have no idea why, but the ROCM lib packages don't trigger ldconfig after they install, which results in local-ai and others not being able
         # to locate the libraries. We run ldconfig ourselves to work around this packaging deficiency
         ldconfig \

@@ -43,7 +43,7 @@
 
 > :bulb: Get help - [❓FAQ](https://localai.io/faq/) [💭Discussions](https://github.com/go-skynet/LocalAI/discussions) [:speech_balloon: Discord](https://discord.gg/uJAeKSAGDy) [:book: Documentation website](https://localai.io/)
 >
-> [💻 Quickstart](https://localai.io/basics/getting_started/) [🖼️ Models](https://models.localai.io/) [🚀 Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) [🛫 Examples](https://github.com/mudler/LocalAI-examples) Try on 
+> [💻 Quickstart](https://localai.io/basics/getting_started/) [🖼️ Models](https://models.localai.io/) [🚀 Roadmap](https://github.com/mudler/LocalAI/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap) [🛫 Examples](https://github.com/mudler/LocalAI-examples) Try on
 [![Telegram](https://img.shields.io/badge/Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white)](https://t.me/localaiofficial_bot)
 
 [![tests](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/test.yml)[![Build and Release](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/release.yaml)[![build container images](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/image.yml)[![Bump dependencies](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml/badge.svg)](https://github.com/go-skynet/LocalAI/actions/workflows/bump_deps.yaml)[![Artifact Hub](https://img.shields.io/endpoint?url=https://artifacthub.io/badge/repository/localai)](https://artifacthub.io/packages/search?repo=localai)
@@ -131,10 +131,10 @@ For more installation options, see [Installer Options](https://localai.io/instal
 Or run with docker:
 
 > **💡 Docker Run vs Docker Start**
-> 
+>
 > - `docker run` creates and starts a new container. If a container with the same name already exists, this command will fail.
 > - `docker start` starts an existing container that was previously created with `docker run`.
-> 
+>
 > If you've already run LocalAI before and want to start it again, use: `docker start -i local-ai`
 
 ### CPU only image:
@@ -163,7 +163,7 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nv
 ### AMD GPU Images (ROCm):
 
 ```bash
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-amd-rocm-6
 ```
 
 ### Intel GPU Images (oneAPI):
@@ -194,7 +194,7 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-ai
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-aio-gpu-intel
 
 # AMD GPU version
-docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-hipblas
+docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-aio-gpu-amd-rocm-6
 ```
 
 For more information about the AIO images and pre-downloaded models, see [Container Documentation](https://localai.io/basics/container/).
@@ -254,7 +254,7 @@ Roadmap items: [List of issues](https://github.com/mudler/LocalAI/issues?q=is%3A
 - 🗣 [Text to Audio](https://localai.io/features/text-to-audio/)
 - 🔈 [Audio to Text](https://localai.io/features/audio-to-text/) (Audio transcription with `whisper.cpp`)
 - 🎨 [Image generation](https://localai.io/features/image-generation)
-- 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/) 
+- 🔥 [OpenAI-alike tools API](https://localai.io/features/openai-functions/)
 - 🧠 [Embeddings generation for vector databases](https://localai.io/features/embeddings/)
 - ✍️ [Constrained grammars](https://localai.io/features/constrained_grammars/)
 - 🖼️ [Download Models directly from Huggingface ](https://localai.io/models/)
@@ -362,7 +362,7 @@ Other:
 - Github bot which answer on issues, with code and documentation as context https://github.com/JackBekket/GitHelper
 - Github Actions: https://github.com/marketplace/actions/start-localai
 - Examples: https://github.com/mudler/LocalAI/tree/master/examples/
-  
+
 
 ### 🔗 Resources
 

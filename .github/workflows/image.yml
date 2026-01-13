@@ -1,17 +1,17 @@
 ---
   name: 'build container images'
-  
+
   on:
     push:
       branches:
         - master
       tags:
         - '*'
-  
+
   concurrency:
     group: ci-${{ github.head_ref || github.ref }}-${{ github.repository }}
     cancel-in-progress: true
-  
+
   jobs:
     hipblas-jobs:
       uses: ./.github/workflows/image_build.yml
@@ -38,17 +38,30 @@
         matrix:
           include:
             - build-type: 'hipblas'
+              rocm-major-version: "6"
+              rocm-minor-version: "4.3"
               platforms: 'linux/amd64'
               tag-latest: 'auto'
-              tag-suffix: '-gpu-hipblas'
-              base-image: "rocm/dev-ubuntu-24.04:6.4.4"
+              tag-suffix: '-gpu-amd-rocm-6'
+              base-image: "ubuntu:24.04"
               grpc-base-image: "ubuntu:24.04"
               runs-on: 'ubuntu-latest'
               makeflags: "--jobs=3 --output-sync=target"
               aio: "-aio-gpu-hipblas"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
-  
+            - build-type: 'hipblas'
+              rocm-major-version: "7"
+              rocm-minor-version: "1.1"
+              platforms: 'linux/amd64'
+              tag-latest: 'auto'
+              tag-suffix: '-gpu-amd-rocm-7'
+              base-image: "ubuntu:24.04"
+              runs-on: 'ubuntu-latest'
+              makeflags: "--jobs=3 --output-sync=target"
+              aio: "-aio-gpu-amd-rocm-7"
+              ubuntu-version: '2204'
+
     core-image-build:
       uses: ./.github/workflows/image_build.yml
       with:
@@ -134,7 +147,7 @@
               aio: "-aio-gpu-intel"
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
-  
+
     gh-runner:
       uses: ./.github/workflows/image_build.yml
       with:
@@ -184,4 +197,3 @@
               skip-drivers: 'false'
               ubuntu-version: '2404'
               ubuntu-codename: 'noble'
-  
