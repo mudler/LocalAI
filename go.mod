@@ -38,7 +38,7 @@ require (
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
 	github.com/mudler/xlog v0.0.5
 	github.com/onsi/ginkgo/v2 v2.27.3
-	github.com/onsi/gomega v1.38.3
+	github.com/onsi/gomega v1.39.0
 	github.com/otiai10/copy v1.14.1
 	github.com/otiai10/openaigo v1.7.0
 	github.com/phayes/freeport v0.0.0-20220201140144-74d24b5ae9f5
