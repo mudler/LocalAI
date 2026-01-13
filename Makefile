@@ -1,5 +1,5 @@
 # Disable parallel execution for backend builds
-.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/moonshine
+.NOTPARALLEL: backends/diffusers backends/llama-cpp backends/piper backends/stablediffusion-ggml backends/whisper backends/faster-whisper backends/silero-vad backends/local-store backends/huggingface backends/rfdetr backends/kitten-tts backends/kokoro backends/chatterbox backends/llama-cpp-darwin backends/neutts build-darwin-python-backend build-darwin-go-backend backends/mlx backends/diffuser-darwin backends/mlx-vlm backends/mlx-audio backends/stablediffusion-ggml-darwin backends/vllm backends/moonshine backends/pocket-tts
 
 GOCMD=go
 GOTEST=$(GOCMD) test
@@ -9,7 +9,7 @@ LAUNCHER_BINARY_NAME=local-ai-launcher
 
 CUDA_MAJOR_VERSION?=13
 CUDA_MINOR_VERSION?=0
-UBUNTU_VERSION?=2204
+UBUNTU_VERSION?=2404
 UBUNTU_CODENAME?=noble
 
 GORELEASER?=
@@ -316,6 +316,7 @@ prepare-test-extra: protogen-python
 	$(MAKE) -C backend/python/vllm
 	$(MAKE) -C backend/python/vibevoice
 	$(MAKE) -C backend/python/moonshine
+	$(MAKE) -C backend/python/pocket-tts
 
 test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/transformers test
@@ -324,6 +325,7 @@ test-extra: prepare-test-extra
 	$(MAKE) -C backend/python/vllm test
 	$(MAKE) -C backend/python/vibevoice test
 	$(MAKE) -C backend/python/moonshine test
+	$(MAKE) -C backend/python/pocket-tts test
 
 DOCKER_IMAGE?=local-ai
 DOCKER_AIO_IMAGE?=local-ai-aio
@@ -447,17 +449,16 @@ BACKEND_FASTER_WHISPER = faster-whisper|python|.|false|true
 BACKEND_COQUI = coqui|python|.|false|true
 BACKEND_BARK = bark|python|.|false|true
 BACKEND_EXLLAMA2 = exllama2|python|.|false|true
-
-# Python backends with ./backend context
-BACKEND_RFDETR = rfdetr|python|./backend|false|true
-BACKEND_KITTEN_TTS = kitten-tts|python|./backend|false|true
-BACKEND_NEUTTS = neutts|python|./backend|false|true
-BACKEND_KOKORO = kokoro|python|./backend|false|true
-BACKEND_VLLM = vllm|python|./backend|false|true
-BACKEND_DIFFUSERS = diffusers|python|./backend|--progress=plain|true
-BACKEND_CHATTERBOX = chatterbox|python|./backend|false|true
-BACKEND_VIBEVOICE = vibevoice|python|./backend|--progress=plain|true
-BACKEND_MOONSHINE = moonshine|python|./backend|false|true
+BACKEND_RFDETR = rfdetr|python|.|false|true
+BACKEND_KITTEN_TTS = kitten-tts|python|.|false|true
+BACKEND_NEUTTS = neutts|python|.|false|true
+BACKEND_KOKORO = kokoro|python|.|false|true
+BACKEND_VLLM = vllm|python|.|false|true
+BACKEND_DIFFUSERS = diffusers|python|.|--progress=plain|true
+BACKEND_CHATTERBOX = chatterbox|python|.|false|true
+BACKEND_VIBEVOICE = vibevoice|python|.|--progress=plain|true
+BACKEND_MOONSHINE = moonshine|python|.|false|true
+BACKEND_POCKET_TTS = pocket-tts|python|.|false|true
 
 # Helper function to build docker image for a backend
 # Usage: $(call docker-build-backend,BACKEND_NAME,DOCKERFILE_TYPE,BUILD_CONTEXT,PROGRESS_FLAG,NEEDS_BACKEND_ARG)
@@ -503,12 +504,13 @@ $(eval $(call generate-docker-build-target,$(BACKEND_DIFFUSERS)))
 $(eval $(call generate-docker-build-target,$(BACKEND_CHATTERBOX)))
 $(eval $(call generate-docker-build-target,$(BACKEND_VIBEVOICE)))
 $(eval $(call generate-docker-build-target,$(BACKEND_MOONSHINE)))
+$(eval $(call generate-docker-build-target,$(BACKEND_POCKET_TTS)))
 
 # Pattern rule for docker-save targets
 docker-save-%: backend-images
 	docker save local-ai-backend:$* -o backend-images/$*.tar
 
-docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2 docker-build-moonshine
+docker-build-backends: docker-build-llama-cpp docker-build-rerankers docker-build-vllm docker-build-transformers docker-build-diffusers docker-build-kokoro docker-build-faster-whisper docker-build-coqui docker-build-bark docker-build-chatterbox docker-build-vibevoice docker-build-exllama2 docker-build-moonshine docker-build-pocket-tts
 
 ########################################################
 ### END Backends

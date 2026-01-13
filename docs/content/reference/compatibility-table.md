@@ -42,6 +42,7 @@ LocalAI will attempt to automatically load models which are not explicitly confi
 | [silero-vad](https://github.com/snakers4/silero-vad) with [Golang bindings](https://github.com/streamer45/silero-vad-go) | Silero VAD    | no                       | Voice Activity Detection    | no                               | no                   | CPU |
 | [neutts](https://github.com/neuphonic/neuttsair) | NeuTTSAir    | no                       | Text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, CPU |
 | [vibevoice](https://github.com/microsoft/VibeVoice) | VibeVoice-Realtime    | no                       | Real-time text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
+| [pocket-tts](https://github.com/kyutai-labs/pocket-tts) | Pocket TTS    | no                       | Lightweight CPU-based text-to-speech with voice cloning    | no                               | no                   | CUDA 12/13, ROCm, Intel, CPU |
 | [mlx-audio](https://github.com/Blaizzy/mlx-audio) | MLX | no                       | Text-tospeech    | no                               | no                   | Metal (Apple Silicon) |
 
 ## Image & Video Generation
