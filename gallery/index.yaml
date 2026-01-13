@@ -1,4 +1,39 @@
 ---
+- name: "plamo-2-translate-hybrid"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/steampunque/plamo-2-translate-Hybrid-GGUF
+  description: |
+    **Model Description:**
+    The `plamo-2-translate-Hybrid-GGUF` is a quantized version of the `d/DeepSeek-R1-Distill-Qwen-14B` model, optimized for efficient deployment with a 7.3GB GGUF file size. It supports translation between languages (de, en, es, fr, ja, ru, zh) and is designed for 8GB VRAM compatibility. The hybrid quantization combines Q6_K embedding and output with Q5_K layers to balance performance and file size. Free for non-commercial use.
+
+    **Key Features:**
+      - **Quantized** version of Qwen-14B
+      - **GGUF format** (7.3GB, 0.5B smaller than Q6_K)
+      - **8GB VRAM-friendly**
+      - **Language support**: de, en, es, fr, ja, ru, zh
+      - **Prompt format**: `<|plamo:op|>dataset\ntranslation\n<|plamo:op|>input lang=SOURCE\n...`
+
+    *Note: The base model is not explicitly named in the readme, but it is a Qwen-14B quantization.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/plamo-2-translate.Q6_K_H.gguf
+    name: plamo-2-translate-Hybrid-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/steampunque/plamo-2-translate-Hybrid-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/plamo-2-translate.Q6_K_H.gguf
+      sha256: c81b51421651156f62da13370eb8521989499a09b991147fc8ad8c629cc4dad0
+      uri: https://huggingface.co/steampunque/plamo-2-translate-Hybrid-GGUF/resolve/main/plamo-2-translate.Q6_K_H.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
