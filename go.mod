@@ -34,7 +34,7 @@ require (
 	github.com/modelcontextprotocol/go-sdk v1.2.0
 	github.com/mudler/cogito v0.7.2
 	github.com/mudler/edgevpn v0.31.1
-	github.com/mudler/go-processmanager v0.0.0-20240820160718-8b802d3ecf82
+	github.com/mudler/go-processmanager v0.1.0
 	github.com/mudler/memory v0.0.0-20251216220809-d1256471a6c2
 	github.com/mudler/xlog v0.0.5
 	github.com/onsi/ginkgo/v2 v2.27.3
@@ -59,7 +59,6 @@ require (
 	go.opentelemetry.io/otel/metric v1.39.0
 	go.opentelemetry.io/otel/sdk/metric v1.39.0
 	google.golang.org/grpc v1.78.0
-	google.golang.org/protobuf v1.36.10
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	oras.land/oras-go/v2 v2.6.0
@@ -74,6 +73,7 @@ require (
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
+	google.golang.org/protobuf v1.36.10 // indirect
 )
 
 require (
@@ -324,7 +324,7 @@ require (
 	golang.org/x/exp v0.0.0-20250606033433-dcc06ee1d476 // indirect
 	golang.org/x/mod v0.30.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.38.0 // indirect
 	golang.org/x/text v0.32.0 // indirect
 	golang.org/x/tools v0.39.0 // indirect
