@@ -1,0 +1,4 @@
+--extra-index-url https://pytorch-extension.intel.com/release-whl/stable/xpu/us/
+pocket-tts
+scipy
+torch==2.5.1+cxx11.abi

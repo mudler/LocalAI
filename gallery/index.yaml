@@ -478,6 +478,16 @@
     - filename: voices/streaming_model/en-Davis_man.pt
       uri: https://raw.githubusercontent.com/microsoft/VibeVoice/main/demo/voices/streaming_model/en-Davis_man.pt
       sha256: 67561d63bfa2153616e4c02fd967007c182593fc53738a6ad94bf5f84e8832ac
+- &pocket-tts
+  url: "github:mudler/LocalAI/gallery/pocket-tts.yaml@master"
+  icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
+  license: mit
+  tags:
+    - text-to-speech
+    - TTS
+  name: "pocket-tts"
+  urls:
+    - https://github.com/kyutai-labs/pocket-tts
 - &qwen3vl
   url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png

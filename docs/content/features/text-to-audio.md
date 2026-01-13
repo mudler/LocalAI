@@ -164,6 +164,57 @@ curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{
    }' | aplay
 ```
 
+### Pocket TTS
+
+[Pocket TTS](https://github.com/kyutai-labs/pocket-tts) is a lightweight text-to-speech model designed to run efficiently on CPUs. It supports voice cloning through HuggingFace voice URLs or local audio files.
+
+#### Setup
+
+Install the `pocket-tts` model in the Model gallery or run `local-ai run models install pocket-tts`.
+
+#### Usage
+
+Use the tts endpoint by specifying the pocket-tts backend:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "pocket-tts",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
+#### Voice cloning
+
+Pocket TTS supports voice cloning through built-in voice names, HuggingFace URLs, or local audio files. You can configure a model with a specific voice:
+
+```yaml
+name: pocket-tts
+backend: pocket-tts
+tts:
+  voice: "azelma"  # Built-in voice name
+  # Or use HuggingFace URL: "hf://kyutai/tts-voices/alba-mackenna/casual.wav"
+  # Or use local file path: "path/to/voice.wav"
+  # Available built-in voices: alba, marius, javert, jean, fantine, cosette, eponine, azelma
+```
+
+You can also pre-load a default voice for faster first generation:
+
+```yaml
+name: pocket-tts
+backend: pocket-tts
+options:
+  - "default_voice:azelma"  # Pre-load this voice when model loads
+```
+
+Then you can use the model:
+
+```
+curl http://localhost:8080/tts -H "Content-Type: application/json" -d '{         
+     "model": "pocket-tts",
+     "input":"Hello world, this is a test."
+   }' | aplay
+```
+
 ### Vall-E-X
 
 [VALL-E-X](https://github.com/Plachtaa/VALL-E-X) is an open source implementation of Microsoft's VALL-E X zero-shot TTS model.

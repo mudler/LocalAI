@@ -1,0 +1,4 @@
+--extra-index-url https://pypi.jetson-ai-lab.io/jp6/cu129/
+pocket-tts
+scipy
+torch
