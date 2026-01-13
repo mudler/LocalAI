@@ -428,6 +428,28 @@
     nvidia-l4t-cuda-12: "nvidia-l4t-vibevoice"
     nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-vibevoice"
   icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
+- &pocket-tts
+  urls:
+    - https://github.com/kyutai-labs/pocket-tts
+  description: |
+    Pocket TTS is a lightweight text-to-speech model designed to run efficiently on CPUs.
+  tags:
+    - text-to-speech
+    - TTS
+  license: mit
+  name: "pocket-tts"
+  alias: "pocket-tts"
+  capabilities:
+    nvidia: "cuda12-pocket-tts"
+    intel: "intel-pocket-tts"
+    amd: "rocm-pocket-tts"
+    nvidia-l4t: "nvidia-l4t-pocket-tts"
+    default: "cpu-pocket-tts"
+    nvidia-cuda-13: "cuda13-pocket-tts"
+    nvidia-cuda-12: "cuda12-pocket-tts"
+    nvidia-l4t-cuda-12: "nvidia-l4t-pocket-tts"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-pocket-tts"
+  icon: https://avatars.githubusercontent.com/u/6154722?s=200&v=4
 - &piper
   name: "piper"
   uri: "quay.io/go-skynet/local-ai-backends:latest-piper"
@@ -1605,3 +1627,86 @@
   uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-vibevoice"
   mirrors:
     - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-vibevoice
+## pocket-tts
+- !!merge <<: *pocket-tts
+  name: "pocket-tts-development"
+  capabilities:
+    nvidia: "cuda12-pocket-tts-development"
+    intel: "intel-pocket-tts-development"
+    amd: "rocm-pocket-tts-development"
+    nvidia-l4t: "nvidia-l4t-pocket-tts-development"
+    default: "cpu-pocket-tts-development"
+    nvidia-cuda-13: "cuda13-pocket-tts-development"
+    nvidia-cuda-12: "cuda12-pocket-tts-development"
+    nvidia-l4t-cuda-12: "nvidia-l4t-pocket-tts-development"
+    nvidia-l4t-cuda-13: "cuda13-nvidia-l4t-arm64-pocket-tts-development"
+- !!merge <<: *pocket-tts
+  name: "cpu-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-cpu-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-cpu-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cpu-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-cpu-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-cpu-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cuda12-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-12-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-12-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cuda12-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-12-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-12-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cuda13-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-nvidia-cuda-13-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-nvidia-cuda-13-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cuda13-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-nvidia-cuda-13-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-nvidia-cuda-13-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "intel-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-intel-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-intel-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "intel-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-intel-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-intel-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "rocm-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-gpu-rocm-hipblas-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-gpu-rocm-hipblas-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "rocm-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-gpu-rocm-hipblas-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-gpu-rocm-hipblas-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "nvidia-l4t-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "nvidia-l4t-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cuda13-nvidia-l4t-arm64-pocket-tts"
+  uri: "quay.io/go-skynet/local-ai-backends:latest-nvidia-l4t-cuda-13-arm64-pocket-tts"
+  mirrors:
+    - localai/localai-backends:latest-nvidia-l4t-cuda-13-arm64-pocket-tts
+- !!merge <<: *pocket-tts
+  name: "cuda13-nvidia-l4t-arm64-pocket-tts-development"
+  uri: "quay.io/go-skynet/local-ai-backends:master-nvidia-l4t-cuda-13-arm64-pocket-tts"
+  mirrors:
+    - localai/localai-backends:master-nvidia-l4t-cuda-13-arm64-pocket-tts
