@@ -295,6 +295,7 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 | **silero-vad** | Voice Activity Detection | CPU |
 | **neutts** | Text-to-speech with voice cloning | CUDA 12/13, ROCm, CPU |
 | **vibevoice** | Real-time TTS with voice cloning | CUDA 12/13, ROCm, Intel, CPU |
+| **pocket-tts** | Lightweight CPU-based TTS | CUDA 12/13, ROCm, Intel, CPU |
 
 ### Image & Video Generation
 | Backend | Description | Acceleration Support |
@@ -316,8 +317,8 @@ LocalAI supports a comprehensive range of AI backends with multiple acceleration
 |-------------------|-------------------|------------------|
 | **NVIDIA CUDA 12** | All CUDA-compatible backends | Nvidia hardware |
 | **NVIDIA CUDA 13** | All CUDA-compatible backends | Nvidia hardware |
-| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice | AMD Graphics |
-| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark, vibevoice | Intel Arc, Intel iGPUs |
+| **AMD ROCm** | llama.cpp, whisper, vllm, transformers, diffusers, rerankers, coqui, kokoro, bark, neutts, vibevoice, pocket-tts | AMD Graphics |
+| **Intel oneAPI** | llama.cpp, whisper, stablediffusion, vllm, transformers, diffusers, rfdetr, rerankers, exllama2, coqui, kokoro, bark, vibevoice, pocket-tts | Intel Arc, Intel iGPUs |
 | **Apple Metal** | llama.cpp, whisper, diffusers, MLX, MLX-VLM, bark-cpp | Apple M1/M2/M3+ |
 | **Vulkan** | llama.cpp, whisper, stablediffusion | Cross-platform GPUs |
 | **NVIDIA Jetson (CUDA 12)** | llama.cpp, whisper, stablediffusion, diffusers, rfdetr | ARM64 embedded AI (AGX Orin, etc.) |

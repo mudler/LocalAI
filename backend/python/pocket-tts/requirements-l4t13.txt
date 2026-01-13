@@ -2,4 +2,3 @@
 pocket-tts
 scipy
 torch
-numpy<2
