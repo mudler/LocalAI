@@ -57,11 +57,7 @@ type ServerEvent interface {
 
 // ServerEventBase is the base struct for all server events.
 type ServerEventBase struct {
-	EventBase
-}
-
-func (m ServerEventBase) ServerEventType() ServerEventType {
-	return ServerEventType(m.Type)
+	EventID string `json:"event_id,omitempty"`
 }
 
 // Returned when an error occurs, which could be a client problem or a server problem. Most errors are recoverable and the session will stay open, we recommend to implementors to monitor and log error messages by default.
@@ -73,6 +69,10 @@ type ErrorEvent struct {
 	Error Error `json:"error"`
 }
 
+func (m ErrorEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeError
+}
+
 func (m ErrorEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ErrorEvent
 	type typeWrapper struct {
@@ -81,7 +81,7 @@ func (m ErrorEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeError,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -95,6 +95,10 @@ type SessionCreatedEvent struct {
 	Session SessionUnion `json:"session"`
 }
 
+func (m SessionCreatedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeSessionCreated
+}
+
 func (m SessionCreatedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias SessionCreatedEvent
 	type typeWrapper struct {
@@ -103,7 +107,7 @@ func (m SessionCreatedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeSessionCreated,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -117,6 +121,10 @@ type SessionUpdatedEvent struct {
 	Session SessionUnion `json:"session"`
 }
 
+func (m SessionUpdatedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeSessionUpdated
+}
+
 func (m SessionUpdatedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias SessionUpdatedEvent
 	type typeWrapper struct {
@@ -125,7 +133,7 @@ func (m SessionUpdatedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeSessionUpdated,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -143,6 +151,10 @@ type InputAudioBufferCommittedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m InputAudioBufferCommittedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeInputAudioBufferCommitted
+}
+
 func (m InputAudioBufferCommittedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias InputAudioBufferCommittedEvent
 	type typeWrapper struct {
@@ -151,7 +163,7 @@ func (m InputAudioBufferCommittedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeInputAudioBufferCommitted,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -163,6 +175,10 @@ type InputAudioBufferClearedEvent struct {
 	ServerEventBase
 }
 
+func (m InputAudioBufferClearedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeInputAudioBufferCleared
+}
+
 func (m InputAudioBufferClearedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias InputAudioBufferClearedEvent
 	type typeWrapper struct {
@@ -171,7 +187,7 @@ func (m InputAudioBufferClearedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeInputAudioBufferCleared,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -193,6 +209,10 @@ type InputAudioBufferSpeechStartedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m InputAudioBufferSpeechStartedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeInputAudioBufferSpeechStarted
+}
+
 func (m InputAudioBufferSpeechStartedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias InputAudioBufferSpeechStartedEvent
 	type typeWrapper struct {
@@ -201,7 +221,7 @@ func (m InputAudioBufferSpeechStartedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeInputAudioBufferSpeechStarted,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -219,6 +239,10 @@ type InputAudioBufferSpeechStoppedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m InputAudioBufferSpeechStoppedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeInputAudioBufferSpeechStopped
+}
+
 func (m InputAudioBufferSpeechStoppedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias InputAudioBufferSpeechStoppedEvent
 	type typeWrapper struct {
@@ -227,7 +251,7 @@ func (m InputAudioBufferSpeechStoppedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeInputAudioBufferSpeechStopped,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -255,6 +279,10 @@ type InputAudioBufferTimeoutTriggeredEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m InputAudioBufferTimeoutTriggeredEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeInputAudioBufferTimeoutTriggered
+}
+
 func (m InputAudioBufferTimeoutTriggeredEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias InputAudioBufferTimeoutTriggeredEvent
 	type typeWrapper struct {
@@ -263,7 +291,7 @@ func (m InputAudioBufferTimeoutTriggeredEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeInputAudioBufferTimeoutTriggered,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -290,6 +318,10 @@ type ConversationItemAddedEvent struct {
 	Item MessageItemUnion `json:"item"`
 }
 
+func (m ConversationItemAddedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemAdded
+}
+
 func (m ConversationItemAddedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemAddedEvent
 	type typeWrapper struct {
@@ -298,7 +330,7 @@ func (m ConversationItemAddedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemAdded,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -317,6 +349,10 @@ type ConversationItemDoneEvent struct {
 	Item MessageItemUnion `json:"item"`
 }
 
+func (m ConversationItemDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemDone
+}
+
 func (m ConversationItemDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemDoneEvent
 	type typeWrapper struct {
@@ -325,7 +361,7 @@ func (m ConversationItemDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -339,6 +375,10 @@ type ConversationItemRetrievedEvent struct {
 	Item MessageItemUnion `json:"item"`
 }
 
+func (m ConversationItemRetrievedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemRetrieved
+}
+
 func (m ConversationItemRetrievedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemRetrievedEvent
 	type typeWrapper struct {
@@ -347,7 +387,7 @@ func (m ConversationItemRetrievedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemRetrieved,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -386,6 +426,10 @@ type ConversationItemInputAudioTranscriptionCompletedEvent struct {
 	Usage *UsageUnion `json:"usage,omitempty"`
 }
 
+func (m ConversationItemInputAudioTranscriptionCompletedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemInputAudioTranscriptionCompleted
+}
+
 func (m ConversationItemInputAudioTranscriptionCompletedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemInputAudioTranscriptionCompletedEvent
 	type typeWrapper struct {
@@ -394,7 +438,7 @@ func (m ConversationItemInputAudioTranscriptionCompletedEvent) MarshalJSON() ([]
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemInputAudioTranscriptionCompleted,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -417,6 +461,10 @@ type ConversationItemInputAudioTranscriptionDeltaEvent struct {
 	Logprobs []Logprobs `json:"logprobs,omitempty"`
 }
 
+func (m ConversationItemInputAudioTranscriptionDeltaEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemInputAudioTranscriptionDelta
+}
+
 func (m ConversationItemInputAudioTranscriptionDeltaEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemInputAudioTranscriptionDeltaEvent
 	type typeWrapper struct {
@@ -425,7 +473,7 @@ func (m ConversationItemInputAudioTranscriptionDeltaEvent) MarshalJSON() ([]byte
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemInputAudioTranscriptionDelta,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -460,6 +508,10 @@ type ConversationItemInputAudioTranscriptionSegmentEvent struct {
 	Text string `json:"text,omitempty"`
 }
 
+func (m ConversationItemInputAudioTranscriptionSegmentEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemInputAudioTranscriptionSegment
+}
+
 func (m ConversationItemInputAudioTranscriptionSegmentEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemInputAudioTranscriptionSegmentEvent
 	type typeWrapper struct {
@@ -468,7 +520,7 @@ func (m ConversationItemInputAudioTranscriptionSegmentEvent) MarshalJSON() ([]by
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemInputAudioTranscriptionSegment,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -488,6 +540,10 @@ type ConversationItemInputAudioTranscriptionFailedEvent struct {
 	Error Error `json:"error"`
 }
 
+func (m ConversationItemInputAudioTranscriptionFailedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemInputAudioTranscriptionFailed
+}
+
 func (m ConversationItemInputAudioTranscriptionFailedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemInputAudioTranscriptionFailedEvent
 	type typeWrapper struct {
@@ -496,7 +552,7 @@ func (m ConversationItemInputAudioTranscriptionFailedEvent) MarshalJSON() ([]byt
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemInputAudioTranscriptionFailed,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -518,6 +574,10 @@ type ConversationItemTruncatedEvent struct {
 	AudioEndMs int `json:"audio_end_ms"`
 }
 
+func (m ConversationItemTruncatedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemTruncated
+}
+
 func (m ConversationItemTruncatedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemTruncatedEvent
 	type typeWrapper struct {
@@ -526,7 +586,7 @@ func (m ConversationItemTruncatedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemTruncated,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -540,6 +600,10 @@ type ConversationItemDeletedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m ConversationItemDeletedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeConversationItemDeleted
+}
+
 func (m ConversationItemDeletedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ConversationItemDeletedEvent
 	type typeWrapper struct {
@@ -548,7 +612,7 @@ func (m ConversationItemDeletedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeConversationItemDeleted,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -562,6 +626,10 @@ type ResponseCreatedEvent struct {
 	Response Response `json:"response"`
 }
 
+func (m ResponseCreatedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseCreated
+}
+
 func (m ResponseCreatedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseCreatedEvent
 	type typeWrapper struct {
@@ -570,7 +638,7 @@ func (m ResponseCreatedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseCreated,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -587,6 +655,10 @@ type ResponseDoneEvent struct {
 	Response Response `json:"response"`
 }
 
+func (m ResponseDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseDone
+}
+
 func (m ResponseDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseDoneEvent
 	type typeWrapper struct {
@@ -595,7 +667,7 @@ func (m ResponseDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -613,6 +685,10 @@ type ResponseOutputItemAddedEvent struct {
 	Item MessageItemUnion `json:"item"`
 }
 
+func (m ResponseOutputItemAddedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputItemAdded
+}
+
 func (m ResponseOutputItemAddedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputItemAddedEvent
 	type typeWrapper struct {
@@ -621,7 +697,7 @@ func (m ResponseOutputItemAddedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputItemAdded,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -639,6 +715,10 @@ type ResponseOutputItemDoneEvent struct {
 	Item MessageItemUnion `json:"item"`
 }
 
+func (m ResponseOutputItemDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputItemDone
+}
+
 func (m ResponseOutputItemDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputItemDoneEvent
 	type typeWrapper struct {
@@ -647,7 +727,7 @@ func (m ResponseOutputItemDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputItemDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -664,6 +744,10 @@ type ResponseContentPartAddedEvent struct {
 	Part         MessageContentOutput `json:"part"`
 }
 
+func (m ResponseContentPartAddedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseContentPartAdded
+}
+
 func (m ResponseContentPartAddedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseContentPartAddedEvent
 	type typeWrapper struct {
@@ -672,7 +756,7 @@ func (m ResponseContentPartAddedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseContentPartAdded,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -694,6 +778,10 @@ type ResponseContentPartDoneEvent struct {
 	Part MessageContentOutput `json:"part"`
 }
 
+func (m ResponseContentPartDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseContentPartDone
+}
+
 func (m ResponseContentPartDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseContentPartDoneEvent
 	type typeWrapper struct {
@@ -702,7 +790,7 @@ func (m ResponseContentPartDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseContentPartDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -719,6 +807,10 @@ type ResponseOutputTextDeltaEvent struct {
 	Delta        string `json:"delta"`
 }
 
+func (m ResponseOutputTextDeltaEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputTextDelta
+}
+
 func (m ResponseOutputTextDeltaEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputTextDeltaEvent
 	type typeWrapper struct {
@@ -727,7 +819,7 @@ func (m ResponseOutputTextDeltaEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputTextDelta,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -744,6 +836,10 @@ type ResponseOutputTextDoneEvent struct {
 	Text         string `json:"text"`
 }
 
+func (m ResponseOutputTextDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputTextDone
+}
+
 func (m ResponseOutputTextDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputTextDoneEvent
 	type typeWrapper struct {
@@ -752,7 +848,7 @@ func (m ResponseOutputTextDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputTextDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -774,6 +870,10 @@ type ResponseOutputAudioTranscriptDeltaEvent struct {
 	Delta string `json:"delta"`
 }
 
+func (m ResponseOutputAudioTranscriptDeltaEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputAudioTranscriptDelta
+}
+
 func (m ResponseOutputAudioTranscriptDeltaEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputAudioTranscriptDeltaEvent
 	type typeWrapper struct {
@@ -782,7 +882,7 @@ func (m ResponseOutputAudioTranscriptDeltaEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputAudioTranscriptDelta,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -804,6 +904,10 @@ type ResponseOutputAudioTranscriptDoneEvent struct {
 	Transcript string `json:"transcript"`
 }
 
+func (m ResponseOutputAudioTranscriptDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputAudioTranscriptDone
+}
+
 func (m ResponseOutputAudioTranscriptDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputAudioTranscriptDoneEvent
 	type typeWrapper struct {
@@ -812,7 +916,7 @@ func (m ResponseOutputAudioTranscriptDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputAudioTranscriptDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -834,6 +938,10 @@ type ResponseOutputAudioDeltaEvent struct {
 	Delta string `json:"delta"`
 }
 
+func (m ResponseOutputAudioDeltaEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputAudioDelta
+}
+
 func (m ResponseOutputAudioDeltaEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputAudioDeltaEvent
 	type typeWrapper struct {
@@ -842,7 +950,7 @@ func (m ResponseOutputAudioDeltaEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputAudioDelta,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -862,6 +970,10 @@ type ResponseOutputAudioDoneEvent struct {
 	ContentIndex int `json:"content_index"`
 }
 
+func (m ResponseOutputAudioDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseOutputAudioDone
+}
+
 func (m ResponseOutputAudioDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseOutputAudioDoneEvent
 	type typeWrapper struct {
@@ -870,7 +982,7 @@ func (m ResponseOutputAudioDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseOutputAudioDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -892,6 +1004,10 @@ type ResponseFunctionCallArgumentsDeltaEvent struct {
 	Delta string `json:"delta"`
 }
 
+func (m ResponseFunctionCallArgumentsDeltaEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseFunctionCallArgumentsDelta
+}
+
 func (m ResponseFunctionCallArgumentsDeltaEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseFunctionCallArgumentsDeltaEvent
 	type typeWrapper struct {
@@ -900,7 +1016,7 @@ func (m ResponseFunctionCallArgumentsDeltaEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseFunctionCallArgumentsDelta,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -924,6 +1040,10 @@ type ResponseFunctionCallArgumentsDoneEvent struct {
 	Name string `json:"name"`
 }
 
+func (m ResponseFunctionCallArgumentsDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseFunctionCallArgumentsDone
+}
+
 func (m ResponseFunctionCallArgumentsDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseFunctionCallArgumentsDoneEvent
 	type typeWrapper struct {
@@ -932,7 +1052,7 @@ func (m ResponseFunctionCallArgumentsDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseFunctionCallArgumentsDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -954,6 +1074,10 @@ type ResponseMcpCallArgumentsDeltaEvent struct {
 	Obfuscation string `json:"obfuscation"`
 }
 
+func (m ResponseMcpCallArgumentsDeltaEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseMcpCallArgumentsDelta
+}
+
 func (m ResponseMcpCallArgumentsDeltaEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseMcpCallArgumentsDeltaEvent
 	type typeWrapper struct {
@@ -962,7 +1086,7 @@ func (m ResponseMcpCallArgumentsDeltaEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseMcpCallArgumentsDelta,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -982,6 +1106,10 @@ type ResponseMcpCallArgumentsDoneEvent struct {
 	Arguments string `json:"arguments"`
 }
 
+func (m ResponseMcpCallArgumentsDoneEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseMcpCallArgumentsDone
+}
+
 func (m ResponseMcpCallArgumentsDoneEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseMcpCallArgumentsDoneEvent
 	type typeWrapper struct {
@@ -990,7 +1118,7 @@ func (m ResponseMcpCallArgumentsDoneEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseMcpCallArgumentsDone,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1006,6 +1134,10 @@ type ResponseMcpCallInProgressEvent struct {
 	OutputIndex int `json:"output_index"`
 }
 
+func (m ResponseMcpCallInProgressEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseMcpCallInProgress
+}
+
 func (m ResponseMcpCallInProgressEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseMcpCallInProgressEvent
 	type typeWrapper struct {
@@ -1014,7 +1146,7 @@ func (m ResponseMcpCallInProgressEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseMcpCallInProgress,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1030,6 +1162,10 @@ type ResponseMcpCallCompletedEvent struct {
 	OutputIndex int `json:"output_index"`
 }
 
+func (m ResponseMcpCallCompletedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseMcpCallCompleted
+}
+
 func (m ResponseMcpCallCompletedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseMcpCallCompletedEvent
 	type typeWrapper struct {
@@ -1038,7 +1174,7 @@ func (m ResponseMcpCallCompletedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseMcpCallCompleted,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1054,6 +1190,10 @@ type ResponseMcpCallFailedEvent struct {
 	OutputIndex int `json:"output_index"`
 }
 
+func (m ResponseMcpCallFailedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeResponseMcpCallFailed
+}
+
 func (m ResponseMcpCallFailedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias ResponseMcpCallFailedEvent
 	type typeWrapper struct {
@@ -1062,7 +1202,7 @@ func (m ResponseMcpCallFailedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeResponseMcpCallFailed,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1076,6 +1216,10 @@ type McpListToolsInProgressEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m McpListToolsInProgressEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeMcpListToolsInProgress
+}
+
 func (m McpListToolsInProgressEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias McpListToolsInProgressEvent
 	type typeWrapper struct {
@@ -1084,7 +1228,7 @@ func (m McpListToolsInProgressEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeMcpListToolsInProgress,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1098,6 +1242,10 @@ type McpListToolsCompletedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m McpListToolsCompletedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeMcpListToolsCompleted
+}
+
 func (m McpListToolsCompletedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias McpListToolsCompletedEvent
 	type typeWrapper struct {
@@ -1106,7 +1254,7 @@ func (m McpListToolsCompletedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeMcpListToolsCompleted,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1120,6 +1268,10 @@ type McpListToolsFailedEvent struct {
 	ItemID string `json:"item_id"`
 }
 
+func (m McpListToolsFailedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeMcpListToolsFailed
+}
+
 func (m McpListToolsFailedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias McpListToolsFailedEvent
 	type typeWrapper struct {
@@ -1128,7 +1280,7 @@ func (m McpListToolsFailedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeMcpListToolsFailed,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }
@@ -1142,6 +1294,10 @@ type RateLimitsUpdatedEvent struct {
 	RateLimits []RateLimit `json:"rate_limits"`
 }
 
+func (m RateLimitsUpdatedEvent) ServerEventType() ServerEventType {
+	return ServerEventTypeRateLimitsUpdated
+}
+
 func (m RateLimitsUpdatedEvent) MarshalJSON() ([]byte, error) {
 	type typeAlias RateLimitsUpdatedEvent
 	type typeWrapper struct {
@@ -1150,7 +1306,7 @@ func (m RateLimitsUpdatedEvent) MarshalJSON() ([]byte, error) {
 	}
 	shadow := typeWrapper{
 		typeAlias: typeAlias(m),
-		Type:      ServerEventTypeRateLimitsUpdated,
+		Type:      m.ServerEventType(),
 	}
 	return json.Marshal(shadow)
 }

@@ -3,22 +3,20 @@ package openai
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
 	"github.com/mudler/LocalAI/core/backend"
 	"github.com/mudler/LocalAI/core/config"
-	grpcClient "github.com/mudler/LocalAI/pkg/grpc"
+	"github.com/mudler/LocalAI/core/schema"
+	"github.com/mudler/LocalAI/core/templates"
+	"github.com/mudler/LocalAI/pkg/functions"
 	"github.com/mudler/LocalAI/pkg/grpc/proto"
 	model "github.com/mudler/LocalAI/pkg/model"
-	"github.com/mudler/LocalAI/pkg/utils"
 	"github.com/mudler/xlog"
-	"google.golang.org/grpc"
 )
 
 var (
 	_ Model = new(wrappedModel)
-	_ Model = new(anyToAnyModel)
+	_ Model = new(transcriptOnlyModel)
 )
 
 // wrappedModel represent a model which does not support Any-to-Any operations
@@ -28,13 +26,12 @@ type wrappedModel struct {
 	TTSConfig           *config.ModelConfig
 	TranscriptionConfig *config.ModelConfig
 	LLMConfig           *config.ModelConfig
-	TTSClient           grpcClient.Backend
-	TranscriptionClient grpcClient.Backend
-	LLMClient           grpcClient.Backend
-
 	VADConfig *config.ModelConfig
-	VADClient grpcClient.Backend
-	appConfig *config.ApplicationConfig
+
+	appConfig   *config.ApplicationConfig
+	modelLoader *model.ModelLoader
+	confLoader  *config.ModelConfigLoader
+	evaluator   *templates.Evaluator
 }
 
 // anyToAnyModel represent a model which supports Any-to-Any operations
@@ -42,106 +39,66 @@ type wrappedModel struct {
 // In the future there could be models that accept continous audio input only so this design will be useful for that
 type anyToAnyModel struct {
 	LLMConfig *config.ModelConfig
-	LLMClient grpcClient.Backend
-
 	VADConfig *config.ModelConfig
-	VADClient grpcClient.Backend
+
+	appConfig   *config.ApplicationConfig
+	modelLoader *model.ModelLoader
+	confLoader  *config.ModelConfigLoader
 }
 
 type transcriptOnlyModel struct {
 	TranscriptionConfig *config.ModelConfig
-	TranscriptionClient grpcClient.Backend
 	VADConfig           *config.ModelConfig
-	VADClient           grpcClient.Backend
-	appConfig           *config.ApplicationConfig
+
+	appConfig   *config.ApplicationConfig
+	modelLoader *model.ModelLoader
+	confLoader  *config.ModelConfigLoader
 }
 
-func (m *transcriptOnlyModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
-	return m.VADClient.VAD(ctx, in)
+func (m *transcriptOnlyModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
+	return backend.VAD(request, ctx, m.modelLoader, m.appConfig, *m.VADConfig)
 }
 
-func (m *transcriptOnlyModel) Transcribe(ctx context.Context, in *proto.TranscriptRequest, opts ...grpc.CallOption) (*proto.TranscriptResult, error) {
-	return m.TranscriptionClient.AudioTranscription(ctx, in, opts...)
+func (m *transcriptOnlyModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
+	return backend.ModelTranscription(audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
 }
 
-func (m *transcriptOnlyModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
+func (m *transcriptOnlyModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
 	return nil, fmt.Errorf("predict operation not supported in transcript-only mode")
 }
 
-func (m *transcriptOnlyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
-	return fmt.Errorf("predict stream operation not supported in transcript-only mode")
+func (m *transcriptOnlyModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
+	return "", nil, fmt.Errorf("TTS not supported in transcript-only mode")
 }
 
-func (m *transcriptOnlyModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, string, error) {
-	return nil, "", fmt.Errorf("TTS not supported in transcript-only mode")
+func (m *wrappedModel) VAD(ctx context.Context, request *schema.VADRequest) (*schema.VADResponse, error) {
+	return backend.VAD(request, ctx, m.modelLoader, m.appConfig, *m.VADConfig)
 }
 
-func (m *wrappedModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
-	return m.VADClient.VAD(ctx, in)
+func (m *wrappedModel) Transcribe(ctx context.Context, audio, language string, translate bool, diarize bool, prompt string) (*schema.TranscriptionResult, error) {
+	return backend.ModelTranscription(audio, language, translate, diarize, prompt, m.modelLoader, *m.TranscriptionConfig, m.appConfig)
 }
 
-func (m *anyToAnyModel) VAD(ctx context.Context, in *proto.VADRequest, opts ...grpc.CallOption) (*proto.VADResponse, error) {
-	return m.VADClient.VAD(ctx, in)
-}
+func (m *wrappedModel) Predict(ctx context.Context, messages schema.Messages, images, videos, audios []string, tokenCallback func(string, backend.TokenUsage) bool, tools string, toolChoice string, logprobs *int, topLogprobs *int, logitBias map[string]float64) (func() (backend.LLMResponse, error), error) {
+	input := schema.OpenAIRequest{
+		Messages: messages,
+	}
 
-func (m *wrappedModel) Transcribe(ctx context.Context, in *proto.TranscriptRequest, opts ...grpc.CallOption) (*proto.TranscriptResult, error) {
-	return m.TranscriptionClient.AudioTranscription(ctx, in, opts...)
-}
+	var predInput string
+	if !m.LLMConfig.TemplateConfig.UseTokenizerTemplate {
+		predInput = m.evaluator.TemplateMessages(input, input.Messages, m.LLMConfig, []functions.Function{}, false)
 
-func (m *anyToAnyModel) Transcribe(ctx context.Context, in *proto.TranscriptRequest, opts ...grpc.CallOption) (*proto.TranscriptResult, error) {
-	// TODO: Can any-to-any models transcribe?
-	return m.LLMClient.AudioTranscription(ctx, in, opts...)
-}
-
-func (m *wrappedModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
-	// TODO: Convert with pipeline (audio to text, text to llm, result to tts, and return it)
-	// sound.BufferAsWAV(audioData, "audio.wav")
-
-	return m.LLMClient.Predict(ctx, in)
-}
-
-func (m *wrappedModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
-	// TODO: Convert with pipeline (audio to text, text to llm, result to tts, and return it)
-
-	return m.LLMClient.PredictStream(ctx, in, f)
-}
-
-func (m *wrappedModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, string, error) {
-	if m.appConfig != nil && m.appConfig.SystemState != nil {
-		mp := filepath.Join(m.appConfig.SystemState.Model.ModelsPath, m.TTSConfig.Model)
-		if _, err := os.Stat(mp); err == nil {
-			if err := utils.VerifyPath(mp, m.appConfig.SystemState.Model.ModelsPath); err == nil {
-				in.Model = mp
-			}
+		xlog.Debug("Prompt (after templating)", "prompt", predInput)
+		if m.LLMConfig.Grammar != "" {
+			xlog.Debug("Grammar", "grammar", m.LLMConfig.Grammar)
 		}
 	}
 
-	if in.Dst == "" && m.appConfig != nil {
-		audioDir := filepath.Join(m.appConfig.GeneratedContentDir, "audio")
-		if err := os.MkdirAll(audioDir, 0750); err != nil {
-			return nil, "", fmt.Errorf("failed creating audio directory: %s", err)
-		}
-
-		fileName := utils.GenerateUniqueFileName(audioDir, "tts", ".wav")
-		in.Dst = filepath.Join(audioDir, fileName)
-	}
-
-	res, err := m.TTSClient.TTS(ctx, in, opts...)
-	return res, in.Dst, err
+	return backend.ModelInference(ctx, predInput, messages, images, videos, audios, m.modelLoader, m.LLMConfig, m.confLoader, m.appConfig, tokenCallback, tools, toolChoice, logprobs, topLogprobs, logitBias, )
 }
 
-func (m *anyToAnyModel) Predict(ctx context.Context, in *proto.PredictOptions, opts ...grpc.CallOption) (*proto.Reply, error) {
-	return m.LLMClient.Predict(ctx, in)
-}
-
-func (m *anyToAnyModel) PredictStream(ctx context.Context, in *proto.PredictOptions, f func(reply *proto.Reply), opts ...grpc.CallOption) error {
-	return m.LLMClient.PredictStream(ctx, in, f)
-}
-
-func (m *anyToAnyModel) TTS(ctx context.Context, in *proto.TTSRequest, opts ...grpc.CallOption) (*proto.Result, string, error) {
-	// TODO: Handle file generation if needed for anyToAnyModel
-	res, err := m.LLMClient.TTS(ctx, in, opts...)
-	return res, in.Dst, err
+func (m *wrappedModel) TTS(ctx context.Context, text, voice, language string) (string, *proto.Result, error) {
+	return backend.ModelTTS(text, voice, language, m.modelLoader, m.appConfig, *m.TTSConfig)
 }
 
 func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, *config.ModelConfig, error) {
@@ -155,12 +112,6 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	opts := backend.ModelOptions(*cfgVAD, appConfig)
-	VADClient, err := ml.Load(opts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load tts model: %w", err)
-	}
-
 	cfgSST, err := cl.LoadModelConfigFileByName(pipeline.Transcription, ml.ModelPath)
 	if err != nil {
 
@@ -171,23 +122,19 @@ func newTranscriptionOnlyModel(pipeline *config.Pipeline, cl *config.ModelConfig
 		return nil, nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	opts = backend.ModelOptions(*cfgSST, appConfig)
-	transcriptionClient, err := ml.Load(opts...)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load SST model: %w", err)
-	}
-
 	return &transcriptOnlyModel{
-		VADConfig:           cfgVAD,
-		VADClient:           VADClient,
 		TranscriptionConfig: cfgSST,
-		TranscriptionClient: transcriptionClient,
-		appConfig:           appConfig,
+		VADConfig: cfgVAD,
+
+		confLoader: cl,
+		modelLoader: ml,
+		appConfig: appConfig,
 	}, cfgSST, nil
 }
 
 // returns and loads either a wrapped model or a model that support audio-to-audio
-func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig) (Model, error) {
+func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model.ModelLoader, appConfig *config.ApplicationConfig, evaluator *templates.Evaluator) (Model, error) {
+	xlog.Debug("Creating new model pipeline model", "pipeline", pipeline)
 
 	cfgVAD, err := cl.LoadModelConfigFileByName(pipeline.VAD, ml.ModelPath)
 	if err != nil {
@@ -197,12 +144,6 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 
 	if valid, _ := cfgVAD.Validate(); !valid {
 		return nil, fmt.Errorf("failed to validate config: %w", err)
-	}
-
-	opts := backend.ModelOptions(*cfgVAD, appConfig)
-	VADClient, err := ml.Load(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load tts model: %w", err)
 	}
 
 	// TODO: Do we always need a transcription model? It can be disabled. Note that any-to-any instruction following models don't transcribe as such, so if transcription is required it is a separate process
@@ -216,38 +157,24 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	opts = backend.ModelOptions(*cfgSST, appConfig)
-	transcriptionClient, err := ml.Load(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load SST model: %w", err)
-	}
-
 	// TODO: Decide when we have a real any-to-any model
-	if false {
-
-		cfgAnyToAny, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
-		if err != nil {
-
-			return nil, fmt.Errorf("failed to load backend config: %w", err)
-		}
-
-		if valid, _ := cfgAnyToAny.Validate(); !valid {
-			return nil, fmt.Errorf("failed to validate config: %w", err)
-		}
-
-		opts := backend.ModelOptions(*cfgAnyToAny, appConfig)
-		anyToAnyClient, err := ml.Load(opts...)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load tts model: %w", err)
-		}
-
-		return &anyToAnyModel{
-			LLMConfig: cfgAnyToAny,
-			LLMClient: anyToAnyClient,
-			VADConfig: cfgVAD,
-			VADClient: VADClient,
-		}, nil
-	}
+	// if false {
+	//
+	// 	cfgAnyToAny, err := cl.LoadModelConfigFileByName(pipeline.LLM, ml.ModelPath)
+	// 	if err != nil {
+	//
+	// 		return nil, fmt.Errorf("failed to load backend config: %w", err)
+	// 	}
+	//
+	// 	if valid, _ := cfgAnyToAny.Validate(); !valid {
+	// 		return nil, fmt.Errorf("failed to validate config: %w", err)
+	// 	}
+	//
+	// 	return &anyToAnyModel{
+	// 		LLMConfig: cfgAnyToAny,
+	// 		VADConfig: cfgVAD,
+	// 	}, nil
+	// }
 
 	xlog.Debug("Loading a wrapped model")
 
@@ -272,28 +199,15 @@ func newModel(pipeline *config.Pipeline, cl *config.ModelConfigLoader, ml *model
 		return nil, fmt.Errorf("failed to validate config: %w", err)
 	}
 
-	opts = backend.ModelOptions(*cfgTTS, appConfig)
-	ttsClient, err := ml.Load(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load tts model: %w", err)
-	}
-
-	opts = backend.ModelOptions(*cfgLLM, appConfig)
-	llmClient, err := ml.Load(opts...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load LLM model: %w", err)
-	}
-
 	return &wrappedModel{
 		TTSConfig:           cfgTTS,
 		TranscriptionConfig: cfgSST,
 		LLMConfig:           cfgLLM,
-		TTSClient:           ttsClient,
-		TranscriptionClient: transcriptionClient,
-		LLMClient:           llmClient,
-
 		VADConfig: cfgVAD,
-		VADClient: VADClient,
+
+		confLoader: cl,
+		modelLoader: ml,
 		appConfig: appConfig,
+		evaluator: evaluator,
 	}, nil
 }
