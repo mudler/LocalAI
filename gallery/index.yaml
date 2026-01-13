@@ -1,4 +1,43 @@
 ---
+- name: "reasoning-gemma-finetune"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/KangarooLove/reasoning-gemma-finetune-gguf
+  description: |
+    **Model Name:** Gemma-3B It (Finetuned for Reasoning)
+    **Base Model:** Gemma-3B (original model by Meta)
+    **Quantization:** GGUF (8-bit float)
+    **Finetuning:** Trained with Unsloth for faster training (2x speedup)
+    **Use Case:** Optimized for reasoning tasks (e.g., code generation, logical deduction)
+    **Features:**
+      - 3 billion parameters
+      - 8-bit float quantization for efficiency
+      - Multi-modal support (text/mtmd)
+      - Deployable via Ollama modelfile
+    **Key Notes:**
+      - BOS token behavior adjusted for GGUF compatibility
+      - Fast inference via Unsloth optimization
+
+    This model is a lightweight, efficient version of Gemma tailored for reasoning tasks, ideal for deploying in low-resource environments.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-3-1b-it.Q8_0.gguf
+    name: reasoning-gemma-finetune-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/KangarooLove/reasoning-gemma-finetune-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-3-1b-it.Q8_0.gguf
+      sha256: 4b9b3403aafe2ed8c47a66b89744c14eec49c7dfc10360ea149e2f90ebc7f57b
+      uri: https://huggingface.co/KangarooLove/reasoning-gemma-finetune-gguf/resolve/main/gemma-3-1b-it.Q8_0.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
