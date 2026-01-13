@@ -1,4 +1,29 @@
 ---
+- name: "gemma-finetune-2b-it-v5"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/vedanshsingh17/gemma-finetune-2b-it-gguf-v5
+  description: |
+    This is a fine-tuned version of the Gemma model (2B parameters) optimized for GGUF format. It was trained using Unsloth to accelerate training and converted to GGUF for efficient deployment. The model supports both text-only and multimodal tasks, with a 2x speedup over the original model. Available as `gemma-2b-it.Q8_0.gguf` for use with Llama.cpp or other frameworks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/gemma-2b-it.Q8_0.gguf
+    name: gemma-finetune-2b-it-gguf-v5
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/vedanshsingh17/gemma-finetune-2b-it-gguf-v5
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/gemma-2b-it.Q8_0.gguf
+      sha256: 652ca98012bc0932781f7c1eed9b6d27016a16e3dbaa3009ea0436ef1cb5c1f4
+      uri: https://huggingface.co/vedanshsingh17/gemma-finetune-2b-it-gguf-v5/resolve/main/gemma-2b-it.Q8_0.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
