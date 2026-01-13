@@ -1237,6 +1237,63 @@
       cuda: true
       pipeline_type: QwenImageEditPipeline
       enable_parameters: num_inference_steps,image
+- &ltx2
+  name: "ltx-2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Lightricks/LTX-2
+  license: ltx-2-community-license-agreement
+  tags:
+    - diffusers
+    - gpu
+    - image-to-video
+    - video-generation
+    - audio-video
+  description: |
+    **LTX-2** is a DiT-based audio-video foundation model designed to generate synchronized video and audio within a single model. It brings together the core building blocks of modern video generation, with open weights and a focus on practical, local execution.
+
+    **Key Features:**
+    - **Joint Audio-Video Generation**: Generates synchronized video and audio in a single model
+    - **Image-to-Video**: Converts static images into dynamic videos with matching audio
+    - **High Quality**: Produces realistic video with natural motion and synchronized audio
+    - **Open Weights**: Available under the LTX-2 Community License Agreement
+
+    **Model Details:**
+    - **Model Type**: Diffusion-based audio-video foundation model
+    - **Architecture**: DiT (Diffusion Transformer) based
+    - **Developed by**: Lightricks
+    - **Paper**: [LTX-2: Efficient Joint Audio-Visual Foundation Model](https://arxiv.org/abs/2601.03233)
+
+    **Usage Tips:**
+    - Width & height settings must be divisible by 32
+    - Frame count must be divisible by 8 + 1 (e.g., 9, 17, 25, 33, 41, 49, 57, 65, 73, 81, 89, 97, 105, 113, 121)
+    - Recommended settings: width=768, height=512, num_frames=121, frame_rate=24.0
+    - For best results, use detailed prompts describing motion and scene dynamics
+
+    **Limitations:**
+    - This model is not intended or able to provide factual information
+    - Prompt following is heavily influenced by the prompting-style
+    - When generating audio without speech, the audio may be of lower quality
+
+    **Citation:**
+    ```bibtex
+    @article{hacohen2025ltx2,
+      title={LTX-2: Efficient Joint Audio-Visual Foundation Model},
+      author={HaCohen, Yoav and Brazowski, Benny and Chiprut, Nisan and others},
+      journal={arXiv preprint arXiv:2601.03233},
+      year={2025}
+    }
+    ```
+  overrides:
+    backend: diffusers
+    low_vram: true
+    parameters:
+      model: Lightricks/LTX-2
+    diffusers:
+      cuda: true
+      pipeline_type: LTX2ImageToVideoPipeline
+    options:
+      - torch_dtype:bf16
 - &gptoss
   name: "gpt-oss-20b"
   url: "github:mudler/LocalAI/gallery/harmony.yaml@master"
