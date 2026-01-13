@@ -6,7 +6,7 @@ toolchain go1.24.5
 
 require (
 	dario.cat/mergo v1.0.2
-	fyne.io/fyne/v2 v2.7.1
+	fyne.io/fyne/v2 v2.7.2
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/alecthomas/kong v1.13.0
 	github.com/anthropics/anthropic-sdk-go v1.19.0
@@ -77,7 +77,7 @@ require (
 )
 
 require (
-	fyne.io/systray v1.11.1-0.20250603113521-ca66a66d8b58 // indirect
+	fyne.io/systray v1.12.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834 // indirect
