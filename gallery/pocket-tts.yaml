@@ -1,0 +1,34 @@
+---
+name: localai
+
+config_file: |-
+    name: pocket-tts
+    backend: pocket-tts
+    description: |
+      Pocket TTS is a lightweight text-to-speech model designed to run efficiently on CPUs.
+      This model supports voice cloning through HuggingFace voice URLs or local audio files.
+
+    parameters:
+      model: ""
+
+    # TTS configuration
+    tts:
+      # Voice selection - can be:
+      # 1. Built-in voice name (e.g., "alba", "marius", "javert", "jean", "fantine", "cosette", "eponine", "azelma")
+      # 2. HuggingFace URL (e.g., "hf://kyutai/tts-voices/alba-mackenna/casual.wav")
+      # 3. Local file path (relative to model directory or absolute)
+      # voice: "azelma"
+      # Alternative: use audio_path to specify a voice file directly
+      # audio_path: "hf://kyutai/tts-voices/alba-mackenna/casual.wav"
+
+    known_usecases:
+      - tts
+
+    # Backend-specific options
+    # These are passed as "key:value" strings to the backend
+    options:
+      # Default voice to pre-load (optional)
+      # Can be a voice name or HuggingFace URL
+      # If set, this voice will be loaded when the model loads for faster first generation
+      - "default_voice:azelma"
+      # - "default_voice:hf://kyutai/tts-voices/alba-mackenna/casual.wav"
