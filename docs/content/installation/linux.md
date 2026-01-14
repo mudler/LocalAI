@@ -6,7 +6,11 @@ url: '/installation/linux/'
 ---
 
 
-## One-Line Installer (Recommended)
+## One-Line Installer
+
+{{% notice warning %}}
+**The `install.sh` script is currently experiencing issues and may produce broken or misconfigured installations. Please use alternative installation methods (Docker or manual binary installation) until [issue #8032](https://github.com/mudler/LocalAI/issues/8032) is resolved.**
+{{% /notice %}}
 
 The fastest way to install LocalAI on Linux is with the installation script:
 
