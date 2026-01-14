@@ -1,4 +1,48 @@
 ---
+- name: "qwen2-1.5b-instruct-heretic"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2-1.5B-Instruct-heretic-GGUF
+  description: |
+    **Model Name:** Qwen2-1.5B-Instruct (Decensored Version)
+    **Base Model:** Qwen/Qwen2-1.5B-Instruct
+
+    **Description:**
+    This is a decensored, instruction-tuned version of the Qwen2-1.5B model, optimized for chat and multi-tasking. It leverages the power of the Qwen2 series, featuring advanced Transformer architecture, group query attention, and a tokenizer adapted for multiple languages. The model is quantized using Heretic v1.1.0, offering efficient deployment with support for various quantization levels (e.g., Q2_K, Q4_K_S, Q8_0).
+
+    **Key Features:**
+      - **Chat Support:** Ideal for conversational tasks.
+      - **Heretic Quantization:** Enhanced performance and efficiency.
+      - **Multi-Lingual Tokenizer:** Handles diverse languages and codes.
+      - **Low Latency:** Fast inference with optimized quantized versions.
+
+    **Usage:**
+      - Load via Hugging Face Transformers: `AutoModelForCausalLM`
+      - Example: Use `apply_chat_template` for prompt-based generation.
+
+    **License:** Apache-2.0
+    **Tags:** chat, heretic, uncensored, decensored, abliterated
+
+    *Note: This model is a modified version of the original Qwen2-1.5B-Instruct, tailored for enhanced performance and broader use cases.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2-1.5B-Instruct-heretic.Q4_K_M.gguf
+    name: Qwen2-1.5B-Instruct-heretic-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2-1.5B-Instruct-heretic-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2-1.5B-Instruct-heretic.Q4_K_M.gguf
+      sha256: 2be142f99a3565d45035d6e637705e58739b035fe1ec21343ce93599385c33c9
+      uri: https://huggingface.co/mradermacher/Qwen2-1.5B-Instruct-heretic-GGUF/resolve/main/Qwen2-1.5B-Instruct-heretic.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
