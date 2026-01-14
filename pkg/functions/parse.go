@@ -1492,7 +1492,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 	results := []FuncCallResults{}
 	llmResults := []string{}
 
-	returnResult := func(results []string) (result []FuncCallResults, e error) {
+	extractJSON := func(results []string) (result []FuncCallResults, e error) {
 		// As we have to change the result before processing, we can't stream the answer token-by-token (yet?)
 		result = make([]FuncCallResults, 0)
 
@@ -1593,7 +1593,7 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		if len(llmResults) == 0 {
 			llmResults = append(llmResults, llmresult)
 		}
-		results, _ = returnResult(llmResults)
+		results, _ = extractJSON(llmResults)
 	}
 
 	// Determine which XML format to use (if any)
@@ -1632,8 +1632,16 @@ func ParseFunctionCall(llmresult string, functionConfig FunctionsConfig) []FuncC
 		// But skip if JSONRegexMatch or ResponseRegex was used (they already extracted the content)
 		xmlResults, err := ParseXML(llmresult, xmlFormat)
 		if err == nil && len(xmlResults) > 0 {
-			xlog.Debug("Found additional XML tool calls alongside JSON", "xml_count", len(xmlResults))
-			results = append(results, xmlResults...)
+			// Check if JSON is inside XML tags, if so, skip it
+			for _, result := range xmlResults {
+				jsonResults, _ := extractJSON([]string{result.Name})
+				if len(jsonResults) > 0 {
+					xlog.Debug("Found valid JSON inside XML tags, skipping XML parsing", "json_count", len(jsonResults))
+				} else {
+					xlog.Debug("Found additional XML tool calls alongside JSON", "xml_count", len(xmlResults))
+					results = append(results, xmlResults...)
+				}
+			}
 		}
 	}
 
