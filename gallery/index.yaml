@@ -1,4 +1,29 @@
 ---
+- name: "frogboss-32b-2510-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/FrogBoss-32B-2510-i1-GGUF
+  description: |
+    The model is a 32-billion parameter large language model (32B) optimized for performance with quantization. It is designed for tasks like text generation, understanding, and multi-tasking. The model is available as a GGUF file for efficient deployment. While the quantized version (mradermacher/FrogBoss-32B-2510-i1-GGUF) is compressed, the original model (microsoft/FrogBoss-32B-32B) is the base reference. For detailed specs, refer to the original model's README.
+  overrides:
+    parameters:
+      model: llama-cpp/models/FrogBoss-32B-2510.i1-Q4_K_M.gguf
+    name: FrogBoss-32B-2510-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/FrogBoss-32B-2510-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/FrogBoss-32B-2510.i1-Q4_K_M.gguf
+      sha256: 8800b18c3a4ee664cfeb3b42ce4c312c4a730c505bb68e81bfa9f27bc09103ce
+      uri: https://huggingface.co/mradermacher/FrogBoss-32B-2510-i1-GGUF/resolve/main/FrogBoss-32B-2510.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
