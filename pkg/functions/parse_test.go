@@ -820,6 +820,23 @@ Final text`
 			Expect(results[0].Name).To(Equal("first"))
 			Expect(results[1].Name).To(Equal("second"))
 		})
+
+		It("should not duplicate parse JSON inside tool_call tags", func() {
+			// This test reproduces a bug where JSON inside <tool_call> tags
+			// gets parsed twice: once as JSON (correctly) and once as XML (incorrectly)
+			// The XML parser should not run when JSON parsing already found valid results
+			input := `<tool_call>
+{"name": "get_current_weather", "arguments": {"location": "Beijing", "unit": "celsius"}}
+</tool_call>`
+
+			results := ParseFunctionCall(input, functionConfig)
+			// Should only have 1 result, not 2 (one correct + one malformed)
+			Expect(results).To(HaveLen(1), "Should not create duplicate entries when JSON is inside XML tags")
+			Expect(results[0].Name).To(Equal("get_current_weather"))
+			Expect(results[0].Arguments).To(Equal(`{"location":"Beijing","unit":"celsius"}`))
+			// Verify the name is not the entire JSON object (which would indicate malformed XML parsing)
+			Expect(results[0].Name).NotTo(ContainSubstring(`{"name"`), "Function name should not contain JSON object")
+		})
 	})
 
 	Context("Iterative Parser (ChatMsgParser)", func() {
