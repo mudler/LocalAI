@@ -1,4 +1,29 @@
 ---
+- name: "qwen2.5-7b-instruct-1m-thinking-claude-gemini-gpt5.2-distill-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL-i1-GGUF
+  description: |
+    The model is a **Qwen2.5 7B Parameter** large language model fine-tuned for instruction tuning, designed for tasks requiring reasoning and complex language understanding. It incorporates features like **thinking** (e.g., Claude, Gemini, GPT5.2), **distillation**, and **quantization** (Q2_K, IQ3_M, etc.) to optimize efficiency. It is suited for applications requiring robust, context-aware language generation and reasoning.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL.i1-Q4_K_M.gguf
+    name: Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL.i1-Q4_K_M.gguf
+      sha256: b3e657f72fc8ce9570e24b4a7e55f0406c2a1c4c54baf228f7f1f3ff51a7e9f3
+      uri: https://huggingface.co/mradermacher/Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL-i1-GGUF/resolve/main/Qwen2.5-7B-Instruct-1M-Thinking-Claude-Gemini-GPT5.2-DISTILL.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
