@@ -41,6 +41,14 @@ from optimum.quanto import freeze, qfloat8, quantize
 from transformers import T5EncoderModel
 from safetensors.torch import load_file
 
+# Import LTX-2 specific utilities
+try:
+    from diffusers.pipelines.ltx2.export_utils import encode_video as ltx2_encode_video
+    LTX2_AVAILABLE = True
+except ImportError:
+    LTX2_AVAILABLE = False
+    ltx2_encode_video = None
+
 _ONE_DAY_IN_SECONDS = 60 * 60 * 24
 COMPEL = os.environ.get("COMPEL", "0") == "1"
 XPU = os.environ.get("XPU", "0") == "1"
@@ -290,6 +298,20 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
                 pipe.enable_model_cpu_offload()
             return pipe
 
+        # LTX2ImageToVideoPipeline - needs img2vid flag, CPU offload, and special handling
+        if pipeline_type == "LTX2ImageToVideoPipeline":
+            self.img2vid = True
+            self.ltx2_pipeline = True
+            pipe = load_diffusers_pipeline(
+                class_name="LTX2ImageToVideoPipeline",
+                model_id=request.Model,
+                torch_dtype=torchType,
+                variant=variant
+            )
+            if not DISABLE_CPU_OFFLOAD:
+                pipe.enable_model_cpu_offload()
+            return pipe
+
         # ================================================================
         # Dynamic pipeline loading - the default path for most pipelines
         # Uses the dynamic loader to instantiate any pipeline by class name
@@ -404,6 +426,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             fromSingleFile = request.Model.startswith("http") or request.Model.startswith("/") or local
             self.img2vid = False
             self.txt2vid = False
+            self.ltx2_pipeline = False
 
             # Load pipeline using dynamic loader
             # Special cases that require custom initialization are handled first
@@ -686,7 +709,44 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             print(f"Generating video with {kwargs=}", file=sys.stderr)
 
             # Generate video frames based on pipeline type
-            if self.PipelineType == "WanPipeline":
+            if self.ltx2_pipeline or self.PipelineType == "LTX2ImageToVideoPipeline":
+                # LTX-2 image-to-video generation with audio
+                if not LTX2_AVAILABLE:
+                    return backend_pb2.Result(success=False, message="LTX-2 pipeline requires diffusers.pipelines.ltx2.export_utils")
+                
+                # LTX-2 uses 'image' parameter instead of 'start_image'
+                if request.start_image:
+                    image = load_image(request.start_image)
+                    kwargs["image"] = image
+                    # Remove start_image if it was added
+                    kwargs.pop("start_image", None)
+                
+                # LTX-2 uses 'frame_rate' instead of 'fps'
+                frame_rate = float(fps)
+                kwargs["frame_rate"] = frame_rate
+                
+                # LTX-2 requires output_type="np" and return_dict=False
+                kwargs["output_type"] = "np"
+                kwargs["return_dict"] = False
+                
+                # Generate video and audio
+                video, audio = self.pipe(**kwargs)
+                
+                # Convert video to uint8 format
+                video = (video * 255).round().astype("uint8")
+                video = torch.from_numpy(video)
+                
+                # Use LTX-2's encode_video function which handles audio
+                ltx2_encode_video(
+                    video[0],
+                    fps=frame_rate,
+                    audio=audio[0].float().cpu(),
+                    audio_sample_rate=self.pipe.vocoder.config.output_sampling_rate,
+                    output_path=request.dst,
+                )
+                
+                return backend_pb2.Result(message="Video generated successfully", success=True)
+            elif self.PipelineType == "WanPipeline":
                 # WAN2.2 text-to-video generation
                 output = self.pipe(**kwargs)
                 frames = output.frames[0]  # WAN2.2 returns frames in this format
@@ -727,7 +787,7 @@ class BackendServicer(backend_pb2_grpc.BackendServicer):
             else:
                 return backend_pb2.Result(success=False, message=f"Pipeline {self.PipelineType} does not support video generation")
 
-            # Export video
+            # Export video (for non-LTX-2 pipelines)
             export_to_video(frames, request.dst, fps=fps)
             
             return backend_pb2.Result(message="Video generated successfully", success=True)
