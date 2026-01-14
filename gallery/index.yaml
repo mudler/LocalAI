@@ -1,4 +1,33 @@
 ---
+- name: "insight-o3-vs"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/InSight-o3-vS-GGUF
+  description: |
+    The model `mradermacher/InSight-o3-vS-GGUF` is a quantized version of the InSight-o3 language model, optimized for efficiency and deployment. It uses advanced quantization techniques (e.g., Q4_K_S, Q2_K, etc.) to reduce computational demands while preserving performance. The model is tailored for tasks like text generation and understanding, leveraging Hugging Face's HF convert format. It is a compressed, lightweight variant of the original InSight-o3, suitable for applications requiring low resource usage.
+  overrides:
+    parameters:
+      model: llama-cpp/models/InSight-o3-vS.Q4_K_M.gguf
+    name: InSight-o3-vS-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/InSight-o3-vS.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/InSight-o3-vS-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/InSight-o3-vS.Q4_K_M.gguf
+      sha256: 49ab29be350cd4e3bebceb4ad741928c566210d16a950fa8586b5950ab6c9174
+      uri: https://huggingface.co/mradermacher/InSight-o3-vS-GGUF/resolve/main/InSight-o3-vS.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/InSight-o3-vS.mmproj-f16.gguf
+      sha256: da17443a6a37f4b467d5a5ae53f30db41bdf63bb41b5c79cd0f815c20d403943
+      uri: https://huggingface.co/mradermacher/InSight-o3-vS-GGUF/resolve/main/InSight-o3-vS.mmproj-f16.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
