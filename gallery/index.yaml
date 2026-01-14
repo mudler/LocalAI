@@ -1,4 +1,45 @@
 ---
+- name: "frogmini-14b-2510"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/FrogMini-14B-2510-GGUF
+  description: |
+    **FrogMini-14B-2510**
+    A 14-billion-parameter model based on **Qwen3-14B**, specialized in **software engineering debugging**. It excels at multi-turn reasoning, code repair, and resolving bugs in complex repositories.
+
+    **Key Features:**
+      - **Training:** Supervised fine-tuning on debugging trajectories from Claude Sonnet 4, using real-world (R2E-Gym), synthetic (SWE-Smith), and high-quality FeatAdd bugs.
+      - **Capabilities:** Identifies bugs, generates code patches, and handles multi-file debugging scenarios.
+      - **Performance:** Achieves ~45% Pass@1 on SWE-Bench Verified with 14B parameters, emphasizing realistic, domain-specific debugging.
+      - **Limitations:** No image/audio/video support; struggles with highly domain-specific codebases outside its training distribution.
+
+    **Use Cases:**
+      - Automated bug fixing in controlled research environments.
+      - Debugging and repairing code in software engineering workflows.
+
+    **License:** MIT.
+    **Release Date:** January 12, 2026.
+
+    *Note: This model is static and optimized for the R2E-Gym agent scaffolding. Quantized versions (e.g., Q2_K, Q4_K_S) are available for efficiency.*
+  overrides:
+    parameters:
+      model: llama-cpp/models/FrogMini-14B-2510.Q4_K_M.gguf
+    name: FrogMini-14B-2510-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/FrogMini-14B-2510-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/FrogMini-14B-2510.Q4_K_M.gguf
+      sha256: 573fe211c52a228577dfe1e7b0fc8f04a1fa61826517a613c5bf22b9a9268ee1
+      uri: https://huggingface.co/mradermacher/FrogMini-14B-2510-GGUF/resolve/main/FrogMini-14B-2510.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
