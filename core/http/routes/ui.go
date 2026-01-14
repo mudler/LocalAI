@@ -219,7 +219,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		return c.Render(200, "views/chat", summary)
 	})
 
-	app.GET("/text2image/:model", func(c echo.Context) error {
+	app.GET("/image/:model", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
@@ -233,10 +233,10 @@ func RegisterUIRoutes(app *echo.Echo,
 		}
 
 		// Render index
-		return c.Render(200, "views/text2image", summary)
+		return c.Render(200, "views/image", summary)
 	})
 
-	app.GET("/text2image", func(c echo.Context) error {
+	app.GET("/image", func(c echo.Context) error {
 		modelConfigs := cl.GetAllModelsConfigs()
 		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
 
@@ -266,7 +266,7 @@ func RegisterUIRoutes(app *echo.Echo,
 		}
 
 		// Render index
-		return c.Render(200, "views/text2image", summary)
+		return c.Render(200, "views/image", summary)
 	})
 
 	app.GET("/tts/:model", func(c echo.Context) error {
@@ -316,6 +316,56 @@ func RegisterUIRoutes(app *echo.Echo,
 
 		// Render index
 		return c.Render(200, "views/tts", summary)
+	})
+
+	app.GET("/video/:model", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		summary := map[string]interface{}{
+			"Title":               "LocalAI - Generate videos with " + c.Param("model"),
+			"BaseURL":             middleware.BaseURL(c),
+			"ModelsConfig":        modelConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               c.Param("model"),
+			"Version":             internal.PrintableVersion(),
+		}
+
+		// Render index
+		return c.Render(200, "views/video", summary)
+	})
+
+	app.GET("/video", func(c echo.Context) error {
+		modelConfigs := cl.GetAllModelsConfigs()
+		modelsWithoutConfig, _ := services.ListModels(cl, ml, config.NoFilterFn, services.LOOSE_ONLY)
+
+		if len(modelConfigs)+len(modelsWithoutConfig) == 0 {
+			// If no model is available redirect to the index which suggests how to install models
+			return c.Redirect(302, middleware.BaseURL(c))
+		}
+
+		modelThatCanBeUsed := ""
+		title := "LocalAI - Generate videos"
+
+		for _, b := range modelConfigs {
+			if b.HasUsecases(config.FLAG_VIDEO) {
+				modelThatCanBeUsed = b.Name
+				title = "LocalAI - Generate videos with " + modelThatCanBeUsed
+				break
+			}
+		}
+
+		summary := map[string]interface{}{
+			"Title":               title,
+			"BaseURL":             middleware.BaseURL(c),
+			"ModelsConfig":        modelConfigs,
+			"ModelsWithoutConfig": modelsWithoutConfig,
+			"Model":               modelThatCanBeUsed,
+			"Version":             internal.PrintableVersion(),
+		}
+
+		// Render index
+		return c.Render(200, "views/video", summary)
 	})
 
 	// Traces UI

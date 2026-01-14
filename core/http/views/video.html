@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 {{template "views/partials/head" .}}
-<script defer src="static/image.js"></script>
+<script defer src="static/video.js"></script>
 
 <body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex flex-col h-screen">
 <div class="flex flex-col flex-1 overflow-hidden">
@@ -27,20 +27,20 @@
                             {{ range .ModelsConfig }}
                               {{ $cfg := . }}
                               {{ range .KnownUsecaseStrings }}
-                                {{ if eq . "FLAG_IMAGE" }}
-                                    <option value="text2image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                {{ if eq . "FLAG_VIDEO" }}
+                                    <option value="video/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
                                 {{ end }}
                               {{ end }}
                             {{ end }}
                             {{ range .ModelsWithoutConfig }}
-                                <option value="text2image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
+                                <option value="video/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
                             {{end}}
                         </select>
                     </div>
                     
                     <div class="relative">
-                        <input id="image-model" type="hidden" value="{{.Model}}">
-                        <form id="genimage" action="text2image/{{.Model}}" method="get">
+                        <input id="video-model" type="hidden" value="{{.Model}}">
+                        <form id="genvideo" action="video/{{.Model}}" method="get">
                             <!-- Basic Settings -->
                             <div class="space-y-2">
                                 <!-- Prompt -->
@@ -51,7 +51,7 @@
                                     <textarea
                                         id="input"
                                         name="input"
-                                        placeholder="Describe the image you want to generate..."
+                                        placeholder="Describe the video you want to generate..."
                                         autocomplete="off"
                                         rows="3"
                                         class="input w-full p-1.5 text-xs resize-y"
@@ -67,7 +67,7 @@
                                     <textarea
                                         id="negative-prompt"
                                         name="negative-prompt"
-                                        placeholder="Things to avoid in the image..."
+                                        placeholder="Things to avoid in the video..."
                                         rows="2"
                                         class="input w-full p-1.5 text-xs resize-y"
                                     ></textarea>
@@ -75,8 +75,8 @@
 
                                 <!-- Size Selection with Presets -->
                                 <div class="space-y-1">
-                                    <label for="image-size" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
-                                        <i class="fas fa-expand-arrows-alt mr-1.5 text-[var(--color-primary)]"></i>Image Size
+                                    <label for="video-size" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-expand-arrows-alt mr-1.5 text-[var(--color-primary)]"></i>Video Size
                                     </label>
                                     <div class="flex flex-wrap gap-1.5 mb-1.5">
                                         <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256">256×256</button>
@@ -86,25 +86,56 @@
                                     </div>
                                     <input
                                         type="text"
-                                        id="image-size"
+                                        id="video-size"
                                         value="512x512"
                                         placeholder="e.g., 256x256, 512x512, 1024x1024"
                                         class="input p-1.5 text-xs w-full"
                                     />
                                 </div>
 
-                                <!-- Number of Images -->
+                                <!-- Video Duration / FPS / Frames -->
                                 <div class="space-y-1">
-                                    <label for="image-count" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
-                                        <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Number of Images
+                                    <label for="video-seconds" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-clock mr-1.5 text-[var(--color-primary)]"></i>Duration (seconds)
                                     </label>
                                     <input
                                         type="number"
-                                        id="image-count"
-                                        name="n"
+                                        id="video-seconds"
+                                        name="seconds"
                                         min="1"
-                                        max="4"
-                                        value="1"
+                                        max="60"
+                                        placeholder="Leave empty for default"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+
+                                <div class="space-y-1">
+                                    <label for="video-fps" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-film mr-1.5 text-[var(--color-primary)]"></i>FPS
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="video-fps"
+                                        name="fps"
+                                        min="1"
+                                        max="60"
+                                        value="16"
+                                        placeholder="Frames per second"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+
+                                <div class="space-y-1">
+                                    <label for="video-frames" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Number of Frames
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="video-frames"
+                                        name="num_frames"
+                                        min="1"
+                                        max="500"
+                                        placeholder="Leave empty for default"
                                         class="input p-1.5 text-xs w-full"
                                     />
                                 </div>
@@ -119,12 +150,12 @@
                                 <div id="advanced-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
                                     <!-- Steps -->
                                     <div class="space-y-1">
-                                        <label for="image-steps" class="block text-xs text-[var(--color-text-secondary)]">
+                                        <label for="video-steps" class="block text-xs text-[var(--color-text-secondary)]">
                                             <i class="fas fa-step-forward mr-1.5 text-[var(--color-primary)]"></i>Steps
                                         </label>
                                         <input
                                             type="number"
-                                            id="image-steps"
+                                            id="video-steps"
                                             name="step"
                                             min="1"
                                             max="100"
@@ -135,15 +166,32 @@
 
                                     <!-- Seed -->
                                     <div class="space-y-1">
-                                        <label for="image-seed" class="block text-xs text-[var(--color-text-secondary)]">
+                                        <label for="video-seed" class="block text-xs text-[var(--color-text-secondary)]">
                                             <i class="fas fa-seedling mr-1.5 text-[var(--color-primary)]"></i>Seed
                                         </label>
                                         <input
                                             type="number"
-                                            id="image-seed"
+                                            id="video-seed"
                                             name="seed"
                                             min="0"
                                             placeholder="Leave empty for random"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
+                                    </div>
+
+                                    <!-- CFG Scale -->
+                                    <div class="space-y-1">
+                                        <label for="video-cfg-scale" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-sliders-h mr-1.5 text-[var(--color-primary)]"></i>CFG Scale
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="video-cfg-scale"
+                                            name="cfg_scale"
+                                            min="0"
+                                            max="20"
+                                            step="0.1"
+                                            placeholder="Leave empty for default"
                                             class="input p-1.5 text-xs w-full"
                                         />
                                     </div>
@@ -157,43 +205,32 @@
                                     <i class="fas fa-chevron-down text-[10px]" id="image-inputs-chevron"></i>
                                 </button>
                                 <div id="image-inputs-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
-                                    <!-- Source Image (img2img) -->
+                                    <!-- Start Image (img2video) -->
                                     <div class="space-y-1">
-                                        <label for="source-image" class="block text-xs text-[var(--color-text-secondary)]">
-                                            <i class="fas fa-file-image mr-1.5 text-[var(--color-primary)]"></i>Source Image (img2img)
+                                        <label for="start-image" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-play-circle mr-1.5 text-[var(--color-primary)]"></i>Start Image (img2video)
                                         </label>
                                         <input
                                             type="file"
-                                            id="source-image"
-                                            name="file"
+                                            id="start-image"
+                                            name="start_image"
                                             accept="image/*"
                                             class="input p-1.5 text-xs w-full"
                                         />
                                     </div>
 
-                                    <!-- Reference Images (Dynamic) -->
+                                    <!-- End Image -->
                                     <div class="space-y-1">
-                                        <div class="flex items-center justify-between mb-1">
-                                            <label class="block text-xs text-[var(--color-text-secondary)]">
-                                                <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Multiple Input Images
-                                            </label>
-                                            <button type="button" id="add-reference-image" class="px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80">
-                                                <i class="fas fa-plus mr-1"></i>Add
-                                            </button>
-                                        </div>
-                                        <div id="reference-images-container" class="space-y-1.5">
-                                            <div class="reference-image-item flex items-center gap-1.5">
-                                                <input
-                                                    type="file"
-                                                    class="reference-image-file input p-1.5 text-xs flex-1"
-                                                    accept="image/*"
-                                                    data-type="ref_images"
-                                                />
-                                                <button type="button" class="remove-reference-image px-1.5 py-1.5 text-[10px] bg-red-500 text-white rounded hover:opacity-80 hidden">
-                                                    <i class="fas fa-times"></i>
-                                                </button>
-                                            </div>
-                                        </div>
+                                        <label for="end-image" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-stop-circle mr-1.5 text-[var(--color-primary)]"></i>End Image
+                                        </label>
+                                        <input
+                                            type="file"
+                                            id="end-image"
+                                            name="end_image"
+                                            accept="image/*"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
                                     </div>
                                 </div>
                             </div>
@@ -205,7 +242,7 @@
                                     id="generate-btn"
                                     class="w-full px-2 py-1.5 text-xs rounded text-[var(--color-bg-primary)] bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors font-medium"
                                 >
-                                    <i class="fas fa-magic mr-1.5"></i>Generate Image
+                                    <i class="fas fa-video mr-1.5"></i>Generate Video
                                 </button>
                             </div>
                         </form>
@@ -213,7 +250,7 @@
                 </div>
             </div>
 
-            <!-- Right Column: Image Preview -->
+            <!-- Right Column: Video Preview -->
             <div class="flex-grow lg:w-3/4 flex flex-col min-h-0">
                 <div class="relative flex-1 min-h-0 overflow-y-auto">
                     <!-- Loading Animation -->
@@ -223,15 +260,15 @@
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <p class="text-xs text-[var(--color-text-secondary)]">Generating image...</p>
+                            <p class="text-xs text-[var(--color-text-secondary)]">Generating video...</p>
                         </div>
                     </div>
-                    <!-- Placeholder when no images -->
+                    <!-- Placeholder when no videos -->
                     <div id="result-placeholder" class="min-h-[400px] flex items-center justify-center flex-shrink-0">
-                        <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
+                        <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated videos will appear here</p>
                     </div>
                     <!-- Results container -->
-                    <div id="result" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4"></div>
+                    <div id="result" class="grid grid-cols-1 gap-4 pb-4"></div>
                 </div>
             </div>
         </div>
@@ -261,7 +298,7 @@
     document.querySelectorAll('.size-preset').forEach(button => {
         button.addEventListener('click', function() {
             const size = this.getAttribute('data-size');
-            document.getElementById('image-size').value = size;
+            document.getElementById('video-size').value = size;
             // Update active state
             document.querySelectorAll('.size-preset').forEach(btn => {
                 btn.classList.remove('bg-[var(--color-primary)]', 'text-white');
@@ -272,57 +309,6 @@
 
     // Set initial active size preset
     document.querySelector('.size-preset[data-size="512x512"]').classList.add('bg-[var(--color-primary)]', 'text-white');
-
-    // Dynamic image inputs for Reference Images
-    function addReferenceImage() {
-        const container = document.getElementById('reference-images-container');
-        const newItem = document.createElement('div');
-        newItem.className = 'reference-image-item flex items-center gap-2';
-        newItem.innerHTML = `
-            <input
-                type="file"
-                class="reference-image-file input p-1.5 text-xs flex-1"
-                accept="image/*"
-                data-type="ref_images"
-            />
-            <button type="button" class="remove-reference-image px-1.5 py-1.5 text-[10px] bg-red-500 text-white rounded hover:opacity-80">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        container.appendChild(newItem);
-        updateRemoveButtons('reference-images-container', 'remove-reference-image');
-    }
-
-    function removeReferenceImage(button) {
-        const container = document.getElementById('reference-images-container');
-        if (container.children.length > 1) {
-            button.closest('.reference-image-item').remove();
-            updateRemoveButtons('reference-images-container', 'remove-reference-image');
-        }
-    }
-
-    // Update remove button visibility (hide if only one item, show if multiple)
-    function updateRemoveButtons(containerId, buttonClass) {
-        const container = document.getElementById(containerId);
-        const buttons = container.querySelectorAll('.' + buttonClass);
-        if (container.children.length > 1) {
-            buttons.forEach(btn => btn.classList.remove('hidden'));
-        } else {
-            buttons.forEach(btn => btn.classList.add('hidden'));
-        }
-    }
-
-    // Event listeners for dynamic inputs
-    document.getElementById('add-reference-image').addEventListener('click', addReferenceImage);
-
-    document.getElementById('reference-images-container').addEventListener('click', function(e) {
-        if (e.target.closest('.remove-reference-image')) {
-            removeReferenceImage(e.target.closest('.remove-reference-image'));
-        }
-    });
-
-    // Initialize remove button visibility
-    updateRemoveButtons('reference-images-container', 'remove-reference-image');
 </script>
 
 </body>

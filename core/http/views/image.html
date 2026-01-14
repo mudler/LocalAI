@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+{{template "views/partials/head" .}}
+<script defer src="static/image.js"></script>
+
+<body class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] flex flex-col h-screen">
+<div class="flex flex-col flex-1 overflow-hidden">
+   
+    {{template "views/partials/navbar" .}}
+    <div class="flex flex-1 overflow-hidden">
+        <!-- Two Column Layout: Settings on Left, Preview on Right -->
+        <div class="flex flex-col lg:flex-row flex-1 gap-4 p-4 overflow-hidden">
+            <!-- Left Column: Generation Settings -->
+            <div class="flex-shrink-0 lg:w-1/4 flex flex-col min-h-0">
+                <div class="card p-3 space-y-3 overflow-y-auto flex-1">
+                    <!-- Model Selection - Compact -->
+                    <div class="space-y-1.5">
+                        <div class="flex items-center justify-between gap-2">
+                            <label class="text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide flex-shrink-0">Model</label>
+                        </div>
+                        <select x-data="{ link : '' }" x-model="link" x-init="$watch('link', value => window.location = link)" 
+                            id="model-select"
+                            class="input w-full p-1.5 text-xs"
+                        >	
+                            <option value="" disabled class="text-[var(--color-text-secondary)]">Select a model</option>
+                            {{ $model:=.Model}}
+                            {{ range .ModelsConfig }}
+                              {{ $cfg := . }}
+                              {{ range .KnownUsecaseStrings }}
+                                {{ if eq . "FLAG_IMAGE" }}
+                                    <option value="image/{{$cfg.Name}}" {{ if eq $cfg.Name $model }} selected {{end}} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{$cfg.Name}}</option>
+                                {{ end }}
+                              {{ end }}
+                            {{ end }}
+                            {{ range .ModelsWithoutConfig }}
+                                <option value="image/{{.}}" {{ if eq . $model }} selected {{ end }} class="bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]">{{.}}</option>
+                            {{end}}
+                        </select>
+                    </div>
+                    
+                    <div class="relative">
+                        <input id="image-model" type="hidden" value="{{.Model}}">
+                        <form id="genimage" action="image/{{.Model}}" method="get">
+                            <!-- Basic Settings -->
+                            <div class="space-y-2">
+                                <!-- Prompt -->
+                                <div class="space-y-1">
+                                    <label for="input" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-magic mr-1.5 text-[var(--color-primary)]"></i>Prompt
+                                    </label>
+                                    <textarea
+                                        id="input"
+                                        name="input"
+                                        placeholder="Describe the image you want to generate..."
+                                        autocomplete="off"
+                                        rows="3"
+                                        class="input w-full p-1.5 text-xs resize-y"
+                                        required
+                                    ></textarea>
+                                </div>
+
+                                <!-- Negative Prompt -->
+                                <div class="space-y-1">
+                                    <label for="negative-prompt" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-ban mr-1.5 text-[var(--color-primary)]"></i>Negative Prompt
+                                    </label>
+                                    <textarea
+                                        id="negative-prompt"
+                                        name="negative-prompt"
+                                        placeholder="Things to avoid in the image..."
+                                        rows="2"
+                                        class="input w-full p-1.5 text-xs resize-y"
+                                    ></textarea>
+                                </div>
+
+                                <!-- Size Selection with Presets -->
+                                <div class="space-y-1">
+                                    <label for="image-size" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-expand-arrows-alt mr-1.5 text-[var(--color-primary)]"></i>Image Size
+                                    </label>
+                                    <div class="flex flex-wrap gap-1.5 mb-1.5">
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="256x256">256×256</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="512x512">512×512</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="768x768">768×768</button>
+                                        <button type="button" class="size-preset px-2 py-0.5 text-[10px] rounded border border-[var(--color-border)] hover:bg-[var(--color-bg-secondary)]" data-size="1024x1024">1024×1024</button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        id="image-size"
+                                        value="512x512"
+                                        placeholder="e.g., 256x256, 512x512, 1024x1024"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+
+                                <!-- Number of Images -->
+                                <div class="space-y-1">
+                                    <label for="image-count" class="block text-xs font-medium text-[var(--color-text-secondary)] uppercase tracking-wide">
+                                        <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Number of Images
+                                    </label>
+                                    <input
+                                        type="number"
+                                        id="image-count"
+                                        name="n"
+                                        min="1"
+                                        max="4"
+                                        value="1"
+                                        class="input p-1.5 text-xs w-full"
+                                    />
+                                </div>
+                            </div>
+
+                            <!-- Advanced Settings (Collapsible) -->
+                            <div class="space-y-2">
+                                <button type="button" id="advanced-toggle" class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+                                    <span><i class="fa-solid fa-sliders mr-1.5 text-[var(--color-primary)]"></i> Advanced Settings</span>
+                                    <i class="fas fa-chevron-down text-[10px]" id="advanced-chevron"></i>
+                                </button>
+                                <div id="advanced-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
+                                    <!-- Steps -->
+                                    <div class="space-y-1">
+                                        <label for="image-steps" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-step-forward mr-1.5 text-[var(--color-primary)]"></i>Steps
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="image-steps"
+                                            name="step"
+                                            min="1"
+                                            max="100"
+                                            placeholder="Leave empty for default"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
+                                    </div>
+
+                                    <!-- Seed -->
+                                    <div class="space-y-1">
+                                        <label for="image-seed" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-seedling mr-1.5 text-[var(--color-primary)]"></i>Seed
+                                        </label>
+                                        <input
+                                            type="number"
+                                            id="image-seed"
+                                            name="seed"
+                                            min="0"
+                                            placeholder="Leave empty for random"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Image Inputs (Collapsible) -->
+                            <div class="space-y-2">
+                                <button type="button" id="image-inputs-toggle" class="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-secondary)] transition-colors">
+                                    <span><i class="fa-solid fa-image mr-1.5 text-[var(--color-primary)]"></i> Image Inputs</span>
+                                    <i class="fas fa-chevron-down text-[10px]" id="image-inputs-chevron"></i>
+                                </button>
+                                <div id="image-inputs-settings" class="hidden p-2 bg-[var(--color-bg-secondary)] border border-[var(--color-primary-border)]/20 rounded pl-4 border-l-2 border-[var(--color-bg-secondary)] space-y-2">
+                                    <!-- Source Image (img2img) -->
+                                    <div class="space-y-1">
+                                        <label for="source-image" class="block text-xs text-[var(--color-text-secondary)]">
+                                            <i class="fas fa-file-image mr-1.5 text-[var(--color-primary)]"></i>Source Image (img2img)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            id="source-image"
+                                            name="file"
+                                            accept="image/*"
+                                            class="input p-1.5 text-xs w-full"
+                                        />
+                                    </div>
+
+                                    <!-- Reference Images (Dynamic) -->
+                                    <div class="space-y-1">
+                                        <div class="flex items-center justify-between mb-1">
+                                            <label class="block text-xs text-[var(--color-text-secondary)]">
+                                                <i class="fas fa-images mr-1.5 text-[var(--color-primary)]"></i>Multiple Input Images
+                                            </label>
+                                            <button type="button" id="add-reference-image" class="px-2 py-0.5 text-[10px] bg-[var(--color-primary)] text-white rounded hover:opacity-80">
+                                                <i class="fas fa-plus mr-1"></i>Add
+                                            </button>
+                                        </div>
+                                        <div id="reference-images-container" class="space-y-1.5">
+                                            <div class="reference-image-item flex items-center gap-1.5">
+                                                <input
+                                                    type="file"
+                                                    class="reference-image-file input p-1.5 text-xs flex-1"
+                                                    accept="image/*"
+                                                    data-type="ref_images"
+                                                />
+                                                <button type="button" class="remove-reference-image px-1.5 py-1.5 text-[10px] bg-red-500 text-white rounded hover:opacity-80 hidden">
+                                                    <i class="fas fa-times"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Submit Button -->
+                            <div>
+                                <button
+                                    type="submit"
+                                    id="generate-btn"
+                                    class="w-full px-2 py-1.5 text-xs rounded text-[var(--color-bg-primary)] bg-[var(--color-primary)] hover:bg-[var(--color-primary)]/90 transition-colors font-medium"
+                                >
+                                    <i class="fas fa-magic mr-1.5"></i>Generate Image
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Image Preview -->
+            <div class="flex-grow lg:w-3/4 flex flex-col min-h-0">
+                <div class="relative flex-1 min-h-0 overflow-y-auto">
+                    <!-- Loading Animation -->
+                    <div id="loader" class="hidden absolute inset-0 flex items-center justify-center bg-[var(--color-bg-primary)]/80 rounded-xl z-10">
+                        <div class="text-center">
+                            <svg class="animate-spin h-10 w-10 text-[var(--color-primary)] mx-auto mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <p class="text-xs text-[var(--color-text-secondary)]">Generating image...</p>
+                        </div>
+                    </div>
+                    <!-- Placeholder when no images -->
+                    <div id="result-placeholder" class="min-h-[400px] flex items-center justify-center flex-shrink-0">
+                        <p class="text-xs text-[var(--color-text-secondary)] italic text-center">Your generated images will appear here</p>
+                    </div>
+                    <!-- Results container -->
+                    <div id="result" class="grid grid-cols-1 sm:grid-cols-2 gap-4 pb-4"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // Collapsible sections
+    document.getElementById('advanced-toggle').addEventListener('click', function() {
+        const settings = document.getElementById('advanced-settings');
+        const chevron = document.getElementById('advanced-chevron');
+        settings.classList.toggle('hidden');
+        chevron.classList.toggle('fa-chevron-down');
+        chevron.classList.toggle('fa-chevron-up');
+    });
+
+    document.getElementById('image-inputs-toggle').addEventListener('click', function() {
+        const settings = document.getElementById('image-inputs-settings');
+        const chevron = document.getElementById('image-inputs-chevron');
+        settings.classList.toggle('hidden');
+        chevron.classList.toggle('fa-chevron-down');
+        chevron.classList.toggle('fa-chevron-up');
+    });
+
+    // Size preset buttons
+    document.querySelectorAll('.size-preset').forEach(button => {
+        button.addEventListener('click', function() {
+            const size = this.getAttribute('data-size');
+            document.getElementById('image-size').value = size;
+            // Update active state
+            document.querySelectorAll('.size-preset').forEach(btn => {
+                btn.classList.remove('bg-[var(--color-primary)]', 'text-white');
+            });
+            this.classList.add('bg-[var(--color-primary)]', 'text-white');
+        });
+    });
+
+    // Set initial active size preset
+    document.querySelector('.size-preset[data-size="512x512"]').classList.add('bg-[var(--color-primary)]', 'text-white');
+
+    // Dynamic image inputs for Reference Images
+    function addReferenceImage() {
+        const container = document.getElementById('reference-images-container');
+        const newItem = document.createElement('div');
+        newItem.className = 'reference-image-item flex items-center gap-2';
+        newItem.innerHTML = `
+            <input
+                type="file"
+                class="reference-image-file input p-1.5 text-xs flex-1"
+                accept="image/*"
+                data-type="ref_images"
+            />
+            <button type="button" class="remove-reference-image px-1.5 py-1.5 text-[10px] bg-red-500 text-white rounded hover:opacity-80">
+                <i class="fas fa-times"></i>
+            </button>
+        `;
+        container.appendChild(newItem);
+        updateRemoveButtons('reference-images-container', 'remove-reference-image');
+    }
+
+    function removeReferenceImage(button) {
+        const container = document.getElementById('reference-images-container');
+        if (container.children.length > 1) {
+            button.closest('.reference-image-item').remove();
+            updateRemoveButtons('reference-images-container', 'remove-reference-image');
+        }
+    }
+
+    // Update remove button visibility (hide if only one item, show if multiple)
+    function updateRemoveButtons(containerId, buttonClass) {
+        const container = document.getElementById(containerId);
+        const buttons = container.querySelectorAll('.' + buttonClass);
+        if (container.children.length > 1) {
+            buttons.forEach(btn => btn.classList.remove('hidden'));
+        } else {
+            buttons.forEach(btn => btn.classList.add('hidden'));
+        }
+    }
+
+    // Event listeners for dynamic inputs
+    document.getElementById('add-reference-image').addEventListener('click', addReferenceImage);
+
+    document.getElementById('reference-images-container').addEventListener('click', function(e) {
+        if (e.target.closest('.remove-reference-image')) {
+            removeReferenceImage(e.target.closest('.remove-reference-image'));
+        }
+    });
+
+    // Initialize remove button visibility
+    updateRemoveButtons('reference-images-container', 'remove-reference-image');
+</script>
+
+</body>
+</html>
