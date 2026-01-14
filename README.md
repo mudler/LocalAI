@@ -139,13 +139,13 @@ For more installation options, see [Installer Options](https://localai.io/instal
 > 
 > If you've already run LocalAI before and want to start it again, use: `docker start -i local-ai`
 
-### CPU only image:
+#### CPU only image:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest
 ```
 
-### NVIDIA GPU Images:
+#### NVIDIA GPU Images:
 
 ```bash
 # CUDA 13.0
@@ -162,25 +162,25 @@ docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nv
 docker run -ti --name local-ai -p 8080:8080 --gpus all localai/localai:latest-nvidia-l4t-arm64-cuda-13
 ```
 
-### AMD GPU Images (ROCm):
+#### AMD GPU Images (ROCm):
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/kfd --device=/dev/dri --group-add=video localai/localai:latest-gpu-hipblas
 ```
 
-### Intel GPU Images (oneAPI):
+#### Intel GPU Images (oneAPI):
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 --device=/dev/dri/card1 --device=/dev/dri/renderD128 localai/localai:latest-gpu-intel
 ```
 
-### Vulkan GPU Images:
+#### Vulkan GPU Images:
 
 ```bash
 docker run -ti --name local-ai -p 8080:8080 localai/localai:latest-gpu-vulkan
 ```
 
-### AIO Images (pre-downloaded models):
+#### AIO Images (pre-downloaded models):
 
 ```bash
 # CPU version
