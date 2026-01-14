@@ -130,7 +130,7 @@ For more installation options, see [Installer Options](https://localai.io/instal
 
 > Note: the DMGs are not signed by Apple as quarantined. See https://github.com/mudler/LocalAI/issues/6268 for a workaround, fix is tracked here: https://github.com/mudler/LocalAI/issues/6244
 
-Or run with docker:
+### Containers (Docker, podman, ...)
 
 > **💡 Docker Run vs Docker Start**
 > 
