@@ -1,4 +1,71 @@
 ---
+- name: "qwen2.5-7b-semantic-triplets-de-en"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/BlackbirdTI/Qwen2.5-7B-Semantic-Triplets-DE-EN-GGUF
+  description: |
+    **Model Overview**
+    A 4-bit GGUF quantized version of Qwen2.5-7B, fine-tuned to generate **3 themed German vocabulary words** (with English translations) for any given German input.
+
+    **Key Features**
+      - **Base Model**: `Qwen/Qwen2.5-7B-Instruct`
+      - **Quantization**: GGUF 4-bit (e.g., Q4_K_M)
+      - **Format**: Compatible with llama.cpp, Ollama, and other GGUF-compatible engines
+      - **Use Case**: Language learning tools, educational apps, and vocabulary expansion from a single word
+
+    **Output Format**
+    Always returns a JSON array of 3 structured entries:
+    ```json
+    [
+      {"index": 1, "de": "...", "en": "..."},
+      {"index": 2, "de": "...", "en": "..."},
+      {"index": 3, "de": "...", "en": "..."}
+    ]
+    ```
+    *Example:*
+    **Input**: "Strand" → **Output**: ["Strandkorb", "Badehandtuch", "Sonnencreme"]
+
+    **Performance**
+      - Optimized for **word-level prompts** (e.g., "Hotel", "Flugzeug")
+      - Fast inference on CPU (2–4 sec/word) or GPU (1–2 sec/word)
+      - Memory usage: 4–5 GB RAM (CPU) / 5–6 GB VRAM (GPU)
+
+    **Limitations**
+      - Designed for single-word inputs, not long sentences or dialogues
+      - Fixed output of 3 structured vocabulary pairs (not dynamic)
+      - Not suitable for complex reasoning or chat-based tasks
+
+    **License**: Apache 2.0
+    **Support**: Runs via llama.cpp, Ollama, or LM Studio (via system prompt)
+
+    **Installation**
+      - Download GGUF file from Hugging Face
+      - Use `llama.cpp` CLI or Ollama for inference
+
+    **Training Details**
+      - Fine-tuned for German learners (topics: travel, hotel, restaurant, etc.)
+      - Training data: 50 steps, final loss: 0.2671
+
+    This model is ideal for language learning tools and educational apps requiring structured vocabulary output.
+  overrides:
+    parameters:
+      model: llama-cpp/models/qwen2.5-7b-instruct.Q4_K_M.gguf
+    name: Qwen2.5-7B-Semantic-Triplets-DE-EN-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/BlackbirdTI/Qwen2.5-7B-Semantic-Triplets-DE-EN-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/qwen2.5-7b-instruct.Q4_K_M.gguf
+      sha256: 30cc13eda4502ea5623af4a099777373845c3fb764d5c94767cb47247bfe002a
+      uri: https://huggingface.co/BlackbirdTI/Qwen2.5-7B-Semantic-Triplets-DE-EN-GGUF/resolve/main/qwen2.5-7b-instruct.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
