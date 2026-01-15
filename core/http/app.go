@@ -103,8 +103,6 @@ func API(application *application.Application) (*echo.Echo, error) {
 	}
 
 	// Custom logger middleware using xlog
-	// Custom logger middleware using xlog
-	// Custom logger middleware using xlog
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			req := c.Request()
