@@ -1,4 +1,36 @@
 ---
+- name: "memobrain-8b-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/MemoBrain-8B-i1-GGUF
+  description: |
+    The model is **MemoBrain-8B** (8 billion parameters), a large language model quantized using the **imatrix** format. It is optimized for efficiency and performance, with support for GGUF files. Key features include:
+
+      - **Size**: 8B parameters
+      - **Quantization**: Uses **imatrix** (high-quality) and other IQ/QR quantization types (e.g., Q4_K_M, IQ3_M, etc.)
+      - **Formats**: Available as GGUF files (e.g., `MemoBrain-8B.i1-Q4_K_M.gguf` for balanced speed/accuracy)
+      - **Usage**: Suitable for tasks like text generation, reasoning, and multi-part file concatenation (via TheBloke's READMEs).
+
+    For detailed quantization options, see the provided list (sorted by size, with IQ quants often preferred). The model is based on the base version **TommyChien/MemoBrain-8B** and is quantized by **mradermacher** for deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/MemoBrain-8B.i1-Q4_K_M.gguf
+    name: MemoBrain-8B-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/MemoBrain-8B-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/MemoBrain-8B.i1-Q4_K_M.gguf
+      sha256: 0eeace869349272e70215001fe66383ece59e4be9f93371fb6122582474d2dbd
+      uri: https://huggingface.co/mradermacher/MemoBrain-8B-i1-GGUF/resolve/main/MemoBrain-8B.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
