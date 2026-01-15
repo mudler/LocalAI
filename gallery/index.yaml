@@ -1,4 +1,37 @@
 ---
+- name: "qwen3-coder-30b-a3b-instruct-nvfp4"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/struxx/Qwen3-Coder-30B-A3B-Instruct-NVFP4
+  description: |
+    **Model Name:** Qwen3-Coder-30B-A3B-Instruct
+    **Description:**
+    A 30.5B-parameter, 48-layer causal language model optimized for agentic coding tasks. It supports up to 256K tokens with Yarn extension, enabling efficient handling of large-scale coding and development. Designed for performance and efficiency, it features 32 attention heads (Q) and 4 (KV) in GQA, 128 experts (8 activated), and supports tool calling for tasks like code generation and execution. Ideal for repositories-scale understanding and agentic coding on platforms such as Qwen Code, CLINE, and OpenAI.
+
+    **Key Features:**
+      - 30.5B parameters, 3.3B activated
+      - 256K natively supported, extendable to 1M tokens
+      - Agentic coding with tool integration
+      - Optimized for Yarn and repository-scale use
+      - Supports non-thinking mode with no `enable_thinking=False` needed
+
+    **Training:** Pretraining & Post-training
+    **License:** Apache-2.0
+    **Supports:** Code generation, tool calling, large-context understanding
+
+    This model is a quantized version of the original Qwen3-Coder-30B-A3B-Instruct, but its description reflects the original model's capabilities for coding and development tasks.
+  overrides:
+    parameters:
+      model: https://huggingface.co/struxx/Qwen3-Coder-30B-A3B-Instruct-NVFP4
+    name: Qwen3-Coder-30B-A3B-Instruct-NVFP4
+    backend: vllm
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    description: Imported from https://huggingface.co/struxx/Qwen3-Coder-30B-A3B-Instruct-NVFP4
+  files:
+    null
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
