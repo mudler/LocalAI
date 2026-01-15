@@ -1,4 +1,29 @@
 ---
+- name: "k-exaone-236b-a23b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/K-EXAONE-236B-A23B-GGUF
+  description: |
+    The model `mradermacher/K-EXAONE-236B-A23B-GGUF` is a quantized version of the base model `LGAI-EXAONE/K-EXAONE-236B-A23B`. It is optimized for efficient deployment with various quantization levels (e.g., Q2_K, Q3_K_S, Q6_K) and supports multiple languages (en, ko, es, de, ja, vi). The model is exported as a GGUF file and is available in multiple sizes, with the highest quality quantized versions (Q6_K, Q4_K_S) being recommended for performance. It is licensed under the "k-exaone" license and is available for download in the Hugging Face model gallery. For detailed usage instructions, refer to the provided README or community discussions.
+  overrides:
+    parameters:
+      model: llama-cpp/models/K-EXAONE-236B-A23B.Q4_K_M.gguf
+    name: K-EXAONE-236B-A23B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/K-EXAONE-236B-A23B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/K-EXAONE-236B-A23B.Q4_K_M.gguf
+      sha256: 57f6fd0d235997018c32da3f05a2ca656f018e5e1ab695f14006b8191f06bf16
+      uri: https://huggingface.co/mradermacher/K-EXAONE-236B-A23B-GGUF/resolve/main/K-EXAONE-236B-A23B.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
