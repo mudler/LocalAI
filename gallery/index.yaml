@@ -1,4 +1,56 @@
 ---
+- name: "k-exaone-236b-a23b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/K-EXAONE-236B-A23B-GGUF
+  description: |
+    **Model Name:** K-EXAONE-236B-A23B
+    **Developer:** LG AI Research (South Korea)
+    **Size:** 236B parameters (23B active during inference)
+    **Architecture:** Mixture-of-Experts (MoE) with 48 main layers and 1 MTP layer, optimized for efficiency.
+
+    **Languages:** Korean, English, Spanish, German, Japanese, Vietnamese (153k vocabulary with SuperBPE).
+    **Context:** 256K tokens, using a 3:1 hybrid attention scheme with 128-token sliding window for efficient long-context processing.
+
+    **Key Features:**
+      - **MoE Design:** 128 experts (8 activated) with 2,048 intermediate size.
+      - **MTP:** Boosts inference throughput by 1.5x.
+      - **Multilingual:** 6 languages, 150k vocab, 30% token efficiency improvement.
+      - **Agentic Capabilities:** Tool-use and search via multi-agent strategies.
+
+    **Performance:**
+      - Benchmarks (e.g., MMLU, AIME, τ²-Bench) show strong reasoning, general knowledge, and multilingual understanding.
+
+    **Licensing:**
+      - Under the [K-EXAONE AI Model License Agreement](./LICENSE).
+
+    **Unique Aspects:**
+      - Korean cultural context integration for regional sensitivity.
+      - Optimized for 256K context with hybrid attention.
+
+    **Use Cases:**
+      - Reasoning, long-context tasks, multilingual support, and agentic tool use.
+
+    **Note:** Based on the original LGAI-EXAONE/K-EXAONE-236B-A23B model, this version is quantized for efficiency.
+  overrides:
+    parameters:
+      model: llama-cpp/models/K-EXAONE-236B-A23B.Q4_K_M.gguf
+    name: K-EXAONE-236B-A23B-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/K-EXAONE-236B-A23B-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/K-EXAONE-236B-A23B.Q4_K_M.gguf
+      sha256: 57f6fd0d235997018c32da3f05a2ca656f018e5e1ab695f14006b8191f06bf16
+      uri: https://huggingface.co/mradermacher/K-EXAONE-236B-A23B-GGUF/resolve/main/K-EXAONE-236B-A23B.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
