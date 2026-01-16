@@ -1,4 +1,29 @@
 ---
+- name: "orion-hymt1.5-7b-sft-v2601-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Orion-HYMT1.5-7B-SFT-v2601-i1-GGUF
+  description: |
+    This model is a Japanese-to-Chinese translation model fine-tuned on a large corpus of parallel Japanese-to-Chinese text. It is based on the base model `tencent/HY-MT1.5-7B` and was trained with approximately 900万 tokens, 12B total tokens, and 160k steps. It supports translation, light novels, and JSONLINE formats, and is optimized for deployment with vLLM. The model is quantized for efficiency but retains the core capabilities of the original HY-MT1.5 base model.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Orion-HYMT1.5-7B-SFT-v2601.i1-Q4_K_M.gguf
+    name: Orion-HYMT1.5-7B-SFT-v2601-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Orion-HYMT1.5-7B-SFT-v2601-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Orion-HYMT1.5-7B-SFT-v2601.i1-Q4_K_M.gguf
+      sha256: 53cc58e4a690367f3a5614d36d195ef95b83794566f4ee3f0d47409472d99fe2
+      uri: https://huggingface.co/mradermacher/Orion-HYMT1.5-7B-SFT-v2601-i1-GGUF/resolve/main/Orion-HYMT1.5-7B-SFT-v2601.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
