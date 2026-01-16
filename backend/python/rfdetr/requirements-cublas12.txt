@@ -1,4 +1,4 @@
-torch==2.7.1
+torch==2.8.0
 rfdetr
 opencv-python
 accelerate
