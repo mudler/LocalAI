@@ -1,4 +1,29 @@
 ---
+- name: "nepal-legal-mistral-7b"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/nepal-legal-mistral-7b-GGUF
+  description: |
+    The model described here is **Mistral-7B** (7 billion parameters) optimized for legal applications. It is a quantized version of the Mistral model, with specific tensor quantization settings (e.g., Q4_K_S, Q2_K) and tailored for legal domain use cases. The model is not the original author's version but a modified version adapted for legal tasks. For precise details, refer to the original Hugging Face repository's README.
+  overrides:
+    parameters:
+      model: llama-cpp/models/nepal-legal-mistral-7b.Q4_K_M.gguf
+    name: nepal-legal-mistral-7b-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/nepal-legal-mistral-7b-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/nepal-legal-mistral-7b.Q4_K_M.gguf
+      sha256: 4873c6a4ab17cdd4ca04a00c136e849779a28f3bdd94e5d0d66b4b87a089214e
+      uri: https://huggingface.co/mradermacher/nepal-legal-mistral-7b-GGUF/resolve/main/nepal-legal-mistral-7b.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
