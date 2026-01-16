@@ -89,10 +89,10 @@ type ORItemParam struct {
 // ORContentPart represents a content block (discriminated union by type)
 // For output_text: type, text, annotations, logprobs are ALL REQUIRED per Open Responses spec
 type ORContentPart struct {
-	Type        string         `json:"type"`           // input_text|input_image|input_file|output_text|refusal
-	Text        string         `json:"text,omitempty"` // Required for output_text, omitempty for input types
-	Annotations []ORAnnotation `json:"annotations"`    // REQUIRED for output_text - must always be present (use [])
-	Logprobs    []ORLogProb    `json:"logprobs"`       // REQUIRED for output_text - must always be present (use [])
+	Type        string         `json:"type"`        // input_text|input_image|input_file|output_text|refusal
+	Text        string         `json:"text"`        // REQUIRED for output_text - must always be present (even if empty)
+	Annotations []ORAnnotation `json:"annotations"` // REQUIRED for output_text - must always be present (use [])
+	Logprobs    []ORLogProb    `json:"logprobs"`    // REQUIRED for output_text - must always be present (use [])
 	ImageURL    string         `json:"image_url,omitempty"`
 	FileURL     string         `json:"file_url,omitempty"`
 	Filename    string         `json:"filename,omitempty"`
@@ -112,8 +112,8 @@ type ORResponseResource struct {
 	ID                 string               `json:"id"`
 	Object             string               `json:"object"` // always "response"
 	CreatedAt          int64                `json:"created_at"`
-	CompletedAt        *int64               `json:"completed_at,omitempty"`
-	Status             string               `json:"status"` // in_progress|completed|failed|incomplete
+	CompletedAt        *int64               `json:"completed_at"` // Required: present as number or null
+	Status             string               `json:"status"`       // in_progress|completed|failed|incomplete
 	Model              string               `json:"model"`
 	Output             []ORItemField        `json:"output"`
 	Error              *ORError             `json:"error"`              // Always present, null if no error
@@ -205,6 +205,8 @@ type ORIncompleteDetails struct {
 }
 
 // ORStreamEvent represents a streaming event
+// Note: Fields like delta, text, logprobs should be set explicitly for events that require them
+// The sendSSEEvent function uses a custom serializer to handle conditional field inclusion
 type ORStreamEvent struct {
 	Type            string              `json:"type"`
 	SequenceNumber  int                 `json:"sequence_number"`
@@ -215,12 +217,12 @@ type ORStreamEvent struct {
 	ItemID          string              `json:"item_id,omitempty"`
 	Item            *ORItemField        `json:"item,omitempty"`
 	Part            *ORContentPart      `json:"part,omitempty"`
-	Delta           string              `json:"delta,omitempty"`
-	Text            string              `json:"text,omitempty"`
-	Arguments       string              `json:"arguments,omitempty"`
+	Delta           *string             `json:"delta,omitempty"`     // Pointer to distinguish unset from empty
+	Text            *string             `json:"text,omitempty"`      // Pointer to distinguish unset from empty
+	Arguments       *string             `json:"arguments,omitempty"` // Pointer to distinguish unset from empty
 	Refusal         string              `json:"refusal,omitempty"`
 	Error           *ORErrorPayload     `json:"error,omitempty"`
-	Logprobs        []ORLogProb         `json:"logprobs,omitempty"`
+	Logprobs        *[]ORLogProb        `json:"logprobs,omitempty"` // Pointer to distinguish unset from empty
 	Obfuscation     string              `json:"obfuscation,omitempty"`
 	Annotation      *ORAnnotation       `json:"annotation,omitempty"`
 	AnnotationIndex *int                `json:"annotation_index,omitempty"`

@@ -820,7 +820,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							SequenceNumber: sequenceNumber,
 							ItemID:         toolCallID,
 							OutputIndex:    &outputIndex,
-							Delta:          tc.Arguments,
+							Delta:          strPtr(tc.Arguments),
 						})
 						sequenceNumber++
 
@@ -830,7 +830,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 							SequenceNumber: sequenceNumber,
 							ItemID:         toolCallID,
 							OutputIndex:    &outputIndex,
-							Arguments:      tc.Arguments,
+							Arguments:      strPtr(tc.Arguments),
 						})
 						sequenceNumber++
 
@@ -944,8 +944,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 					ItemID:         currentMessageID,
 					OutputIndex:    &outputIndex,
 					ContentIndex:   &currentContentIndex,
-					Delta:          token,
-					Logprobs:       []schema.ORLogProb{},
+					Delta:          strPtr(token),
+					Logprobs:       emptyLogprobs(),
 				})
 				sequenceNumber++
 				c.Response().Flush()
@@ -1061,8 +1061,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				ItemID:         currentMessageID,
 				OutputIndex:    &outputIndex,
 				ContentIndex:   &currentContentIndex,
-				Text:           textContent,
-				Logprobs:       streamEventLogprobs,
+				Text:           strPtr(textContent),
+				Logprobs:       logprobsPtr(streamEventLogprobs),
 			})
 			sequenceNumber++
 
@@ -1224,8 +1224,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			ItemID:         currentMessageID,
 			OutputIndex:    &outputIndex,
 			ContentIndex:   &currentContentIndex,
-			Delta:          token,
-			Logprobs:       []schema.ORLogProb{},
+			Delta:          strPtr(token),
+			Logprobs:       emptyLogprobs(),
 		})
 		sequenceNumber++
 		c.Response().Flush()
@@ -1301,8 +1301,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		ItemID:         currentMessageID,
 		OutputIndex:    &outputIndex,
 		ContentIndex:   &currentContentIndex,
-		Text:           result,
-		Logprobs:       mcpStreamLogprobs,
+		Text:           strPtr(result),
+		Logprobs:       logprobsPtr(mcpStreamLogprobs),
 	})
 	sequenceNumber++
 
@@ -1796,7 +1796,7 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 				SequenceNumber: *sequenceNumber,
 				ItemID:         itemID,
 				OutputIndex:    &outputIndex,
-				Delta:          arguments,
+				Delta:          strPtr(arguments),
 			})
 			*sequenceNumber++
 
@@ -1807,7 +1807,7 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 				SequenceNumber: *sequenceNumber,
 				ItemID:         itemID,
 				OutputIndex:    &outputIndex,
-				Arguments:      arguments,
+				Arguments:      strPtr(arguments),
 			})
 			*sequenceNumber++
 
@@ -1885,8 +1885,8 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 			ItemID:         itemID,
 			OutputIndex:    &outputIndex,
 			ContentIndex:   func() *int { i := 0; return &i }(),
-			Text:           content,
-			Logprobs:       []schema.ORLogProb{},
+			Text:           strPtr(content),
+			Logprobs:       emptyLogprobs(),
 		})
 		*sequenceNumber++
 
@@ -1936,6 +1936,20 @@ func getTopLogprobs(topLogprobs *int) int {
 		return *topLogprobs
 	}
 	return 0
+}
+
+// Helper functions for pointer types in streaming events
+func strPtr(s string) *string {
+	return &s
+}
+
+func logprobsPtr(lp []schema.ORLogProb) *[]schema.ORLogProb {
+	return &lp
+}
+
+func emptyLogprobs() *[]schema.ORLogProb {
+	empty := []schema.ORLogProb{}
+	return &empty
 }
 
 // makeOutputTextPart creates an output_text content part with all required fields per Open Responses spec
