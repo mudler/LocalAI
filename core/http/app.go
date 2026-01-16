@@ -193,6 +193,8 @@ func API(application *application.Application) (*echo.Echo, error) {
 			corsConfig.AllowOrigins = strings.Split(application.ApplicationConfig().CORSAllowOrigins, ",")
 		}
 		e.Use(middleware.CORSWithConfig(corsConfig))
+	} else {
+		e.Use(middleware.CORS())
 	}
 
 	// CSRF middleware
