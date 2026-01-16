@@ -137,7 +137,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-nvidia-cuda-12-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'bigger-runner'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -699,7 +699,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-faster-whisper'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'bigger-runner'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "faster-whisper"
@@ -712,7 +712,7 @@ jobs:
             platforms: 'linux/amd64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-rocm-hipblas-coqui'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'bigger-runner'
             base-image: "rocm/dev-ubuntu-24.04:6.4.4"
             skip-drivers: 'false'
             backend: "coqui"
@@ -963,7 +963,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-cpu-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'bigger-runner'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -989,7 +989,7 @@ jobs:
             platforms: 'linux/amd64,linux/arm64'
             tag-latest: 'auto'
             tag-suffix: '-gpu-vulkan-llama-cpp'
-            runs-on: 'ubuntu-latest'
+            runs-on: 'bigger-runner'
             base-image: "ubuntu:24.04"
             skip-drivers: 'false'
             backend: "llama-cpp"
@@ -1338,7 +1338,7 @@ jobs:
             tag-latest: 'auto'
             tag-suffix: '-nvidia-l4t-arm64-neutts'
             base-image: "nvcr.io/nvidia/l4t-jetpack:r36.4.0"
-            runs-on: 'ubuntu-24.04-arm'
+            runs-on: 'bigger-runner'
             backend: "neutts"
             dockerfile: "./backend/Dockerfile.python"
             context: "./"
