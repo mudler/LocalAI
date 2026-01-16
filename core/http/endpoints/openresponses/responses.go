@@ -543,14 +543,8 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		audios = append(audios, m.StringAudios...)
 	}
 
-	// Serialize tools and tool_choice to JSON strings
-	toolsJSON := ""
-	if len(input.Tools) > 0 {
-		toolsBytes, err := json.Marshal(input.Tools)
-		if err == nil {
-			toolsJSON = string(toolsBytes)
-		}
-	}
+	// Convert and serialize tools to OpenAI format for the backend
+	toolsJSON := serializeToolsForBackend(input.Tools)
 	toolChoiceJSON := ""
 	if input.ToolChoice != nil {
 		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
@@ -725,14 +719,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		audios = append(audios, m.StringAudios...)
 	}
 
-	// Serialize tools and tool_choice to JSON strings
-	toolsJSON := ""
-	if len(input.Tools) > 0 {
-		toolsBytes, err := json.Marshal(input.Tools)
-		if err == nil {
-			toolsJSON = string(toolsBytes)
-		}
-	}
+	// Convert and serialize tools to OpenAI format for the backend
+	toolsJSON := serializeToolsForBackend(input.Tools)
 	toolChoiceJSON := ""
 	if input.ToolChoice != nil {
 		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
@@ -2165,4 +2153,35 @@ func sendOpenResponsesError(c echo.Context, statusCode int, errorType, message, 
 		errorResp["error"].(map[string]interface{})["param"] = param
 	}
 	return c.JSON(statusCode, errorResp)
+}
+
+// convertORToolsToOpenAIFormat converts Open Responses tools to OpenAI format for the backend
+// Open Responses format: { type, name, description, parameters }
+// OpenAI format: { type, function: { name, description, parameters } }
+func convertORToolsToOpenAIFormat(orTools []schema.ORFunctionTool) []functions.Tool {
+	result := make([]functions.Tool, 0, len(orTools))
+	for _, t := range orTools {
+		result = append(result, functions.Tool{
+			Type: "function",
+			Function: functions.Function{
+				Name:        t.Name,
+				Description: t.Description,
+				Parameters:  t.Parameters,
+			},
+		})
+	}
+	return result
+}
+
+// serializeToolsForBackend converts and serializes Open Responses tools to JSON for the backend
+func serializeToolsForBackend(orTools []schema.ORFunctionTool) string {
+	if len(orTools) == 0 {
+		return ""
+	}
+	openAITools := convertORToolsToOpenAIFormat(orTools)
+	toolsBytes, err := json.Marshal(openAITools)
+	if err != nil {
+		return ""
+	}
+	return string(toolsBytes)
 }
