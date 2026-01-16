@@ -4,6 +4,16 @@ import (
 	"context"
 )
 
+// Open Responses status constants
+const (
+	ORStatusQueued     = "queued"
+	ORStatusInProgress = "in_progress"
+	ORStatusCompleted  = "completed"
+	ORStatusFailed     = "failed"
+	ORStatusIncomplete = "incomplete"
+	ORStatusCancelled  = "cancelled"
+)
+
 // OpenResponsesRequest represents a request to the Open Responses API
 // https://www.openresponses.org/specification
 type OpenResponsesRequest struct {

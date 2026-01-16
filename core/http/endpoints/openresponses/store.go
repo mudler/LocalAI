@@ -2,6 +2,7 @@ package openresponses
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -19,6 +20,13 @@ type ResponseStore struct {
 	cleanupCancel context.CancelFunc
 }
 
+// StreamedEvent represents a buffered SSE event for streaming resume
+type StreamedEvent struct {
+	SequenceNumber int    `json:"sequence_number"`
+	EventType      string `json:"event_type"`
+	Data           []byte `json:"data"` // JSON-serialized event
+}
+
 // StoredResponse contains a complete response with its input request and output items
 type StoredResponse struct {
 	Request   *schema.OpenResponsesRequest
@@ -26,6 +34,14 @@ type StoredResponse struct {
 	Items     map[string]*schema.ORItemField // item_id -> item mapping for quick lookup
 	StoredAt  time.Time
 	ExpiresAt *time.Time // nil if no expiration
+
+	// Background execution support
+	CancelFunc    context.CancelFunc // For cancellation of background tasks
+	StreamEvents  []StreamedEvent    // Buffered events for streaming resume
+	StreamEnabled bool               // Was created with stream=true
+	IsBackground  bool               // Was created with background=true
+	EventsChan    chan struct{}      // Signals new events for live subscribers
+	mu            sync.RWMutex       // Protect concurrent access to this response
 }
 
 var (
@@ -227,4 +243,211 @@ func (s *ResponseStore) Count() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return len(s.responses)
+}
+
+// StoreBackground stores a background response with cancel function and optional streaming support
+func (s *ResponseStore) StoreBackground(responseID string, request *schema.OpenResponsesRequest, response *schema.ORResponseResource, cancelFunc context.CancelFunc, streamEnabled bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	// Build item index for quick lookup
+	items := make(map[string]*schema.ORItemField)
+	for i := range response.Output {
+		item := &response.Output[i]
+		if item.ID != "" {
+			items[item.ID] = item
+		}
+	}
+
+	stored := &StoredResponse{
+		Request:       request,
+		Response:      response,
+		Items:         items,
+		StoredAt:      time.Now(),
+		ExpiresAt:     nil,
+		CancelFunc:    cancelFunc,
+		StreamEvents:  []StreamedEvent{},
+		StreamEnabled: streamEnabled,
+		IsBackground:  true,
+		EventsChan:    make(chan struct{}, 100), // Buffered channel for event notifications
+	}
+
+	// Set expiration if TTL is configured
+	if s.ttl > 0 {
+		expiresAt := time.Now().Add(s.ttl)
+		stored.ExpiresAt = &expiresAt
+	}
+
+	s.responses[responseID] = stored
+	xlog.Debug("Stored background Open Responses response", "response_id", responseID, "stream_enabled", streamEnabled)
+}
+
+// UpdateStatus updates the status of a stored response
+func (s *ResponseStore) UpdateStatus(responseID string, status string, completedAt *int64) error {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("response not found: %s", responseID)
+	}
+
+	stored.mu.Lock()
+	defer stored.mu.Unlock()
+
+	stored.Response.Status = status
+	stored.Response.CompletedAt = completedAt
+
+	xlog.Debug("Updated response status", "response_id", responseID, "status", status)
+	return nil
+}
+
+// UpdateResponse updates the entire response object for a stored response
+func (s *ResponseStore) UpdateResponse(responseID string, response *schema.ORResponseResource) error {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("response not found: %s", responseID)
+	}
+
+	stored.mu.Lock()
+	defer stored.mu.Unlock()
+
+	// Rebuild item index
+	items := make(map[string]*schema.ORItemField)
+	for i := range response.Output {
+		item := &response.Output[i]
+		if item.ID != "" {
+			items[item.ID] = item
+		}
+	}
+
+	stored.Response = response
+	stored.Items = items
+
+	xlog.Debug("Updated response", "response_id", responseID, "status", response.Status, "items_count", len(items))
+	return nil
+}
+
+// AppendEvent appends a streaming event to the buffer for resume support
+func (s *ResponseStore) AppendEvent(responseID string, event *schema.ORStreamEvent) error {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return fmt.Errorf("response not found: %s", responseID)
+	}
+
+	// Serialize the event
+	data, err := json.Marshal(event)
+	if err != nil {
+		return fmt.Errorf("failed to marshal event: %w", err)
+	}
+
+	stored.mu.Lock()
+	stored.StreamEvents = append(stored.StreamEvents, StreamedEvent{
+		SequenceNumber: event.SequenceNumber,
+		EventType:      event.Type,
+		Data:           data,
+	})
+	stored.mu.Unlock()
+
+	// Notify any subscribers of new event
+	select {
+	case stored.EventsChan <- struct{}{}:
+	default:
+		// Channel full, subscribers will catch up
+	}
+
+	return nil
+}
+
+// GetEventsAfter returns all events with sequence number greater than startingAfter
+func (s *ResponseStore) GetEventsAfter(responseID string, startingAfter int) ([]StreamedEvent, error) {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("response not found: %s", responseID)
+	}
+
+	stored.mu.RLock()
+	defer stored.mu.RUnlock()
+
+	var result []StreamedEvent
+	for _, event := range stored.StreamEvents {
+		if event.SequenceNumber > startingAfter {
+			result = append(result, event)
+		}
+	}
+
+	return result, nil
+}
+
+// Cancel cancels a background response if it's still in progress
+func (s *ResponseStore) Cancel(responseID string) (*schema.ORResponseResource, error) {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("response not found: %s", responseID)
+	}
+
+	stored.mu.Lock()
+	defer stored.mu.Unlock()
+
+	// If already in a terminal state, just return the response (idempotent)
+	status := stored.Response.Status
+	if status == schema.ORStatusCompleted || status == schema.ORStatusFailed ||
+		status == schema.ORStatusIncomplete || status == schema.ORStatusCancelled {
+		xlog.Debug("Response already in terminal state", "response_id", responseID, "status", status)
+		return stored.Response, nil
+	}
+
+	// Cancel the context if available
+	if stored.CancelFunc != nil {
+		stored.CancelFunc()
+		xlog.Debug("Cancelled background response", "response_id", responseID)
+	}
+
+	// Update status to cancelled
+	now := time.Now().Unix()
+	stored.Response.Status = schema.ORStatusCancelled
+	stored.Response.CompletedAt = &now
+
+	return stored.Response, nil
+}
+
+// GetEventsChan returns the events notification channel for a response
+func (s *ResponseStore) GetEventsChan(responseID string) (chan struct{}, error) {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return nil, fmt.Errorf("response not found: %s", responseID)
+	}
+
+	return stored.EventsChan, nil
+}
+
+// IsStreamEnabled checks if a response was created with streaming enabled
+func (s *ResponseStore) IsStreamEnabled(responseID string) (bool, error) {
+	s.mu.RLock()
+	stored, exists := s.responses[responseID]
+	s.mu.RUnlock()
+
+	if !exists {
+		return false, fmt.Errorf("response not found: %s", responseID)
+	}
+
+	stored.mu.RLock()
+	defer stored.mu.RUnlock()
+
+	return stored.StreamEnabled, nil
 }

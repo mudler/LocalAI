@@ -33,6 +33,16 @@ func RegisterOpenResponsesRoutes(app *echo.Echo,
 
 	// Also support without version prefix for compatibility
 	app.POST("/responses", responsesHandler, responsesMiddleware...)
+
+	// GET /responses/:id - Retrieve a response (for polling background requests)
+	getResponseHandler := openresponses.GetResponseEndpoint()
+	app.GET("/v1/responses/:id", getResponseHandler, middleware.TraceMiddleware(application))
+	app.GET("/responses/:id", getResponseHandler, middleware.TraceMiddleware(application))
+
+	// POST /responses/:id/cancel - Cancel a background response
+	cancelResponseHandler := openresponses.CancelResponseEndpoint()
+	app.POST("/v1/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
+	app.POST("/responses/:id/cancel", cancelResponseHandler, middleware.TraceMiddleware(application))
 }
 
 // setOpenResponsesRequestContext sets up the context and cancel function for Open Responses requests

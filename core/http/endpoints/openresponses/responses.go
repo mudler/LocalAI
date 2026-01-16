@@ -185,6 +185,61 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 		predInput := evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
 		xlog.Debug("Open Responses - Prompt (after templating)", "prompt", predInput)
 
+		// Handle background mode
+		isBackground := input.Background != nil && *input.Background
+		if isBackground {
+			// Background mode requires storage
+			if !shouldStore {
+				return sendOpenResponsesError(c, 400, "invalid_request_error", "background=true requires store=true", "background")
+			}
+
+			// Create initial response with "queued" status
+			queuedResponse := buildORResponse(responseID, createdAt, nil, schema.ORStatusQueued, input, []schema.ORItemField{}, nil, true)
+
+			// Create cancellable context for background execution
+			bgCtx, bgCancel := context.WithCancel(context.Background())
+
+			// Store the background response
+			store.StoreBackground(responseID, input, queuedResponse, bgCancel, input.Stream)
+
+			// Start background processing goroutine
+			go func() {
+				defer bgCancel()
+
+				// Update status to in_progress
+				store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
+
+				var finalResponse *schema.ORResponseResource
+				var bgErr error
+
+				if useMCP {
+					// Background MCP processing
+					finalResponse, bgErr = handleBackgroundMCPResponse(bgCtx, store, responseID, createdAt, input, cfg, ml, predInput, openAIReq, appConfig)
+				} else if input.Stream {
+					// Background streaming processing (buffer events)
+					finalResponse, bgErr = handleBackgroundStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
+				} else {
+					// Background non-streaming processing
+					finalResponse, bgErr = handleBackgroundNonStream(bgCtx, store, responseID, createdAt, input, cfg, ml, cl, appConfig, predInput, openAIReq, funcs, shouldUseFn)
+				}
+
+				if bgErr != nil {
+					xlog.Error("Background response failed", "response_id", responseID, "error", bgErr)
+					now := time.Now().Unix()
+					store.UpdateStatus(responseID, schema.ORStatusFailed, &now)
+					return
+				}
+
+				// Update final response in store
+				if finalResponse != nil {
+					store.UpdateResponse(responseID, finalResponse)
+				}
+			}()
+
+			// Return immediately with queued response
+			return c.JSON(200, queuedResponse)
+		}
+
 		if useMCP {
 			// Use MCP agentic loop
 			return handleMCPResponse(c, responseID, createdAt, input, cfg, ml, predInput, openAIReq, appConfig, shouldStore)
@@ -530,6 +585,334 @@ func convertTextFormatToResponseFormat(textFormat interface{}) interface{} {
 		return map[string]interface{}{"type": tf}
 	}
 	return nil
+}
+
+// handleBackgroundNonStream handles background non-streaming responses
+func handleBackgroundNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) (*schema.ORResponseResource, error) {
+	images := []string{}
+	videos := []string{}
+	audios := []string{}
+	for _, m := range openAIReq.Messages {
+		images = append(images, m.StringImages...)
+		videos = append(videos, m.StringVideos...)
+		audios = append(audios, m.StringAudios...)
+	}
+
+	toolsJSON := serializeToolsForBackend(input.Tools)
+	toolChoiceJSON := ""
+	if input.ToolChoice != nil {
+		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
+		if err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
+	var logprobs *int
+	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+		logprobs = input.TopLogprobs
+	}
+
+	predFunc, err := backend.ModelInference(
+		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias)
+	if err != nil {
+		return nil, fmt.Errorf("model inference failed: %w", err)
+	}
+
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	prediction, err := predFunc()
+	if err != nil {
+		return nil, fmt.Errorf("prediction failed: %w", err)
+	}
+
+	result := backend.Finetune(*cfg, predInput, prediction.Response)
+
+	// Parse tool calls if using functions (same logic as regular handler)
+	var outputItems []schema.ORItemField
+	var toolCalls []schema.ToolCall
+
+	if shouldUseFn {
+		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+		funcCallResults := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+
+		noActionName := "answer"
+		if cfg.FunctionsConfig.NoActionFunctionName != "" {
+			noActionName = cfg.FunctionsConfig.NoActionFunctionName
+		}
+
+		for i, fc := range funcCallResults {
+			if fc.Name == noActionName {
+				if fc.Arguments != "" {
+					var args map[string]interface{}
+					if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
+						if msg, ok := args["message"].(string); ok && msg != "" {
+							textContent = msg
+						}
+					}
+				}
+				continue
+			}
+			toolCalls = append(toolCalls, schema.ToolCall{
+				Index: i,
+				ID:    fmt.Sprintf("fc_%s", uuid.New().String()),
+				Type:  "function",
+				FunctionCall: schema.FunctionCall{
+					Name:      fc.Name,
+					Arguments: fc.Arguments,
+				},
+			})
+		}
+
+		if textContent != "" {
+			outputItems = append(outputItems, schema.ORItemField{
+				Type:    "message",
+				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
+			})
+		}
+
+		for _, tc := range toolCalls {
+			outputItems = append(outputItems, schema.ORItemField{
+				Type:      "function_call",
+				ID:        fmt.Sprintf("fc_%s", uuid.New().String()),
+				Status:    "completed",
+				CallID:    tc.ID,
+				Name:      tc.FunctionCall.Name,
+				Arguments: tc.FunctionCall.Arguments,
+			})
+		}
+
+		if len(outputItems) == 0 && result != "" {
+			outputItems = append(outputItems, schema.ORItemField{
+				Type:    "message",
+				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
+			})
+		}
+	} else {
+		outputItems = append(outputItems, schema.ORItemField{
+			Type:    "message",
+			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+			Status:  "completed",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
+		})
+	}
+
+	now := time.Now().Unix()
+	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, outputItems, &schema.ORUsage{
+		InputTokens:  prediction.Usage.Prompt,
+		OutputTokens: prediction.Usage.Completion,
+		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+	}, true)
+
+	return response, nil
+}
+
+// handleBackgroundStream handles background streaming responses with event buffering
+func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, cl *config.ModelConfigLoader, appConfig *config.ApplicationConfig, predInput string, openAIReq *schema.OpenAIRequest, funcs functions.Functions, shouldUseFn bool) (*schema.ORResponseResource, error) {
+	images := []string{}
+	videos := []string{}
+	audios := []string{}
+	for _, m := range openAIReq.Messages {
+		images = append(images, m.StringImages...)
+		videos = append(videos, m.StringVideos...)
+		audios = append(audios, m.StringAudios...)
+	}
+
+	toolsJSON := serializeToolsForBackend(input.Tools)
+	toolChoiceJSON := ""
+	if input.ToolChoice != nil {
+		toolChoiceBytes, err := json.Marshal(input.ToolChoice)
+		if err == nil {
+			toolChoiceJSON = string(toolChoiceBytes)
+		}
+	}
+
+	sequenceNumber := 0
+
+	// Emit response.created
+	responseCreated := buildORResponse(responseID, createdAt, nil, schema.ORStatusInProgress, input, []schema.ORItemField{}, nil, true)
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.created",
+		SequenceNumber: sequenceNumber,
+		Response:       responseCreated,
+	})
+	sequenceNumber++
+
+	// Emit response.in_progress
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.in_progress",
+		SequenceNumber: sequenceNumber,
+		Response:       responseCreated,
+	})
+	sequenceNumber++
+
+	var accumulatedText string
+	var collectedOutputItems []schema.ORItemField
+	outputIndex := 0
+	currentMessageID := fmt.Sprintf("msg_%s", uuid.New().String())
+
+	// Emit output_item.added
+	messageItem := &schema.ORItemField{
+		Type:    "message",
+		ID:      currentMessageID,
+		Status:  "in_progress",
+		Role:    "assistant",
+		Content: []schema.ORContentPart{},
+	}
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.output_item.added",
+		SequenceNumber: sequenceNumber,
+		OutputIndex:    &outputIndex,
+		Item:           messageItem,
+	})
+	sequenceNumber++
+
+	// Emit content_part.added
+	currentContentIndex := 0
+	emptyPart := makeOutputTextPart("")
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.content_part.added",
+		SequenceNumber: sequenceNumber,
+		ItemID:         currentMessageID,
+		OutputIndex:    &outputIndex,
+		ContentIndex:   &currentContentIndex,
+		Part:           &emptyPart,
+	})
+	sequenceNumber++
+
+	// Token callback for streaming
+	tokenCallback := func(token string, tokenUsage backend.TokenUsage) bool {
+		select {
+		case <-ctx.Done():
+			return false
+		default:
+		}
+
+		accumulatedText += token
+
+		// Buffer text delta
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_text.delta",
+			SequenceNumber: sequenceNumber,
+			ItemID:         currentMessageID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   &currentContentIndex,
+			Delta:          strPtr(token),
+			Logprobs:       emptyLogprobs(),
+		})
+		sequenceNumber++
+		return true
+	}
+
+	var streamLogprobs *int
+	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+		streamLogprobs = input.TopLogprobs
+	}
+
+	predFunc, err := backend.ModelInference(
+		ctx, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias)
+	if err != nil {
+		return nil, fmt.Errorf("model inference failed: %w", err)
+	}
+
+	prediction, err := predFunc()
+	if err != nil {
+		return nil, fmt.Errorf("prediction failed: %w", err)
+	}
+
+	// Emit output_text.done
+	streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.output_text.done",
+		SequenceNumber: sequenceNumber,
+		ItemID:         currentMessageID,
+		OutputIndex:    &outputIndex,
+		ContentIndex:   &currentContentIndex,
+		Text:           strPtr(accumulatedText),
+		Logprobs:       logprobsPtr(streamEventLogprobs),
+	})
+	sequenceNumber++
+
+	// Emit content_part.done
+	textPart := makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.content_part.done",
+		SequenceNumber: sequenceNumber,
+		ItemID:         currentMessageID,
+		OutputIndex:    &outputIndex,
+		ContentIndex:   &currentContentIndex,
+		Part:           &textPart,
+	})
+	sequenceNumber++
+
+	// Emit output_item.done
+	completedMessageItem := &schema.ORItemField{
+		Type:    "message",
+		ID:      currentMessageID,
+		Status:  "completed",
+		Role:    "assistant",
+		Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(accumulatedText, prediction.Logprobs)},
+	}
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.output_item.done",
+		SequenceNumber: sequenceNumber,
+		OutputIndex:    &outputIndex,
+		Item:           completedMessageItem,
+	})
+	sequenceNumber++
+	collectedOutputItems = append(collectedOutputItems, *completedMessageItem)
+
+	// Build final response
+	now := time.Now().Unix()
+	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, &schema.ORUsage{
+		InputTokens:  prediction.Usage.Prompt,
+		OutputTokens: prediction.Usage.Completion,
+		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+	}, true)
+
+	// Emit response.completed
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.completed",
+		SequenceNumber: sequenceNumber,
+		Response:       response,
+	})
+
+	return response, nil
+}
+
+// handleBackgroundMCPResponse handles background MCP responses
+func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, predInput string, openAIReq *schema.OpenAIRequest, appConfig *config.ApplicationConfig) (*schema.ORResponseResource, error) {
+	// For now, MCP background is not fully implemented - return a simple response
+	// Full MCP background support would require significant refactoring of the cogito integration
+	xlog.Warn("Background MCP requests are not fully supported yet", "response_id", responseID)
+
+	now := time.Now().Unix()
+	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusFailed, input, []schema.ORItemField{}, nil, true)
+	response.Error = &schema.ORError{
+		Type:    "server_error",
+		Message: "Background MCP requests are not yet supported",
+	}
+
+	return response, fmt.Errorf("background MCP requests are not yet supported")
+}
+
+// bufferEvent stores an SSE event in the response store for streaming resume
+func bufferEvent(store *ResponseStore, responseID string, event *schema.ORStreamEvent) {
+	if err := store.AppendEvent(responseID, event); err != nil {
+		xlog.Error("Failed to buffer event", "response_id", responseID, "error", err)
+	}
 }
 
 // handleOpenResponsesNonStream handles non-streaming responses
@@ -2184,4 +2567,156 @@ func serializeToolsForBackend(orTools []schema.ORFunctionTool) string {
 		return ""
 	}
 	return string(toolsBytes)
+}
+
+// GetResponseEndpoint returns a handler for GET /responses/:id
+// This endpoint is used for polling background responses or resuming streaming
+func GetResponseEndpoint() func(c echo.Context) error {
+	return func(c echo.Context) error {
+		responseID := c.Param("id")
+		if responseID == "" {
+			return sendOpenResponsesError(c, 400, "invalid_request_error", "response ID is required", "id")
+		}
+
+		store := GetGlobalStore()
+		stored, err := store.Get(responseID)
+		if err != nil {
+			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
+		}
+
+		// Check if streaming resume is requested
+		streamParam := c.QueryParam("stream")
+		if streamParam == "true" {
+			// Validate that the response was created with streaming enabled
+			if !stored.StreamEnabled {
+				return sendOpenResponsesError(c, 400, "invalid_request_error", "cannot stream a response that was not created with stream=true", "stream")
+			}
+
+			// Get starting_after parameter
+			startingAfter := 0
+			startingAfterParam := c.QueryParam("starting_after")
+			if startingAfterParam != "" {
+				if _, err := fmt.Sscanf(startingAfterParam, "%d", &startingAfter); err != nil {
+					return sendOpenResponsesError(c, 400, "invalid_request_error", "starting_after must be an integer", "starting_after")
+				}
+			}
+
+			return handleStreamResume(c, store, responseID, stored, startingAfter)
+		}
+
+		// Non-streaming: return the current response state
+		stored.mu.RLock()
+		response := stored.Response
+		stored.mu.RUnlock()
+
+		return c.JSON(200, response)
+	}
+}
+
+// handleStreamResume handles resuming a streaming response from a specific sequence number
+func handleStreamResume(c echo.Context, store *ResponseStore, responseID string, stored *StoredResponse, startingAfter int) error {
+	c.Response().Header().Set("Content-Type", "text/event-stream")
+	c.Response().Header().Set("Cache-Control", "no-cache")
+	c.Response().Header().Set("Connection", "keep-alive")
+
+	// Get buffered events after the starting point
+	events, err := store.GetEventsAfter(responseID, startingAfter)
+	if err != nil {
+		return sendOpenResponsesError(c, 500, "server_error", fmt.Sprintf("failed to get events: %v", err), "")
+	}
+
+	// Send all buffered events
+	for _, event := range events {
+		fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.EventType, string(event.Data))
+		c.Response().Flush()
+	}
+
+	// Get the current status
+	stored.mu.RLock()
+	status := stored.Response.Status
+	stored.mu.RUnlock()
+
+	// If response is still in progress, subscribe to new events
+	if status == schema.ORStatusQueued || status == schema.ORStatusInProgress {
+		eventsChan, err := store.GetEventsChan(responseID)
+		if err != nil {
+			// Response might have completed, just finish
+			fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+			c.Response().Flush()
+			return nil
+		}
+
+		// Track last sent sequence number
+		lastSeq := startingAfter
+		if len(events) > 0 {
+			lastSeq = events[len(events)-1].SequenceNumber
+		}
+
+		// Wait for new events or completion
+		for {
+			select {
+			case <-c.Request().Context().Done():
+				// Client disconnected
+				return nil
+			case <-eventsChan:
+				// New events available
+				newEvents, err := store.GetEventsAfter(responseID, lastSeq)
+				if err != nil {
+					break
+				}
+				for _, event := range newEvents {
+					fmt.Fprintf(c.Response().Writer, "event: %s\ndata: %s\n\n", event.EventType, string(event.Data))
+					c.Response().Flush()
+					lastSeq = event.SequenceNumber
+				}
+
+				// Check if response is now complete
+				stored.mu.RLock()
+				status = stored.Response.Status
+				stored.mu.RUnlock()
+
+				if status != schema.ORStatusQueued && status != schema.ORStatusInProgress {
+					fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+					c.Response().Flush()
+					return nil
+				}
+			case <-time.After(30 * time.Second):
+				// Timeout - send keepalive or check status
+				stored.mu.RLock()
+				status = stored.Response.Status
+				stored.mu.RUnlock()
+
+				if status != schema.ORStatusQueued && status != schema.ORStatusInProgress {
+					fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+					c.Response().Flush()
+					return nil
+				}
+			}
+		}
+	}
+
+	// Response already complete
+	fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
+	c.Response().Flush()
+	return nil
+}
+
+// CancelResponseEndpoint returns a handler for POST /responses/:id/cancel
+// This endpoint cancels a background response if it's still in progress
+func CancelResponseEndpoint() func(c echo.Context) error {
+	return func(c echo.Context) error {
+		responseID := c.Param("id")
+		if responseID == "" {
+			return sendOpenResponsesError(c, 400, "invalid_request_error", "response ID is required", "id")
+		}
+
+		store := GetGlobalStore()
+		response, err := store.Cancel(responseID)
+		if err != nil {
+			return sendOpenResponsesError(c, 404, "not_found", fmt.Sprintf("response not found: %s", responseID), "id")
+		}
+
+		// Return the final response object
+		return c.JSON(200, response)
+	}
 }

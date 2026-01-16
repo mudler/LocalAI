@@ -1,6 +1,7 @@
 package openresponses
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -424,6 +425,202 @@ var _ = Describe("ResponseStore", func() {
 			stored, err := globalStore2.Get(responseID)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(stored).ToNot(BeNil())
+		})
+	})
+
+	Describe("Background Mode Support", func() {
+		It("should store background response with cancel function", func() {
+			responseID := "resp_bg_test"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusQueued,
+			}
+
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			store.StoreBackground(responseID, request, response, cancel, true)
+
+			stored, err := store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored).ToNot(BeNil())
+			Expect(stored.IsBackground).To(BeTrue())
+			Expect(stored.StreamEnabled).To(BeTrue())
+			Expect(stored.CancelFunc).ToNot(BeNil())
+		})
+
+		It("should update status of stored response", func() {
+			responseID := "resp_status_test"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusQueued,
+			}
+
+			store.Store(responseID, request, response)
+
+			err := store.UpdateStatus(responseID, schema.ORStatusInProgress, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			stored, err := store.Get(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(stored.Response.Status).To(Equal(schema.ORStatusInProgress))
+		})
+
+		It("should append and retrieve streaming events", func() {
+			responseID := "resp_events_test"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusInProgress,
+			}
+
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			store.StoreBackground(responseID, request, response, cancel, true)
+
+			// Append events
+			event1 := &schema.ORStreamEvent{
+				Type:           "response.created",
+				SequenceNumber: 0,
+			}
+			event2 := &schema.ORStreamEvent{
+				Type:           "response.in_progress",
+				SequenceNumber: 1,
+			}
+			event3 := &schema.ORStreamEvent{
+				Type:           "response.output_text.delta",
+				SequenceNumber: 2,
+			}
+
+			err := store.AppendEvent(responseID, event1)
+			Expect(err).ToNot(HaveOccurred())
+			err = store.AppendEvent(responseID, event2)
+			Expect(err).ToNot(HaveOccurred())
+			err = store.AppendEvent(responseID, event3)
+			Expect(err).ToNot(HaveOccurred())
+
+			// Get all events after -1 (all events)
+			events, err := store.GetEventsAfter(responseID, -1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(events).To(HaveLen(3))
+
+			// Get events after sequence 1
+			events, err = store.GetEventsAfter(responseID, 1)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(events).To(HaveLen(1))
+			Expect(events[0].SequenceNumber).To(Equal(2))
+		})
+
+		It("should cancel an in-progress response", func() {
+			responseID := "resp_cancel_test"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusInProgress,
+			}
+
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			store.StoreBackground(responseID, request, response, cancel, false)
+
+			// Cancel the response
+			cancelledResponse, err := store.Cancel(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(cancelledResponse.Status).To(Equal(schema.ORStatusCancelled))
+			Expect(cancelledResponse.CompletedAt).ToNot(BeNil())
+		})
+
+		It("should be idempotent when cancelling already completed response", func() {
+			responseID := "resp_idempotent_cancel"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			completedAt := time.Now().Unix()
+			response := &schema.ORResponseResource{
+				ID:          responseID,
+				Object:      "response",
+				Status:      schema.ORStatusCompleted,
+				CompletedAt: &completedAt,
+			}
+
+			store.Store(responseID, request, response)
+
+			// Try to cancel a completed response
+			cancelledResponse, err := store.Cancel(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			// Status should remain completed (not changed to cancelled)
+			Expect(cancelledResponse.Status).To(Equal(schema.ORStatusCompleted))
+		})
+
+		It("should check if streaming is enabled", func() {
+			responseID := "resp_stream_check"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusQueued,
+			}
+
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			store.StoreBackground(responseID, request, response, cancel, true)
+
+			enabled, err := store.IsStreamEnabled(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(enabled).To(BeTrue())
+
+			// Store another without streaming
+			responseID2 := "resp_no_stream"
+			store.StoreBackground(responseID2, request, response, cancel, false)
+
+			enabled2, err := store.IsStreamEnabled(responseID2)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(enabled2).To(BeFalse())
+		})
+
+		It("should notify subscribers of new events", func() {
+			responseID := "resp_events_chan"
+			request := &schema.OpenResponsesRequest{Model: "test"}
+			response := &schema.ORResponseResource{
+				ID:     responseID,
+				Object: "response",
+				Status: schema.ORStatusInProgress,
+			}
+
+			_, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			store.StoreBackground(responseID, request, response, cancel, true)
+
+			eventsChan, err := store.GetEventsChan(responseID)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(eventsChan).ToNot(BeNil())
+
+			// Append an event
+			event := &schema.ORStreamEvent{
+				Type:           "response.output_text.delta",
+				SequenceNumber: 0,
+			}
+
+			go func() {
+				time.Sleep(10 * time.Millisecond)
+				store.AppendEvent(responseID, event)
+			}()
+
+			// Wait for notification
+			select {
+			case <-eventsChan:
+				// Event received
+			case <-time.After(1 * time.Second):
+				Fail("Timeout waiting for event notification")
+			}
 		})
 	})
 })
