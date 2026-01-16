@@ -131,6 +131,56 @@ func ResponsesEndpoint(cl *config.ModelConfigLoader, ml *model.ModelLoader, eval
 			openAIReq.ResponseFormat = convertTextFormatToResponseFormat(input.TextFormat)
 		}
 
+		// Generate grammar for function calling (similar to OpenAI chat endpoint)
+		if shouldUseFn && !cfg.FunctionsConfig.GrammarConfig.NoGrammar {
+			// Add no-action function to allow model to respond without calling a tool
+			noActionName := "answer"
+			noActionDescription := "use this action to answer without performing any action"
+			if cfg.FunctionsConfig.NoActionFunctionName != "" {
+				noActionName = cfg.FunctionsConfig.NoActionFunctionName
+			}
+			if cfg.FunctionsConfig.NoActionDescriptionName != "" {
+				noActionDescription = cfg.FunctionsConfig.NoActionDescriptionName
+			}
+
+			noActionGrammar := functions.Function{
+				Name:        noActionName,
+				Description: noActionDescription,
+				Parameters: map[string]interface{}{
+					"properties": map[string]interface{}{
+						"message": map[string]interface{}{
+							"type":        "string",
+							"description": "The message to reply the user with",
+						},
+					},
+				},
+			}
+
+			// Make a copy of funcs to avoid modifying the original
+			funcsWithNoAction := make(functions.Functions, len(funcs))
+			copy(funcsWithNoAction, funcs)
+
+			// Append no-action function unless disabled
+			if !cfg.FunctionsConfig.DisableNoAction {
+				funcsWithNoAction = append(funcsWithNoAction, noActionGrammar)
+			}
+
+			// Force picking one of the functions by the request
+			if cfg.FunctionToCall() != "" {
+				funcsWithNoAction = funcsWithNoAction.Select(cfg.FunctionToCall())
+			}
+
+			// Generate grammar to constrain model output to valid function calls
+			jsStruct := funcsWithNoAction.ToJSONStructure(cfg.FunctionsConfig.FunctionNameKey, cfg.FunctionsConfig.FunctionNameKey)
+			g, err := jsStruct.Grammar(cfg.FunctionsConfig.GrammarOptions()...)
+			if err == nil {
+				cfg.Grammar = g
+				xlog.Debug("Open Responses - Generated grammar for function calling")
+			} else {
+				xlog.Error("Open Responses - Failed generating grammar for function calling", "error", err)
+			}
+		}
+
 		// Template the prompt
 		predInput := evaluator.TemplateMessages(*openAIReq, openAIReq.Messages, cfg, funcs, shouldUseFn)
 		xlog.Debug("Open Responses - Prompt (after templating)", "prompt", predInput)
@@ -529,17 +579,42 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 	}
 
 	result := backend.Finetune(*cfg, predInput, prediction.Response)
+	xlog.Debug("Open Responses - Raw model result", "result", result, "shouldUseFn", shouldUseFn)
 
 	// Parse tool calls if using functions
 	var outputItems []schema.ORItemField
 	var toolCalls []schema.ToolCall
 
 	if shouldUseFn {
-		funcCallResults := functions.ParseFunctionCall(result, cfg.FunctionsConfig)
-		textContent := functions.ParseTextContent(result, cfg.FunctionsConfig)
+		// Clean up the result first (handle reasoning tags, etc.)
+		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
+		xlog.Debug("Open Responses - Cleaned result", "cleanedResult", cleanedResult)
 
-		// Convert FuncCallResults to ToolCall
+		funcCallResults := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+		xlog.Debug("Open Responses - Parsed function calls", "count", len(funcCallResults), "textContent", textContent)
+
+		// Check for noAction function (model chose to respond without tool)
+		noActionName := "answer"
+		if cfg.FunctionsConfig.NoActionFunctionName != "" {
+			noActionName = cfg.FunctionsConfig.NoActionFunctionName
+		}
+
+		// Filter out noAction calls and extract the message
 		for i, fc := range funcCallResults {
+			if fc.Name == noActionName {
+				// This is a text response, not a tool call
+				// Try to extract the message from the arguments
+				if fc.Arguments != "" {
+					var args map[string]interface{}
+					if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
+						if msg, ok := args["message"].(string); ok && msg != "" {
+							textContent = msg
+						}
+					}
+				}
+				continue
+			}
 			toolCalls = append(toolCalls, schema.ToolCall{
 				Index: i,
 				ID:    fmt.Sprintf("fc_%s", uuid.New().String()),
@@ -571,6 +646,19 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 				CallID:    tc.ID,
 				Name:      tc.FunctionCall.Name,
 				Arguments: tc.FunctionCall.Arguments,
+			})
+		}
+
+		// If we have no output items but the model did produce output, include the raw result as a message
+		// This handles cases where the function call parsing failed but we still have model output
+		if len(outputItems) == 0 && result != "" {
+			xlog.Debug("Open Responses - No parsed output, falling back to raw result")
+			outputItems = append(outputItems, schema.ORItemField{
+				Type:    "message",
+				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
 			})
 		}
 	} else {
@@ -924,11 +1012,45 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 		result := backend.Finetune(*cfg, predInput, prediction.Response)
 		cleanedResult := functions.CleanupLLMResult(result, cfg.FunctionsConfig)
-		toolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
+		xlog.Debug("Open Responses Stream - Cleaned result", "cleanedResult", cleanedResult)
+
+		parsedToolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
 		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
+
+		// Handle noAction function (model chose to respond without tool)
+		noActionName := "answer"
+		if cfg.FunctionsConfig.NoActionFunctionName != "" {
+			noActionName = cfg.FunctionsConfig.NoActionFunctionName
+		}
+
+		// Filter out noAction calls and extract the message
+		var toolCalls []functions.FuncCallResults
+		for _, fc := range parsedToolCalls {
+			if fc.Name == noActionName {
+				// This is a text response, not a tool call
+				if fc.Arguments != "" {
+					var args map[string]interface{}
+					if err := json.Unmarshal([]byte(fc.Arguments), &args); err == nil {
+						if msg, ok := args["message"].(string); ok && msg != "" {
+							textContent = msg
+						}
+					}
+				}
+				continue
+			}
+			toolCalls = append(toolCalls, fc)
+		}
+
+		xlog.Debug("Open Responses Stream - Parsed", "toolCalls", len(toolCalls), "textContent", textContent)
 
 		// Convert prediction logprobs for streaming events
 		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+
+		// If we have no output but the model did produce something, use the raw result
+		if textContent == "" && len(toolCalls) == 0 && result != "" {
+			xlog.Debug("Open Responses Stream - No parsed output, using raw result")
+			textContent = result
+		}
 
 		// Close message if we have text content
 		if currentMessageID != "" && textContent != "" && !inToolCallMode {
