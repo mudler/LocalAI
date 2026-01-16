@@ -7,19 +7,27 @@ import (
 // OpenResponsesRequest represents a request to the Open Responses API
 // https://www.openresponses.org/specification
 type OpenResponsesRequest struct {
-	Model           string              `json:"model"`
-	Input           interface{}         `json:"input"`           // string or []ORItemParam
-	Tools           []ORFunctionTool    `json:"tools,omitempty"`
-	ToolChoice      interface{}         `json:"tool_choice,omitempty"` // "auto"|"required"|"none"|{type:"function",name:"..."}
-	Stream          bool                `json:"stream,omitempty"`
-	MaxOutputTokens *int                `json:"max_output_tokens,omitempty"`
-	Temperature     *float64            `json:"temperature,omitempty"`
-	TopP            *float64            `json:"top_p,omitempty"`
-	Truncation      string              `json:"truncation,omitempty"` // "auto"|"disabled"
-	Instructions    string              `json:"instructions,omitempty"`
-	Reasoning       *ORReasoningParam   `json:"reasoning,omitempty"`
-	Metadata        map[string]string   `json:"metadata,omitempty"`
-	PreviousResponseID string           `json:"previous_response_id,omitempty"`
+	Model              string            `json:"model"`
+	Input              interface{}       `json:"input"` // string or []ORItemParam
+	Tools              []ORFunctionTool  `json:"tools,omitempty"`
+	ToolChoice         interface{}       `json:"tool_choice,omitempty"` // "auto"|"required"|"none"|{type:"function",name:"..."}
+	Stream             bool              `json:"stream,omitempty"`
+	MaxOutputTokens    *int              `json:"max_output_tokens,omitempty"`
+	Temperature        *float64          `json:"temperature,omitempty"`
+	TopP               *float64          `json:"top_p,omitempty"`
+	Truncation         string            `json:"truncation,omitempty"` // "auto"|"disabled"
+	Instructions       string            `json:"instructions,omitempty"`
+	Reasoning          *ORReasoningParam `json:"reasoning,omitempty"`
+	Metadata           map[string]string `json:"metadata,omitempty"`
+	PreviousResponseID string            `json:"previous_response_id,omitempty"`
+
+	// Missing parameters from spec
+	TextFormat        interface{} `json:"text_format,omitempty"`         // TextResponseFormat or JsonSchemaResponseFormatParam
+	ServiceTier       string      `json:"service_tier,omitempty"`        // "auto"|"default"|priority hint
+	AllowedTools      []string    `json:"allowed_tools,omitempty"`       // Restrict which tools can be invoked
+	Store             *bool       `json:"store,omitempty"`               // Whether to store the response
+	Include           []string    `json:"include,omitempty"`             // What to include in response
+	ParallelToolCalls *bool       `json:"parallel_tool_calls,omitempty"` // Allow parallel tool calls
 
 	// Internal fields (like OpenAIRequest)
 	Context context.Context    `json:"-"`
@@ -51,9 +59,9 @@ type ORReasoningParam struct {
 
 // ORItemParam represents an input item (discriminated union by type)
 type ORItemParam struct {
-	Type   string      `json:"type"` // message|function_call|function_call_output|reasoning|item_reference
-	ID     string      `json:"id,omitempty"`
-	Status string      `json:"status,omitempty"` // in_progress|completed|incomplete
+	Type   string `json:"type"` // message|function_call|function_call_output|reasoning|item_reference
+	ID     string `json:"id,omitempty"`
+	Status string `json:"status,omitempty"` // in_progress|completed|incomplete
 
 	// Message fields
 	Role    string      `json:"role,omitempty"`    // user|assistant|system|developer
@@ -67,8 +75,7 @@ type ORItemParam struct {
 	// Function call output fields
 	Output interface{} `json:"output,omitempty"` // string or []ORContentPart
 
-	// Item reference fields
-	ItemID string `json:"item_id,omitempty"` // for item_reference type
+	// Note: For item_reference type, use the ID field above to reference the item
 }
 
 // ORContentPart represents a content block (discriminated union by type)
@@ -88,31 +95,31 @@ type ORItemField = ORItemParam
 
 // ORResponseResource represents the main response object
 type ORResponseResource struct {
-	ID              string            `json:"id"`
-	Object          string            `json:"object"` // always "response"
-	CreatedAt       int64             `json:"created_at"`
-	CompletedAt     *int64            `json:"completed_at,omitempty"`
-	Status          string            `json:"status"` // in_progress|completed|failed|incomplete
-	Model           string            `json:"model"`
-	Output          []ORItemField     `json:"output"`
-	Error           *ORError          `json:"error,omitempty"`
-	Usage           *ORUsage          `json:"usage,omitempty"`
-	Tools           []ORFunctionTool  `json:"tools,omitempty"`
-	ToolChoice      interface{}       `json:"tool_choice,omitempty"`
-	Truncation      string            `json:"truncation,omitempty"`
-	Temperature     float64           `json:"temperature,omitempty"`
-	TopP            float64           `json:"top_p,omitempty"`
-	MaxOutputTokens *int              `json:"max_output_tokens,omitempty"`
-	Reasoning       *ORReasoning      `json:"reasoning,omitempty"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
-	PreviousResponseID string         `json:"previous_response_id,omitempty"`
-	Instructions    string            `json:"instructions,omitempty"`
-	IncompleteDetails *ORIncompleteDetails `json:"incomplete_details,omitempty"`
+	ID                 string               `json:"id"`
+	Object             string               `json:"object"` // always "response"
+	CreatedAt          int64                `json:"created_at"`
+	CompletedAt        *int64               `json:"completed_at,omitempty"`
+	Status             string               `json:"status"` // in_progress|completed|failed|incomplete
+	Model              string               `json:"model"`
+	Output             []ORItemField        `json:"output"`
+	Error              *ORError             `json:"error,omitempty"`
+	Usage              *ORUsage             `json:"usage,omitempty"`
+	Tools              []ORFunctionTool     `json:"tools,omitempty"`
+	ToolChoice         interface{}          `json:"tool_choice,omitempty"`
+	Truncation         string               `json:"truncation,omitempty"`
+	Temperature        float64              `json:"temperature,omitempty"`
+	TopP               float64              `json:"top_p,omitempty"`
+	MaxOutputTokens    *int                 `json:"max_output_tokens,omitempty"`
+	Reasoning          *ORReasoning         `json:"reasoning,omitempty"`
+	Metadata           map[string]string    `json:"metadata,omitempty"`
+	PreviousResponseID string               `json:"previous_response_id,omitempty"`
+	Instructions       string               `json:"instructions,omitempty"`
+	IncompleteDetails  *ORIncompleteDetails `json:"incomplete_details,omitempty"`
 }
 
 // ORError represents an error in the response
 type ORError struct {
-	Type    string `json:"type"`    // invalid_request|not_found|server_error|model_error|too_many_requests
+	Type    string `json:"type"` // invalid_request|not_found|server_error|model_error|too_many_requests
 	Code    string `json:"code,omitempty"`
 	Message string `json:"message"`
 	Param   string `json:"param,omitempty"`
@@ -120,10 +127,10 @@ type ORError struct {
 
 // ORUsage represents token usage statistics
 type ORUsage struct {
-	InputTokens        int                  `json:"input_tokens"`
-	OutputTokens       int                  `json:"output_tokens"`
-	TotalTokens        int                  `json:"total_tokens"`
-	InputTokensDetails *ORInputTokensDetails  `json:"input_tokens_details,omitempty"`
+	InputTokens         int                    `json:"input_tokens"`
+	OutputTokens        int                    `json:"output_tokens"`
+	TotalTokens         int                    `json:"total_tokens"`
+	InputTokensDetails  *ORInputTokensDetails  `json:"input_tokens_details,omitempty"`
 	OutputTokensDetails *OROutputTokensDetails `json:"output_tokens_details,omitempty"`
 }
 
@@ -150,24 +157,24 @@ type ORIncompleteDetails struct {
 
 // ORStreamEvent represents a streaming event
 type ORStreamEvent struct {
-	Type           string              `json:"type"`
-	SequenceNumber int                 `json:"sequence_number"`
-	Response       *ORResponseResource `json:"response,omitempty"`
-	OutputIndex    *int                `json:"output_index,omitempty"`
-	ContentIndex   *int                `json:"content_index,omitempty"`
-	SummaryIndex   *int                `json:"summary_index,omitempty"`
-	ItemID         string              `json:"item_id,omitempty"`
-	Item           *ORItemField        `json:"item,omitempty"`
-	Part           *ORContentPart      `json:"part,omitempty"`
-	Delta          string              `json:"delta,omitempty"`
-	Text           string              `json:"text,omitempty"`
-	Arguments      string              `json:"arguments,omitempty"`
-	Refusal        string              `json:"refusal,omitempty"`
-	Error          *ORErrorPayload     `json:"error,omitempty"`
-	Logprobs       []ORLogProb         `json:"logprobs,omitempty"`
-	Obfuscation    string              `json:"obfuscation,omitempty"`
-	Annotation     *ORAnnotation       `json:"annotation,omitempty"`
-	AnnotationIndex *int               `json:"annotation_index,omitempty"`
+	Type            string              `json:"type"`
+	SequenceNumber  int                 `json:"sequence_number"`
+	Response        *ORResponseResource `json:"response,omitempty"`
+	OutputIndex     *int                `json:"output_index,omitempty"`
+	ContentIndex    *int                `json:"content_index,omitempty"`
+	SummaryIndex    *int                `json:"summary_index,omitempty"`
+	ItemID          string              `json:"item_id,omitempty"`
+	Item            *ORItemField        `json:"item,omitempty"`
+	Part            *ORContentPart      `json:"part,omitempty"`
+	Delta           string              `json:"delta,omitempty"`
+	Text            string              `json:"text,omitempty"`
+	Arguments       string              `json:"arguments,omitempty"`
+	Refusal         string              `json:"refusal,omitempty"`
+	Error           *ORErrorPayload     `json:"error,omitempty"`
+	Logprobs        []ORLogProb         `json:"logprobs,omitempty"`
+	Obfuscation     string              `json:"obfuscation,omitempty"`
+	Annotation      *ORAnnotation       `json:"annotation,omitempty"`
+	AnnotationIndex *int                `json:"annotation_index,omitempty"`
 }
 
 // ORErrorPayload represents an error payload in streaming events
@@ -181,9 +188,9 @@ type ORErrorPayload struct {
 
 // ORLogProb represents log probability information
 type ORLogProb struct {
-	Token       string       `json:"token"`
-	Logprob     float64      `json:"logprob"`
-	Bytes       []int        `json:"bytes"`
+	Token       string         `json:"token"`
+	Logprob     float64        `json:"logprob"`
+	Bytes       []int          `json:"bytes"`
 	TopLogprobs []ORTopLogProb `json:"top_logprobs,omitempty"`
 }
 
@@ -191,14 +198,14 @@ type ORLogProb struct {
 type ORTopLogProb struct {
 	Token   string  `json:"token"`
 	Logprob float64 `json:"logprob"`
-	Bytes   []int    `json:"bytes"`
+	Bytes   []int   `json:"bytes"`
 }
 
 // ORAnnotation represents an annotation (e.g., URL citation)
 type ORAnnotation struct {
-	Type        string `json:"type"` // url_citation
-	StartIndex  int    `json:"start_index"`
-	EndIndex    int    `json:"end_index"`
-	URL         string `json:"url"`
-	Title       string `json:"title"`
+	Type       string `json:"type"` // url_citation
+	StartIndex int    `json:"start_index"`
+	EndIndex   int    `json:"end_index"`
+	URL        string `json:"url"`
+	Title      string `json:"title"`
 }

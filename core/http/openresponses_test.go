@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,12 +21,12 @@ import (
 	"github.com/mudler/xlog"
 )
 
+const testModel = "Qwen3-VL-2B-Instruct-GGUF"
+
 var _ = Describe("Open Responses API", func() {
 	var app *echo.Echo
 	var c context.Context
 	var cancel context.CancelFunc
-	var tmpdir string
-	var modelDir string
 
 	commonOpts := []config.AppOption{
 		config.WithDebug(true),
@@ -36,14 +35,8 @@ var _ = Describe("Open Responses API", func() {
 	Context("API with ephemeral models", func() {
 		BeforeEach(func(sc SpecContext) {
 			var err error
-			tmpdir, err = os.MkdirTemp("", "")
-			Expect(err).ToNot(HaveOccurred())
 
 			backendPath := os.Getenv("BACKENDS_PATH")
-
-			modelDir = filepath.Join(tmpdir, "models")
-			err = os.Mkdir(modelDir, 0750)
-			Expect(err).ToNot(HaveOccurred())
 
 			c, cancel = context.WithCancel(context.Background())
 
@@ -58,6 +51,7 @@ var _ = Describe("Open Responses API", func() {
 					config.WithContext(c),
 					config.WithSystemState(systemState),
 					config.WithApiKeys([]string{apiKey}),
+					config.WithModelsURL("https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF"),
 				)...)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -89,14 +83,13 @@ var _ = Describe("Open Responses API", func() {
 				err := app.Shutdown(ctx)
 				Expect(err).ToNot(HaveOccurred())
 			}
-			err := os.RemoveAll(tmpdir)
-			Expect(err).ToNot(HaveOccurred())
+
 		})
 
 		Context("HTTP Protocol Compliance", func() {
 			It("MUST accept application/json Content-Type", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -118,8 +111,8 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return application/json for non-streaming responses", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
-					"input": "Hello",
+					"model":  testModel,
+					"input":  "Hello",
 					"stream": false,
 				}
 				payload, err := json.Marshal(reqBody)
@@ -143,8 +136,8 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return text/event-stream for streaming responses", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
-					"input": "Hello",
+					"model":  testModel,
+					"input":  "Hello",
 					"stream": true,
 				}
 				payload, err := json.Marshal(reqBody)
@@ -168,8 +161,8 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST end streaming with [DONE] terminal event", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
-					"input": "Hello",
+					"model":  testModel,
+					"input":  "Hello",
 					"stream": true,
 				}
 				payload, err := json.Marshal(reqBody)
@@ -196,8 +189,8 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST have event field matching type in body", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
-					"input": "Hello",
+					"model":  testModel,
+					"input":  "Hello",
 					"stream": true,
 				}
 				payload, err := json.Marshal(reqBody)
@@ -242,7 +235,7 @@ var _ = Describe("Open Responses API", func() {
 		Context("Response Structure", func() {
 			It("MUST return id field", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -270,7 +263,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return object field as 'response'", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -298,7 +291,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return created_at timestamp", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -329,7 +322,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return status field", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -359,7 +352,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return model field", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -387,7 +380,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST return output array of items", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -419,7 +412,7 @@ var _ = Describe("Open Responses API", func() {
 		Context("Items", func() {
 			It("MUST include id field on all items", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -455,7 +448,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST include type field on all items", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -491,7 +484,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST include status field on all items", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -529,7 +522,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST support message items with role field", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": []map[string]interface{}{
 						{
 							"type": "message",
@@ -580,7 +573,7 @@ var _ = Describe("Open Responses API", func() {
 		Context("Content Types", func() {
 			It("MUST support input_text content", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": []map[string]interface{}{
 						{
 							"type": "message",
@@ -613,7 +606,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST support input_image content with URL", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": []map[string]interface{}{
 						{
 							"type": "message",
@@ -647,7 +640,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST support input_image content with base64", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": []map[string]interface{}{
 						{
 							"type": "message",
@@ -681,7 +674,7 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST support output_text content", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
+					"model": testModel,
 					"input": "Hello",
 				}
 				payload, err := json.Marshal(reqBody)
@@ -727,8 +720,8 @@ var _ = Describe("Open Responses API", func() {
 		Context("Streaming Events", func() {
 			It("MUST emit response.created as first event", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
-					"input": "Hello",
+					"model":  testModel,
+					"input":  "Hello",
 					"stream": true,
 				}
 				payload, err := json.Marshal(reqBody)
@@ -756,8 +749,8 @@ var _ = Describe("Open Responses API", func() {
 
 			It("MUST include sequence_number in all events", func() {
 				reqBody := map[string]interface{}{
-					"model": "testmodel",
-					"input": "Hello",
+					"model":  testModel,
+					"input":  "Hello",
 					"stream": true,
 				}
 				payload, err := json.Marshal(reqBody)
@@ -829,6 +822,205 @@ var _ = Describe("Open Responses API", func() {
 						}
 					}
 				}
+			})
+		})
+
+		Context("Previous Response ID", func() {
+			It("should load previous response and concatenate context", func() {
+				// First, create a response
+				reqBody1 := map[string]interface{}{
+					"model": testModel,
+					"input": "What is 2+2?",
+				}
+				payload1, err := json.Marshal(reqBody1)
+				Expect(err).ToNot(HaveOccurred())
+
+				req1, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload1))
+				Expect(err).ToNot(HaveOccurred())
+				req1.Header.Set("Content-Type", "application/json")
+				req1.Header.Set("Authorization", bearerKey)
+
+				client := &http.Client{}
+				resp1, err := client.Do(req1)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp1.Body.Close()
+
+				// Check if first response succeeded
+				if resp1.StatusCode != 200 {
+					Skip("First response failed, skipping previous_response_id test (backend may not be available)")
+				}
+
+				var response1 map[string]interface{}
+				body1, err := io.ReadAll(resp1.Body)
+				Expect(err).ToNot(HaveOccurred())
+				err = json.Unmarshal(body1, &response1)
+				Expect(err).ToNot(HaveOccurred())
+
+				responseID, ok := response1["id"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(responseID).ToNot(BeEmpty())
+
+				// Now create a new response with previous_response_id
+				reqBody2 := map[string]interface{}{
+					"model":                testModel,
+					"input":                "What about 3+3?",
+					"previous_response_id": responseID,
+				}
+				payload2, err := json.Marshal(reqBody2)
+				Expect(err).ToNot(HaveOccurred())
+
+				req2, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload2))
+				Expect(err).ToNot(HaveOccurred())
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", bearerKey)
+
+				resp2, err := client.Do(req2)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp2.Body.Close()
+
+				var response2 map[string]interface{}
+				body2, err := io.ReadAll(resp2.Body)
+				Expect(err).ToNot(HaveOccurred())
+				err = json.Unmarshal(body2, &response2)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(response2["previous_response_id"]).To(Equal(responseID))
+				Expect(response2["status"]).To(Equal("completed"))
+			})
+
+			It("should return error for invalid previous_response_id", func() {
+				reqBody := map[string]interface{}{
+					"model":                testModel,
+					"input":                "Test",
+					"previous_response_id": "nonexistent_response_id",
+				}
+				payload, err := json.Marshal(reqBody)
+				Expect(err).ToNot(HaveOccurred())
+
+				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Authorization", bearerKey)
+
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+
+				Expect(resp.StatusCode).To(Equal(404))
+
+				var errorResp map[string]interface{}
+				body, _ := io.ReadAll(resp.Body)
+				json.Unmarshal(body, &errorResp)
+
+				if errorResp["error"] != nil {
+					errorObj, ok := errorResp["error"].(map[string]interface{})
+					if ok {
+						Expect(errorObj["type"]).To(Equal("not_found"))
+						Expect(errorObj["param"]).To(Equal("previous_response_id"))
+					}
+				}
+			})
+		})
+
+		Context("Item Reference", func() {
+			It("should resolve item_reference in input", func() {
+				// First, create a response with items
+				reqBody1 := map[string]interface{}{
+					"model": testModel,
+					"input": "Hello",
+				}
+				payload1, err := json.Marshal(reqBody1)
+				Expect(err).ToNot(HaveOccurred())
+
+				req1, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload1))
+				Expect(err).ToNot(HaveOccurred())
+				req1.Header.Set("Content-Type", "application/json")
+				req1.Header.Set("Authorization", bearerKey)
+
+				client := &http.Client{}
+				resp1, err := client.Do(req1)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp1.Body.Close()
+
+				// Check if first response succeeded
+				if resp1.StatusCode != 200 {
+					Skip("First response failed, skipping item_reference test (backend may not be available)")
+				}
+
+				var response1 map[string]interface{}
+				body1, err := io.ReadAll(resp1.Body)
+				Expect(err).ToNot(HaveOccurred())
+				err = json.Unmarshal(body1, &response1)
+				Expect(err).ToNot(HaveOccurred())
+
+				// Get the first output item ID
+				output, ok := response1["output"].([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(len(output)).To(BeNumerically(">", 0))
+
+				firstItem, ok := output[0].(map[string]interface{})
+				Expect(ok).To(BeTrue())
+				itemID, ok := firstItem["id"].(string)
+				Expect(ok).To(BeTrue())
+				Expect(itemID).ToNot(BeEmpty())
+
+				// Now create a new response with item_reference
+				reqBody2 := map[string]interface{}{
+					"model": testModel,
+					"input": []interface{}{
+						map[string]interface{}{
+							"type":    "item_reference",
+							"item_id": itemID,
+						},
+						map[string]interface{}{
+							"type":    "message",
+							"role":    "user",
+							"content": "Continue from the previous message",
+						},
+					},
+				}
+				payload2, err := json.Marshal(reqBody2)
+				Expect(err).ToNot(HaveOccurred())
+
+				req2, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload2))
+				Expect(err).ToNot(HaveOccurred())
+				req2.Header.Set("Content-Type", "application/json")
+				req2.Header.Set("Authorization", bearerKey)
+
+				resp2, err := client.Do(req2)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp2.Body.Close()
+
+				// Should succeed (item reference resolved)
+				Expect(resp2.StatusCode).To(Equal(200))
+			})
+
+			It("should return error for invalid item_reference", func() {
+				reqBody := map[string]interface{}{
+					"model": testModel,
+					"input": []interface{}{
+						map[string]interface{}{
+							"type":    "item_reference",
+							"item_id": "nonexistent_item_id",
+						},
+					},
+				}
+				payload, err := json.Marshal(reqBody)
+				Expect(err).ToNot(HaveOccurred())
+
+				req, err := http.NewRequest("POST", "http://127.0.0.1:9090/v1/responses", bytes.NewBuffer(payload))
+				Expect(err).ToNot(HaveOccurred())
+				req.Header.Set("Content-Type", "application/json")
+				req.Header.Set("Authorization", bearerKey)
+
+				client := &http.Client{}
+				resp, err := client.Do(req)
+				Expect(err).ToNot(HaveOccurred())
+				defer resp.Body.Close()
+
+				// Should return error
+				Expect(resp.StatusCode).To(BeNumerically(">=", 400))
 			})
 		})
 	})
