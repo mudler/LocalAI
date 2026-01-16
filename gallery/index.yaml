@@ -1,4 +1,29 @@
 ---
+- name: "nova-lfm-1.2b-thinking"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Nova-LFM-1.2B-Thinking-GGUF
+  description: |
+    The model **NovachronoAI/Nova-LFM-1.2B-Thinking** is a 1.2B parameter language model optimized for reasoning, chain-of-thought (COT), self-correction, and physics-informed tasks. It is quantized using GGUF format, with the primary optimized variants being **Q4_K_S (0.8GB)** and **Q8_0 (1.3GB)** for balanced accuracy and efficiency. The model is trained on datasets like **Bespoke-Stratos-17k** and **self-correction-hybrid**, and supports multi-part GGUF files. It offers diverse quantization options (e.g., Q2_K, Q3_K, IQ4_XS) for performance trade-offs, with the highest quality being **Q8_0**. The model is designed for efficient inference with reasoning capabilities, suitable for tasks requiring logical deduction and iterative refinement.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Nova-LFM-1.2B-Thinking.Q4_K_M.gguf
+    name: Nova-LFM-1.2B-Thinking-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Nova-LFM-1.2B-Thinking-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Nova-LFM-1.2B-Thinking.Q4_K_M.gguf
+      sha256: 4518ce8774321f2ff85f3c66876b742e9a2024ed57cb26e66f18ad1f04b5e24a
+      uri: https://huggingface.co/mradermacher/Nova-LFM-1.2B-Thinking-GGUF/resolve/main/Nova-LFM-1.2B-Thinking.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
