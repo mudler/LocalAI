@@ -509,8 +509,14 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		}
 	}
 
+	// Pass logprobs and logit_bias parameters if requested
+	var logprobs *int
+	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+		logprobs = input.TopLogprobs
+	}
+
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, nil, nil, nil)
+		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, nil, toolsJSON, toolChoiceJSON, logprobs, input.TopLogprobs, input.LogitBias)
 	if err != nil {
 		xlog.Error("Open Responses model inference failed", "error", err)
 		return sendOpenResponsesError(c, 500, "model_error", fmt.Sprintf("model inference failed: %v", err), "")
@@ -545,14 +551,14 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 			})
 		}
 
-		// Add message item with text content
+		// Add message item with text content (include logprobs if available)
 		if textContent != "" {
 			outputItems = append(outputItems, schema.ORItemField{
 				Type:    "message",
 				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPart(textContent)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
 			})
 		}
 
@@ -568,14 +574,14 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 			})
 		}
 	} else {
-		// Simple text response
+		// Simple text response (include logprobs if available)
 		outputItems = []schema.ORItemField{
 			{
 				Type:    "message",
 				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPart(result)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)},
 			},
 		}
 	}
@@ -859,8 +865,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			return true
 		}
 
+		// Pass logprobs and logit_bias parameters if requested
+		var streamLogprobs *int
+		if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+			streamLogprobs = input.TopLogprobs
+		}
+
 		predFunc, err := backend.ModelInference(
-			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, nil, nil, nil)
+			input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, streamLogprobs, input.TopLogprobs, input.LogitBias)
 		if err != nil {
 			xlog.Error("Open Responses stream model inference failed", "error", err)
 			sendSSEEvent(c, &schema.ORStreamEvent{
@@ -915,6 +927,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		toolCalls := functions.ParseFunctionCall(cleanedResult, cfg.FunctionsConfig)
 		textContent := functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig)
 
+		// Convert prediction logprobs for streaming events
+		streamEventLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+
 		// Close message if we have text content
 		if currentMessageID != "" && textContent != "" && !inToolCallMode {
 			// Emit output_text.done
@@ -925,12 +940,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				OutputIndex:    &outputIndex,
 				ContentIndex:   &currentContentIndex,
 				Text:           textContent,
-				Logprobs:       []schema.ORLogProb{},
+				Logprobs:       streamEventLogprobs,
 			})
 			sequenceNumber++
 
-			// Emit content_part.done
-			textPart := makeOutputTextPart(textContent)
+			// Emit content_part.done (with actual logprobs)
+			textPart := makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.content_part.done",
 				SequenceNumber: sequenceNumber,
@@ -941,13 +956,13 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			})
 			sequenceNumber++
 
-			// Emit output_item.done for message
+			// Emit output_item.done for message (with actual logprobs)
 			messageItem := &schema.ORItemField{
 				Type:    "message",
 				ID:      currentMessageID,
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPart(textContent)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
 			}
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.output_item.done",
@@ -995,7 +1010,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			collectedOutputItems = append(collectedOutputItems, *functionCallItem)
 		}
 
-		// Build final response with all items
+		// Build final response with all items (include logprobs)
 		var allOutputItems []schema.ORItemField
 		if currentMessageID != "" && textContent != "" {
 			allOutputItems = append(allOutputItems, schema.ORItemField{
@@ -1003,7 +1018,7 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				ID:      currentMessageID,
 				Status:  "completed",
 				Role:    "assistant",
-				Content: []schema.ORContentPart{makeOutputTextPart(textContent)},
+				Content: []schema.ORContentPart{makeOutputTextPartWithLogprobs(textContent, prediction.Logprobs)},
 			})
 		}
 		for _, tc := range toolCalls {
@@ -1095,8 +1110,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		return true
 	}
 
+	// Pass logprobs and logit_bias parameters if requested
+	var mcpLogprobs *int
+	if input.TopLogprobs != nil && *input.TopLogprobs > 0 {
+		mcpLogprobs = input.TopLogprobs
+	}
+
 	predFunc, err := backend.ModelInference(
-		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, nil, nil, nil)
+		input.Context, predInput, openAIReq.Messages, images, videos, audios, ml, cfg, cl, appConfig, tokenCallback, toolsJSON, toolChoiceJSON, mcpLogprobs, input.TopLogprobs, input.LogitBias)
 	if err != nil {
 		xlog.Error("Open Responses stream model inference failed", "error", err)
 		sendSSEEvent(c, &schema.ORStreamEvent{
@@ -1148,6 +1169,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	result := backend.Finetune(*cfg, predInput, prediction.Response)
 
+	// Convert prediction logprobs for streaming events
+	mcpStreamLogprobs := convertLogprobsForStreaming(prediction.Logprobs)
+
 	// Emit output_text.done
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.output_text.done",
@@ -1156,12 +1180,12 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		OutputIndex:    &outputIndex,
 		ContentIndex:   &currentContentIndex,
 		Text:           result,
-		Logprobs:       []schema.ORLogProb{},
+		Logprobs:       mcpStreamLogprobs,
 	})
 	sequenceNumber++
 
-	// Emit content_part.done
-	resultPart := makeOutputTextPart(result)
+	// Emit content_part.done (with actual logprobs)
+	resultPart := makeOutputTextPartWithLogprobs(result, prediction.Logprobs)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.content_part.done",
 		SequenceNumber: sequenceNumber,
@@ -1172,9 +1196,9 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	})
 	sequenceNumber++
 
-	// Emit output_item.done
+	// Emit output_item.done (with actual logprobs)
 	messageItem.Status = "completed"
-	messageItem.Content = []schema.ORContentPart{makeOutputTextPart(result)}
+	messageItem.Content = []schema.ORContentPart{makeOutputTextPartWithLogprobs(result, prediction.Logprobs)}
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.output_item.done",
 		SequenceNumber: sequenceNumber,
@@ -1792,15 +1816,40 @@ func getTopLogprobs(topLogprobs *int) int {
 	return 0
 }
 
-// makeOutputTextPart creates an output_text content part with required annotations field
 // makeOutputTextPart creates an output_text content part with all required fields per Open Responses spec
 func makeOutputTextPart(text string) schema.ORContentPart {
-	return schema.ORContentPart{
-		Type:        "output_text",
-		Text:        text,
-		Annotations: []schema.ORAnnotation{}, // REQUIRED - must always be present as array (empty if none)
-		Logprobs:    []schema.ORLogProb{},    // REQUIRED - must always be present as array (empty if none)
+	return schema.ORContentPartWithLogprobs(text, nil)
+}
+
+// makeOutputTextPartWithLogprobs creates an output_text content part with actual logprobs data
+func makeOutputTextPartWithLogprobs(text string, logprobs *schema.Logprobs) schema.ORContentPart {
+	return schema.ORContentPartWithLogprobs(text, logprobs)
+}
+
+// convertLogprobsForStreaming converts OpenAI-style logprobs to Open Responses format for streaming events
+func convertLogprobsForStreaming(logprobs *schema.Logprobs) []schema.ORLogProb {
+	if logprobs == nil || len(logprobs.Content) == 0 {
+		return []schema.ORLogProb{}
 	}
+
+	result := make([]schema.ORLogProb, 0, len(logprobs.Content))
+	for _, lp := range logprobs.Content {
+		topLPs := make([]schema.ORTopLogProb, 0, len(lp.TopLogprobs))
+		for _, tlp := range lp.TopLogprobs {
+			topLPs = append(topLPs, schema.ORTopLogProb{
+				Token:   tlp.Token,
+				Logprob: tlp.Logprob,
+				Bytes:   tlp.Bytes,
+			})
+		}
+		result = append(result, schema.ORLogProb{
+			Token:       lp.Token,
+			Logprob:     lp.Logprob,
+			Bytes:       lp.Bytes,
+			TopLogprobs: topLPs,
+		})
+	}
+	return result
 }
 
 // ensureUsageDetails ensures usage has all required detail fields

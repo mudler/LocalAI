@@ -34,6 +34,9 @@ type OpenResponsesRequest struct {
 	Background        *bool       `json:"background,omitempty"`          // Run request in background
 	MaxToolCalls      *int        `json:"max_tool_calls,omitempty"`      // Maximum number of tool calls
 
+	// OpenAI-compatible extensions (not in Open Responses spec)
+	LogitBias map[string]float64 `json:"logit_bias,omitempty"` // Map of token IDs to bias values (-100 to 100)
+
 	// Internal fields (like OpenAIRequest)
 	Context context.Context    `json:"-"`
 	Cancel  context.CancelFunc `json:"-"`
@@ -86,10 +89,10 @@ type ORItemParam struct {
 // ORContentPart represents a content block (discriminated union by type)
 // For output_text: type, text, annotations, logprobs are ALL REQUIRED per Open Responses spec
 type ORContentPart struct {
-	Type        string         `json:"type"`             // input_text|input_image|input_file|output_text|refusal
-	Text        string         `json:"text,omitempty"`   // Required for output_text, omitempty for input types
-	Annotations []ORAnnotation `json:"annotations"`      // REQUIRED for output_text - must always be present (use [])
-	Logprobs    []ORLogProb    `json:"logprobs"`         // REQUIRED for output_text - must always be present (use [])
+	Type        string         `json:"type"`           // input_text|input_image|input_file|output_text|refusal
+	Text        string         `json:"text,omitempty"` // Required for output_text, omitempty for input types
+	Annotations []ORAnnotation `json:"annotations"`    // REQUIRED for output_text - must always be present (use [])
+	Logprobs    []ORLogProb    `json:"logprobs"`       // REQUIRED for output_text - must always be present (use [])
 	ImageURL    string         `json:"image_url,omitempty"`
 	FileURL     string         `json:"file_url,omitempty"`
 	Filename    string         `json:"filename,omitempty"`
@@ -254,4 +257,38 @@ type ORAnnotation struct {
 	EndIndex   int    `json:"end_index"`
 	URL        string `json:"url"`
 	Title      string `json:"title"`
+}
+
+// ORContentPartWithLogprobs creates an output_text content part with logprobs converted from OpenAI format
+func ORContentPartWithLogprobs(text string, logprobs *Logprobs) ORContentPart {
+	orLogprobs := []ORLogProb{}
+
+	// Convert OpenAI-style logprobs to Open Responses format
+	if logprobs != nil && len(logprobs.Content) > 0 {
+		for _, lp := range logprobs.Content {
+			// Convert top logprobs
+			topLPs := []ORTopLogProb{}
+			for _, tlp := range lp.TopLogprobs {
+				topLPs = append(topLPs, ORTopLogProb{
+					Token:   tlp.Token,
+					Logprob: tlp.Logprob,
+					Bytes:   tlp.Bytes,
+				})
+			}
+
+			orLogprobs = append(orLogprobs, ORLogProb{
+				Token:       lp.Token,
+				Logprob:     lp.Logprob,
+				Bytes:       lp.Bytes,
+				TopLogprobs: topLPs,
+			})
+		}
+	}
+
+	return ORContentPart{
+		Type:        "output_text",
+		Text:        text,
+		Annotations: []ORAnnotation{}, // REQUIRED - must always be present as array (empty if none)
+		Logprobs:    orLogprobs,       // REQUIRED - must always be present as array (empty if none)
+	}
 }
