@@ -1,4 +1,29 @@
 ---
+- name: "neutralgear_24b_v.2-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/NeutralGear_24B_V.2-i1-GGUF
+  description: |
+    The model `mradermacher/NeutralGear_24B_V.2-i1-GGUF` is a quantized version of the base model `OddTheGreat/NeutralGear_24B_V.2`, optimized for efficiency and performance. It is designed for tasks like roleplay, merging, and roleplay, with support for various quantization levels (e.g., IQ3_XXS, Q2_K, Q4_K_S) to balance size, speed, and quality. The model is available in GGUF format, with the most optimized version (IQ4_K_S) offering the best trade-off between size and performance. Users can download it from the Hugging Face page or the provided links.
+  overrides:
+    parameters:
+      model: llama-cpp/models/NeutralGear_24B_V.2.i1-Q4_K_M.gguf
+    name: NeutralGear_24B_V.2-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/NeutralGear_24B_V.2-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/NeutralGear_24B_V.2.i1-Q4_K_M.gguf
+      sha256: 36f758ea230acc048bd7408043a326466d24f08011905bd7133616f657946b81
+      uri: https://huggingface.co/mradermacher/NeutralGear_24B_V.2-i1-GGUF/resolve/main/NeutralGear_24B_V.2.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
