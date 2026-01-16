@@ -39,10 +39,12 @@ var _ = Describe("ResponseStore", func() {
 						ID:     "msg_123",
 						Status: "completed",
 						Role:   "assistant",
-						Content: []schema.ORContentPart{{
-							Type: "output_text",
-							Text: "Hello, world!",
-						}},
+					Content: []schema.ORContentPart{{
+						Type:        "output_text",
+						Text:        "Hello, world!",
+						Annotations: []schema.ORAnnotation{},
+						Logprobs:    []schema.ORLogProb{},
+					}},
 					},
 				},
 			}
@@ -160,10 +162,12 @@ var _ = Describe("ResponseStore", func() {
 						ID:     itemID,
 						Status: "completed",
 						Role:   "assistant",
-						Content: []schema.ORContentPart{{
-							Type: "output_text",
-							Text: "Specific message",
-						}},
+					Content: []schema.ORContentPart{{
+						Type:        "output_text",
+						Text:        "Specific message",
+						Annotations: []schema.ORAnnotation{},
+						Logprobs:    []schema.ORLogProb{},
+					}},
 					},
 				},
 			}

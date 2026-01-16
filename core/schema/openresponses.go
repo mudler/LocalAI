@@ -21,13 +21,18 @@ type OpenResponsesRequest struct {
 	Metadata           map[string]string `json:"metadata,omitempty"`
 	PreviousResponseID string            `json:"previous_response_id,omitempty"`
 
-	// Missing parameters from spec
+	// Additional parameters from spec
 	TextFormat        interface{} `json:"text_format,omitempty"`         // TextResponseFormat or JsonSchemaResponseFormatParam
 	ServiceTier       string      `json:"service_tier,omitempty"`        // "auto"|"default"|priority hint
 	AllowedTools      []string    `json:"allowed_tools,omitempty"`       // Restrict which tools can be invoked
 	Store             *bool       `json:"store,omitempty"`               // Whether to store the response
 	Include           []string    `json:"include,omitempty"`             // What to include in response
 	ParallelToolCalls *bool       `json:"parallel_tool_calls,omitempty"` // Allow parallel tool calls
+	PresencePenalty   *float64    `json:"presence_penalty,omitempty"`    // Presence penalty (-2.0 to 2.0)
+	FrequencyPenalty  *float64    `json:"frequency_penalty,omitempty"`   // Frequency penalty (-2.0 to 2.0)
+	TopLogprobs       *int        `json:"top_logprobs,omitempty"`        // Number of top logprobs to return
+	Background        *bool       `json:"background,omitempty"`          // Run request in background
+	MaxToolCalls      *int        `json:"max_tool_calls,omitempty"`      // Maximum number of tool calls
 
 	// Internal fields (like OpenAIRequest)
 	Context context.Context    `json:"-"`
@@ -48,7 +53,7 @@ type ORFunctionTool struct {
 	Name        string                 `json:"name"`
 	Description string                 `json:"description,omitempty"`
 	Parameters  map[string]interface{} `json:"parameters,omitempty"`
-	Strict      bool                   `json:"strict,omitempty"`
+	Strict      bool                   `json:"strict"` // Always include in response
 }
 
 // ORReasoningParam represents reasoning configuration
@@ -57,15 +62,15 @@ type ORReasoningParam struct {
 	Summary string `json:"summary,omitempty"` // "auto"|"concise"|"detailed"
 }
 
-// ORItemParam represents an input item (discriminated union by type)
+// ORItemParam represents an input/output item (discriminated union by type)
 type ORItemParam struct {
-	Type   string `json:"type"` // message|function_call|function_call_output|reasoning|item_reference
-	ID     string `json:"id,omitempty"`
+	Type   string `json:"type"`             // message|function_call|function_call_output|reasoning|item_reference
+	ID     string `json:"id,omitempty"`     // Present for all output items
 	Status string `json:"status,omitempty"` // in_progress|completed|incomplete
 
 	// Message fields
 	Role    string      `json:"role,omitempty"`    // user|assistant|system|developer
-	Content interface{} `json:"content,omitempty"` // string or []ORContentPart
+	Content interface{} `json:"content,omitempty"` // string or []ORContentPart for messages
 
 	// Function call fields
 	CallID    string `json:"call_id,omitempty"`
@@ -79,16 +84,22 @@ type ORItemParam struct {
 }
 
 // ORContentPart represents a content block (discriminated union by type)
+// For output_text: type, text, annotations, logprobs are ALL REQUIRED per Open Responses spec
 type ORContentPart struct {
-	Type     string `json:"type"` // input_text|input_image|input_file|output_text|refusal
-	Text     string `json:"text,omitempty"`
-	ImageURL string `json:"image_url,omitempty"`
-	FileURL  string `json:"file_url,omitempty"`
-	Filename string `json:"filename,omitempty"`
-	FileData string `json:"file_data,omitempty"`
-	Refusal  string `json:"refusal,omitempty"`
-	Detail   string `json:"detail,omitempty"` // low|high|auto for images
+	Type        string         `json:"type"`             // input_text|input_image|input_file|output_text|refusal
+	Text        string         `json:"text,omitempty"`   // Required for output_text, omitempty for input types
+	Annotations []ORAnnotation `json:"annotations"`      // REQUIRED for output_text - must always be present (use [])
+	Logprobs    []ORLogProb    `json:"logprobs"`         // REQUIRED for output_text - must always be present (use [])
+	ImageURL    string         `json:"image_url,omitempty"`
+	FileURL     string         `json:"file_url,omitempty"`
+	Filename    string         `json:"filename,omitempty"`
+	FileData    string         `json:"file_data,omitempty"`
+	Refusal     string         `json:"refusal,omitempty"`
+	Detail      string         `json:"detail,omitempty"` // low|high|auto for images
 }
+
+// OROutputTextContentPart is an alias for ORContentPart used specifically for output_text
+type OROutputTextContentPart = ORContentPart
 
 // ORItemField represents an output item (same structure as ORItemParam)
 type ORItemField = ORItemParam
@@ -102,19 +113,54 @@ type ORResponseResource struct {
 	Status             string               `json:"status"` // in_progress|completed|failed|incomplete
 	Model              string               `json:"model"`
 	Output             []ORItemField        `json:"output"`
-	Error              *ORError             `json:"error,omitempty"`
-	Usage              *ORUsage             `json:"usage,omitempty"`
-	Tools              []ORFunctionTool     `json:"tools,omitempty"`
-	ToolChoice         interface{}          `json:"tool_choice,omitempty"`
-	Truncation         string               `json:"truncation,omitempty"`
-	Temperature        float64              `json:"temperature,omitempty"`
-	TopP               float64              `json:"top_p,omitempty"`
-	MaxOutputTokens    *int                 `json:"max_output_tokens,omitempty"`
-	Reasoning          *ORReasoning         `json:"reasoning,omitempty"`
-	Metadata           map[string]string    `json:"metadata,omitempty"`
-	PreviousResponseID string               `json:"previous_response_id,omitempty"`
-	Instructions       string               `json:"instructions,omitempty"`
-	IncompleteDetails  *ORIncompleteDetails `json:"incomplete_details,omitempty"`
+	Error              *ORError             `json:"error"`              // Always present, null if no error
+	IncompleteDetails  *ORIncompleteDetails `json:"incomplete_details"` // Always present, null if complete
+	PreviousResponseID *string              `json:"previous_response_id"`
+	Instructions       *string              `json:"instructions"`
+
+	// Tool-related fields
+	Tools             []ORFunctionTool `json:"tools"` // Always present, empty array if no tools
+	ToolChoice        interface{}      `json:"tool_choice"`
+	ParallelToolCalls bool             `json:"parallel_tool_calls"`
+	MaxToolCalls      *int             `json:"max_tool_calls"` // nullable
+
+	// Sampling parameters (always required)
+	Temperature      float64 `json:"temperature"`
+	TopP             float64 `json:"top_p"`
+	PresencePenalty  float64 `json:"presence_penalty"`
+	FrequencyPenalty float64 `json:"frequency_penalty"`
+	TopLogprobs      int     `json:"top_logprobs"` // Default to 0
+	MaxOutputTokens  *int    `json:"max_output_tokens"`
+
+	// Text format configuration
+	Text *ORTextConfig `json:"text"`
+
+	// Truncation and reasoning
+	Truncation string       `json:"truncation"`
+	Reasoning  *ORReasoning `json:"reasoning"` // nullable
+
+	// Usage statistics
+	Usage *ORUsage `json:"usage"` // nullable
+
+	// Metadata and operational flags
+	Metadata    map[string]string `json:"metadata"`
+	Store       bool              `json:"store"`
+	Background  bool              `json:"background"`
+	ServiceTier string            `json:"service_tier"`
+
+	// Safety and caching
+	SafetyIdentifier *string `json:"safety_identifier"` // nullable
+	PromptCacheKey   *string `json:"prompt_cache_key"`  // nullable
+}
+
+// ORTextConfig represents text format configuration
+type ORTextConfig struct {
+	Format *ORTextFormat `json:"format,omitempty"`
+}
+
+// ORTextFormat represents the text format type
+type ORTextFormat struct {
+	Type string `json:"type"` // "text" or "json_schema"
 }
 
 // ORError represents an error in the response
@@ -130,18 +176,18 @@ type ORUsage struct {
 	InputTokens         int                    `json:"input_tokens"`
 	OutputTokens        int                    `json:"output_tokens"`
 	TotalTokens         int                    `json:"total_tokens"`
-	InputTokensDetails  *ORInputTokensDetails  `json:"input_tokens_details,omitempty"`
-	OutputTokensDetails *OROutputTokensDetails `json:"output_tokens_details,omitempty"`
+	InputTokensDetails  *ORInputTokensDetails  `json:"input_tokens_details"`  // Always present
+	OutputTokensDetails *OROutputTokensDetails `json:"output_tokens_details"` // Always present
 }
 
 // ORInputTokensDetails represents input token breakdown
 type ORInputTokensDetails struct {
-	CachedTokens int `json:"cached_tokens,omitempty"`
+	CachedTokens int `json:"cached_tokens"` // Always include, even if 0
 }
 
 // OROutputTokensDetails represents output token breakdown
 type OROutputTokensDetails struct {
-	ReasoningTokens int `json:"reasoning_tokens,omitempty"`
+	ReasoningTokens int `json:"reasoning_tokens"` // Always include, even if 0
 }
 
 // ORReasoning represents reasoning configuration and metadata

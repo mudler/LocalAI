@@ -548,14 +548,11 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		// Add message item with text content
 		if textContent != "" {
 			outputItems = append(outputItems, schema.ORItemField{
-				Type:   "message",
-				ID:     fmt.Sprintf("msg_%s", uuid.New().String()),
-				Status: "completed",
-				Role:   "assistant",
-				Content: []schema.ORContentPart{{
-					Type: "output_text",
-					Text: textContent,
-				}},
+				Type:    "message",
+				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPart(textContent)},
 			})
 		}
 
@@ -574,71 +571,22 @@ func handleOpenResponsesNonStream(c echo.Context, responseID string, createdAt i
 		// Simple text response
 		outputItems = []schema.ORItemField{
 			{
-				Type:   "message",
-				ID:     fmt.Sprintf("msg_%s", uuid.New().String()),
-				Status: "completed",
-				Role:   "assistant",
-				Content: []schema.ORContentPart{{
-					Type: "output_text",
-					Text: result,
-				}},
+				Type:    "message",
+				ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPart(result)},
 			},
 		}
 	}
 
-	// Build response
-	response := &schema.ORResponseResource{
-		ID:        responseID,
-		Object:    "response",
-		CreatedAt: createdAt,
-		Status:    "completed",
-		Model:     input.Model,
-		Output:    outputItems,
-		Usage: &schema.ORUsage{
-			InputTokens:  prediction.Usage.Prompt,
-			OutputTokens: prediction.Usage.Completion,
-			TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
-		},
-	}
-
-	// Set previous_response_id if provided
-	if input.PreviousResponseID != "" {
-		response.PreviousResponseID = input.PreviousResponseID
-	}
-
-	if input.Temperature != nil {
-		response.Temperature = *input.Temperature
-	}
-	if input.TopP != nil {
-		response.TopP = *input.TopP
-	}
-	if input.MaxOutputTokens != nil {
-		response.MaxOutputTokens = input.MaxOutputTokens
-	}
-	if input.Tools != nil {
-		response.Tools = input.Tools
-	}
-	if input.ToolChoice != nil {
-		response.ToolChoice = input.ToolChoice
-	}
-	if input.Truncation != "" {
-		response.Truncation = input.Truncation
-	}
-	if input.Metadata != nil {
-		response.Metadata = input.Metadata
-	}
-	if input.Instructions != "" {
-		response.Instructions = input.Instructions
-	}
-	if input.Reasoning != nil {
-		response.Reasoning = &schema.ORReasoning{
-			Effort:  input.Reasoning.Effort,
-			Summary: input.Reasoning.Summary,
-		}
-	}
-
+	// Build response with all required fields
 	now := time.Now().Unix()
-	response.CompletedAt = &now
+	response := buildORResponse(responseID, createdAt, &now, "completed", input, outputItems, &schema.ORUsage{
+		InputTokens:  prediction.Usage.Prompt,
+		OutputTokens: prediction.Usage.Completion,
+		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
+	}, shouldStore)
 
 	// Store response for future reference (if enabled)
 	if shouldStore {
@@ -657,20 +605,8 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	sequenceNumber := 0
 
-	// Emit response.created
-	responseCreated := &schema.ORResponseResource{
-		ID:        responseID,
-		Object:    "response",
-		CreatedAt: createdAt,
-		Status:    "in_progress",
-		Model:     input.Model,
-		Output:    []schema.ORItemField{},
-	}
-
-	// Set previous_response_id if provided
-	if input.PreviousResponseID != "" {
-		responseCreated.PreviousResponseID = input.PreviousResponseID
-	}
+	// Emit response.created - use helper to create response with all required fields
+	responseCreated := buildORResponse(responseID, createdAt, nil, "in_progress", input, []schema.ORItemField{}, nil, shouldStore)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.created",
 		SequenceNumber: sequenceNumber,
@@ -747,16 +683,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 				// New tool calls detected
 				if !inToolCallMode && currentMessageID != "" {
 					// Close the current message content part
+					textPart := makeOutputTextPart(functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig))
 					sendSSEEvent(c, &schema.ORStreamEvent{
 						Type:           "response.content_part.done",
 						SequenceNumber: sequenceNumber,
 						ItemID:         currentMessageID,
 						OutputIndex:    &outputIndex,
 						ContentIndex:   &currentContentIndex,
-						Part: &schema.ORContentPart{
-							Type: "output_text",
-							Text: functions.ParseTextContent(cleanedResult, cfg.FunctionsConfig),
-						},
+						Part:           &textPart,
 					})
 					sequenceNumber++
 					inToolCallMode = true
@@ -897,16 +831,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 					// Emit content_part.added
 					currentContentIndex = 0
+					emptyPart := makeOutputTextPart("")
 					sendSSEEvent(c, &schema.ORStreamEvent{
 						Type:           "response.content_part.added",
 						SequenceNumber: sequenceNumber,
 						ItemID:         currentMessageID,
 						OutputIndex:    &outputIndex,
 						ContentIndex:   &currentContentIndex,
-						Part: &schema.ORContentPart{
-							Type: "output_text",
-							Text: "",
-						},
+						Part:           &emptyPart,
 					})
 					sequenceNumber++
 				}
@@ -998,29 +930,24 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 			sequenceNumber++
 
 			// Emit content_part.done
+			textPart := makeOutputTextPart(textContent)
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.content_part.done",
 				SequenceNumber: sequenceNumber,
 				ItemID:         currentMessageID,
 				OutputIndex:    &outputIndex,
 				ContentIndex:   &currentContentIndex,
-				Part: &schema.ORContentPart{
-					Type: "output_text",
-					Text: textContent,
-				},
+				Part:           &textPart,
 			})
 			sequenceNumber++
 
 			// Emit output_item.done for message
 			messageItem := &schema.ORItemField{
-				Type:   "message",
-				ID:     currentMessageID,
-				Status: "completed",
-				Role:   "assistant",
-				Content: []schema.ORContentPart{{
-					Type: "output_text",
-					Text: textContent,
-				}},
+				Type:    "message",
+				ID:      currentMessageID,
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPart(textContent)},
 			}
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.output_item.done",
@@ -1072,14 +999,11 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 		var allOutputItems []schema.ORItemField
 		if currentMessageID != "" && textContent != "" {
 			allOutputItems = append(allOutputItems, schema.ORItemField{
-				Type:   "message",
-				ID:     currentMessageID,
-				Status: "completed",
-				Role:   "assistant",
-				Content: []schema.ORContentPart{{
-					Type: "output_text",
-					Text: textContent,
-				}},
+				Type:    "message",
+				ID:      currentMessageID,
+				Status:  "completed",
+				Role:    "assistant",
+				Content: []schema.ORContentPart{makeOutputTextPart(textContent)},
 			})
 		}
 		for _, tc := range toolCalls {
@@ -1096,50 +1020,11 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 		// Emit response.completed
 		now := time.Now().Unix()
-		responseCompleted := responseCreated
-		responseCompleted.Status = "completed"
-		responseCompleted.CompletedAt = &now
-		responseCompleted.Output = allOutputItems
-		responseCompleted.Usage = &schema.ORUsage{
+		responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, allOutputItems, &schema.ORUsage{
 			InputTokens:  prediction.Usage.Prompt,
 			OutputTokens: prediction.Usage.Completion,
 			TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
-		}
-
-		// Echo request parameters in response
-		if input.PreviousResponseID != "" {
-			responseCompleted.PreviousResponseID = input.PreviousResponseID
-		}
-		if input.Temperature != nil {
-			responseCompleted.Temperature = *input.Temperature
-		}
-		if input.TopP != nil {
-			responseCompleted.TopP = *input.TopP
-		}
-		if input.MaxOutputTokens != nil {
-			responseCompleted.MaxOutputTokens = input.MaxOutputTokens
-		}
-		if input.Tools != nil {
-			responseCompleted.Tools = input.Tools
-		}
-		if input.ToolChoice != nil {
-			responseCompleted.ToolChoice = input.ToolChoice
-		}
-		if input.Truncation != "" {
-			responseCompleted.Truncation = input.Truncation
-		}
-		if input.Metadata != nil {
-			responseCompleted.Metadata = input.Metadata
-		}
-		if input.Instructions != "" {
-			responseCompleted.Instructions = input.Instructions
-		}
-		if input.Reasoning != nil {
-			responseCompleted.Reasoning = &schema.ORReasoning{
-				Effort:  input.Reasoning.Effort,
-				Summary: input.Reasoning.Summary,
-			}
-		}
+		}, shouldStore)
 
 		sendSSEEvent(c, &schema.ORStreamEvent{
 			Type:           "response.completed",
@@ -1180,16 +1065,14 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Emit content_part.added
 	currentContentIndex = 0
+	emptyTextPart := makeOutputTextPart("")
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.content_part.added",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
 		OutputIndex:    &outputIndex,
 		ContentIndex:   &currentContentIndex,
-		Part: &schema.ORContentPart{
-			Type: "output_text",
-			Text: "",
-		},
+		Part:           &emptyTextPart,
 	})
 	sequenceNumber++
 
@@ -1278,25 +1161,20 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	sequenceNumber++
 
 	// Emit content_part.done
+	resultPart := makeOutputTextPart(result)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.content_part.done",
 		SequenceNumber: sequenceNumber,
 		ItemID:         currentMessageID,
 		OutputIndex:    &outputIndex,
 		ContentIndex:   &currentContentIndex,
-		Part: &schema.ORContentPart{
-			Type: "output_text",
-			Text: result,
-		},
+		Part:           &resultPart,
 	})
 	sequenceNumber++
 
 	// Emit output_item.done
 	messageItem.Status = "completed"
-	messageItem.Content = []schema.ORContentPart{{
-		Type: "output_text",
-		Text: result,
-	}}
+	messageItem.Content = []schema.ORContentPart{makeOutputTextPart(result)}
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.output_item.done",
 		SequenceNumber: sequenceNumber,
@@ -1307,9 +1185,6 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 
 	// Emit response.completed
 	now := time.Now().Unix()
-	responseCompleted := responseCreated
-	responseCompleted.Status = "completed"
-	responseCompleted.CompletedAt = &now
 
 	// Collect final output items (use collected items if available, otherwise use messageItem)
 	var finalOutputItems []schema.ORItemField
@@ -1318,21 +1193,22 @@ func handleOpenResponsesStream(c echo.Context, responseID string, createdAt int6
 	} else {
 		finalOutputItems = []schema.ORItemField{*messageItem}
 	}
-	responseCompleted.Output = finalOutputItems
-	responseCompleted.Usage = &schema.ORUsage{
+	responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, finalOutputItems, &schema.ORUsage{
 		InputTokens:  prediction.Usage.Prompt,
 		OutputTokens: prediction.Usage.Completion,
 		TotalTokens:  prediction.Usage.Prompt + prediction.Usage.Completion,
-	}
+	}, shouldStore)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.completed",
 		SequenceNumber: sequenceNumber,
 		Response:       responseCompleted,
 	})
 
-	// Store response for future reference
-	store := GetGlobalStore()
-	store.Store(responseID, input, responseCompleted)
+	// Store response for future reference (if enabled)
+	if shouldStore {
+		store := GetGlobalStore()
+		store.Store(responseID, input, responseCompleted)
+	}
 
 	// Send [DONE]
 	fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
@@ -1457,33 +1333,9 @@ func handleMCPNonStream(c echo.Context, responseID string, createdAt int64, inpu
 	fPtr := &f
 	outputItems := convertCogitoFragmentToORItems(fPtr)
 
-	// Build response
+	// Build response with all required fields
 	now := time.Now().Unix()
-	response := &schema.ORResponseResource{
-		ID:          responseID,
-		Object:      "response",
-		CreatedAt:   createdAt,
-		CompletedAt: &now,
-		Status:      "completed",
-		Model:       input.Model,
-		Output:      outputItems,
-	}
-
-	if input.PreviousResponseID != "" {
-		response.PreviousResponseID = input.PreviousResponseID
-	}
-	if input.Temperature != nil {
-		response.Temperature = *input.Temperature
-	}
-	if input.TopP != nil {
-		response.TopP = *input.TopP
-	}
-	if input.MaxOutputTokens != nil {
-		response.MaxOutputTokens = input.MaxOutputTokens
-	}
-	if input.Metadata != nil {
-		response.Metadata = input.Metadata
-	}
+	response := buildORResponse(responseID, createdAt, &now, "completed", input, outputItems, nil, shouldStore)
 
 	// Store response (if enabled)
 	if shouldStore {
@@ -1504,18 +1356,8 @@ func handleMCPStream(c echo.Context, responseID string, createdAt int64, input *
 
 	sequenceNumber := 0
 
-	// Emit response.created
-	responseCreated := &schema.ORResponseResource{
-		ID:        responseID,
-		Object:    "response",
-		CreatedAt: createdAt,
-		Status:    "in_progress",
-		Model:     input.Model,
-		Output:    []schema.ORItemField{},
-	}
-	if input.PreviousResponseID != "" {
-		responseCreated.PreviousResponseID = input.PreviousResponseID
-	}
+	// Emit response.created - use helper to create response with all required fields
+	responseCreated := buildORResponse(responseID, createdAt, nil, "in_progress", input, []schema.ORItemField{}, nil, shouldStore)
 	sendSSEEvent(c, &schema.ORStreamEvent{
 		Type:           "response.created",
 		SequenceNumber: sequenceNumber,
@@ -1647,14 +1489,11 @@ func handleMCPStream(c echo.Context, responseID string, createdAt int64, input *
 		messageID := fmt.Sprintf("msg_%s", uuid.New().String())
 		outputIndex++
 		item := schema.ORItemField{
-			Type:   "message",
-			ID:     messageID,
-			Status: "completed",
-			Role:   "assistant",
-			Content: []schema.ORContentPart{{
-				Type: "output_text",
-				Text: content,
-			}},
+			Type:    "message",
+			ID:      messageID,
+			Status:  "completed",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{makeOutputTextPart(content)},
 		}
 		collectedOutputItems = append(collectedOutputItems, item)
 
@@ -1689,10 +1528,7 @@ LOOP:
 			if err == nil {
 				// Emit response.completed
 				now := time.Now().Unix()
-				responseCompleted := responseCreated
-				responseCompleted.Status = "completed"
-				responseCompleted.CompletedAt = &now
-				responseCompleted.Output = collectedOutputItems
+				responseCompleted := buildORResponse(responseID, createdAt, &now, "completed", input, collectedOutputItems, nil, shouldStore)
 				sendSSEEvent(c, &schema.ORStreamEvent{
 					Type:           "response.completed",
 					SequenceNumber: sequenceNumber,
@@ -1700,9 +1536,11 @@ LOOP:
 				})
 				sequenceNumber++
 
-				// Store response
-				store := GetGlobalStore()
-				store.Store(responseID, input, responseCompleted)
+				// Store response (if enabled)
+				if shouldStore {
+					store := GetGlobalStore()
+					store.Store(responseID, input, responseCompleted)
+				}
 
 				// Send [DONE]
 				fmt.Fprintf(c.Response().Writer, "data: [DONE]\n\n")
@@ -1719,8 +1557,7 @@ LOOP:
 				},
 			})
 			sequenceNumber++
-			responseFailed := responseCreated
-			responseFailed.Status = "failed"
+			responseFailed := buildORResponse(responseID, createdAt, nil, "failed", input, collectedOutputItems, nil, shouldStore)
 			sendSSEEvent(c, &schema.ORStreamEvent{
 				Type:           "response.failed",
 				SequenceNumber: sequenceNumber,
@@ -1743,14 +1580,11 @@ func convertCogitoFragmentToORItems(f *cogito.Fragment) []schema.ORItemField {
 	lastMsg := f.LastMessage()
 	if lastMsg != nil && lastMsg.Content != "" {
 		items = append(items, schema.ORItemField{
-			Type:   "message",
-			ID:     fmt.Sprintf("msg_%s", uuid.New().String()),
-			Status: "completed",
-			Role:   "assistant",
-			Content: []schema.ORContentPart{{
-				Type: "output_text",
-				Text: lastMsg.Content,
-			}},
+			Type:    "message",
+			ID:      fmt.Sprintf("msg_%s", uuid.New().String()),
+			Status:  "completed",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{makeOutputTextPart(lastMsg.Content)},
 		})
 	}
 
@@ -1887,16 +1721,14 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 		*sequenceNumber++
 
 		// Emit content part
+		emptyPart := makeOutputTextPart("")
 		sendSSEEvent(c, &schema.ORStreamEvent{
 			Type:           "response.content_part.added",
 			SequenceNumber: *sequenceNumber,
 			ItemID:         itemID,
 			OutputIndex:    &outputIndex,
 			ContentIndex:   func() *int { i := 0; return &i }(),
-			Part: &schema.ORContentPart{
-				Type: "output_text",
-				Text: "",
-			},
+			Part:           &emptyPart,
 		})
 		*sequenceNumber++
 
@@ -1913,25 +1745,20 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 		*sequenceNumber++
 
 		// Emit content part done
+		contentPart := makeOutputTextPart(content)
 		sendSSEEvent(c, &schema.ORStreamEvent{
 			Type:           "response.content_part.done",
 			SequenceNumber: *sequenceNumber,
 			ItemID:         itemID,
 			OutputIndex:    &outputIndex,
 			ContentIndex:   func() *int { i := 0; return &i }(),
-			Part: &schema.ORContentPart{
-				Type: "output_text",
-				Text: content,
-			},
+			Part:           &contentPart,
 		})
 		*sequenceNumber++
 
 		// Emit item done
 		item.Status = "completed"
-		item.Content = []schema.ORContentPart{{
-			Type: "output_text",
-			Text: content,
-		}}
+		item.Content = []schema.ORContentPart{makeOutputTextPart(content)}
 		sendSSEEvent(c, &schema.ORStreamEvent{
 			Type:           "response.output_item.done",
 			SequenceNumber: *sequenceNumber,
@@ -1955,6 +1782,190 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 	}
 
 	return nil
+}
+
+// getTopLogprobs returns the top_logprobs value, defaulting to 0 if nil
+func getTopLogprobs(topLogprobs *int) int {
+	if topLogprobs != nil {
+		return *topLogprobs
+	}
+	return 0
+}
+
+// makeOutputTextPart creates an output_text content part with required annotations field
+// makeOutputTextPart creates an output_text content part with all required fields per Open Responses spec
+func makeOutputTextPart(text string) schema.ORContentPart {
+	return schema.ORContentPart{
+		Type:        "output_text",
+		Text:        text,
+		Annotations: []schema.ORAnnotation{}, // REQUIRED - must always be present as array (empty if none)
+		Logprobs:    []schema.ORLogProb{},    // REQUIRED - must always be present as array (empty if none)
+	}
+}
+
+// ensureUsageDetails ensures usage has all required detail fields
+func ensureUsageDetails(usage *schema.ORUsage) *schema.ORUsage {
+	if usage == nil {
+		return nil
+	}
+	// Ensure details are always present (not nil)
+	if usage.InputTokensDetails == nil {
+		usage.InputTokensDetails = &schema.ORInputTokensDetails{CachedTokens: 0}
+	}
+	if usage.OutputTokensDetails == nil {
+		usage.OutputTokensDetails = &schema.OROutputTokensDetails{ReasoningTokens: 0}
+	}
+	return usage
+}
+
+// buildORResponse creates a complete ORResponseResource with all required fields
+func buildORResponse(responseID string, createdAt int64, completedAt *int64, status string, input *schema.OpenResponsesRequest, outputItems []schema.ORItemField, usage *schema.ORUsage, shouldStore bool) *schema.ORResponseResource {
+	// Ensure output is never null - always an array
+	if outputItems == nil {
+		outputItems = []schema.ORItemField{}
+	}
+
+	// Ensure tools is never null - always an array
+	tools := input.Tools
+	if tools == nil {
+		tools = []schema.ORFunctionTool{}
+	}
+
+	// Ensure metadata is never null - always a map
+	metadata := input.Metadata
+	if metadata == nil {
+		metadata = map[string]string{}
+	}
+
+	// Set default values for sampling parameters
+	temperature := 1.0
+	if input.Temperature != nil {
+		temperature = *input.Temperature
+	}
+
+	topP := 1.0
+	if input.TopP != nil {
+		topP = *input.TopP
+	}
+
+	presencePenalty := 0.0
+	if input.PresencePenalty != nil {
+		presencePenalty = *input.PresencePenalty
+	}
+
+	frequencyPenalty := 0.0
+	if input.FrequencyPenalty != nil {
+		frequencyPenalty = *input.FrequencyPenalty
+	}
+
+	// Default truncation to "auto"
+	truncation := "auto"
+	if input.Truncation != "" {
+		truncation = input.Truncation
+	}
+
+	// Default service_tier to "default"
+	serviceTier := "default"
+	if input.ServiceTier != "" {
+		serviceTier = input.ServiceTier
+	}
+
+	// Default parallel_tool_calls to true
+	parallelToolCalls := true
+	if input.ParallelToolCalls != nil {
+		parallelToolCalls = *input.ParallelToolCalls
+	}
+
+	// Default tool_choice: "auto" if tools are present, "none" otherwise
+	var toolChoice interface{}
+	if input.ToolChoice != nil {
+		toolChoice = input.ToolChoice
+	} else if len(tools) > 0 {
+		toolChoice = "auto"
+	} else {
+		toolChoice = "none"
+	}
+
+	// Background defaults to false
+	background := false
+	if input.Background != nil {
+		background = *input.Background
+	}
+
+	// Convert nullable string fields
+	var previousResponseID *string
+	if input.PreviousResponseID != "" {
+		previousResponseID = &input.PreviousResponseID
+	}
+
+	var instructions *string
+	if input.Instructions != "" {
+		instructions = &input.Instructions
+	}
+
+	// Convert reasoning
+	var reasoning *schema.ORReasoning
+	if input.Reasoning != nil {
+		reasoning = &schema.ORReasoning{
+			Effort:  input.Reasoning.Effort,
+			Summary: input.Reasoning.Summary,
+		}
+	}
+
+	// Build default text config
+	textConfig := &schema.ORTextConfig{
+		Format: &schema.ORTextFormat{
+			Type: "text",
+		},
+	}
+
+	return &schema.ORResponseResource{
+		ID:                 responseID,
+		Object:             "response",
+		CreatedAt:          createdAt,
+		CompletedAt:        completedAt,
+		Status:             status,
+		Model:              input.Model,
+		Output:             outputItems,
+		Error:              nil, // null when no error
+		IncompleteDetails:  nil, // null when complete
+		PreviousResponseID: previousResponseID,
+		Instructions:       instructions,
+
+		// Tool-related fields
+		Tools:             tools,
+		ToolChoice:        toolChoice,
+		ParallelToolCalls: parallelToolCalls,
+		MaxToolCalls:      input.MaxToolCalls,
+
+		// Sampling parameters
+		Temperature:      temperature,
+		TopP:             topP,
+		PresencePenalty:  presencePenalty,
+		FrequencyPenalty: frequencyPenalty,
+		TopLogprobs:      getTopLogprobs(input.TopLogprobs),
+		MaxOutputTokens:  input.MaxOutputTokens,
+
+		// Text format
+		Text: textConfig,
+
+		// Truncation and reasoning
+		Truncation: truncation,
+		Reasoning:  reasoning,
+
+		// Usage
+		Usage: ensureUsageDetails(usage),
+
+		// Metadata and operational flags
+		Metadata:    metadata,
+		Store:       shouldStore,
+		Background:  background,
+		ServiceTier: serviceTier,
+
+		// Safety and caching (nullable, not yet implemented)
+		SafetyIdentifier: nil,
+		PromptCacheKey:   nil,
+	}
 }
 
 // sendOpenResponsesError sends an error response
