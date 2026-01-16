@@ -1,4 +1,29 @@
 ---
+- name: "libero-object"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/arashakb/LIBERO-Object-gguf
+  description: |
+    AI model: libero-object
+  overrides:
+    parameters:
+      model: llama-cpp/models/llm_q4_k_m.gguf
+    name: LIBERO-Object-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/arashakb/LIBERO-Object-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/llm_q4_k_m.gguf
+      sha256: 8aac2c475454bebacee3cace8bd8955fcdef259f95b0fa44f90fa2c360546385
+      uri: https://huggingface.co/arashakb/LIBERO-Object-gguf/resolve/main/llm_q4_k_m.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
