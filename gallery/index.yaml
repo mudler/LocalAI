@@ -1,4 +1,31 @@
 ---
+- name: "kimi-linear-reap-35b-a3b-instruct"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/lunv/Kimi-Linear-REAP-35B-A3B-Instruct-GGUF
+  description: |
+    The model **Kimi-Linear-REAP-35B-A3B-Instruct-GGUF** is a 35B parameter language model fine-tuned for instruction-following tasks. It is a quantized version of the original model, optimized for efficiency with the A3B quantization scheme. While the quantized version is suitable for deployment in GGUF format, the **base model** (unquantized) is **Kimi-Linear-REAP-35B-Instruct**, which is the original model used for training.
+
+    For model gallery purposes, this version is optimized for performance and efficiency, leveraging A3B quantization to reduce memory usage while maintaining accuracy. It is designed for tasks like text generation, reasoning, and multi-turn dialogue.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Kimi-Linear-REAP-35B-A3B-Instruct-Q5_K_S.gguf
+    name: Kimi-Linear-REAP-35B-A3B-Instruct-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/lunv/Kimi-Linear-REAP-35B-A3B-Instruct-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Kimi-Linear-REAP-35B-A3B-Instruct-Q5_K_S.gguf
+      sha256: a3f2b97a301ddbcb1379122a53edc4d587d175b4b1ab8d355e7f0bbe2cc14cbb
+      uri: https://huggingface.co/lunv/Kimi-Linear-REAP-35B-A3B-Instruct-GGUF/resolve/main/Kimi-Linear-REAP-35B-A3B-Instruct-Q5_K_S.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
