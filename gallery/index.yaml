@@ -1,4 +1,29 @@
 ---
+- name: "ministral-3-8b-instruct-2512-tainted-heresy-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Ministral-3-8B-Instruct-2512-tainted-heresy-i1-GGUF
+  description: |
+    The model, **Ministral-3-8B-Instruct-2512-tainted-heresy**, is a quantized version of the original **Ministral-3-8B-Instruct** model. It is designed for efficient deployment with specific quantization settings (e.g., Q2_K, IQ3_M, etc.), but the base model's description (without quantization) is not explicitly provided in the repository. To share the real description, the user would need to refer to the original model's readme or documentation. For now, the quantized version is described with its specific quantization parameters, but the base model's details remain unspecified.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Ministral-3-8B-Instruct-2512-tainted-heresy.i1-Q4_K_M.gguf
+    name: Ministral-3-8B-Instruct-2512-tainted-heresy-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Ministral-3-8B-Instruct-2512-tainted-heresy-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Ministral-3-8B-Instruct-2512-tainted-heresy.i1-Q4_K_M.gguf
+      sha256: 2b7f41aafe7f327de444d3686a208652e4462916d80be15d81274579a1f5495c
+      uri: https://huggingface.co/mradermacher/Ministral-3-8B-Instruct-2512-tainted-heresy-i1-GGUF/resolve/main/Ministral-3-8B-Instruct-2512-tainted-heresy.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
