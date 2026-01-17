@@ -484,3 +484,103 @@ func mergeOpenAIRequestAndModelConfig(config *config.ModelConfig, input *schema.
 	}
 	return fmt.Errorf("unable to validate configuration after merging")
 }
+
+func (re *RequestExtractor) SetOpenResponsesRequest(c echo.Context) error {
+	input, ok := c.Get(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST).(*schema.OpenResponsesRequest)
+	if !ok || input.Model == "" {
+		return echo.ErrBadRequest
+	}
+
+	cfg, ok := c.Get(CONTEXT_LOCALS_KEY_MODEL_CONFIG).(*config.ModelConfig)
+	if !ok || cfg == nil {
+		return echo.ErrBadRequest
+	}
+
+	// Extract or generate the correlation ID (Open Responses uses x-request-id)
+	correlationID := c.Request().Header.Get("x-request-id")
+	if correlationID == "" {
+		correlationID = uuid.New().String()
+	}
+	c.Response().Header().Set("x-request-id", correlationID)
+
+	// Use the request context directly - Echo properly supports context cancellation!
+	reqCtx := c.Request().Context()
+	c1, cancel := context.WithCancel(re.applicationConfig.Context)
+
+	// Cancel when request context is cancelled (client disconnects)
+	go func() {
+		select {
+		case <-reqCtx.Done():
+			cancel()
+		case <-c1.Done():
+			// Already cancelled
+		}
+	}()
+
+	// Add the correlation ID to the new context
+	ctxWithCorrelationID := context.WithValue(c1, CorrelationIDKey, correlationID)
+
+	input.Context = ctxWithCorrelationID
+	input.Cancel = cancel
+
+	err := mergeOpenResponsesRequestAndModelConfig(cfg, input)
+	if err != nil {
+		return err
+	}
+
+	if cfg.Model == "" {
+		xlog.Debug("replacing empty cfg.Model with input value", "input.Model", input.Model)
+		cfg.Model = input.Model
+	}
+
+	c.Set(CONTEXT_LOCALS_KEY_LOCALAI_REQUEST, input)
+	c.Set(CONTEXT_LOCALS_KEY_MODEL_CONFIG, cfg)
+
+	return nil
+}
+
+func mergeOpenResponsesRequestAndModelConfig(config *config.ModelConfig, input *schema.OpenResponsesRequest) error {
+	// Temperature
+	if input.Temperature != nil {
+		config.Temperature = input.Temperature
+	}
+
+	// TopP
+	if input.TopP != nil {
+		config.TopP = input.TopP
+	}
+
+	// MaxOutputTokens -> Maxtokens
+	if input.MaxOutputTokens != nil {
+		config.Maxtokens = input.MaxOutputTokens
+	}
+
+	// Convert tools to functions - this will be handled in the endpoint handler
+	// We just validate that tools are present if needed
+
+	// Handle tool_choice
+	if input.ToolChoice != nil {
+		switch tc := input.ToolChoice.(type) {
+		case string:
+			// "auto", "required", or "none"
+			if tc == "required" {
+				config.SetFunctionCallString("required")
+			} else if tc == "none" {
+				// Don't use tools - handled in endpoint
+			}
+			// "auto" is default - let model decide
+		case map[string]interface{}:
+			// Specific tool: {type:"function", name:"..."}
+			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
+				if name, ok := tc["name"].(string); ok {
+					config.SetFunctionCallString(name)
+				}
+			}
+		}
+	}
+
+	if valid, _ := config.Validate(); valid {
+		return nil
+	}
+	return fmt.Errorf("unable to validate configuration after merging")
+}

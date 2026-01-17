@@ -83,6 +83,7 @@ type RunCMD struct {
 	EnableTracing                      bool     `env:"LOCALAI_ENABLE_TRACING,ENABLE_TRACING" help:"Enable API tracing" group:"api"`
 	TracingMaxItems                    int      `env:"LOCALAI_TRACING_MAX_ITEMS" default:"1024" help:"Maximum number of traces to keep" group:"api"`
 	AgentJobRetentionDays              int      `env:"LOCALAI_AGENT_JOB_RETENTION_DAYS,AGENT_JOB_RETENTION_DAYS" default:"30" help:"Number of days to keep agent job history (default: 30)" group:"api"`
+	OpenResponsesStoreTTL               string   `env:"LOCALAI_OPEN_RESPONSES_STORE_TTL,OPEN_RESPONSES_STORE_TTL" default:"0" help:"TTL for Open Responses store (e.g., 1h, 30m, 0 = no expiration)" group:"api"`
 
 	Version bool
 }
@@ -247,6 +248,15 @@ func (r *RunCMD) Run(ctx *cliContext.Context) error {
 			return fmt.Errorf("invalid LRU eviction retry interval: %w", err)
 		}
 		opts = append(opts, config.WithLRUEvictionRetryInterval(dur))
+	}
+
+	// Handle Open Responses store TTL
+	if r.OpenResponsesStoreTTL != "" && r.OpenResponsesStoreTTL != "0" {
+		dur, err := time.ParseDuration(r.OpenResponsesStoreTTL)
+		if err != nil {
+			return fmt.Errorf("invalid Open Responses store TTL: %w", err)
+		}
+		opts = append(opts, config.WithOpenResponsesStoreTTL(dur))
 	}
 
 	// split ":" to get backend name and the uri

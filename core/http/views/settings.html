@@ -485,6 +485,28 @@
                 </div>
             </div>
 
+            <!-- Open Responses Settings Section -->
+            <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-accent)]/20 rounded-lg p-6">
+                <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
+                    <i class="fas fa-database mr-2 text-[var(--color-accent)] text-sm"></i>
+                    Open Responses Settings
+                </h2>
+                <p class="text-xs text-[var(--color-text-secondary)] mb-4">
+                    Configure Open Responses API response storage
+                </p>
+
+                <div class="space-y-4">
+                    <!-- Store TTL -->
+                    <div>
+                        <label class="block text-sm font-medium text-[var(--color-text-primary)] mb-2">Response Store TTL</label>
+                        <p class="text-xs text-[var(--color-text-secondary)] mb-2">Time-to-live for stored responses (e.g., 1h, 30m, 0 = no expiration)</p>
+                        <input type="text" x-model="settings.open_responses_store_ttl"
+                               placeholder="0"
+                               class="w-full px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-accent)]/20 rounded text-sm text-[var(--color-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]/50">
+                    </div>
+                </div>
+            </div>
+
             <!-- API Keys Settings Section -->
             <div class="bg-[var(--color-bg-secondary)] border border-[var(--color-error-light)] rounded-lg p-6">
                 <h2 class="text-xl font-semibold text-[var(--color-text-primary)] mb-4 flex items-center">
@@ -633,7 +655,8 @@ function settingsDashboard() {
             galleries_json: '[]',
             backend_galleries_json: '[]',
             api_keys_text: '',
-            agent_job_retention_days: 30
+            agent_job_retention_days: 30,
+            open_responses_store_ttl: '0'
         },
         sourceInfo: '',
         saving: false,
@@ -680,7 +703,8 @@ function settingsDashboard() {
                         galleries_json: JSON.stringify(data.galleries || [], null, 2),
                         backend_galleries_json: JSON.stringify(data.backend_galleries || [], null, 2),
                         api_keys_text: (data.api_keys || []).join('\n'),
-                        agent_job_retention_days: data.agent_job_retention_days || 30
+                        agent_job_retention_days: data.agent_job_retention_days || 30,
+                        open_responses_store_ttl: data.open_responses_store_ttl || '0'
                     };
                     this.sourceInfo = data.source || 'default';
                 } else {
@@ -837,6 +861,9 @@ function settingsDashboard() {
                 }
                 if (this.settings.agent_job_retention_days !== undefined) {
                     payload.agent_job_retention_days = parseInt(this.settings.agent_job_retention_days) || 30;
+                }
+                if (this.settings.open_responses_store_ttl !== undefined) {
+                    payload.open_responses_store_ttl = this.settings.open_responses_store_ttl;
                 }
 
                 const response = await fetch('/api/settings', {
