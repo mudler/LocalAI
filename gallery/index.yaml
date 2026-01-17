@@ -1,4 +1,29 @@
 ---
+- name: "iflow-rome-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/iFlow-ROME-i1-GGUF
+  description: |
+    The model `mradermacher/iFlow-ROME-i1-GGUF` is a quantized version of the base model `FutureLivingLab/iFlow-ROME`. It is designed for efficient deployment and inference, optimized for tasks like agent reasoning and MoE (Mixture of Experts) architectures. The model is available in various quantized formats (e.g., IQ2_M, Q4_K_M, etc.) for different performance and accuracy trade-offs. It uses the HuggingFace Transformers library and is licensed under the Apache 2.0 license. For detailed usage, refer to the provided GGUF files and the model page on HuggingFace.
+  overrides:
+    parameters:
+      model: llama-cpp/models/iFlow-ROME.i1-Q4_K_M.gguf
+    name: iFlow-ROME-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/iFlow-ROME-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/iFlow-ROME.i1-Q4_K_M.gguf
+      sha256: 0c60384770cc6044e977a2d2aab576d60cf091a2a90f2bbb6847c55293f51f27
+      uri: https://huggingface.co/mradermacher/iFlow-ROME-i1-GGUF/resolve/main/iFlow-ROME.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
