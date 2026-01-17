@@ -1,4 +1,29 @@
 ---
+- name: "soulbound-8b-v1.3"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/Akashiurahara/Soulbound-8B-v1.3-GGUF
+  description: |
+    Soulbound-8B v1.3 is an 8-billion parameter model optimized for sillytavern roleplay and immersion. It excels in generating epic fantasy, slow-burn romance, domestic fluff, and dark adventures. The model is fine-tuned for high-fidelity interactions but comes with a strong safety warning: it may produce content that violates local laws or is offensive when pushed outside its intended context. Users are advised to exercise discretion and follow responsible usage guidelines.
+  overrides:
+    parameters:
+      model: llama-cpp/models/model_q4_k_m.gguf
+    name: Soulbound-8B-v1.3-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/Akashiurahara/Soulbound-8B-v1.3-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/model_q4_k_m.gguf
+      sha256: 835e37d41fbece5f14069fc3da4ca33b0ee8655ac561de2e4d45f51910b9c3c8
+      uri: https://huggingface.co/Akashiurahara/Soulbound-8B-v1.3-GGUF/resolve/main/model_q4_k_m.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
