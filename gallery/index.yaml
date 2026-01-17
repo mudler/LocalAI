@@ -1,4 +1,33 @@
 ---
+- name: "adareasoner-7b-randomized"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/AdaReasoner-7B-Randomized-GGUF
+  description: |
+    The model **AdaReasoner-7B-Randomized** is a large language model (7 billion parameters) designed for reasoning tasks. It is a quantized version of the AdaReasoner architecture, trained on a diverse dataset to enable logical reasoning, knowledge integration, and problem-solving capabilities. The model is optimized for efficiency with quantization (e.g., Q4_K_S, Q2_K, etc.), making it suitable for deployment in low-resource settings. It is intended for tasks like complex reasoning, multi-step problem-solving, and knowledge-based inference.
+  overrides:
+    parameters:
+      model: llama-cpp/models/AdaReasoner-7B-Randomized.Q4_K_M.gguf
+    name: AdaReasoner-7B-Randomized-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    mmproj: llama-cpp/mmproj/AdaReasoner-7B-Randomized.mmproj-f16.gguf
+    description: Imported from https://huggingface.co/mradermacher/AdaReasoner-7B-Randomized-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/AdaReasoner-7B-Randomized.Q4_K_M.gguf
+      sha256: 0bba75a1040d79503b34abd19d5f2e81129b28d98672ff3505323f2a6a3dc3e6
+      uri: https://huggingface.co/mradermacher/AdaReasoner-7B-Randomized-GGUF/resolve/main/AdaReasoner-7B-Randomized.Q4_K_M.gguf
+    - filename: llama-cpp/mmproj/AdaReasoner-7B-Randomized.mmproj-f16.gguf
+      sha256: dea260e34089df89220fe245ca11852b2c6ed7d142c2a690421f0ea1858dba03
+      uri: https://huggingface.co/mradermacher/AdaReasoner-7B-Randomized-GGUF/resolve/main/AdaReasoner-7B-Randomized.mmproj-f16.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
