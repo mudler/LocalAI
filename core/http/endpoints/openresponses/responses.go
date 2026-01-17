@@ -547,15 +547,15 @@ func convertORToolsToFunctions(input *schema.OpenResponsesRequest, cfg *config.M
 	if input.ToolChoice != nil {
 		switch tc := input.ToolChoice.(type) {
 		case string:
-			if tc == "required" {
+			switch tc {
+			case "required":
 				cfg.SetFunctionCallString("required")
-			} else if tc == "none" {
+			case "none":
 				return nil, false
-			} else if tc == "auto" {
+			case "auto":
 				// "auto" is the default - let model decide whether to use tools
 				// Tools are available but not forced
 			}
-			// If not "required", "none", or "auto", treat as "auto" (default behavior)
 		case map[string]interface{}:
 			if tcType, ok := tc["type"].(string); ok && tcType == "function" {
 				if name, ok := tc["name"].(string); ok {
