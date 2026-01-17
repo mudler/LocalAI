@@ -2571,6 +2571,15 @@ func serializeToolsForBackend(orTools []schema.ORFunctionTool) string {
 
 // GetResponseEndpoint returns a handler for GET /responses/:id
 // This endpoint is used for polling background responses or resuming streaming
+// @Summary Get a response by ID
+// @Description Retrieve a response by ID. Can be used for polling background responses or resuming streaming responses.
+// @Param id path string true "Response ID"
+// @Param stream query string false "Set to 'true' to resume streaming"
+// @Param starting_after query int false "Sequence number to resume from (for streaming)"
+// @Success 200 {object} schema.ORResponseResource "Response"
+// @Failure 400 {object} map[string]interface{} "Bad Request"
+// @Failure 404 {object} map[string]interface{} "Not Found"
+// @Router /v1/responses/{id} [get]
 func GetResponseEndpoint() func(c echo.Context) error {
 	return func(c echo.Context) error {
 		responseID := c.Param("id")
@@ -2703,6 +2712,13 @@ func handleStreamResume(c echo.Context, store *ResponseStore, responseID string,
 
 // CancelResponseEndpoint returns a handler for POST /responses/:id/cancel
 // This endpoint cancels a background response if it's still in progress
+// @Summary Cancel a response
+// @Description Cancel a background response if it's still in progress
+// @Param id path string true "Response ID"
+// @Success 200 {object} schema.ORResponseResource "Response"
+// @Failure 400 {object} map[string]interface{} "Bad Request"
+// @Failure 404 {object} map[string]interface{} "Not Found"
+// @Router /v1/responses/{id}/cancel [post]
 func CancelResponseEndpoint() func(c echo.Context) error {
 	return func(c echo.Context) error {
 		responseID := c.Param("id")
