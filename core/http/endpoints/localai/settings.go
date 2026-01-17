@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/mudler/LocalAI/core/application"
 	"github.com/mudler/LocalAI/core/config"
+	"github.com/mudler/LocalAI/core/http/endpoints/openresponses"
 	"github.com/mudler/LocalAI/core/p2p"
 	"github.com/mudler/LocalAI/core/schema"
 	"github.com/mudler/xlog"
@@ -84,6 +85,16 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 				})
 			}
 		}
+		if settings.OpenResponsesStoreTTL != nil {
+			if *settings.OpenResponsesStoreTTL != "0" && *settings.OpenResponsesStoreTTL != "" {
+				if _, err := time.ParseDuration(*settings.OpenResponsesStoreTTL); err != nil {
+					return c.JSON(http.StatusBadRequest, schema.SettingsResponse{
+						Success: false,
+						Error:   "Invalid open_responses_store_ttl format: " + err.Error(),
+					})
+				}
+			}
+		}
 
 		// Save to file
 		if appConfig.DynamicConfigsDir == "" {
@@ -142,6 +153,22 @@ func UpdateSettingsEndpoint(app *application.Application) echo.HandlerFunc {
 		if settings.LRUEvictionMaxRetries != nil || settings.LRUEvictionRetryInterval != nil {
 			app.ModelLoader().SetLRUEvictionRetrySettings(maxRetries, retryInterval)
 			xlog.Info("Updated LRU eviction retry settings", "maxRetries", maxRetries, "retryInterval", retryInterval)
+		}
+
+		// Update Open Responses store TTL dynamically
+		if settings.OpenResponsesStoreTTL != nil {
+			ttl := time.Duration(0)
+			if *settings.OpenResponsesStoreTTL != "0" && *settings.OpenResponsesStoreTTL != "" {
+				if dur, err := time.ParseDuration(*settings.OpenResponsesStoreTTL); err == nil {
+					ttl = dur
+				} else {
+					xlog.Warn("Invalid Open Responses store TTL format", "ttl", *settings.OpenResponsesStoreTTL, "error", err)
+				}
+			}
+			// Import the store package
+			store := openresponses.GetGlobalStore()
+			store.SetTTL(ttl)
+			xlog.Info("Updated Open Responses store TTL", "ttl", ttl)
 		}
 
 		// Check if agent job retention changed

@@ -60,4 +60,7 @@ type RuntimeSettings struct {
 
 	// Agent settings
 	AgentJobRetentionDays *int `json:"agent_job_retention_days,omitempty"`
+
+	// Open Responses settings
+	OpenResponsesStoreTTL *string `json:"open_responses_store_ttl,omitempty"` // TTL for stored responses (e.g., "1h", "30m", "0" = no expiration)
 }

@@ -86,6 +86,8 @@ type ApplicationConfig struct {
 
 	AgentJobRetentionDays int // Default: 30 days
 
+	OpenResponsesStoreTTL time.Duration // TTL for Open Responses store (0 = no expiration)
+
 	PathWithoutAuth []string
 }
 
@@ -467,6 +469,12 @@ func WithAgentJobRetentionDays(days int) AppOption {
 	}
 }
 
+func WithOpenResponsesStoreTTL(ttl time.Duration) AppOption {
+	return func(o *ApplicationConfig) {
+		o.OpenResponsesStoreTTL = ttl
+	}
+}
+
 func WithEnforcedPredownloadScans(enforced bool) AppOption {
 	return func(o *ApplicationConfig) {
 		o.EnforcePredownloadScans = enforced
@@ -594,6 +602,12 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 	} else {
 		lruEvictionRetryInterval = "1s" // default
 	}
+	var openResponsesStoreTTL string
+	if o.OpenResponsesStoreTTL > 0 {
+		openResponsesStoreTTL = o.OpenResponsesStoreTTL.String()
+	} else {
+		openResponsesStoreTTL = "0" // default: no expiration
+	}
 
 	return RuntimeSettings{
 		WatchdogEnabled:          &watchdogEnabled,
@@ -628,6 +642,7 @@ func (o *ApplicationConfig) ToRuntimeSettings() RuntimeSettings {
 		AutoloadBackendGalleries: &autoloadBackendGalleries,
 		ApiKeys:                  &apiKeys,
 		AgentJobRetentionDays:    &agentJobRetentionDays,
+		OpenResponsesStoreTTL:     &openResponsesStoreTTL,
 	}
 }
 
@@ -768,6 +783,14 @@ func (o *ApplicationConfig) ApplyRuntimeSettings(settings *RuntimeSettings) (req
 	}
 	if settings.AgentJobRetentionDays != nil {
 		o.AgentJobRetentionDays = *settings.AgentJobRetentionDays
+	}
+	if settings.OpenResponsesStoreTTL != nil {
+		if *settings.OpenResponsesStoreTTL == "0" || *settings.OpenResponsesStoreTTL == "" {
+			o.OpenResponsesStoreTTL = 0 // No expiration
+		} else if dur, err := time.ParseDuration(*settings.OpenResponsesStoreTTL); err == nil {
+			o.OpenResponsesStoreTTL = dur
+		}
+		// This setting doesn't require restart, can be updated dynamically
 	}
 	// Note: ApiKeys requires special handling (merging with startup keys) - handled in caller
 
