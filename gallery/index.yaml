@@ -3825,6 +3825,7 @@
 - !!merge <<: *qwen3
   name: "qwen3-coder-30b-a3b-instruct"
   icon: https://cdn-avatars.huggingface.co/v1/production/uploads/620760a26e3b7210c2ff1943/-s1gyJfvbE1RgO5iBeNOi.png
+  url: "github:mudler/LocalAI/gallery/qwen3.yaml@master"
   urls:
     - https://huggingface.co/Qwen/Qwen3-Coder-30B-A3B-Instruct
     - https://huggingface.co/unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF
