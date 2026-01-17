@@ -894,18 +894,390 @@ func handleBackgroundStream(ctx context.Context, store *ResponseStore, responseI
 
 // handleBackgroundMCPResponse handles background MCP responses
 func handleBackgroundMCPResponse(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, ml *model.ModelLoader, predInput string, openAIReq *schema.OpenAIRequest, appConfig *config.ApplicationConfig) (*schema.ORResponseResource, error) {
-	// For now, MCP background is not fully implemented - return a simple response
-	// Full MCP background support would require significant refactoring of the cogito integration
-	xlog.Warn("Background MCP requests are not fully supported yet", "response_id", responseID)
-
-	now := time.Now().Unix()
-	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusFailed, input, []schema.ORItemField{}, nil, true)
-	response.Error = &schema.ORError{
-		Type:    "server_error",
-		Message: "Background MCP requests are not yet supported",
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
 	}
 
-	return response, fmt.Errorf("background MCP requests are not yet supported")
+	// Validate MCP config
+	if cfg.MCP.Servers == "" && cfg.MCP.Stdio == "" {
+		return nil, fmt.Errorf("no MCP servers configured")
+	}
+
+	// Get MCP config from model config
+	remote, stdio, err := cfg.MCP.MCPConfigFromYAML()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCP config: %w", err)
+	}
+
+	// Get MCP sessions
+	sessions, err := mcpTools.SessionsFromMCPConfig(cfg.Name, remote, stdio)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get MCP sessions: %w", err)
+	}
+
+	if len(sessions) == 0 {
+		return nil, fmt.Errorf("no working MCP servers found")
+	}
+
+	// Build fragment from messages
+	fragment := cogito.NewEmptyFragment()
+	for _, message := range openAIReq.Messages {
+		fragment = fragment.AddMessage(message.Role, message.StringContent)
+	}
+	fragmentPtr := &fragment
+
+	// Get API address and key
+	_, port, err := net.SplitHostPort(appConfig.APIAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse API address: %w", err)
+	}
+	apiKey := ""
+	if len(appConfig.ApiKeys) > 0 {
+		apiKey = appConfig.ApiKeys[0]
+	}
+
+	// Create OpenAI LLM client
+	defaultLLM := cogito.NewOpenAILLM(cfg.Name, apiKey, "http://127.0.0.1:"+port)
+
+	// Build cogito options
+	cogitoOpts := cfg.BuildCogitoOptions()
+	cogitoOpts = append(
+		cogitoOpts,
+		cogito.WithContext(ctx),
+		cogito.WithMCPs(sessions...),
+	)
+
+	if input.Stream {
+		return handleBackgroundMCPStream(ctx, store, responseID, createdAt, input, cfg, defaultLLM, fragmentPtr, cogitoOpts)
+	}
+
+	// Non-streaming mode
+	return handleBackgroundMCPNonStream(ctx, store, responseID, createdAt, input, cfg, defaultLLM, fragmentPtr, cogitoOpts)
+}
+
+// handleBackgroundMCPNonStream handles background non-streaming MCP responses
+func handleBackgroundMCPNonStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, defaultLLM cogito.LLM, fragment *cogito.Fragment, cogitoOpts []cogito.Option) (*schema.ORResponseResource, error) {
+	frag := *fragment
+
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// Set up callbacks for logging
+	cogitoOpts = append(
+		cogitoOpts,
+		cogito.WithStatusCallback(func(s string) {
+			xlog.Debug("[Open Responses MCP Background] Status", "model", cfg.Name, "status", s, "response_id", responseID)
+		}),
+		cogito.WithReasoningCallback(func(s string) {
+			xlog.Debug("[Open Responses MCP Background] Reasoning", "model", cfg.Name, "reasoning", s, "response_id", responseID)
+		}),
+		cogito.WithToolCallBack(func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
+			xlog.Debug("[Open Responses MCP Background] Tool call", "model", cfg.Name, "tool", t.Name, "reasoning", t.Reasoning, "arguments", t.Arguments, "response_id", responseID)
+			return cogito.ToolCallDecision{
+				Approved: true,
+			}
+		}),
+		cogito.WithToolCallResultCallback(func(t cogito.ToolStatus) {
+			xlog.Debug("[Open Responses MCP Background] Tool call result", "model", cfg.Name, "tool", t.Name, "result", t.Result, "tool_arguments", t.ToolArguments, "response_id", responseID)
+		}),
+	)
+
+	// Execute tools
+	f, err := cogito.ExecuteTools(defaultLLM, frag, cogitoOpts...)
+	if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
+		return nil, fmt.Errorf("failed to execute tools: %w", err)
+	}
+
+	// Check for cancellation
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// Get final response
+	f, err = defaultLLM.Ask(ctx, f)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get response: %w", err)
+	}
+
+	// Convert fragment to Open Responses format
+	fPtr := &f
+	outputItems := convertCogitoFragmentToORItems(fPtr)
+
+	// Build response with all required fields
+	now := time.Now().Unix()
+	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, outputItems, nil, true)
+
+	return response, nil
+}
+
+// handleBackgroundMCPStream handles background streaming MCP responses
+func handleBackgroundMCPStream(ctx context.Context, store *ResponseStore, responseID string, createdAt int64, input *schema.OpenResponsesRequest, cfg *config.ModelConfig, defaultLLM cogito.LLM, fragment *cogito.Fragment, cogitoOpts []cogito.Option) (*schema.ORResponseResource, error) {
+	frag := *fragment
+	sequenceNumber := 0
+
+	// Emit response.created
+	responseCreated := buildORResponse(responseID, createdAt, nil, schema.ORStatusInProgress, input, []schema.ORItemField{}, nil, true)
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.created",
+		SequenceNumber: sequenceNumber,
+		Response:       responseCreated,
+	})
+	sequenceNumber++
+
+	// Emit response.in_progress
+	bufferEvent(store, responseID, &schema.ORStreamEvent{
+		Type:           "response.in_progress",
+		SequenceNumber: sequenceNumber,
+		Response:       responseCreated,
+	})
+	sequenceNumber++
+
+	// Create channels for streaming events
+	events := make(chan interface{})
+	ended := make(chan error, 1)
+	var collectedOutputItems []schema.ORItemField
+	outputIndex := 0
+
+	// Set up callbacks
+	statusCallback := func(s string) {
+		select {
+		case <-ctx.Done():
+			return
+		case events <- map[string]interface{}{
+			"type":    "status",
+			"message": s,
+		}:
+		}
+	}
+
+	reasoningCallback := func(s string) {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		itemID := fmt.Sprintf("reasoning_%s", uuid.New().String())
+		outputIndex++
+		item := &schema.ORItemField{
+			Type:   "reasoning",
+			ID:     itemID,
+			Status: "in_progress",
+		}
+		collectedOutputItems = append(collectedOutputItems, *item)
+
+		select {
+		case <-ctx.Done():
+			return
+		case events <- map[string]interface{}{
+			"type":         "reasoning",
+			"item_id":      itemID,
+			"output_index": outputIndex,
+			"content":      s,
+		}:
+		}
+	}
+
+	toolCallCallback := func(t *cogito.ToolChoice, state *cogito.SessionState) cogito.ToolCallDecision {
+		select {
+		case <-ctx.Done():
+			return cogito.ToolCallDecision{Approved: false}
+		default:
+		}
+		toolCallID := fmt.Sprintf("fc_%s", uuid.New().String())
+		outputIndex++
+		item := &schema.ORItemField{
+			Type:      "function_call",
+			ID:        toolCallID,
+			Status:    "in_progress",
+			CallID:    toolCallID,
+			Name:      t.Name,
+			Arguments: "",
+		}
+		collectedOutputItems = append(collectedOutputItems, *item)
+
+		select {
+		case <-ctx.Done():
+			return cogito.ToolCallDecision{Approved: false}
+		case events <- map[string]interface{}{
+			"type":         "tool_call",
+			"item_id":      toolCallID,
+			"output_index": outputIndex,
+			"name":         t.Name,
+			"arguments":    t.Arguments,
+			"reasoning":    t.Reasoning,
+		}:
+		}
+		return cogito.ToolCallDecision{
+			Approved: true,
+		}
+	}
+
+	toolCallResultCallback := func(t cogito.ToolStatus) {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		outputIndex++
+		callID := fmt.Sprintf("fc_%s", uuid.New().String())
+		item := schema.ORItemField{
+			Type:   "function_call_output",
+			ID:     fmt.Sprintf("fco_%s", uuid.New().String()),
+			Status: "completed",
+			CallID: callID,
+			Output: t.Result,
+		}
+		collectedOutputItems = append(collectedOutputItems, item)
+
+		select {
+		case <-ctx.Done():
+			return
+		case events <- map[string]interface{}{
+			"type":         "tool_result",
+			"item_id":      item.ID,
+			"output_index": outputIndex,
+			"name":         t.Name,
+			"result":       t.Result,
+		}:
+		}
+	}
+
+	cogitoOpts = append(cogitoOpts,
+		cogito.WithStatusCallback(statusCallback),
+		cogito.WithReasoningCallback(reasoningCallback),
+		cogito.WithToolCallBack(toolCallCallback),
+		cogito.WithToolCallResultCallback(toolCallResultCallback),
+	)
+
+	// Execute tools in goroutine
+	go func() {
+		defer close(events)
+
+		f, err := cogito.ExecuteTools(defaultLLM, frag, cogitoOpts...)
+		if err != nil && !errors.Is(err, cogito.ErrNoToolSelected) {
+			select {
+			case <-ctx.Done():
+				ended <- ctx.Err()
+			case events <- map[string]interface{}{
+				"type":    "error",
+				"message": fmt.Sprintf("Failed to execute tools: %v", err),
+			}:
+				ended <- err
+			}
+			return
+		}
+
+		// Check for cancellation
+		select {
+		case <-ctx.Done():
+			ended <- ctx.Err()
+			return
+		default:
+		}
+
+		// Get final response
+		f, err = defaultLLM.Ask(ctx, f)
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				ended <- ctx.Err()
+			case events <- map[string]interface{}{
+				"type":    "error",
+				"message": fmt.Sprintf("Failed to get response: %v", err),
+			}:
+				ended <- err
+			}
+			return
+		}
+
+		// Stream final assistant message
+		content := f.LastMessage().Content
+		messageID := fmt.Sprintf("msg_%s", uuid.New().String())
+		outputIndex++
+		item := schema.ORItemField{
+			Type:    "message",
+			ID:      messageID,
+			Status:  "completed",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{makeOutputTextPart(content)},
+		}
+		collectedOutputItems = append(collectedOutputItems, item)
+
+		select {
+		case <-ctx.Done():
+			ended <- ctx.Err()
+		case events <- map[string]interface{}{
+			"type":         "assistant",
+			"item_id":      messageID,
+			"output_index": outputIndex,
+			"content":      content,
+		}:
+			ended <- nil
+		}
+	}()
+
+	// Process events from channel
+LOOP:
+	for {
+		select {
+		case <-ctx.Done():
+			break LOOP
+		case event := <-events:
+			if event == nil {
+				break LOOP
+			}
+			// Convert event to Open Responses format and buffer
+			bufferMCPEventAsOR(store, responseID, event, &sequenceNumber)
+		case err := <-ended:
+			if err != nil {
+				// Buffer error event
+				bufferEvent(store, responseID, &schema.ORStreamEvent{
+					Type:           "error",
+					SequenceNumber: sequenceNumber,
+					Error: &schema.ORErrorPayload{
+						Type:    "model_error",
+						Message: err.Error(),
+					},
+				})
+				sequenceNumber++
+
+				// Buffer failed response
+				responseFailed := buildORResponse(responseID, createdAt, nil, schema.ORStatusFailed, input, collectedOutputItems, nil, true)
+				bufferEvent(store, responseID, &schema.ORStreamEvent{
+					Type:           "response.failed",
+					SequenceNumber: sequenceNumber,
+					Response:       responseFailed,
+				})
+				return nil, err
+			}
+
+			// Emit response.completed
+			now := time.Now().Unix()
+			responseCompleted := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, nil, true)
+			bufferEvent(store, responseID, &schema.ORStreamEvent{
+				Type:           "response.completed",
+				SequenceNumber: sequenceNumber,
+				Response:       responseCompleted,
+			})
+
+			break LOOP
+		}
+	}
+
+	// Build final response
+	now := time.Now().Unix()
+	response := buildORResponse(responseID, createdAt, &now, schema.ORStatusCompleted, input, collectedOutputItems, nil, true)
+
+	return response, nil
 }
 
 // bufferEvent stores an SSE event in the response store for streaming resume
@@ -2299,6 +2671,197 @@ func sendMCPEventAsOR(c echo.Context, event interface{}, sequenceNumber *int) er
 	}
 
 	return nil
+}
+
+// bufferMCPEventAsOR converts MCP events to Open Responses format and buffers them
+func bufferMCPEventAsOR(store *ResponseStore, responseID string, event interface{}, sequenceNumber *int) {
+	eventMap, ok := event.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	eventType, _ := eventMap["type"].(string)
+	switch eventType {
+	case "status":
+		// Status events are informational, skip for now
+		return
+	case "reasoning":
+		itemID, _ := eventMap["item_id"].(string)
+		outputIndex, _ := eventMap["output_index"].(int)
+
+		item := &schema.ORItemField{
+			Type:   "reasoning",
+			ID:     itemID,
+			Status: "in_progress",
+		}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.added",
+			SequenceNumber: *sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           item,
+		})
+		*sequenceNumber++
+		// Note: reasoning content streaming would go here
+		return
+	case "tool_call":
+		itemID, _ := eventMap["item_id"].(string)
+		outputIndex, _ := eventMap["output_index"].(int)
+		name, _ := eventMap["name"].(string)
+		arguments, _ := eventMap["arguments"].(string)
+
+		item := &schema.ORItemField{
+			Type:      "function_call",
+			ID:        itemID,
+			Status:    "in_progress",
+			CallID:    itemID,
+			Name:      name,
+			Arguments: "",
+		}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.added",
+			SequenceNumber: *sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           item,
+		})
+		*sequenceNumber++
+
+		// Emit arguments
+		if arguments != "" {
+			bufferEvent(store, responseID, &schema.ORStreamEvent{
+				Type:           "response.function_call_arguments.delta",
+				SequenceNumber: *sequenceNumber,
+				ItemID:         itemID,
+				OutputIndex:    &outputIndex,
+				Delta:          strPtr(arguments),
+			})
+			*sequenceNumber++
+
+			item.Status = "completed"
+			item.Arguments = arguments
+			bufferEvent(store, responseID, &schema.ORStreamEvent{
+				Type:           "response.function_call_arguments.done",
+				SequenceNumber: *sequenceNumber,
+				ItemID:         itemID,
+				OutputIndex:    &outputIndex,
+				Arguments:      strPtr(arguments),
+			})
+			*sequenceNumber++
+
+			bufferEvent(store, responseID, &schema.ORStreamEvent{
+				Type:           "response.output_item.done",
+				SequenceNumber: *sequenceNumber,
+				OutputIndex:    &outputIndex,
+				Item:           item,
+			})
+			*sequenceNumber++
+		}
+		return
+	case "tool_result":
+		itemID, _ := eventMap["item_id"].(string)
+		outputIndex, _ := eventMap["output_index"].(int)
+		result, _ := eventMap["result"].(string)
+
+		item := &schema.ORItemField{
+			Type:   "function_call_output",
+			ID:     itemID,
+			Status: "completed",
+			Output: result,
+		}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.added",
+			SequenceNumber: *sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           item,
+		})
+		*sequenceNumber++
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.done",
+			SequenceNumber: *sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           item,
+		})
+		*sequenceNumber++
+		return
+	case "assistant":
+		itemID, _ := eventMap["item_id"].(string)
+		outputIndex, _ := eventMap["output_index"].(int)
+		content, _ := eventMap["content"].(string)
+
+		item := &schema.ORItemField{
+			Type:    "message",
+			ID:      itemID,
+			Status:  "in_progress",
+			Role:    "assistant",
+			Content: []schema.ORContentPart{},
+		}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.added",
+			SequenceNumber: *sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           item,
+		})
+		*sequenceNumber++
+
+		// Emit content part
+		emptyPart := makeOutputTextPart("")
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.content_part.added",
+			SequenceNumber: *sequenceNumber,
+			ItemID:         itemID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   func() *int { i := 0; return &i }(),
+			Part:           &emptyPart,
+		})
+		*sequenceNumber++
+
+		// Emit text done
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_text.done",
+			SequenceNumber: *sequenceNumber,
+			ItemID:         itemID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   func() *int { i := 0; return &i }(),
+			Text:           strPtr(content),
+			Logprobs:       emptyLogprobs(),
+		})
+		*sequenceNumber++
+
+		// Emit content part done
+		contentPart := makeOutputTextPart(content)
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.content_part.done",
+			SequenceNumber: *sequenceNumber,
+			ItemID:         itemID,
+			OutputIndex:    &outputIndex,
+			ContentIndex:   func() *int { i := 0; return &i }(),
+			Part:           &contentPart,
+		})
+		*sequenceNumber++
+
+		// Emit item done
+		item.Status = "completed"
+		item.Content = []schema.ORContentPart{makeOutputTextPart(content)}
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "response.output_item.done",
+			SequenceNumber: *sequenceNumber,
+			OutputIndex:    &outputIndex,
+			Item:           item,
+		})
+		*sequenceNumber++
+		return
+	case "error":
+		message, _ := eventMap["message"].(string)
+		bufferEvent(store, responseID, &schema.ORStreamEvent{
+			Type:           "error",
+			SequenceNumber: *sequenceNumber,
+			Error: &schema.ORErrorPayload{
+				Type:    "model_error",
+				Message: message,
+			},
+		})
+		*sequenceNumber++
+		return
+	}
 }
 
 // getTopLogprobs returns the top_logprobs value, defaulting to 0 if nil
