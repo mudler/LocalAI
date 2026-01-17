@@ -579,15 +579,6 @@ func mergeOpenResponsesRequestAndModelConfig(config *config.ModelConfig, input *
 		}
 	}
 
-	// Convert input items to Messages (this will be done in the endpoint handler)
-	// We store the input in the request for the endpoint to process
-
-	// Instructions can be added as a system message
-	if input.Instructions != "" {
-		// Store instructions for endpoint handler to process
-		// This will be added as a system message
-	}
-
 	if valid, _ := config.Validate(); valid {
 		return nil
 	}
