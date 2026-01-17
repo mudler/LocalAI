@@ -1,4 +1,29 @@
 ---
+- name: "olmo-remarvin-heal-merged"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/ToastyPigeon/olmo-remarvin-heal-merged-Q4_K_S-GGUF
+  description: |
+    AI model: olmo-remarvin-heal-merged
+  overrides:
+    parameters:
+      model: llama-cpp/models/olmo-remarvin-heal-merged-q4_k_s.gguf
+    name: olmo-remarvin-heal-merged-Q4_K_S-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/ToastyPigeon/olmo-remarvin-heal-merged-Q4_K_S-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/olmo-remarvin-heal-merged-q4_k_s.gguf
+      sha256: 68c6c515e206e893912611222d84d11926a67f40e5c5dc2ba7fd736d3f6274dd
+      uri: https://huggingface.co/ToastyPigeon/olmo-remarvin-heal-merged-Q4_K_S-GGUF/resolve/main/olmo-remarvin-heal-merged-q4_k_s.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
