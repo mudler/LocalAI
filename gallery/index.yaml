@@ -1,4 +1,29 @@
 ---
+- name: "qwen3-next-256e-abliterated-instruct-i1"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/Qwen3-Next-256E-Abliterated-Instruct-i1-GGUF
+  description: |
+    The model is a quantized version of **blascotobasco/Qwen3-Next-256E-Abliterated-Instruct**, designed for **chat** use. It includes features like **abliterated** and **uncensored** versions, with quantized parameters (e.g., i1-Q4_K_M) optimized for speed and efficiency. The GGUF files (e.g., i1-Q4_K_M) are recommended for practical use, offering a balance of size, speed, and quality. It is based on the Qwen3 architecture and is tailored for interactive dialogue tasks.
+  overrides:
+    parameters:
+      model: llama-cpp/models/Qwen3-Next-256E-Abliterated-Instruct.i1-Q4_K_M.gguf
+    name: Qwen3-Next-256E-Abliterated-Instruct-i1-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/Qwen3-Next-256E-Abliterated-Instruct-i1-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/Qwen3-Next-256E-Abliterated-Instruct.i1-Q4_K_M.gguf
+      sha256: 3821082cbafba704e8eb51279739b80551657ef3905cf9da0ac781330f9f40bc
+      uri: https://huggingface.co/mradermacher/Qwen3-Next-256E-Abliterated-Instruct-i1-GGUF/resolve/main/Qwen3-Next-256E-Abliterated-Instruct.i1-Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
