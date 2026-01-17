@@ -1,4 +1,29 @@
 ---
+- name: "persona_eta_20b_131k"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/mradermacher/persona_eta_20b_131k-GGUF
+  description: |
+    The model is **Persona ETA 20B**, a large-scale language model with 20 billion parameters. It is optimized for a wide range of tasks such as text generation, question answering, and creative writing. The model is designed for efficiency and scalability, leveraging advanced training techniques to achieve strong performance on diverse tasks. It is not quantized in the README but is instead available as a GGUF file for deployment.
+  overrides:
+    parameters:
+      model: llama-cpp/models/persona_eta_20b_131k.Q4_K_M.gguf
+    name: persona_eta_20b_131k-GGUF
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/mradermacher/persona_eta_20b_131k-GGUF
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/persona_eta_20b_131k.Q4_K_M.gguf
+      sha256: 148426f662d11bdfefcb58c518b3b4de438ea6e4c58342ab6093615a16a1ad24
+      uri: https://huggingface.co/mradermacher/persona_eta_20b_131k-GGUF/resolve/main/persona_eta_20b_131k.Q4_K_M.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
