@@ -1,0 +1,4 @@
+torch
+soundfile
+numpy
+voxcpm
