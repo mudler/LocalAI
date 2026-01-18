@@ -1,4 +1,47 @@
 ---
+- name: "solar-open-100b-jailbreak"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf
+  description: |
+    This model is a quantized (GGUF) version of the Solar-Open-100B language model, modified with Multi-Directional Refusal Suppression to enhance safety. It is based on the base model `hell0ks/Solar-Open-100B-jailbreak` and includes self-organizing maps (SOMs) extracted from training data to address policy-related restrictions. The model is designed for experimental purposes and should **not** be used in production. It is licensed under the Solar Apache License 2.0 and includes safety checks to prevent policy-violating responses. Note that it may hallucinate or impact model intelligence, and it is not guaranteed to avoid refusal on all prompts.
+  overrides:
+    parameters:
+      model: llama-cpp/models/model-Q4_K_M-00001-of-00007.gguf
+    name: Solar-Open-100B-jailbreak-gguf
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/model-Q4_K_M-00001-of-00007.gguf
+      sha256: 8bfad7ed59f53c6086568969eaf4b5f1182a9afdcb9f8c0395c19f3b765dbe2b
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00001-of-00007.gguf
+    - filename: llama-cpp/models/model-Q4_K_M-00002-of-00007.gguf
+      sha256: df7ab7eaf9f542f53fa697cd5d25568bed0ff04364233d7ee0458f3220ebdbfc
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00002-of-00007.gguf
+    - filename: llama-cpp/models/model-Q4_K_M-00003-of-00007.gguf
+      sha256: c2cb7de0f92c3783bcf3bfb4b6d767d772cef4ca9f936ff74e027572a39f0319
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00003-of-00007.gguf
+    - filename: llama-cpp/models/model-Q4_K_M-00004-of-00007.gguf
+      sha256: 955e8f8d6c528bc662d91498f4f3fb729a469d57756a156c0cba396a9a9c8f44
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00004-of-00007.gguf
+    - filename: llama-cpp/models/model-Q4_K_M-00005-of-00007.gguf
+      sha256: 9d251c8da847a8c19ae4c244b5e4437374a33ec4761b4f238617fd856de67284
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00005-of-00007.gguf
+    - filename: llama-cpp/models/model-Q4_K_M-00006-of-00007.gguf
+      sha256: 1649f1a1a1ac18f9c3fd2357656f736271aa4a58ae736673e81da2034692dd30
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00006-of-00007.gguf
+    - filename: llama-cpp/models/model-Q4_K_M-00007-of-00007.gguf
+      sha256: 21d1ee498821c03d956a3ed953582836d962e1f3d78462147af6b58b9471e6c8
+      uri: https://huggingface.co/hell0ks/Solar-Open-100B-jailbreak-gguf/resolve/main/model-Q4_K_M-00007-of-00007.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
