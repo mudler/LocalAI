@@ -1,4 +1,29 @@
 ---
+- name: "functiongemma-l2r-4k2"
+  url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
+  urls:
+    - https://huggingface.co/l2repository/functiongemma-gguf-l2r-4k2
+  description: |
+    This is a quantized version of the Gemma model (270M parameters) optimized for efficient deployment using the GGUF format. It was finetuned and converted to GGUF using [Unsloth](https://github.com/unslothai/unsloth), enabling faster training and lower resource requirements. The model is tailored for text-only language models and can be used with tools like `llama.cpp` or `llama-mtmd-cli`. It supports multimodal tasks via the `--jinja` flag.
+  overrides:
+    parameters:
+      model: llama-cpp/models/functiongemma-270m-it.Q8_0.gguf
+    name: functiongemma-gguf-l2r-4k2
+    backend: llama-cpp
+    template:
+      use_tokenizer_template: true
+    known_usecases:
+      - chat
+    function:
+      grammar:
+        disable: true
+    description: Imported from https://huggingface.co/l2repository/functiongemma-gguf-l2r-4k2
+    options:
+      - use_jinja:true
+  files:
+    - filename: llama-cpp/models/functiongemma-270m-it.Q8_0.gguf
+      sha256: 9576ae4a5fac05d639e676b45633bdc0750700b086b5df117c0f2210ef28ffad
+      uri: https://huggingface.co/l2repository/functiongemma-gguf-l2r-4k2/resolve/main/functiongemma-270m-it.Q8_0.gguf
 - name: "qwen3-vl-reranker-8b"
   url: "github:mudler/LocalAI/gallery/virtual.yaml@master"
   urls:
